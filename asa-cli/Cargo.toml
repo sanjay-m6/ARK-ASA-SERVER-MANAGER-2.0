@@ -1,0 +1,39 @@
+[package]
+name = "asa_manager"
+version = "1.0.0"
+edition = "2021"
+description = "High-performance CLI tool for ARK: Survival Ascended server automation"
+authors = ["ASA Server Manager"]
+
+[dependencies]
+# CLI argument parsing
+clap = { version = "4", features = ["derive"] }
+
+# INI file parsing
+rust-ini = "0.21"
+
+# HTTP client for CurseForge API
+reqwest = { version = "0.12", features = ["json"] }
+
+# JSON serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Date/time for backup naming
+chrono = "0.4"
+
+# System info for process detection
+sysinfo = "0.31"
+
+# Colored terminal output
+colored = "2"
+
+# Glob pattern matching for mod files
+glob = "0.3"

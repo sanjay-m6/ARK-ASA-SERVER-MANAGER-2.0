@@ -1,0 +1,62 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+      
+      - name: Install Dependencies
+        run: npm ci
+      
+      - name: Build Tauri App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'ASA Server Manager ${{ github.ref_name }}'
+          releaseBody: |
+            ## What's New
+            - Enhanced Update System with Settings tab
+            - Manual "Check for Updates" button
+            - Configurable auto-check intervals
+            - Update history tracking
+            - Player engram points configuration
+            
+            ## Installation
+            Download the `.msi` installer for Windows.
+            
+            ## Auto-Update
+            Existing users will receive an in-app notification to update automatically!
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
