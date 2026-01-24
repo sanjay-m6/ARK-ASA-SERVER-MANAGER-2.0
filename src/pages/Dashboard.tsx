@@ -6,6 +6,7 @@ import {
   Sunrise, Sun, Moon, TrendingUp
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { motion, Variants } from 'framer-motion';
 import { useServerStore } from '../stores/serverStore';
 import { useUIStore } from '../stores/uiStore';
 import { cn } from '../utils/helpers';
@@ -17,6 +18,32 @@ import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import SponsorBanner from '../components/ui/SponsorBanner';
 import { Server as ServerType } from '../types';
 
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants: Variants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 10
+    }
+  }
+};
+
+
+
 export default function Dashboard() {
   const { servers, setServers, updateServerStatus } = useServerStore();
   const { systemInfo, setSystemInfo } = useUIStore();
@@ -24,6 +51,8 @@ export default function Dashboard() {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const navigate = useNavigate();
+
+  // ... (rest of hook logic remains same until return)
 
   // Get greeting based on time of day
   const getGreeting = () => {
@@ -43,7 +72,7 @@ export default function Dashboard() {
     toast.success(`Copied ${address} to clipboard`);
   };
 
-  // Server control handlers
+  // Server control handlers (Keep existing logic)
   const handleStartServer = async (serverId: number) => {
     try {
       updateServerStatus(serverId, 'starting');
@@ -77,7 +106,7 @@ export default function Dashboard() {
     }
   };
 
-  // Clone Modal state
+  // Clone Modal state (Keep existing logic)
   const [cloneModalServer, setCloneModalServer] = useState<ServerType | null>(null);
 
   const openCloneModal = (server: ServerType) => {
@@ -115,6 +144,7 @@ export default function Dashboard() {
     }
   };
 
+  // Effects (Keep existing logic)
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('?.?.?'));
     getAllServers().then(setServers).catch(console.error);
@@ -145,13 +175,32 @@ export default function Dashboard() {
     };
 
     fetchSystemInfo();
+
+    // Initial fetch
+    getAllServers().then(setServers).catch(console.error);
+
+    // Subscribe to real-time status updates
+    let unlistenStatus: () => void;
+
+    import('@tauri-apps/api/event').then(async ({ listen }) => {
+      unlistenStatus = await listen<{ server_id: number, status: any }>('server-status-change', (event) => {
+        console.log('⚡ Server Status Update:', event.payload);
+        updateServerStatus(event.payload.server_id, event.payload.status);
+      });
+    });
+
+    // Reduced polling frequency (heartbeat)
     const interval = setInterval(() => {
       fetchSystemInfo();
+      // We still poll occasionally to sync other data like player counts or drift
       getAllServers().then(setServers).catch(console.error);
-    }, 5000);
+    }, 30000);
 
-    return () => clearInterval(interval);
-  }, [setServers, setSystemInfo]);
+    return () => {
+      clearInterval(interval);
+      if (unlistenStatus) unlistenStatus();
+    };
+  }, [setServers, setSystemInfo, updateServerStatus]);
 
   useEffect(() => {
     servers.forEach(server => {
@@ -183,9 +232,14 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Hero Section */}
-      <div className="glass-panel rounded-2xl p-6 relative overflow-hidden">
+      <motion.div variants={itemVariants} className="glass-panel rounded-2xl p-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-transparent rounded-full blur-3xl -mr-48 -mt-48"></div>
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -216,7 +270,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Sponsor Banner */}
       <SponsorBanner />
@@ -395,21 +449,24 @@ export default function Dashboard() {
                   ) : null}
 
                   {/* Status Badge with Reachability */}
-                  <span className={cn(
-                    'px-2.5 py-1 rounded-lg text-xs font-medium border ml-2 flex items-center gap-1.5',
+                  <div className={cn(
+                    'px-2.5 py-1 rounded-lg text-xs font-bold border ml-2 flex items-center gap-2',
                     server.status === 'running' && 'bg-green-500/10 text-green-400 border-green-500/20',
                     server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
                     server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
                     server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
                     server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                   )}>
-                    {server.status.toUpperCase()}
+                    <span>{server.status.toUpperCase()}</span>
                     {server.status === 'running' && server.reachability && (
-                      <span className="opacity-75 font-normal">
-                        | {server.reachability === 'Public' ? 'Public' : 'LAN'}
-                      </span>
+                      <>
+                        <div className="w-px h-3 bg-current opacity-20"></div>
+                        <span className="opacity-90 font-medium">
+                          {server.reachability === 'Public' ? 'PUBLIC' : 'LAN'}
+                        </span>
+                      </>
                     )}
-                  </span>
+                  </div>
 
                   {/* Clone Button */}
                   <button
@@ -496,6 +553,6 @@ export default function Dashboard() {
           onExtractData={handleExtractData}
         />
       )}
-    </div>
+    </motion.div>
   );
 }

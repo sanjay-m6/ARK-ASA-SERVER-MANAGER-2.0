@@ -13,13 +13,18 @@ import Scheduler from './pages/Scheduler';
 import Settings from './pages/Settings';
 import DiscordBot from './pages/DiscordBot';
 import SplashScreen from './components/layout/SplashScreen';
+import WelcomeOverlay from './components/layout/WelcomeOverlay';
 import UpdateChecker from './components/UpdateChecker';
 
 function App() {
-    const [showSplash, setShowSplash] = useState(true);
+    const [appState, setAppState] = useState<'splash' | 'welcome' | 'app'>('splash');
 
-    if (showSplash) {
-        return <SplashScreen onComplete={() => setShowSplash(false)} />;
+    if (appState === 'splash') {
+        return <SplashScreen onComplete={() => setAppState('welcome')} />;
+    }
+
+    if (appState === 'welcome') {
+        return <WelcomeOverlay onComplete={() => setAppState('app')} />;
     }
 
     return (

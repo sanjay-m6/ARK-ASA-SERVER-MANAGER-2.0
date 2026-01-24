@@ -52,3 +52,9 @@ gen_keys*.ps1
 generate_keys.js
 read_*.js
 sanitize_*.js
+
+# Antigravity Agent
+.agent/
+
+#Agent:
+.agent

@@ -688,116 +688,105 @@ pub async fn copy_mods_to_server(
         source_server_id, target_server_id
     );
 
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    // Scope DB operations to ensure MutexGuard is dropped before await
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-    // 1. Get enabled mods from source server with load order
-    let mut stmt = conn
-        .prepare(
-            "SELECT mod_id, name, author, version, downloads, description, 
-             thumbnail_url, curseforge_url, curseforge_id, last_updated 
-             FROM mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC",
-        )
-        .map_err(|e| e.to_string())?;
+        // 1. Get enabled mods from source server with load order
+        let source_mods: Vec<ModInfo> = {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT mod_id, name, version, author, description, workshop_url
+                     FROM mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC",
+                )
+                .map_err(|e| e.to_string())?;
 
-    let source_mods = stmt
-        .query_map([source_server_id], |row| {
-            Ok(ModInfo {
-                id: row.get(0)?,
-                curseforge_id: row.get(8)?,
-                name: row.get(1)?,
-                author: row.get(2)?,
-                version: row.get(3)?,
-                downloads: row.get(4)?,
-                description: row.get(5)?,
-                thumbnail_url: row.get(6)?,
-                curseforge_url: row.get(7)?,
-                enabled: true,
-                load_order: 0, // Will be reassigned
-                last_updated: row.get(9)?,
-            })
-        })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<ModInfo>, _>>()
-        .map_err(|e| e.to_string())?;
+            let mods = stmt
+                .query_map([source_server_id], |row| {
+                    Ok(ModInfo {
+                        id: row.get(0)?,
+                        curseforge_id: None, 
+                        name: row.get(1)?,
+                        version: row.get::<_, Option<String>>(2).ok().flatten(),
+                        author: row.get::<_, Option<String>>(3).ok().flatten(),
+                        description: row.get::<_, Option<String>>(4).ok().flatten(),
+                        thumbnail_url: None, 
+                        downloads: None, 
+                        curseforge_url: row.get::<_, Option<String>>(5).ok().flatten(),
+                        enabled: true,
+                        load_order: 0, 
+                        last_updated: None, 
+                    })
+                })
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<ModInfo>, _>>()
+                .map_err(|e| e.to_string())?;
+                
+            mods
+        };
 
-    if source_mods.is_empty() {
-        return Err("Source server has no enabled mods".to_string());
-    }
+        if source_mods.is_empty() {
+            return Err("Source server has no enabled mods".to_string());
+        }
 
-    // 2. Clear existing mods on target server (optional strategy, but cleaner for "copy")
-    // Or we could append. Let's append but check duplicates.
-    
-    // Begin transaction
-    conn.execute("BEGIN TRANSACTION", []).map_err(|e| e.to_string())?;
+        // 2. Clear existing mods on target server or Append
+        conn.execute("BEGIN TRANSACTION", []).map_err(|e| e.to_string())?;
 
-    // Get current max load order on target
-    let mut max_order: i32 = conn
-        .query_row(
-            "SELECT COALESCE(MAX(load_order), 0) FROM mods WHERE server_id = ?1",
-            [target_server_id],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
-
-    let mut copied_count = 0;
-
-    for mod_info in source_mods {
-        // Check if mod already exists on target
-        let exists: bool = conn
+        let mut max_order: i32 = conn
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM mods WHERE server_id = ?1 AND mod_id = ?2)",
-                (target_server_id, &mod_info.id),
+                "SELECT COALESCE(MAX(load_order), 0) FROM mods WHERE server_id = ?1",
+                [target_server_id],
                 |row| row.get(0),
             )
-            .unwrap_or(false);
+            .unwrap_or(0);
 
-        if !exists {
-            max_order += 1;
-            conn.execute(
-                "INSERT INTO mods (
-                    server_id, mod_id, curseforge_id, name, author, version, 
-                    downloads, description, thumbnail_url, curseforge_url, 
-                    enabled, load_order, last_updated, installed_at
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12, datetime('now'))",
-                rusqlite::params![
-                    target_server_id,
-                    mod_info.id,
-                    mod_info.curseforge_id,
-                    mod_info.name,
-                    mod_info.author,
-                    mod_info.version,
-                    mod_info.downloads,
-                    mod_info.description,
-                    mod_info.thumbnail_url,
-                    mod_info.curseforge_url,
-                    max_order,
-                    mod_info.last_updated
-                ],
-            )
-            .map_err(|e| e.to_string())?;
-            copied_count += 1;
-        } else {
-            // If exists, ensure it's enabled
-             conn.execute(
-                "UPDATE mods SET enabled = 1 WHERE server_id = ?1 AND mod_id = ?2",
-                (target_server_id, &mod_info.id),
-            )
-            .map_err(|e| e.to_string())?;
+        let mut copied_count = 0;
+
+        for mod_info in source_mods {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM mods WHERE server_id = ?1 AND mod_id = ?2)",
+                    (target_server_id, &mod_info.id),
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
+
+            if !exists {
+                max_order += 1;
+                // Only insert columns that definitely exist in schema
+                conn.execute(
+                    "INSERT INTO mods (
+                        server_id, mod_id, name, version, author, description, 
+                        workshop_url, enabled, load_order, server_type
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, 'ASA')",
+                    rusqlite::params![
+                        target_server_id,
+                        mod_info.id,
+                        mod_info.name,
+                        mod_info.version,
+                        mod_info.author,
+                        mod_info.description,
+                        mod_info.curseforge_url,
+                        max_order
+                    ],
+                )
+                .map_err(|e| e.to_string())?;
+                copied_count += 1;
+            } else {
+                 conn.execute(
+                    "UPDATE mods SET enabled = 1 WHERE server_id = ?1 AND mod_id = ?2",
+                    (target_server_id, &mod_info.id),
+                )
+                .map_err(|e| e.to_string())?;
+            }
         }
-    }
 
-    conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+        conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+        println!("  ✅ Copied {} new mods to server {}", copied_count, target_server_id);
+    } // MutexGuard (db) is dropped here
 
-    println!("  ✅ Copied {} new mods to server {}", copied_count, target_server_id);
-    
-    // Explicitly drop statement and connection before async call to avoid deadlocks
-    drop(stmt);
-    drop(conn);
-    drop(db);
-
-
-    // 3. Sync target server INI
+    // 3. Sync target server INI - Safe to await now
     sync_mods_to_ini(&state, target_server_id).await?;
 
     Ok(())

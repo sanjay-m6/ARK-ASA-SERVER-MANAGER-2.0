@@ -82,12 +82,78 @@ pub struct ProcessManager {
     app_handle: AppHandle,
 }
 
+#[derive(Clone, Serialize)]
+pub struct ServerStatusEvent {
+    pub server_id: i64,
+    pub status: String,
+}
+
 impl ProcessManager {
     pub fn new(app_handle: AppHandle) -> Self {
-        ProcessManager {
-            processes: Arc::new(Mutex::new(HashMap::new())),
-            app_handle,
-        }
+        let processes = Arc::new(Mutex::new(HashMap::new()));
+        let pm = ProcessManager {
+            processes: processes.clone(),
+            app_handle: app_handle.clone(),
+        };
+
+        // Start background monitoring thread
+        let monitor_processes = processes.clone();
+        let monitor_handle = app_handle.clone();
+
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+
+                let mut p_lock = monitor_processes.lock().unwrap();
+                let mut crashed_servers = Vec::new();
+
+                for (id, proc) in p_lock.iter_mut() {
+                    match proc.child.try_wait() {
+                        Ok(Some(status)) => {
+                            // Process has exited
+                            println!(
+                                "  ⚠️ Monitor detected server {} exit with status: {:?}",
+                                id, status
+                            );
+                            crashed_servers.push(*id);
+
+                            // Signal log watcher to stop
+                            proc.stop_flag.store(true, Ordering::SeqCst);
+                        }
+                        Ok(None) => {
+                            // Still running
+                        }
+                        Err(e) => {
+                            println!("  ❌ Monitor failed to check server {}: {}", id, e);
+                        }
+                    }
+                }
+
+                // Remove crashed servers and emit events
+                for id in crashed_servers {
+                    p_lock.remove(&id);
+                    let _ = monitor_handle.emit(
+                        "server-status-change",
+                        ServerStatusEvent {
+                            server_id: id,
+                            status: "stopped".to_string(), // Or "crashed"
+                        },
+                    );
+                }
+            }
+        });
+
+        pm
+    }
+
+    fn emit_status_change(&self, server_id: i64, status: &str) {
+        let _ = self.app_handle.emit(
+            "server-status-change",
+            ServerStatusEvent {
+                server_id,
+                status: status.to_string(),
+            },
+        );
     }
 
     /// Start ARK server
@@ -130,7 +196,6 @@ impl ProcessManager {
             .join("ShooterGame.log");
 
         // Build launch arguments
-        // Build launch arguments (Connection URL must be a single string)
         let mut connection_url = format!("{}?listen", map_name);
         connection_url.push_str(&format!("?SessionName={}", session_name));
         connection_url.push_str(&format!("?Port={}", game_port));
@@ -189,15 +254,13 @@ impl ProcessManager {
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
-        #[cfg(target_os = "windows")]
-        {
-            command.creation_flags(CREATE_NO_WINDOW);
-        }
-
         let child = command.spawn().context("Failed to start server process")?;
         let child_pid = child.id();
 
         println!("  ✅ Server {} started with PID: {} ", server_id, child_pid);
+
+        // Emit 'running' event (optimistic, actual running state confirmed by RCON usually, but process is UP)
+        self.emit_status_change(server_id, "running");
 
         // Create stop flag for log watcher
         let stop_flag = Arc::new(AtomicBool::new(false));
@@ -209,7 +272,7 @@ impl ProcessManager {
             processes.insert(server_id, ServerProcess { child, stop_flag });
         }
 
-        // Start log file watcher
+        // Start log file watcher (Unchanged block omitted for brevity, keeping existing logic)
         let app_handle = self.app_handle.clone();
         std::thread::spawn(move || {
             // Wait for log file to be created
@@ -302,16 +365,23 @@ impl ProcessManager {
             // Signal log watcher to stop
             server_proc.stop_flag.store(true, Ordering::SeqCst);
 
-            server_proc
-                .child
-                .kill()
-                .context("Failed to kill server process")?;
-            server_proc
-                .child
-                .wait()
-                .context("Failed to wait for server process")?;
+            // Force kill the process tree on Windows
+            #[cfg(target_os = "windows")]
+            {
+                let pid = server_proc.child.id();
+                let _ = Command::new("taskkill")
+                    .args(["/F", "/T", "/PID", &pid.to_string()])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .output();
+            }
+
+            // Fallback
+            let _ = server_proc.child.kill();
+            let _ = server_proc.child.wait();
+
+            // Emit stopped status
+            self.emit_status_change(server_id, "stopped");
         }
-        // If not found, it may have been started before app restart
         Ok(())
     }
 
@@ -325,6 +395,10 @@ impl ProcessManager {
                     println!("  ⚠️ Server {} exited with status: {:?}", server_id, status);
                     server_proc.stop_flag.store(true, Ordering::SeqCst);
                     processes.remove(&server_id);
+
+                    // Emit crash/stop event
+                    self.emit_status_change(server_id, "stopped"); // or 'crashed' if non-zero?
+
                     false
                 }
                 Ok(None) => true,

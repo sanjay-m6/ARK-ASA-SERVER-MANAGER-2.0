@@ -101,6 +101,15 @@ pub struct ServerConfig {
 
     // Mods
     pub active_mods: Vec<String>,
+
+    // Advanced Gameplay
+    pub allow_flyer_speed_leveling: bool,
+    pub allow_speed_leveling: bool, // General speed leveling
+
+    // Per-Level Stat Multipliers (Indices: 0=Health... 9=Speed... 11=Crafting)
+    pub per_level_stats_multiplier_player: Vec<f32>,
+    pub per_level_stats_multiplier_dino_tamed: Vec<f32>,
+    pub per_level_stats_multiplier_dino_wild: Vec<f32>,
 }
 
 impl Default for ServerConfig {
@@ -143,6 +152,11 @@ impl Default for ServerConfig {
             pvp_gamma: false,
             friendly_fire: false,
             active_mods: vec![],
+            allow_flyer_speed_leveling: false,
+            allow_speed_leveling: false,
+            per_level_stats_multiplier_player: vec![1.0; 12],
+            per_level_stats_multiplier_dino_tamed: vec![1.0; 12],
+            per_level_stats_multiplier_dino_wild: vec![1.0; 12],
         }
     }
 }
@@ -404,6 +418,16 @@ impl ConfigGenerator {
 
         content.push_str("[/Script/ShooterGame.ShooterGameMode]\n");
 
+        // Speed Leveling
+        content.push_str(&format!(
+            "bAllowFlyerSpeedLeveling={}\n",
+            config.allow_flyer_speed_leveling
+        ));
+        content.push_str(&format!(
+            "bAllowSpeedLeveling={}\n",
+            config.allow_speed_leveling
+        ));
+
         // Breeding
         content.push_str(&format!(
             "EggHatchSpeedMultiplier={:.2}\n",
@@ -421,6 +445,45 @@ impl ConfigGenerator {
             "MatingIntervalMultiplier={:.2}\n",
             config.mating_interval_multiplier
         ));
+
+        // Per-Level Stats Multipliers
+        // Player
+        for (i, val) in config.per_level_stats_multiplier_player.iter().enumerate() {
+            if *val != 1.0 {
+                content.push_str(&format!(
+                    "PerLevelStatsMultiplier_Player[{}]={:.6}\n",
+                    i, val
+                ));
+            }
+        }
+
+        // Dino Tamed
+        for (i, val) in config
+            .per_level_stats_multiplier_dino_tamed
+            .iter()
+            .enumerate()
+        {
+            if *val != 1.0 {
+                content.push_str(&format!(
+                    "PerLevelStatsMultiplier_DinoTamed[{}]={:.6}\n",
+                    i, val
+                ));
+            }
+        }
+
+        // Dino Wild
+        for (i, val) in config
+            .per_level_stats_multiplier_dino_wild
+            .iter()
+            .enumerate()
+        {
+            if *val != 1.0 {
+                content.push_str(&format!(
+                    "PerLevelStatsMultiplier_DinoWild[{}]={:.6}\n",
+                    i, val
+                ));
+            }
+        }
 
         content.push_str("\n");
 

@@ -22,7 +22,7 @@ interface ServerLogEvent {
 
 export default function ServerManager() {
     const navigate = useNavigate();
-    const { servers, setServers, removeServer, updateServerStatus } = useServerStore();
+    const { servers, setServers, removeServer, updateServerStatus, refreshServers } = useServerStore();
     const [showInstallDialog, setShowInstallDialog] = useState(false);
     const [serverLogs, setServerLogs] = useState<Record<number, string[]>>({});
     const [expandedConsoles, setExpandedConsoles] = useState<Record<number, boolean>>({});
@@ -32,6 +32,12 @@ export default function ServerManager() {
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
     const [showImportDialog, setShowImportDialog] = useState(false);
 
+    const handleDialogClose = async () => {
+        setShowInstallDialog(false);
+        setShowImportDialog(false);
+        await refreshServers();
+    };
+
 
     useEffect(() => {
         // Fetch app version
@@ -40,13 +46,24 @@ export default function ServerManager() {
         // Initial fetch
         getAllServers().then(setServers).catch(console.error);
 
-        // Poll for updates
+        // Subscribe to real-time status updates
+        let unlistenStatus: () => void;
+        import('@tauri-apps/api/event').then(async ({ listen }) => {
+            unlistenStatus = await listen<{ server_id: number, status: any }>('server-status-change', (event) => {
+                updateServerStatus(event.payload.server_id, event.payload.status);
+            });
+        });
+
+        // Poll for updates (Heartbeat only - reduced frequency)
         const interval = setInterval(() => {
             getAllServers().then(setServers).catch(console.error);
-        }, 5000);
+        }, 30000);
 
-        return () => clearInterval(interval);
-    }, [setServers]);
+        return () => {
+            clearInterval(interval);
+            if (unlistenStatus) unlistenStatus();
+        };
+    }, [setServers, updateServerStatus]);
 
     // Subscribe to server log events
     useEffect(() => {
@@ -567,12 +584,12 @@ export default function ServerManager() {
 
             {/* Install Server Dialog */}
             {showInstallDialog && (
-                <InstallServerDialog onClose={() => setShowInstallDialog(false)} />
+                <InstallServerDialog onClose={handleDialogClose} />
             )}
 
             {/* Import Server Dialog */}
             {showImportDialog && (
-                <ImportServerDialog onClose={() => setShowImportDialog(false)} />
+                <ImportServerDialog onClose={handleDialogClose} />
             )}
 
             {/* Clone Options Modal */}

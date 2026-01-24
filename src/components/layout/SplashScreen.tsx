@@ -1,150 +1,146 @@
-
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import logo from '../../assets/logo.png';
+import introVideo from '../../assets/intro.mp4';
 
 export default function SplashScreen({ onComplete }: { onComplete: () => void }) {
-    const [progress, setProgress] = useState(0);
-    const [statusText, setStatusText] = useState('Initializing System...');
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const [isVideoLoaded, setIsVideoLoaded] = useState(false);
 
     useEffect(() => {
-        // Simulated loading sequence
-        const interval = setInterval(() => {
-            setProgress(prev => {
-                if (prev >= 100) {
-                    clearInterval(interval);
-                    setTimeout(onComplete, 800); // Extended wait for exit animation
-                    return 100;
-                }
-
-                // Random accelerate for realism
-                const jump = Math.random() * 8;
-                const next = Math.min(prev + jump, 100);
-
-                if (next > 15 && next < 30) setStatusText('Decrypting SecuCode...');
-                if (next > 30 && next < 55) setStatusText('Loading Modules...');
-                if (next > 55 && next < 80) setStatusText('Connecting to Neural Net...');
-                if (next > 80 && next < 95) setStatusText('Syncing Configuration...');
-                if (next > 95) setStatusText('SYSTEM ONLINE');
-
-                return next;
+        if (videoRef.current) {
+            videoRef.current.play().catch(err => {
+                console.error("Video autoplay failed:", err);
+                // If autoplay fails, fallback immediately
+                onComplete();
             });
-        }, 100);
+        }
+    }, [onComplete]);
 
-        return () => clearInterval(interval);
+    const handleVideoEnd = () => {
+        onComplete();
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                onComplete();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onComplete]);
 
     return (
         <AnimatePresence>
             <motion.div
-                className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#050508] text-white overflow-hidden"
-                exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
-                transition={{ duration: 0.8, ease: "easeInOut" }}
+                className="fixed inset-0 z-[100] bg-black flex items-center justify-center overflow-hidden perspective-[1000px]"
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.8 }}
             >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.1)_0%,rgba(0,0,0,0.8)_80%)] pointer-events-none z-0" />
 
-                {/* 1. Animated Background Grids */}
-                <div className="absolute inset-0 perspective-1000">
-                    <motion.div
-                        initial={{ opacity: 0, rotateX: 60, scale: 2 }}
-                        animate={{ opacity: 0.2, rotateX: 60, scale: 1 }}
-                        transition={{ duration: 2 }}
-                        className="absolute inset-0 bg-[url('/bg-grid.png')] bg-center bg-repeat opacity-20"
-                        style={{ transformOrigin: "center 80%" }}
+                <motion.div
+                    className="relative w-full h-full"
+                    style={{ transformStyle: "preserve-3d" }}
+                    initial={{ scale: 1.1, rotateX: 5, rotateY: 5 }}
+                    animate={{
+                        scale: 1,
+                        rotateX: [5, 0, 5],
+                        rotateY: [5, -5, 5]
+                    }}
+                    transition={{
+                        scale: { duration: 1.5, ease: "easeOut" },
+                        rotateX: { duration: 8, repeat: Infinity, ease: "easeInOut" },
+                        rotateY: { duration: 10, repeat: Infinity, ease: "easeInOut" }
+                    }}
+                >
+                    <video
+                        ref={videoRef}
+                        src={introVideo}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        // muted={false} 
+                        playsInline
+                        onEnded={handleVideoEnd}
+                        onLoadedData={() => setIsVideoLoaded(true)}
+                        style={{ backfaceVisibility: "hidden" }} // Optimization
                     />
-                </div>
 
-                {/* 2. Cybernetic Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-cyan-900/10 via-transparent to-violet-900/10 pointer-events-none" />
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.2 }}
-                    className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#000000_120%)]"
-                />
+                    {/* Cinematic Overlay Gradient */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
 
-                {/* 3. Logo Materialization */}
-                <div className="relative z-10 p-10">
-                    <motion.div
-                        initial={{ scale: 0.8, opacity: 0, filter: "blur(20px)" }}
-                        animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
-                        transition={{ duration: 1.2, ease: "circOut" }}
-                        className="relative"
-                    >
-                        {/* Energy Ring Behind Logo */}
-                        <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                            className="absolute -inset-10 border border-cyan-500/10 rounded-full border-dashed"
-                        />
-                        <motion.div
-                            animate={{ rotate: -360 }}
-                            transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-                            className="absolute -inset-16 border border-violet-500/10 rounded-full border-dashed"
-                        />
+                    {/* Floating UI Layer (3D Depth) */}
+                    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-10" style={{ transform: "translateZ(60px)" }}>
 
-                        {/* Main Logo */}
-                        <img
-                            src={logo}
-                            alt="ASA Server Manager"
-                            className="w-80 h-80 object-contain drop-shadow-[0_0_60px_rgba(6,182,212,0.6)]"
-                        />
+                        {/* Header/Top Right */}
+                        <div className="flex justify-end pointer-events-auto">
+                            <button
+                                onClick={onComplete}
+                                className="text-white/30 hover:text-white/90 text-[10px] tracking-[0.2em] uppercase transition-all hover:scale-110 font-light border border-white/5 px-4 py-2 rounded-full hover:bg-white/5 backdrop-blur-sm shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+                            >
+                                Skip Intro [ESC]
+                            </button>
+                        </div>
 
-                        {/* Glitch Overlay Effect */}
-                        <motion.div
-                            animate={{
-                                opacity: [0, 0.1, 0, 0.05, 0],
-                                x: [0, -5, 5, -2, 0]
-                            }}
-                            transition={{ repeat: Infinity, duration: 3, repeatDelay: 2 }}
-                            className="absolute inset-0 bg-cyan-500 mix-blend-color-dodge opacity-0"
-                            style={{ maskImage: "url(/logo.png)", maskSize: "contain", maskRepeat: "no-repeat", maskPosition: "center" }}
-                        />
-                    </motion.div>
-                </div>
+                        {/* Footer/Loading */}
+                        <div>
+                            {isVideoLoaded ? (
+                                <div className="space-y-3">
+                                    {/* Text Indicator */}
+                                    <div className="flex justify-between items-end">
+                                        <motion.div
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: 0.5 }}
+                                            className="flex flex-col"
+                                        >
+                                            <span className="text-[10px] tracking-[0.3em] font-mono text-cyan-400 font-bold uppercase drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]">
+                                                Secure Uplink
+                                            </span>
+                                            <span className="text-[8px] text-slate-400 font-mono tracking-widest">
+                                                ESTABLISHING QUANTUM TUNNEL...
+                                            </span>
+                                        </motion.div>
+                                        <motion.div
+                                            className="text-2xl font-black font-mono text-white/90 flex items-center gap-2"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                        >
+                                            <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
+                                            <motion.span
+                                                animate={{ opacity: [1, 0.6, 1] }}
+                                                transition={{ duration: 0.5, repeat: Infinity }}
+                                            >
+                                                LOADING
+                                            </motion.span>
+                                        </motion.div>
+                                    </div>
 
-                {/* 4. Progress & Status */}
-                <motion.div
-                    initial={{ opacity: 0, y: 50 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="mt-8 w-96 space-y-4 relative z-10"
-                >
-                    <div className="flex justify-between items-center px-1">
-                        <span className="text-xs font-mono text-cyan-400 tracking-[0.2em] uppercase">
-                            {statusText}
-                        </span>
-                        <span className="text-xs font-bold text-violet-400 font-mono">
-                            {Math.round(progress).toString().padStart(3, '0')}%
-                        </span>
-                    </div>
-
-                    {/* High-Tech Bar */}
-                    <div className="h-1.5 w-full bg-slate-900/50 rounded-sm overflow-hidden border border-slate-800 backdrop-blur-sm relative">
-                        {/* Grid Pattern on Bar */}
-                        <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_50%,rgba(0,0,0,0.5)_50%)] bg-[length:4px_100%] z-20 pointer-events-none opacity-50" />
-
-                        <motion.div
-                            className="h-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-white relative z-10"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${progress}%` }}
-                            transition={{ type: "spring", stiffness: 200, damping: 30 }} // Bouncy mechanical feel
-                        >
-                            {/* Glow Head */}
-                            <div className="absolute right-0 top-0 bottom-0 w-4 bg-white blur-[5px]" />
-                        </motion.div>
+                                    {/* Bar Container */}
+                                    <div className="h-2 w-full bg-slate-900/50 rounded-full overflow-hidden backdrop-blur-md border border-white/5 shadow-2xl">
+                                        <motion.div
+                                            className="h-full bg-gradient-to-r from-cyan-600 via-blue-500 to-violet-500 relative"
+                                            initial={{ width: "0%" }}
+                                            animate={{ width: "100%" }}
+                                            transition={{
+                                                duration: 8,
+                                                ease: "linear"
+                                            }}
+                                        >
+                                            {/* Glowing Head */}
+                                            <div className="absolute right-0 top-0 bottom-0 w-12 bg-white blur-[10px] opacity-70" />
+                                        </motion.div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center text-white font-mono animate-pulse tracking-widest text-sm">
+                                    [ INITIALIZING ]
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </motion.div>
-
-                {/* 5. Footer */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1 }}
-                    className="absolute bottom-8 text-slate-700 text-[10px] tracking-[0.4em] font-light mix-blend-plus-lighter"
-                >
-                    INITIALIZING QUANTUM CORE
-                </motion.div>
-
             </motion.div>
         </AnimatePresence>
     );

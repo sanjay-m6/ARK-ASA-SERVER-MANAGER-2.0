@@ -64,6 +64,17 @@ pub fn run() {
             println!("   Database exists: {}", db_path.exists());
             let db = Database::new(db_path).expect("failed to initialize database");
 
+            // RESET SERVER STATUS ON STARTUP
+            // Since we lose process handles on restart, we must assume all servers are stopped
+            // to prevent "Ghost" online statuses.
+            if let Ok(conn) = db.get_connection() {
+                let _ = conn.execute(
+                    "UPDATE servers SET status = 'stopped' WHERE status IN ('running', 'starting', 'restarting', 'updating', 'stopping')",
+                    [],
+                );
+                println!("🔄 Reset all server statuses to 'stopped' on startup.");
+            }
+
             let mut sys = System::new_all();
             sys.refresh_all();
 
@@ -142,6 +153,7 @@ pub fn run() {
             commands::mods::apply_mods_to_server,
             commands::mods::get_mod_install_instructions,
             commands::mods::hardcore_retry_mods,
+            commands::mods::copy_mods_to_server,
             // Config commands
             commands::config::read_config,
             commands::config::save_config,

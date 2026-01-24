@@ -10,6 +10,17 @@ impl Database {
     pub fn new(db_path: PathBuf) -> Result<Self> {
         let conn = Connection::open(db_path)?;
 
+        // Enable Write-Ahead Logging (WAL) for concurrency
+        // Note: PRAGMA journal_mode returns the new mode (e.g. "wal"), so execute() fails.
+        // We use pragma_update or query_row to handle this.
+        let _mode: String = conn.query_row("PRAGMA journal_mode = WAL", [], |row| row.get(0))?;
+
+        // Set synchronous mode to NORMAL (faster in WAL mode)
+        conn.pragma_update(None, "synchronous", "NORMAL")?;
+
+        // Set busy timeout to 5 seconds to handle potential locks gracefully
+        conn.pragma_update(None, "busy_timeout", 5000)?;
+
         // Enable foreign keys
         conn.execute("PRAGMA foreign_keys = ON", [])?;
 
