@@ -37,6 +37,7 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
             "crashed" => ServerStatus::Crashed,
             "updating" => ServerStatus::Updating,
             "restarting" => ServerStatus::Restarting,
+            "online" => ServerStatus::Online,
             _ => ServerStatus::Stopped,
         };
 

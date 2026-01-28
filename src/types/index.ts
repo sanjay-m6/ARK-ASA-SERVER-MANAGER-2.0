@@ -2,7 +2,7 @@
 
 export type ServerType = 'ASA';
 
-export type ServerStatus = 'stopped' | 'starting' | 'running' | 'crashed' | 'updating' | 'restarting';
+export type ServerStatus = 'stopped' | 'starting' | 'running' | 'crashed' | 'updating' | 'restarting' | 'online';
 
 export interface Server {
     id: number;

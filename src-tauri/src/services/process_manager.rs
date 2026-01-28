@@ -16,6 +16,8 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 use crate::services::network;
+use crate::AppState;
+use tauri::Manager;
 
 #[cfg(target_os = "windows")]
 mod window_hider {
@@ -142,6 +144,9 @@ impl ProcessManager {
                         },
                     );
                 }
+
+                // Check for stuck servers (Running but not online for > 15 mins)
+                // TODO: Implement this using a timestamp check if needed
             }
         });
 
@@ -312,12 +317,16 @@ impl ProcessManager {
 
         println!("  ✅ Server {} started with PID: {} ", server_id, child_pid);
 
-        // Emit 'running' event
+        // Emit 'running' event (This now means process started, but not yet ready)
         self.emit_status_change(server_id, "running");
 
         // Create stop flag for log watcher
         let stop_flag = Arc::new(AtomicBool::new(false));
         let stop_flag_clone = stop_flag.clone();
+
+        // 3. Create Online Flag (New)
+        let online_flag = Arc::new(AtomicBool::new(false));
+        let online_flag_clone = online_flag.clone();
 
         // Store process
         {
@@ -327,6 +336,8 @@ impl ProcessManager {
 
         // Start log file watcher (Unchanged block omitted for brevity, keeping existing logic)
         let app_handle = self.app_handle.clone();
+        let app_handle_status = self.app_handle.clone(); // Clone for status updates inside thread
+
         std::thread::spawn(move || {
             // Wait for log file to be created
             let mut attempts = 0;
@@ -383,10 +394,41 @@ impl ProcessManager {
                                 "server_log",
                                 ServerLogEvent {
                                     server_id,
-                                    line,
+                                    line: line.clone(),
                                     is_stderr: false,
                                 },
                             );
+
+                            // CHECK FOR SERVER READY STATE
+                            if !online_flag_clone.load(Ordering::SeqCst) {
+                                if line.contains("server has successfully started")
+                                    || line.contains("Full Startup: ")
+                                    || line.contains("Number of cores")
+                                // Sometimes appears late
+                                {
+                                    println!("  🎉 Server {} is ONLINE!", server_id);
+                                    online_flag_clone.store(true, Ordering::SeqCst);
+                                    let _ = app_handle_status.emit(
+                                        "server-status-change",
+                                        ServerStatusEvent {
+                                            server_id,
+                                            status: "online".to_string(),
+                                        },
+                                    );
+
+                                    // Update database status to 'online'
+                                    if let Some(state) = app_handle_status.try_state::<AppState>() {
+                                        if let Ok(db) = state.db.lock() {
+                                            if let Ok(conn) = db.get_connection() {
+                                                let _ = conn.execute(
+                                                    "UPDATE servers SET status = 'online' WHERE id = ?1",
+                                                    [server_id],
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                     Err(_) => {

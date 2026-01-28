@@ -335,13 +335,14 @@ export default function ServerManager() {
                                     <div className="relative mt-1">
                                         <div className={cn(
                                             'w-4 h-4 rounded-full',
-                                            server.status === 'running' && 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]',
+                                            server.status === 'running' && 'bg-blue-500 animate-pulse', // Blue for loading
+                                            server.status === 'online' && 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]', // Green only when fully ready
                                             server.status === 'stopped' && 'bg-slate-500',
                                             server.status === 'crashed' && 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]',
                                             server.status === 'starting' && 'bg-yellow-500 animate-pulse',
                                             server.status === 'updating' && 'bg-blue-500 animate-pulse'
                                         )} />
-                                        {server.status === 'running' && (
+                                        {server.status === 'online' && (
                                             <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-20"></div>
                                         )}
                                     </div>
@@ -353,13 +354,14 @@ export default function ServerManager() {
                                             </h3>
                                             <span className={cn(
                                                 'px-2.5 py-0.5 rounded-md text-xs font-bold border',
-                                                server.status === 'running' && 'bg-green-500/10 text-green-400 border-green-500/20',
+                                                server.status === 'online' && 'bg-green-500/10 text-green-400 border-green-500/20',
+                                                server.status === 'running' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
                                                 server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
                                                 server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
                                                 server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
                                                 server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20'
                                             )}>
-                                                {server.status.toUpperCase()}
+                                                {server.status === 'running' ? 'LOADING...' : server.status.toUpperCase()}
                                             </span>
                                         </div>
 
@@ -410,7 +412,7 @@ export default function ServerManager() {
                                                 </button>
                                             </div>
                                         </div>
-                                    ) : server.status === 'running' ? (
+                                    ) : (server.status === 'running' || server.status === 'online') ? (
                                         <button
                                             onClick={() => handleStopServer(server.id)}
                                             className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-all hover:scale-105 active:scale-95"

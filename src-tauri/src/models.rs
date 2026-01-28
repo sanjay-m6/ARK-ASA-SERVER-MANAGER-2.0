@@ -12,6 +12,7 @@ pub enum ServerStatus {
     Crashed,
     Updating,
     Restarting,
+    Online,
 }
 
 impl ToString for ServerStatus {
@@ -23,6 +24,7 @@ impl ToString for ServerStatus {
             ServerStatus::Crashed => "crashed".to_string(),
             ServerStatus::Updating => "updating".to_string(),
             ServerStatus::Restarting => "restarting".to_string(),
+            ServerStatus::Online => "online".to_string(),
         }
     }
 }
