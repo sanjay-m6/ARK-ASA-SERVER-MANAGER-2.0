@@ -4,6 +4,7 @@ use std::collections::VecDeque;
 use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct PerformanceSnapshot {
     pub timestamp: DateTime<Utc>,
     pub cpu_usage: f32,
@@ -11,11 +12,13 @@ pub struct PerformanceSnapshot {
     pub player_count: i32,
 }
 
+#[allow(dead_code)]
 pub struct PerformanceTracker {
     snapshots: Mutex<VecDeque<PerformanceSnapshot>>,
     max_snapshots: usize,
 }
 
+#[allow(dead_code)]
 impl PerformanceTracker {
     pub fn new(max_snapshots: usize) -> Self {
         PerformanceTracker {

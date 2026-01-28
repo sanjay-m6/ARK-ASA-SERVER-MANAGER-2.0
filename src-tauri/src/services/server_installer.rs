@@ -197,8 +197,6 @@ impl ServerInstaller {
         );
         self.emit_console("", "info");
 
-        use std::os::windows::process::CommandExt;
-
         // Build the SteamCMD command
         let mut child = Command::new(&steamcmd_exe)
             .args([

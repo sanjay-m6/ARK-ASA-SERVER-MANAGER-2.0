@@ -10,6 +10,7 @@ use std::path::Path;
 const SAVED_ARKS_PATH: &str = "ShooterGame/Saved/SavedArks";
 
 /// Common map save file names
+#[allow(dead_code)]
 const COMMON_MAPS: [&str; 12] = [
     "TheIsland_WP.ark",
     "ScorchedEarth_WP.ark",
@@ -58,8 +59,7 @@ fn create_backup(saves_path: &Path, custom_name: Option<String>) -> Result<()> {
 
     // Create backup directory
     let backup_dir = saves_path.join("Backups");
-    fs::create_dir_all(&backup_dir)
-        .context("Failed to create Backups directory")?;
+    fs::create_dir_all(&backup_dir).context("Failed to create Backups directory")?;
 
     // Generate timestamp
     let timestamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
@@ -80,15 +80,14 @@ fn create_backup(saves_path: &Path, custom_name: Option<String>) -> Result<()> {
                 if ext == "ark" {
                     let file_name = path.file_name().unwrap();
                     let dest = backup_folder.join(file_name);
-                    
+
                     print!("  Backing up {}...", file_name.to_string_lossy().yellow());
-                    
+
                     let metadata = fs::metadata(&path)?;
                     total_size += metadata.len();
-                    
-                    fs::copy(&path, &dest)
-                        .with_context(|| format!("Failed to copy {:?}", path))?;
-                    
+
+                    fs::copy(&path, &dest).with_context(|| format!("Failed to copy {:?}", path))?;
+
                     println!(" {}", "✓".green());
                     backed_up += 1;
                 }
@@ -101,8 +100,16 @@ fn create_backup(saves_path: &Path, custom_name: Option<String>) -> Result<()> {
     } else {
         let size_mb = total_size as f64 / 1_048_576.0;
         println!();
-        println!("  {} Backed up {} file(s) ({:.1} MB)", "✓".green(), backed_up, size_mb);
-        println!("  Location: {}", backup_folder.display().to_string().yellow());
+        println!(
+            "  {} Backed up {} file(s) ({:.1} MB)",
+            "✓".green(),
+            backed_up,
+            size_mb
+        );
+        println!(
+            "  Location: {}",
+            backup_folder.display().to_string().yellow()
+        );
     }
 
     Ok(())
@@ -143,9 +150,16 @@ fn list_backups(saves_path: &Path) -> Result<()> {
 
         // Count .ark files
         let ark_count = fs::read_dir(entry.path())
-            .map(|rd| rd.filter_map(|e| e.ok())
-                .filter(|e| e.path().extension().map(|ext| ext == "ark").unwrap_or(false))
-                .count())
+            .map(|rd| {
+                rd.filter_map(|e| e.ok())
+                    .filter(|e| {
+                        e.path()
+                            .extension()
+                            .map(|ext| ext == "ark")
+                            .unwrap_or(false)
+                    })
+                    .count()
+            })
             .unwrap_or(0);
 
         println!(
@@ -181,7 +195,7 @@ fn restore_backup(saves_path: &Path, backup_name: &str) -> Result<()> {
                 }
             }
         }
-        
+
         anyhow::bail!("Backup not found: {}", backup_name);
     }
 
@@ -190,11 +204,16 @@ fn restore_backup(saves_path: &Path, backup_name: &str) -> Result<()> {
 
 /// Actually restore files from a backup folder
 fn restore_from_folder(backup_path: &Path, saves_path: &Path) -> Result<()> {
-    println!("  Restoring from: {}", backup_path.display().to_string().yellow());
+    println!(
+        "  Restoring from: {}",
+        backup_path.display().to_string().yellow()
+    );
 
     // First, backup current state
     let timestamp = Local::now().format("%Y-%m-%d_%H-%M-%S");
-    let pre_restore_backup = saves_path.join("Backups").join(format!("{}_pre-restore", timestamp));
+    let pre_restore_backup = saves_path
+        .join("Backups")
+        .join(format!("{}_pre-restore", timestamp));
     fs::create_dir_all(&pre_restore_backup)?;
 
     // Backup current .ark files
@@ -211,7 +230,10 @@ fn restore_from_folder(backup_path: &Path, saves_path: &Path) -> Result<()> {
         }
     }
 
-    println!("  Pre-restore backup created: {}", pre_restore_backup.display().to_string().blue());
+    println!(
+        "  Pre-restore backup created: {}",
+        pre_restore_backup.display().to_string().blue()
+    );
 
     // Restore files
     let mut restored = 0;
@@ -223,7 +245,7 @@ fn restore_from_folder(backup_path: &Path, saves_path: &Path) -> Result<()> {
                 if ext == "ark" {
                     let file_name = path.file_name().unwrap();
                     let dest = saves_path.join(file_name);
-                    
+
                     print!("  Restoring {}...", file_name.to_string_lossy().yellow());
                     fs::copy(&path, &dest)?;
                     println!(" {}", "✓".green());
@@ -253,6 +275,7 @@ fn get_dir_size(path: &Path) -> Result<u64> {
 }
 
 /// Create a backup specifically before mod updates
+#[allow(dead_code)]
 pub fn backup_before_mod_update(server_path: &Path) -> Result<String> {
     let saves_path = server_path.join(SAVED_ARKS_PATH);
     let backup_dir = saves_path.join("Backups");

@@ -12,10 +12,17 @@ import {
   Terminal,
   Clock,
   MessageSquare,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Wrench,
+  Cpu,
+  Plug,
+  ChevronDown,
+  ChevronRight,
+  Folder
 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { useServerStore } from '../../stores/serverStore';
+import logo from '../../assets/logo.png';
 
 const navigation = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -27,16 +34,24 @@ const navigation = [
   { name: 'Cluster Manager', path: '/clusters', icon: Network },
   { name: 'Backups & Rollbacks', path: '/backups', icon: Database },
   { name: 'Logs Console', path: '/logs', icon: ScrollText },
-  { name: 'Discord Bot', path: '/discord', icon: MessageSquare },
+  {
+    name: 'Tools',
+    icon: Wrench,
+    children: [
+      { name: 'Advanced', path: '/tools/advanced', icon: Cpu },
+      { name: 'Discord Bot', path: '/tools/discord', icon: MessageSquare },
+      { name: 'Plugins', path: '/tools/plugins', icon: Plug },
+      { name: 'File Manager', path: '/tools/files', icon: Folder },
+    ]
+  },
   { name: 'Settings', path: '/settings', icon: SettingsIcon },
 ];
-
-import logo from '../../assets/logo.png';
 
 export default function Sidebar() {
   const location = useLocation();
   const [appVersion, setAppVersion] = useState<string>('');
   const servers = useServerStore((state) => state.servers);
+  const [openSections, setOpenSections] = useState<string[]>(['Tools']);
 
   // Check if any server is running
   const runningServers = servers.filter((s) => s.status === 'running');
@@ -46,6 +61,14 @@ export default function Sidebar() {
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('?.?.?'));
   }, []);
+
+  const toggleSection = (name: string) => {
+    setOpenSections(prev =>
+      prev.includes(name)
+        ? prev.filter(n => n !== name)
+        : [...prev, name]
+    );
+  };
 
   return (
     <div className="w-72 glass-panel border-r-0 border-r-white/5 flex flex-col h-screen relative z-50">
@@ -67,16 +90,68 @@ export default function Sidebar() {
         </div>
       </div>
 
-
-
       {/* Navigation */}
       <nav className="flex-1 px-4 py-4 space-y-1.5 overflow-y-auto scrollbar-hide">
         {navigation.map((item) => {
+          if (item.children) {
+            const isOpen = openSections.includes(item.name);
+            const isChildActive = item.children.some(child => location.pathname === child.path);
+
+            return (
+              <div key={item.name} className="space-y-1">
+                <button
+                  onClick={() => toggleSection(item.name)}
+                  className={cn(
+                    'w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300 group',
+                    isChildActive || isOpen
+                      ? 'text-white bg-white/5'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  )}
+                >
+                  <div className="flex items-center space-x-3">
+                    <item.icon className={cn(
+                      "w-5 h-5 transition-colors",
+                      (isChildActive || isOpen) ? "text-cyan-400" : "group-hover:text-cyan-400"
+                    )} />
+                    <span className="text-sm font-medium">{item.name}</span>
+                  </div>
+                  {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+
+                {isOpen && (
+                  <div className="pl-4 space-y-1 animate-in slide-in-from-top-2 duration-200">
+                    {item.children.map(child => {
+                      const isActive = location.pathname === child.path;
+                      return (
+                        <Link
+                          key={child.path}
+                          to={child.path}
+                          className={cn(
+                            'flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-300 group relative',
+                            isActive
+                              ? 'text-white bg-cyan-500/10'
+                              : 'text-slate-400 hover:text-white hover:bg-white/5'
+                          )}
+                        >
+                          <child.icon className={cn(
+                            "w-4 h-4 transition-colors",
+                            isActive ? "text-cyan-400" : "group-hover:text-cyan-400"
+                          )} />
+                          <span className="text-sm font-medium">{child.name}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           const isActive = location.pathname === item.path;
           return (
             <Link
               key={item.path}
-              to={item.path}
+              to={item.path || '#'}
               className={cn(
                 'flex items-center space-x-3 px-4 py-3.5 rounded-xl transition-all duration-300 group relative overflow-hidden',
                 isActive

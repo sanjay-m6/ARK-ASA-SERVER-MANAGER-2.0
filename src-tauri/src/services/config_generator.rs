@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 /// Represents a single INI configuration value
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[allow(dead_code)]
 pub struct ConfigValue {
     pub key: String,
     pub value: String,
@@ -16,6 +17,7 @@ pub struct ConfigValue {
 
 /// Represents a section in an INI file
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[allow(dead_code)]
 pub struct ConfigSection {
     pub name: String,
     pub values: Vec<ConfigValue>,
@@ -23,6 +25,7 @@ pub struct ConfigSection {
 
 /// Complete INI file structure
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[allow(dead_code)]
 pub struct IniConfig {
     pub sections: Vec<ConfigSection>,
 }

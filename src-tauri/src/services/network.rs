@@ -1,5 +1,5 @@
 use reqwest::Client;
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::{TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::time::Duration;
 
 pub async fn get_public_ip() -> Result<String, String> {
@@ -34,6 +34,21 @@ pub fn check_port_open(ip: &str, port: u16) -> bool {
                 return true;
             }
         }
+    }
+
+    false
+}
+
+/// Check if a local port is already in use by trying to bind to it
+pub fn is_port_in_use(port: u16) -> bool {
+    // Check TCP
+    if TcpListener::bind(("0.0.0.0", port)).is_err() {
+        return true;
+    }
+
+    // Check UDP
+    if UdpSocket::bind(("0.0.0.0", port)).is_err() {
+        return true;
     }
 
     false

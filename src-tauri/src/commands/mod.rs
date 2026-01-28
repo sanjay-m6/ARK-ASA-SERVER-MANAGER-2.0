@@ -1,8 +1,11 @@
 pub mod backup;
 pub mod cluster;
 pub mod config;
+pub mod file_manager;
+pub mod import;
 pub mod mods;
 pub mod player;
+pub mod plugin;
 pub mod rcon;
 pub mod scheduler;
 pub mod server;

@@ -85,6 +85,33 @@ impl Database {
             conn.execute("ALTER TABLE servers ADD COLUMN cluster_id INTEGER REFERENCES clusters(id) ON DELETE SET NULL", [])?;
         }
 
+        // Add auto_start column if missing
+        if !columns.contains(&"auto_start".to_string()) {
+            println!("📦 Migration: Adding 'auto_start' column to servers table");
+            conn.execute(
+                "ALTER TABLE servers ADD COLUMN auto_start INTEGER DEFAULT 0",
+                [],
+            )?;
+        }
+
+        // Add auto_stop column if missing
+        if !columns.contains(&"auto_stop".to_string()) {
+            println!("📦 Migration: Adding 'auto_stop' column to servers table");
+            conn.execute(
+                "ALTER TABLE servers ADD COLUMN auto_stop INTEGER DEFAULT 0",
+                [],
+            )?;
+        }
+
+        // Add intelligent_mode column if missing
+        if !columns.contains(&"intelligent_mode".to_string()) {
+            println!("📦 Migration: Adding 'intelligent_mode' column to servers table");
+            conn.execute(
+                "ALTER TABLE servers ADD COLUMN intelligent_mode INTEGER DEFAULT 0",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 

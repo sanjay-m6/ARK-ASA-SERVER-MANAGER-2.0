@@ -1,6 +1,6 @@
 [package]
 name = "asa-server-manager"
-version = "2.2.3"
+version = "2.2.4"
 description = "ASA Server Manager 2.0 - Professional ARK: Survival Ascended Server Management"
 authors = ["sanja"]
 edition = "2021"
@@ -41,6 +41,13 @@ bytes = "1"
 rcon = { version = "0.6", features = ["rt-tokio"] }
 cron = "0.13"
 walkdir = "2"
+notify = "6.1.1" # File system monitoring
+sevenz-rust = "0.6.1"
+flate2 = "1.1.8"
+tar = "0.4.44"
+rar = "0.4.0"
+unrar = "0.5.8"
+base64 = "0.22.1"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_UI_Shell"] }

@@ -3,6 +3,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum AsaError {
     #[error("Server is currently running. Stop the server before performing this operation.")]
     ServerRunning,

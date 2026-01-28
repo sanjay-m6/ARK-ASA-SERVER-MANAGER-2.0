@@ -16,6 +16,10 @@ import SplashScreen from './components/layout/SplashScreen';
 import WelcomeOverlay from './components/layout/WelcomeOverlay';
 import UpdateChecker from './components/UpdateChecker';
 
+import AdvancedPage from './pages/tools/AdvancedPage';
+import PluginManager from './pages/PluginManager';
+import FileManager from './pages/FileManager';
+
 function App() {
     const [appState, setAppState] = useState<'splash' | 'welcome' | 'app'>('splash');
 
@@ -42,7 +46,13 @@ function App() {
                         <Route path="rcon" element={<RconConsole />} />
                         <Route path="scheduler" element={<Scheduler />} />
                         <Route path="logs" element={<LogsConsole />} />
-                        <Route path="discord" element={<DiscordBot />} />
+
+                        {/* Tools Section */}
+                        <Route path="tools/advanced" element={<AdvancedPage />} />
+                        <Route path="tools/discord" element={<DiscordBot />} />
+                        <Route path="tools/plugins" element={<PluginManager />} />
+                        <Route path="tools/files" element={<FileManager />} />
+
                         <Route path="settings" element={<Settings />} />
                     </Route>
                 </Routes>

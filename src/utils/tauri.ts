@@ -24,6 +24,10 @@ export async function selectFolder(title: string): Promise<string | null> {
     return await invoke('select_folder', { title });
 }
 
+export async function selectFile(title: string, extensions?: string[]): Promise<string | null> {
+    return await invoke('select_file', { title, extensions });
+}
+
 export async function getSetting(key: string): Promise<string | null> {
     return await invoke('get_setting', { key });
 }
@@ -101,6 +105,14 @@ export async function importServer(installPath: string, name: string): Promise<S
     return await invoke('import_server', { installPath, name });
 }
 
+export async function toggleServerAutomation(serverId: number, toggleType: 'auto_start' | 'auto_stop' | 'intelligent_mode', enabled: boolean): Promise<void> {
+    return await invoke('toggle_automation', { serverId, toggleType, enabled });
+}
+
+export async function importNonDedicatedSave(serverId: number, sourcePath: string, importType: 'file' | 'folder'): Promise<string> {
+    return await invoke('import_non_dedicated_save', { serverId, sourcePath, importType });
+}
+
 export async function transferSettings(sourceServerId: number, targetServerId: number): Promise<void> {
     return await invoke('transfer_settings', { sourceServerId, targetServerId });
 }
@@ -120,10 +132,14 @@ export interface UpdateServerSettingsParams {
     queryPort?: number;
     rconPort?: number;
     ipAddress?: string;
+    customArgs?: string;
 }
 
 export async function updateServerSettings(params: UpdateServerSettingsParams): Promise<void> {
-    return await invoke('update_server_settings', { ...params });
+    return await invoke('update_server_settings', {
+        ...params,
+        custom_args: params.customArgs
+    });
 }
 
 export async function checkServerReachability(serverId: number, port: number): Promise<'Public' | 'LAN' | 'Unknown' | 'Offline'> {
@@ -308,3 +324,36 @@ export async function searchPlayers(query: string): Promise<PlayerStats[]> {
     return await invoke('search_players', { query });
 }
 
+// ============================================================================
+// Plugin Commands
+// ============================================================================
+
+import type { PluginInfo } from '../types';
+
+export async function checkAsaApiInstalled(serverId: number): Promise<boolean> {
+    return await invoke('check_asa_api_installed', { serverId });
+}
+
+export async function getPluginDirectory(serverId: number): Promise<string> {
+    return await invoke('get_plugin_directory', { serverId });
+}
+
+export async function selectPluginArchive(): Promise<string | null> {
+    return await invoke('select_plugin_zip');
+}
+
+export async function importPluginArchive(serverId: number, archivePath: string): Promise<PluginInfo> {
+    return await invoke('import_plugin_archive', { serverId, archivePath });
+}
+
+export async function getInstalledPlugins(serverId: number): Promise<PluginInfo[]> {
+    return await invoke('get_installed_plugins', { serverId });
+}
+
+export async function uninstallPlugin(serverId: number, pluginId: string): Promise<void> {
+    return await invoke('uninstall_plugin', { serverId, pluginId });
+}
+
+export async function togglePlugin(serverId: number, pluginId: string, enabled: boolean): Promise<void> {
+    return await invoke('toggle_plugin', { serverId, pluginId, enabled });
+}

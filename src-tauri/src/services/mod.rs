@@ -2,6 +2,7 @@ pub mod api_key_manager;
 pub mod backup_service;
 pub mod config_generator;
 pub mod discord;
+pub mod file_watcher;
 pub mod guardian;
 pub mod health_checker;
 pub mod ini_parser;

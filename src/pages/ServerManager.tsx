@@ -4,9 +4,10 @@ import { useServerStore } from '../stores/serverStore';
 import { cn } from '../utils/helpers';
 import InstallServerDialog from '../components/server/InstallServerDialog';
 import ImportServerDialog from '../components/server/ImportServerDialog';
+import ImportNonDedicatedDialog from '../components/server/ImportNonDedicatedDialog';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import { startServer, stopServer, restartServer, deleteServer, getAllServers, updateServer, startLogWatcher, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, getAllServers, updateServer, startLogWatcher, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { getVersion } from '@tauri-apps/api/app';
@@ -31,11 +32,36 @@ export default function ServerManager() {
     const [cloneModalServer, setCloneModalServer] = useState<Server | null>(null);
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
     const [showImportDialog, setShowImportDialog] = useState(false);
+    const [showNonDedicatedImport, setShowNonDedicatedImport] = useState(false);
 
     const handleDialogClose = async () => {
         setShowInstallDialog(false);
         setShowImportDialog(false);
+        setShowNonDedicatedImport(false);
         await refreshServers();
+    };
+
+    const handleToggleAutomation = async (serverId: number, type: 'auto_start' | 'auto_stop' | 'intelligent_mode', current: boolean) => {
+        try {
+            await toggleServerAutomation(serverId, type, !current);
+            const label = type === 'auto_start' ? 'Auto-Start' : type === 'auto_stop' ? 'Auto-Stop' : 'Intelligent Mode';
+            toast.success(`${label} ${!current ? 'Enabled' : 'Disabled'}`);
+            // Optimistic update
+            const updatedServers = servers.map(s => {
+                if (s.id === serverId) {
+                    const key = type === 'auto_start' ? 'autoStart' : type === 'auto_stop' ? 'autoStop' : 'intelligentMode';
+                    return {
+                        ...s,
+                        [key]: !current
+                    };
+                }
+                return s;
+            });
+            setServers(updatedServers);
+        } catch (error) {
+            console.error('Failed to toggle automation:', error);
+            toast.error(`Failed to toggle ${type}: ${error}`);
+        }
     };
 
 
@@ -261,6 +287,13 @@ export default function ServerManager() {
                         <span>Import Existing</span>
                     </button>
                     <button
+                        onClick={() => setShowNonDedicatedImport(true)}
+                        className="flex items-center space-x-2 px-5 py-3 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded-xl transition-all font-medium"
+                    >
+                        <Settings className="w-5 h-5" />
+                        <span>Import Save</span>
+                    </button>
+                    <button
                         onClick={() => setShowInstallDialog(true)}
                         className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl transition-all shadow-lg shadow-sky-500/20 font-medium group"
                     >
@@ -483,6 +516,60 @@ export default function ServerManager() {
                                 </div>
                             </div>
 
+                            {/* Automation Controls */}
+                            <div className="mt-4 pt-4 border-t border-slate-700/30 flex items-center gap-6">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Automation:</span>
+                                </div>
+                                <label className="flex items-center gap-2 cursor-pointer group/toggle">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={server.autoStart || false}
+                                            onChange={() => handleToggleAutomation(server.id, 'auto_start', server.autoStart || false)}
+                                        />
+                                        <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
+                                    </div>
+                                    <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">Auto-Start</span>
+                                </label>
+
+                                <label className="flex items-center gap-2 cursor-pointer group/toggle">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={server.autoStop || false}
+                                            onChange={() => handleToggleAutomation(server.id, 'auto_stop', server.autoStop || false)}
+                                        />
+                                        <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500"></div>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">Auto-Stop</span>
+                                        <span className="text-[10px] text-slate-500">On Config Change</span>
+                                    </div>
+                                </label>
+
+                                <label className="flex items-center gap-2 cursor-pointer group/toggle ml-auto lg:ml-0">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={server.intelligentMode || false}
+                                            onChange={() => handleToggleAutomation(server.id, 'intelligent_mode', server.intelligentMode || false)}
+                                        />
+                                        <div className="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-1.5">
+                                            <Shield className={cn("w-4 h-4 transition-colors", server.intelligentMode ? "text-sky-400" : "text-slate-500")} />
+                                            <span className={cn("text-sm font-bold transition-colors", server.intelligentMode ? "text-sky-400" : "text-slate-400")}>Intelligent Mode</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-500" title="Protects server during updates and save imports">Data Safety & Auto-Repair</span>
+                                    </div>
+                                </label>
+                            </div>
+
                             {/* Embedded Console */}
                             {(expandedConsoles[server.id] || serverLogs[server.id]?.length > 0) && (
                                 <div className="mt-4 border-t border-slate-700/30 pt-4">
@@ -590,6 +677,11 @@ export default function ServerManager() {
             {/* Import Server Dialog */}
             {showImportDialog && (
                 <ImportServerDialog onClose={handleDialogClose} />
+            )}
+
+            {/* Non-Dedicated Import Dialog */}
+            {showNonDedicatedImport && (
+                <ImportNonDedicatedDialog onClose={handleDialogClose} servers={servers} />
             )}
 
             {/* Clone Options Modal */}

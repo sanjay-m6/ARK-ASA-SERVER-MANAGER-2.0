@@ -41,6 +41,9 @@ pub struct Server {
     pub ip_address: Option<String>,
     pub created_at: String,
     pub last_started: Option<String>,
+    pub auto_start: bool,
+    pub auto_stop: bool,
+    pub intelligent_mode: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -168,6 +171,7 @@ pub struct SystemInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct PerformanceMetrics {
     pub server_id: i64,
     pub cpu_usage: f32,
@@ -266,6 +270,7 @@ impl Default for RestoreOptions {
 // Scheduled Tasks
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct ScheduledTask {
     pub id: i64,
     pub server_id: i64,
@@ -282,6 +287,7 @@ pub struct ScheduledTask {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+#[allow(dead_code)]
 pub enum TaskType {
     Restart,
     Backup,
@@ -309,6 +315,7 @@ impl ToString for TaskType {
 // Discord Webhook Config
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct DiscordConfig {
     pub webhook_url: Option<String>,
     pub notify_server_start: bool,
@@ -331,4 +338,18 @@ impl Default for DiscordConfig {
             notify_scheduled_task: true,
         }
     }
+}
+
+// Plugin Info for ASA Server API Plugins
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginInfo {
+    pub id: String,
+    pub name: String,
+    pub version: Option<String>,
+    pub description: Option<String>,
+    pub author: Option<String>,
+    pub asa_version_compatible: Option<String>,
+    pub enabled: bool,
+    pub install_path: std::path::PathBuf,
 }

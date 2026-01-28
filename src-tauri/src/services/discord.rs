@@ -5,10 +5,12 @@ use crate::models::DiscordConfig;
 use reqwest::Client;
 use serde_json::json;
 
+#[allow(dead_code)]
 pub struct DiscordService {
     client: Client,
 }
 
+#[allow(dead_code)]
 impl DiscordService {
     pub fn new() -> Self {
         Self {
@@ -229,6 +231,7 @@ impl DiscordService {
 }
 
 /// Discord embed structure
+#[allow(dead_code)]
 pub struct DiscordEmbed {
     pub title: String,
     pub description: String,
@@ -272,6 +275,7 @@ impl DiscordEmbed {
     }
 }
 
+#[allow(dead_code)]
 pub struct EmbedField {
     pub name: String,
     pub value: String,

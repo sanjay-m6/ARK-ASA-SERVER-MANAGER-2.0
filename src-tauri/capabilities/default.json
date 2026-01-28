@@ -3,10 +3,13 @@
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": [
-    "main"
+    "main",
+    "auth-window"
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-create",
+    "core:webview:allow-create-webview-window",
     "opener:default",
     "dialog:default"
   ]

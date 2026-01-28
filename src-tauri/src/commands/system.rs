@@ -43,6 +43,40 @@ pub async fn select_folder(app: tauri::AppHandle, title: String) -> Result<Optio
 }
 
 #[tauri::command]
+pub async fn select_file(
+    app: tauri::AppHandle,
+    title: String,
+    extensions: Option<Vec<String>>,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let mut dialog = app.dialog().file().set_title(title);
+
+    if let Some(ref exts) = extensions {
+        let ext_slices: Vec<&str> = exts.iter().map(|s| s.as_str()).collect();
+        dialog = dialog.add_filter("Files", &ext_slices);
+    }
+
+    let file_path = dialog.blocking_pick_file();
+
+    Ok(file_path.map(|p| p.to_string()))
+}
+
+#[tauri::command]
+pub async fn select_plugin_zip(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let file_path = app
+        .dialog()
+        .file()
+        .add_filter("Plugin Archives", &["zip", "7z", "rar", "tar.gz", "tar"])
+        .set_title("Select Plugin Archive File")
+        .blocking_pick_file();
+
+    Ok(file_path.map(|p| p.to_string()))
+}
+
+#[tauri::command]
 pub async fn get_setting(
     state: State<'_, AppState>,
     key: String,

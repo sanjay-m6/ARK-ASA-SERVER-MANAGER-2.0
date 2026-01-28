@@ -2,6 +2,23 @@
 
 All notable changes to ASA Server Manager will be documented in this file.
 
+## [2.2.4] - 2026-01-28
+
+### ✨ New Features
+- **Intelligent Mode (Advanced Automation)** - Per-server data protection tier that automates safety during updates and save imports.
+- **Graceful RCON Shutdown** - Servers now attempt to save world state and exit cleanly via RCON before termination.
+- **Enhanced Data Safety** - Expanded file watcher to monitor `SavedArks` and root folders for comprehensive protection.
+- **Improved Automation UI** - New glowing shield indicators, descriptive tooltips, and snappy toggle interactions.
+- **Non-Dedicated Save Import** - Migrate your single-player saves to dedicated servers easily.
+
+### 🐛 Bug Fixes
+- **Solved Critical Build Errors** - Fixed all backend type inference and lifetime bugs causing build instability.
+- **Configuration Accuracy** - Fixed mappings for "Turrets Attack Riderless" and renamed "Crafting Skill" to "Crafting Speed" for parity with ARK.
+- **Ghost Process Prevention** - Implemented startup status reset to prevent offline servers appearing as online.
+- **RCON Stability** - Improved RCON command sequencing for reliable shutdowns.
+
+---
+
 ## [2.1.2] - 2026-01-13
 
 ### 🔧 Bug Fixes

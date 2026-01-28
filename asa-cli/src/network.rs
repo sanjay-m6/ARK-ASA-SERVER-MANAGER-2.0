@@ -1,6 +1,6 @@
 //! Network module for CurseForge API interaction
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use colored::*;
 use serde::Deserialize;
 use std::path::Path;
@@ -9,13 +9,16 @@ use sysinfo::System;
 use crate::config::parse_active_mods;
 
 /// CurseForge API base URL
+#[allow(dead_code)]
 const CURSEFORGE_API_BASE: &str = "https://api.curseforge.com/v1";
 
 /// ASA Game ID on CurseForge
+#[allow(dead_code)]
 const ASA_GAME_ID: u32 = 83374;
 
 /// Mod info from CurseForge API
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct CurseForgeMod {
     pub id: u64,
     pub name: String,
@@ -24,6 +27,7 @@ pub struct CurseForgeMod {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct LatestFile {
     #[serde(rename = "fileId")]
     pub file_id: u64,
@@ -33,11 +37,13 @@ pub struct LatestFile {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct CurseForgeResponse {
     data: Option<CurseForgeMod>,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct CurseForgeMultiResponse {
     data: Vec<CurseForgeMod>,
 }
@@ -78,7 +84,10 @@ pub async fn handle_mod_update(server_path: &Path, force: bool, check_only: bool
         return Ok(());
     }
 
-    println!("  Found {} active mod(s)", active_mods.len().to_string().yellow());
+    println!(
+        "  Found {} active mod(s)",
+        active_mods.len().to_string().yellow()
+    );
 
     // Check mods directory
     let mods_path = server_path.join("ShooterGame/Binaries/Win64/ShooterGame/Mods");
@@ -93,19 +102,27 @@ pub async fn handle_mod_update(server_path: &Path, force: bool, check_only: bool
     }
 
     if check_only {
-        println!("  {}", "Check complete. Use without --check-only to download updates.".blue());
+        println!(
+            "  {}",
+            "Check complete. Use without --check-only to download updates.".blue()
+        );
     }
 
     Ok(())
 }
 
 /// Check status of a single mod
-async fn check_mod_status(mods_path: &Path, mod_id: u64, force: bool, check_only: bool) -> Result<()> {
+async fn check_mod_status(
+    mods_path: &Path,
+    mod_id: u64,
+    force: bool,
+    check_only: bool,
+) -> Result<()> {
     print!("  Mod {}: ", mod_id.to_string().cyan());
 
     // Check for local .ucas and .utoc files
-    let ucas_pattern = mods_path.join(format!("{}*.ucas", mod_id));
-    let utoc_pattern = mods_path.join(format!("{}*.utoc", mod_id));
+    let _ucas_pattern = mods_path.join(format!("{}*.ucas", mod_id));
+    let _utoc_pattern = mods_path.join(format!("{}*.utoc", mod_id));
 
     let has_ucas = glob_exists(&format!("{}/{}*.ucas", mods_path.display(), mod_id));
     let has_utoc = glob_exists(&format!("{}/{}*.utoc", mods_path.display(), mod_id));
@@ -117,18 +134,24 @@ async fn check_mod_status(mods_path: &Path, mod_id: u64, force: bool, check_only
 
     if !has_ucas || !has_utoc {
         println!("{}", "⚠️ Missing files".yellow());
-        
+
         if check_only {
             println!("    Would download mod {}", mod_id);
         } else {
-            println!("    {} Download required (use CurseForge app or manual install)", "→".blue());
+            println!(
+                "    {} Download required (use CurseForge app or manual install)",
+                "→".blue()
+            );
             // Note: Direct download requires CurseForge API key
             // For now, we inform the user
         }
     } else if force {
         println!("{}", "↻ Force update requested".yellow());
         if !check_only {
-            println!("    {} Download required (use CurseForge app or manual install)", "→".blue());
+            println!(
+                "    {} Download required (use CurseForge app or manual install)",
+                "→".blue()
+            );
         }
     }
 
@@ -140,18 +163,14 @@ fn glob_exists(pattern: &str) -> bool {
     if let Ok(paths) = glob::glob(pattern) {
         return paths.count() > 0;
     }
-    
+
     // Fallback: simple directory scan
     let path = std::path::Path::new(pattern);
     if let Some(parent) = path.parent() {
         if let Ok(entries) = std::fs::read_dir(parent) {
-            let stem = path.file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("");
-            let ext = path.extension()
-                .and_then(|s| s.to_str())
-                .unwrap_or("");
-            
+            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
+
             for entry in entries.flatten() {
                 let name = entry.file_name();
                 let name_str = name.to_string_lossy();
@@ -165,6 +184,7 @@ fn glob_exists(pattern: &str) -> bool {
 }
 
 /// Verify mod integrity (check .ucas and .utoc exist)
+#[allow(dead_code)]
 pub fn verify_mod_files(server_path: &Path, mod_ids: &[u64]) -> Result<Vec<u64>> {
     let mods_path = server_path.join("ShooterGame/Binaries/Win64/ShooterGame/Mods");
     let mut missing = Vec::new();

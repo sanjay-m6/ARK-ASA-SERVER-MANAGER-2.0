@@ -1410,13 +1410,13 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
             {
                 section: '/Script/ShooterGame.ShooterGameMode',
                 key: 'CraftingSkillBonusMultiplier',
-                label: 'Crafting Skill Bonus',
+                label: 'Crafting Speed Bonus',
                 type: 'slider',
                 defaultValue: '1',
                 min: 0.1,
                 max: 10,
                 step: 0.1,
-                description: 'Bonus from crafting skill stat'
+                description: 'Bonus to crafting speed (ASA)'
             }
         ]
     },
@@ -1573,13 +1573,13 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
             {
                 section: '/Script/ShooterGame.ShooterGameMode',
                 key: 'CraftingSkillBonusMultiplier',
-                label: 'Crafting Skill Bonus',
+                label: 'Crafting Speed Bonus',
                 type: 'slider',
                 defaultValue: '1.0',
                 min: 1,
                 max: 10,
                 step: 0.5,
-                description: 'Crafting skill effectiveness'
+                description: 'Bonus to crafting speed (ASA)'
             }
         ]
     },
@@ -1620,10 +1620,10 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
             {
                 section: '/Script/ShooterGame.ShooterGameMode',
                 key: 'bPassiveDefensesDamageRiderlessDinos',
-                label: 'Turrets Attack Riderless',
+                label: 'Spike Walls Damage Riderless Dinos',
                 type: 'boolean',
                 defaultValue: 'False',
-                description: 'Turrets damage riderless dinos'
+                description: 'Spike walls and passive defenses damage riderless/wild dinos. Does NOT affect turrets.'
             },
             {
                 section: '/Script/ShooterGame.ShooterGameMode',

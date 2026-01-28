@@ -41,7 +41,8 @@ pub struct GuardianService {
     crash_counts: Arc<Mutex<HashMap<i64, u32>>>,
     /// Crash event log
     crash_log: Arc<Mutex<Vec<CrashEvent>>>,
-    /// Is the guardian running
+    /// Is the guardian running (currently unused)
+    #[allow(dead_code)]
     is_running: Arc<Mutex<bool>>,
 }
 
@@ -67,6 +68,7 @@ impl GuardianService {
     }
 
     /// Unregister a server from monitoring
+    #[allow(dead_code)]
     pub async fn unregister_server(&self, server_id: i64) {
         let mut pids = self.server_pids.lock().await;
         pids.remove(&server_id);
@@ -84,6 +86,7 @@ impl GuardianService {
     }
 
     /// Check if auto-restart is enabled for a server
+    #[allow(dead_code)]
     pub async fn is_auto_restart_enabled(&self, server_id: i64) -> bool {
         let settings = self.auto_restart_enabled.lock().await;
         *settings.get(&server_id).unwrap_or(&false)
@@ -131,6 +134,7 @@ impl GuardianService {
     }
 
     /// Log a crash event
+    #[allow(dead_code)]
     pub async fn log_crash(
         &self,
         server_id: i64,
@@ -162,6 +166,7 @@ impl GuardianService {
     }
 
     /// Check if a process is running
+    #[allow(dead_code)]
     pub fn is_process_alive(pid: u32) -> bool {
         let mut sys = System::new_all();
         sys.refresh_all();

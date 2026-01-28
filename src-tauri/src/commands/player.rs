@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tauri::State;
 use tokio::sync::Mutex;
 
+#[allow(dead_code)]
 pub struct PlayerIntelligenceState(pub Arc<Mutex<PlayerIntelligenceService>>);
 
 /// Get player statistics by Steam ID

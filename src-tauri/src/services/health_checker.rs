@@ -3,8 +3,10 @@ use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
 
+#[allow(dead_code)]
 pub struct HealthChecker;
 
+#[allow(dead_code)]
 impl HealthChecker {
     pub fn new() -> Self {
         HealthChecker

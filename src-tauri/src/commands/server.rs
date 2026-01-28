@@ -2,27 +2,33 @@ use crate::models::{RconConfig, Server, ServerConfig, ServerPorts, ServerStatus}
 use crate::services::network;
 use crate::services::server_installer::ServerInstaller;
 use crate::AppState;
+use anyhow::Error as AnyhowError;
+use rusqlite::Row;
 use std::path::PathBuf;
-use tauri::State;
+use tauri::{Manager, State};
 
 #[tauri::command]
 pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let db = state
+        .db
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let conn = db
+        .get_connection()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, name, install_path, status, game_port, query_port, rcon_port, 
-             max_players, server_password, admin_password, map_name, session_name, 
-             motd, mods, custom_args, rcon_enabled, created_at, last_started, ip_address 
-             FROM servers",
+            "SELECT id, name, install_path, status, game_port, query_port, rcon_port, max_players, 
+         server_password, admin_password, ip_address, created_at, last_started, 
+         auto_start, auto_stop, intelligent_mode FROM servers",
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: rusqlite::Error| e.to_string())?;
 
     let mut servers = Vec::new();
-    let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
+    let mut rows = stmt.query([]).map_err(|e: rusqlite::Error| e.to_string())?;
 
-    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+    while let Some(row) = rows.next().map_err(|e: rusqlite::Error| e.to_string())? {
         let status_str: String = row.get(3).unwrap_or_else(|_| "stopped".to_string());
         let status = match status_str.as_str() {
             "running" => ServerStatus::Running,
@@ -34,44 +40,40 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
             _ => ServerStatus::Stopped,
         };
 
-        let mods_str: String = row.get(13).unwrap_or_else(|_| String::new());
-        let mods: Vec<String> = if mods_str.is_empty() {
-            vec![]
-        } else {
-            mods_str.split(',').map(|s| s.to_string()).collect()
-        };
+        let auto_start: i32 = row.get(13).unwrap_or(0);
+        let auto_stop: i32 = row.get(14).unwrap_or(0);
+        let intelligent_mode: i32 = row.get(15).unwrap_or(0);
 
         servers.push(Server {
-            id: row.get(0).unwrap_or(0),
-            name: row.get(1).unwrap_or_else(|_| "Unknown".to_string()),
-            install_path: PathBuf::from(row.get::<_, String>(2).unwrap_or_default()),
+            id: row.get(0).map_err(|e| e.to_string())?,
+            name: row.get(1).map_err(|e| e.to_string())?,
+            install_path: PathBuf::from(row.get::<_, String>(2).map_err(|e| e.to_string())?),
             status,
             ports: ServerPorts {
-                game_port: row.get(4).unwrap_or(7777),
-                query_port: row.get(5).unwrap_or(27015),
-                rcon_port: row.get(6).unwrap_or(27020),
+                game_port: row.get(4).map_err(|e| e.to_string())?,
+                query_port: row.get(5).map_err(|e| e.to_string())?,
+                rcon_port: row.get(6).map_err(|e| e.to_string())?,
             },
             config: ServerConfig {
-                max_players: row.get(7).unwrap_or(70),
-                server_password: row.get(8).ok(),
-                admin_password: row.get(9).unwrap_or_else(|_| "admin123".to_string()),
-                map_name: row.get(10).unwrap_or_else(|_| "TheIsland_WP".to_string()),
-                session_name: row.get(11).unwrap_or_else(|_| "My Server".to_string()),
-                motd: row.get(12).ok(),
-                mods,
-                custom_args: row.get(14).ok(),
+                max_players: row.get(7).map_err(|e| e.to_string())?,
+                server_password: row.get(8).map_err(|e| e.to_string())?,
+                admin_password: row.get(9).map_err(|e| e.to_string())?,
+                map_name: "".to_string(),     // Not stored in this query
+                session_name: "".to_string(), // Not stored in this query
+                motd: None,
+                mods: vec![],
+                custom_args: None,
             },
             rcon_config: RconConfig {
-                enabled: row.get(15).unwrap_or(true),
-                password: row
-                    .get::<_, String>(9)
-                    .unwrap_or_else(|_| "admin123".to_string()),
+                enabled: true,
+                password: "".to_string(),
             },
-            ip_address: row.get(18).ok(),
-            created_at: row
-                .get(16)
-                .unwrap_or_else(|_| chrono::Utc::now().to_rfc3339()),
-            last_started: row.get(17).ok(),
+            ip_address: row.get(10).map_err(|e| e.to_string())?,
+            created_at: row.get(11).map_err(|e| e.to_string())?,
+            last_started: row.get(12).map_err(|e| e.to_string())?,
+            auto_start: auto_start != 0,
+            auto_stop: auto_stop != 0,
+            intelligent_mode: intelligent_mode != 0,
         });
     }
 
@@ -116,8 +118,13 @@ pub async fn install_server(
     installer.install_asa_server(&path).await?;
 
     // Create database entry
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let db = state
+        .db
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let conn = db
+        .get_connection()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
     // Check if server name already exists and make it unique
     let mut unique_name = name.clone();
@@ -156,7 +163,7 @@ pub async fn install_server(
             "ASA", // Server type - ARK: Survival Ascended
         ),
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e: rusqlite::Error| e.to_string())?;
 
     let id = conn.last_insert_rowid();
 
@@ -188,6 +195,9 @@ pub async fn install_server(
         ip_address: None,
         created_at: chrono::Utc::now().to_rfc3339(),
         last_started: None,
+        auto_start: false, // Default: OFF
+        auto_stop: false,  // Default: OFF
+        intelligent_mode: false,
     })
 }
 
@@ -213,8 +223,13 @@ pub async fn clone_server(
         admin_password,
         ip_address,
     ) = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         conn.query_row(
             "SELECT name, install_path, map_name, session_name, game_port, query_port, rcon_port,
@@ -277,8 +292,13 @@ pub async fn clone_server(
 
     // Insert new server into database
     let new_id = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         conn.execute(
             "INSERT INTO servers (name, install_path, status, game_port, query_port, rcon_port,
@@ -298,7 +318,7 @@ pub async fn clone_server(
                 ip_address
             ],
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: rusqlite::Error| e.to_string())?;
 
         conn.last_insert_rowid()
     };
@@ -336,6 +356,9 @@ pub async fn clone_server(
         ip_address,
         created_at: chrono::Utc::now().to_rfc3339(),
         last_started: None,
+        auto_start: false,
+        auto_stop: false,
+        intelligent_mode: false,
     })
 }
 
@@ -353,8 +376,13 @@ pub async fn transfer_settings(
 
     // Get both server paths
     let (source_path, target_path) = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         let source: String = conn
             .query_row(
@@ -413,8 +441,13 @@ pub async fn extract_save_data(
 
     // Get both server paths
     let (source_path, target_path) = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         let source: String = conn
             .query_row(
@@ -473,11 +506,8 @@ pub async fn extract_save_data(
 }
 
 #[tauri::command]
-pub async fn start_server(
-    app_handle: tauri::AppHandle,
-    state: State<'_, AppState>,
-    server_id: i64,
-) -> Result<(), String> {
+pub async fn start_server(app_handle: tauri::AppHandle, server_id: i64) -> Result<(), String> {
+    let state = app_handle.state::<AppState>();
     println!("▶️ Starting server {}", server_id);
 
     // Sync critical settings from INI to DB before starting
@@ -511,33 +541,55 @@ pub async fn start_server(
         _cluster_id,
         cluster_name,
         cluster_path,
+        custom_args,
+    ): (
+        String,
+        String,
+        String,
+        u16,
+        u16,
+        u16,
+        i32,
+        Option<String>,
+        String,
+        Option<String>,
+        Option<i64>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
     ) = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address, s.cluster_id,
-             c.name, c.cluster_path
+             c.name, c.cluster_path, s.custom_args
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
             [server_id],
-            |row| {
+            |row: &Row| {
                 Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, u16>(3)?,
-                    row.get::<_, u16>(4)?,
-                    row.get::<_, u16>(5)?,
-                    row.get::<_, i32>(6)?,
-                    row.get::<_, Option<String>>(7)?,
-                    row.get::<_, String>(8)?,
-                    row.get::<_, Option<String>>(9)?,
-                    row.get::<_, Option<i64>>(10)?,
-                    row.get::<_, Option<String>>(11)?,
-                    row.get::<_, Option<String>>(12)?,
+                    row.get::<usize, String>(0)?,
+                    row.get::<usize, String>(1)?,
+                    row.get::<usize, String>(2)?,
+                    row.get::<usize, u16>(3)?,
+                    row.get::<usize, u16>(4)?,
+                    row.get::<usize, u16>(5)?,
+                    row.get::<usize, i32>(6)?,
+                    row.get::<usize, Option<String>>(7)?,
+                    row.get::<usize, String>(8)?,
+                    row.get::<usize, Option<String>>(9)?,
+                    row.get::<usize, Option<i64>>(10)?,
+                    row.get::<usize, Option<String>>(11)?,
+                    row.get::<usize, Option<String>>(12)?,
+                    row.get::<usize, Option<String>>(13)?,
                 ))
             },
         )
@@ -546,17 +598,24 @@ pub async fn start_server(
 
     // Get enabled mods for this server
     let enabled_mods: Vec<String> = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         let mut stmt = conn.prepare(
             "SELECT mod_id FROM mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC"
-        ).map_err(|e| e.to_string())?;
+        ).map_err(|e: rusqlite::Error| e.to_string())?;
 
-        let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+        let mut rows = stmt
+            .query([server_id])
+            .map_err(|e: rusqlite::Error| e.to_string())?;
         let mut mods = Vec::new();
-        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
-            if let Ok(mod_id) = row.get::<_, String>(0) {
+        while let Some(row) = rows.next().map_err(|e: rusqlite::Error| e.to_string())? {
+            if let Ok(mod_id) = row.get::<usize, String>(0) {
                 mods.push(mod_id);
             }
         }
@@ -590,13 +649,18 @@ pub async fn start_server(
 
         // Update status to 'updating' to show download progress
         {
-            let db = state.db.lock().map_err(|e| e.to_string())?;
-            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            let db = state
+                .db
+                .lock()
+                .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+            let conn = db
+                .get_connection()
+                .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
             conn.execute(
                 "UPDATE servers SET status = 'updating' WHERE id = ?1",
                 [server_id],
             )
-            .map_err(|e| e.to_string())?;
+            .map_err(|e: rusqlite::Error| e.to_string())?;
         }
 
         // Run the installation via SteamCMD
@@ -625,24 +689,30 @@ pub async fn start_server(
             query_port,
             rcon_port,
             max_players,
-            server_password.as_deref(),
+            server_password.as_deref() as Option<&str>,
             &admin_password,
-            ip_address.as_deref(),
-            cluster_name.as_deref(),
-            cluster_path.as_deref(),
+            ip_address.as_deref() as Option<&str>,
+            cluster_name.as_deref() as Option<&str>,
+            cluster_path.as_deref() as Option<&str>,
             mods_option,
+            custom_args.as_deref() as Option<&str>,
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: AnyhowError| e.to_string())?;
 
     // Update status in database
     {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         conn.execute(
             "UPDATE servers SET status = 'running', last_started = datetime('now') WHERE id = ?1",
             [server_id],
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: rusqlite::Error| e.to_string())?;
     }
 
     println!("  ✅ Server {} started", server_id);
@@ -658,7 +728,7 @@ pub async fn start_server_no_mods(
 ) -> Result<(), String> {
     println!("▶️ Starting server {} (NO MODS MODE)", server_id);
 
-    // Get server details
+    // Get server details including cluster info
     let (
         install_path,
         map_name,
@@ -672,32 +742,54 @@ pub async fn start_server_no_mods(
         ip_address,
         cluster_name,
         cluster_path,
+        custom_args,
+    ): (
+        String,
+        String,
+        String,
+        u16,
+        u16,
+        u16,
+        i32,
+        Option<String>,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
     ) = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
+        // Join with clusters table to get cluster details if assigned
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address,
-             c.name, c.cluster_path
+             c.name, c.cluster_path, s.custom_args
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
             [server_id],
-            |row| {
+            |row: &Row| {
                 Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, u16>(3)?,
-                    row.get::<_, u16>(4)?,
-                    row.get::<_, u16>(5)?,
-                    row.get::<_, i32>(6)?,
-                    row.get::<_, Option<String>>(7)?,
-                    row.get::<_, String>(8)?,
-                    row.get::<_, Option<String>>(9)?,
-                    row.get::<_, Option<String>>(10)?,
-                    row.get::<_, Option<String>>(11)?,
+                    row.get::<usize, String>(0)?,
+                    row.get::<usize, String>(1)?,
+                    row.get::<usize, String>(2)?,
+                    row.get::<usize, u16>(3)?,
+                    row.get::<usize, u16>(4)?,
+                    row.get::<usize, u16>(5)?,
+                    row.get::<usize, i32>(6)?,
+                    row.get::<usize, Option<String>>(7)?,
+                    row.get::<usize, String>(8)?,
+                    row.get::<usize, Option<String>>(9)?,
+                    row.get::<usize, Option<String>>(10)?,
+                    row.get::<usize, Option<String>>(11)?,
+                    row.get::<usize, Option<String>>(12)?,
                 ))
             },
         )
@@ -715,8 +807,26 @@ pub async fn start_server_no_mods(
 
     if !executable.exists() {
         println!("  📥 Server executable not found, starting automatic download...");
+        // Send a temporary "updating" status so UI shows something happening
+        {
+            let db = state
+                .db
+                .lock()
+                .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+            let conn = db
+                .get_connection()
+                .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+            conn.execute(
+                "UPDATE servers SET status = 'updating' WHERE id = ?1",
+                [server_id],
+            )
+            .map_err(|e: rusqlite::Error| e.to_string())?;
+        }
+
+        // Run the installation via SteamCMD
         let installer = ServerInstaller::new(app_handle.clone());
         installer.install_asa_server(&install_path_buf).await?;
+
         println!("  ✅ Server download complete, now starting...");
     }
 
@@ -733,24 +843,30 @@ pub async fn start_server_no_mods(
             query_port,
             rcon_port,
             max_players,
-            server_password.as_deref(),
+            server_password.as_deref() as Option<&str>,
             &admin_password,
-            ip_address.as_deref(),
-            cluster_name.as_deref(),
-            cluster_path.as_deref(),
+            ip_address.as_deref() as Option<&str>,
+            cluster_name.as_deref() as Option<&str>,
+            cluster_path.as_deref() as Option<&str>,
             None, // No mods
+            custom_args.as_deref() as Option<&str>,
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: AnyhowError| e.to_string())?;
 
     // Update status in database
     {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         conn.execute(
             "UPDATE servers SET status = 'running', last_started = datetime('now') WHERE id = ?1",
             [server_id],
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: rusqlite::Error| e.to_string())?;
     }
 
     println!("  ✅ Server {} started (NO MODS)", server_id);
@@ -764,16 +880,21 @@ pub async fn stop_server(state: State<'_, AppState>, server_id: i64) -> Result<(
     state
         .process_manager
         .stop_server(server_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: AnyhowError| e.to_string())?;
 
     // Update status in database
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let db = state
+        .db
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let conn = db
+        .get_connection()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
     conn.execute(
         "UPDATE servers SET status = 'stopped' WHERE id = ?1",
         [server_id],
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e: rusqlite::Error| e.to_string())?;
 
     println!("  ✅ Server {} stopped", server_id);
     Ok(())
@@ -797,19 +918,25 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
         ip_address,
         cluster_name,
         cluster_path,
+        custom_args,
     ) = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address,
-             c.name, c.cluster_path
+             c.name, c.cluster_path, s.custom_args
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
             [server_id],
-            |row| {
+            |row: &Row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
@@ -823,6 +950,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
                     row.get::<_, Option<String>>(9)?,
                     row.get::<_, Option<String>>(10)?,
                     row.get::<_, Option<String>>(11)?,
+                    row.get::<_, Option<String>>(12)?,
                 ))
             },
         )
@@ -831,17 +959,24 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
 
     // Get enabled mods for this server
     let enabled_mods: Vec<String> = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         let mut stmt = conn.prepare(
             "SELECT mod_id FROM mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC"
-        ).map_err(|e| e.to_string())?;
+        ).map_err(|e: rusqlite::Error| e.to_string())?;
 
-        let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+        let mut rows = stmt
+            .query([server_id])
+            .map_err(|e: rusqlite::Error| e.to_string())?;
         let mut mods = Vec::new();
-        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
-            if let Ok(mod_id) = row.get::<_, String>(0) {
+        while let Some(row) = rows.next().map_err(|e: rusqlite::Error| e.to_string())? {
+            if let Ok(mod_id) = row.get::<usize, String>(0) {
                 mods.push(mod_id);
             }
         }
@@ -875,24 +1010,30 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
             query_port,
             rcon_port,
             max_players,
-            server_password.as_deref(),
+            server_password.as_deref() as Option<&str>,
             &admin_password,
-            ip_address.as_deref(),
-            cluster_name.as_deref(),
-            cluster_path.as_deref(),
+            ip_address.as_deref() as Option<&str>,
+            cluster_name.as_deref() as Option<&str>,
+            cluster_path.as_deref() as Option<&str>,
             mods_option,
+            custom_args.as_deref() as Option<&str>,
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: AnyhowError| e.to_string())?;
 
     // Update status
     {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         conn.execute(
             "UPDATE servers SET status = 'running', last_started = datetime('now') WHERE id = ?1",
             [server_id],
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: rusqlite::Error| e.to_string())?;
     }
 
     println!("  ✅ Server {} restarted", server_id);
@@ -903,11 +1044,16 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
 pub async fn delete_server(state: State<'_, AppState>, server_id: i64) -> Result<(), String> {
     println!("🗑️ Deleting server {}", server_id);
 
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let db = state
+        .db
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let conn = db
+        .get_connection()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
     conn.execute("DELETE FROM servers WHERE id = ?1", [server_id])
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: rusqlite::Error| e.to_string())?;
 
     println!("  ✅ Server {} deleted", server_id);
     Ok(())
@@ -927,11 +1073,17 @@ pub async fn update_server_settings(
     query_port: Option<u16>,
     rcon_port: Option<u16>,
     ip_address: Option<String>,
+    custom_args: Option<String>,
 ) -> Result<(), String> {
     println!("⚙️ Updating server settings for server {}", server_id);
 
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let db = state
+        .db
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let conn = db
+        .get_connection()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
     // Build dynamic update query
     let mut updates = Vec::new();
@@ -973,6 +1125,10 @@ pub async fn update_server_settings(
         updates.push("ip_address = ?");
         params.push(Box::new(v));
     }
+    if let Some(v) = custom_args {
+        updates.push("custom_args = ?");
+        params.push(Box::new(v));
+    }
 
     if updates.is_empty() {
         return Ok(());
@@ -983,7 +1139,7 @@ pub async fn update_server_settings(
 
     let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
     conn.execute(&query, params_refs.as_slice())
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: rusqlite::Error| e.to_string())?;
 
     println!("  ✅ Server {} settings updated", server_id);
     Ok(())
@@ -999,8 +1155,13 @@ pub async fn update_server(
 
     // Get server install path
     let install_path = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         conn.query_row(
             "SELECT install_path FROM servers WHERE id = ?1",
@@ -1012,13 +1173,18 @@ pub async fn update_server(
 
     // Update status to updating
     {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         conn.execute(
             "UPDATE servers SET status = 'updating' WHERE id = ?1",
             [server_id],
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: rusqlite::Error| e.to_string())?;
     }
 
     // Run the update
@@ -1029,13 +1195,18 @@ pub async fn update_server(
 
     // Update status back to stopped
     {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
         conn.execute(
             "UPDATE servers SET status = 'stopped' WHERE id = ?1",
             [server_id],
         )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e: rusqlite::Error| e.to_string())?;
     }
 
     println!("  ✅ Server {} updated", server_id);
@@ -1057,8 +1228,13 @@ pub async fn check_server_reachability(
     // 2. Always update IP in database if we found one
     // This allows the UI to show the correct Public IP even if the port is currently closed (e.g. server updating)
     {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         let _ = conn.execute(
             "UPDATE servers SET ip_address = ?1 WHERE id = ?2",
@@ -1300,8 +1476,13 @@ pub async fn import_server(
     );
 
     // Create database entry
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let db = state
+        .db
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let conn = db
+        .get_connection()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
     // Check if this path is already registered
     let exists: bool = conn
@@ -1388,5 +1569,65 @@ pub async fn import_server(
         ip_address: None,
         created_at: chrono::Utc::now().to_rfc3339(),
         last_started: None,
+        auto_start: false,
+        auto_stop: false,
+        intelligent_mode: false,
     })
+}
+
+#[tauri::command]
+pub async fn toggle_automation(
+    state: State<'_, AppState>,
+    server_id: i64,
+    toggle_type: String, // "auto_start" or "auto_stop"
+    enabled: bool,
+) -> Result<(), String> {
+    println!(
+        "⚙️ Toggling automation {} for server {}: {}",
+        toggle_type, server_id, enabled
+    );
+
+    let (db, _app_handle) = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        (db, state.app_handle.clone())
+    };
+
+    // Update DB
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let column = match toggle_type.as_str() {
+        "auto_start" => "auto_start",
+        "auto_stop" => "auto_stop",
+        "intelligent_mode" => "intelligent_mode",
+        _ => return Err("Invalid toggle type".to_string()),
+    };
+
+    let query = format!("UPDATE servers SET {} = ?1 WHERE id = ?2", column);
+    conn.execute(&query, rusqlite::params![enabled as i32, server_id])
+        .map_err(|e| format!("Failed to update database: {}", e))?;
+
+    // Handle File Watcher logic for Auto-Stop and Intelligent Mode
+    if toggle_type == "auto_stop" || toggle_type == "intelligent_mode" {
+        if enabled {
+            // Get install path
+            let install_path: String = conn
+                .query_row(
+                    "SELECT install_path FROM servers WHERE id = ?1",
+                    [server_id],
+                    |row| row.get(0),
+                )
+                .map_err(|e| format!("Server not found: {}", e))?;
+
+            state
+                .file_watcher
+                .start_watching(server_id, PathBuf::from(install_path))?;
+        } else {
+            state.file_watcher.stop_watching(server_id);
+        }
+    }
+
+    Ok(())
 }

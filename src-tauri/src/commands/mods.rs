@@ -593,12 +593,12 @@ pub async fn hardcore_retry_mods(
     println!("☢️ Hardcore Mod Retry initiated for server {}", server_id);
 
     // 1. Fetch Server Details & Config
-    let (install_path, session_name, map_name, game_port, query_port, rcon_port, max_players, server_password, admin_password, ip_address, cluster_id, cluster_dir) = {
+    let (install_path, session_name, map_name, game_port, query_port, rcon_port, max_players, server_password, admin_password, ip_address, cluster_id, cluster_dir, custom_args) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         
         conn.query_row(
-            "SELECT install_path, session_name, map_name, game_port, query_port, rcon_port, max_players, server_password, admin_password, ip_address, cluster_id, cluster_dir 
+            "SELECT install_path, session_name, map_name, game_port, query_port, rcon_port, max_players, server_password, admin_password, ip_address, cluster_id, cluster_dir, custom_args 
              FROM servers WHERE id = ?1",
             [server_id],
             |row| Ok((
@@ -614,6 +614,7 @@ pub async fn hardcore_retry_mods(
                 row.get::<_, Option<String>>(9)?, // ip_address
                 row.get::<_, Option<String>>(10)?, // cluster_id
                 row.get::<_, Option<String>>(11)?, // cluster_dir
+                row.get::<_, Option<String>>(12)?, // custom_args
             )),
         ).map_err(|e| e.to_string())?
     };
@@ -669,7 +670,8 @@ pub async fn hardcore_retry_mods(
         ip_address.as_deref(),
         cluster_id.as_deref(),
         cluster_dir.as_deref(),
-        mods_option
+        mods_option,
+        custom_args.as_deref(),
     ).map_err(|e| e.to_string())?;
 
     println!("  ✅ Hardcore retry complete!");

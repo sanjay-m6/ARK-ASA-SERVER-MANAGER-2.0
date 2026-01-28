@@ -2,7 +2,6 @@
 // Handles parsing, merging, and serializing INI files while preserving unknown keys
 
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 
 /// Represents a parsed INI file with sections and their key-value pairs
 pub struct IniParser;
@@ -110,6 +109,7 @@ impl IniParser {
     }
 
     /// Update a specific key in a section, preserving all other content
+    #[allow(dead_code)]
     pub fn update_key(content: &str, section: &str, key: &str, value: &str) -> String {
         let (mut sections, section_order) = Self::parse(content);
 
@@ -132,6 +132,7 @@ impl IniParser {
     }
 
     /// Get a value from parsed INI content
+    #[allow(dead_code)]
     pub fn get_value(content: &str, section: &str, key: &str) -> Option<String> {
         let (sections, _) = Self::parse(content);
         sections.get(section).and_then(|s| s.get(key)).cloned()

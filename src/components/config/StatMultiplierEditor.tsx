@@ -15,14 +15,14 @@ const PLAYER_STATS = [
     { id: 8, name: 'Melee Damage', icon: Sword, color: 'text-rose-400', description: 'Base melee damage' },
     { id: 9, name: 'Movement Speed', icon: Activity, color: 'text-green-400', description: 'Base movement speed' },
     { id: 10, name: 'Fortitude', icon: Shield, color: 'text-indigo-400', description: 'Resistance to weather and torpor' },
-    { id: 11, name: 'Crafting Skill', icon: Brain, color: 'text-teal-400', description: 'Crafting speed and blueprint quality' },
+    { id: 11, name: 'Crafting Speed', icon: Brain, color: 'text-teal-400', description: 'Crafting speed' },
 ];
 
 const DINO_STAT_TYPES = [
-    { key: 'Wild', label: 'Wild', description: 'Per-level stat gain for wild dinos', suffix: '' },
-    { key: 'Tamed', label: 'Tamed', description: 'Per-level stat gain after taming', suffix: '_Tamed' },
-    { key: 'TamedAdd', label: 'Tamed Add', description: 'Additive bonus on tame', suffix: '_TamedAdd' },
-    { key: 'TamedAffinity', label: 'Tamed Affinity', description: 'Bonus based on taming effectiveness', suffix: '_TamedAffinity' },
+    { key: 'Wild', label: 'Wild', description: 'Per-level stat gain for wild dinos', prefix: 'PerLevelStatsMultiplier_DinoWild' },
+    { key: 'Tamed', label: 'Tamed', description: 'Per-level stat gain after taming', prefix: 'PerLevelStatsMultiplier_DinoTamed' },
+    { key: 'TamedAdd', label: 'Tamed Add', description: 'Additive bonus on tame', prefix: 'PerLevelStatsMultiplier_DinoTamed_Add' },
+    { key: 'TamedAffinity', label: 'Tamed Affinity', description: 'Bonus based on taming effectiveness', prefix: 'PerLevelStatsMultiplier_DinoTamed_Affinity' },
 ];
 
 interface StatMultiplierEditorProps {
@@ -48,14 +48,14 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
 
     // Get/set dino stat multiplier
     const getDinoStat = (statId: number, type: string) => {
-        const suffix = DINO_STAT_TYPES.find(t => t.key === type)?.suffix || '';
-        const key = `PerLevelStatsMultiplier_DinoWild${suffix}[${statId}]`;
+        const prefix = DINO_STAT_TYPES.find(t => t.key === type)?.prefix || 'PerLevelStatsMultiplier_DinoWild';
+        const key = `${prefix}[${statId}]`;
         return parseFloat(getValue('Game', '/Script/ShooterGame.ShooterGameMode', key, '1.0')) || 1.0;
     };
 
     const setDinoStat = (statId: number, type: string, value: number) => {
-        const suffix = DINO_STAT_TYPES.find(t => t.key === type)?.suffix || '';
-        const key = `PerLevelStatsMultiplier_DinoWild${suffix}[${statId}]`;
+        const prefix = DINO_STAT_TYPES.find(t => t.key === type)?.prefix || 'PerLevelStatsMultiplier_DinoWild';
+        const key = `${prefix}[${statId}]`;
         setValue('Game', '/Script/ShooterGame.ShooterGameMode', key, value.toFixed(1));
     };
 
@@ -101,42 +101,48 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
         const Icon = icon;
         const value = getValue();
         const isExpanded = expandedStats.has(statId);
+        const isDisabled = statId === 9; // Movement Speed is disabled in ASA
 
         return (
             <div
                 key={statId}
                 className={cn(
                     "bg-slate-800/50 rounded-lg border transition-all duration-200",
-                    isExpanded ? "border-cyan-500/30" : "border-slate-700/50 hover:border-slate-600"
+                    isDisabled ? "opacity-60 cursor-not-allowed border-slate-800" : (isExpanded ? "border-cyan-500/30" : "border-slate-700/50 hover:border-slate-600")
                 )}
             >
                 <div
-                    className="flex items-center justify-between p-3 cursor-pointer"
-                    onClick={() => toggleStat(statId)}
+                    className={cn("flex items-center justify-between p-3", !isDisabled && "cursor-pointer")}
+                    onClick={() => !isDisabled && toggleStat(statId)}
                 >
                     <div className="flex items-center gap-3">
                         <div className={cn("p-2 rounded-lg bg-slate-900/50", color.replace('text-', 'bg-').replace('400', '500/20'))}>
                             <Icon className={cn("w-4 h-4", color)} />
                         </div>
                         <div>
-                            <div className="text-sm font-medium text-white">{name}</div>
+                            <div className="flex items-center gap-2">
+                                <div className="text-sm font-medium text-white">{name}</div>
+                                {isDisabled && <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">ASA Disabled</span>}
+                            </div>
                             <div className="text-xs text-slate-500">{description}</div>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className={cn(
-                            "px-3 py-1 rounded-lg font-mono text-sm font-medium",
-                            value === 1.0 ? "bg-slate-700 text-slate-300" :
-                                value > 1.0 ? "bg-green-500/20 text-green-400" :
-                                    "bg-red-500/20 text-red-400"
-                        )}>
-                            {value.toFixed(1)}x
-                        </div>
-                        {isExpanded ? (
+                        {!isDisabled && (
+                            <div className={cn(
+                                "px-3 py-1 rounded-lg font-mono text-sm font-medium",
+                                value === 1.0 ? "bg-slate-700 text-slate-300" :
+                                    value > 1.0 ? "bg-green-500/20 text-green-400" :
+                                        "bg-red-500/20 text-red-400"
+                            )}>
+                                {value.toFixed(1)}x
+                            </div>
+                        )}
+                        {!isDisabled && (isExpanded ? (
                             <ChevronUp className="w-4 h-4 text-slate-400" />
                         ) : (
                             <ChevronDown className="w-4 h-4 text-slate-400" />
-                        )}
+                        ))}
                     </div>
                 </div>
 

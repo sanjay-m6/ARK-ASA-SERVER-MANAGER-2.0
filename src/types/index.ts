@@ -16,6 +16,9 @@ export interface Server {
     createdAt: string;
     lastStarted?: string;
     reachability?: 'Public' | 'LAN' | 'Unknown';
+    autoStart?: boolean;
+    autoStop?: boolean;
+    intelligentMode?: boolean;
 }
 
 export interface ServerPorts {
@@ -31,6 +34,7 @@ export interface ServerConfig {
     mapName: string;
     sessionName: string;
     motd?: string;
+    custom_args?: string;
 }
 
 export interface SystemInfo {
@@ -144,5 +148,16 @@ export interface ServerStatusInfo {
     serverName: string;
     status: ServerStatus;
     playerCount: number;
+}
+
+export interface PluginInfo {
+    id: string;
+    name: string;
+    version?: string;
+    description?: string;
+    author?: string;
+    asaVersionCompatible?: string;
+    enabled: boolean;
+    installPath: string;
 }
 

@@ -1,8 +1,4 @@
-// Allow dead code for placeholder features that will be implemented later
-#![allow(dead_code)]
-#![allow(unused_imports)]
-
-mod commands;
+pub mod commands;
 mod db;
 mod models;
 mod services;
@@ -12,6 +8,7 @@ use db::Database;
 use services::process_manager::ProcessManager;
 use services::rcon::RconService;
 use services::steamcmd::SteamCmdService;
+use services::file_watcher::FileWatcherService;
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tauri::Manager;
@@ -21,6 +18,7 @@ pub struct AppState {
     pub process_manager: ProcessManager,
     pub sys: Mutex<System>,
     pub app_handle: tauri::AppHandle,
+    pub file_watcher: FileWatcherService,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -80,11 +78,59 @@ pub fn run() {
 
             let app_handle = app.handle().clone();
 
+            let file_watcher = FileWatcherService::new(app_handle.clone());
+            
+            // Spawn Auto-Start and Watcher Logic
+            
             app.manage(AppState {
                 db: Mutex::new(db),
                 process_manager: ProcessManager::new(app_handle.clone()),
                 sys: Mutex::new(sys),
-                app_handle,
+                app_handle: app_handle.clone(), // Fix duplicate let app_handle
+                file_watcher,
+            });
+
+            let app_handle_clone = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                 // Wait a moment for State to be ready
+                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                 let state = app_handle_clone.state::<AppState>();
+                 
+                 // Access DB to get servers with automation enabled
+                 if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        // 1. Check for Auto-Start Servers
+                        let mut stmt = conn.prepare("SELECT id, install_path FROM servers WHERE auto_start = 1").unwrap();
+                        let rows = stmt.query_map([], |row| {
+                             Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                        }).unwrap();
+                        
+                        for row in rows {
+                            if let Ok((id, _path)) = row {
+                                println!("🚀 Auto-starting server {}", id);
+                                
+                                // Invoke the start_server logic via command logic wrapper
+                                let app_handle_clone_2 = app_handle_clone.clone();
+                                
+                                tauri::async_runtime::spawn(async move {
+                                     let _ = commands::server::start_server(app_handle_clone_2, id).await;
+                                });
+                            }
+                        }
+
+                        // 2. Initialize File Watchers for Auto-Stop
+                        let mut stmt_stop = conn.prepare("SELECT id, install_path FROM servers WHERE auto_stop = 1").unwrap();
+                        let rows_stop = stmt_stop.query_map([], |row| {
+                             Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                        }).unwrap();
+
+                        for row in rows_stop {
+                            if let Ok((id, path)) = row {
+                                let _ = state.file_watcher.start_watching(id, std::path::PathBuf::from(path));
+                            }
+                        }
+                    }
+                };
             });
 
             // Initialize RCON state
@@ -117,6 +163,8 @@ pub fn run() {
             // System commands
             commands::system::get_system_info,
             commands::system::select_folder,
+            commands::system::select_file, // <-- New Command
+            commands::system::select_plugin_zip,
             commands::system::get_setting,
             commands::system::set_setting,
             commands::system::run_diagnostics,
@@ -139,6 +187,8 @@ pub fn run() {
             commands::server::start_log_watcher,
             commands::server::import_server,
             commands::server::show_server_console,
+            commands::server::toggle_automation,
+            commands::import::import_non_dedicated_save, // <-- New Command
             // Mod commands
             commands::mods::search_mods,
             commands::mods::get_mod_description,
@@ -154,6 +204,7 @@ pub fn run() {
             commands::mods::get_mod_install_instructions,
             commands::mods::hardcore_retry_mods,
             commands::mods::copy_mods_to_server,
+
             // Config commands
             commands::config::read_config,
             commands::config::save_config,
@@ -220,6 +271,23 @@ pub fn run() {
             commands::player::set_player_ban,
             commands::player::record_player_session,
             commands::player::search_players,
+            // Plugin commands
+            commands::plugin::check_asa_api_installed,
+            commands::plugin::get_plugin_directory,
+            commands::plugin::import_plugin_archive,
+            commands::plugin::get_installed_plugins,
+            commands::plugin::uninstall_plugin,
+            commands::plugin::toggle_plugin,
+            // File Manager commands
+            commands::file_manager::read_directory,
+            commands::file_manager::read_file_content,
+            commands::file_manager::write_file_content,
+            commands::file_manager::get_parent_directory,
+            commands::file_manager::get_disks,
+            commands::file_manager::create_directory,
+            commands::file_manager::rename_item,
+            commands::file_manager::delete_item,
+            commands::file_manager::open_in_explorer,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

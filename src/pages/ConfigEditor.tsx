@@ -14,6 +14,7 @@ import { ConfigTooltip } from '../components/config/ConfigTooltip';
 import { ArrayEditor } from '../components/config/ArrayEditor';
 import { applyPreset, ConfigPreset } from '../data/presets';
 import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
+
 // Field Render Component
 const ConfigInput = ({
     field,
@@ -192,6 +193,7 @@ export default function ConfigEditor() {
     const [activeCategory, setActiveCategory] = useState<string>('server');
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'visual' | 'gus' | 'game' | 'levels' | 'stats'>('visual');
+
     const [customDinoLevel, setCustomDinoLevel] = useState(150);
     const [customPlayerLevel, setCustomPlayerLevel] = useState(105);
     const [copied, setCopied] = useState(false);
@@ -252,6 +254,8 @@ export default function ConfigEditor() {
         };
         load();
     }, [selectedServerId]);
+
+
 
     // Check for modifications against defaults
     const checkModifications = (
@@ -399,6 +403,8 @@ export default function ConfigEditor() {
             // RCON port from ServerSettings
             const rconPort = serverSettings?.get('RCONPort');
             if (rconPort) updateParams.rconPort = parseInt(rconPort);
+
+
 
             // Sync critical settings to database
             await updateServerSettings(updateParams);
@@ -651,6 +657,7 @@ export default function ConfigEditor() {
                     >
                         <BarChart3 className="w-4 h-4" /> Per-Stat Multipliers
                     </button>
+
                 </div>
             </div>
 
@@ -856,6 +863,8 @@ export default function ConfigEditor() {
                             />
                         </div>
                     </div>
+
+
                 ) : (
                     <div className="flex-1 overflow-hidden relative p-4 bg-[#0f0f0f]">
                         <div className="absolute top-6 right-8 z-10">
@@ -871,7 +880,7 @@ export default function ConfigEditor() {
                             value={viewMode === 'gus' ? rawText.gus : rawText.game}
                             onChange={(val) => setRawText(prev => ({
                                 ...prev,
-                                [viewMode]: val
+                                [viewMode as 'gus' | 'game']: val
                             }))}
                             className="h-full shadow-2xl"
                         />

@@ -7,11 +7,13 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 /// Service for tracking player activity and statistics
+#[allow(dead_code)]
 pub struct PlayerIntelligenceService {
     /// Active sessions: steam_id -> (server_id, player_name, join_time)
     active_sessions: Arc<Mutex<HashMap<String, (i64, String, chrono::DateTime<chrono::Local>)>>>,
 }
 
+#[allow(dead_code)]
 impl PlayerIntelligenceService {
     pub fn new() -> Self {
         Self {
@@ -128,6 +130,7 @@ impl Default for PlayerIntelligenceService {
 }
 
 /// Parse PlayerStats from database row data
+#[allow(dead_code)]
 pub fn create_player_stats(
     steam_id: String,
     display_name: String,

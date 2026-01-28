@@ -15,6 +15,8 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+use crate::services::network;
+
 #[cfg(target_os = "windows")]
 mod window_hider {
     use std::sync::atomic::{AtomicU32, Ordering};
@@ -174,6 +176,7 @@ impl ProcessManager {
         cluster_id: Option<&str>,
         cluster_dir: Option<&str>,
         mods: Option<&[String]>,
+        custom_args: Option<&str>,
     ) -> Result<()> {
         let executable = install_path
             .join("ShooterGame")
@@ -185,6 +188,26 @@ impl ProcessManager {
             return Err(anyhow::anyhow!(
                 "Server executable not found at {:?}",
                 executable
+            ));
+        }
+
+        // Check ports before starting
+        if network::is_port_in_use(game_port) {
+            return Err(anyhow::anyhow!(
+                "Game Port {} is already in use by another application.",
+                game_port
+            ));
+        }
+        if network::is_port_in_use(query_port) {
+            return Err(anyhow::anyhow!(
+                "Query Port {} is already in use by another application.",
+                query_port
+            ));
+        }
+        if network::is_port_in_use(rcon_port) {
+            return Err(anyhow::anyhow!(
+                "RCON Port {} is already in use by another application.",
+                rcon_port
             ));
         }
 
@@ -246,6 +269,17 @@ impl ProcessManager {
             }
         }
 
+        // Add custom launch arguments
+        if let Some(custom) = custom_args {
+            if !custom.is_empty() {
+                // Split by whitespace but respect basic quoting if possible,
+                // for now simple split is safer than nothing.
+                let custom_parts: Vec<String> =
+                    custom.split_whitespace().map(|s| s.to_string()).collect();
+                args.extend(custom_parts);
+            }
+        }
+
         println!("  🚀 Executing Command: {:?} {:?}", executable, args);
 
         let mut command = Command::new(&executable);
@@ -254,12 +288,31 @@ impl ProcessManager {
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
-        let child = command.spawn().context("Failed to start server process")?;
+        let mut child = command.spawn().context("Failed to start server process")?;
         let child_pid = child.id();
+
+        // Wait a longer moment to check for immediate startup failures (e.g. missing DLLs, bad path)
+        std::thread::sleep(std::time::Duration::from_secs(5));
+
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                // It crashed immediately
+                return Err(anyhow::anyhow!(
+                    "Server process exited immediately with status: {:?}. This often means an invalid configuration, missing map, or corrupt installation. Check server logs.",
+                    status
+                ));
+            }
+            Ok(None) => {
+                // Still running, looks good
+            }
+            Err(e) => {
+                return Err(anyhow::anyhow!("Failed to check process status: {}", e));
+            }
+        }
 
         println!("  ✅ Server {} started with PID: {} ", server_id, child_pid);
 
-        // Emit 'running' event (optimistic, actual running state confirmed by RCON usually, but process is UP)
+        // Emit 'running' event
         self.emit_status_change(server_id, "running");
 
         // Create stop flag for log watcher
@@ -357,7 +410,7 @@ impl ProcessManager {
         Ok(())
     }
 
-    /// Stop ARK server
+    /// Stop ARK server (Force)
     pub fn stop_server(&self, server_id: i64) -> Result<()> {
         let mut processes = self.processes.lock().unwrap();
 
@@ -382,6 +435,49 @@ impl ProcessManager {
             // Emit stopped status
             self.emit_status_change(server_id, "stopped");
         }
+        Ok(())
+    }
+
+    /// Graceful shutdown via RCON
+    pub async fn shutdown_server(
+        &self,
+        server_id: i64,
+        rcon: &crate::services::rcon::RconService,
+        address: &str,
+        port: u16,
+        password: &str,
+    ) -> Result<()> {
+        println!(
+            "🛡️ Intelligent Mode: Attempting graceful shutdown for server {}...",
+            server_id
+        );
+
+        // 1. Connect and send RCON commands
+        if let Ok(resp) = rcon.connect(server_id, address, port, password).await {
+            if resp.success {
+                println!("  📡 RCON connected, sending SaveWorld...");
+                let _ = rcon.save_world(server_id).await;
+
+                std::thread::sleep(std::time::Duration::from_secs(2));
+
+                println!("  📡 Sending DoExit/Quit...");
+                let _ = rcon.send_command(server_id, "DoExit").await;
+
+                // Wait for process to exit naturally
+                let mut attempts = 0;
+                while self.is_running(server_id) && attempts < 15 {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    attempts += 1;
+                }
+            }
+        }
+
+        // 2. If still running, force stop
+        if self.is_running(server_id) {
+            println!("  ⚠️ Graceful shutdown timed out or failed, force stopping...");
+            self.stop_server(server_id)?;
+        }
+
         Ok(())
     }
 
@@ -430,6 +526,7 @@ impl ProcessManager {
         cluster_id: Option<&str>,
         cluster_dir: Option<&str>,
         mods: Option<&[String]>,
+        custom_args: Option<&str>,
     ) -> Result<()> {
         if self.is_running(server_id) {
             self.stop_server(server_id)?;
@@ -453,6 +550,7 @@ impl ProcessManager {
             cluster_id,
             cluster_dir,
             mods,
+            custom_args,
         )
     }
 

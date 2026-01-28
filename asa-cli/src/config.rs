@@ -13,6 +13,7 @@ const GAME_INI_PATH: &str = "ShooterGame/Saved/Config/WindowsServer/Game.ini";
 
 /// Server settings structure mapped from INI
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 pub struct ServerSettings {
     pub difficulty_offset: f32,
     pub harvest_amount_multiplier: f32,
@@ -22,6 +23,7 @@ pub struct ServerSettings {
 }
 
 /// Trait for applying optimized settings
+#[allow(dead_code)]
 pub trait ApplyOptimizedSettings {
     fn apply_optimized(&mut self) -> Result<()>;
 }
@@ -67,7 +69,7 @@ pub fn handle_config(
     };
 
     // Get or create ServerSettings section
-    let section = ini.section_mut(Some("ServerSettings")).map(|s| s.clone());
+    let _section = ini.section_mut(Some("ServerSettings")).map(|s| s.clone());
 
     let mut updates = Vec::new();
 
@@ -144,7 +146,7 @@ pub fn handle_optimize(server_path: &Path, startup: bool, motd: bool) -> Result<
     println!("{}", "⚡ Applying performance optimizations...".cyan());
 
     let config_path = server_path.join(GAME_USER_SETTINGS_PATH);
-    let game_ini_path = server_path.join(GAME_INI_PATH);
+    let _game_ini_path = server_path.join(GAME_INI_PATH);
 
     let performance_commands = [
         "r.VolumetricCloud 0",
@@ -156,7 +158,7 @@ pub fn handle_optimize(server_path: &Path, startup: bool, motd: bool) -> Result<
         println!("  Adding startup performance arguments...");
 
         // Load GameUserSettings.ini
-        let mut ini = if config_path.exists() {
+        let _ini = if config_path.exists() {
             Ini::load_from_file(&config_path)?
         } else {
             Ini::new()
@@ -273,6 +275,7 @@ pub fn get_game_user_settings_path(server_path: &Path) -> PathBuf {
 }
 
 /// Get the path to Game.ini
+#[allow(dead_code)]
 pub fn get_game_ini_path(server_path: &Path) -> PathBuf {
     server_path.join(GAME_INI_PATH)
 }

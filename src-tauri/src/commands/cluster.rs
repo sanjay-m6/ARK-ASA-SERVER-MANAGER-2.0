@@ -159,6 +159,7 @@ pub async fn delete_cluster(state: State<'_, AppState>, cluster_id: i64) -> Resu
 }
 
 #[tauri::command]
+#[allow(dead_code)]
 pub async fn add_server_to_cluster(
     state: State<'_, AppState>,
     cluster_id: i64,
@@ -186,6 +187,7 @@ pub async fn add_server_to_cluster(
 }
 
 #[tauri::command]
+#[allow(dead_code)]
 pub async fn remove_server_from_cluster(
     state: State<'_, AppState>,
     cluster_id: i64,
@@ -356,6 +358,7 @@ pub async fn start_cluster(state: State<'_, AppState>, cluster_id: i64) -> Resul
         Option<String>,
         String,
         Option<String>,
+        Option<String>,
     )> = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -363,7 +366,7 @@ pub async fn start_cluster(state: State<'_, AppState>, cluster_id: i64) -> Resul
         let mut stmt = conn
             .prepare(
                 "SELECT s.id, s.install_path, s.map_name, s.session_name, s.game_port, 
-                        s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address
+                        s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address, s.custom_args
                  FROM servers s
                  INNER JOIN cluster_servers cs ON s.id = cs.server_id
                  WHERE cs.cluster_id = ?1 AND s.status = 'stopped'",
@@ -385,6 +388,7 @@ pub async fn start_cluster(state: State<'_, AppState>, cluster_id: i64) -> Resul
                 row.get::<_, Option<String>>(8).unwrap_or(None),
                 row.get::<_, String>(9).unwrap_or_default(),
                 row.get::<_, Option<String>>(10).unwrap_or(None),
+                row.get::<_, Option<String>>(11).unwrap_or(None),
             ));
         }
         result
@@ -403,6 +407,7 @@ pub async fn start_cluster(state: State<'_, AppState>, cluster_id: i64) -> Resul
         server_password,
         admin_password,
         ip_address,
+        custom_args,
     ) in servers
     {
         // Get enabled mods for this server
@@ -457,6 +462,7 @@ pub async fn start_cluster(state: State<'_, AppState>, cluster_id: i64) -> Resul
             Some(&cluster_name),
             Some(&cluster_path),
             mods_option,
+            custom_args.as_deref(),
         ) {
             println!("  ⚠️ Failed to start server {}: {}", server_id, e);
         } else {
