@@ -45,18 +45,17 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## What's New
-            - Enhanced Update System with Settings tab
-            - Manual "Check for Updates" button
-            - Configurable auto-check intervals
-            - Update history tracking
-            - Player engram points configuration
+            ## 🚀 Server Visibility Fixed!
+            - **Fixed**: Servers stuck "Loading" indefinitely.
+            - **Improved**: New "Online" vs "Running" status.
+            - **Persisted**: Status saved to DB across restarts.
             
-            ## Installation
-            Download the `.msi` installer for Windows.
+            ## 🛡️ Intelligent Mode (v2.2.4)
+            - **Safety**: RCON SaveWorld before shutdown.
+            - **Shield**: Auto-pause on new save import.
             
-            ## Auto-Update
-            Existing users will receive an in-app notification to update automatically!
+            ## Install
+            Download the `.msi` below.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
