@@ -335,12 +335,13 @@ export default function ServerManager() {
                                     <div className="relative mt-1">
                                         <div className={cn(
                                             'w-4 h-4 rounded-full',
-                                            server.status === 'running' && 'bg-blue-500 animate-pulse', // Blue for loading
+                                            server.status === 'running' && 'bg-yellow-500 animate-pulse', // Yellow for loading
                                             server.status === 'online' && 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]', // Green only when fully ready
                                             server.status === 'stopped' && 'bg-slate-500',
                                             server.status === 'crashed' && 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]',
                                             server.status === 'starting' && 'bg-yellow-500 animate-pulse',
-                                            server.status === 'updating' && 'bg-blue-500 animate-pulse'
+                                            server.status === 'updating' && 'bg-blue-500 animate-pulse',
+                                            server.status === 'repairing' && 'bg-orange-500 animate-pulse shadow-[0_0_15px_rgba(249,115,22,0.5)]'
                                         )} />
                                         {server.status === 'online' && (
                                             <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-20"></div>
@@ -355,13 +356,14 @@ export default function ServerManager() {
                                             <span className={cn(
                                                 'px-2.5 py-0.5 rounded-md text-xs font-bold border',
                                                 server.status === 'online' && 'bg-green-500/10 text-green-400 border-green-500/20',
-                                                server.status === 'running' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                                                server.status === 'running' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
                                                 server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
                                                 server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
                                                 server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-                                                server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                                                server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                                                server.status === 'repairing' && 'bg-orange-500/10 text-orange-400 border-orange-500/20'
                                             )}>
-                                                {server.status === 'running' ? 'LOADING...' : server.status.toUpperCase()}
+                                                {server.status === 'running' ? 'LOADING...' : server.status === 'repairing' ? 'REPAIRING...' : server.status.toUpperCase()}
                                             </span>
                                         </div>
 

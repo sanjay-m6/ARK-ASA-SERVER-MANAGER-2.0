@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { emit, listen } from '@tauri-apps/api/event';
+import { getVersion } from '@tauri-apps/api/app';
 import { Download, X, RefreshCw, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { 
-    addUpdateHistory, 
-    updateLastCheck, 
-    shouldCheckForUpdates, 
+import {
+    addUpdateHistory,
+    updateLastCheck,
+    shouldCheckForUpdates,
     getCheckIntervalMs,
     isVersionSkipped,
     skipVersion
@@ -28,18 +30,33 @@ export interface UpdateCheckResult {
 let lastCheckResult: UpdateCheckResult = { available: false, update: null, error: null };
 let checkInProgress = false;
 
+// Helpers to manage check lock with timeout
+const acquireCheckLock = () => {
+    if (checkInProgress) return false;
+    checkInProgress = true;
+    // Safety timeout: release lock after 30 seconds if getting stuck
+    setTimeout(() => {
+        if (checkInProgress) {
+            checkInProgress = false;
+        }
+    }, 30000);
+    return true;
+};
+
+const releaseCheckLock = () => {
+    checkInProgress = false;
+};
+
 // Export function for manual trigger from Settings
 export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
-    if (checkInProgress) {
+    if (!acquireCheckLock()) {
         return lastCheckResult;
     }
-    
-    checkInProgress = true;
-    
+
     try {
         const update = await check();
         updateLastCheck();
-        
+
         if (update) {
             lastCheckResult = {
                 available: true,
@@ -49,6 +66,8 @@ export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
                 },
                 error: null,
             };
+            // Notify UI to show banner
+            await emit('update-found', lastCheckResult.update);
         } else {
             lastCheckResult = {
                 available: false,
@@ -61,19 +80,14 @@ export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
         lastCheckResult = {
             available: false,
             update: null,
-            error: 'Failed to check for updates',
+            error: err instanceof Error ? err.message : 'Failed to check for updates',
         };
+        await emit('update-error', lastCheckResult.error);
     } finally {
-        checkInProgress = false;
+        releaseCheckLock();
     }
-    
-    return lastCheckResult;
-}
 
-// Get current app version
-export function getCurrentVersion(): string {
-    // This will be set by Tauri
-    return (window as any).__TAURI_INTERNALS__?.metadata?.appVersion || '2.1.4';
+    return lastCheckResult;
 }
 
 export default function UpdateChecker() {
@@ -83,42 +97,48 @@ export default function UpdateChecker() {
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [showBanner, setShowBanner] = useState(false);
+    const [settingsRevision, setSettingsRevision] = useState(0); // Used to trigger interval restart
+    const [currentAppVersion, setCurrentAppVersion] = useState<string>('');
 
-    const checkForUpdates = useCallback(async () => {
-        if (checkInProgress) return;
-        
+    // Load current version on mount
+    useEffect(() => {
+        getVersion().then(setCurrentAppVersion).catch(console.error);
+    }, []);
+
+    const checkForUpdates = useCallback(async (isManual = false) => {
+        if (!isManual && checkInProgress) return;
+        if (!isManual && !acquireCheckLock()) return;
+
         try {
-            checkInProgress = true;
             const update = await check();
             updateLastCheck();
-            
+
             if (update) {
                 // Check if user skipped this version
-                if (isVersionSkipped(update.version)) {
+                if (!isManual && isVersionSkipped(update.version)) {
                     console.log(`Version ${update.version} was skipped by user`);
                     return;
                 }
-                
-                setUpdateAvailable({
+
+                const info = {
                     version: update.version,
                     body: update.body || 'New version available!',
-                });
+                };
+
+                setUpdateAvailable(info);
                 setUpdateObj(update);
                 setShowBanner(true);
-                
+
                 lastCheckResult = {
                     available: true,
-                    update: {
-                        version: update.version,
-                        body: update.body || 'New version available!',
-                    },
+                    update: info,
                     error: null,
                 };
             }
         } catch (err) {
             console.error('Update check failed:', err);
         } finally {
-            checkInProgress = false;
+            if (!isManual) releaseCheckLock();
         }
     }, []);
 
@@ -128,7 +148,7 @@ export default function UpdateChecker() {
             addUpdateHistory({
                 version: updateAvailable.version,
                 action: 'skipped',
-                previousVersion: getCurrentVersion(),
+                previousVersion: currentAppVersion,
             });
             setShowBanner(false);
         }
@@ -136,127 +156,178 @@ export default function UpdateChecker() {
 
     const downloadAndInstall = async () => {
         if (!updateObj || !updateAvailable) return;
-        
+
         setIsDownloading(true);
         setError(null);
-        
+
         try {
             let downloaded = 0;
             let totalSize = 0;
-            
+
             await updateObj.downloadAndInstall((event) => {
-                if (event.event === 'Started' && event.data.contentLength) {
-                    totalSize = event.data.contentLength;
+                if (event.event === 'Started') {
+                    totalSize = event.data.contentLength || 0;
                 }
                 if (event.event === 'Progress') {
                     downloaded += event.data.chunkLength;
-                    const progress = totalSize > 0 
-                        ? (downloaded / totalSize) * 100 
-                        : Math.min((downloaded / 50000000) * 100, 99);
+                    const progress = totalSize > 0
+                        ? (downloaded / totalSize) * 100
+                        : 0;
                     setDownloadProgress(progress);
                 }
             });
-            
+
             // Log successful update
             addUpdateHistory({
                 version: updateAvailable.version,
                 action: 'installed',
-                previousVersion: getCurrentVersion(),
+                previousVersion: currentAppVersion,
             });
-            
+
+            console.log("Update installed, relaunching...");
             await relaunch();
         } catch (err) {
             console.error('Update failed:', err);
-            setError('Failed to download update');
-            
+            setError('Failed to download update. Please try again or download manually.');
+
             // Log failed update
             addUpdateHistory({
                 version: updateAvailable.version,
                 action: 'failed',
-                previousVersion: getCurrentVersion(),
+                previousVersion: currentAppVersion,
             });
-            
+
             setIsDownloading(false);
         }
     };
 
-    // Initial check after 5 seconds
+    // Listen for settings changes to restart interval
+    useEffect(() => {
+        const handleSettingsChange = () => {
+            console.log("Update settings changed, restarting interval...");
+            setSettingsRevision(prev => prev + 1);
+        };
+
+        window.addEventListener('update-settings-changed', handleSettingsChange);
+        return () => window.removeEventListener('update-settings-changed', handleSettingsChange);
+    }, []);
+
+    // Scheduled interval checks
+    useEffect(() => {
+        const intervalMs = getCheckIntervalMs();
+        console.log(`Setting update check interval: ${intervalMs ? intervalMs / 1000 + 's' : 'Disabled'}`);
+
+        if (!intervalMs) {
+            return; // Interval is 'never'
+        }
+
+        // Initial check if needed
+        if (shouldCheckForUpdates()) {
+            checkForUpdates();
+        }
+
+        const intervalId = setInterval(() => {
+            if (shouldCheckForUpdates()) {
+                checkForUpdates();
+            }
+        }, Math.min(intervalMs, 3600000)); // Check at most every hour
+
+        return () => clearInterval(intervalId);
+    }, [checkForUpdates, settingsRevision]); // Restart when settingsRevision changes
+
+    // Initial check after 5 seconds startup
     useEffect(() => {
         const timer = setTimeout(() => {
             if (shouldCheckForUpdates()) {
                 checkForUpdates();
             }
         }, 5000);
-        
         return () => clearTimeout(timer);
     }, [checkForUpdates]);
 
-    // Scheduled interval checks
+    // Listen for manual check events
     useEffect(() => {
-        const intervalMs = getCheckIntervalMs();
-        
-        if (!intervalMs) {
-            return; // Interval is 'never'
-        }
-        
-        const intervalId = setInterval(() => {
-            if (shouldCheckForUpdates()) {
-                checkForUpdates();
-            }
-        }, Math.min(intervalMs, 3600000)); // Check at most every hour
-        
-        return () => clearInterval(intervalId);
-    }, [checkForUpdates]);
+        let unlistenUpdate: (() => void) | null = null;
+        let unlistenError: (() => void) | null = null;
+
+        const setupListeners = async () => {
+            unlistenUpdate = await listen<UpdateInfo>('update-found', (event) => {
+                setUpdateAvailable(event.payload);
+                setShowBanner(true);
+            });
+
+            unlistenError = await listen<string>('update-error', (event) => {
+                // For manual checks, we might want to show this in the banner too if open?
+                // But usually this is handled by the caller (Settings page)
+                // We'll just log it here
+                console.warn("Update error received:", event.payload);
+            });
+        };
+
+        setupListeners();
+
+        return () => {
+            if (unlistenUpdate) unlistenUpdate();
+            if (unlistenError) unlistenError();
+        };
+    }, []);
 
     if (!showBanner || !updateAvailable) return null;
 
     return (
         <div className={cn(
-            "fixed bottom-4 right-4 z-50 max-w-sm",
-            "bg-gradient-to-br from-slate-900 to-slate-800",
-            "border border-sky-500/30 rounded-xl shadow-2xl shadow-sky-500/10"
+            "fixed bottom-4 right-4 z-50 max-w-sm w-full",
+            "bg-slate-900",
+            "border border-slate-700 rounded-xl shadow-2xl shadow-black/50 animate-in slide-in-from-bottom-2 duration-300"
         )}>
             <div className="p-4">
                 <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                        <div className="p-2 rounded-lg bg-sky-500/20">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/20">
                             <Download className="w-5 h-5 text-sky-400" />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-white">Update Available</h3>
-                            <p className="text-sm text-slate-400">Version {updateAvailable.version}</p>
+                            <h3 className="font-bold text-white text-sm">Update Available</h3>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-400">v{currentAppVersion}</span>
+                                <span className="text-slate-600">→</span>
+                                <span className="px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20 text-[10px] font-mono text-green-400">v{updateAvailable.version}</span>
+                            </div>
                         </div>
                     </div>
                     <button
                         onClick={() => setShowBanner(false)}
-                        className="p-1 hover:bg-slate-700 rounded-lg transition-colors"
+                        className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors text-slate-500 hover:text-white"
                     >
-                        <X className="w-4 h-4 text-slate-400" />
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
-                <p className="text-sm text-slate-300 mb-4 line-clamp-3">
-                    {updateAvailable.body}
-                </p>
+                <div className="bg-slate-950/50 rounded-lg p-3 mb-4 border border-slate-800/50 max-h-32 overflow-y-auto custom-scrollbar">
+                    <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
+                        {updateAvailable.body}
+                    </p>
+                </div>
 
                 {error && (
-                    <div className="flex items-center gap-2 text-red-400 text-sm mb-3">
-                        <AlertCircle className="w-4 h-4" />
-                        {error}
+                    <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-400 text-xs mb-3">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>{error}</span>
                     </div>
                 )}
 
                 {isDownloading && (
-                    <div className="mb-3">
-                        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                            <div 
-                                className="h-full bg-gradient-to-r from-sky-500 to-cyan-500 transition-all duration-300"
+                    <div className="mb-3 space-y-2">
+                        <div className="flex justify-between text-xs text-slate-400">
+                            <span>Downloading...</span>
+                            <span>{Math.round(downloadProgress)}%</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-sky-500 transition-all duration-300 ease-out"
                                 style={{ width: `${downloadProgress}%` }}
                             />
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 text-center">
-                            Downloading... {Math.round(downloadProgress)}%
-                        </p>
                     </div>
                 )}
 
@@ -265,53 +336,43 @@ export default function UpdateChecker() {
                         onClick={downloadAndInstall}
                         disabled={isDownloading}
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg",
-                            "bg-gradient-to-r from-sky-500 to-cyan-500",
-                            "text-white font-medium text-sm",
-                            "hover:from-sky-600 hover:to-cyan-600",
+                            "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg",
+                            "bg-sky-600 hover:bg-sky-500 active:bg-sky-700",
+                            "text-white font-bold text-xs tracking-wide uppercase",
                             "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "transition-all duration-200"
+                            "transition-all duration-200 shadow-lg shadow-sky-500/20"
                         )}
                     >
                         {isDownloading ? (
                             <>
-                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                                 Installing...
                             </>
                         ) : (
                             <>
-                                <CheckCircle className="w-4 h-4" />
+                                <CheckCircle className="w-3.5 h-3.5" />
                                 Update Now
                             </>
                         )}
                     </button>
-                    <button
-                        onClick={handleSkipVersion}
-                        disabled={isDownloading}
-                        title="Skip this version"
-                        className={cn(
-                            "px-3 py-2 rounded-lg",
-                            "bg-slate-700 text-slate-300",
-                            "hover:bg-slate-600",
-                            "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "transition-colors"
-                        )}
-                    >
-                        <Clock className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={() => setShowBanner(false)}
-                        disabled={isDownloading}
-                        className={cn(
-                            "px-4 py-2 rounded-lg",
-                            "bg-slate-700 text-slate-300 font-medium text-sm",
-                            "hover:bg-slate-600",
-                            "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "transition-colors"
-                        )}
-                    >
-                        Later
-                    </button>
+
+                    {!isDownloading && (
+                        <>
+                            <button
+                                onClick={handleSkipVersion}
+                                title="Skip this version"
+                                className="px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700"
+                            >
+                                <Clock className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setShowBanner(false)}
+                                className="px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700 text-xs font-bold uppercase tracking-wide"
+                            >
+                                Later
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
         </div>

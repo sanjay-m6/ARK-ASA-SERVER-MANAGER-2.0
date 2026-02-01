@@ -36,6 +36,10 @@ export async function setSetting(key: string, value: string): Promise<void> {
     return await invoke('set_setting', { key, value });
 }
 
+export async function optimizeMemory(): Promise<void> {
+    return await invoke('optimize_memory');
+}
+
 // ============================================================================
 // Server Commands
 // ============================================================================
@@ -158,8 +162,30 @@ export async function showServerConsole(serverId: number): Promise<void> {
 // Mod Commands
 // ============================================================================
 
-export async function searchMods(query: string, serverType: ServerType): Promise<ModInfo[]> {
-    return await invoke('search_mods', { query, serverType });
+export interface CurseForgeCategory {
+    id: number;
+    name: string;
+    iconUrl?: string;
+}
+
+export async function getModCategories(): Promise<CurseForgeCategory[]> {
+    return await invoke('get_mod_categories');
+}
+
+export async function searchMods(
+    query: string,
+    serverType: ServerType,
+    categoryId?: number,
+    sortField?: number,
+    sortOrder?: string
+): Promise<ModInfo[]> {
+    return await invoke('search_mods', {
+        query,
+        serverType,
+        categoryId: categoryId || null,
+        sortField: sortField || null,
+        sortOrder: sortOrder || null
+    });
 }
 
 export async function getModDescription(modId: string): Promise<string> {

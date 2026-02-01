@@ -108,41 +108,255 @@ impl ProcessManager {
             loop {
                 std::thread::sleep(std::time::Duration::from_secs(2));
 
-                let mut p_lock = monitor_processes.lock().unwrap();
-                let mut crashed_servers = Vec::new();
+                // Collect crashed servers while holding the lock
+                let crashed_servers: Vec<(i64, i32)>;
+                {
+                    let mut p_lock = monitor_processes.lock().unwrap();
+                    let mut to_remove: Vec<(i64, i32)> = Vec::new();
 
-                for (id, proc) in p_lock.iter_mut() {
-                    match proc.child.try_wait() {
-                        Ok(Some(status)) => {
-                            // Process has exited
-                            println!(
-                                "  ⚠️ Monitor detected server {} exit with status: {:?}",
-                                id, status
-                            );
-                            crashed_servers.push(*id);
+                    for (id, proc) in p_lock.iter_mut() {
+                        match proc.child.try_wait() {
+                            Ok(Some(status)) => {
+                                // Process has exited
+                                let exit_code = status.code().unwrap_or(-1);
+                                println!(
+                                    "  ⚠️ Monitor detected server {} exit with status: {:?} (code: {})",
+                                    id, status, exit_code
+                                );
+                                to_remove.push((*id, exit_code));
 
-                            // Signal log watcher to stop
-                            proc.stop_flag.store(true, Ordering::SeqCst);
-                        }
-                        Ok(None) => {
-                            // Still running
-                        }
-                        Err(e) => {
-                            println!("  ❌ Monitor failed to check server {}: {}", id, e);
+                                // Signal log watcher to stop
+                                proc.stop_flag.store(true, Ordering::SeqCst);
+                            }
+                            Ok(None) => {
+                                // Still running
+                            }
+                            Err(e) => {
+                                println!("  ❌ Monitor failed to check server {}: {}", id, e);
+                            }
                         }
                     }
-                }
 
-                // Remove crashed servers and emit events
-                for id in crashed_servers {
-                    p_lock.remove(&id);
+                    // Remove crashed servers from the process list
+                    for (id, _) in &to_remove {
+                        p_lock.remove(id);
+                    }
+
+                    crashed_servers = to_remove;
+                } // Lock is released here
+
+                // Now process crashed servers without holding the lock
+                for (id, exit_code) in crashed_servers {
+                    // Determine status based on exit code
+                    // Exit code 0 = normal stop, anything else = crash/error
+                    let status = if exit_code == 0 { "stopped" } else { "crashed" };
+
+                    println!(
+                        "  📢 Server {} status changed to '{}' (exit code: {})",
+                        id, status, exit_code
+                    );
+
+                    // Check if intelligent_mode is enabled for auto-repair
+                    let mut should_auto_repair = false;
+                    let mut server_install_path: Option<String> = None;
+                    
+                    if exit_code != 0 {
+                        if let Some(state) = monitor_handle.try_state::<AppState>() {
+                            if let Ok(db) = state.db.lock() {
+                                if let Ok(conn) = db.get_connection() {
+                                    // Check if intelligent_mode is enabled
+                                    let result: Result<(i32, String), _> = conn.query_row(
+                                        "SELECT intelligent_mode, install_path FROM servers WHERE id = ?1",
+                                        [id],
+                                        |row| Ok((row.get::<usize, i32>(0)?, row.get::<usize, String>(1)?)),
+                                    );
+                                    if let Ok((intelligent_mode, install_path)) = result {
+                                        if intelligent_mode != 0 {
+                                            should_auto_repair = true;
+                                            server_install_path = Some(install_path);
+                                            println!(
+                                                "  🔧 Intelligent Mode enabled for server {} - will attempt auto-repair",
+                                                id
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Emit status change event
                     let _ = monitor_handle.emit(
                         "server-status-change",
                         ServerStatusEvent {
                             server_id: id,
-                            status: "stopped".to_string(), // Or "crashed"
+                            status: if should_auto_repair { "repairing".to_string() } else { status.to_string() },
                         },
                     );
+
+                    // Update database status
+                    if let Some(state) = monitor_handle.try_state::<AppState>() {
+                        if let Ok(db) = state.db.lock() {
+                            if let Ok(conn) = db.get_connection() {
+                                let db_status = if should_auto_repair { "repairing" } else { "stopped" };
+                                match conn.execute(
+                                    "UPDATE servers SET status = ?1 WHERE id = ?2",
+                                    rusqlite::params![db_status, id],
+                                ) {
+                                    Ok(_) => {
+                                        println!(
+                                            "  ✅ Database status updated for server {} to '{}'",
+                                            id, db_status
+                                        );
+                                    }
+                                    Err(e) => {
+                                        println!("  ❌ Failed to update database status for server {}: {}", id, e);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Emit a server crash/stop notification event for the UI
+                    let _ = monitor_handle.emit(
+                        "server_log",
+                        ServerLogEvent {
+                            server_id: id,
+                            line: format!(
+                                "[Manager] Server process exited with code {}. Status: {}{}",
+                                exit_code, 
+                                status,
+                                if should_auto_repair { " - Auto-repair initiating..." } else { "" }
+                            ),
+                            is_stderr: exit_code != 0,
+                        },
+                    );
+
+                    // Auto-repair: Clear mod cache and restart without mods
+                    if should_auto_repair {
+                        if let Some(install_path) = server_install_path {
+                            let repair_handle = monitor_handle.clone();
+                            let repair_id = id;
+                            
+                            // Spawn repair thread after releasing all locks
+                            std::thread::spawn(move || {
+                                println!("  🔧 Auto-repair: Starting repair process for server {}", repair_id);
+                                
+                                // Emit starting message
+                                let _ = repair_handle.emit(
+                                    "server_log",
+                                    ServerLogEvent {
+                                        server_id: repair_id,
+                                        line: "[Manager] Auto-repair: Waiting 3 seconds before repair...".to_string(),
+                                        is_stderr: false,
+                                    },
+                                );
+                                
+                                // Wait a moment before attempting repair
+                                std::thread::sleep(std::time::Duration::from_secs(3));
+                                
+                                // Clear mod cache (.temp folder)
+                                let temp_folder = std::path::PathBuf::from(&install_path)
+                                    .join("ShooterGame")
+                                    .join("Binaries")
+                                    .join("Win64")
+                                    .join("ShooterGame")
+                                    .join(".temp");
+                                
+                                if temp_folder.exists() {
+                                    println!("  🗑️ Auto-repair: Clearing mod cache at {:?}", temp_folder);
+                                    match std::fs::remove_dir_all(&temp_folder) {
+                                        Ok(_) => {
+                                            let _ = repair_handle.emit(
+                                                "server_log",
+                                                ServerLogEvent {
+                                                    server_id: repair_id,
+                                                    line: format!("[Manager] Cleared mod cache: {:?}", temp_folder),
+                                                    is_stderr: false,
+                                                },
+                                            );
+                                        }
+                                        Err(e) => {
+                                            println!("  ⚠️ Failed to clear mod cache: {}", e);
+                                        }
+                                    }
+                                }
+                                
+                                // Also try alternate temp location
+                                let alt_temp = std::path::PathBuf::from(&install_path)
+                                    .join("ShooterGame")
+                                    .join("Mods")
+                                    .join(".temp");
+                                if alt_temp.exists() {
+                                    println!("  🗑️ Auto-repair: Clearing alternate mod cache at {:?}", alt_temp);
+                                    let _ = std::fs::remove_dir_all(&alt_temp);
+                                }
+                                
+                                // Emit repair status
+                                let _ = repair_handle.emit(
+                                    "server_log",
+                                    ServerLogEvent {
+                                        server_id: repair_id,
+                                        line: "[Manager] Auto-repair: Starting server without mods...".to_string(),
+                                        is_stderr: false,
+                                    },
+                                );
+                                
+                                // Trigger restart without mods via Tauri command
+                                // Use runtime to call the async command
+                                match tokio::runtime::Runtime::new() {
+                                    Ok(rt) => {
+                                        rt.block_on(async {
+                                            // Get the state from the app handle
+                                            let state: tauri::State<'_, AppState> = repair_handle.state();
+                                            
+                                            // Import and call the start_server_no_mods command
+                                            if let Err(e) = crate::commands::server::start_server_no_mods(
+                                                repair_handle.clone(),
+                                                state,
+                                                repair_id,
+                                            ).await {
+                                                println!("  ❌ Auto-repair failed for server {}: {}", repair_id, e);
+                                                let _ = repair_handle.emit(
+                                                    "server_log",
+                                                    ServerLogEvent {
+                                                        server_id: repair_id,
+                                                        line: format!("[Manager] Auto-repair failed: {}. Please restart manually.", e),
+                                                        is_stderr: true,
+                                                    },
+                                                );
+                                                
+                                                // Update status back to stopped
+                                                if let Some(state) = repair_handle.try_state::<AppState>() {
+                                                    if let Ok(db) = state.db.lock() {
+                                                        if let Ok(conn) = db.get_connection() {
+                                                            let _ = conn.execute(
+                                                                "UPDATE servers SET status = 'stopped' WHERE id = ?1",
+                                                                [repair_id],
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                println!("  ✅ Auto-repair: Server {} restarted without mods", repair_id);
+                                                let _ = repair_handle.emit(
+                                                    "server_log",
+                                                    ServerLogEvent {
+                                                        server_id: repair_id,
+                                                        line: "[Manager] Auto-repair successful! Server restarted without mods.".to_string(),
+                                                        is_stderr: false,
+                                                    },
+                                                );
+                                            }
+                                        });
+                                    }
+                                    Err(e) => {
+                                        println!("  ❌ Failed to create tokio runtime for auto-repair: {}", e);
+                                    }
+                                }
+                            });
+                        }
+                    }
                 }
 
                 // Check for stuck servers (Running but not online for > 15 mins)
@@ -287,28 +501,108 @@ impl ProcessManager {
 
         println!("  🚀 Executing Command: {:?} {:?}", executable, args);
 
+        let win64_dir = install_path
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64");
+
+        println!("  📂 Setting Working Directory: {:?}", win64_dir);
+
         let mut command = Command::new(&executable);
         command
+            .current_dir(&win64_dir)
             .args(&args)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null());
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
 
         let mut child = command.spawn().context("Failed to start server process")?;
         let child_pid = child.id();
 
-        // Wait a longer moment to check for immediate startup failures (e.g. missing DLLs, bad path)
-        std::thread::sleep(std::time::Duration::from_secs(5));
+        // Capture Output Streams
+        let stdout = child.stdout.take().expect("Failed to capture stdout");
+        let stderr = child.stderr.take().expect("Failed to capture stderr");
+
+        let app_handle_out = self.app_handle.clone();
+        let app_handle_err = self.app_handle.clone();
+
+        // Stdout Reader
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                if let Ok(l) = line {
+                    // Filter out noisy CFCore messages (mod system warnings that aren't actual errors)
+                    if l.contains("LogCFCore:") && (
+                        l.contains("Couldn't load mods library") ||
+                        l.contains("No machine id was found") ||
+                        l.contains("UserContextInfo not loaded") ||
+                        l.contains("Error querying server mods") ||
+                        l.contains("Error: 404")
+                    ) {
+                        continue; // Skip these noisy CFCore warnings
+                    }
+                    
+                    let _ = app_handle_out.emit(
+                        "server_log",
+                        ServerLogEvent {
+                            server_id,
+                            line: l,
+                            is_stderr: false,
+                        },
+                    );
+                }
+            }
+        });
+
+        // Stderr Reader
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                if let Ok(l) = line {
+                    // Filter out noisy CFCore messages (mod system warnings that aren't actual errors)
+                    if l.contains("LogCFCore:") && (
+                        l.contains("Couldn't load mods library") ||
+                        l.contains("No machine id was found") ||
+                        l.contains("UserContextInfo not loaded") ||
+                        l.contains("Error querying server mods") ||
+                        l.contains("Error: 404")
+                    ) {
+                        continue; // Skip these noisy CFCore warnings
+                    }
+                    
+                    let _ = app_handle_err.emit(
+                        "server_log",
+                        ServerLogEvent {
+                            server_id,
+                            line: l,
+                            is_stderr: true, // Mark as stderr
+                        },
+                    );
+                }
+            }
+        });
+
+        // Wait a moment to check for immediate startup failures (e.g. missing DLLs, bad path)
+        // Only check for very quick failures - ARK servers can take several minutes to fully start
+        std::thread::sleep(std::time::Duration::from_secs(3));
 
         match child.try_wait() {
             Ok(Some(status)) => {
-                // It crashed immediately
+                let exit_code = status.code().unwrap_or(-1);
+                let error_msg = match exit_code {
+                    3 => "Exit code 3: This usually indicates invalid map name, corrupted installation, or missing game files. Try verifying/updating the server installation.",
+                    1 => "Exit code 1: General error. Check for missing dependencies or configuration issues.",
+                    -1 => "Process terminated abnormally. Check for anti-virus interference or missing permissions.",
+                    _ => "Unknown error. Check the server console logs for details.",
+                };
                 return Err(anyhow::anyhow!(
-                    "Server process exited immediately with status: {:?}. This often means an invalid configuration, missing map, or corrupt installation. Check server logs.",
-                    status
+                    "Server process exited immediately with status: {:?} (code: {}). {}",
+                    status,
+                    exit_code,
+                    error_msg
                 ));
             }
             Ok(None) => {
-                // Still running, looks good
+                // Still running after 5 seconds - let the background monitor handle any later crashes
             }
             Err(e) => {
                 return Err(anyhow::anyhow!("Failed to check process status: {}", e));
@@ -408,6 +702,27 @@ impl ProcessManager {
                                 {
                                     println!("  🎉 Server {} is ONLINE!", server_id);
                                     online_flag_clone.store(true, Ordering::SeqCst);
+                                    // Update database status (Do this FIRST to avoid race conditions with frontend polling)
+                                    if let Some(state) = app_handle_status.try_state::<AppState>() {
+                                        match state.db.lock() {
+                                            Ok(db) => {
+                                                match db.get_connection() {
+                                                    Ok(conn) => {
+                                                        if let Err(e) = conn.execute(
+                                                            "UPDATE servers SET status = 'online' WHERE id = ?1",
+                                                            [server_id],
+                                                        ) {
+                                                            eprintln!("  ❌ Failed to update server status in DB: {}", e);
+                                                        }
+                                                    }
+                                                    Err(e) => eprintln!("  ❌ Failed to get DB connection: {}", e),
+                                                }
+                                            }
+                                            Err(e) => eprintln!("  ❌ Failed to lock DB: {}", e),
+                                        }
+                                    }
+
+                                    // Then emit status change event
                                     let _ = app_handle_status.emit(
                                         "server-status-change",
                                         ServerStatusEvent {
@@ -415,18 +730,6 @@ impl ProcessManager {
                                             status: "online".to_string(),
                                         },
                                     );
-
-                                    // Update database status to 'online'
-                                    if let Some(state) = app_handle_status.try_state::<AppState>() {
-                                        if let Ok(db) = state.db.lock() {
-                                            if let Ok(conn) = db.get_connection() {
-                                                let _ = conn.execute(
-                                                    "UPDATE servers SET status = 'online' WHERE id = ?1",
-                                                    [server_id],
-                                                );
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -530,12 +833,30 @@ impl ProcessManager {
         if let Some(server_proc) = processes.get_mut(&server_id) {
             match server_proc.child.try_wait() {
                 Ok(Some(status)) => {
-                    println!("  ⚠️ Server {} exited with status: {:?}", server_id, status);
+                    let exit_code = status.code().unwrap_or(-1);
+                    let status_str = if exit_code == 0 { "stopped" } else { "crashed" };
+
+                    println!(
+                        "  ⚠️ Server {} exited with status: {:?} (code: {}, status: {})",
+                        server_id, status, exit_code, status_str
+                    );
                     server_proc.stop_flag.store(true, Ordering::SeqCst);
                     processes.remove(&server_id);
 
                     // Emit crash/stop event
-                    self.emit_status_change(server_id, "stopped"); // or 'crashed' if non-zero?
+                    self.emit_status_change(server_id, status_str);
+
+                    // Update database status
+                    if let Some(state) = self.app_handle.try_state::<AppState>() {
+                        if let Ok(db) = state.db.lock() {
+                            if let Ok(conn) = db.get_connection() {
+                                let _ = conn.execute(
+                                    "UPDATE servers SET status = 'stopped' WHERE id = ?1",
+                                    [server_id],
+                                );
+                            }
+                        }
+                    }
 
                     false
                 }

@@ -12,6 +12,7 @@ import { useUIStore } from '../stores/uiStore';
 import { cn } from '../utils/helpers';
 import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData } from '../utils/tauri';
 import { getVersion } from '@tauri-apps/api/app';
+import { listen } from '@tauri-apps/api/event';
 import PerformanceMonitor from '../components/performance/PerformanceMonitor';
 import InstallServerDialog from '../components/server/InstallServerDialog';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
@@ -182,12 +183,13 @@ export default function Dashboard() {
     // Subscribe to real-time status updates
     let unlistenStatus: () => void;
 
-    import('@tauri-apps/api/event').then(async ({ listen }) => {
+    const setupListener = async () => {
       unlistenStatus = await listen<{ server_id: number, status: any }>('server-status-change', (event) => {
         console.log('⚡ Server Status Update:', event.payload);
         updateServerStatus(event.payload.server_id, event.payload.status);
       });
-    });
+    };
+    setupListener();
 
     // Reduced polling frequency (heartbeat)
     const interval = setInterval(() => {
@@ -398,7 +400,8 @@ export default function Dashboard() {
                       server.status === 'stopped' && 'bg-slate-500',
                       server.status === 'crashed' && 'bg-red-500',
                       server.status === 'starting' && 'bg-yellow-500 animate-pulse',
-                      server.status === 'updating' && 'bg-blue-500 animate-pulse'
+                      server.status === 'updating' && 'bg-blue-500 animate-pulse',
+                      server.status === 'repairing' && 'bg-orange-500 animate-pulse'
                     )} />
                   </div>
                   <div>
@@ -450,15 +453,21 @@ export default function Dashboard() {
 
                   {/* Status Badge with Reachability */}
                   <div className={cn(
-                    'px-2.5 py-1 rounded-lg text-xs font-bold border ml-2 flex items-center gap-2',
-                    server.status === 'running' && 'bg-green-500/10 text-green-400 border-green-500/20',
+                    'px-2.5 py-1 rounded-lg text-xs font-bold border ml-2 flex items-center gap-2 transition-all duration-300',
+                    server.status === 'online' && 'bg-green-500/20 text-green-300 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.3)] animate-pulse',
+                    server.status === 'running' && 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20 animate-pulse',
                     server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
                     server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
                     server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-                    server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                    server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                    server.status === 'repairing' && 'bg-orange-500/10 text-orange-400 border-orange-500/20'
                   )}>
-                    <span>{server.status.toUpperCase()}</span>
-                    {server.status === 'running' && server.reachability && (
+                    <span>
+                      {server.status === 'online' ? 'ONLINE' :
+                        server.status === 'running' ? 'LOADING...' :
+                          server.status.toUpperCase()}
+                    </span>
+                    {(server.status === 'online' || server.status === 'running') && server.reachability && (
                       <>
                         <div className="w-px h-3 bg-current opacity-20"></div>
                         <span className="opacity-90 font-medium">

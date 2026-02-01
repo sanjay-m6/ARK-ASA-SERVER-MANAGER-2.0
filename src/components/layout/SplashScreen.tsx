@@ -14,6 +14,14 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                 onComplete();
             });
         }
+
+        // Safety timeout: failing all else, force proceed after 9 seconds
+        const timer = setTimeout(() => {
+            console.log("SplashScreen safety timeout triggered");
+            onComplete();
+        }, 9000); // 9 seconds (1s buffer after 8s animation)
+
+        return () => clearTimeout(timer);
     }, [onComplete]);
 
     const handleVideoEnd = () => {
@@ -38,7 +46,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.8 }}
             >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.1)_0%,rgba(0,0,0,0.8)_80%)] pointer-events-none z-0" />
+                <div className="absolute inset-0 bg-slate-900 pointer-events-none z-0" />
 
                 <motion.div
                     className="relative w-full h-full"
@@ -68,7 +76,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                     />
 
                     {/* Cinematic Overlay Gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
+                    {/* Cinematic Overlay Gradient Removed */}
 
                     {/* Floating UI Layer (3D Depth) */}
                     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-10" style={{ transform: "translateZ(60px)" }}>
@@ -77,7 +85,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                         <div className="flex justify-end pointer-events-auto">
                             <button
                                 onClick={onComplete}
-                                className="text-white/30 hover:text-white/90 text-[10px] tracking-[0.2em] uppercase transition-all hover:scale-110 font-light border border-white/5 px-4 py-2 rounded-full hover:bg-white/5 backdrop-blur-sm shadow-[0_0_15px_rgba(0,0,0,0.5)]"
+                                className="text-white/30 hover:text-white/90 text-[10px] tracking-[0.2em] uppercase transition-all hover:scale-110 font-light border border-white/5 px-4 py-2 rounded-full hover:bg-slate-800 shadow-[0_0_15px_rgba(0,0,0,0.5)]"
                             >
                                 Skip Intro [ESC]
                             </button>
@@ -107,7 +115,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                         >
-                                            <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
+                                            <div className="w-2 h-2 bg-green-500 rounded-full" />
                                             <motion.span
                                                 animate={{ opacity: [1, 0.6, 1] }}
                                                 transition={{ duration: 0.5, repeat: Infinity }}
@@ -118,7 +126,7 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
                                     </div>
 
                                     {/* Bar Container */}
-                                    <div className="h-2 w-full bg-slate-900/50 rounded-full overflow-hidden backdrop-blur-md border border-white/5 shadow-2xl">
+                                    <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden border border-white/5 shadow-xl">
                                         <motion.div
                                             className="h-full bg-gradient-to-r from-cyan-600 via-blue-500 to-violet-500 relative"
                                             initial={{ width: "0%" }}

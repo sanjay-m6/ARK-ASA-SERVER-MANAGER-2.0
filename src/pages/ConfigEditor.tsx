@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { readConfig, saveConfig, updateServerSettings } from '../utils/tauri';
@@ -16,19 +16,33 @@ import { applyPreset, ConfigPreset } from '../data/presets';
 import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 
 // Field Render Component
-const ConfigInput = ({
+// Field Render Component - Memoized to prevent re-renders of all fields on single keypress
+const ConfigInput = memo(({
     field,
     value,
-    onChange,
+    source,
+    onFieldChange,
     isModified,
-    onReset
+    onFieldReset
 }: {
     field: ConfigField,
     value: string,
-    onChange: (val: string) => void,
+    source: 'GameUserSettings' | 'Game',
+    onFieldChange: (source: 'GameUserSettings' | 'Game', section: string, key: string, val: string, defaultValue?: string) => void,
     isModified?: boolean,
-    onReset?: () => void
+    onFieldReset?: (source: 'GameUserSettings' | 'Game', section: string, key: string, defaultValue: string) => void
 }) => {
+    // Stable handlers that call the parent's stable callbacks
+    const handleChange = (val: string) => {
+        onFieldChange(source, field.section, field.key, val, field.defaultValue);
+    };
+
+    const handleReset = () => {
+        if (onFieldReset && field.defaultValue) {
+            onFieldReset(source, field.section, field.key, field.defaultValue);
+        }
+    };
+
     // Inline label JSX to avoid recreating component on each render
     const labelContent = (
         <ConfigTooltip
@@ -45,9 +59,9 @@ const ConfigInput = ({
                         <span className="w-2 h-2 rounded-full bg-orange-500 shadow-lg shadow-orange-500/50" title="Modified from default" />
                     )}
                 </div>
-                {isModified && onReset && (
+                {isModified && onFieldReset && (
                     <button
-                        onClick={onReset}
+                        onClick={handleReset}
                         className="p-1 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                         title="Reset to default"
                     >
@@ -81,8 +95,8 @@ const ConfigInput = ({
                             <div className="flex items-center gap-2">
                                 {field.label}
                                 {isModified && <span className="w-2 h-2 rounded-full bg-orange-500" />}
-                                {isModified && onReset && (
-                                    <button onClick={(e) => { e.stopPropagation(); onReset(); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                {isModified && onFieldReset && (
+                                    <button onClick={(e) => { e.stopPropagation(); handleReset(); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1">
                                         <RotateCcw className="w-3 h-3 text-slate-400 hover:text-white" />
                                     </button>
                                 )}
@@ -94,7 +108,7 @@ const ConfigInput = ({
                     min={field.min || 0}
                     max={field.max || 100}
                     step={field.step || 1}
-                    onChange={(val) => onChange(val.toString())}
+                    onChange={(val) => handleChange(val.toString())}
                 />
             );
         case 'boolean':
@@ -106,7 +120,7 @@ const ConfigInput = ({
                             {field.description && <div className="text-sm text-slate-400">{field.description}</div>}
                         </div>
                         <button
-                            onClick={() => onChange(value.toLowerCase() === 'true' ? 'False' : 'True')}
+                            onClick={() => handleChange(value.toLowerCase() === 'true' ? 'False' : 'True')}
                             className={cn(
                                 "relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 flex-shrink-0 mt-1",
                                 value.toLowerCase() === 'true' ? "bg-cyan-600" : "bg-slate-700"
@@ -128,7 +142,7 @@ const ConfigInput = ({
                     {labelContent}
                     <select
                         value={value}
-                        onChange={(e) => onChange(e.target.value)}
+                        onChange={(e) => handleChange(e.target.value)}
                         className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:ring-1 focus:ring-cyan-500 outline-none"
                     >
                         {field.options?.map(opt => (
@@ -144,7 +158,7 @@ const ConfigInput = ({
                     <ArrayEditor
                         label={field.label}
                         value={value}
-                        onChange={onChange}
+                        onChange={handleChange}
                         template={field.template || {}}
                     />
                     {field.description && (
@@ -161,7 +175,7 @@ const ConfigInput = ({
                         {labelContent}
                         <textarea
                             value={value}
-                            onChange={(e) => onChange(e.target.value)}
+                            onChange={(e) => handleChange(e.target.value)}
                             className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:ring-1 focus:ring-cyan-500 outline-none font-mono text-sm min-h-[150px]"
                             placeholder="Enter values, one per line..."
                         />
@@ -176,14 +190,14 @@ const ConfigInput = ({
                     <input
                         type={field.type === 'number' ? 'number' : 'text'}
                         value={value}
-                        onChange={(e) => onChange(e.target.value)}
+                        onChange={(e) => handleChange(e.target.value)}
                         className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:ring-1 focus:ring-cyan-500 outline-none font-mono"
                     />
                     {field.description && <div className="mt-2 text-sm text-slate-400">{field.description}</div>}
                 </div>
             );
     }
-};
+});
 
 export default function ConfigEditor() {
     const location = useLocation();
@@ -244,7 +258,8 @@ export default function ConfigEditor() {
                     Game: parsedGame
                 });
 
-                setRawText({ gus: gusContent, game: gameContent });
+                // Optimization: Don't store rawText in state initially to save RAM
+                // setRawText({ gus: gusContent, game: gameContent });
             } catch (err) {
                 console.error(err);
                 toast.error('Failed to load configuration files');
@@ -289,22 +304,35 @@ export default function ConfigEditor() {
     };
 
     const handleSwitchToVisual = () => {
+        if (viewMode === 'visual') return;
+
         setConfigs({
             GameUserSettings: parseIniContent(rawText.gus),
             Game: parseIniContent(rawText.game)
         });
+        // Optimization: Clear raw text from memory when in visual mode
+        setRawText({ gus: '', game: '' });
         setViewMode('visual');
     };
 
     const handleSwitchToRaw = (target: 'gus' | 'game') => {
-        setRawText({
-            gus: generateIniContent(configs.GameUserSettings),
-            game: generateIniContent(configs.Game)
-        });
+        if (viewMode === target) return;
+
+        // Only regenerate if coming from visual mode or if we need to sync
+        // If switching between raw views (gus <-> game), we should keep existing edits?
+        // Actually, rawText holds both. switching viewMode just changes what is displayed.
+        // But if we come from Visual, we must regenerate.
+
+        if (viewMode === 'visual') {
+            setRawText({
+                gus: generateIniContent(configs.GameUserSettings),
+                game: generateIniContent(configs.Game)
+            });
+        }
         setViewMode(target);
     };
 
-    const handleUpdate = (source: 'GameUserSettings' | 'Game', section: string, key: string, val: string, defaultValue?: string) => {
+    const handleUpdate = useCallback((source: 'GameUserSettings' | 'Game', section: string, key: string, val: string, defaultValue?: string) => {
         setConfigs(prev => {
             const fileMap = prev[source];
             const newFileMap = new Map(fileMap);
@@ -332,12 +360,12 @@ export default function ConfigEditor() {
 
             return newConfigs;
         });
-    };
+    }, []);
 
-    const handleReset = (source: 'GameUserSettings' | 'Game', section: string, key: string, defaultValue: string) => {
+    const handleReset = useCallback((source: 'GameUserSettings' | 'Game', section: string, key: string, defaultValue: string) => {
         handleUpdate(source, section, key, defaultValue, defaultValue);
         toast.success('Reset to default');
-    };
+    }, [handleUpdate]);
 
     const handleSave = async () => {
         if (!selectedServerId) return;
@@ -563,7 +591,7 @@ export default function ConfigEditor() {
     }, [isResizing]);
 
     return (
-        <div className="h-full flex flex-col bg-slate-950/50 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-800/50">
+        <div className="h-full flex flex-col bg-slate-950 rounded-xl overflow-hidden border border-slate-800">
             {/* Header */}
             <div className="p-4 border-b border-white/5 flex flex-col gap-4 bg-slate-900/50">
                 <div className="flex items-center justify-between gap-4">
@@ -768,9 +796,10 @@ export default function ConfigEditor() {
                                                         key={`${field.section}.${field.key}`}
                                                         field={field}
                                                         value={getValue(group.source as any, field.section, field.key, field.defaultValue)}
-                                                        onChange={(val) => handleUpdate(group.source as any, field.section, field.key, val, field.defaultValue)}
+                                                        source={group.source as any}
+                                                        onFieldChange={handleUpdate}
                                                         isModified={modifiedSettings.has(`${field.section}.${field.key}`)}
-                                                        onReset={() => handleReset(group.source as any, field.section, field.key, field.defaultValue || '')}
+                                                        onFieldReset={handleReset}
                                                     />
                                                 ))}
                                             </div>

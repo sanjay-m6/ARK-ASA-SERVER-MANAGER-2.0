@@ -1,7 +1,20 @@
+import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { optimizeMemory } from '../../utils/tauri';
 
 export default function AppLayout() {
+    useEffect(() => {
+        // Aggressive memory optimization: Trim working set every 10 seconds
+        // This keeps the visible RAM usage low ("locked" behavior requested by user)
+        const trimMemory = () => optimizeMemory().catch(() => { });
+
+        trimMemory();
+        const interval = setInterval(trimMemory, 10000);
+
+        return () => clearInterval(interval);
+    }, []);
+
     return (
         <div className="flex h-screen overflow-hidden bg-dark-950">
             <Sidebar />

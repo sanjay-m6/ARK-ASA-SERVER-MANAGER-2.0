@@ -1,6 +1,6 @@
 use crate::models::ModInfo;
 use reqwest::Client;
-use scraper::{Html, Selector};
+// use scraper::{Html, Selector}; // Removed unused imports
 use serde::Deserialize;
 use std::error::Error;
 
@@ -12,8 +12,28 @@ struct CurseForgeSearchResponse {
 }
 
 #[derive(Debug, Deserialize)]
+struct CurseForgeGetModResponse {
+    data: CurseForgeMod,
+}
+
+#[derive(Debug, Deserialize)]
+struct CurseForgeCategoryResponse {
+    data: Vec<CurseForgeCategory>,
+}
+
+#[derive(Debug, Deserialize, serde::Serialize)]
+pub struct CurseForgeCategory {
+    pub id: i32,
+    pub name: String,
+    #[serde(rename = "iconUrl")]
+    pub icon_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct CurseForgeMod {
     id: i32,
+    #[serde(rename = "gameId")]
+    game_id: i32,
     name: String,
     summary: String,
     authors: Vec<CurseForgeAuthor>,
@@ -42,11 +62,47 @@ struct CurseForgeLinks {
     website_url: String,
 }
 
+/// Get available categories for ASA
+pub async fn get_categories(
+    api_key: Option<String>,
+) -> Result<Vec<CurseForgeCategory>, Box<dyn Error>> {
+    let api_key = api_key
+        .or_else(|| std::env::var("CURSEFORGE_API_KEY").ok())
+        .unwrap_or_default();
+
+    if api_key.trim().is_empty() {
+        return Ok(vec![]);
+    }
+
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+
+    // Game ID for ASA = 83374
+    let url = format!("{}/categories?gameId=83374", CURSEFORGE_API_URL);
+
+    let resp = client.get(&url).header("x-api-key", api_key).send().await?;
+
+    if resp.status().is_success() {
+        let body = resp.text().await?;
+        let cat_resp: CurseForgeCategoryResponse = serde_json::from_str(&body)?;
+        // Filter out root categories if needed, or just return all
+        // Usually we want Main categories.
+        // For now return all, frontend can filter.
+        Ok(cat_resp.data)
+    } else {
+        Ok(vec![])
+    }
+}
+
 /// Search CurseForge for ASA mods
 /// This is the primary mod source for ARK: Survival Ascended
 pub async fn search_curseforge(
     query: &str,
     api_key: Option<String>,
+    category_id: Option<i32>,
+    sort_field: Option<i32>,
+    sort_order: Option<String>,
 ) -> Result<Vec<ModInfo>, Box<dyn Error>> {
     let api_key = api_key
         .or_else(|| std::env::var("CURSEFORGE_API_KEY").ok())
@@ -73,9 +129,67 @@ pub async fn search_curseforge(
     }
 
     let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
+        .timeout(std::time::Duration::from_secs(10))
         .build()?;
 
+    // ARK Survival Ascended Game ID on CurseForge
+    // Primary ID: 83374 (ARK: Survival Ascended)
+    let game_id = 83374;
+
+    // 1. Direct ID Lookup Logic
+    // Only attempt if NO category filter is set, as ID is specific
+    if category_id.is_none() {
+        if let Ok(direct_id) = query.parse::<i32>() {
+            println!(
+                "  🔢 Query '{}' looks like an ID, attempting direct lookup...",
+                query
+            );
+            let id_url = format!("{}/mods/{}", CURSEFORGE_API_URL, direct_id);
+
+            match client
+                .get(&id_url)
+                .header("x-api-key", api_key)
+                .send()
+                .await
+            {
+                Ok(resp) => {
+                    if resp.status().is_success() {
+                        if let Ok(body_text) = resp.text().await {
+                            if let Ok(mod_resp) =
+                                serde_json::from_str::<CurseForgeGetModResponse>(&body_text)
+                            {
+                                let cf_mod = mod_resp.data;
+                                // Verify it belongs to ASA (83374)
+                                if cf_mod.game_id == game_id {
+                                    println!(
+                                        "  ✅ Found mod via Direct ID lookup: {}",
+                                        cf_mod.name
+                                    );
+                                    return Ok(vec![ModInfo {
+                                        id: cf_mod.id.to_string(),
+                                        curseforge_id: Some(cf_mod.id as i64),
+                                        name: cf_mod.name,
+                                        author: cf_mod.authors.first().map(|a| a.name.clone()),
+                                        version: None,
+                                        downloads: Some(cf_mod.download_count as i64),
+                                        description: Some(cf_mod.summary),
+                                        thumbnail_url: cf_mod.logo.map(|l| l.thumbnail_url),
+                                        curseforge_url: Some(cf_mod.links.website_url),
+                                        enabled: false,
+                                        load_order: 0,
+                                        last_updated: cf_mod.date_modified,
+                                    }]);
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(_) => { /* Ignore direct lookup errors, fall back to search */ }
+            }
+        }
+    }
+
+    // SPECIAL DEBUG COMMAND:
     // SPECIAL DEBUG COMMAND:
     if query == "debug_games" {
         let url = format!("{}/games", CURSEFORGE_API_URL);
@@ -116,22 +230,29 @@ pub async fn search_curseforge(
             .collect());
     }
 
-    // ARK Survival Ascended Game ID on CurseForge
-    // Primary ID: 83374 (ARK: Survival Ascended)
-    let game_id = 83374;
+    // ... normal search logic ...
+    let mut params = vec![format!("gameId={}", game_id), "pageSize=20".to_string()];
 
-    let url = if query.is_empty() || query.len() < 2 {
-        // If no search query, get popular mods
-        format!(
-            "{}/mods/search?gameId={}&sortField=2&sortOrder=desc&pageSize=20",
-            CURSEFORGE_API_URL, game_id
-        )
-    } else {
-        format!(
-            "{}/mods/search?gameId={}&searchFilter={}&sortField=2&sortOrder=desc&pageSize=20",
-            CURSEFORGE_API_URL, game_id, query
-        )
-    };
+    if !query.is_empty() && query.len() >= 2 {
+        params.push(format!("searchFilter={}", query));
+    }
+
+    if let Some(cat) = category_id {
+        if cat > 0 {
+            params.push(format!("categoryId={}", cat));
+        }
+    }
+
+    // Default to Popularity (2) if not specified
+    // 1=Featured, 2=Popularity, 3=LastUpdated, 4=Name, 5=Author, 6=TotalDownloads
+    let sort = sort_field.unwrap_or(2);
+    params.push(format!("sortField={}", sort));
+
+    // Default to desc
+    let order = sort_order.unwrap_or_else(|| "desc".to_string());
+    params.push(format!("sortOrder={}", order));
+
+    let url = format!("{}/mods/search?{}", CURSEFORGE_API_URL, params.join("&"));
 
     println!("  🔍 CurseForge search: {}", url);
 
@@ -180,6 +301,9 @@ pub async fn search_curseforge(
                                             .collect();
 
                                         return Ok(mods);
+                                    } else {
+                                        // Empty results is a valid result
+                                        return Ok(vec![]);
                                     }
                                 }
                                 Err(e) => {
@@ -194,7 +318,7 @@ pub async fn search_curseforge(
                         }
                     }
                 } else if status.as_u16() == 401 || status.as_u16() == 403 {
-                    // Invalid API key - don't retry
+                    // Invalid API key - don't retry, return specific error mod
                     return Ok(vec![ModInfo {
                         id: "0".to_string(),
                         curseforge_id: None,
@@ -267,7 +391,9 @@ pub async fn get_mod_description(
     }
 
     let url = format!("{}/mods/{}/description", CURSEFORGE_API_URL, mod_id);
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
     let resp = client.get(&url).header("x-api-key", api_key).send().await?;
 
     if !resp.status().is_success() {
@@ -278,82 +404,27 @@ pub async fn get_mod_description(
     Ok(body.data)
 }
 
-/// Deprecated: Steam Workshop search (kept for reference only, ASA uses CurseForge)
-#[allow(dead_code)]
-pub async fn search_steam_workshop(query: &str) -> Result<Vec<ModInfo>, Box<dyn Error>> {
-    let client = Client::new();
-
-    // If query is generic (like 'ark'), show trending instead of text search
-    let url = if query.len() <= 3 {
-        "https://steamcommunity.com/workshop/browse/?appid=346110&browsesort=trend&section=readytouseitems".to_string()
-    } else {
-        format!(
-            "https://steamcommunity.com/workshop/browse/?appid=346110&searchtext={}&childpublishedfileid=0&browsesort=textsearch&section=items",
-            query
-        )
-    };
-
-    let html = client.get(&url).send().await?.text().await?;
-    let document = Html::parse_document(&html);
-
-    let item_selector = Selector::parse(".workshopItem").unwrap();
-    let title_selector = Selector::parse(".workshopItemTitle").unwrap();
-    let author_selector = Selector::parse(".workshopItemAuthorName a").unwrap();
-    let link_selector = Selector::parse("a.ugc").unwrap();
-    let image_selector = Selector::parse(".workshopItemPreviewImage").unwrap();
-
-    let mut mods = Vec::new();
-
-    for element in document.select(&item_selector) {
-        let title = element
-            .select(&title_selector)
-            .next()
-            .map(|e| e.text().collect::<String>())
-            .unwrap_or_default();
-        let author = element
-            .select(&author_selector)
-            .next()
-            .map(|e| e.text().collect::<String>())
-            .unwrap_or_default();
-
-        let link_element = element.select(&link_selector).next();
-        let workshop_url = link_element
-            .and_then(|e| e.value().attr("href"))
-            .unwrap_or_default()
-            .to_string();
-
-        let id = workshop_url
-            .split("id=")
-            .nth(1)
-            .and_then(|s| s.split('&').next())
-            .unwrap_or_default()
-            .to_string();
-        let thumbnail_url = element
-            .select(&image_selector)
-            .next()
-            .and_then(|e| e.value().attr("src"))
-            .unwrap_or_default()
-            .to_string();
-
-        if !id.is_empty() {
-            mods.push(ModInfo {
-                id,
-                curseforge_id: None,
-                name: title,
-                author: Some(author),
-                version: None,
-                downloads: None,
-                description: Some("Steam Workshop Mod (deprecated)".to_string()),
-                thumbnail_url: Some(thumbnail_url),
-                curseforge_url: Some(workshop_url),
-                enabled: false,
-                load_order: 0,
-                last_updated: None,
-            });
-        }
+/// Verify if a CurseForge API key is valid by making a lightweight request
+pub async fn verify_api_key(api_key: String) -> bool {
+    if api_key.trim().is_empty() {
+        return false;
     }
 
-    Ok(mods)
+    let client = match Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
+
+    // Use the /games endpoint as a lightweight check
+    let url = format!("{}/games?pageSize=1", CURSEFORGE_API_URL);
+
+    match client.get(&url).header("x-api-key", api_key).send().await {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]
@@ -364,7 +435,7 @@ mod tests {
     async fn test_search_curseforge_no_key() {
         // Ensure env var is unset
         std::env::remove_var("CURSEFORGE_API_KEY");
-        let results = search_curseforge("dino", None).await;
+        let results = search_curseforge("dino", None, None, None, None).await;
         assert!(results.is_ok());
         let mods = results.unwrap();
         assert_eq!(mods.len(), 1);

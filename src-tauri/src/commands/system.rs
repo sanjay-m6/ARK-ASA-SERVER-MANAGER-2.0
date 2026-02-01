@@ -219,3 +219,18 @@ pub async fn install_steamcmd(app: tauri::AppHandle) -> Result<String, String> {
 
     Ok("SteamCMD installed successfully.".to_string())
 }
+
+#[tauri::command]
+pub async fn optimize_memory() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        // Using SetProcessWorkingSetSize with -1 (usize::MAX) trims the working set
+        use windows_sys::Win32::System::Threading::{GetCurrentProcess, SetProcessWorkingSetSize};
+        unsafe {
+            let process = GetCurrentProcess();
+            let _ = SetProcessWorkingSetSize(process, usize::MAX, usize::MAX);
+        }
+        // println!("🧠 Memory optimized (Working Set trimmed)");
+    }
+    Ok(())
+}

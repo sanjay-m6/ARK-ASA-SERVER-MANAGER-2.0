@@ -11,6 +11,8 @@
     "core:window:allow-create",
     "core:webview:allow-create-webview-window",
     "opener:default",
-    "dialog:default"
+    "dialog:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
   ]
 }

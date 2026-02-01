@@ -204,8 +204,9 @@ pub fn run() {
             commands::mods::get_mod_install_instructions,
             commands::mods::hardcore_retry_mods,
             commands::mods::copy_mods_to_server,
-
-            // Config commands
+            commands::mods::verify_curseforge_key,
+            commands::mods::get_mod_categories,
+            // Modpack commands
             commands::config::read_config,
             commands::config::save_config,
             commands::config::backup_config,
@@ -288,6 +289,19 @@ pub fn run() {
             commands::file_manager::rename_item,
             commands::file_manager::delete_item,
             commands::file_manager::open_in_explorer,
+            // Firewall commands
+            commands::firewall::get_all_servers_firewall_status,
+            commands::firewall::get_firewall_status,
+            commands::firewall::create_firewall_rules,
+            commands::firewall::remove_firewall_rules,
+            commands::firewall::create_all_firewall_rules,
+            // Manual port commands
+            commands::firewall::check_manual_port_status,
+            commands::firewall::create_manual_firewall_rule,
+            commands::firewall::remove_manual_firewall_rule,
+            commands::firewall::create_manual_firewall_rules,
+            // System commands
+            commands::system::optimize_memory,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

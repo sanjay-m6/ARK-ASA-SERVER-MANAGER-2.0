@@ -3,10 +3,12 @@ import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Dow
 import { getSetting, setSetting } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 import DiagnosticsPanel from '../components/settings/DiagnosticsPanel';
 import PortValidator from '../components/settings/PortValidator';
 import PortForwardingGuide from '../components/settings/PortForwardingGuide';
-import { manualCheckForUpdates, getCurrentVersion } from '../components/UpdateChecker';
+import FirewallSettings from '../components/settings/FirewallSettings';
+import { manualCheckForUpdates } from '../components/UpdateChecker';
 import {
     getUpdateSettings,
     setUpdateSettings,
@@ -25,8 +27,33 @@ export default function Settings() {
     const [isSaving, setIsSaving] = useState(false);
     const [showCurseforgeKey, setShowCurseforgeKey] = useState(false);
     const [showSteamKey, setShowSteamKey] = useState(false);
+    const [currentVersion, setCurrentVersion] = useState<string>('');
 
-    const [activeTab, setActiveTab] = useState<'api' | 'network' | 'updates'>('api');
+    const [activeTab, setActiveTab] = useState<'api' | 'network' | 'firewall' | 'updates'>('api');
+
+    // API Verification State
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [keyStatus, setKeyStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
+
+    const verifyKey = async () => {
+        setIsVerifying(true);
+        try {
+            const isValid = await invoke('verify_curseforge_key', { apiKey: curseforgeApiKey });
+            if (isValid) {
+                setKeyStatus('valid');
+                toast.success('API Key Verified!');
+            } else {
+                setKeyStatus('invalid');
+                toast.error('Invalid API Key');
+            }
+        } catch (error) {
+            console.error('Verification failed:', error);
+            setKeyStatus('invalid');
+            toast.error('Verification failed');
+        } finally {
+            setIsVerifying(false);
+        }
+    };
 
     // Update system state
     const [updateSettings, setUpdateSettingsState] = useState<UpdateSettings | null>(null);
@@ -36,6 +63,7 @@ export default function Settings() {
 
     useEffect(() => {
         loadSettings();
+        getVersion().then(setCurrentVersion).catch(console.error);
     }, []);
 
     const openUrl = async (url: string) => {
@@ -94,6 +122,10 @@ export default function Settings() {
         setUpdateSettings({ checkInterval: interval });
         // Update local state directly for immediate UI feedback
         setUpdateSettingsState(prev => prev ? { ...prev, checkInterval: interval } : getUpdateSettings());
+
+        // Notify UpdateChecker to restart interval
+        window.dispatchEvent(new Event('update-settings-changed'));
+
         toast.success(`Update check interval set to ${interval === 'never' ? 'manual only' : interval}`);
     };
 
@@ -164,6 +196,15 @@ export default function Settings() {
                         }`}
                 >
                     🌐 Network & Guides
+                </button>
+                <button
+                    onClick={() => setActiveTab('firewall')}
+                    className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'firewall'
+                        ? 'bg-red-500/10 text-red-400 border-b-2 border-red-400'
+                        : 'text-slate-400 hover:text-white'
+                        }`}
+                >
+                    🛡️ Firewall
                 </button>
                 <button
                     onClick={() => setActiveTab('updates')}
@@ -278,7 +319,10 @@ export default function Settings() {
                                     <input
                                         type={showCurseforgeKey ? 'text' : 'password'}
                                         value={curseforgeApiKey}
-                                        onChange={(e) => setCurseforgeApiKey(e.target.value)}
+                                        onChange={(e) => {
+                                            setCurseforgeApiKey(e.target.value);
+                                            setKeyStatus('idle');
+                                        }}
                                         placeholder="Enter your CurseForge API key"
                                         className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all font-mono"
                                     />
@@ -306,21 +350,46 @@ export default function Settings() {
                                 </p>
                             </div>
 
-                            {curseforgeApiKey && (
-                                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
-                                    <div className="flex items-center space-x-2">
-                                        <CheckCircle className="w-5 h-5 text-green-400" />
-                                        <span className="text-green-400 font-medium">API Key configured</span>
-                                    </div>
-                                </div>
-                            )}
-
                             {!curseforgeApiKey && (
                                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
                                     <div className="flex items-center space-x-2">
                                         <AlertCircle className="w-5 h-5 text-amber-400" />
                                         <span className="text-amber-400 font-medium">No API key set - ASA mod search will not work</span>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Verification UI */}
+                            {curseforgeApiKey && (
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={verifyKey}
+                                        disabled={isVerifying}
+                                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-all ${keyStatus === 'valid'
+                                            ? 'bg-green-600/20 text-green-400 border border-green-500/30'
+                                            : keyStatus === 'invalid'
+                                                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                                : 'bg-slate-700 hover:bg-slate-600 text-white border border-slate-600'
+                                            }`}
+                                    >
+                                        {isVerifying ? (
+                                            <>
+                                                <RefreshCw className="w-4 h-4 animate-spin" /> Verifying...
+                                            </>
+                                        ) : keyStatus === 'valid' ? (
+                                            <>
+                                                <CheckCircle className="w-4 h-4" /> Verified & Working
+                                            </>
+                                        ) : keyStatus === 'invalid' ? (
+                                            <>
+                                                <AlertCircle className="w-4 h-4" /> Invalid Key - Check Again
+                                            </>
+                                        ) : (
+                                            <>
+                                                <CheckCircle className="w-4 h-4" /> Verify Key
+                                            </>
+                                        )}
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -453,6 +522,10 @@ export default function Settings() {
                         <PortForwardingGuide />
                     </div>
                 </div>
+            ) : activeTab === 'firewall' ? (
+                <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                    <FirewallSettings />
+                </div>
             ) : activeTab === 'updates' ? (
                 <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
                     {/* Check for Updates */}
@@ -464,7 +537,7 @@ export default function Settings() {
                             <div className="flex-1">
                                 <h2 className="text-2xl font-bold text-white">Check for Updates</h2>
                                 <p className="text-slate-400 mt-1">
-                                    Current version: <span className="text-emerald-400 font-mono">{getCurrentVersion()}</span>
+                                    Current version: <span className="text-emerald-400 font-mono">{currentVersion}</span>
                                 </p>
                             </div>
                         </div>

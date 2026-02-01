@@ -8,32 +8,52 @@ use tauri::State;
 pub async fn search_mods(
     state: State<'_, AppState>,
     query: String,
-    server_type: String,
+    _server_type: String,
+    category_id: Option<i32>,
+    sort_field: Option<i32>,
+    sort_order: Option<String>,
 ) -> Result<Vec<ModInfo>, String> {
     println!(
-        "🔍 search_mods called: query='{}', type='{}'",
-        query, server_type
+        "🔍 search_mods called: query='{}', cat={:?}, sort={:?}",
+        query, category_id, sort_field
     );
 
     // ASA-only: use CurseForge for mod search
     let api_key = crate::services::api_key_manager::ApiKeyManager::get_curseforge_key(&state);
-    println!(
-        "  → CurseForge API Key: {}",
-        if api_key.is_some() {
-            "Set ✓"
-        } else {
-            "Missing ✗"
-        }
-    );
-
-    let result = mod_scraper::search_curseforge(&query, api_key)
+    
+    let result = mod_scraper::search_curseforge(&query, api_key, category_id, sort_field, sort_order)
         .await
         .map_err(|e| e.to_string());
+        
     match &result {
         Ok(mods) => println!("  ✅ Found {} CurseForge mods", mods.len()),
         Err(e) => println!("  ❌ CurseForge search failed: {}", e),
     }
     result
+}
+
+#[tauri::command]
+pub async fn get_mod_categories(
+    state: State<'_, AppState>,
+) -> Result<Vec<mod_scraper::CurseForgeCategory>, String> {
+    let api_key = crate::services::api_key_manager::ApiKeyManager::get_curseforge_key(&state);
+    mod_scraper::get_categories(api_key).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn verify_curseforge_key(
+    api_key: String,
+) -> Result<bool, String> {
+    println!("🔑 Verifying CurseForge API Key...");
+    let is_valid = mod_scraper::verify_api_key(api_key).await;
+    
+    if is_valid {
+        println!("  ✅ API Key is VALID");
+    } else {
+        println!("  ❌ API Key is INVALID");
+    }
+
+    Ok(is_valid)
 }
 
 #[tauri::command]

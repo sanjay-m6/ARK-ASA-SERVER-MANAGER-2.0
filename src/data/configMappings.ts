@@ -30,7 +30,12 @@ export interface ConfigGroup {
     fields: ConfigField[];
 }
 
-// Category metadata for UI
+export type ConfigCategory = {
+    category: string;
+    info: { label: string; icon: string; color: string };
+    groups: ConfigGroup[];
+};
+
 // Category metadata for UI
 export const CATEGORY_INFO: Record<string, { label: string; icon: string; color: string }> = {
     server: { label: 'Server', icon: '🖥️', color: 'from-blue-500 to-cyan-500' },

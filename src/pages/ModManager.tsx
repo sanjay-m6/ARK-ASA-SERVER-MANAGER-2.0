@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, getModDescription, copyModsToServer, type ModConfigPreview } from '../utils/tauri';
+import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, getModDescription, copyModsToServer, type ModConfigPreview, getModCategories, type CurseForgeCategory } from '../utils/tauri';
 import { ModInfo } from '../types';
 import toast from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
@@ -11,9 +11,73 @@ interface ServerBasic {
     name: string;
 }
 
+// Custom Hook
+function useDebounce<T>(value: T, delay: number): T {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [value, delay]);
+    return debouncedValue;
+}
+
+const ModCard = memo(({
+    mod,
+    isSelected,
+    onToggleSelect,
+    onSelectDetail,
+    onInstall
+}: {
+    mod: ModInfo,
+    isSelected: boolean,
+    onToggleSelect: (id: string) => void,
+    onSelectDetail: (mod: ModInfo) => void,
+    onInstall: (mod: ModInfo) => void
+}) => {
+    return (
+        <div onClick={() => onSelectDetail(mod)} className={cn("glass-panel rounded-2xl overflow-hidden group hover:border-sky-500/50 transition-all flex flex-col cursor-pointer relative", isSelected ? "border-sky-500/80 ring-2 ring-sky-500/20 bg-sky-900/10" : "")}>
+            <div className="relative h-48 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent z-10"></div>
+                <img src={mod.thumbnailUrl || 'https://steamuserimages-a.akamaihd.net/ugc/267224193367683679/61585257560F4500732813583643376510100000/'} alt={mod.name} loading="lazy" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleSelect(mod.id); }} className="absolute top-3 left-3 z-30 p-2 rounded-lg bg-black/40 hover:bg-black/60 transition-colors cursor-pointer group/check">
+                    {isSelected ? <CheckSquare className="w-6 h-6 text-sky-400" /> : <Square className="w-6 h-6 text-white/50 group-hover/check:text-white" />}
+                </div>
+                <div className="absolute bottom-4 left-4 z-20"><h3 className="text-lg font-bold text-white leading-tight drop-shadow-md">{mod.name}</h3><p className="text-xs text-slate-300 mt-1 font-medium drop-shadow-sm">by {mod.author}</p></div>
+            </div>
+            <div className="p-6 flex-1 flex flex-col pointer-events-none">
+                <div dangerouslySetInnerHTML={{ __html: mod.description || 'No description' }} className="text-slate-400 text-sm line-clamp-3 mb-4 flex-1 pointer-events-none opacity-80" />
+                <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-700/50 pointer-events-auto">
+                    <button
+                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); onInstall(mod); }}
+                        disabled={mod.id === '0'}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all text-sm font-medium z-30 ${mod.id === '0'
+                            ? 'bg-red-500/20 text-red-400 border border-red-500/30 cursor-not-allowed'
+                            : 'bg-sky-600/20 hover:bg-sky-500 hover:text-white text-sky-400 border border-sky-500/30'
+                            }`}
+                    >
+                        {mod.id === '0' ? <AlertTriangle className="w-4 h-4" /> : <Download className="w-4 h-4" />}
+                        <span>{mod.id === '0' ? 'Check API Key' : 'Install'}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+});
+
 export default function ModManager() {
     const [searchQuery, setSearchQuery] = useState('');
+    const debouncedSearchQuery = useDebounce(searchQuery, 500);
     const [activeTab, setActiveTab] = useState<'available' | 'installed'>('available');
+
+    // Filters
+    const [categories, setCategories] = useState<CurseForgeCategory[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
+    const [sortField, setSortField] = useState<number>(2); // Default Popularity
+    const [sortOrder, setSortOrder] = useState<string>('desc');
 
     // Available Mods State
     const [availableMods, setAvailableMods] = useState<ModInfo[]>([]);
@@ -71,6 +135,11 @@ export default function ModManager() {
     const [transferTargetId, setTransferTargetId] = useState<number | null>(null);
     const [isTransferring, setIsTransferring] = useState(false);
 
+    // Load available categories
+    useEffect(() => {
+        getModCategories().then(setCategories).catch(err => console.error("Failed to load categories", err));
+    }, []);
+
     // Load servers on mount and auto-select first one
     useEffect(() => {
         const loadServers = async () => {
@@ -111,14 +180,20 @@ export default function ModManager() {
         } else {
             // Fetch Available Mods
             const fetchAvailable = async () => {
-                const searchTerm = searchQuery.trim() || 'dino';
-                console.log(`🔍 Searching for "${searchTerm}"...`);
+                const searchTerm = debouncedSearchQuery.trim() || '';
+                // Only default to 'dino' if no filters are active? 
+                // Actually user might want popular mods. If filters are active, empty search is fine.
+                // If filters are inactive AND empty search, fallback to popular.
+                const query = (searchTerm === '' && !selectedCategory) ? 'dino' : searchTerm;
+
+                console.log(`🔍 Searching for "${query}"...`);
                 setIsLoading(true);
                 try {
-                    const results = await searchMods(searchTerm, 'ASA');
+                    const results = await searchMods(query, 'ASA', selectedCategory, sortField, sortOrder);
                     if (results.length === 1 && results[0].id === '0') {
                         toast.error('CurseForge API Key required!');
-                        setAvailableMods([]);
+                        // Show the error card instead of empty list
+                        setAvailableMods(results);
                     } else {
                         setAvailableMods(results);
                     }
@@ -131,12 +206,9 @@ export default function ModManager() {
                 }
             };
 
-            const timeoutId = setTimeout(() => {
-                fetchAvailable();
-            }, searchQuery.length > 0 ? 500 : 0);
-            return () => clearTimeout(timeoutId);
+            fetchAvailable();
         }
-    }, [searchQuery, activeTab, selectedServerId]);
+    }, [debouncedSearchQuery, activeTab, selectedServerId, selectedCategory, sortField, sortOrder]);
 
     const handleToggleSelect = (modId: string) => {
         const newSelected = new Set(selectedModIds);
@@ -364,7 +436,7 @@ export default function ModManager() {
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-4 w-full max-w-xl pointer-events-none">
                 {/* Progress Bar */}
                 {isBatchInstalling && (
-                    <div className="w-full bg-slate-900/90 backdrop-blur-md border border-sky-500/30 rounded-2xl p-4 shadow-2xl shadow-sky-900/20 animate-in slide-in-from-bottom-5 pointer-events-auto">
+                    <div className="w-full bg-slate-900/90 border border-sky-500/30 rounded-2xl p-4 shadow-2xl shadow-sky-900/20 animate-in slide-in-from-bottom-5 pointer-events-auto">
                         <div className="flex justify-between text-sm mb-2">
                             <span className="text-sky-400 font-medium animate-pulse">Installing {batchProgress.currentModName}...</span>
                             <span className="text-slate-400">{batchProgress.current} / {batchProgress.total}</span>
@@ -377,7 +449,7 @@ export default function ModManager() {
 
                 {/* Batch Action Bar */}
                 {selectedModIds.size > 0 && !isBatchInstalling && activeTab === 'available' && (
-                    <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-full px-6 py-3 shadow-2xl shadow-sky-900/20 flex items-center gap-6 animate-in slide-in-from-bottom-5 pointer-events-auto">
+                    <div className="bg-slate-900/90 border border-slate-700 rounded-full px-6 py-3 shadow-2xl shadow-sky-900/20 flex items-center gap-6 animate-in slide-in-from-bottom-5 pointer-events-auto">
                         <span className="text-white font-medium pl-2">{selectedModIds.size} mods selected</span>
                         <div className="h-6 w-px bg-slate-700" />
                         <button onClick={() => setSelectedModIds(new Set())} className="text-slate-400 hover:text-white transition-colors text-sm">Clear</button>
@@ -391,7 +463,7 @@ export default function ModManager() {
             {/* Mod Transfer Dialog */}
             {
                 showTransferDialog && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-200">
                         <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl shadow-sky-900/20">
                             <div className="p-6 border-b border-slate-800">
                                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -450,7 +522,7 @@ export default function ModManager() {
             {/* Config Preview Modal - No Changes Here */}
             {
                 showPreview && configPreview && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-200">
                         <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-sky-900/20">
                             {/* Header */}
                             <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-800/50">
@@ -499,7 +571,7 @@ export default function ModManager() {
             {/* Mod Details Modal */}
             {
                 selectedModDetail && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setSelectedModDetail(null)}>
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 animate-in fade-in duration-200" onClick={() => setSelectedModDetail(null)}>
                         <div className="relative bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl h-[85vh] overflow-hidden flex flex-col shadow-2xl shadow-sky-900/20" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                             <div className="relative h-64 md:h-80 shrink-0"><div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent z-10" /><img src={selectedModDetail.thumbnailUrl || 'https://steamuserimages-a.akamaihd.net/ugc/267224193367683679/61585257560F4500732813583643376510100000/'} alt={selectedModDetail.name} className="w-full h-full object-cover" /><button onClick={() => setSelectedModDetail(null)} className="absolute top-4 right-4 z-20 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"><X className="w-6 h-6" /></button><div className="absolute bottom-6 left-8 z-20"><h2 className="text-4xl font-bold text-white shadow-black drop-shadow-lg">{selectedModDetail.name}</h2><p className="text-slate-300 text-lg mt-2 font-medium drop-shadow-md">by {selectedModDetail.author}</p></div></div>
                             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -546,16 +618,79 @@ export default function ModManager() {
                 )
             }
 
+            {/* Filters Section (Available Mods Only) */}
+            {activeTab === 'available' && (
+                <div className="mb-6 flex flex-wrap items-center gap-4 bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                        <ListChecks className="w-4 h-4" />
+                        <span>Filters:</span>
+                    </div>
+
+                    {/* Category Select */}
+                    <select
+                        value={selectedCategory || ''}
+                        onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
+                        className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block p-2.5 min-w-[150px]"
+                    >
+                        <option value="">All Categories</option>
+                        {categories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                                {cat.name}
+                            </option>
+                        ))}
+                    </select>
+
+                    {/* Sort Select */}
+                    <select
+                        value={sortField}
+                        onChange={(e) => setSortField(Number(e.target.value))}
+                        className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block p-2.5"
+                    >
+                        <option value={1}>Featured</option>
+                        <option value={2}>Popularity</option>
+                        <option value={3}>Last Updated</option>
+                        <option value={4}>Name</option>
+                        <option value={6}>Total Downloads</option>
+                    </select>
+
+                    {/* Sort Order */}
+                    <button
+                        onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                        className="p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:border-slate-500 transition-all"
+                        title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                    >
+                        {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+                    </button>
+
+                    {/* Clear Filters */}
+                    {(selectedCategory || sortField !== 2 || sortOrder !== 'desc') && (
+                        <button
+                            onClick={() => {
+                                setSelectedCategory(undefined);
+                                setSortField(2);
+                                setSortOrder('desc');
+                                setSearchQuery('');
+                            }}
+                            className="ml-auto text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1"
+                        >
+                            <X className="w-3 h-3" /> Clear Filters
+                        </button>
+                    )}
+                </div>
+            )}
+
             {/* Search and Tabs */}
             <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
-                {activeTab === 'available' ? (
-                    <div className="relative w-full md:w-96">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                        <input type="text" value={searchQuery} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)} placeholder="Search CurseForge mods..." className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all" />
-                    </div>
-                ) : (
-                    <div className="text-lg text-slate-400 font-medium">Manage Installed Mods ({installedMods.length})</div>
-                )}
+                <div className="relative w-full md:w-96">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                        placeholder={activeTab === 'available' ? "Search CurseForge mods..." : "Search installed mods..."}
+                        className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                    />
+                </div>
 
                 <div className="flex gap-4 items-center">
                     {activeTab === 'available' && (
@@ -585,22 +720,14 @@ export default function ModManager() {
                             </div>
                         ) : (
                             availableMods.map((mod) => (
-                                <div key={mod.id} onClick={() => setSelectedModDetail(mod)} className={cn("glass-panel rounded-2xl overflow-hidden group hover:border-sky-500/50 transition-all flex flex-col cursor-pointer relative", selectedModIds.has(mod.id) ? "border-sky-500/80 ring-2 ring-sky-500/20 bg-sky-900/10" : "")}>
-                                    <div className="relative h-48 overflow-hidden">
-                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent z-10"></div>
-                                        <img src={mod.thumbnailUrl || 'https://steamuserimages-a.akamaihd.net/ugc/267224193367683679/61585257560F4500732813583643376510100000/'} alt={mod.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                        <div onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleToggleSelect(mod.id); }} className="absolute top-3 left-3 z-30 p-2 rounded-lg bg-black/40 hover:bg-black/60 backdrop-blur-sm transition-colors cursor-pointer group/check">
-                                            {selectedModIds.has(mod.id) ? <CheckSquare className="w-6 h-6 text-sky-400" /> : <Square className="w-6 h-6 text-white/50 group-hover/check:text-white" />}
-                                        </div>
-                                        <div className="absolute bottom-4 left-4 z-20"><h3 className="text-lg font-bold text-white leading-tight drop-shadow-md">{mod.name}</h3><p className="text-xs text-slate-300 mt-1 font-medium drop-shadow-sm">by {mod.author}</p></div>
-                                    </div>
-                                    <div className="p-6 flex-1 flex flex-col pointer-events-none">
-                                        <div dangerouslySetInnerHTML={{ __html: mod.description || 'No description' }} className="text-slate-400 text-sm line-clamp-3 mb-4 flex-1 pointer-events-none opacity-80" />
-                                        <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-700/50 pointer-events-auto">
-                                            <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleInstallMod(mod); }} className="flex items-center space-x-2 px-4 py-2 bg-sky-600/20 hover:bg-sky-500 hover:text-white text-sky-400 border border-sky-500/30 rounded-lg transition-all text-sm font-medium z-30"><Download className="w-4 h-4" /><span>Install</span></button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <ModCard
+                                    key={mod.id}
+                                    mod={mod}
+                                    isSelected={selectedModIds.has(mod.id)}
+                                    onToggleSelect={handleToggleSelect}
+                                    onSelectDetail={setSelectedModDetail}
+                                    onInstall={handleInstallMod}
+                                />
                             ))
                         )}
                     </div>
@@ -616,49 +743,68 @@ export default function ModManager() {
                                 <button onClick={() => setActiveTab('available')} className="mt-4 px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition-colors">Browse Mods</button>
                             </div>
                         ) : (
-                            installedMods.map((mod, index) => (
-                                <div key={mod.id} className="glass-panel p-4 rounded-xl flex items-center gap-6 group hover:border-sky-500/30 transition-all">
-                                    {/* Load Order & Move Buttons */}
-                                    <div className="flex flex-col items-center gap-1 w-10">
-                                        <button onClick={() => handleMoveMod(index, 'up')} disabled={index === 0} className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white disabled:opacity-30 transition-colors"><ArrowUp className="w-4 h-4" /></button>
-                                        <span className="text-xs font-mono text-slate-500">{index + 1}</span>
-                                        <button onClick={() => handleMoveMod(index, 'down')} disabled={index === installedMods.length - 1} className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white disabled:opacity-30 transition-colors"><ArrowDown className="w-4 h-4" /></button>
-                                    </div>
+                            installedMods
+                                .filter(mod => !searchQuery || mod.name.toLowerCase().includes(searchQuery.toLowerCase()) || mod.id.includes(searchQuery))
+                                .map((mod) => {
+                                    const index = installedMods.findIndex(m => m.id === mod.id);
+                                    return (
+                                        <div key={mod.id} className="glass-panel p-4 rounded-xl flex items-center gap-6 group hover:border-sky-500/30 transition-all">
+                                            {/* Load Order & Move Buttons */}
+                                            <div className="flex flex-col items-center gap-1 w-10">
+                                                <button
+                                                    onClick={() => handleMoveMod(index, 'up')}
+                                                    disabled={index === 0 || searchQuery.length > 0}
+                                                    className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white disabled:opacity-30 transition-colors"
+                                                    title={searchQuery ? "Clear search to reorder" : "Move Up"}
+                                                >
+                                                    <ArrowUp className="w-4 h-4" />
+                                                </button>
+                                                <span className="text-xs font-mono text-slate-500">{index + 1}</span>
+                                                <button
+                                                    onClick={() => handleMoveMod(index, 'down')}
+                                                    disabled={index === installedMods.length - 1 || searchQuery.length > 0}
+                                                    className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white disabled:opacity-30 transition-colors"
+                                                    title={searchQuery ? "Clear search to reorder" : "Move Down"}
+                                                >
+                                                    <ArrowDown className="w-4 h-4" />
+                                                </button>
+                                            </div>
 
-                                    {/* Mod Info */}
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-3">
-                                            <h3 className="text-lg font-bold text-white">{mod.name}</h3>
-                                            <span className="px-2 py-0.5 bg-slate-800 rounded text-xs font-mono text-slate-400 border border-slate-700">ID: {mod.id}</span>
-                                            {!mod.enabled && <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-xs rounded border border-red-500/20">Disabled</span>}
+                                            {/* Mod Info */}
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3">
+                                                    <h3 className="text-lg font-bold text-white">{mod.name}</h3>
+                                                    <span className="px-2 py-0.5 bg-slate-800 rounded text-xs font-mono text-slate-400 border border-slate-700">ID: {mod.id}</span>
+                                                    {!mod.enabled && <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-xs rounded border border-red-500/20">Disabled</span>}
+                                                </div>
+                                                <p className="text-slate-500 text-sm mt-1 line-clamp-1">{mod.description?.replace(/<[^>]*>?/gm, '') || 'No description'}</p>
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    onClick={() => handleToggleMod(mod)}
+                                                    className={cn(
+                                                        "p-2 rounded-lg transition-colors border",
+                                                        mod.enabled
+                                                            ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
+                                                            : "bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-400"
+                                                    )}
+                                                    title={mod.enabled ? "Disable Mod" : "Enable Mod"}
+                                                >
+                                                    <Power className="w-5 h-5" />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleUninstallMod(mod)}
+                                                    className="p-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                                                    title="Uninstall Mod"
+                                                >
+                                                    <Trash2 className="w-5 h-5" />
+                                                </button>
+                                            </div>
                                         </div>
-                                        <p className="text-slate-500 text-sm mt-1 line-clamp-1">{mod.description?.replace(/<[^>]*>?/gm, '') || 'No description'}</p>
-                                    </div>
-
-                                    {/* Actions */}
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            onClick={() => handleToggleMod(mod)}
-                                            className={cn(
-                                                "p-2 rounded-lg transition-colors border",
-                                                mod.enabled
-                                                    ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
-                                                    : "bg-slate-800 text-slate-500 border-slate-700 hover:text-slate-400"
-                                            )}
-                                            title={mod.enabled ? "Disable Mod" : "Enable Mod"}
-                                        >
-                                            <Power className="w-5 h-5" />
-                                        </button>
-                                        <button
-                                            onClick={() => handleUninstallMod(mod)}
-                                            className="p-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 hover:text-red-300 transition-colors"
-                                            title="Uninstall Mod"
-                                        >
-                                            <Trash2 className="w-5 h-5" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))
+                                    );
+                                })
                         )}
                     </div>
                 )
