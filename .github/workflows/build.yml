@@ -45,17 +45,23 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🚀 Server Visibility Fixed!
-            - **Fixed**: Servers stuck "Loading" indefinitely.
-            - **Improved**: New "Online" vs "Running" status.
-            - **Persisted**: Status saved to DB across restarts.
+            ## 🚀 v2.2.6: Mod Filters & Firewall Automation!
             
-            ## 🛡️ Intelligent Mode (v2.2.4)
-            - **Safety**: RCON SaveWorld before shutdown.
-            - **Shield**: Auto-pause on new save import.
+            **This is a major feature update focusing on Mod Management and Automation.**
             
-            ## Install
-            Download the `.msi` below.
+            ### 🔥 New Features
+            - **Mod Filters**: Filter by Category (Dinos, Maps, etc.) & Sort by Popularity.
+            - **Smart ID Search**: Instant result when searching by Mod ID (e.g. `928708`).
+            - **Firewall Auto-Pilot**: Automatically manages ports 7777/27015/RCON.
+            - **Smart Monitoring**: Active TCP/UDP checks for 100% accurate status.
+            
+            ### 🐛 Bug Fixes
+            - Fixed "Exit Code 3" crash loops (Auto-Repair added).
+            - Fixed "No Mods Found" on direct ID search.
+            - Fixed stuck loading screens & Config Editor glitches.
+            
+            ### Install
+            Download the `.setup.exe` or `.msi` below.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
