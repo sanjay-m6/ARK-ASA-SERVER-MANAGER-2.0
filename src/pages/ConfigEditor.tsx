@@ -72,12 +72,12 @@ const ConfigInput = memo(({
         </ConfigTooltip>
     );
 
-    // Container classes computed inline
+    // Container classes computed inline - Modern Dark Minimal
     const containerClassName = cn(
-        "bg-slate-800/50 p-4 rounded-lg border transition-all duration-300",
+        "bg-[#1a1a2e]/80 p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.01] group relative overflow-hidden",
         isModified
-            ? "border-orange-500/30 bg-orange-500/5 hover:border-orange-500/50"
-            : "border-slate-700/50 hover:border-cyan-500/30"
+            ? "border-orange-500/60 shadow-[0_0_20px_rgba(249,115,22,0.2)] hover:shadow-[0_0_30px_rgba(249,115,22,0.35)] bg-orange-500/5"
+            : "border-[#2d2d44] hover:border-violet-500/50 hover:shadow-[0_0_25px_rgba(139,92,246,0.15)]"
     );
 
     switch (field.type) {
@@ -94,7 +94,7 @@ const ConfigInput = memo(({
                         >
                             <div className="flex items-center gap-2">
                                 {field.label}
-                                {isModified && <span className="w-2 h-2 rounded-full bg-orange-500" />}
+                                {isModified && <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />}
                                 {isModified && onFieldReset && (
                                     <button onClick={(e) => { e.stopPropagation(); handleReset(); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1">
                                         <RotateCcw className="w-3 h-3 text-slate-400 hover:text-white" />
@@ -122,14 +122,18 @@ const ConfigInput = memo(({
                         <button
                             onClick={() => handleChange(value.toLowerCase() === 'true' ? 'False' : 'True')}
                             className={cn(
-                                "relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 flex-shrink-0 mt-1",
-                                value.toLowerCase() === 'true' ? "bg-cyan-600" : "bg-slate-700"
+                                "relative w-14 h-7 rounded-full transition-all duration-300 focus:outline-none flex-shrink-0 mt-1",
+                                value.toLowerCase() === 'true'
+                                    ? "bg-gradient-to-r from-violet-600 to-indigo-600 shadow-lg shadow-violet-500/30"
+                                    : "bg-[#2d2d44]"
                             )}
                         >
                             <span
                                 className={cn(
-                                    "block w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-200",
-                                    value.toLowerCase() === 'true' ? "translate-x-7" : "translate-x-1"
+                                    "block w-5 h-5 rounded-full bg-white shadow-lg transform transition-all duration-300",
+                                    value.toLowerCase() === 'true'
+                                        ? "translate-x-8"
+                                        : "translate-x-1"
                                 )}
                             />
                         </button>
@@ -143,7 +147,7 @@ const ConfigInput = memo(({
                     <select
                         value={value}
                         onChange={(e) => handleChange(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                        className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] cursor-pointer transition-all hover:border-[#3d3d5c]"
                     >
                         {field.options?.map(opt => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -176,7 +180,7 @@ const ConfigInput = memo(({
                         <textarea
                             value={value}
                             onChange={(e) => handleChange(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:ring-1 focus:ring-cyan-500 outline-none font-mono text-sm min-h-[150px]"
+                            className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 focus:shadow-[0_0_15px_rgba(249,115,22,0.2)] font-mono text-sm min-h-[150px] transition-all placeholder-slate-500 resize-none"
                             placeholder="Enter values, one per line..."
                         />
                         {field.description && <div className="mt-2 text-sm text-slate-400">{field.description}</div>}
@@ -191,7 +195,7 @@ const ConfigInput = memo(({
                         type={field.type === 'number' ? 'number' : 'text'}
                         value={value}
                         onChange={(e) => handleChange(e.target.value)}
-                        className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-white focus:ring-1 focus:ring-cyan-500 outline-none font-mono"
+                        className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 focus:shadow-[0_0_15px_rgba(249,115,22,0.2)] font-mono transition-all placeholder-slate-500"
                     />
                     {field.description && <div className="mt-2 text-sm text-slate-400">{field.description}</div>}
                 </div>
@@ -591,27 +595,29 @@ export default function ConfigEditor() {
     }, [isResizing]);
 
     return (
-        <div className="h-full flex flex-col bg-slate-950 rounded-xl overflow-hidden border border-slate-800">
+        <div className="h-full flex flex-col bg-[#0d0d1a] rounded-2xl overflow-hidden border border-[#1e1e3a] shadow-2xl">
             {/* Header */}
-            <div className="p-4 border-b border-white/5 flex flex-col gap-4 bg-slate-900/50">
+            <div className="p-6 border-b border-[#1e1e3a]/80 flex flex-col gap-5 bg-[#12121f]">
                 <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1">
-                        <h2 className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent flex items-center gap-2">
-                            <Sliders className="w-5 h-5 text-cyan-500" />
-                            Config Editor
+                    <div className="flex items-center gap-5 flex-1">
+                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                                <Sliders className="w-5 h-5 text-white" />
+                            </div>
+                            <span className="bg-gradient-to-r from-white via-violet-200 to-indigo-200 bg-clip-text text-transparent">Config Editor</span>
                         </h2>
 
                         <select
                             value={selectedServerId || ''}
                             onChange={(e) => setSelectedServerId(Number(e.target.value))}
-                            className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                            className="bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] transition-all cursor-pointer hover:border-[#3d3d5c]"
                         >
                             {servers.map(s => (
                                 <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
                         </select>
 
-                        <div className="h-6 w-px bg-slate-700 mx-2" />
+                        <div className="h-8 w-px bg-[#2d2d44] mx-2" />
 
                         <PresetSelector
                             onApplyPreset={handleApplyPreset}
@@ -623,28 +629,30 @@ export default function ConfigEditor() {
                         <a
                             href="https://ark.wiki.gg/wiki/Server_configuration"
                             target="_blank"
-                            className="text-slate-400 hover:text-cyan-400 text-sm flex items-center gap-1 transition-colors"
+                            className="px-4 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-violet-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(139,92,246,0.15)]"
                         >
                             <ExternalLink className="w-4 h-4" /> Wiki
                         </a>
                         <button
                             onClick={handleSave}
                             disabled={isLoading}
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-lg shadow-lg shadow-cyan-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                         >
                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Save
+                            Save Changes
                         </button>
                     </div>
                 </div>
 
-                {/* Navigation Tabs */}
-                <div className="flex items-center gap-1 bg-slate-900/50 p-1 rounded-lg self-start">
+                {/* Navigation Tabs - Modern Pill Style */}
+                <div className="flex items-center gap-2 bg-[#0d0d1a] p-2 rounded-2xl self-start border border-[#1e1e3a]">
                     <button
                         onClick={handleSwitchToVisual}
                         className={cn(
-                            "px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2",
-                            viewMode === 'visual' ? "bg-cyan-500/10 text-cyan-400" : "text-slate-400 hover:bg-white/5"
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            viewMode === 'visual'
+                                ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/30"
+                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
                         <Sliders className="w-4 h-4" /> Visual Editor
@@ -652,8 +660,10 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => handleSwitchToRaw('gus')}
                         className={cn(
-                            "px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2",
-                            viewMode === 'gus' ? "bg-blue-500/10 text-blue-400" : "text-slate-400 hover:bg-white/5"
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            viewMode === 'gus'
+                                ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/30"
+                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
                         <FileText className="w-4 h-4" /> GameUserSettings.ini
@@ -661,8 +671,10 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => handleSwitchToRaw('game')}
                         className={cn(
-                            "px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2",
-                            viewMode === 'game' ? "bg-purple-500/10 text-purple-400" : "text-slate-400 hover:bg-white/5"
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            viewMode === 'game'
+                                ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30"
+                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
                         <FileText className="w-4 h-4" /> Game.ini
@@ -670,8 +682,10 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => setViewMode('levels')}
                         className={cn(
-                            "px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2",
-                            viewMode === 'levels' ? "bg-emerald-500/10 text-emerald-400" : "text-slate-400 hover:bg-white/5"
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            viewMode === 'levels'
+                                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30"
+                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
                         <GraduationCap className="w-4 h-4" /> Levels Generator
@@ -679,13 +693,14 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => setViewMode('stats')}
                         className={cn(
-                            "px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2",
-                            viewMode === 'stats' ? "bg-indigo-500/10 text-indigo-400" : "text-slate-400 hover:bg-white/5"
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            viewMode === 'stats'
+                                ? "bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-500/30"
+                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
                         <BarChart3 className="w-4 h-4" /> Per-Stat Multipliers
                     </button>
-
                 </div>
             </div>
 
@@ -708,26 +723,26 @@ export default function ConfigEditor() {
                         {/* Sidebar */}
                         <div
                             className={cn(
-                                "bg-slate-900/30 border-r border-white/5 overflow-y-auto relative transition-all duration-300",
+                                "bg-[#12121f] border-r-2 border-[#1e1e3a] overflow-y-auto relative transition-all duration-300",
                                 isSidebarCollapsed && "w-0"
                             )}
                             style={{ width: isSidebarCollapsed ? 0 : `${sidebarWidth}px` }}
                         >
                             {!isSidebarCollapsed && (
                                 <>
-                                    <div className="p-4 border-b border-white/5">
+                                    <div className="p-4 border-b-2 border-[#1e1e3a]">
                                         <div className="relative">
-                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                                             <input
                                                 type="text"
-                                                placeholder="Search..."
+                                                placeholder="Search settings..."
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                                className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] transition-all"
                                             />
                                         </div>
                                     </div>
-                                    <div className="p-2 space-y-1">
+                                    <div className="p-3 space-y-2">
                                         {categories.map(({ category, info }) => (
                                             <button
                                                 key={category}
@@ -736,23 +751,23 @@ export default function ConfigEditor() {
                                                     setSearchQuery('');
                                                 }}
                                                 className={cn(
-                                                    "w-full flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all",
+                                                    "w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-300",
                                                     activeCategory === category && !searchQuery
                                                         ? `bg-gradient-to-r ${info.color} text-white shadow-lg`
-                                                        : "text-slate-400 hover:text-white hover:bg-white/5"
+                                                        : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                                                 )}
                                             >
                                                 <span className="text-lg">{info.icon}</span>
-                                                {info.label}
+                                                <span>{info.label}</span>
                                             </button>
                                         ))}
                                     </div>
 
-                                    {/* Resize Handle - Inside sidebar */}
+                                    {/* Resize Handle */}
                                     <div
                                         className={cn(
-                                            "absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-cyan-500/50 transition-colors z-10",
-                                            isResizing && "bg-cyan-500"
+                                            "absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-violet-500/50 transition-colors z-10",
+                                            isResizing && "bg-violet-500"
                                         )}
                                         onMouseDown={startResizing}
                                     />
@@ -763,29 +778,39 @@ export default function ConfigEditor() {
                         {/* Collapse/Expand Button */}
                         <button
                             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            className="absolute top-20 left-0 z-20 w-6 h-8 bg-slate-800 border border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-cyan-400 transition-all shadow-lg flex items-center justify-center rounded-r-md"
+                            className="absolute top-20 left-0 z-20 w-7 h-10 bg-[#1a1a2e] border-2 border-[#2d2d44] text-slate-400 hover:bg-violet-600 hover:border-violet-500 hover:text-white transition-all shadow-lg flex items-center justify-center rounded-r-xl"
                             style={{ marginLeft: isSidebarCollapsed ? '0px' : `${sidebarWidth}px` }}
                         >
                             {isSidebarCollapsed ? '›' : '‹'}
                         </button>
 
                         {/* Editor Area */}
-                        <div className="flex-1 overflow-y-auto bg-slate-900/20 p-6 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                        <div className="flex-1 overflow-y-auto bg-[#0d0d1a] p-6 scrollbar-thin scrollbar-thumb-[#2d2d44] scrollbar-track-transparent">
                             {isLoading && !configs.GameUserSettings.size ? (
                                 <div className="flex items-center justify-center h-full">
-                                    <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+                                    <div className="flex flex-col items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30 animate-pulse">
+                                            <Loader2 className="w-6 h-6 text-white animate-spin" />
+                                        </div>
+                                        <span className="text-slate-400 text-sm font-medium">Loading configurations...</span>
+                                    </div>
                                 </div>
                             ) : filteredGroups.length > 0 ? (
-                                <div className="space-y-8 max-w-4xl mx-auto">
+                                <div className="space-y-10 max-w-4xl mx-auto">
                                     {filteredGroups.map((group, idx) => (
-                                        <div key={idx} className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 50}ms` }}>
-                                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-                                                <h3 className="text-lg font-semibold text-white">{group.title}</h3>
+                                        <div key={idx} className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 50}ms` }}>
+                                            {/* Section Header with dynamic gradient decoration */}
+                                            <div className="flex items-center gap-3 pb-3 border-b border-white/10 relative">
+                                                <div className={cn(
+                                                    "absolute bottom-0 left-0 w-24 h-px bg-gradient-to-r to-transparent",
+                                                    categories.find(c => c.category === activeCategory)?.info.color.replace('from-', 'from-').replace('to-', 'to-') || "from-cyan-500"
+                                                )}></div>
+                                                <h3 className="text-lg font-bold text-white tracking-tight">{group.title}</h3>
                                                 <span className={cn(
-                                                    "text-xs px-2 py-0.5 rounded border",
+                                                    "text-xs px-2.5 py-1 rounded-full border font-medium",
                                                     group.source === 'GameUserSettings'
-                                                        ? "border-blue-500/30 text-blue-400 bg-blue-500/10"
-                                                        : "border-purple-500/30 text-purple-400 bg-purple-500/10"
+                                                        ? "border-blue-500/40 text-blue-400 bg-blue-500/10"
+                                                        : "border-purple-500/40 text-purple-400 bg-purple-500/10"
                                                 )}>
                                                     {group.source === 'GameUserSettings' ? 'INI' : 'GAME'}
                                                 </span>
@@ -808,64 +833,73 @@ export default function ConfigEditor() {
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center justify-center h-full text-slate-500">
-                                    <Search className="w-12 h-12 mb-4 opacity-50" />
-                                    <p className="text-lg">No settings found match "{searchQuery}"</p>
+                                    <div className="relative mb-6">
+                                        <div className="absolute inset-0 bg-slate-500/10 blur-2xl rounded-full"></div>
+                                        <Search className="w-16 h-16 opacity-30 relative z-10" />
+                                    </div>
+                                    <p className="text-lg font-medium text-slate-400">No settings found</p>
+                                    <p className="text-sm text-slate-500 mt-1">Try searching for "{searchQuery}"</p>
                                 </div>
                             )}
                         </div>
                     </>
                 ) : viewMode === 'levels' ? (
-                    <div className="flex-1 overflow-y-auto p-6">
+                    <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-slate-900/30 to-slate-950/50">
                         <div className="max-w-2xl mx-auto space-y-8">
-                            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/50">
-                                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                                    <GraduationCap className="w-6 h-6 text-emerald-400" />
-                                    Custom Levels Generator
-                                </h2>
-                                <p className="text-slate-400 mb-6">Easily generate complex difficulty and XP configurations.</p>
+                            <div className="bg-gradient-to-br from-slate-800/50 to-slate-800/30 rounded-2xl p-8 border border-slate-700/50 shadow-xl backdrop-blur-sm">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="relative">
+                                        <div className="absolute inset-0 bg-emerald-500/30 blur-lg rounded-full"></div>
+                                        <GraduationCap className="w-8 h-8 text-emerald-400 relative z-10" />
+                                    </div>
+                                    <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
+                                        Custom Levels Generator
+                                    </h2>
+                                </div>
+                                <p className="text-slate-400 mb-8">Easily generate complex difficulty and XP configurations.</p>
 
                                 <div className="grid gap-8 md:grid-cols-2">
                                     {/* Dino Levels */}
                                     <div className="space-y-4">
-                                        <label className="block text-sm font-medium text-slate-300">Max Wild Dino Level</label>
+                                        <label className="block text-sm font-semibold text-slate-200">Max Wild Dino Level</label>
                                         <div className="flex gap-4">
                                             <input
                                                 type="number"
                                                 value={customDinoLevel}
                                                 onChange={(e) => setCustomDinoLevel(parseInt(e.target.value) || 30)}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                                                className="w-full bg-slate-900/80 backdrop-blur-sm border border-slate-600/50 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 outline-none shadow-inner transition-all font-mono text-lg"
                                                 min="30" max="3000" step="30"
                                             />
                                         </div>
                                         <button
                                             onClick={() => applyDinoLevel(customDinoLevel)}
-                                            className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-colors"
+                                            className="w-full px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 border border-emerald-400/20"
                                         >
                                             Apply Dino Level
                                         </button>
-                                        <p className="text-xs text-slate-500">
+                                        <p className="text-xs text-slate-400 bg-slate-800/30 rounded-lg px-3 py-2 border border-slate-700/30">
                                             Sets Difficulty Offset to 1.0 and Override Official Difficulty to {(customDinoLevel / 30).toFixed(1)}.
                                         </p>
                                     </div>
 
                                     {/* Player Levels */}
                                     <div className="space-y-4">
-                                        <label className="block text-sm font-medium text-slate-300">Max Player Level</label>
+                                        <label className="block text-sm font-semibold text-slate-200">Max Player Level</label>
                                         <div className="flex gap-4">
                                             <input
                                                 type="number"
                                                 value={customPlayerLevel}
                                                 onChange={(e) => setCustomPlayerLevel(parseInt(e.target.value) || 105)}
-                                                className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                                                className="flex-1 bg-slate-900/80 backdrop-blur-sm border border-slate-600/50 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500/50 outline-none shadow-inner transition-all font-mono text-lg"
                                             />
                                         </div>
                                         <button
                                             onClick={() => applyPlayerLevel(customPlayerLevel)}
-                                            className="w-full px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-medium transition-colors"
+                                            className="w-full px-4 py-3 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40 border border-sky-400/20"
                                         >
                                             Generate XP Ramp
                                         </button>
-                                        <p className="text-xs text-slate-500">
+                                        <p className="text-xs text-slate-400 bg-slate-800/30 rounded-lg px-3 py-2 border border-slate-700/30">
                                             Generates a standard exponential XP ramp for {customPlayerLevel} levels.
                                         </p>
                                     </div>
@@ -873,11 +907,11 @@ export default function ConfigEditor() {
                             </div>
 
                             {/* Info Section */}
-                            <div className="bg-slate-800/20 rounded-lg p-4 border border-slate-700/30">
-                                <h3 className="text-sm font-medium text-slate-300 mb-2">💡 How it works</h3>
-                                <ul className="text-xs text-slate-500 space-y-1">
-                                    <li>• <strong>Dino Level</strong>: Sets OverrideOfficialDifficulty based on max level / 30</li>
-                                    <li>• <strong>Player Level</strong>: Generates LevelExperienceRampOverrides with exponential XP curve</li>
+                            <div className="bg-gradient-to-br from-slate-800/40 to-slate-800/20 rounded-xl p-5 border border-slate-700/40 backdrop-blur-sm">
+                                <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">💡 How it works</h3>
+                                <ul className="text-xs text-slate-400 space-y-2">
+                                    <li className="flex items-start gap-2"><span className="text-emerald-400">•</span> <span><strong className="text-slate-300">Dino Level</strong>: Sets OverrideOfficialDifficulty based on max level / 30</span></li>
+                                    <li className="flex items-start gap-2"><span className="text-sky-400">•</span> <span><strong className="text-slate-300">Player Level</strong>: Generates LevelExperienceRampOverrides with exponential XP curve</span></li>
                                     <li>• Changes are applied to the config and will be saved when you click Save</li>
                                 </ul>
                             </div>

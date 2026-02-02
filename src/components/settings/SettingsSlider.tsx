@@ -29,10 +29,10 @@ export function SettingsSlider({
 
     return (
         <div className={cn(
-            "bg-slate-800/50 rounded-lg p-4 border transition-colors",
+            "bg-[#1a1a2e]/60 rounded-xl p-4 border-2 transition-colors",
             isModified
-                ? "border-orange-500/30 bg-orange-500/5 hover:border-orange-500/50"
-                : "border-slate-700/50 hover:border-cyan-500/30"
+                ? "border-orange-500/50 bg-orange-500/5 hover:border-orange-400/60"
+                : "border-[#2d2d44] hover:border-orange-500/50"
         )}>
             <div className="flex justify-between items-center mb-2">
                 <label className="text-white font-medium">{label}</label>
@@ -48,10 +48,10 @@ export function SettingsSlider({
                             if (!isNaN(val)) onChange(val);
                         }}
                         className={cn(
-                            "bg-slate-900 border rounded px-2 py-1 w-24 text-right font-mono focus:outline-none focus:ring-1",
+                            "bg-[#1a1a2e] border-2 rounded-lg px-2 py-1.5 w-24 text-right font-mono focus:outline-none focus:border-orange-500 focus:shadow-[0_0_15px_rgba(249,115,22,0.2)] transition-all",
                             isModified
-                                ? "border-orange-500/30 text-orange-200 focus:ring-orange-500/50 focus:border-orange-500"
-                                : "border-slate-700 text-cyan-400 focus:ring-cyan-500"
+                                ? "border-orange-500/50 text-orange-200"
+                                : "border-[#2d2d44] text-white"
                         )}
                     />
                 </div>
@@ -61,12 +61,12 @@ export function SettingsSlider({
                 <p className="text-slate-400 text-sm mb-3">{description}</p>
             )}
 
-            <div className="relative h-2 w-full">
-                <div className="absolute inset-0 h-2 bg-slate-700 rounded-full" />
+            <div className="relative h-2 w-full mt-2">
+                <div className="absolute inset-0 h-2 bg-[#2d2d44] rounded-full" />
                 <div
                     className={cn(
-                        "absolute h-2 rounded-full transition-all duration-300",
-                        isModified ? "bg-gradient-to-r from-orange-500 to-red-500" : "bg-gradient-to-r from-cyan-500 to-blue-500"
+                        "absolute h-2 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(249,115,22,0.3)]",
+                        isModified ? "bg-gradient-to-r from-orange-600 to-amber-500" : "bg-gradient-to-r from-orange-500 to-amber-500"
                     )}
                     style={{ width: `${percentage}%` }}
                 />
@@ -85,8 +85,8 @@ export function SettingsSlider({
                         "[&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full",
                         "[&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2",
                         isModified
-                            ? "[&::-webkit-slider-thumb]:shadow-orange-500/50 [&::-webkit-slider-thumb]:border-orange-400 [&::-moz-range-thumb]:border-orange-400"
-                            : "[&::-webkit-slider-thumb]:shadow-cyan-500/50 [&::-webkit-slider-thumb]:border-cyan-400 [&::-moz-range-thumb]:border-cyan-400"
+                            ? "[&::-webkit-slider-thumb]:shadow-orange-500/50 [&::-webkit-slider-thumb]:border-orange-500 [&::-moz-range-thumb]:border-orange-500"
+                            : "[&::-webkit-slider-thumb]:shadow-orange-500/30 [&::-webkit-slider-thumb]:border-orange-400 [&::-moz-range-thumb]:border-orange-400"
                     )}
                 />
             </div>

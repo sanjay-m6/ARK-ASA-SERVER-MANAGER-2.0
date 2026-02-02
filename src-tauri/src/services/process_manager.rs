@@ -709,7 +709,7 @@ impl ProcessManager {
                                                 match db.get_connection() {
                                                     Ok(conn) => {
                                                         if let Err(e) = conn.execute(
-                                                            "UPDATE servers SET status = 'online' WHERE id = ?1",
+                                                            "UPDATE servers SET status = 'running' WHERE id = ?1",
                                                             [server_id],
                                                         ) {
                                                             eprintln!("  ❌ Failed to update server status in DB: {}", e);
