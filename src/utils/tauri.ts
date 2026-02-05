@@ -36,9 +36,7 @@ export async function setSetting(key: string, value: string): Promise<void> {
     return await invoke('set_setting', { key, value });
 }
 
-export async function optimizeMemory(): Promise<void> {
-    return await invoke('optimize_memory');
-}
+
 
 // ============================================================================
 // Server Commands
@@ -318,8 +316,41 @@ export async function stopCluster(clusterId: number): Promise<void> {
     return await invoke('stop_cluster', { clusterId });
 }
 
+export async function toggleClusterCrossChat(clusterId: number, enabled: boolean): Promise<void> {
+    return await invoke('toggle_cluster_cross_chat', { clusterId, enabled });
+}
+
+export async function getClusterCrossChatStatus(clusterId: number): Promise<boolean> {
+    return await invoke('get_cluster_cross_chat_status', { clusterId });
+}
+
 // ============================================================================
-// Player Intelligence Commands
+// Discord Bridge Commands
+// ============================================================================
+
+export interface DiscordBridgeConfig {
+    cluster_id: number;
+    enabled: boolean;
+    bot_token: string;
+    guild_id: string;
+    channel_id: string;
+    game_to_discord: boolean;
+    discord_to_game: boolean;
+}
+
+export async function saveDiscordBridgeConfig(config: DiscordBridgeConfig): Promise<void> {
+    return await invoke('save_discord_bridge_config', { config });
+}
+
+export async function getDiscordBridgeConfig(clusterId: number): Promise<DiscordBridgeConfig | null> {
+    return await invoke('get_discord_bridge_config', { clusterId });
+}
+
+export async function testDiscordConnection(botToken: string, channelId: string): Promise<string> {
+    return await invoke('test_discord_connection', { botToken, channelId });
+}
+
+
 // ============================================================================
 
 export async function getPlayerStats(steamId: string): Promise<PlayerStats> {
@@ -382,4 +413,20 @@ export async function uninstallPlugin(serverId: number, pluginId: string): Promi
 
 export async function togglePlugin(serverId: number, pluginId: string, enabled: boolean): Promise<void> {
     return await invoke('toggle_plugin', { serverId, pluginId, enabled });
+}
+
+// ============================================================================
+// Optimization Commands
+// ============================================================================
+
+export async function optimizeMemory(): Promise<void> {
+    return await invoke('optimize_memory');
+}
+
+export async function setProcessPriority(high: boolean): Promise<void> {
+    return await invoke('set_process_priority', { high });
+}
+
+export async function toggleEcoMode(enable: boolean): Promise<void> {
+    return await invoke('toggle_eco_mode', { enable });
 }

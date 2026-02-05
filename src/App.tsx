@@ -1,7 +1,6 @@
 import { useState, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
-import SplashScreen from './components/layout/SplashScreen';
 import WelcomeOverlay from './components/layout/WelcomeOverlay';
 import UpdateChecker from './components/UpdateChecker';
 import { Loader2 } from 'lucide-react';
@@ -23,11 +22,7 @@ const PluginManager = lazy(() => import('./pages/PluginManager'));
 const FileManager = lazy(() => import('./pages/FileManager'));
 
 function App() {
-    const [appState, setAppState] = useState<'splash' | 'welcome' | 'app'>('splash');
-
-    if (appState === 'splash') {
-        return <SplashScreen onComplete={() => setAppState('welcome')} />;
-    }
+    const [appState, setAppState] = useState<'welcome' | 'app'>('welcome');
 
     if (appState === 'welcome') {
         return <WelcomeOverlay onComplete={() => setAppState('app')} />;

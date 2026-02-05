@@ -302,6 +302,8 @@ pub fn run() {
             commands::firewall::create_manual_firewall_rules,
             // System commands
             commands::system::optimize_memory,
+            commands::system::set_process_priority,
+            commands::system::toggle_eco_mode, // <-- New Command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

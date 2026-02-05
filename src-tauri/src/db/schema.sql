@@ -90,6 +90,31 @@ CREATE TABLE IF NOT EXISTS cluster_servers (
     UNIQUE(cluster_id, server_id)
 );
 
+-- Cluster settings table (key-value store for cluster-level settings)
+CREATE TABLE IF NOT EXISTS cluster_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cluster_id INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cluster_id) REFERENCES clusters (id) ON DELETE CASCADE,
+    UNIQUE(cluster_id, key)
+);
+
+-- Discord bridge configuration per cluster
+CREATE TABLE IF NOT EXISTS discord_bridge_config (
+    cluster_id INTEGER PRIMARY KEY,
+    enabled INTEGER DEFAULT 0,
+    bot_token TEXT,
+    guild_id TEXT,
+    channel_id TEXT,
+    game_to_discord INTEGER DEFAULT 1,
+    discord_to_game INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cluster_id) REFERENCES clusters(id) ON DELETE CASCADE
+);
+
 -- Player sessions table (tracks join/leave events)
 CREATE TABLE IF NOT EXISTS player_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

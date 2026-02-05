@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Plus, Server as ServerIcon, Network, Trash2, Loader2, Link as LinkIcon, Play, Square } from 'lucide-react';
+import { Plus, Server as ServerIcon, Network, Trash2, Loader2, Link as LinkIcon, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { createCluster, getClusters, deleteCluster, startCluster, stopCluster } from '../utils/tauri';
+import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, toggleClusterCrossChat, getClusterCrossChatStatus } from '../utils/tauri';
 import { Cluster, Server } from '../types';
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
 import { listen } from '@tauri-apps/api/event';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import DiscordBridgeSettings from '../components/cluster/DiscordBridgeSettings';
 
 export default function ClusterManager() {
     const [clusters, setClusters] = useState<Cluster[]>([]);
@@ -16,6 +17,8 @@ export default function ClusterManager() {
     const [selectedServers, setSelectedServers] = useState<number[]>([]);
     const [startingCluster, setStartingCluster] = useState<number | null>(null);
     const [stoppingCluster, setStoppingCluster] = useState<number | null>(null);
+    const [crossChatStatus, setCrossChatStatus] = useState<Record<number, boolean>>({});
+    const [expandedDiscord, setExpandedDiscord] = useState<number | null>(null);
     const { servers, refreshServers } = useServerStore();
 
     const fetchClusters = async () => {
@@ -23,6 +26,17 @@ export default function ClusterManager() {
         try {
             const data = await getClusters();
             setClusters(data);
+
+            // Fetch cross-chat status for each cluster
+            const statuses: Record<number, boolean> = {};
+            for (const cluster of data) {
+                try {
+                    statuses[cluster.id] = await getClusterCrossChatStatus(cluster.id);
+                } catch {
+                    statuses[cluster.id] = false;
+                }
+            }
+            setCrossChatStatus(statuses);
         } catch (error) {
             console.error('Failed to fetch clusters:', error);
             toast.error('Failed to fetch clusters');
@@ -127,6 +141,18 @@ export default function ClusterManager() {
             const server = getServerStatus(id);
             return server?.status === 'running';
         }).length;
+    };
+
+    const handleToggleCrossChat = async (clusterId: number) => {
+        const currentStatus = crossChatStatus[clusterId] ?? false;
+        try {
+            await toggleClusterCrossChat(clusterId, !currentStatus);
+            setCrossChatStatus(prev => ({ ...prev, [clusterId]: !currentStatus }));
+            toast.success(`Cross-chat ${!currentStatus ? 'enabled' : 'disabled'}`);
+        } catch (error) {
+            console.error('Failed to toggle cross-chat:', error);
+            toast.error('Failed to toggle cross-chat');
+        }
     };
 
     return (
@@ -277,6 +303,25 @@ export default function ClusterManager() {
                                         )}
                                         <span>Stop All</span>
                                     </button>
+
+                                    {/* Cross-Chat Toggle */}
+                                    <button
+                                        onClick={() => handleToggleCrossChat(cluster.id)}
+                                        className={cn(
+                                            "flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors text-sm relative",
+                                            crossChatStatus[cluster.id]
+                                                ? "bg-violet-600/20 hover:bg-violet-600/30 text-violet-400"
+                                                : "bg-slate-700/50 hover:bg-slate-600/50 text-slate-400"
+                                        )}
+                                        title="Cross-Server Chat (Experimental)"
+                                    >
+                                        <MessageCircle className="w-4 h-4" />
+                                        <span>Chat</span>
+                                        <span className="absolute -top-1.5 -right-1 px-1 py-0.5 bg-amber-500 text-[9px] font-bold text-black rounded flex items-center gap-0.5">
+                                            <FlaskConical className="w-2 h-2" />
+                                            BETA
+                                        </span>
+                                    </button>
                                 </div>
                             </div>
 
@@ -325,6 +370,32 @@ export default function ClusterManager() {
                                     })}
                                 </div>
                             </div>
+
+                            {/* Discord Bridge Settings Toggle */}
+                            <button
+                                onClick={() => setExpandedDiscord(expandedDiscord === cluster.id ? null : cluster.id)}
+                                className="w-full mt-4 p-3 flex items-center justify-between text-left hover:bg-white/5 rounded-lg transition-colors border border-slate-700/50"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <MessageCircle className="w-4 h-4 text-violet-400" />
+                                    <span className="text-sm text-slate-300">Discord Bridge Settings</span>
+                                </div>
+                                {expandedDiscord === cluster.id ? (
+                                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                                ) : (
+                                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                                )}
+                            </button>
+
+                            {/* Discord Settings Panel */}
+                            {expandedDiscord === cluster.id && (
+                                <div className="mt-4">
+                                    <DiscordBridgeSettings
+                                        clusterId={cluster.id}
+                                        clusterName={cluster.name}
+                                    />
+                                </div>
+                            )}
                         </div>
                     ))
                 )}

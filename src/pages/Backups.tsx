@@ -75,10 +75,11 @@ export default function Backups() {
                 serverId: selectedServerId,
                 backupType: 'manual',
                 options: {
-                    include_configs: backupOptions.includeConfigs,
-                    include_saves: backupOptions.includeSaves,
-                    include_mods: backupOptions.includeMods,
-                    compress: backupOptions.compress,
+                    includeConfigs: backupOptions.includeConfigs,
+                    includeSaves: backupOptions.includeSaves,
+                    includeMods: backupOptions.includeMods,
+                    includeCluster: false,
+                    compressionLevel: backupOptions.compress ? 6 : 0,
                 }
             });
             toast.success('Backup created successfully');

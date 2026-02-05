@@ -1,6 +1,6 @@
 [package]
 name = "asa-server-manager"
-version = "2.2.6"
+version = "2.2.7"
 description = "ASA Server Manager 2.0 - Professional ARK: Survival Ascended Server Management"
 authors = ["sanja"]
 edition = "2021"
@@ -48,6 +48,7 @@ tar = "0.4.44"
 rar = "0.4.0"
 unrar = "0.5.8"
 base64 = "0.22.1"
+serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_UI_Shell"] }

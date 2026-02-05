@@ -1,9 +1,15 @@
 use crate::models::SystemInfo;
 use crate::AppState;
 use serde::Serialize;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use sysinfo::Disks;
 use tauri::Manager;
 use tauri::State;
+use tokio::time::{sleep, Duration};
+
+// Global flag for Eco Mode
+static ECO_MODE_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 #[tauri::command]
 pub async fn get_system_info(state: State<'_, AppState>) -> Result<SystemInfo, String> {
@@ -230,7 +236,45 @@ pub async fn optimize_memory() -> Result<(), String> {
             let process = GetCurrentProcess();
             let _ = SetProcessWorkingSetSize(process, usize::MAX, usize::MAX);
         }
-        // println!("🧠 Memory optimized (Working Set trimmed)");
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_process_priority(high: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::Threading::{
+            GetCurrentProcess, SetPriorityClass, HIGH_PRIORITY_CLASS, NORMAL_PRIORITY_CLASS,
+        };
+        unsafe {
+            let process = GetCurrentProcess();
+            let priority = if high {
+                HIGH_PRIORITY_CLASS
+            } else {
+                NORMAL_PRIORITY_CLASS
+            };
+            if SetPriorityClass(process, priority) == 0 {
+                return Err("Failed to set process priority".to_string());
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn toggle_eco_mode(enable: bool) -> Result<(), String> {
+    ECO_MODE_ACTIVE.store(enable, Ordering::Relaxed);
+
+    if enable {
+        // Spawn a background task to aggressively trim memory
+        tauri::async_runtime::spawn(async move {
+            while ECO_MODE_ACTIVE.load(Ordering::Relaxed) {
+                let _ = optimize_memory().await;
+                sleep(Duration::from_secs(5)).await; // Trim every 5 seconds
+            }
+        });
+    }
+
     Ok(())
 }

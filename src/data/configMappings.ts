@@ -554,6 +554,25 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 type: 'boolean',
                 defaultValue: 'False',
                 description: 'Prevent tribe members hurting each other'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'PreventOfflinePvP',
+                label: 'Prevent Offline PvP',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Protect structures and players when owners are offline. Great for weekday protection on PvP servers.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'PreventOfflinePvPInterval',
+                label: 'Offline Protection Delay (seconds)',
+                type: 'slider',
+                defaultValue: '0',
+                min: 0,
+                max: 900,
+                step: 60,
+                description: 'Delay before offline protection activates (0 = immediate)'
             }
         ]
     },

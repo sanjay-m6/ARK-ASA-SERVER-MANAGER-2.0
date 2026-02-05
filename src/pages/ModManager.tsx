@@ -1,10 +1,11 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power } from 'lucide-react';
+import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power, ChevronDown, ChevronUp, Code } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, getModDescription, copyModsToServer, type ModConfigPreview, getModCategories, type CurseForgeCategory } from '../utils/tauri';
 import { ModInfo } from '../types';
 import toast from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
+import { AdvancedModInput } from '../components/mods/AdvancedModInput';
 
 interface ServerBasic {
     id: number;
@@ -134,6 +135,10 @@ export default function ModManager() {
     const [showTransferDialog, setShowTransferDialog] = useState(false);
     const [transferTargetId, setTransferTargetId] = useState<number | null>(null);
     const [isTransferring, setIsTransferring] = useState(false);
+
+    // Advanced Mode State
+    const [showAdvancedMode, setShowAdvancedMode] = useState(false);
+    const [isBulkImporting, setIsBulkImporting] = useState(false);
 
     // Load available categories
     useEffect(() => {
@@ -382,6 +387,57 @@ export default function ModManager() {
             toast.error(`Transfer failed: ${error}`);
         } finally {
             setIsTransferring(false);
+        }
+    };
+
+    // Bulk import handler for Advanced Mode
+    const handleBulkImportMods = async (modIds: string[]) => {
+        if (!selectedServerId || modIds.length === 0) {
+            toast.error('Please select a server first');
+            return;
+        }
+
+        setIsBulkImporting(true);
+        setBatchProgress({ current: 0, total: modIds.length, currentModName: '' });
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < modIds.length; i++) {
+            const modId = modIds[i];
+            setBatchProgress({ current: i + 1, total: modIds.length, currentModName: `Mod ${modId}` });
+
+            try {
+                // Create a minimal ModInfo object for the bulk import
+                const mod: ModInfo = {
+                    id: modId,
+                    name: `Mod ${modId}`,
+                    author: 'Unknown',
+                    description: '',
+                    thumbnailUrl: '',
+                    compatible: true,
+                    enabled: true
+                };
+                await installMod(selectedServerId, mod);
+                successCount++;
+            } catch (error) {
+                console.error(`Failed to install mod ${modId}:`, error);
+                failCount++;
+            }
+        }
+
+        setIsBulkImporting(false);
+        setBatchProgress({ current: 0, total: 0, currentModName: '' });
+
+        if (failCount > 0) {
+            toast.success(`Bulk import complete: ${successCount} installed, ${failCount} failed`);
+        } else {
+            toast.success(`Bulk import complete: ${successCount} mods installed!`);
+        }
+
+        // Refresh installed mods if on that tab
+        if (activeTab === 'installed') {
+            fetchInstalled();
         }
     };
 
@@ -678,6 +734,39 @@ export default function ModManager() {
                     )}
                 </div>
             )}
+
+            {/* Advanced Mode - Bulk Mod ID Import */}
+            <div className="glass-panel rounded-xl border border-slate-700/50 overflow-hidden">
+                <button
+                    onClick={() => setShowAdvancedMode(!showAdvancedMode)}
+                    className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-orange-500/10 rounded-lg">
+                            <Code className="w-5 h-5 text-orange-400" />
+                        </div>
+                        <div>
+                            <span className="text-white font-medium">Advanced Mode</span>
+                            <p className="text-slate-400 text-sm">Bulk import mod IDs for power users</p>
+                        </div>
+                    </div>
+                    {showAdvancedMode ? (
+                        <ChevronUp className="w-5 h-5 text-slate-400" />
+                    ) : (
+                        <ChevronDown className="w-5 h-5 text-slate-400" />
+                    )}
+                </button>
+
+                {showAdvancedMode && (
+                    <div className="p-6 border-t border-slate-700/50 bg-slate-900/50">
+                        <AdvancedModInput
+                            onImport={handleBulkImportMods}
+                            isLoading={isBulkImporting}
+                        />
+                    </div>
+                )}
+            </div>
+
 
             {/* Search and Tabs */}
             <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
