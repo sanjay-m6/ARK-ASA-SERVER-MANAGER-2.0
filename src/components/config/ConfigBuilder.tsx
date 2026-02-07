@@ -45,6 +45,7 @@ interface ServerConfig {
     pvpGamma: boolean;
     friendlyFire: boolean;
     activeMods: string[];
+    ipAddress: string | null;
 }
 
 interface Props {
@@ -273,6 +274,13 @@ export default function ConfigBuilder({ serverId, installPath, initialMapName, o
             <div className="bg-slate-800/30 rounded-2xl p-6 border border-slate-700/50">
                 {activeCategory === 'map' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <SettingInput
+                            label="Server IP"
+                            value={config.ipAddress || ''}
+                            onChange={v => updateConfig('ipAddress', v || null)}
+                            placeholder="0.0.0.0 (Leave empty for all)"
+                            description="Requires server restart to apply"
+                        />
                         <SettingInput label="Session Name" value={config.sessionName} onChange={v => updateConfig('sessionName', v)} />
                         <SettingInput label="Server Password" value={config.serverPassword || ''} onChange={v => updateConfig('serverPassword', v || null)} placeholder="Leave empty for no password" />
                         <SettingInput label="Admin Password" value={config.adminPassword} onChange={v => updateConfig('adminPassword', v)} />
@@ -416,15 +424,19 @@ function SettingSlider({ label, value, onChange, min, max, step, description }: 
     );
 }
 
-function SettingInput({ label, value, onChange, placeholder }: {
+function SettingInput({ label, value, onChange, placeholder, description }: {
     label: string;
     value: string;
     onChange: (v: string) => void;
     placeholder?: string;
+    description?: string;
 }) {
     return (
         <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-300">{label}</label>
+            <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-slate-300">{label}</label>
+                {description && <span className="text-xs text-amber-500/80">{description}</span>}
+            </div>
             <input
                 type="text"
                 value={value}

@@ -73,7 +73,7 @@ export default function LogsConsole() {
     // Auto-select first running server
     useEffect(() => {
         if (!selectedServerId && servers.length > 0) {
-            const runningServer = servers.find(s => s.status === 'running');
+            const runningServer = servers.find(s => s.status === 'running' || s.status === 'online');
             if (runningServer) {
                 setSelectedServerId(runningServer.id);
             } else {
@@ -236,7 +236,7 @@ export default function LogsConsole() {
                         ) : (
                             servers.map(server => (
                                 <option key={server.id} value={server.id}>
-                                    {server.name} {server.status === 'running' ? '🟢' : '⚫'}
+                                    {server.name} {server.status === 'running' || server.status === 'online' ? '🟢' : '⚫'}
                                 </option>
                             ))
                         )}
@@ -349,7 +349,7 @@ export default function LogsConsole() {
                     <div className="flex flex-col items-center justify-center h-full text-slate-500">
                         <Terminal className="w-12 h-12 mb-3 opacity-50" />
                         <p>No logs yet. Start a server to see logs here.</p>
-                        {selectedServer?.status !== 'running' && (
+                        {selectedServer?.status !== 'running' && selectedServer?.status !== 'online' && (
                             <p className="text-xs mt-2 text-slate-600">Selected server is not running</p>
                         )}
                     </div>
@@ -385,7 +385,7 @@ export default function LogsConsole() {
                 <div className="flex items-center gap-2 text-sm text-slate-400">
                     <Terminal className="w-4 h-4" />
                     <span>RCON Console</span>
-                    {selectedServer?.status === 'running' && (
+                    {selectedServer?.status === 'running' || selectedServer?.status === 'online' && (
                         <span className="ml-auto flex items-center gap-1.5 text-xs">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                             Connected to {selectedServer.name}
@@ -415,12 +415,12 @@ export default function LogsConsole() {
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCommand(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder="Enter RCON command... (↑↓ for history)"
-                        disabled={selectedServer?.status !== 'running'}
+                        disabled={selectedServer?.status !== 'running' && selectedServer?.status !== 'online'}
                         className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <button
                         onClick={handleSendCommand}
-                        disabled={!command.trim() || selectedServer?.status !== 'running'}
+                        disabled={!command.trim() || (selectedServer?.status !== 'running' && selectedServer?.status !== 'online')}
                         className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg transition-all font-medium"
                     >
                         <Send className="w-4 h-4" />

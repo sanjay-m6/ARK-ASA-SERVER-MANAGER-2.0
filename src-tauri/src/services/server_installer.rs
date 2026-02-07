@@ -319,7 +319,14 @@ impl ServerInstaller {
             self.emit_complete("Server installed successfully!");
             Ok(())
         } else {
-            let error_msg = format!("SteamCMD exited with code: {:?}", status.code());
+            let code = status.code();
+            let error_msg = match code {
+                Some(8) => "SteamCMD Error (8): Download failed due to disk space, network, or permissions.\n\nType: Disk/Network Error\nFix:\n1. Check disk space (approx 60GB required)\n2. Ensure stable internet connection\n3. Run as Administrator\n4. Delete 'steamapps' folder in steamcmd to clear cache".to_string(),
+                Some(7) => "SteamCMD Error (7): Command failure. The Steam servers might be busy or the command format is invalid.".to_string(),
+                Some(c) => format!("SteamCMD exited with unexpected code: {}", c),
+                None => "SteamCMD process terminated without an exit code.".to_string(),
+            };
+
             self.emit_error(&error_msg);
             Err(error_msg)
         }

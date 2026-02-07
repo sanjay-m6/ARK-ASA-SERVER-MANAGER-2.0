@@ -121,7 +121,7 @@ export default function ServerManager() {
 
     useEffect(() => {
         servers.forEach(server => {
-            if (server.status === 'running' && !watchersStarted[server.id]) {
+            if ((server.status === 'running' || server.status === 'online') && !watchersStarted[server.id]) {
                 setWatchersStarted(prev => ({ ...prev, [server.id]: true }));
                 setExpandedConsoles(prev => ({ ...prev, [server.id]: true }));
                 startLogWatcher(server.id, server.installPath).catch(console.error);

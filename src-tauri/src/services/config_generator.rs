@@ -5,6 +5,7 @@ use chrono::Local;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use tauri::Manager;
 
 /// Represents a single INI configuration value
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -96,8 +97,11 @@ pub struct ServerConfig {
     pub structure_damage_multiplier: f32,
     pub structure_resistance_multiplier: f32,
     pub structure_decay_multiplier: f32,
+    pub override_structure_platform_prevention: bool,
+    pub global_item_stack_size_multiplier: f32, // For "Increase Slots" roughly
 
-    // PvP/PvE
+    // Event Items
+    pub custom_resource_harvesting_multiplier: f32,
     pub pve_mode: bool,
     pub pvp_gamma: bool,
     pub friendly_fire: bool,
@@ -113,6 +117,9 @@ pub struct ServerConfig {
     pub per_level_stats_multiplier_player: Vec<f32>,
     pub per_level_stats_multiplier_dino_tamed: Vec<f32>,
     pub per_level_stats_multiplier_dino_wild: Vec<f32>,
+
+    // Advanced
+    pub ip_address: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -151,6 +158,9 @@ impl Default for ServerConfig {
             structure_damage_multiplier: 1.0,
             structure_resistance_multiplier: 1.0,
             structure_decay_multiplier: 1.0,
+            override_structure_platform_prevention: false,
+            global_item_stack_size_multiplier: 1.0,
+            custom_resource_harvesting_multiplier: 1.0,
             pve_mode: false,
             pvp_gamma: false,
             friendly_fire: false,
@@ -160,6 +170,7 @@ impl Default for ServerConfig {
             per_level_stats_multiplier_player: vec![1.0; 12],
             per_level_stats_multiplier_dino_tamed: vec![1.0; 12],
             per_level_stats_multiplier_dino_wild: vec![1.0; 12],
+            ip_address: None,
         }
     }
 }
@@ -390,6 +401,14 @@ impl ConfigGenerator {
             "PvEStructureDecayPeriodMultiplier={:.2}\r\n",
             config.structure_decay_multiplier
         ));
+        content.push_str(&format!(
+            "OverrideStructurePlatformPrevention={}\r\n",
+            config.override_structure_platform_prevention
+        ));
+        content.push_str(&format!(
+            "ItemStackSizeMultiplier={:.2}\r\n",
+            config.global_item_stack_size_multiplier
+        ));
 
         // PvP/PvE
         content.push_str(&format!("ServerPVE={}\r\n", config.pve_mode));
@@ -448,6 +467,23 @@ impl ConfigGenerator {
             "MatingIntervalMultiplier={:.2}\n",
             config.mating_interval_multiplier
         ));
+
+        // Event Multipliers
+        if config.custom_resource_harvesting_multiplier != 1.0 {
+            // Example for basics
+            let common_resources = vec![
+                "PrimalItemResource_Stone",
+                "PrimalItemResource_Flint",
+                "PrimalItemResource_Thatch",
+                "PrimalItemResource_Wood",
+            ];
+            for resource in common_resources {
+                content.push_str(&format!(
+                    "HarvestResourceItemAmountClassMultipliers=(ClassName=\"{}\",Multiplier={:.2})\n",
+                    resource, config.custom_resource_harvesting_multiplier
+                ));
+            }
+        }
 
         // Per-Level Stats Multipliers
         // Player
@@ -520,6 +556,13 @@ impl ConfigGenerator {
 
         if config.rcon_enabled {
             cmd.push_str("?RCONEnabled=True");
+        }
+
+        // Add MultiHome for IP binding
+        if let Some(ref ip) = config.ip_address {
+            if !ip.is_empty() {
+                cmd.push_str(&format!(" -MultiHome={}", ip));
+            }
         }
 
         // Add mods
@@ -599,6 +642,161 @@ impl ConfigGenerator {
         println!("  📝 Writing Game.ini to: {:?}", game_path);
         fs::write(&game_path, game_content)
             .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
+
+        Ok(())
+    }
+    /// Fetch server config from database
+    #[allow(dead_code)]
+    pub fn get_server_config(
+        app_handle: &tauri::AppHandle,
+        server_id: i64,
+    ) -> Result<ServerConfig, String> {
+        let state = app_handle.state::<crate::AppState>();
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT session_name, server_password, admin_password, max_players, map_name, 
+                 game_port, query_port, rcon_port, rcon_enabled, install_path 
+                 FROM servers WHERE id = ?1",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let mut config = ServerConfig::default();
+
+        let _ = stmt
+            .query_row([server_id], |row| {
+                config.session_name = row.get(0)?;
+                config.server_password = row.get(1)?;
+                config.admin_password = row.get(2)?;
+                config.max_players = row.get(3)?;
+                config.map_name = row.get(4)?;
+                config.game_port = row.get(5)?;
+                config.query_port = row.get(6)?;
+                config.rcon_port = row.get(7)?;
+                config.rcon_enabled = row.get(8)?;
+                // Not getting install_path (9) as it's not part of ServerConfig
+                Ok(())
+            })
+            .map_err(|e| e.to_string())?;
+
+        // Fetch separate IP address column
+        let ip_result: Result<Option<String>, _> = conn.query_row(
+            "SELECT ip_address FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        );
+
+        if let Ok(ip) = ip_result {
+            config.ip_address = ip;
+        }
+
+        // Read and parse existing configs to populate our struct if file exists
+        // (Simplified for now, expecting full parser integration later)
+
+        Ok(config)
+    }
+
+    /// Regenerate config files applying event overrides
+    pub fn generate_config(
+        app_handle: &tauri::AppHandle,
+        _db: &crate::db::Database,
+        server_id: i64,
+    ) -> Result<(), String> {
+        let state = app_handle.state::<crate::AppState>();
+
+        // 1. Get install path
+        let install_path_str: String = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.query_row(
+                "SELECT install_path FROM servers WHERE id = ?1",
+                [server_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?
+        };
+        let install_path = PathBuf::from(install_path_str);
+        let config_dir = install_path.join("ShooterGame/Saved/Config/WindowsServer");
+
+        // 2. Read existing Configs (as Base)
+        let gus_path = config_dir.join("GameUserSettings.ini");
+        let initial_gus_content = if gus_path.exists() {
+            fs::read_to_string(&gus_path).map_err(|e| e.to_string())?
+        } else {
+            return Err("Cannot regenerate config: GameUserSettings.ini missing".to_string());
+        };
+
+        // 3. Get Active Profile
+        let profile = state.advanced_config.get_active_profile(server_id)?;
+
+        let mut final_gus = initial_gus_content.clone();
+
+        // 4. Update/Override Values (Event Profile)
+        if let Some(p) = profile {
+            println!("📅 Applying Event Profile: {}", p.profile_name);
+
+            // Apply Multipliers to GUS
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "HarvestAmountMultiplier",
+                &format!("{:.6}", p.harvest_multiplier),
+            );
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "StructureResistanceMultiplier",
+                &format!("{:.6}", p.structure_resistance),
+            );
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "StructureDamageMultiplier",
+                &format!("{:.6}", p.structure_damage),
+            );
+
+            // Apply Multipliers to Game.ini
+            let game_path = config_dir.join("Game.ini");
+            let mut game_content = if game_path.exists() {
+                fs::read_to_string(&game_path).unwrap_or_default()
+            } else {
+                String::new()
+            };
+
+            game_content = crate::services::ini_parser::IniParser::update_key(
+                &game_content,
+                "/Script/ShooterGame.ShooterGameMode",
+                "ItemStackSizeMultiplier",
+                &format!("{:.6}", p.stack_size_multiplier),
+            );
+
+            // Write Game.ini immediately since Transfer Policy doesn't touch it YET
+            fs::write(&game_path, game_content).map_err(|e| e.to_string())?;
+        } else {
+            println!("📅 No Event Profile Active.");
+            // logic to revert to base? For now, we assume user manages base via UI or files.
+        }
+
+        // 5. Apply Transfer Policy Overrides (Always Check)
+        let transfer_policy_result = { state.advanced_config.get_transfer_policy(server_id) };
+
+        if let Ok(Some(policy)) = transfer_policy_result {
+            if policy.enabled {
+                println!("🔒 Enforcing Custom Transfer Policy (NoTributeDownloads=True)");
+                final_gus = crate::services::ini_parser::IniParser::update_key(
+                    &final_gus,
+                    "ServerSettings",
+                    "NoTributeDownloads",
+                    "True",
+                );
+            }
+        }
+
+        // 6. Write GUS
+        println!("  💾 Overwriting GameUserSettings.ini with Event/Policy modifications...");
+        fs::write(&gus_path, final_gus).map_err(|e| e.to_string())?;
 
         Ok(())
     }

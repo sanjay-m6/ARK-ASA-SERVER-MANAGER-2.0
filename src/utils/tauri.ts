@@ -36,6 +36,10 @@ export async function setSetting(key: string, value: string): Promise<void> {
     return await invoke('set_setting', { key, value });
 }
 
+export async function checkIsAdmin(): Promise<boolean> {
+    return await invoke('check_is_admin');
+}
+
 
 
 // ============================================================================
@@ -336,6 +340,14 @@ export interface DiscordBridgeConfig {
     channel_id: string;
     game_to_discord: boolean;
     discord_to_game: boolean;
+    server_list_enabled: boolean;
+    server_list_channel_id: string;
+    server_list_message_id: string;
+    player_list_enabled: boolean;
+    player_list_channel_id: string;
+    player_list_message_id: string;
+    show_tribe_names: boolean;
+    show_playtime: boolean;
 }
 
 export async function saveDiscordBridgeConfig(config: DiscordBridgeConfig): Promise<void> {
@@ -347,7 +359,15 @@ export async function getDiscordBridgeConfig(clusterId: number): Promise<Discord
 }
 
 export async function testDiscordConnection(botToken: string, channelId: string): Promise<string> {
-    return await invoke('test_discord_connection', { botToken, channelId });
+    return await invoke('test_discord_bridge_connection', { botToken, channelId }); // Use correct backend command name
+}
+
+export async function startDiscordBridge(): Promise<void> {
+    return await invoke('start_discord_bridge');
+}
+
+export async function stopDiscordBridge(): Promise<void> {
+    return await invoke('stop_discord_bridge');
 }
 
 
@@ -386,6 +406,14 @@ export async function searchPlayers(query: string): Promise<PlayerStats[]> {
 // ============================================================================
 
 import type { PluginInfo } from '../types';
+
+// ============================================================================
+// Plugin Commands
+// ============================================================================
+
+export async function checkPluginStatus(serverId: number, pluginName: string): Promise<boolean> {
+    return await invoke('check_plugin_status', { serverId, pluginName });
+}
 
 export async function checkAsaApiInstalled(serverId: number): Promise<boolean> {
     return await invoke('check_asa_api_installed', { serverId });
@@ -429,4 +457,121 @@ export async function setProcessPriority(high: boolean): Promise<void> {
 
 export async function toggleEcoMode(enable: boolean): Promise<void> {
     return await invoke('toggle_eco_mode', { enable });
+}
+
+// ============================================================================
+// Anti-Cheat Commands
+// ============================================================================
+
+export interface AntiCheatConfig {
+    enabled: boolean;
+    sensitivity: number;
+    actions: {
+        log_only: boolean;
+        kick_enabled: boolean;
+        ban_enabled: boolean;
+        discord_alert: boolean;
+    };
+    mesh_protection: {
+        enabled: boolean;
+        threshold: number;
+        notify_player: boolean;
+    };
+    command_protection: {
+        enabled: boolean;
+        blacklisted_commands: string[];
+        whitelist_admin_ids: string[];
+    };
+}
+
+export interface ViolationEvent {
+    server_id: number;
+    player_name: string;
+    steam_id: string;
+    violation_type: string;
+    severity: number;
+    details: string;
+    timestamp: number;
+}
+
+export async function getAntiCheatConfig(serverId: number): Promise<AntiCheatConfig> {
+    return await invoke('get_anti_cheat_config', { serverId });
+}
+
+export async function saveAntiCheatConfig(serverId: number, config: AntiCheatConfig): Promise<void> {
+    return await invoke('save_anti_cheat_config', { serverId, config });
+}
+
+export async function getAntiCheatLogs(serverId: number, limit: number = 50): Promise<ViolationEvent[]> {
+    return await invoke('get_anti_cheat_logs', { serverId, limit });
+}
+
+// ============================================================================
+// Scheduler Settings
+// ============================================================================
+
+export interface SchedulerSettings {
+    serverId: number;
+    mode: 'basic' | 'advanced' | 'disabled';
+    basicIntervalHours: number;
+    basicWarningMinutes: string;
+    nextRunBasic?: string | null;
+    // Advanced fields
+    advancedTime?: string | null;
+    advancedDays?: string | null;
+    advancedWarningMinutes?: string | null;
+    advancedShutdown?: boolean;
+    advancedUpdate?: boolean;
+    advancedRestart?: boolean;
+    advancedDinoWipe?: boolean;
+}
+
+export interface ScheduledTask {
+    id: number;
+    server_id: number;
+    task_type: string;
+    cron_expression: string;
+    command?: string;
+    message?: string;
+    pre_warning_minutes: number;
+    enabled: boolean;
+    last_run?: string;
+}
+
+export async function getSchedulerSettings(serverId: number): Promise<SchedulerSettings> {
+    return await invoke('get_scheduler_settings', { serverId });
+}
+
+export async function saveSchedulerSettings(settings: SchedulerSettings): Promise<void> {
+    return await invoke('save_scheduler_settings', { settings });
+}
+
+export async function getScheduledTasks(serverId: number): Promise<ScheduledTask[]> {
+    return await invoke('get_scheduled_tasks', { serverId });
+}
+
+export async function createScheduledTask(
+    serverId: number,
+    taskType: string,
+    cronExpression: string,
+    command: string | null,
+    message: string | null,
+    preWarningMinutes: number
+): Promise<void> {
+    return await invoke('create_scheduled_task', {
+        serverId,
+        taskType,
+        cronExpression,
+        command,
+        message,
+        preWarningMinutes
+    });
+}
+
+export async function toggleScheduledTask(taskId: number, enabled: boolean): Promise<void> {
+    return await invoke('toggle_scheduled_task', { taskId, enabled });
+}
+
+export async function deleteScheduledTask(taskId: number): Promise<void> {
+    return await invoke('delete_scheduled_task', { taskId });
 }

@@ -432,7 +432,7 @@ export default function Dashboard() {
                     >
                       <Play className="w-4 h-4 fill-current" />
                     </button>
-                  ) : server.status === 'running' ? (
+                  ) : (server.status === 'running' || server.status === 'online') ? (
                     <>
                       <button
                         onClick={() => handleRestartServer(server.id)}

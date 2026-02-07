@@ -5,11 +5,15 @@
 #![allow(dead_code)]
 
 use crate::services::rcon::RconService;
+use crate::utils::log_watcher::LogWatcher;
+use regex::Regex;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::time::{sleep, Duration};
+// use tokio::time::{sleep, Duration}; // Unused
 
 /// Cross-chat configuration for a cluster
 #[derive(Clone, Debug)]
@@ -30,10 +34,11 @@ pub struct ChatMessage {
 }
 
 /// Server info for cross-chat relay
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CrossChatServer {
     pub server_id: i64,
     pub server_name: String,
+    pub install_path: String,
     pub rcon_address: String,
     pub rcon_port: u16,
     pub rcon_password: String,
@@ -44,16 +49,18 @@ pub struct CrossChatServer {
 /// This service polls chat from each server in a cluster and relays
 /// messages to all other servers with a server name prefix.
 pub struct CrossChatService {
-    rcon_service: Arc<Mutex<RconService>>,
+    rcon_service: Arc<tokio::sync::Mutex<RconService>>,
     active_clusters: Arc<Mutex<HashMap<i64, CrossChatConfig>>>,
+    watchers: Arc<tokio::sync::Mutex<HashMap<i64, Vec<Arc<LogWatcher>>>>>,
     running: Arc<AtomicBool>,
 }
 
 impl CrossChatService {
-    pub fn new(rcon_service: Arc<Mutex<RconService>>) -> Self {
+    pub fn new(rcon_service: Arc<tokio::sync::Mutex<RconService>>) -> Self {
         Self {
             rcon_service,
             active_clusters: Arc::new(Mutex::new(HashMap::new())),
+            watchers: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             running: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -143,35 +150,78 @@ impl CrossChatService {
 
     /// Start the polling loop for chat relay
     /// This should be spawned as a background task
-    pub async fn start_polling_loop(
-        self: Arc<Self>,
-        cluster_id: i64,
-        _servers: Vec<CrossChatServer>,
-    ) {
+    /// Start the log watchers for chat relay
+    pub async fn start_chat_relay(self: Arc<Self>, cluster_id: i64, servers: Vec<CrossChatServer>) {
         self.running.store(true, Ordering::Relaxed);
-        println!("🔄 Starting cross-chat polling for cluster {}", cluster_id);
+        println!("🔄 Starting cross-chat relay for cluster {}", cluster_id);
 
-        // Track last known chat state per server to detect new messages
-        let mut _last_chat_state: HashMap<i64, String> = HashMap::new();
+        let chat_regex = Regex::new(
+            r"(\d{4}\.\d{2}\.\d{2}_\d{2}\.\d{2}\.\d{2}): (?:[A-Za-z0-9_]+): ([^:]+): (.*)",
+        )
+        .unwrap();
+        // Example: 2024.02.05_12.00.00: LogServer: PlayerName: Hello World
+        // Adjusted regex to match typical ARK logs. Needs verification of ASA format.
 
-        while self.running.load(Ordering::Relaxed) {
-            // Check if still enabled
-            if !self.is_enabled(cluster_id).await {
-                println!("🛑 Cross-chat disabled, stopping poll loop");
-                break;
+        let mut cluster_watchers = Vec::new();
+
+        for server in servers.clone() {
+            let log_path =
+                PathBuf::from(&server.install_path).join("ShooterGame/Saved/Logs/ShooterGame.log");
+
+            if !log_path.exists() {
+                println!(
+                    "⚠️ Log file not found for {}: {:?}",
+                    server.server_name, log_path
+                );
+                continue;
             }
 
-            // Poll each server for new chat messages
-            // Note: ARK doesn't have a direct "get chat" RCON command
-            // This is a placeholder for future implementation
-            // Options:
-            // 1. Parse server logs for chat
-            // 2. Use webhook integration
-            // 3. Custom plugin
+            let watcher = Arc::new(LogWatcher::new(log_path, None));
+            let mut rx = watcher.start();
+            cluster_watchers.push(watcher);
 
-            // For now, just keep the connection alive
-            sleep(Duration::from_millis(2000)).await;
+            let service_clone = self.clone();
+            let servers_clone = servers.clone();
+            let server_clone = server.clone();
+            let regex_clone = chat_regex.clone();
+
+            tokio::spawn(async move {
+                while let Some(line) = rx.recv().await {
+                    if !service_clone.running.load(Ordering::Relaxed) {
+                        break;
+                    }
+
+                    if let Some(captures) = regex_clone.captures(&line) {
+                        // captures[0] is full match
+                        // captures[1] is timestamp
+                        // captures[2] is player name
+                        // captures[3] is message
+
+                        let player_name = captures.get(2).map_or("", |m| m.as_str());
+                        let message = captures.get(3).map_or("", |m| m.as_str());
+
+                        // Ignore system messages or empty
+                        if player_name.is_empty() || message.is_empty() || player_name == "Server" {
+                            continue;
+                        }
+
+                        // Broadcast
+                        let _ = service_clone
+                            .relay_message(
+                                &servers_clone,
+                                server_clone.server_id,
+                                &server_clone.server_name,
+                                message,
+                            )
+                            .await; // relay_message will format it as [Server] Message
+                    }
+                }
+            });
         }
+
+        // Store watchers to keep them alive
+        let mut watchers_lock = self.watchers.lock().await;
+        watchers_lock.insert(cluster_id, cluster_watchers);
     }
 
     /// Stop the polling loop
@@ -185,6 +235,7 @@ impl Default for CrossChatService {
         Self {
             rcon_service: Arc::new(Mutex::new(RconService::new())),
             active_clusters: Arc::new(Mutex::new(HashMap::new())),
+            watchers: Arc::new(Mutex::new(HashMap::new())),
             running: Arc::new(AtomicBool::new(false)),
         }
     }

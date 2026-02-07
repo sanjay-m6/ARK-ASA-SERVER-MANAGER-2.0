@@ -1,3 +1,5 @@
+pub mod advanced_config;
+pub mod anti_cheat;
 pub mod api_key_manager;
 pub mod backup_service;
 pub mod config_generator;
@@ -12,7 +14,9 @@ pub mod mod_scraper;
 pub mod network;
 pub mod performance_tracker;
 pub mod player_intelligence;
+pub mod plugin_manager;
 pub mod process_manager;
 pub mod rcon;
+pub mod scheduler;
 pub mod server_installer;
 pub mod steamcmd;

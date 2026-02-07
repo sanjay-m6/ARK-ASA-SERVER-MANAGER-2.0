@@ -1,6 +1,6 @@
 [package]
 name = "asa-server-manager"
-version = "2.2.7"
+version = "2.2.8"
 description = "ASA Server Manager 2.0 - Professional ARK: Survival Ascended Server Management"
 authors = ["sanja"]
 edition = "2021"
@@ -16,6 +16,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+embed-resource = "2"
 
 [dependencies]
 tauri = { version = "2", features = [] }

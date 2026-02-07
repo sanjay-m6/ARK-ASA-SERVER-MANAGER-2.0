@@ -1,14 +1,22 @@
 pub mod commands;
 mod db;
 mod models;
+mod utils;
 mod services;
 
 use commands::rcon::RconState;
 use db::Database;
+use services::discord_bridge::DiscordBridgeService;
+use services::advanced_config::AdvancedConfigService;
+use services::anti_cheat::AntiCheatService;
+use services::file_watcher::FileWatcherService;
+use services::player_intelligence::PlayerIntelligenceService;
+use services::plugin_manager::PluginManagerService;
 use services::process_manager::ProcessManager;
 use services::rcon::RconService;
 use services::steamcmd::SteamCmdService;
-use services::file_watcher::FileWatcherService;
+use services::scheduler::SchedulerService;
+use services::cross_chat::CrossChatService;
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tauri::Manager;
@@ -19,6 +27,13 @@ pub struct AppState {
     pub sys: Mutex<System>,
     pub app_handle: tauri::AppHandle,
     pub file_watcher: FileWatcherService,
+    pub discord_bridge: Arc<DiscordBridgeService>,
+    pub player_intelligence: Arc<PlayerIntelligenceService>,
+    pub plugin_manager: Arc<PluginManagerService>,
+    pub anti_cheat: Arc<AntiCheatService>,
+    pub scheduler: Arc<SchedulerService>,
+    pub cross_chat: Arc<CrossChatService>,
+    pub advanced_config: Arc<AdvancedConfigService>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -30,47 +45,29 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // Check for Admin Privileges (Windows)
-            // Check for Admin Privileges (Windows) - Enforce only in Release mode
-            #[cfg(all(windows, not(debug_assertions)))]
+            #[cfg(windows)]
             {
                 use windows_sys::Win32::UI::Shell::IsUserAnAdmin;
                 let is_admin = unsafe { IsUserAnAdmin() != 0 };
                 
                 if !is_admin {
-                    println!("❌ Application requires Administrator privileges!");
-                    
-                    use tauri_plugin_dialog::DialogExt;
-                    app.dialog()
-                        .message("This application requires Administrator privileges to manage servers correctly.\n\nPlease right-click the application and select 'Run as Administrator'.")
-                        .title("Administrator Privileges Required")
-                        .kind(tauri_plugin_dialog::MessageDialogKind::Error)
-                        .blocking_show();
-                        
-                    std::process::exit(1);
+                    println!("❌ Application requires Administrator privileges! Handing off to Frontend UI.");
+                    // Native dialog removed. Frontend will block execution.
                 }
             }
 
             // Initialize database
-            let app_dir = app
-                .path()
-                .app_data_dir()
-                .expect("failed to get app data dir");
+            let app_dir = app.path().app_data_dir().expect("failed to get app data dir");
             std::fs::create_dir_all(&app_dir).expect("failed to create app data dir");
-
             let db_path = app_dir.join("asa_manager.db");
-            println!("📁 Database path: {:?}", db_path);
-            println!("   Database exists: {}", db_path.exists());
             let db = Database::new(db_path).expect("failed to initialize database");
 
-            // RESET SERVER STATUS ON STARTUP
-            // Since we lose process handles on restart, we must assume all servers are stopped
-            // to prevent "Ghost" online statuses.
+            // Reset server status
             if let Ok(conn) = db.get_connection() {
                 let _ = conn.execute(
                     "UPDATE servers SET status = 'stopped' WHERE status IN ('running', 'starting', 'restarting', 'updating', 'stopping')",
                     [],
                 );
-                println!("🔄 Reset all server statuses to 'stopped' on startup.");
             }
 
             let mut sys = System::new_all();
@@ -79,54 +76,97 @@ pub fn run() {
             let app_handle = app.handle().clone();
 
             let file_watcher = FileWatcherService::new(app_handle.clone());
+
+            let player_intelligence = Arc::new(PlayerIntelligenceService::new());
+            let plugin_manager = Arc::new(PluginManagerService::new(app_handle.clone()));
+
+            let discord_bridge = Arc::new(DiscordBridgeService::new(
+                app_handle.clone(),
+                player_intelligence.clone(),
+                plugin_manager.clone(),
+            ));
+
+            let scheduler = Arc::new(SchedulerService::new(app_handle.clone()));
+            scheduler.start();
+
+            let anti_cheat = Arc::new(AntiCheatService::new(app_handle.clone()));
+            anti_cheat.start();
+
+            let rcon_service = Arc::new(tokio::sync::Mutex::new(RconService::new()));
+
+            let cross_chat = Arc::new(CrossChatService::new(rcon_service.clone()));
             
+            let advanced_config = Arc::new(AdvancedConfigService::new(app_handle.clone()));
+
+
+            // Start Discord Bridge (background tasks)
+            discord_bridge.clone().start();
+
             // Spawn Auto-Start and Watcher Logic
-            
+
             app.manage(AppState {
                 db: Mutex::new(db),
                 process_manager: ProcessManager::new(app_handle.clone()),
                 sys: Mutex::new(sys),
-                app_handle: app_handle.clone(), // Fix duplicate let app_handle
+                app_handle: app_handle.clone(),
                 file_watcher,
+                discord_bridge,
+                player_intelligence,
+                plugin_manager,
+                anti_cheat,
+                scheduler,
+                cross_chat,
+                advanced_config,
             });
 
             let app_handle_clone = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                 // Wait a moment for State to be ready
-                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                 let state = app_handle_clone.state::<AppState>();
-                 
-                 // Access DB to get servers with automation enabled
-                 if let Ok(db) = state.db.lock() {
+                // Wait a moment for State to be ready
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                let state = app_handle_clone.state::<AppState>();
+
+                // Access DB to get servers with automation enabled
+                if let Ok(db) = state.db.lock() {
                     if let Ok(conn) = db.get_connection() {
                         // 1. Check for Auto-Start Servers
-                        let mut stmt = conn.prepare("SELECT id, install_path FROM servers WHERE auto_start = 1").unwrap();
-                        let rows = stmt.query_map([], |row| {
-                             Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-                        }).unwrap();
-                        
+                        let mut stmt = conn
+                            .prepare("SELECT id, install_path FROM servers WHERE auto_start = 1")
+                            .unwrap();
+                        let rows = stmt
+                            .query_map([], |row| {
+                                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                            })
+                            .unwrap();
+
                         for row in rows {
                             if let Ok((id, _path)) = row {
                                 println!("🚀 Auto-starting server {}", id);
-                                
+
                                 // Invoke the start_server logic via command logic wrapper
                                 let app_handle_clone_2 = app_handle_clone.clone();
-                                
+
                                 tauri::async_runtime::spawn(async move {
-                                     let _ = commands::server::start_server(app_handle_clone_2, id).await;
+                                    let _ = commands::server::start_server(app_handle_clone_2, id)
+                                        .await;
                                 });
                             }
                         }
 
                         // 2. Initialize File Watchers for Auto-Stop
-                        let mut stmt_stop = conn.prepare("SELECT id, install_path FROM servers WHERE auto_stop = 1").unwrap();
-                        let rows_stop = stmt_stop.query_map([], |row| {
-                             Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-                        }).unwrap();
+                        let mut stmt_stop = conn
+                            .prepare("SELECT id, install_path FROM servers WHERE auto_stop = 1")
+                            .unwrap();
+                        let rows_stop = stmt_stop
+                            .query_map([], |row| {
+                                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                            })
+                            .unwrap();
 
                         for row in rows_stop {
                             if let Ok((id, path)) = row {
-                                let _ = state.file_watcher.start_watching(id, std::path::PathBuf::from(path));
+                                let _ = state
+                                    .file_watcher
+                                    .start_watching(id, std::path::PathBuf::from(path));
                             }
                         }
                     }
@@ -134,9 +174,7 @@ pub fn run() {
             });
 
             // Initialize RCON state
-            app.manage(RconState(Arc::new(tokio::sync::Mutex::new(
-                RconService::new(),
-            ))));
+            app.manage(RconState(rcon_service));
 
             // Initialize Guardian state
             app.manage(services::guardian::GuardianState(Arc::new(
@@ -243,6 +281,8 @@ pub fn run() {
             commands::scheduler::toggle_scheduled_task,
             commands::scheduler::delete_scheduled_task,
             commands::scheduler::update_task_last_run,
+            commands::scheduler::get_scheduler_settings,
+            commands::scheduler::save_scheduler_settings,
             // RCON commands
             commands::rcon::rcon_connect,
             commands::rcon::rcon_disconnect,
@@ -273,6 +313,7 @@ pub fn run() {
             commands::player::record_player_session,
             commands::player::search_players,
             // Plugin commands
+            commands::plugin::check_plugin_status, // <-- New Command
             commands::plugin::check_asa_api_installed,
             commands::plugin::get_plugin_directory,
             commands::plugin::import_plugin_archive,
@@ -303,7 +344,35 @@ pub fn run() {
             // System commands
             commands::system::optimize_memory,
             commands::system::set_process_priority,
-            commands::system::toggle_eco_mode, // <-- New Command
+            commands::system::toggle_eco_mode,
+            commands::system::request_admin_privileges, // <-- New Command
+            // Anti-Cheat commands
+            commands::anti_cheat::get_anti_cheat_config,
+            commands::anti_cheat::save_anti_cheat_config,
+            commands::anti_cheat::get_anti_cheat_logs,
+
+            // Cross Chat Commands
+             commands::cross_chat::enable_cross_chat,
+             commands::cross_chat::disable_cross_chat,
+             commands::cross_chat::is_cross_chat_enabled,
+
+             // Advanced Config
+             commands::advanced_config::get_event_profiles,
+             commands::advanced_config::save_event_profile,
+             commands::advanced_config::activate_event_profile,
+             commands::advanced_config::get_transfer_policy,
+
+             commands::advanced_config::save_transfer_policy,
+
+             // Admin Check
+             utils::admin_check::check_is_admin,
+
+             // Discord Bridge Commands
+             commands::discord::save_discord_bridge_config,
+             commands::discord::get_discord_bridge_config,
+             commands::discord::start_discord_bridge,
+             commands::discord::stop_discord_bridge,
+             commands::discord::test_discord_bridge_connection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

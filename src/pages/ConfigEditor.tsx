@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo, memo, useCallback } from 'react';
-import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3 } from 'lucide-react';
+import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3, Shield } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { readConfig, saveConfig, updateServerSettings } from '../utils/tauri';
 import toast from 'react-hot-toast';
@@ -14,6 +14,8 @@ import { ConfigTooltip } from '../components/config/ConfigTooltip';
 import { ArrayEditor } from '../components/config/ArrayEditor';
 import { applyPreset, ConfigPreset } from '../data/presets';
 import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
+import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
+import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboard';
 
 // Field Render Component
 // Field Render Component - Memoized to prevent re-renders of all fields on single keypress
@@ -210,7 +212,7 @@ export default function ConfigEditor() {
     const [isLoading, setIsLoading] = useState(false);
     const [activeCategory, setActiveCategory] = useState<string>('server');
     const [searchQuery, setSearchQuery] = useState('');
-    const [viewMode, setViewMode] = useState<'visual' | 'gus' | 'game' | 'levels' | 'stats'>('visual');
+    const [viewMode, setViewMode] = useState<'visual' | 'gus' | 'game' | 'levels' | 'stats' | 'anti-cheat' | 'advanced'>('visual');
 
     const [customDinoLevel, setCustomDinoLevel] = useState(150);
     const [customPlayerLevel, setCustomPlayerLevel] = useState(105);
@@ -701,6 +703,28 @@ export default function ConfigEditor() {
                     >
                         <BarChart3 className="w-4 h-4" /> Per-Stat Multipliers
                     </button>
+                    <button
+                        onClick={() => setViewMode('anti-cheat')}
+                        className={cn(
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            viewMode === 'anti-cheat'
+                                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30"
+                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+                        )}
+                    >
+                        <Shield className="w-4 h-4" /> Anti-Cheat
+                    </button>
+                    <button
+                        onClick={() => setViewMode('advanced')}
+                        className={cn(
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            viewMode === 'advanced'
+                                ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/30"
+                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+                        )}
+                    >
+                        <Sliders className="w-4 h-4" /> Advanced Rules
+                    </button>
                 </div>
             </div>
 
@@ -718,7 +742,15 @@ export default function ConfigEditor() {
 
             {/* Main Content */}
             <div className="flex-1 flex overflow-hidden relative">
-                {viewMode === 'visual' ? (
+                {viewMode === 'anti-cheat' ? (
+                    <div className="w-full h-full overflow-y-auto bg-[#0d0d1a]">
+                        <AntiCheatDashboard serverId={selectedServerId} />
+                    </div>
+                ) : viewMode === 'advanced' ? (
+                    <div className="w-full h-full overflow-y-auto bg-[#0d0d1a] p-8">
+                        <AdvancedConfigDashboard serverId={selectedServerId} />
+                    </div>
+                ) : viewMode === 'visual' ? (
                     <>
                         {/* Sidebar */}
                         <div

@@ -35,6 +35,20 @@ export interface ServerConfig {
     sessionName: string;
     motd?: string;
     custom_args?: string;
+
+    // Structure & Events
+    structure_damage_multiplier?: number;
+    structure_resistance_multiplier?: number;
+    structure_decay_multiplier?: number;
+    override_structure_platform_prevention?: boolean;
+    global_item_stack_size_multiplier?: number;
+    custom_resource_harvesting_multiplier?: number;
+
+    // Advanced
+    xp_multiplier?: number;
+    harvest_amount_multiplier?: number;
+    taming_speed_multiplier?: number;
+    pve_mode?: boolean;
 }
 
 export interface SystemInfo {

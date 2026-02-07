@@ -21,13 +21,7 @@ pub async fn get_public_ip() -> Result<String, String> {
 }
 
 pub fn check_port_open(ip: &str, port: u16) -> bool {
-    // Try to connect to the IP:Port
-    // Timeout is short because we expect a quick response or fail
     let addr = format!("{}:{}", ip, port);
-
-    // We need to run this in a blocking way or async
-    // Since we are likely calling this from an async command, we can use std::net with a timeout
-
     if let Ok(addrs) = addr.to_socket_addrs() {
         for addr in addrs {
             if let Ok(_) = TcpStream::connect_timeout(&addr, Duration::from_secs(2)) {
@@ -35,21 +29,68 @@ pub fn check_port_open(ip: &str, port: u16) -> bool {
             }
         }
     }
-
     false
 }
 
 /// Check if a local port is already in use by trying to bind to it
 pub fn is_port_in_use(port: u16) -> bool {
-    // Check TCP
     if TcpListener::bind(("0.0.0.0", port)).is_err() {
         return true;
     }
-
-    // Check UDP
     if UdpSocket::bind(("0.0.0.0", port)).is_err() {
         return true;
     }
-
     false
+}
+
+/// Query the server using A2S_INFO protocol to check if it's reachable and ready
+/// Returns True if the server responds to the query
+pub fn query_server(ip: &str, port: u16) -> bool {
+    // A2S_INFO Request: 0xFF 0xFF 0xFF 0xFF 'T' Source Engine Query \0
+    let request = [
+        0xFF, 0xFF, 0xFF, 0xFF, // Header
+        0x54, // 'T' (A2S_INFO)
+        0x53, 0x6F, 0x75, 0x72, 0x63, 0x65, 0x20, 0x45, 0x6E, 0x67, 0x69, 0x6E, 0x65, 0x20, 0x51,
+        0x75, 0x65, 0x72, 0x79, // "Source Engine Query"
+        0x00, // Null terminator
+    ];
+
+    match UdpSocket::bind("0.0.0.0:0") {
+        Ok(socket) => {
+            // Set a short timeout
+            if let Err(_) = socket.set_read_timeout(Some(Duration::from_secs(2))) {
+                return false;
+            }
+            if let Err(_) = socket.set_write_timeout(Some(Duration::from_secs(2))) {
+                return false;
+            }
+
+            let addr = format!("{}:{}", ip, port);
+            if let Err(_) = socket.connect(addr) {
+                return false;
+            }
+
+            if let Err(_) = socket.send(&request) {
+                return false;
+            }
+
+            let mut buffer = [0u8; 1400];
+            match socket.recv(&mut buffer) {
+                Ok(size) => {
+                    // Verify response header: 0xFF 0xFF 0xFF 0xFF
+                    if size > 4
+                        && buffer[0] == 0xFF
+                        && buffer[1] == 0xFF
+                        && buffer[2] == 0xFF
+                        && buffer[3] == 0xFF
+                    {
+                        return true;
+                    }
+                    false
+                }
+                Err(_) => false,
+            }
+        }
+        Err(_) => false,
+    }
 }

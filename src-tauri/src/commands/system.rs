@@ -278,3 +278,62 @@ pub async fn toggle_eco_mode(enable: bool) -> Result<(), String> {
 
     Ok(())
 }
+
+#[tauri::command]
+pub async fn request_admin_privileges(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::UI::Shell::ShellExecuteW;
+        use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOW;
+
+        let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
+
+        let operation: Vec<u16> = OsStr::new("runas")
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let file: Vec<u16> = exe_path
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let parameters: Vec<u16> = OsStr::new("")
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        unsafe {
+            let result = ShellExecuteW(
+                std::ptr::null_mut(),
+                operation.as_ptr(),
+                file.as_ptr(),
+                parameters.as_ptr(),
+                std::ptr::null(),
+                SW_SHOW,
+            );
+
+            if result as isize > 32 {
+                // Small delay to allow WebView2 to cleanup properly
+                // This prevents the Chrome_WidgetWin_0 error 1412
+                // Close all windows first to ensure WebView2 cleans up nicely
+                let windows = app.webview_windows();
+                for (_, window) in windows {
+                    let _ = window.close();
+                }
+
+                // Give a moment for windows to close
+                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                app.exit(0);
+            } else {
+                return Err("Failed to request admin privileges".to_string());
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        return Err("Admin elevation is only supported on Windows".to_string());
+    }
+    Ok(())
+}

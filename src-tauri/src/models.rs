@@ -355,3 +355,21 @@ pub struct PluginInfo {
     pub enabled: bool,
     pub install_path: std::path::PathBuf,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SchedulerSettings {
+    pub server_id: i64,
+    pub mode: String, // 'basic', 'advanced', 'disabled'
+    pub basic_interval_hours: i32,
+    pub basic_warning_minutes: String, // "30,15,10,5,1"
+    pub next_run_basic: Option<String>,
+    // Advanced fields
+    pub advanced_time: Option<String>,
+    pub advanced_days: Option<String>,
+    pub advanced_warning_minutes: Option<String>,
+    pub advanced_shutdown: Option<bool>,
+    pub advanced_update: Option<bool>,
+    pub advanced_restart: Option<bool>,
+    pub advanced_dino_wipe: Option<bool>,
+}

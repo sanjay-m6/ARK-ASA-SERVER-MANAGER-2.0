@@ -1,6 +1,10 @@
+pub mod advanced_config;
+pub mod anti_cheat;
 pub mod backup;
 pub mod cluster;
 pub mod config;
+pub mod cross_chat;
+pub mod discord;
 pub mod file_manager;
 pub mod firewall;
 pub mod import;

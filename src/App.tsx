@@ -1,9 +1,12 @@
-import { useState, Suspense, lazy } from 'react';
+import { useState, Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
 import WelcomeOverlay from './components/layout/WelcomeOverlay';
 import UpdateChecker from './components/UpdateChecker';
+import AdminBlocker from './components/layout/AdminBlocker';
 import { Loader2 } from 'lucide-react';
+import { checkIsAdmin } from './utils/tauri';
+
 
 // Lazy load pages for performance optimization
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -23,6 +26,32 @@ const FileManager = lazy(() => import('./pages/FileManager'));
 
 function App() {
     const [appState, setAppState] = useState<'welcome' | 'app'>('welcome');
+    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null); // null = checking, true = admin, false = blocked
+
+    useEffect(() => {
+        console.log('[App] Starting admin check...');
+        checkIsAdmin().then(isAdmin => {
+            console.log('[App] Admin check result:', isAdmin);
+            setIsAuthorized(isAdmin);
+        }).catch(err => {
+            console.error("[App] Failed to check admin status:", err);
+            // Fail safe: show AdminBlocker if check fails
+            setIsAuthorized(false);
+        });
+    }, []);
+
+    // Show a loading spinner while checking admin status
+    if (isAuthorized === null) {
+        return (
+            <div className="fixed inset-0 flex items-center justify-center bg-[#0a0a0f]">
+                <Loader2 className="w-12 h-12 text-sky-500 animate-spin" />
+            </div>
+        );
+    }
+
+    if (!isAuthorized) {
+        return <AdminBlocker />;
+    }
 
     if (appState === 'welcome') {
         return <WelcomeOverlay onComplete={() => setAppState('app')} />;

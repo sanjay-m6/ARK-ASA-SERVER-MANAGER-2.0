@@ -37,6 +37,18 @@ fn get_server_install_path(state: &State<'_, AppState>, server_id: i64) -> Resul
     Ok(PathBuf::from(install_path))
 }
 
+/// Check if a specific plugin is installed
+#[tauri::command]
+pub async fn check_plugin_status(
+    state: State<'_, AppState>,
+    server_id: i64,
+    plugin_name: String,
+) -> Result<bool, String> {
+    Ok(state
+        .plugin_manager
+        .check_plugin_status(server_id, &plugin_name))
+}
+
 /// Check if ASA Server API is installed for a server
 #[tauri::command]
 pub async fn check_asa_api_installed(

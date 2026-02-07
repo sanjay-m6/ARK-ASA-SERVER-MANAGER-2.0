@@ -27,6 +27,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+#root {
+  min-height: 100vh;
+}
+
 /* Optimized Panel - No Glass/Blur */
 .glass-panel {
   background: var(--glass-bg);

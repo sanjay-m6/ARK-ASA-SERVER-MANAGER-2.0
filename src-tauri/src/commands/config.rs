@@ -370,7 +370,7 @@ pub async fn write_server_configs(
     conn.execute(
         "UPDATE servers SET max_players = ?1, map_name = ?2, session_name = ?3, 
          game_port = ?4, query_port = ?5, rcon_port = ?6, admin_password = ?7,
-         server_password = ?8, rcon_enabled = ?9 WHERE id = ?10",
+         server_password = ?8, rcon_enabled = ?9, ip_address = ?10 WHERE id = ?11",
         rusqlite::params![
             config.max_players,
             config.map_name,
@@ -381,6 +381,7 @@ pub async fn write_server_configs(
             config.admin_password,
             config.server_password,
             config.rcon_enabled,
+            config.ip_address,
             server_id,
         ],
     )

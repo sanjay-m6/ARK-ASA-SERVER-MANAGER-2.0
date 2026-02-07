@@ -1,7 +1,10 @@
 use crate::AppState;
 use serde::{Deserialize, Serialize};
+use std::os::windows::process::CommandExt;
 use std::process::Command;
 use tauri::State;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// Status of firewall rules for a specific port
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -45,6 +48,7 @@ fn check_port_rule_exists(port: u16, protocol: &str) -> PortStatus {
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .creation_flags(CREATE_NO_WINDOW)
         .output();
 
     match output {
@@ -79,6 +83,7 @@ fn create_firewall_rule(port: u16, protocol: &str, rule_name: &str) -> Result<()
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 
@@ -104,6 +109,7 @@ fn remove_firewall_rule(rule_name: &str) -> Result<(), String> {
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 
@@ -150,7 +156,7 @@ if (-not $existingRule) {{
 
     // Use Start-Process with -Verb RunAs to get elevation
     let launcher_script = format!(
-        r#"Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
+        r#"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
         script_path.to_string_lossy().replace('\\', "\\\\")
     );
 
@@ -161,6 +167,7 @@ if (-not $existingRule) {{
             "-Command",
             &launcher_script,
         ])
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 
@@ -204,7 +211,7 @@ Write-Host 'Removed: {}'"#,
 
     // Use Start-Process with -Verb RunAs to get elevation
     let launcher_script = format!(
-        r#"Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
+        r#"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
         script_path.to_string_lossy().replace('\\', "\\\\")
     );
 
@@ -215,6 +222,7 @@ Write-Host 'Removed: {}'"#,
             "-Command",
             &launcher_script,
         ])
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 

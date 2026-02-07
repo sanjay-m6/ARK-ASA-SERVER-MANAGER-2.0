@@ -118,57 +118,59 @@ pub async fn install_server(
     let installer = ServerInstaller::new(app_handle);
     installer.install_asa_server(&path).await?;
 
-    // Create database entry
-    let db = state
-        .db
-        .lock()
-        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-    let conn = db
-        .get_connection()
-        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    // Create database entry (Scoped to drop mutex/lock before await)
+    let (id, unique_name) = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
-    // Check if server name already exists and make it unique
-    let mut unique_name = name.clone();
-    let mut counter = 1;
-    loop {
-        let exists: bool = conn
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM servers WHERE name = ?1)",
-                [&unique_name],
-                |row| row.get(0),
-            )
-            .unwrap_or(false);
+        // Check if server name already exists and make it unique
+        let mut unique_name = name.clone();
+        let mut counter = 1;
+        loop {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM servers WHERE name = ?1)",
+                    [&unique_name],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
 
-        if !exists {
-            break;
+            if !exists {
+                break;
+            }
+            counter += 1;
+            unique_name = format!("{} ({})", name, counter);
         }
-        counter += 1;
-        unique_name = format!("{} ({})", name, counter);
-    }
 
-    conn.execute(
-        "INSERT INTO servers (name, install_path, status, game_port, query_port, rcon_port, 
-         max_players, admin_password, map_name, session_name, server_type) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-        (
-            &unique_name,
-            &install_path,
-            "stopped",
-            game_port,
-            query_port,
-            rcon_port,
-            70,
-            "admin123",
-            &map_name,
-            &unique_name,
-            "ASA", // Server type - ARK: Survival Ascended
-        ),
-    )
-    .map_err(|e: rusqlite::Error| e.to_string())?;
+        conn.execute(
+            "INSERT INTO servers (name, install_path, status, game_port, query_port, rcon_port, 
+             max_players, admin_password, map_name, session_name, server_type) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            (
+                &unique_name,
+                &install_path,
+                "stopped",
+                game_port,
+                query_port,
+                rcon_port,
+                70,
+                "admin123",
+                &map_name,
+                &unique_name,
+                "ASA", // Server type - ARK: Survival Ascended
+            ),
+        )
+        .map_err(|e: rusqlite::Error| e.to_string())?;
 
-    let id = conn.last_insert_rowid();
+        (conn.last_insert_rowid(), unique_name)
+    };
 
-    Ok(Server {
+    let server_obj = Server {
         id,
         name: unique_name.clone(),
 
@@ -199,7 +201,17 @@ pub async fn install_server(
         auto_start: false, // Default: OFF
         auto_stop: false,  // Default: OFF
         intelligent_mode: false,
-    })
+    };
+
+    // Attempt to create firewall rules (Best Effort)
+    // This will prompt for UAC if rules don't exist
+    println!(
+        "🛡️ Attempting to create firewall rules for server {}...",
+        id
+    );
+    let _ = crate::commands::firewall::create_firewall_rules(state, id).await;
+
+    Ok(server_obj)
 }
 
 /// Clone an existing server with offset ports
@@ -512,8 +524,9 @@ pub async fn start_server(app_handle: tauri::AppHandle, server_id: i64) -> Resul
     println!("▶️ Starting server {}", server_id);
 
     // Sync critical settings from INI to DB before starting
-    // This ensures that if the user manually edited INI files, the changes are respected
-    // and passed correctly to the command line arguments
+    // REMOVED: This causes a regression where UI changes (DB) are overwritten by stale INI values
+    // The DB should be the source of truth for Launch Arguments (MaxPlayers, Ports, etc.)
+    /*
     let _ = crate::commands::config::save_config(
         state.clone(),
         server_id,
@@ -526,6 +539,7 @@ pub async fn start_server(app_handle: tauri::AppHandle, server_id: i64) -> Resul
         .await?,
     )
     .await;
+    */
 
     // Get server details including cluster info
     let (

@@ -3,10 +3,16 @@ import {
     MessageSquare, Bell, Send, CheckCircle, Loader2, AlertTriangle,
     Users, RefreshCw, Shield, Webhook, Bot, Server as ServerIcon,
     Activity, Zap, Clock, Radio, Eye, PlayCircle, StopCircle, Settings2,
-    TrendingUp, History, Wifi, WifiOff
+    TrendingUp, History, Wifi, WifiOff, Link, MessageCircle, List
 } from 'lucide-react';
+
 import { cn } from '../utils/helpers';
-import { getSetting, setSetting } from '../utils/tauri';
+import {
+    getSetting, setSetting,
+    getDiscordBridgeConfig, saveDiscordBridgeConfig,
+    startDiscordBridge, stopDiscordBridge, testDiscordConnection,
+    type DiscordBridgeConfig
+} from '../utils/tauri';
 import { useServerStore } from '../stores/serverStore';
 import toast from 'react-hot-toast';
 
@@ -50,7 +56,25 @@ export default function DiscordBot() {
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
     const [recentNotifications, setRecentNotifications] = useState<RecentNotification[]>([]);
     const [liveMode, setLiveMode] = useState(true);
-    const [activeSection, setActiveSection] = useState<'setup' | 'alerts' | 'activity'>('setup');
+    const [activeSection, setActiveSection] = useState<'webhook' | 'bot' | 'alerts' | 'activity'>('webhook');
+    const [bridgeConfig, setBridgeConfig] = useState<DiscordBridgeConfig>({
+        cluster_id: 1,
+        enabled: false,
+        bot_token: '',
+        guild_id: '',
+        channel_id: '',
+        game_to_discord: true,
+        discord_to_game: true,
+        server_list_enabled: false,
+        server_list_channel_id: '',
+        server_list_message_id: '',
+        player_list_enabled: false,
+        player_list_channel_id: '',
+        player_list_message_id: '',
+        show_tribe_names: true,
+        show_playtime: true
+    });
+    const [isBridgeTesting, setIsBridgeTesting] = useState(false);
     const autoSave = true;
 
     // Real-time connection check
@@ -99,15 +123,20 @@ export default function DiscordBot() {
 
     const loadSettings = async () => {
         try {
-            const [webhook, alertConfig, notifications] = await Promise.all([
+            const [webhook, alertConfig, notifications, bridge] = await Promise.all([
                 getSetting('discord_webhook_url'),
                 getSetting('discord_alerts_config'),
-                getSetting('discord_recent_notifications')
+                getSetting('discord_recent_notifications'),
+                getDiscordBridgeConfig(1) // Default to cluster 1
             ]);
 
             if (webhook) {
                 setWebhookUrl(webhook);
                 setSavedWebhookUrl(webhook);
+            }
+
+            if (bridge) {
+                setBridgeConfig(bridge);
             }
 
             if (alertConfig) {
@@ -271,6 +300,53 @@ export default function DiscordBot() {
         }
     };
 
+    const saveBridgeConfig = async () => {
+        try {
+            setIsSaving(true);
+            await saveDiscordBridgeConfig(bridgeConfig);
+            toast.success('Bot configuration saved');
+        } catch (error) {
+            toast.error('Failed to save config');
+            console.error(error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const toggleBridge = async () => {
+        try {
+            if (bridgeConfig.enabled) {
+                await stopDiscordBridge();
+                setBridgeConfig(prev => ({ ...prev, enabled: false }));
+                await saveDiscordBridgeConfig({ ...bridgeConfig, enabled: false });
+                toast.success('Discord Bridge Stopped');
+            } else {
+                await startDiscordBridge();
+                setBridgeConfig(prev => ({ ...prev, enabled: true }));
+                await saveDiscordBridgeConfig({ ...bridgeConfig, enabled: true });
+                toast.success('Discord Bridge Started');
+            }
+        } catch (error) {
+            toast.error('Failed to toggle bridge');
+        }
+    };
+
+    const testBridge = async () => {
+        if (!bridgeConfig.bot_token || !bridgeConfig.channel_id) {
+            toast.error('Token and Chat Channel ID required');
+            return;
+        }
+        setIsBridgeTesting(true);
+        try {
+            const result = await testDiscordConnection(bridgeConfig.bot_token, bridgeConfig.channel_id);
+            toast.success(result);
+        } catch (error) {
+            toast.error(typeof error === 'string' ? error : 'Connection Failed');
+        } finally {
+            setIsBridgeTesting(false);
+        }
+    };
+
     const hasUnsavedChanges = webhookUrl !== savedWebhookUrl;
     const enabledCount = alerts.filter(a => a.enabled).length;
     const runningServers = servers.filter(s => s.status === 'running').length;
@@ -374,7 +450,8 @@ export default function DiscordBot() {
             {/* Section Tabs */}
             <div className="flex gap-2 p-1 bg-slate-900/50 rounded-lg w-fit">
                 {[
-                    { key: 'setup', label: 'Setup', icon: Settings2 },
+                    { key: 'webhook', label: 'Webhook', icon: Webhook },
+                    { key: 'bot', label: 'Bot Integration', icon: Bot },
                     { key: 'alerts', label: 'Alerts', icon: Bell },
                     { key: 'activity', label: 'Activity', icon: Activity }
                 ].map(tab => {
@@ -397,8 +474,8 @@ export default function DiscordBot() {
                 })}
             </div>
 
-            {/* Setup Section */}
-            {activeSection === 'setup' && (
+            {/* Setup Section (Webhook) */}
+            {activeSection === 'webhook' && (
                 <div className="grid lg:grid-cols-2 gap-6">
                     {/* Webhook Configuration */}
                     <div className="glass-panel rounded-2xl p-6 space-y-5">
@@ -511,138 +588,331 @@ export default function DiscordBot() {
                 </div>
             )}
 
-            {/* Alerts Section */}
-            {activeSection === 'alerts' && (
-                <div className="glass-panel rounded-2xl p-6 space-y-5">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-amber-500/10 rounded-xl">
-                                <Bell className="w-5 h-5 text-amber-400" />
-                            </div>
-                            <div>
-                                <h2 className="text-lg font-bold text-white">Notification Settings</h2>
-                                <p className="text-sm text-slate-500">{enabledCount}/{alerts.length} alerts active</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={enableAllAlerts}
-                                className="px-3 py-1.5 bg-green-500/20 text-green-400 rounded-lg text-sm font-medium hover:bg-green-500/30 transition-colors"
-                            >
-                                Enable All
-                            </button>
-                            <button
-                                onClick={disableAllAlerts}
-                                className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/30 transition-colors"
-                            >
-                                Disable All
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Grouped Alerts */}
-                    {(['server', 'player', 'system'] as const).map(category => (
-                        <div key={category} className="space-y-2">
-                            <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">
-                                {category === 'server' && '🖥️ Server Events'}
-                                {category === 'player' && '👥 Player Events'}
-                                {category === 'system' && '⚙️ System Events'}
-                            </h3>
-                            <div className="grid sm:grid-cols-2 gap-2">
-                                {alerts.filter(a => a.category === category).map((alert) => {
-                                    const Icon = alert.icon;
-                                    return (
-                                        <div
-                                            key={alert.key}
-                                            className={cn(
-                                                "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
-                                                alert.enabled
-                                                    ? "bg-indigo-500/10 border-indigo-500/30"
-                                                    : "bg-slate-800/50 border-slate-700/50 hover:border-slate-600"
-                                            )}
-                                            onClick={() => toggleAlert(alert.key)}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <Icon className={cn("w-4 h-4", alert.enabled ? "text-indigo-400" : "text-slate-500")} />
-                                                <div>
-                                                    <div className={cn("font-medium text-sm", alert.enabled ? "text-white" : "text-slate-400")}>
-                                                        {alert.label}
-                                                    </div>
-                                                    <div className="text-xs text-slate-500">{alert.description}</div>
-                                                </div>
-                                            </div>
-                                            <div className={cn(
-                                                "w-10 h-6 rounded-full transition-colors relative",
-                                                alert.enabled ? "bg-indigo-500" : "bg-slate-700"
-                                            )}>
-                                                <div className={cn(
-                                                    "absolute w-4 h-4 bg-white rounded-full top-1 transition-transform",
-                                                    alert.enabled ? "translate-x-5" : "translate-x-1"
-                                                )} />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    ))}
-
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
-                        <div className="flex items-center gap-2 text-sm text-slate-400">
-                            <Eye className="w-4 h-4" />
-                            Auto-save enabled
-                        </div>
-                        <div className="text-xs text-slate-500">
-                            Changes save automatically
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Activity Section */}
-            {activeSection === 'activity' && (
-                <div className="glass-panel rounded-2xl p-6 space-y-5">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-purple-500/10 rounded-xl">
-                            <History className="w-5 h-5 text-purple-400" />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-bold text-white">Recent Activity</h2>
-                            <p className="text-sm text-slate-500">Last 10 notifications sent</p>
-                        </div>
-                    </div>
-
-                    {recentNotifications.length === 0 ? (
-                        <div className="text-center py-12">
-                            <History className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                            <p className="text-slate-400">No recent notifications</p>
-                            <p className="text-sm text-slate-500">Notifications will appear here</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {recentNotifications.map(notification => (
-                                <div
-                                    key={notification.id}
-                                    className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50"
-                                >
+            {/* Bot Configuration Section */}
+            {
+                activeSection === 'bot' && (
+                    <div className="grid lg:grid-cols-2 gap-6 animate-in fade-in duration-300">
+                        <div className="space-y-6">
+                            {/* Status Card */}
+                            <div className="glass-panel rounded-2xl p-6">
+                                <div className="flex items-center justify-between mb-6">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-indigo-500/10 rounded-lg">
-                                            <Send className="w-4 h-4 text-indigo-400" />
+                                        <div className={cn("p-2.5 rounded-xl", bridgeConfig.enabled ? "bg-green-500/10" : "bg-slate-700/50")}>
+                                            <Bot className={cn("w-6 h-6", bridgeConfig.enabled ? "text-green-400" : "text-slate-400")} />
                                         </div>
                                         <div>
-                                            <div className="font-medium text-white text-sm">{notification.type}</div>
-                                            <div className="text-xs text-slate-500">{notification.message}</div>
+                                            <h2 className="text-lg font-bold text-white">Bridge Status</h2>
+                                            <p className="text-sm text-slate-500">
+                                                {bridgeConfig.enabled ? "Service is active" : "Service is stopped"}
+                                            </p>
                                         </div>
                                     </div>
-                                    <div className="text-xs text-slate-500">
-                                        {notification.timestamp.toLocaleTimeString()}
+                                    <button
+                                        onClick={toggleBridge}
+                                        className={cn(
+                                            "w-12 h-7 rounded-full transition-colors relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900",
+                                            bridgeConfig.enabled ? "bg-green-500 focus:ring-green-500" : "bg-slate-700 focus:ring-slate-500"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "absolute w-5 h-5 bg-white rounded-full top-1 transition-transform shadow-sm",
+                                            bridgeConfig.enabled ? "translate-x-6" : "translate-x-1"
+                                        )} />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Bot Token</label>
+                                        <input
+                                            type="password"
+                                            value={bridgeConfig.bot_token}
+                                            onChange={e => setBridgeConfig(c => ({ ...c, bot_token: e.target.value }))}
+                                            placeholder="MTE..."
+                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Guild ID</label>
+                                        <input
+                                            type="text"
+                                            value={bridgeConfig.guild_id}
+                                            onChange={e => setBridgeConfig(c => ({ ...c, guild_id: e.target.value }))}
+                                            placeholder="Server ID"
+                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-3 pt-2">
+                                        <button
+                                            onClick={saveBridgeConfig}
+                                            className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-2.5 font-medium transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <CheckCircle className="w-4 h-4" /> Save Config
+                                        </button>
+                                        <button
+                                            onClick={testBridge}
+                                            disabled={isBridgeTesting}
+                                            className="px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-xl py-2.5 font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {isBridgeTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />} Test
+                                        </button>
                                     </div>
                                 </div>
-                            ))}
+                            </div>
+
+                            {/* Features Toggles */}
+                            <div className="glass-panel rounded-2xl p-6">
+                                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                                    <Settings2 className="w-4 h-4 text-indigo-400" />
+                                    Features
+                                </h3>
+                                <div className="space-y-3">
+                                    {[
+                                        { label: 'Game to Discord', sub: 'Forward in-game chat to Discord', key: 'game_to_discord' },
+                                        { label: 'Discord to Game', sub: 'Forward Discord messages to game', key: 'discord_to_game' },
+                                        { label: 'Show Tribe Names', sub: 'Include tribe tag in headers', key: 'show_tribe_names' },
+                                        { label: 'Show Playtime', sub: 'Display playtime stats in lists', key: 'show_playtime' },
+                                    ].map(opt => (
+                                        <div key={opt.key} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-xl border border-slate-700/30">
+                                            <div>
+                                                <div className="text-sm font-medium text-white">{opt.label}</div>
+                                                <div className="text-xs text-slate-500">{opt.sub}</div>
+                                            </div>
+                                            <button
+                                                onClick={() => setBridgeConfig(c => ({ ...c, [opt.key]: !(c as any)[opt.key] }))}
+                                                className={cn(
+                                                    "w-10 h-6 rounded-full transition-colors relative",
+                                                    (bridgeConfig as any)[opt.key] ? "bg-indigo-500" : "bg-slate-700"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "absolute w-4 h-4 bg-white rounded-full top-1 transition-transform",
+                                                    (bridgeConfig as any)[opt.key] ? "translate-x-5" : "translate-x-1"
+                                                )} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
-                    )}
-                </div>
-            )}
-        </div>
+
+                        <div className="space-y-6">
+                            {/* Channel Configuration */}
+                            <div className="glass-panel rounded-2xl p-6">
+                                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                                    <MessageCircle className="w-4 h-4 text-pink-400" />
+                                    Channel Configuration
+                                </h3>
+
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Chat Channel ID</label>
+                                        <input
+                                            type="text"
+                                            value={bridgeConfig.channel_id}
+                                            onChange={e => setBridgeConfig(c => ({ ...c, channel_id: e.target.value }))}
+                                            placeholder="Primary chat channel"
+                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-pink-500 font-mono text-sm"
+                                        />
+                                        <p className="text-xs text-slate-500 mt-1">Main channel for cross-server chat relay</p>
+                                    </div>
+
+                                    <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <List className="w-4 h-4 text-cyan-400" />
+                                                <span className="text-sm font-medium text-white">Live Status Lists</span>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <label className="text-xs text-slate-400">Server List Channel</label>
+                                                <button
+                                                    onClick={() => setBridgeConfig(c => ({ ...c, server_list_enabled: !c.server_list_enabled }))}
+                                                    className={cn("text-xs font-medium", bridgeConfig.server_list_enabled ? "text-green-400" : "text-slate-500")}
+                                                >
+                                                    {bridgeConfig.server_list_enabled ? "Enabled" : "Disabled"}
+                                                </button>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={bridgeConfig.server_list_channel_id}
+                                                onChange={e => setBridgeConfig(c => ({ ...c, server_list_channel_id: e.target.value }))}
+                                                disabled={!bridgeConfig.server_list_enabled}
+                                                placeholder="Channel ID for Server Status"
+                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm disabled:opacity-50"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <label className="text-xs text-slate-400">Player List Channel</label>
+                                                <button
+                                                    onClick={() => setBridgeConfig(c => ({ ...c, player_list_enabled: !c.player_list_enabled }))}
+                                                    className={cn("text-xs font-medium", bridgeConfig.player_list_enabled ? "text-green-400" : "text-slate-500")}
+                                                >
+                                                    {bridgeConfig.player_list_enabled ? "Enabled" : "Disabled"}
+                                                </button>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={bridgeConfig.player_list_channel_id}
+                                                onChange={e => setBridgeConfig(c => ({ ...c, player_list_channel_id: e.target.value }))}
+                                                disabled={!bridgeConfig.player_list_enabled}
+                                                placeholder="Channel ID for Active Players"
+                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm disabled:opacity-50"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-300">
+                                <strong>Note:</strong> ensure the Bot has 'View Channels', 'Send Messages', and 'Manage Messages' permissions in the configured channels.
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Alerts Section */}
+            {
+                activeSection === 'alerts' && (
+                    <div className="glass-panel rounded-2xl p-6 space-y-5">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-amber-500/10 rounded-xl">
+                                    <Bell className="w-5 h-5 text-amber-400" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-white">Notification Settings</h2>
+                                    <p className="text-sm text-slate-500">{enabledCount}/{alerts.length} alerts active</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={enableAllAlerts}
+                                    className="px-3 py-1.5 bg-green-500/20 text-green-400 rounded-lg text-sm font-medium hover:bg-green-500/30 transition-colors"
+                                >
+                                    Enable All
+                                </button>
+                                <button
+                                    onClick={disableAllAlerts}
+                                    className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/30 transition-colors"
+                                >
+                                    Disable All
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Grouped Alerts */}
+                        {(['server', 'player', 'system'] as const).map(category => (
+                            <div key={category} className="space-y-2">
+                                <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">
+                                    {category === 'server' && '🖥️ Server Events'}
+                                    {category === 'player' && '👥 Player Events'}
+                                    {category === 'system' && '⚙️ System Events'}
+                                </h3>
+                                <div className="grid sm:grid-cols-2 gap-2">
+                                    {alerts.filter(a => a.category === category).map((alert) => {
+                                        const Icon = alert.icon;
+                                        return (
+                                            <div
+                                                key={alert.key}
+                                                className={cn(
+                                                    "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                                                    alert.enabled
+                                                        ? "bg-indigo-500/10 border-indigo-500/30"
+                                                        : "bg-slate-800/50 border-slate-700/50 hover:border-slate-600"
+                                                )}
+                                                onClick={() => toggleAlert(alert.key)}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <Icon className={cn("w-4 h-4", alert.enabled ? "text-indigo-400" : "text-slate-500")} />
+                                                    <div>
+                                                        <div className={cn("font-medium text-sm", alert.enabled ? "text-white" : "text-slate-400")}>
+                                                            {alert.label}
+                                                        </div>
+                                                        <div className="text-xs text-slate-500">{alert.description}</div>
+                                                    </div>
+                                                </div>
+                                                <div className={cn(
+                                                    "w-10 h-6 rounded-full transition-colors relative",
+                                                    alert.enabled ? "bg-indigo-500" : "bg-slate-700"
+                                                )}>
+                                                    <div className={cn(
+                                                        "absolute w-4 h-4 bg-white rounded-full top-1 transition-transform",
+                                                        alert.enabled ? "translate-x-5" : "translate-x-1"
+                                                    )} />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+
+                        <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
+                            <div className="flex items-center gap-2 text-sm text-slate-400">
+                                <Eye className="w-4 h-4" />
+                                Auto-save enabled
+                            </div>
+                            <div className="text-xs text-slate-500">
+                                Changes save automatically
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Activity Section */}
+            {
+                activeSection === 'activity' && (
+                    <div className="glass-panel rounded-2xl p-6 space-y-5">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 bg-purple-500/10 rounded-xl">
+                                <History className="w-5 h-5 text-purple-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">Recent Activity</h2>
+                                <p className="text-sm text-slate-500">Last 10 notifications sent</p>
+                            </div>
+                        </div>
+
+                        {recentNotifications.length === 0 ? (
+                            <div className="text-center py-12">
+                                <History className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                                <p className="text-slate-400">No recent notifications</p>
+                                <p className="text-sm text-slate-500">Notifications will appear here</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {recentNotifications.map(notification => (
+                                    <div
+                                        key={notification.id}
+                                        className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700/50"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-indigo-500/10 rounded-lg">
+                                                <Send className="w-4 h-4 text-indigo-400" />
+                                            </div>
+                                            <div>
+                                                <div className="font-medium text-white text-sm">{notification.type}</div>
+                                                <div className="text-xs text-slate-500">{notification.message}</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            {notification.timestamp.toLocaleTimeString()}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )
+            }
+        </div >
     );
 }

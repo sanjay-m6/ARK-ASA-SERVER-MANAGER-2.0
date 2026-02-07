@@ -1,6 +1,7 @@
 // Scheduler Commands for ASA Server Manager
 // Provides persistence for scheduled tasks
 
+use crate::models::SchedulerSettings;
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -29,6 +30,91 @@ pub struct CreateTaskRequest {
     pub command: Option<String>,
     pub message: Option<String>,
     pub pre_warning_minutes: i32,
+}
+
+/// Validate a cron expression format
+/// Expects 5 fields: minute hour day month weekday (standard cron format)
+/// Each field can be *, a number, or a range/step expression
+fn validate_cron_expression(expr: &str) -> Result<(), String> {
+    let parts: Vec<&str> = expr.trim().split_whitespace().collect();
+
+    if parts.len() != 5 {
+        return Err(format!(
+            "Invalid cron expression: expected 5 parts (minute hour day month weekday), got {}",
+            parts.len()
+        ));
+    }
+
+    let ranges = [
+        (0, 59, "minute"),
+        (0, 23, "hour"),
+        (1, 31, "day"),
+        (1, 12, "month"),
+        (0, 7, "weekday"), // 0 and 7 are Sunday
+    ];
+
+    for (_i, (part, (min, max, name))) in parts.iter().zip(ranges.iter()).enumerate() {
+        if *part == "*" {
+            continue;
+        }
+
+        // Handle step expressions: */5
+        if let Some(step_str) = part.strip_prefix("*/") {
+            match step_str.parse::<i32>() {
+                Ok(step) if step > 0 => continue,
+                _ => return Err(format!("Invalid step value in {} field: {}", name, part)),
+            }
+        }
+
+        // Handle range: 1-5
+        if part.contains('-') {
+            let range_parts: Vec<&str> = part.split('-').collect();
+            if range_parts.len() == 2 {
+                let start: i32 = range_parts[0]
+                    .parse()
+                    .map_err(|_| format!("Invalid range start in {} field: {}", name, part))?;
+                let end: i32 = range_parts[1]
+                    .parse()
+                    .map_err(|_| format!("Invalid range end in {} field: {}", name, part))?;
+                if start >= *min && end <= *max && start <= end {
+                    continue;
+                }
+                return Err(format!(
+                    "Range out of bounds in {} field: {} (valid: {}-{})",
+                    name, part, min, max
+                ));
+            }
+        }
+
+        // Handle comma-separated values: 1,2,3
+        if part.contains(',') {
+            for val in part.split(',') {
+                let num: i32 = val
+                    .parse()
+                    .map_err(|_| format!("Invalid value '{}' in {} field", val, name))?;
+                if num < *min || num > *max {
+                    return Err(format!(
+                        "Value {} out of range in {} field (valid: {}-{})",
+                        num, name, min, max
+                    ));
+                }
+            }
+            continue;
+        }
+
+        // Handle single number
+        let num: i32 = part
+            .parse()
+            .map_err(|_| format!("Invalid {} field: '{}' (expected number or *)", name, part))?;
+        if num < *min || num > *max {
+            return Err(format!(
+                "{} field value {} out of range (valid: {}-{})",
+                name, num, min, max
+            ));
+        }
+    }
+
+    Ok(())
 }
 
 /// Get all scheduled tasks for a server
@@ -83,6 +169,9 @@ pub async fn create_scheduled_task(
         "➕ Creating scheduled task: {} for server {}",
         request.task_type, request.server_id
     );
+
+    // Validate cron expression
+    validate_cron_expression(&request.cron_expression)?;
 
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -166,6 +255,117 @@ pub async fn update_task_last_run(state: State<'_, AppState>, task_id: i64) -> R
     conn.execute(
         "UPDATE scheduled_tasks SET last_run = CURRENT_TIMESTAMP WHERE id = ?1",
         [task_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// Get scheduler settings for a server (Basic vs Advanced mode)
+#[tauri::command]
+pub async fn get_scheduler_settings(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<SchedulerSettings, String> {
+    println!("⚙️ Getting scheduler settings for server {}", server_id);
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let result = conn.query_row(
+        "SELECT mode, basic_interval_hours, basic_warning_minutes, next_run_basic,
+                advanced_time, advanced_days, advanced_warning_minutes, 
+                advanced_shutdown, advanced_update, advanced_restart, advanced_dino_wipe
+         FROM scheduler_settings WHERE server_id = ?1",
+        [server_id],
+        |row| {
+            Ok(SchedulerSettings {
+                server_id,
+                mode: row.get(0)?,
+                basic_interval_hours: row.get(1)?,
+                basic_warning_minutes: row.get(2)?,
+                next_run_basic: row.get(3)?,
+                advanced_time: row.get(4).unwrap_or(None),
+                advanced_days: row.get(5).unwrap_or(None),
+                advanced_warning_minutes: row.get(6).unwrap_or(None),
+                advanced_shutdown: row.get(7).unwrap_or(Some(false)),
+                advanced_update: row.get(8).unwrap_or(Some(false)),
+                advanced_restart: row.get(9).unwrap_or(Some(false)),
+                advanced_dino_wipe: row.get(10).unwrap_or(Some(false)),
+            })
+        },
+    );
+
+    match result {
+        Ok(settings) => Ok(settings),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            // Return default settings if no record exists
+            Ok(SchedulerSettings {
+                server_id,
+                mode: "disabled".to_string(), // Default safe state
+                basic_interval_hours: 6,      // Default 6 hours
+                basic_warning_minutes: "30,10,5,1".to_string(),
+                next_run_basic: None,
+                advanced_time: Some("06:00".to_string()),
+                advanced_days: None,
+                advanced_warning_minutes: Some("30,15,10,5,1".to_string()),
+                advanced_shutdown: Some(false),
+                advanced_update: Some(false),
+                advanced_restart: Some(false),
+                advanced_dino_wipe: Some(false),
+            })
+        }
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Save scheduler settings
+#[tauri::command]
+pub async fn save_scheduler_settings(
+    state: State<'_, AppState>,
+    settings: SchedulerSettings,
+) -> Result<(), String> {
+    println!(
+        "💾 Saving scheduler settings for server {}",
+        settings.server_id
+    );
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT INTO scheduler_settings (
+            server_id, mode, basic_interval_hours, basic_warning_minutes, next_run_basic,
+            advanced_time, advanced_days, advanced_warning_minutes,
+            advanced_shutdown, advanced_update, advanced_restart, advanced_dino_wipe
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+         ON CONFLICT(server_id) DO UPDATE SET
+            mode = excluded.mode,
+            basic_interval_hours = excluded.basic_interval_hours,
+            basic_warning_minutes = excluded.basic_warning_minutes,
+            next_run_basic = excluded.next_run_basic,
+            advanced_time = excluded.advanced_time,
+            advanced_days = excluded.advanced_days,
+            advanced_warning_minutes = excluded.advanced_warning_minutes,
+            advanced_shutdown = excluded.advanced_shutdown,
+            advanced_update = excluded.advanced_update,
+            advanced_restart = excluded.advanced_restart,
+            advanced_dino_wipe = excluded.advanced_dino_wipe",
+        rusqlite::params![
+            settings.server_id,
+            settings.mode,
+            settings.basic_interval_hours,
+            settings.basic_warning_minutes,
+            settings.next_run_basic,
+            settings.advanced_time,
+            settings.advanced_days,
+            settings.advanced_warning_minutes,
+            settings.advanced_shutdown,
+            settings.advanced_update,
+            settings.advanced_restart,
+            settings.advanced_dino_wipe,
+        ],
     )
     .map_err(|e| e.to_string())?;
 

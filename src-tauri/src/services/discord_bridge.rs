@@ -5,6 +5,7 @@
 #![allow(dead_code)]
 
 use reqwest::Client;
+use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -23,6 +24,14 @@ pub struct DiscordBridgeConfig {
     pub channel_id: String,
     pub game_to_discord: bool,
     pub discord_to_game: bool,
+    pub server_list_enabled: bool,
+    pub server_list_channel_id: String,
+    pub server_list_message_id: String,
+    pub player_list_enabled: bool,
+    pub player_list_channel_id: String,
+    pub player_list_message_id: String,
+    pub show_tribe_names: bool,
+    pub show_playtime: bool,
 }
 
 impl Default for DiscordBridgeConfig {
@@ -35,6 +44,14 @@ impl Default for DiscordBridgeConfig {
             channel_id: String::new(),
             game_to_discord: true,
             discord_to_game: true,
+            server_list_enabled: false,
+            server_list_channel_id: String::new(),
+            server_list_message_id: String::new(),
+            player_list_enabled: false,
+            player_list_channel_id: String::new(),
+            player_list_message_id: String::new(),
+            show_tribe_names: true,
+            show_playtime: true,
         }
     }
 }
@@ -71,19 +88,43 @@ impl RateLimiter {
     }
 }
 
+use crate::services::player_intelligence::PlayerIntelligenceService;
+use crate::services::plugin_manager::PluginManagerService;
+use crate::AppState;
+use tauri::{AppHandle, Manager};
+
+/// Server info for cluster display
+struct ClusterServerInfo {
+    id: i64,
+    name: String,
+    status: String,
+    max_players: i32,
+    last_started: Option<String>,
+}
+
 /// Discord Bridge Service
+#[derive(Clone)]
 pub struct DiscordBridgeService {
+    app_handle: AppHandle,
+    player_intelligence: Arc<PlayerIntelligenceService>,
+    plugin_manager: Arc<PluginManagerService>,
     http_client: Client,
     config: Arc<Mutex<Option<DiscordBridgeConfig>>>,
     running: Arc<AtomicBool>,
     rate_limiter: Arc<Mutex<RateLimiter>>,
-    /// Messages sent by us to prevent echo loops
     sent_messages: Arc<Mutex<Vec<String>>>,
 }
 
 impl DiscordBridgeService {
-    pub fn new() -> Self {
+    pub fn new(
+        app_handle: AppHandle,
+        player_intelligence: Arc<PlayerIntelligenceService>,
+        plugin_manager: Arc<PluginManagerService>,
+    ) -> Self {
         Self {
+            app_handle,
+            player_intelligence,
+            plugin_manager,
             http_client: Client::new(),
             config: Arc::new(Mutex::new(None)),
             running: Arc::new(AtomicBool::new(false)),
@@ -239,9 +280,17 @@ impl DiscordBridgeService {
     }
 
     /// Start the bridge
-    pub fn start(&self) {
+    pub fn start(self: Arc<Self>) {
+        if self.running.load(Ordering::Relaxed) {
+            return;
+        }
         self.running.store(true, Ordering::Relaxed);
         println!("🌉 Discord bridge started");
+
+        let service = self.clone();
+        tauri::async_runtime::spawn(async move {
+            service.start_live_updates_loop().await;
+        });
     }
 
     /// Stop the bridge
@@ -250,15 +299,316 @@ impl DiscordBridgeService {
         println!("🌉 Discord bridge stopped");
     }
 
+    /// Main loop for live updates
+    async fn start_live_updates_loop(&self) {
+        println!("🔄 Discord Live Updates loop started");
+
+        loop {
+            if !self.running.load(Ordering::Relaxed) {
+                break;
+            }
+
+            // 1. Get Config
+            let config = self.get_config().await;
+            if let Some(config) = config {
+                if config.enabled {
+                    // 2. Server List Update
+                    if config.server_list_enabled && !config.server_list_channel_id.is_empty() {
+                        if let Err(e) = self.update_server_list(&config).await {
+                            eprintln!("❌ Failed to update Discord Server List: {}", e);
+                        }
+                    }
+
+                    // 3. Player List Update
+                    if config.player_list_enabled && !config.player_list_channel_id.is_empty() {
+                        if let Err(e) = self.update_player_list(&config).await {
+                            eprintln!("❌ Failed to update Discord Player List: {}", e);
+                        }
+                    }
+                }
+            }
+
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        }
+    }
+
+    async fn update_server_list(&self, config: &DiscordBridgeConfig) -> Result<(), String> {
+        // Fetch servers synchronously to avoid non-Send across await
+        let servers = self.fetch_cluster_servers(config.cluster_id)?;
+
+        let mut message_lines = Vec::new();
+        message_lines.push("**__🦖 CLUSTER STATUS__**".to_string());
+        message_lines.push(format!("Updated: <t:{}:R>", chrono::Utc::now().timestamp()));
+        message_lines.push("".to_string());
+
+        let player_counts = self.player_intelligence.get_player_counts().await;
+
+        for s in servers {
+            let player_count = player_counts.get(&s.id).unwrap_or(&0);
+            let has_plugin = self.plugin_manager.check_plugin_status(s.id, "NgcCore");
+
+            let (status_icon, _status_text) = if !has_plugin {
+                ("⚠️", "NGC Core Missing")
+            } else {
+                match s.status.as_str() {
+                    "running" => ("🟢", "Online"),
+                    "stopped" => ("🔴", "Offline"),
+                    "starting" => ("🟡", "Starting"),
+                    "updates" => ("🔄", "Updating"),
+                    _ => ("🔴", "Offline"),
+                }
+            };
+
+            let uptime_str = if s.status == "running" {
+                if let Some(started_at_str) = s.last_started {
+                    // Try to parse naive datetime from SQL string "YYYY-MM-DD HH:MM:SS"
+                    if let Ok(dt) =
+                        chrono::NaiveDateTime::parse_from_str(&started_at_str, "%Y-%m-%d %H:%M:%S")
+                    {
+                        // Assume UTC or Local? stored as current_timestamp which is usually UTC in simple apps or Local.
+                        // Let's assume Local for now or UTC. chrono parsing is strict.
+                        // Actually sqlite CURRENT_TIMESTAMP is UTC.
+                        let started_ts = dt.and_utc().timestamp();
+                        format!("<t:{}:R>", started_ts)
+                    } else {
+                        "Online".to_string()
+                    }
+                } else {
+                    "Online".to_string()
+                }
+            } else {
+                s.status.to_uppercase()
+            };
+
+            message_lines.push(format!(
+                "{} **{}** — {} — `[ {} / {} ]`",
+                status_icon, s.name, uptime_str, player_count, s.max_players
+            ));
+        }
+
+        let content = message_lines.join("\n");
+        self.update_discord_message(
+            &config.server_list_channel_id,
+            &config.server_list_message_id,
+            &content,
+            "server_list",
+        )
+        .await
+    }
+
+    async fn update_player_list(&self, config: &DiscordBridgeConfig) -> Result<(), String> {
+        let active_sessions = self.player_intelligence.get_all_active_sessions().await;
+
+        // Fetch server names synchronously to avoid non-Send across await
+        let server_names = self.fetch_server_names(config.cluster_id)?;
+
+        let mut message_lines = Vec::new();
+        message_lines.push(format!(
+            "**__👥 ONLINE PLAYERS ({})__**",
+            active_sessions.len()
+        ));
+        message_lines.push(format!("Updated: <t:{}:R>", chrono::Utc::now().timestamp()));
+        message_lines.push("".to_string());
+
+        if active_sessions.is_empty() {
+            message_lines.push("*No players online*".to_string());
+        } else {
+            // Group players
+            let mut players_by_server: HashMap<i64, Vec<String>> = HashMap::new();
+            for (_steam_id, server_id, name) in active_sessions {
+                players_by_server.entry(server_id).or_default().push(name);
+            }
+
+            for (server_id, name) in &server_names {
+                if let Some(players) = players_by_server.get(server_id) {
+                    message_lines.push(format!("**{} ({})**", name, players.len()));
+                    for p in players {
+                        message_lines.push(format!("• {}", p));
+                    }
+                    message_lines.push("".to_string());
+                }
+            }
+        }
+
+        let content = message_lines.join("\n");
+        self.update_discord_message(
+            &config.player_list_channel_id,
+            &config.player_list_message_id,
+            &content,
+            "player_list",
+        )
+        .await
+    }
+
+    async fn update_discord_message(
+        &self,
+        channel_id: &str,
+        message_id: &str,
+        content: &str,
+        msg_type: &str,
+    ) -> Result<(), String> {
+        let config_guard = self.config.lock().await;
+        let (bot_token, cluster_id) = if let Some(c) = config_guard.as_ref() {
+            (c.bot_token.clone(), c.cluster_id)
+        } else {
+            return Err("No config".to_string());
+        };
+        drop(config_guard);
+
+        // Determine column name upfront
+        let col_name = if msg_type == "server_list" {
+            "server_list_message_id"
+        } else {
+            "player_list_message_id"
+        };
+
+        if message_id.is_empty() {
+            let new_id = self
+                .send_discord_message(channel_id, &bot_token, content)
+                .await?;
+            // Update DB with new message ID
+            self.save_message_id_to_db(cluster_id, col_name, &new_id);
+        } else {
+            if let Err(_) = self
+                .edit_discord_message(channel_id, message_id, &bot_token, content)
+                .await
+            {
+                println!("⚠️ Failed to edit Discord message, sending new one.");
+                let new_id = self
+                    .send_discord_message(channel_id, &bot_token, content)
+                    .await?;
+                // Update DB with new message ID
+                self.save_message_id_to_db(cluster_id, col_name, &new_id);
+            }
+        }
+        Ok(())
+    }
+
+    /// Helper to save message ID to database (sync, no await)
+    fn save_message_id_to_db(&self, cluster_id: i64, col_name: &str, new_id: &str) {
+        let state = self.app_handle.state::<AppState>();
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                let sql = format!(
+                    "UPDATE discord_bridge_config SET {} = ?1 WHERE cluster_id = ?2",
+                    col_name
+                );
+                let _ = conn.execute(&sql, params![new_id, cluster_id]);
+            };
+        };
+    }
+
+    /// Fetch servers for a cluster (sync helper to avoid non-Send across await)
+    fn fetch_cluster_servers(&self, cluster_id: i64) -> Result<Vec<ClusterServerInfo>, String> {
+        let state = self.app_handle.state::<AppState>();
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let mut stmt = conn.prepare(
+            "SELECT id, name, status, max_players, last_started FROM servers WHERE cluster_id = ?1"
+        ).map_err(|e| e.to_string())?;
+
+        let servers = stmt
+            .query_map([cluster_id], |row| {
+                Ok(ClusterServerInfo {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    status: row.get(2)?,
+                    max_players: row.get(3)?,
+                    last_started: row.get(4)?,
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(servers)
+    }
+
+    /// Fetch server id->name map for a cluster (sync helper)
+    fn fetch_server_names(&self, cluster_id: i64) -> Result<HashMap<i64, String>, String> {
+        let state = self.app_handle.state::<AppState>();
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM servers WHERE cluster_id = ?1")
+            .map_err(|e| e.to_string())?;
+
+        let map = stmt
+            .query_map([cluster_id], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(map)
+    }
+
+    async fn send_discord_message(
+        &self,
+        channel_id: &str,
+        token: &str,
+        content: &str,
+    ) -> Result<String, String> {
+        let url = format!(
+            "https://discord.com/api/v10/channels/{}/messages",
+            channel_id
+        );
+        let payload = json!({ "content": content });
+
+        let response = self
+            .http_client
+            .post(&url)
+            .header("Authorization", format!("Bot {}", token))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if response.status().is_success() {
+            let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+            let id = json["id"].as_str().ok_or("No ID in response")?.to_string();
+            Ok(id)
+        } else {
+            Err(format!("Status: {}", response.status()))
+        }
+    }
+
+    async fn edit_discord_message(
+        &self,
+        channel_id: &str,
+        message_id: &str,
+        token: &str,
+        content: &str,
+    ) -> Result<(), String> {
+        let url = format!(
+            "https://discord.com/api/v10/channels/{}/messages/{}",
+            channel_id, message_id
+        );
+        let payload = json!({ "content": content });
+
+        // Use PATCH for editing
+        let response = self
+            .http_client
+            .patch(&url)
+            .header("Authorization", format!("Bot {}", token))
+            .header("Content-Type", "application/json")
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            Err(format!("Status: {}", response.status()))
+        }
+    }
+
     /// Check if running
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::Relaxed)
-    }
-}
-
-impl Default for DiscordBridgeService {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

@@ -110,6 +110,14 @@ CREATE TABLE IF NOT EXISTS discord_bridge_config (
     channel_id TEXT,
     game_to_discord INTEGER DEFAULT 1,
     discord_to_game INTEGER DEFAULT 1,
+    server_list_enabled INTEGER DEFAULT 0,
+    server_list_channel_id TEXT,
+    server_list_message_id TEXT,
+    player_list_enabled INTEGER DEFAULT 0,
+    player_list_channel_id TEXT,
+    player_list_message_id TEXT,
+    show_tribe_names INTEGER DEFAULT 1,
+    show_playtime INTEGER DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cluster_id) REFERENCES clusters(id) ON DELETE CASCADE
@@ -163,3 +171,42 @@ CREATE INDEX IF NOT EXISTS idx_cluster_servers_server ON cluster_servers(server_
 CREATE INDEX IF NOT EXISTS idx_player_sessions_server ON player_sessions(server_id);
 CREATE INDEX IF NOT EXISTS idx_player_sessions_steam ON player_sessions(steam_id);
 CREATE INDEX IF NOT EXISTS idx_player_stats_last_seen ON player_stats(last_seen);
+
+-- Anti-Cheat Configuration
+CREATE TABLE IF NOT EXISTS anti_cheat_config (
+    server_id INTEGER PRIMARY KEY,
+    enabled INTEGER DEFAULT 0,
+    sensitivity REAL DEFAULT 1.0,
+    log_only INTEGER DEFAULT 1,
+    kick_enabled INTEGER DEFAULT 0,
+    ban_enabled INTEGER DEFAULT 0,
+    discord_alert INTEGER DEFAULT 0,
+    rules_json TEXT, -- detailed rule override
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+);
+
+-- Anti-Cheat Violation Logs
+CREATE TABLE IF NOT EXISTS anti_cheat_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    player_name TEXT NOT NULL,
+    steam_id TEXT NOT NULL,
+    violation_type TEXT NOT NULL,
+    severity REAL NOT NULL, -- 0.0 to 1.0+
+    details TEXT,
+    action_taken TEXT, -- "Logged", "Discord Alert", "Kicked"
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+);
+
+
+-- Scheduler Settings (Basic vs Advanced Mode)
+CREATE TABLE IF NOT EXISTS scheduler_settings (
+    server_id INTEGER PRIMARY KEY,
+    mode TEXT NOT NULL DEFAULT 'disabled', -- 'basic', 'advanced', 'disabled'
+    basic_interval_hours INTEGER DEFAULT 24,
+    basic_warning_minutes TEXT DEFAULT '30,15,10,5,1',
+    next_run_basic TIMESTAMP,
+    FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
+);
+
