@@ -216,7 +216,7 @@ export default function Dashboard() {
     });
   }, [servers]);
 
-  const runningServers = servers.filter(s => s.status === 'running').length;
+  const runningServers = servers.filter(s => s.status === 'running' || s.status === 'online').length;
   const stoppedServers = servers.filter(s => s.status === 'stopped').length;
   const totalServers = servers.length;
   const memoryPercent = systemInfo ? (systemInfo.ramUsage / systemInfo.ramTotal) * 100 : 0;

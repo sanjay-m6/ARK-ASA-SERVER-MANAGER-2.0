@@ -1,24 +1,27 @@
 import { useState, useEffect } from 'react';
-import { Plus, Server as ServerIcon, Network, Trash2, Loader2, Link as LinkIcon, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Server as ServerIcon, Network, Trash2, Loader2, Link as LinkIcon, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, toggleClusterCrossChat, getClusterCrossChatStatus } from '../utils/tauri';
+import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, toggleClusterCrossChat, getClusterCrossChatStatus, selectFolder } from '../utils/tauri';
 import { Cluster, Server } from '../types';
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
 import { listen } from '@tauri-apps/api/event';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import DiscordBridgeSettings from '../components/cluster/DiscordBridgeSettings';
+import EditClusterDialog from '../components/cluster/EditClusterDialog';
 
 export default function ClusterManager() {
     const [clusters, setClusters] = useState<Cluster[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [newClusterName, setNewClusterName] = useState('');
+    const [newClusterPath, setNewClusterPath] = useState('');
     const [selectedServers, setSelectedServers] = useState<number[]>([]);
     const [startingCluster, setStartingCluster] = useState<number | null>(null);
     const [stoppingCluster, setStoppingCluster] = useState<number | null>(null);
     const [crossChatStatus, setCrossChatStatus] = useState<Record<number, boolean>>({});
     const [expandedDiscord, setExpandedDiscord] = useState<number | null>(null);
+    const [editCluster, setEditCluster] = useState<Cluster | null>(null);
     const { servers, refreshServers } = useServerStore();
 
     const fetchClusters = async () => {
@@ -69,9 +72,14 @@ export default function ClusterManager() {
         }
 
         try {
-            await createCluster(newClusterName, selectedServers);
+            await createCluster(
+                newClusterName,
+                selectedServers,
+                newClusterPath.trim() || undefined,
+            );
             toast.success('Cluster created successfully');
             setNewClusterName('');
+            setNewClusterPath('');
             setSelectedServers([]);
             setIsCreating(false);
             fetchClusters();
@@ -155,6 +163,13 @@ export default function ClusterManager() {
         }
     };
 
+    const handleBrowseClusterPath = async () => {
+        const selected = await selectFolder('Select Cluster Directory');
+        if (selected) {
+            setNewClusterPath(selected);
+        }
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
@@ -190,6 +205,33 @@ export default function ClusterManager() {
                                 className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
                                 placeholder="My Awesome Cluster"
                             />
+                        </div>
+
+                        {/* Cluster Folder Path */}
+                        <div>
+                            <label className="text-sm font-medium text-slate-300 block mb-2">
+                                Cluster Folder Path
+                                <span className="text-slate-500 font-normal ml-1">(optional)</span>
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newClusterPath}
+                                    onChange={(e) => setNewClusterPath(e.target.value)}
+                                    className="flex-1 px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                                    placeholder="C:\ASA_Clusters (default)"
+                                />
+                                <button
+                                    onClick={handleBrowseClusterPath}
+                                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                    <FolderOpen className="w-4 h-4" />
+                                    Browse
+                                </button>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">
+                                Leave empty to use the default path (C:\ASA_Clusters)
+                            </p>
                         </div>
 
                         <div>
@@ -251,10 +293,19 @@ export default function ClusterManager() {
                 ) : (
                     clusters.map(cluster => (
                         <div key={cluster.id} className="glass-panel rounded-2xl p-6 relative group">
-                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* Action Buttons (top-right) */}
+                            <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={() => setEditCluster(cluster)}
+                                    className="p-2 text-slate-400 hover:text-pink-400 hover:bg-pink-500/10 rounded-lg transition-colors"
+                                    title="Edit Cluster"
+                                >
+                                    <Pencil className="w-5 h-5" />
+                                </button>
                                 <button
                                     onClick={() => setDeleteConfirmCluster(cluster)}
                                     className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                    title="Delete Cluster"
                                 >
                                     <Trash2 className="w-5 h-5" />
                                 </button>
@@ -274,6 +325,9 @@ export default function ClusterManager() {
                                         )}>
                                             {getClusterRunningCount(cluster)}/{cluster.serverIds.length} Running
                                         </span>
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-0.5 font-mono truncate max-w-[400px]" title={cluster.clusterPath}>
+                                        📁 {cluster.clusterPath}
                                     </p>
                                 </div>
 
@@ -411,6 +465,20 @@ export default function ClusterManager() {
                 confirmText="Delete"
                 variant="danger"
             />
+
+            {/* Edit Cluster Dialog */}
+            {editCluster && (
+                <EditClusterDialog
+                    isOpen={true}
+                    cluster={editCluster}
+                    servers={servers}
+                    onClose={() => setEditCluster(null)}
+                    onSaved={() => {
+                        fetchClusters();
+                        refreshServers();
+                    }}
+                />
+            )}
         </div>
     );
 }

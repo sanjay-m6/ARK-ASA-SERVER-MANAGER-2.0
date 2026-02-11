@@ -21,7 +21,7 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
         .prepare(
             "SELECT id, name, install_path, status, game_port, query_port, rcon_port, max_players, 
          server_password, admin_password, ip_address, created_at, last_started, 
-         auto_start, auto_stop, intelligent_mode FROM servers",
+         auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args FROM servers",
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
 
@@ -59,11 +59,11 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
                 max_players: row.get(7).map_err(|e| e.to_string())?,
                 server_password: row.get(8).map_err(|e| e.to_string())?,
                 admin_password: row.get(9).map_err(|e| e.to_string())?,
-                map_name: "".to_string(),     // Not stored in this query
-                session_name: "".to_string(), // Not stored in this query
+                map_name: row.get::<_, String>(16).unwrap_or_default(),
+                session_name: row.get::<_, String>(17).unwrap_or_default(),
                 motd: None,
                 mods: vec![],
-                custom_args: None,
+                custom_args: row.get::<_, Option<String>>(18).unwrap_or(None),
             },
             rcon_config: RconConfig {
                 enabled: true,
@@ -211,7 +211,74 @@ pub async fn install_server(
     );
     let _ = crate::commands::firewall::create_firewall_rules(state, id).await;
 
+    // ---------------------------------------------------------
+    // CRITICAL FIX: Write initial config files to disk
+    // ---------------------------------------------------------
+    println!("📝 Generating initial server configuration files...");
+
+    // Map models::ServerConfig to config_generator::ServerConfig
+    let mut initial_config = crate::services::config_generator::ServerConfig::default();
+
+    // Identity & Ports
+    initial_config.session_name = server_obj.config.session_name.clone();
+    initial_config.map_name = server_obj.config.map_name.clone();
+    initial_config.max_players = server_obj.config.max_players;
+    initial_config.admin_password = server_obj.config.admin_password.clone();
+    initial_config.server_password = server_obj.config.server_password.clone();
+    initial_config.game_port = server_obj.ports.game_port;
+    initial_config.query_port = server_obj.ports.query_port;
+    initial_config.rcon_port = server_obj.ports.rcon_port;
+    initial_config.rcon_enabled = server_obj.rcon_config.enabled;
+
+    // Mods
+    initial_config.active_mods = server_obj.config.mods.clone();
+
+    let config_write_result = crate::services::config_generator::ConfigGenerator::write_configs(
+        &server_obj.install_path,
+        &initial_config,
+        false, // No backup needed for fresh install
+    );
+
+    if let Err(e) = config_write_result {
+        println!("❌ Failed to write initial config files: {}", e);
+        // We don't fail the whole install, but we log the error.
+        // The server might start with defaults, but at least the DB is correct.
+    } else {
+        println!("✅ Initial config files created successfully.");
+    }
+
     Ok(server_obj)
+}
+
+#[tauri::command]
+pub async fn debug_database_check(state: State<'_, AppState>) -> Result<String, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    // Count servers
+    let server_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM servers", [], |row| row.get(0))
+        .unwrap_or(-1);
+
+    // Check servers_old
+    let old_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM servers_old", [], |row| row.get(0))
+        .unwrap_or(-1);
+
+    // Check tables
+    let mut stmt = conn
+        .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+        .map_err(|e| e.to_string())?;
+    let tables: Vec<String> = stmt
+        .query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(format!(
+        "Servers: {}, Old_Servers: {}, Tables: {:?}",
+        server_count, old_count, tables
+    ))
 }
 
 /// Clone an existing server with offset ports
@@ -520,28 +587,47 @@ pub async fn extract_save_data(
 
 #[tauri::command]
 pub async fn start_server(app_handle: tauri::AppHandle, server_id: i64) -> Result<(), String> {
-    let state = app_handle.state::<AppState>();
-    println!("▶️ Starting server {}", server_id);
+    println!("▶️ Starting server {} (Synchronous)", server_id);
 
-    // Sync critical settings from INI to DB before starting
-    // REMOVED: This causes a regression where UI changes (DB) are overwritten by stale INI values
-    // The DB should be the source of truth for Launch Arguments (MaxPlayers, Ports, etc.)
-    /*
-    let _ = crate::commands::config::save_config(
-        state.clone(),
-        server_id,
-        "GameUserSettings".to_string(), // This triggers the sync logic we added to save_config
-        crate::commands::config::read_config(
-            state.clone(),
-            server_id,
-            "GameUserSettings".to_string(),
-        )
-        .await?,
-    )
-    .await;
-    */
+    // Run startup logic directly and return the result
+    perform_server_startup(&app_handle, server_id).await
+}
+
+// Extracted logic for readability and better error handling in the async block
+async fn perform_server_startup(
+    app_handle: &tauri::AppHandle,
+    server_id: i64,
+) -> Result<(), String> {
+    println!(
+        "  🔍 [Debug] perform_server_startup entered for {}",
+        server_id
+    );
+    let state = app_handle.state::<AppState>();
+
+    {
+        println!("  🔍 [Debug] Acquiring DB lock for Config Generation...");
+        // Lock the database to pass a reference to generate_config
+        let db_lock = state.db.lock().map_err(|e| e.to_string())?;
+        println!("  ✅ [Debug] DB lock acquired. Getting connection...");
+        let conn = db_lock.get_connection().map_err(|e| e.to_string())?;
+
+        println!("  🔍 [Debug] Calling ConfigGenerator::generate_config...");
+        if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config(
+            app_handle, &*conn, server_id,
+        ) {
+            println!(
+                "⚠️ Failed to sync config files (Server will start with current on-disk config): {}",
+                e
+            );
+            // ... emit log ...
+        } else {
+            println!("✅ Configuration synced successfully.");
+        }
+    } // Lock released
+    println!("  ✅ [Debug] Config block finished. DB lock released.");
 
     // Get server details including cluster info
+    println!("  🔍 [Debug] Acquiring DB lock for Server Details...");
     let (
         install_path,
         map_name,
@@ -692,6 +778,11 @@ pub async fn start_server(app_handle: tauri::AppHandle, server_id: i64) -> Resul
         Some(enabled_mods.as_slice())
     };
 
+    println!(
+        "  🔍 [Debug] Server params: Path={:?}, Port={}, Map={}",
+        install_path_buf, game_port, map_name
+    );
+
     state
         .process_manager
         .start_server(
@@ -712,7 +803,12 @@ pub async fn start_server(app_handle: tauri::AppHandle, server_id: i64) -> Resul
             mods_option,
             custom_args.as_deref() as Option<&str>,
         )
-        .map_err(|e: AnyhowError| e.to_string())?;
+        .map_err(|e: AnyhowError| {
+            println!("  ❌ [Debug] Process Manager failed to start: {}", e);
+            e.to_string()
+        })?;
+
+    println!("  ✅ [Debug] Process Manager returned success");
 
     // Update status in database
     {
@@ -1269,15 +1365,13 @@ pub async fn check_server_reachability(
 }
 
 #[tauri::command]
-pub async fn start_log_watcher(
+pub async fn get_server_logs(
     server_id: i64,
     install_path: String,
-    app_handle: tauri::AppHandle,
-) -> Result<(), String> {
+) -> Result<Vec<crate::services::process_manager::ServerLogEvent>, String> {
     use crate::services::process_manager::ServerLogEvent;
     use std::fs::File;
     use std::io::{BufRead, BufReader, Seek, SeekFrom};
-    use tauri::Emitter;
 
     let log_file_path = PathBuf::from(&install_path)
         .join("ShooterGame")
@@ -1285,101 +1379,61 @@ pub async fn start_log_watcher(
         .join("Logs")
         .join("ShooterGame.log");
 
-    // Spawn log watcher thread
-    std::thread::spawn(move || {
-        // Check if log file exists immediately (no waiting)
-        if !log_file_path.exists() {
-            let _ = app_handle.emit(
-                "server_log",
-                ServerLogEvent {
-                    server_id,
-                    line: format!("[Manager] Log file not found: {:?}", log_file_path),
-                    is_stderr: true,
-                },
-            );
-            return;
+    let mut logs = Vec::new();
+
+    // Check if log file exists
+    if !log_file_path.exists() {
+        logs.push(ServerLogEvent {
+            server_id,
+            line: format!("[Manager] Log file not found: {:?}", log_file_path),
+            is_stderr: true,
+        });
+        return Ok(logs);
+    }
+
+    let file = match File::open(&log_file_path) {
+        Ok(f) => f,
+        Err(e) => {
+            logs.push(ServerLogEvent {
+                server_id,
+                line: format!("[Manager] Failed to open log: {}", e),
+                is_stderr: true,
+            });
+            return Ok(logs);
         }
+    };
 
-        let file = match File::open(&log_file_path) {
-            Ok(f) => f,
-            Err(e) => {
-                let _ = app_handle.emit(
-                    "server_log",
-                    ServerLogEvent {
-                        server_id,
-                        line: format!("[Manager] Failed to open log: {}", e),
-                        is_stderr: true,
-                    },
-                );
-                return;
-            }
-        };
+    let mut reader = BufReader::new(file);
 
-        let mut reader = BufReader::new(file);
-
-        // Seek to get last 100KB of logs (recent history)
-        let file_meta = std::fs::metadata(&log_file_path);
-        if let Ok(meta) = file_meta {
-            let file_size = meta.len() as i64;
-            let seek_pos = std::cmp::max(0, file_size - 100000);
-            let _ = reader.seek(SeekFrom::Start(seek_pos as u64));
+    // Seek to get last 100KB of logs (recent history)
+    let file_meta = std::fs::metadata(&log_file_path);
+    if let Ok(meta) = file_meta {
+        let file_size = meta.len() as i64;
+        let seek_pos = std::cmp::max(0, file_size - 100000); // 100KB history
+        if let Ok(_) = reader.seek(SeekFrom::Start(seek_pos as u64)) {
             // Skip partial first line if we seeked into the middle
             if seek_pos > 0 {
                 let mut skip = String::new();
                 let _ = reader.read_line(&mut skip);
             }
         }
+    }
 
-        // First pass: read all existing content quickly
-        loop {
-            let mut line = String::new();
-            match reader.read_line(&mut line) {
-                Ok(0) => break, // No more data, exit first pass
-                Ok(_) => {
-                    let line = line.trim_end().to_string();
-                    if !line.is_empty() {
-                        let _ = app_handle.emit(
-                            "server_log",
-                            ServerLogEvent {
-                                server_id,
-                                line,
-                                is_stderr: false,
-                            },
-                        );
-                    }
-                }
-                Err(_) => break,
+    // Read all content
+    for line in reader.lines() {
+        if let Ok(line) = line {
+            let trimmed = line.trim_end().to_string();
+            if !trimmed.is_empty() {
+                logs.push(ServerLogEvent {
+                    server_id,
+                    line: trimmed,
+                    is_stderr: false,
+                });
             }
         }
+    }
 
-        // Second pass: tail new lines as they appear
-        loop {
-            let mut line = String::new();
-            match reader.read_line(&mut line) {
-                Ok(0) => {
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                }
-                Ok(_) => {
-                    let line = line.trim_end().to_string();
-                    if !line.is_empty() {
-                        let _ = app_handle.emit(
-                            "server_log",
-                            ServerLogEvent {
-                                server_id,
-                                line,
-                                is_stderr: false,
-                            },
-                        );
-                    }
-                }
-                Err(_) => {
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                }
-            }
-        }
-    });
-
-    Ok(())
+    Ok(logs)
 }
 
 /// Import an existing server installation

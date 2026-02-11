@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Play, Square, RotateCw, Trash2, Download, Settings, Terminal, Globe, Shield, ChevronDown, ChevronUp, Copy, AppWindow } from 'lucide-react';
+import {
+    Plus, Play, Square, RotateCw, Trash2, Download, Settings, Terminal, Globe, Shield,
+    ChevronDown, ChevronUp, Copy, AppWindow, RefreshCw,
+    Check, XCircle
+} from 'lucide-react';
 import { useServerStore } from '../stores/serverStore';
 import { cn } from '../utils/helpers';
 import InstallServerDialog from '../components/server/InstallServerDialog';
@@ -7,13 +11,13 @@ import ImportServerDialog from '../components/server/ImportServerDialog';
 import ImportNonDedicatedDialog from '../components/server/ImportNonDedicatedDialog';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import { startServer, stopServer, restartServer, deleteServer, getAllServers, updateServer, startLogWatcher, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation } from '../utils/tauri';
+
+import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, debugDatabaseCheck } from '../utils/tauri';
 import toast from 'react-hot-toast';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
-import { getVersion } from '@tauri-apps/api/app';
+import { listen } from '@tauri-apps/api/event';
 
 import { useNavigate } from 'react-router-dom';
-import { Server } from '../types';
+import { Server, ServerStartupProgressEvent } from '../types';
 
 interface ServerLogEvent {
     server_id: number;
@@ -28,11 +32,37 @@ export default function ServerManager() {
     const [serverLogs, setServerLogs] = useState<Record<number, string[]>>({});
     const [expandedConsoles, setExpandedConsoles] = useState<Record<number, boolean>>({});
     const consoleRefs = useRef<Record<number, HTMLDivElement | null>>({});
-    const [appVersion, setAppVersion] = useState<string>('');
+    const [appVersion] = useState<string>('2.2.6');
     const [cloneModalServer, setCloneModalServer] = useState<Server | null>(null);
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showNonDedicatedImport, setShowNonDedicatedImport] = useState(false);
+
+    // Startup Progress State
+    const [startupProgress, setStartupProgress] = useState<Record<number, { elapsed: number, confirmed: boolean }>>({});
+
+    // Helper to format elapsed time
+    const formatElapsedTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}m ${secs} s`;
+    };
+
+    const handleForceStop = async (serverId: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (window.confirm('Are you sure you want to FORCE STOP this server? This allows you to restart a hung process.')) {
+            try {
+                await stopServer(serverId);
+                toast.success('Server force stopped');
+                refreshServers();
+            } catch (error) {
+                toast.error('Failed to force stop server: ' + error);
+            }
+        }
+    };
+
+
+
 
     const handleDialogClose = async () => {
         setShowInstallDialog(false);
@@ -45,7 +75,7 @@ export default function ServerManager() {
         try {
             await toggleServerAutomation(serverId, type, !current);
             const label = type === 'auto_start' ? 'Auto-Start' : type === 'auto_stop' ? 'Auto-Stop' : 'Intelligent Mode';
-            toast.success(`${label} ${!current ? 'Enabled' : 'Disabled'}`);
+            toast.success(`${label} ${!current ? 'Enabled' : 'Disabled'} `);
             // Optimistic update
             const updatedServers = servers.map(s => {
                 if (s.id === serverId) {
@@ -60,74 +90,153 @@ export default function ServerManager() {
             setServers(updatedServers);
         } catch (error) {
             console.error('Failed to toggle automation:', error);
-            toast.error(`Failed to toggle ${type}: ${error}`);
+            toast.error(`Failed to toggle ${type}: ${error} `);
         }
     };
 
 
     useEffect(() => {
-        // Fetch app version
-        getVersion().then(setAppVersion).catch(() => setAppVersion('?.?.?'));
+        let unlistenStatus: (() => void) | undefined;
+        let unlistenProgress: (() => void) | undefined;
+        let isMounted = true;
+
+        const setupListeners = async () => {
+            // Listen for startup progress events
+            const u1 = await listen<ServerStartupProgressEvent>('server-startup-progress', (event) => {
+                if (!isMounted) return;
+                setStartupProgress(prev => ({
+                    ...prev,
+                    [event.payload.server_id]: {
+                        elapsed: event.payload.elapsed_seconds,
+                        confirmed: event.payload.startup_confirmed
+                    }
+                }));
+            });
+            if (!isMounted) {
+                u1();
+            } else {
+                unlistenProgress = u1;
+            }
+
+            const u2 = await listen<{ server_id: number, status: any }>('server-status-change', (event) => {
+                if (!isMounted) return;
+                const { server_id, status } = event.payload;
+
+                // If timed out, show error toast
+                if (status === 'startup_timeout') {
+                    toast.error(`Server startup timed out! Check logs for details.`);
+                    setStartupProgress(prev => {
+                        const newProgress = { ...prev };
+                        delete newProgress[server_id];
+                        return newProgress;
+                    });
+                } else if (status === 'online' || status === 'stopped' || status === 'crashed') {
+                    // Clear progress on final states
+                    setStartupProgress(prev => {
+                        const newProgress = { ...prev };
+                        delete newProgress[server_id];
+                        return newProgress;
+                    });
+                }
+
+                updateServerStatus(server_id, status);
+
+                // Refresh list to ensure UI is in sync
+                refreshServers();
+            });
+            if (!isMounted) {
+                u2();
+            } else {
+                unlistenStatus = u2;
+            }
+        };
+
+        setupListeners();
 
         // Initial fetch
-        getAllServers().then(setServers).catch(console.error);
+        refreshServers();
 
-        // Subscribe to real-time status updates
-        let unlistenStatus: () => void;
-        import('@tauri-apps/api/event').then(async ({ listen }) => {
-            unlistenStatus = await listen<{ server_id: number, status: any }>('server-status-change', (event) => {
-                updateServerStatus(event.payload.server_id, event.payload.status);
-            });
-        });
-
-        // Poll for updates (Heartbeat only - reduced frequency)
-        const interval = setInterval(() => {
-            getAllServers().then(setServers).catch(console.error);
-        }, 30000);
+        // Poll for updates (heartbeat)
+        const interval = setInterval(refreshServers, 30000);
 
         return () => {
-            clearInterval(interval);
+            isMounted = false;
             if (unlistenStatus) unlistenStatus();
+            if (unlistenProgress) unlistenProgress();
+            clearInterval(interval);
         };
-    }, [setServers, updateServerStatus]);
+    }, [setServers, updateServerStatus, refreshServers]);
 
     // Subscribe to server log events
     useEffect(() => {
-        let unlisten: UnlistenFn | null = null;
+        let unlisten: Function | undefined;
+        let isMounted = true;
 
-        const setupListener = async () => {
-            unlisten = await listen<ServerLogEvent>('server_log', (event) => {
-                const { server_id, line } = event.payload;
-                setServerLogs(prev => {
-                    const logs = prev[server_id] || [];
-                    const newLogs = [...logs, line].slice(-500); // Keep last 500 lines
-                    return { ...prev, [server_id]: newLogs };
-                });
+        listen<ServerLogEvent>('server_log', (event) => {
+            if (!isMounted) return;
+            const { server_id, line } = event.payload;
 
-                // Auto-scroll
+            setServerLogs(prev => {
+                const logs = prev[server_id] || [];
+                // Deduplicate explicitly to be safe: check if last log line is identical
+                if (logs.length > 0 && logs[logs.length - 1] === line) {
+                    return prev;
+                }
+                const newLogs = [...logs, line].slice(-500); // Keep last 500 lines
+                return { ...prev, [server_id]: newLogs };
+            });
+
+            // Auto-scroll logic needs to run after render, but we can try here
+            setTimeout(() => {
                 const consoleEl = consoleRefs.current[server_id];
                 if (consoleEl) {
                     consoleEl.scrollTop = consoleEl.scrollHeight;
                 }
-            });
-        };
+            }, 0);
 
-        setupListener();
-        return () => { unlisten?.(); };
+        }).then((unlistenFn) => {
+            if (!isMounted) {
+                unlistenFn();
+            } else {
+                unlisten = unlistenFn;
+            }
+        });
+
+        return () => {
+            isMounted = false;
+            if (unlisten) unlisten();
+        };
     }, []);
 
-    // Auto-start log watcher for running servers (for servers started before app opened)
-    const [watchersStarted, setWatchersStarted] = useState<Record<number, boolean>>({});
+    // Fetch initial logs for running servers
+    const [logsFetched, setLogsFetched] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
         servers.forEach(server => {
-            if ((server.status === 'running' || server.status === 'online') && !watchersStarted[server.id]) {
-                setWatchersStarted(prev => ({ ...prev, [server.id]: true }));
+            if ((server.status === 'running' || server.status === 'online') && !logsFetched[server.id]) {
+                setLogsFetched(prev => ({ ...prev, [server.id]: true }));
                 setExpandedConsoles(prev => ({ ...prev, [server.id]: true }));
-                startLogWatcher(server.id, server.installPath).catch(console.error);
+
+                getServerLogs(server.id, server.installPath)
+                    .then(logEvents => {
+                        // FIX: Extract 'line' from ServerLogEvent objects
+                        const logLines = logEvents.map((e: any) => e.line);
+                        setServerLogs(prev => ({
+                            ...prev,
+                            [server.id]: logLines
+                        }));
+                        // Auto-scroll
+                        setTimeout(() => {
+                            const consoleEl = consoleRefs.current[server.id];
+                            if (consoleEl) {
+                                consoleEl.scrollTop = consoleEl.scrollHeight;
+                            }
+                        }, 100);
+                    })
+                    .catch(console.error);
             }
         });
-    }, [servers, watchersStarted]);
+    }, [servers, logsFetched]);
 
     const toggleConsole = (serverId: number) => {
         setExpandedConsoles(prev => ({ ...prev, [serverId]: !prev[serverId] }));
@@ -141,9 +250,17 @@ export default function ServerManager() {
             await startServer(serverId);
             updateServerStatus(serverId, 'running');
             toast.success('Server started successfully');
-        } catch (error) {
+        } catch (error: any) {
             updateServerStatus(serverId, 'stopped');
-            toast.error(`Failed to start server: ${error}`);
+            // Log error to the in-app console so it persists
+            const errorMsg = String(error);
+            setServerLogs(prev => ({
+                ...prev,
+                [serverId]: [...(prev[serverId] || []), `❌ STARTUP FAILED: ${errorMsg}`]
+            }));
+
+            // Show long-duration toast
+            toast.error(errorMsg, { duration: 10000 });
         }
     };
 
@@ -157,7 +274,7 @@ export default function ServerManager() {
             toast.success('Server started (without mods)');
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
-            toast.error(`Failed to start server: ${error}`);
+            toast.error(`Failed to start server: ${error} `);
         }
     };
 
@@ -170,7 +287,7 @@ export default function ServerManager() {
             setExpandedConsoles(prev => ({ ...prev, [serverId]: false }));
             toast.success('Server stopped successfully');
         } catch (error) {
-            toast.error(`Failed to stop server: ${error}`);
+            toast.error(`Failed to stop server: ${error} `);
         }
     };
 
@@ -181,7 +298,7 @@ export default function ServerManager() {
             updateServerStatus(serverId, 'running');
             toast.success('Server restarted successfully');
         } catch (error) {
-            toast.error(`Failed to restart server: ${error}`);
+            toast.error(`Failed to restart server: ${error} `);
         }
     };
 
@@ -193,7 +310,7 @@ export default function ServerManager() {
             toast.success('Server deleted successfully');
             setDeleteConfirmServer(null);
         } catch (error) {
-            toast.error(`Failed to delete server: ${error}`);
+            toast.error(`Failed to delete server: ${error} `);
         }
     };
 
@@ -204,7 +321,7 @@ export default function ServerManager() {
             toast.success('Server update initiated');
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
-            toast.error(`Failed to update server: ${error}`);
+            toast.error(`Failed to update server: ${error} `);
         }
     };
 
@@ -213,7 +330,7 @@ export default function ServerManager() {
             await showServerConsole(serverId);
             toast.success('Console window request sent');
         } catch (error) {
-            toast.error(`Failed to show console: ${error}`);
+            toast.error(`Failed to show console: ${error} `);
         }
     };
 
@@ -229,7 +346,7 @@ export default function ServerManager() {
             toast.success('Deep repair initiated successfully');
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
-            toast.error(`Deep repair failed: ${error}`);
+            toast.error(`Deep repair failed: ${error} `);
         }
     };
 
@@ -244,7 +361,7 @@ export default function ServerManager() {
             setServers([...servers, newServer]);
             toast.success(`Server cloned as "${newServer.name}"`);
         } catch (error) {
-            toast.error(`Failed to clone server: ${error}`);
+            toast.error(`Failed to clone server: ${error} `);
         }
     };
 
@@ -254,7 +371,7 @@ export default function ServerManager() {
             await transferSettings(cloneModalServer.id, targetServerId);
             toast.success('Settings transferred successfully');
         } catch (error) {
-            toast.error(`Failed to transfer settings: ${error}`);
+            toast.error(`Failed to transfer settings: ${error} `);
         }
     };
 
@@ -264,7 +381,7 @@ export default function ServerManager() {
             await extractSaveData(cloneModalServer.id, targetServerId);
             toast.success('Save data extracted successfully');
         } catch (error) {
-            toast.error(`Failed to extract save data: ${error}`);
+            toast.error(`Failed to extract save data: ${error} `);
         }
     };
 
@@ -313,12 +430,33 @@ export default function ServerManager() {
                     <p className="text-slate-400 mb-8 max-w-md mx-auto">
                         Your server fleet is currently empty. Launch your first ARK server to begin your journey.
                     </p>
-                    <button
-                        onClick={() => setShowInstallDialog(true)}
-                        className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors border border-slate-700"
-                    >
-                        Install Your First Server
-                    </button>
+                    <div className="flex flex-col gap-4 items-center">
+                        <button
+                            onClick={() => setShowInstallDialog(true)}
+                            className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors border border-slate-700"
+                        >
+                            Install Your First Server
+                        </button>
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const result = await debugDatabaseCheck();
+                                    toast((_t) => (
+                                        <span>
+                                            <b>DB Status:</b><br />
+                                            {result}
+                                        </span>
+                                    ), { duration: 10000 });
+                                    refreshServers();
+                                } catch (e) {
+                                    toast.error(`Debug failed: ${e}`);
+                                }
+                            }}
+                            className="px-8 py-3 bg-blue-800 hover:bg-blue-700 text-white rounded-xl transition-colors border border-blue-700"
+                        >
+                            Debug Database
+                        </button>
+                    </div>
                 </div>
             ) : (
                 <div className="grid gap-6">
@@ -353,18 +491,51 @@ export default function ServerManager() {
                                             <h3 className="text-xl font-bold text-white group-hover:text-sky-400 transition-colors">
                                                 {server.name}
                                             </h3>
-                                            <span className={cn(
-                                                'px-2.5 py-0.5 rounded-md text-xs font-bold border',
-                                                server.status === 'online' && 'bg-green-500/10 text-green-400 border-green-500/20',
-                                                server.status === 'running' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-                                                server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-                                                server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
-                                                server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-                                                server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-                                                server.status === 'repairing' && 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-                                            )}>
-                                                {server.status === 'running' ? 'LOADING...' : server.status === 'repairing' ? 'REPAIRING...' : server.status.toUpperCase()}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className={cn(
+                                                    'px-2.5 py-0.5 rounded-md text-xs font-bold border flex items-center gap-2',
+                                                    server.status === 'online' && 'bg-green-500/10 text-green-400 border-green-500/20',
+                                                    server.status === 'running' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+                                                    server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+                                                    server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
+                                                    server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+                                                    server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                                                    server.status === 'repairing' && 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+                                                    server.status === 'startup_timeout' && 'bg-red-500/10 text-red-400 border-red-500/20'
+                                                )}>
+                                                    {server.status === 'running' || server.status === 'starting' ? (
+                                                        <>
+                                                            <RefreshCw className="w-3 h-3 animate-spin" />
+                                                            LOADING...
+                                                            {startupProgress[server.id] && (
+                                                                <span className="opacity-75">
+                                                                    ({formatElapsedTime(startupProgress[server.id].elapsed)})
+                                                                </span>
+                                                            )}
+                                                            {startupProgress[server.id]?.confirmed && (
+                                                                <Check className="w-3 h-3 text-green-400 ml-1" />
+                                                            )}
+                                                        </>
+                                                    ) : server.status === 'repairing' ? (
+                                                        'REPAIRING...'
+                                                    ) : server.status === 'startup_timeout' ? (
+                                                        'STARTUP TIMEOUT'
+                                                    ) : (
+                                                        (server.status || 'UNKNOWN').toUpperCase()
+                                                    )}
+                                                </span>
+
+                                                {(server.status === 'running' || server.status === 'starting' || server.status === 'startup_timeout') && (
+                                                    <button
+                                                        onClick={(e) => handleForceStop(server.id, e)}
+                                                        className="px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-md text-xs font-bold transition-colors flex items-center gap-1"
+                                                        title="Force Stop / Cancel Startup"
+                                                    >
+                                                        <XCircle className="w-3 h-3" />
+                                                        {server.status === 'starting' ? 'CANCEL' : 'FORCE STOP'}
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="flex flex-wrap items-center gap-4 text-sm text-slate-400">
@@ -515,7 +686,7 @@ export default function ServerManager() {
                                 <div>
                                     <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Connection</p>
                                     <p className="text-slate-300 font-mono text-xs">
-                                        {server.ports.gamePort} / {server.ports.queryPort}
+                                        {server.ipAddress ? server.ipAddress : "0.0.0.0"} : {server.ports.gamePort}
                                     </p>
                                 </div>
                             </div>
@@ -598,7 +769,17 @@ export default function ServerManager() {
                                             {(serverLogs[server.id] || []).length === 0 ? (
                                                 <p className="text-slate-500 italic">Waiting for server output...</p>
                                             ) : (
-                                                (serverLogs[server.id] || []).map((line, idx) => {
+                                                (serverLogs[server.id] || []).map((lineItem, idx) => {
+                                                    // Defensive check for non-string log items
+                                                    let line = "";
+                                                    if (typeof lineItem === 'string') {
+                                                        line = lineItem;
+                                                    } else if (lineItem === null || lineItem === undefined) {
+                                                        line = "";
+                                                    } else {
+                                                        line = JSON.stringify(lineItem) || "";
+                                                    }
+
                                                     // Enhanced color coding based on log content
                                                     let colorClass = "text-slate-300";
                                                     let prefixColor = "";
@@ -707,7 +888,7 @@ export default function ServerManager() {
                 onClose={() => setDeleteConfirmServer(null)}
                 onConfirm={confirmDeleteServer}
                 title="Delete Server"
-                message={`Are you sure you want to delete "${deleteConfirmServer?.name}"? This action cannot be undone.`}
+                message={`Are you sure you want to delete "${deleteConfirmServer?.name}" ? This action cannot be undone.`}
                 confirmText="Delete"
                 variant="danger"
             />

@@ -438,7 +438,9 @@ export default function ConfigEditor() {
             const rconPort = serverSettings?.get('RCONPort');
             if (rconPort) updateParams.rconPort = parseInt(rconPort);
 
-
+            // IP Address from ServerSettings
+            const ipAddress = serverSettings?.get('IPAddress');
+            if (ipAddress !== undefined) updateParams.ipAddress = ipAddress;
 
             // Sync critical settings to database
             await updateServerSettings(updateParams);

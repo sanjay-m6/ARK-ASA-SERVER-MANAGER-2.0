@@ -35,7 +35,7 @@ regex = "1"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2"
 anyhow = "1"
-reqwest = { version = "0.12", features = ["stream", "json"] }
+reqwest = { version = "0.12", features = ["stream", "json", "blocking"] }
 zip = "2.1"
 scraper = "0.19"
 bytes = "1"

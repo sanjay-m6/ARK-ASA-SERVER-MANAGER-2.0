@@ -92,6 +92,7 @@ pub async fn save_config(
         let mut rcon_port: Option<u16> = None;
         let mut game_port: Option<u16> = None;
         let mut query_port: Option<u16> = None;
+        let mut ip_address: Option<String> = None;
 
         let mut current_section = String::new();
 
@@ -130,6 +131,8 @@ pub async fn save_config(
                         "ServerAdminPassword" => admin_password = Some(value.to_string()),
                         "RCONEnabled" => rcon_enabled = Some(value.to_uppercase() == "TRUE"),
                         "RCONPort" => rcon_port = value.parse().ok(),
+                        "Match" => {} // Ignore Match key if present
+                        "MultiHome" | "IPAddress" => ip_address = Some(value.to_string()),
                         _ => {}
                     }
                 }
@@ -138,6 +141,7 @@ pub async fn save_config(
                     match key {
                         "Port" => game_port = value.parse().ok(),
                         "QueryPort" => query_port = value.parse().ok(),
+                        "MultiHome" => ip_address = Some(value.to_string()),
                         _ => {}
                     }
                 }
@@ -193,6 +197,14 @@ pub async fn save_config(
         if let Some(v) = query_port {
             updates.push("query_port = ?");
             params.push(Box::new(v));
+        }
+        if let Some(v) = ip_address {
+            updates.push("ip_address = ?");
+            if v.is_empty() {
+                params.push(Box::new(None::<String>));
+            } else {
+                params.push(Box::new(Some(v)));
+            }
         }
 
         if !updates.is_empty() {

@@ -15,6 +15,7 @@ use std::os::windows::process::CommandExt;
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
+use crate::services::discord::{send_discord_webhook, get_server_name, DiscordEmbed};
 use crate::services::network;
 use crate::AppState;
 use tauri::Manager;
@@ -97,6 +98,13 @@ pub struct ServerStatusEvent {
     pub status: String,
 }
 
+#[derive(Clone, Serialize)]
+pub struct ServerStartupProgressEvent {
+    pub server_id: i64,
+    pub elapsed_seconds: u64,
+    pub startup_confirmed: bool,
+}
+
 impl ProcessManager {
     pub fn new(app_handle: AppHandle) -> Self {
         let processes = Arc::new(Mutex::new(HashMap::new()));
@@ -113,11 +121,10 @@ impl ProcessManager {
             loop {
                 std::thread::sleep(std::time::Duration::from_secs(4)); // Check every 4s
 
-                // Collect crashed servers while holding the lock
-                let crashed_servers: Vec<(i64, i32)>;
-                let mut status_updates: Vec<(i64, String)> = Vec::new();
-
-                {
+                // Collect servers that need querying (running processes)
+                let mut servers_to_query: Vec<(i64, String, u16)> = Vec::new();
+                // 1. Check process status (Fast, holds lock)
+                let crashed_servers = {
                     let mut p_lock = monitor_processes.lock().unwrap();
                     let mut to_remove: Vec<(i64, i32)> = Vec::new();
 
@@ -136,86 +143,9 @@ impl ProcessManager {
                                 proc.stop_flag.store(true, Ordering::SeqCst);
                             }
                             Ok(None) => {
-                                // Process is running. Check reachability via Query Port.
+                                // Process is running. Add to query list.
                                 let query_ip = proc.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string());
-                                let is_reachable_query = network::query_server(&query_ip, proc.query_port);
-                                let _message_startup_confirmed = proc.startup_confirmed.load(Ordering::Relaxed);
-                                
-                                // FORCE ONLINE CHECK: Status is ONLY online if query succeeds. 
-                                // Logs ("startup_confirmed") only mean the process thinks it started.
-                                let is_reachable = is_reachable_query;
-
-                                // Determine desired status
-                                // If reachable via network -> online
-                                // If not reachable but process running -> running
-                                let _new_status = if is_reachable { "online" } else { "running" }; // "running" = starting/loading
-                                
-                                // State transition logic
-                                if is_reachable && !proc.is_online {
-                                    // Transition: Starting -> Online
-                                    
-                                    // Update DB first. Only update in-memory state if DB update succeeds.
-                                    // This prevents desync if DB is locked.
-                                    if let Some(state) = monitor_handle.try_state::<AppState>() {
-                                        if let Ok(db) = state.db.lock() {
-                                            if let Ok(conn) = db.get_connection() {
-                                                match conn.execute(
-                                                    "UPDATE servers SET status = 'online' WHERE id = ?1",
-                                                    rusqlite::params![id],
-                                                ) {
-                                                    Ok(_) => {
-                                                        println!("  🟢 Server {} state persisted: ONLINE", id);
-                                                        proc.is_online = true;
-                                                        if is_reachable_query {
-                                                            println!("  🟢 Server {} response detected (Query Port {})", id, proc.query_port);
-                                                        } else {
-                                                            println!("  🟢 Server {} startup log confirmed", id);
-                                                        }
-                                                        status_updates.push((*id, "online".to_string()));
-                                                    },
-                                                    Err(e) => {
-                                                        println!("  ❌ DB Update Failed for Server {} (will retry): {}", id, e);
-                                                        // Do NOT set proc.is_online = true, so we retry next tick
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else if !is_reachable && proc.is_online {
-                                    // Transition: Online -> Connection Lost
-                                    // Similar logic: try to update DB to 'running' (loading)
-                                    
-                                     if let Some(state) = monitor_handle.try_state::<AppState>() {
-                                        if let Ok(db) = state.db.lock() {
-                                            if let Ok(conn) = db.get_connection() {
-                                                match conn.execute(
-                                                    "UPDATE servers SET status = 'running' WHERE id = ?1",
-                                                    rusqlite::params![id],
-                                                ) {
-                                                    Ok(_) => {
-                                                        println!("  ⚠️ Server {} lost connection", id);
-                                                        proc.is_online = false;
-                                                        status_updates.push((*id, "running".to_string()));
-                                                    },
-                                                    Err(e) => {
-                                                        println!("  ❌ DB Update Failed for Server {} (loss): {}", id, e);
-                                                        // Do NOT set proc.is_online = false, retry next tick
-                                                    }
-                                                }
-                                            }
-                                        }
-                                     }
-                                    // End of Transition: Online -> Connection Lost
-                                }
-                                
-                                // Stuck in "Starting" check
-                                if !proc.is_online {
-                                    let uptime = proc.started_at.elapsed();
-                                    // If running for > 5 minutes without query response
-                                    if uptime.as_secs() > 300 && uptime.as_secs() % 60 == 0 {
-                                         println!("  ⏳ Server {} still starting... ({}s)", id, uptime.as_secs());
-                                    }
-                                }
+                                servers_to_query.push((*id, query_ip, proc.query_port));
                             }
                             Err(e) => {
                                 println!("  ❌ Monitor failed to check server {}: {}", id, e);
@@ -227,9 +157,143 @@ impl ProcessManager {
                     for (id, _) in &to_remove {
                         p_lock.remove(id);
                     }
+                    to_remove
+                }; // Lock released
 
-                    crashed_servers = to_remove;
-                } // Lock is released here
+                // 2. Query Servers (Slow, NO lock)
+                let mut status_updates: Vec<(i64, String)> = Vec::new();
+                
+                for (id, ip, port) in servers_to_query {
+                    let mut is_reachable_query = network::query_server(&ip, port);
+                    
+                    // Fallback: If query failed and IP is not localhost, try localhost
+                    if !is_reachable_query && ip != "127.0.0.1" && ip != "0.0.0.0" {
+                         is_reachable_query = network::query_server("127.0.0.1", port);
+                         if is_reachable_query {
+                             println!("  ⚠️ Server {} reachable on localhost (fallback) but not on configured IP {}", id, ip);
+                         }
+                    }
+                    
+                    // Re-acquire lock to update state
+                    // We must check if the process still exists (it might have been stopped/crashed in the meantime)
+                    let mut p_lock = monitor_processes.lock().unwrap();
+                    
+                    if let Some(proc) = p_lock.get_mut(&id) {
+                        let _message_startup_confirmed = proc.startup_confirmed.load(Ordering::Relaxed);
+                        
+                        // Determine desired status
+                        // If reachable via network OR logs confirm startup -> online
+                        let is_reachable = is_reachable_query || proc.startup_confirmed.load(Ordering::Relaxed);
+                        
+                        // State transition logic
+                        if is_reachable && !proc.is_online {
+                             // Transition: Starting -> Online
+                             // Update DB first
+                             if let Some(state) = monitor_handle.try_state::<AppState>() {
+                                if let Ok(db) = state.db.lock() {
+                                    if let Ok(conn) = db.get_connection() {
+                                        match conn.execute(
+                                            "UPDATE servers SET status = 'online' WHERE id = ?1",
+                                            rusqlite::params![id],
+                                        ) {
+                                            Ok(_) => {
+                                                println!("  🟢 Server {} state persisted: ONLINE", id);
+                                                proc.is_online = true;
+                                                status_updates.push((id, "online".to_string()));
+                                                
+                                                // Send Discord webhook
+                                                let wh_handle = monitor_handle.clone();
+                                                let wh_id = id;
+                                                std::thread::spawn(move || {
+                                                    let name = get_server_name(&wh_handle, wh_id);
+                                                    send_discord_webhook(
+                                                        &wh_handle,
+                                                        "serverStart",
+                                                        DiscordEmbed::server_online(&name),
+                                                    );
+                                                });
+                                            },
+                                            Err(e) => println!("  ❌ DB Update Failed for Server {}: {}", id, e),
+                                        }
+                                    }
+                                }
+                             }
+                        } else if !is_reachable && proc.is_online {
+                            // Transition: Online -> Connection Lost
+                             if let Some(state) = monitor_handle.try_state::<AppState>() {
+                                if let Ok(db) = state.db.lock() {
+                                    if let Ok(conn) = db.get_connection() {
+                                        match conn.execute(
+                                            "UPDATE servers SET status = 'running' WHERE id = ?1",
+                                            rusqlite::params![id],
+                                        ) {
+                                            Ok(_) => {
+                                                println!("  ⚠️ Server {} lost connection", id);
+                                                proc.is_online = false;
+                                                status_updates.push((id, "running".to_string()));
+                                            },
+                                            Err(e) => println!("  ❌ DB Update Failed for Server {}: {}", id, e),
+                                        }
+                                    }
+                                }
+                             }
+                        }
+                        
+                        // Stuck in "Starting" check with TIMEOUT
+                        if !proc.is_online {
+                            let uptime = proc.started_at.elapsed();
+                            let uptime_secs = uptime.as_secs();
+                            
+                            // Emit startup progress every 30 seconds
+                            if uptime_secs % 30 == 0 {
+                                let startup_confirmed = proc.startup_confirmed.load(Ordering::Relaxed);
+                                let _ = monitor_handle.emit(
+                                    "server-startup-progress",
+                                    ServerStartupProgressEvent {
+                                        server_id: id,
+                                        elapsed_seconds: uptime_secs,
+                                        startup_confirmed,
+                                    },
+                                );
+                            }
+
+                            // Timeout Logic
+                            let startup_confirmed = proc.startup_confirmed.load(Ordering::Relaxed);
+                            // 10 minutes (600s) for startup, 1 hour (3600s) once running/confirmed
+                            let timeout_limit = if startup_confirmed { 3600 } else { 600 };
+
+                            if uptime_secs > timeout_limit {
+                                println!("  ❌ Server {} timed out ({}s). Killing process.", id, uptime_secs);
+                                // Kill Process
+                                let _ = proc.child.kill();
+                                
+                                // FORCE status update to 'startup_timeout' immediately so UI knows WHY it died
+                                // The loop will eventually see it exit, but we want to be explicit about the cause
+                                if let Some(state) = monitor_handle.try_state::<AppState>() {
+                                    if let Ok(db) = state.db.lock() {
+                                        if let Ok(conn) = db.get_connection() {
+                                            let _ = conn.execute(
+                                                "UPDATE servers SET status = 'startup_timeout' WHERE id = ?1",
+                                                rusqlite::params![id],
+                                            );
+                                        }
+                                    }
+                                }
+
+                                // Emit specific timeout event
+                                let _ = monitor_handle.emit(
+                                    "server-status-change",
+                                    ServerStatusEvent {
+                                        server_id: id,
+                                        status: "startup_timeout".to_string(),
+                                    },
+                                );
+                            } else if uptime_secs > 300 && uptime_secs % 60 == 0 {
+                                 println!("  ⏳ Server {} still starting... ({}s)", id, uptime_secs);
+                            }
+                        }
+                    }
+                } // Lock released after updating this server
 
                 // Emit status updates for Online/Running toggles
                 for (id, status) in status_updates {
@@ -273,6 +337,19 @@ impl ProcessManager {
                         id, status, exit_code
                     );
 
+                    // Send Discord webhook for crash
+                    if exit_code != 0 {
+                        let wh_handle = monitor_handle.clone();
+                        std::thread::spawn(move || {
+                            let name = get_server_name(&wh_handle, id);
+                            send_discord_webhook(
+                                &wh_handle,
+                                "serverCrash",
+                                DiscordEmbed::server_crashed(&name, exit_code),
+                            );
+                        });
+                    }
+
                     // Check if intelligent_mode is enabled for auto-repair
                     let mut should_auto_repair = false;
                     let mut server_install_path: Option<String> = None;
@@ -315,7 +392,23 @@ impl ProcessManager {
                     if let Some(state) = monitor_handle.try_state::<AppState>() {
                         if let Ok(db) = state.db.lock() {
                             if let Ok(conn) = db.get_connection() {
-                                let db_status = if should_auto_repair { "repairing" } else { "stopped" };
+                                let mut db_status = if should_auto_repair { "repairing".to_string() } else { status.to_string() };
+                                
+                                // CRITICAL FIX: If the server was killed due to startup timeout, do NOT overwrite the status with "stopped" or "crashed".
+                                // We check the current status in DB first.
+                                let current_db_status: Result<String, _> = conn.query_row(
+                                    "SELECT status FROM servers WHERE id = ?1",
+                                    [id],
+                                    |row| row.get(0),
+                                );
+
+                                if let Ok(current) = current_db_status {
+                                    if current == "startup_timeout" {
+                                        println!("  ⚠️ Server {} was marked as startup_timeout, preserving that status instead of {}", id, db_status);
+                                        db_status = "startup_timeout".to_string();
+                                    }
+                                }
+
                                 match conn.execute(
                                     "UPDATE servers SET status = ?1 WHERE id = ?2",
                                     rusqlite::params![db_status, id],
@@ -642,33 +735,17 @@ impl ProcessManager {
         let stdout = child.stdout.take().expect("Failed to capture stdout");
         let stderr = child.stderr.take().expect("Failed to capture stderr");
 
-        let app_handle_out = self.app_handle.clone();
-        let app_handle_err = self.app_handle.clone();
+
 
         // Stdout Reader
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
             for line in reader.lines() {
-                if let Ok(l) = line {
-                    // Filter out noisy CFCore messages (mod system warnings that aren't actual errors)
-                    if l.contains("LogCFCore:") && (
-                        l.contains("Couldn't load mods library") ||
-                        l.contains("No machine id was found") ||
-                        l.contains("UserContextInfo not loaded") ||
-                        l.contains("Error querying server mods") ||
-                        l.contains("Error: 404")
-                    ) {
-                        continue; // Skip these noisy CFCore warnings
-                    }
-                    
-                    let _ = app_handle_out.emit(
-                        "server_log",
-                        ServerLogEvent {
-                            server_id,
-                            line: l,
-                            is_stderr: false,
-                        },
-                    );
+                // We strictly consume stdout to prevent buffer deadlock, but we DO NOT emit events
+                // because the Log File Watcher (below) is the primary source of logs and "startup confirmed" logic.
+                // Emitting here would cause duplicate logs in the UI.
+                if let Ok(_l) = line {
+                    // println!("[Server STDOUT] {}", l); // Silenced to prevent terminal spam
                 }
             }
         });
@@ -677,57 +754,21 @@ impl ProcessManager {
         std::thread::spawn(move || {
             let reader = BufReader::new(stderr);
             for line in reader.lines() {
-                if let Ok(l) = line {
-                    // Filter out noisy CFCore messages (mod system warnings that aren't actual errors)
-                    if l.contains("LogCFCore:") && (
-                        l.contains("Couldn't load mods library") ||
-                        l.contains("No machine id was found") ||
-                        l.contains("UserContextInfo not loaded") ||
-                        l.contains("Error querying server mods") ||
-                        l.contains("Error: 404")
-                    ) {
-                        continue; // Skip these noisy CFCore warnings
-                    }
-                    
-                    let _ = app_handle_err.emit(
-                        "server_log",
-                        ServerLogEvent {
-                            server_id,
-                            line: l,
-                            is_stderr: true, // Mark as stderr
-                        },
-                    );
+                // Similarly consume stderr to prevent blocking. 
+                // Any critical startup errors usually also appear in the log file or cause immediate process exit which is caught below.
+                if let Ok(_l) = line {
+                     // println!("[Server STDERR] {}", l); // Silenced to prevent terminal spam
                 }
             }
         });
 
-        // Wait a moment to check for immediate startup failures (e.g. missing DLLs, bad path)
-        // Only check for very quick failures - ARK servers can take several minutes to fully start
-        std::thread::sleep(std::time::Duration::from_secs(3));
+        // REMOVED: Immediate check for startup failures (blocking sleep)
+        // User requested instant startup feedback.
+        // Background monitor will catch if it crashes shortly after.
+        // std::thread::sleep(std::time::Duration::from_secs(3));
+        
+        // match child.try_wait() { ... } 
 
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let exit_code = status.code().unwrap_or(-1);
-                let error_msg = match exit_code {
-                    3 => "Exit code 3: This usually indicates invalid map name, corrupted installation, or missing game files. Try verifying/updating the server installation.",
-                    1 => "Exit code 1: General error. Check for missing dependencies or configuration issues.",
-                    -1 => "Process terminated abnormally. Check for anti-virus interference or missing permissions.",
-                    _ => "Unknown error. Check the server console logs for details.",
-                };
-                return Err(anyhow::anyhow!(
-                    "Server process exited immediately with status: {:?} (code: {}). {}",
-                    status,
-                    exit_code,
-                    error_msg
-                ));
-            }
-            Ok(None) => {
-                // Still running after 5 seconds - let the background monitor handle any later crashes
-            }
-            Err(e) => {
-                return Err(anyhow::anyhow!("Failed to check process status: {}", e));
-            }
-        }
 
         println!("  ✅ Server {} started with PID: {} ", server_id, child_pid);
 
@@ -826,9 +867,53 @@ impl ProcessManager {
                             if line.contains("server has successfully started")
                                 || line.contains("Full Startup: ")
                                 || line.contains("Number of cores")
+                                || line.contains("Commandline:") 
+                                || line.contains("Primal Game Data Took")
+                                || line.contains("Server has completed startup") // Added pattern
                             {
                                 println!("  🎉 Server {} logged startup complete (Waiting for network...)", server_id);
                                 startup_confirmed_clone.store(true, Ordering::Relaxed);
+                            }
+
+                            // DISCORD WEBHOOKS: Player Join/Leave
+                            if line.contains("joined this ARK!") {
+                                // Format: "User <Name> joined this ARK!"
+                                if let Some(idx) = line.find("User ") {
+                                    let rest = &line[idx + 5..];
+                                    if let Some(end_idx) = rest.find(" joined this ARK!") {
+                                        let player_name = &rest[..end_idx];
+                                        let wh_handle = app_handle.clone();
+                                        let wh_id = server_id;
+                                        let p_name = player_name.to_string();
+                                        std::thread::spawn(move || {
+                                            let s_name = get_server_name(&wh_handle, wh_id);
+                                            send_discord_webhook(
+                                                &wh_handle,
+                                                "playerJoin",
+                                                DiscordEmbed::player_join(&s_name, &p_name),
+                                            );
+                                        });
+                                    }
+                                }
+                            } else if line.contains("left this ARK!") {
+                                // Format: "User <Name> left this ARK!"
+                                if let Some(idx) = line.find("User ") {
+                                    let rest = &line[idx + 5..];
+                                    if let Some(end_idx) = rest.find(" left this ARK!") {
+                                        let player_name = &rest[..end_idx];
+                                        let wh_handle = app_handle.clone();
+                                        let wh_id = server_id;
+                                        let p_name = player_name.to_string();
+                                        std::thread::spawn(move || {
+                                            let s_name = get_server_name(&wh_handle, wh_id);
+                                            send_discord_webhook(
+                                                &wh_handle,
+                                                "playerLeave",
+                                                DiscordEmbed::player_leave(&s_name, &p_name),
+                                            );
+                                        });
+                                    }
+                                }
                             }
                         }
                     }
@@ -877,6 +962,17 @@ impl ProcessManager {
 
             // Emit stopped status
             self.emit_status_change(server_id, "stopped");
+
+            // Send Discord webhook for server stop
+            let wh_handle = self.app_handle.clone();
+            std::thread::spawn(move || {
+                let name = get_server_name(&wh_handle, server_id);
+                send_discord_webhook(
+                    &wh_handle,
+                    "serverStop",
+                    DiscordEmbed::server_stopped(&name),
+                );
+            });
         }
         Ok(())
     }
@@ -993,7 +1089,8 @@ impl ProcessManager {
             self.stop_server(server_id)?;
         }
 
-        std::thread::sleep(std::time::Duration::from_secs(2));
+        // Reduced wait time for shorter restart delay
+        std::thread::sleep(std::time::Duration::from_secs(1));
 
         self.start_server(
             server_id,

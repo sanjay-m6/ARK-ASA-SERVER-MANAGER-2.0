@@ -163,6 +163,13 @@ impl AdvancedConfigService {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
+        Self::get_active_profile_from_conn(&conn, server_id)
+    }
+
+    pub fn get_active_profile_from_conn(
+        conn: &Connection,
+        server_id: i64,
+    ) -> Result<Option<EventProfile>, String> {
         let mut stmt = conn
             .prepare("SELECT id, server_id, profile_name, harvest_multiplier, stack_size_multiplier, structure_resistance, structure_damage, is_active FROM event_configs WHERE server_id = ?1 AND is_active = 1")
             .map_err(|e| e.to_string())?;
@@ -196,6 +203,13 @@ impl AdvancedConfigService {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
+        Self::get_transfer_policy_from_conn(&conn, server_id)
+    }
+
+    pub fn get_transfer_policy_from_conn(
+        conn: &Connection,
+        server_id: i64,
+    ) -> Result<Option<TransferPolicy>, String> {
         let mut stmt = conn
             .prepare("SELECT id, server_id, item_whitelist, dino_whitelist, max_quantity, enabled FROM transfer_policies WHERE server_id = ?1")
             .map_err(|e| e.to_string())?;

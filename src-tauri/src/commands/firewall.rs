@@ -39,10 +39,81 @@ pub struct FirewallOperationResult {
     pub requires_admin: bool,
 }
 
-/// Check if a firewall rule exists for a specific port
+/// Helper struct for parsing PowerShell JSON output
+#[derive(Debug, Deserialize)]
+struct FirewallRuleData {
+    #[serde(alias = "LocalPort")]
+    local_port: serde_json::Value,
+    #[serde(alias = "Protocol")]
+    protocol: String,
+}
+
+/// Fetch all relevant firewall rules (filtered for ARK to avoid hanging)
+fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
+    // Filter by DisplayName wildcard to reduce overhead significantly
+    let script = "Get-NetFirewallRule -DisplayName 'ARK Server*' -Enabled True -Direction Inbound -Action Allow | Get-NetFirewallPortFilter | Select-Object LocalPort, Protocol | ConvertTo-Json -Compress";
+
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+
+    let mut rules_set = std::collections::HashSet::new();
+
+    if let Ok(result) = output {
+        if result.status.success() {
+            let stdout = String::from_utf8_lossy(&result.stdout);
+
+            // Handle single object vs array vs empty
+            if let Ok(rules) = serde_json::from_str::<Vec<FirewallRuleData>>(&stdout) {
+                for rule in rules {
+                    let port_val = match &rule.local_port {
+                        serde_json::Value::String(s) => s.parse::<u16>().ok(),
+                        serde_json::Value::Number(n) => n.as_u64().map(|v| v as u16),
+                        _ => None,
+                    };
+
+                    if let Some(port) = port_val {
+                        rules_set.insert((port, rule.protocol.to_uppercase()));
+                    }
+                }
+            } else if let Ok(rule) = serde_json::from_str::<FirewallRuleData>(&stdout) {
+                // Single object case
+                let port_val = match &rule.local_port {
+                    serde_json::Value::String(s) => s.parse::<u16>().ok(),
+                    serde_json::Value::Number(n) => n.as_u64().map(|v| v as u16),
+                    _ => None,
+                };
+
+                if let Some(port) = port_val {
+                    rules_set.insert((port, rule.protocol.to_uppercase()));
+                }
+            }
+        }
+    }
+
+    rules_set
+}
+
+/// Check if a firewall rule exists for a specific port using the cache
+fn check_port_in_cache(
+    cache: &std::collections::HashSet<(u16, String)>,
+    port: u16,
+    protocol: &str,
+) -> PortStatus {
+    if cache.contains(&(port, protocol.to_uppercase())) {
+        PortStatus::Open
+    } else {
+        PortStatus::Closed
+    }
+}
+
+/// Check if a firewall rule exists for a specific port (Legacy - rarely used now)
 fn check_port_rule_exists(port: u16, protocol: &str) -> PortStatus {
+    // Re-use the batch fetch for consistency, or keep independent if needed.
+    // For now, let's just do a quick single check to avoid breaking existing single-calls
     let script = format!(
-        "Get-NetFirewallRule | Where-Object {{ $_.Enabled -eq 'True' }} | Get-NetFirewallPortFilter | Where-Object {{ $_.LocalPort -eq '{}' -and $_.Protocol -eq '{}' }} | Measure-Object | Select-Object -ExpandProperty Count",
+        "Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow | Get-NetFirewallPortFilter | Where-Object {{ $_.LocalPort -eq '{}' -and $_.Protocol -eq '{}' }} | Measure-Object | Select-Object -ExpandProperty Count",
         port, protocol
     );
 
@@ -302,24 +373,28 @@ fn get_server_from_db(state: &State<'_, AppState>, server_id: i64) -> Result<Ser
 }
 
 /// Get firewall status for all servers
+/// Get firewall status for all servers
 #[tauri::command]
 pub async fn get_all_servers_firewall_status(
     state: State<'_, AppState>,
 ) -> Result<Vec<ServerFirewallStatus>, String> {
     let servers = get_servers_from_db(&state)?;
 
+    // Fetch all rules ONCE
+    let rules_cache = fetch_all_firewall_rules();
+
     let mut statuses = Vec::new();
 
     for server in servers {
         // Check game port (UDP)
-        let game_port_status = check_port_rule_exists(server.game_port, "UDP");
+        let game_port_status = check_port_in_cache(&rules_cache, server.game_port, "UDP");
 
         // Check query port (UDP)
-        let query_port_status = check_port_rule_exists(server.query_port, "UDP");
+        let query_port_status = check_port_in_cache(&rules_cache, server.query_port, "UDP");
 
         // Check RCON port (TCP) only if enabled
         let rcon_port_status = if server.rcon_enabled {
-            check_port_rule_exists(server.rcon_port, "TCP")
+            check_port_in_cache(&rules_cache, server.rcon_port, "TCP")
         } else {
             PortStatus::Closed
         };
@@ -348,10 +423,13 @@ pub async fn get_firewall_status(
 ) -> Result<ServerFirewallStatus, String> {
     let server = get_server_from_db(&state, server_id)?;
 
-    let game_port_status = check_port_rule_exists(server.game_port, "UDP");
-    let query_port_status = check_port_rule_exists(server.query_port, "UDP");
+    // Use batch fetch even for single server to save process creation overhead
+    let rules_cache = fetch_all_firewall_rules();
+
+    let game_port_status = check_port_in_cache(&rules_cache, server.game_port, "UDP");
+    let query_port_status = check_port_in_cache(&rules_cache, server.query_port, "UDP");
     let rcon_port_status = if server.rcon_enabled {
-        check_port_rule_exists(server.rcon_port, "TCP")
+        check_port_in_cache(&rules_cache, server.rcon_port, "TCP")
     } else {
         PortStatus::Closed
     };

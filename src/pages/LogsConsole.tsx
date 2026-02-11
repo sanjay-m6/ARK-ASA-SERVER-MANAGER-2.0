@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Search, Download, Pause, Play, Trash2, Terminal, Users, Save, Radio, AlertTriangle, Info, Bug, RefreshCw } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { useServerStore } from '../stores/serverStore';
-import { getAllServers, startLogWatcher } from '../utils/tauri';
+import { getAllServers, getServerLogs } from '../utils/tauri';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import toast from 'react-hot-toast';
@@ -103,10 +103,36 @@ export default function LogsConsole() {
 
         if (selectedServerId) {
             setupListener();
-            // Start log watcher for selected server
+            // Get initial logs (history)
             const server = servers.find(s => s.id === selectedServerId);
             if (server) {
-                startLogWatcher(selectedServerId, server.installPath).catch(console.error);
+                getServerLogs(selectedServerId, server.installPath)
+                    .then(history => {
+                        const entries = history.map((h: any) => {
+                            const line = h.line;
+                            return {
+                                timestamp: parseTimestamp(line),
+                                level: parseLogLevel(line),
+                                message: line.replace(/\[\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3}\]\[\s*\d+\]/, '').trim(),
+                                raw: line,
+                            };
+                        });
+                        setLogs(prev => {
+                            // Merge history with any live logs received while fetching
+                            // To avoid duplicates, we can check basic equality or just prepend history?
+                            // Live logs are appended. History should come FIRST.
+                            // But `prev` might already have live logs.
+                            // Simple approach: Replace `prev` with `[...history, ...prev]`?
+                            // Or just `setLogs(entries)` if we assume it's fast enough.
+                            // Better: `setLogs(entries)` creates a base.
+                            // But if `setupListener` already caught new logs, `prev` has them.
+                            // So `[...entries, ...prev]` is safest?
+                            // But if history overlaps with prev?
+                            // Since we start listener BEFORE fetching history, `prev` only contains NEW logs.
+                            return [...entries, ...prev].slice(-1000);
+                        });
+                    })
+                    .catch(console.error);
             }
         }
 

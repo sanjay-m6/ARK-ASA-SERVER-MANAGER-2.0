@@ -1,13 +1,17 @@
 use crate::models::{Cluster, ClusterStatus, ServerStatus, ServerStatusInfo};
 use crate::AppState;
+use serde::Serialize;
 use std::path::PathBuf;
 use tauri::State;
+
+const DEFAULT_CLUSTER_ROOT: &str = "C:/ASA_Clusters";
 
 #[tauri::command]
 pub async fn create_cluster(
     state: State<'_, AppState>,
     name: String,
     server_ids: Vec<i64>,
+    cluster_path: Option<String>,
 ) -> Result<Cluster, String> {
     println!(
         "🔗 Creating cluster: {} with {} servers",
@@ -15,10 +19,20 @@ pub async fn create_cluster(
         server_ids.len()
     );
 
-    // Get app data dir for cluster path
-    let cluster_dir = format!("C:/ASA_Clusters/{}", name.replace(" ", "_"));
+    // Determine the cluster directory path
+    let cluster_dir = match &cluster_path {
+        Some(p) if !p.trim().is_empty() => {
+            // Validate the custom path
+            let validation = validate_path(p);
+            if !validation.valid {
+                return Err(validation.error.unwrap_or("Invalid path".to_string()));
+            }
+            p.trim().replace('\\', "/")
+        }
+        _ => format!("{}/{}", DEFAULT_CLUSTER_ROOT, name.replace(' ', "_")),
+    };
 
-    // Create a cluster directory
+    // Create the cluster directory
     std::fs::create_dir_all(&cluster_dir)
         .map_err(|e| format!("Failed to create cluster directory: {}", e))?;
 
@@ -84,6 +98,110 @@ pub async fn create_cluster(
 }
 
 #[tauri::command]
+pub async fn update_cluster(
+    state: State<'_, AppState>,
+    cluster_id: i64,
+    name: Option<String>,
+    new_path: Option<String>,
+    move_data: Option<bool>,
+) -> Result<(), String> {
+    println!("✏️ Updating cluster: {}", cluster_id);
+
+    // Read current cluster info
+    let (current_name, current_path): (String, String) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT name, cluster_path FROM clusters WHERE id = ?1",
+            [cluster_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| format!("Cluster not found: {}", e))?
+    };
+
+    // Update name if provided
+    if let Some(ref new_name) = name {
+        if !new_name.trim().is_empty() && new_name.trim() != current_name {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE clusters SET name = ?1 WHERE id = ?2",
+                rusqlite::params![new_name.trim(), cluster_id],
+            )
+            .map_err(|e| e.to_string())?;
+            println!(
+                "  📝 Cluster renamed: '{}' → '{}'",
+                current_name,
+                new_name.trim()
+            );
+        }
+    }
+
+    // Update path if provided
+    if let Some(ref path) = new_path {
+        let normalized = path.trim().replace('\\', "/");
+        if !normalized.is_empty() && normalized != current_path {
+            // Validate new path
+            let validation = validate_path(&normalized);
+            if !validation.valid {
+                return Err(validation.error.unwrap_or("Invalid path".to_string()));
+            }
+
+            // Ensure new directory exists
+            std::fs::create_dir_all(&normalized)
+                .map_err(|e| format!("Failed to create new cluster directory: {}", e))?;
+
+            // Optionally move data from old path to new path
+            if move_data.unwrap_or(false) {
+                move_cluster_data(&current_path, &normalized)?;
+            }
+
+            // Update DB
+            {
+                let db = state.db.lock().map_err(|e| e.to_string())?;
+                let conn = db.get_connection().map_err(|e| e.to_string())?;
+                conn.execute(
+                    "UPDATE clusters SET cluster_path = ?1 WHERE id = ?2",
+                    rusqlite::params![normalized, cluster_id],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+
+            // Update ClusterDirOverride in all linked servers
+            {
+                let db = state.db.lock().map_err(|e| e.to_string())?;
+                let conn = db.get_connection().map_err(|e| e.to_string())?;
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT s.install_path FROM servers s
+                         INNER JOIN cluster_servers cs ON s.id = cs.server_id
+                         WHERE cs.cluster_id = ?1",
+                    )
+                    .map_err(|e| e.to_string())?;
+
+                let paths: Vec<String> = stmt
+                    .query_map([cluster_id], |row| row.get(0))
+                    .map_err(|e| e.to_string())?
+                    .filter_map(|r| r.ok())
+                    .collect();
+
+                for install_path in paths {
+                    update_cluster_config(&install_path, &normalized);
+                }
+            }
+
+            println!(
+                "  📁 Cluster path changed: '{}' → '{}'",
+                current_path, normalized
+            );
+        }
+    }
+
+    println!("  ✅ Cluster {} updated", cluster_id);
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn get_clusters(state: State<'_, AppState>) -> Result<Vec<Cluster>, String> {
     println!("📋 Getting all clusters");
 
@@ -142,6 +260,13 @@ pub async fn delete_cluster(state: State<'_, AppState>, cluster_id: i64) -> Resu
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
+        // Clear cluster_id on linked servers
+        conn.execute(
+            "UPDATE servers SET cluster_id = NULL WHERE cluster_id = ?1",
+            [cluster_id],
+        )
+        .map_err(|e| e.to_string())?;
+
         // Remove cluster-server links
         conn.execute(
             "DELETE FROM cluster_servers WHERE cluster_id = ?1",
@@ -159,22 +284,31 @@ pub async fn delete_cluster(state: State<'_, AppState>, cluster_id: i64) -> Resu
 }
 
 #[tauri::command]
-#[allow(dead_code)]
 pub async fn add_server_to_cluster(
     state: State<'_, AppState>,
     cluster_id: i64,
     server_id: i64,
 ) -> Result<(), String> {
+    println!("➕ Adding server {} to cluster {}", server_id, cluster_id);
+
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
+    // Add to junction table
     conn.execute(
         "INSERT OR REPLACE INTO cluster_servers (cluster_id, server_id) VALUES (?1, ?2)",
         rusqlite::params![cluster_id, server_id],
     )
     .map_err(|e| e.to_string())?;
 
-    // Get cluster path and update server config
+    // Update server's cluster_id
+    conn.execute(
+        "UPDATE servers SET cluster_id = ?1 WHERE id = ?2",
+        rusqlite::params![cluster_id, server_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Update server's GameUserSettings.ini with ClusterDirOverride
     if let Ok((cluster_path, install_path)) = conn.query_row::<(String, String), _, _>(
         "SELECT c.cluster_path, s.install_path FROM clusters c, servers s WHERE c.id = ?1 AND s.id = ?2",
         rusqlite::params![cluster_id, server_id],
@@ -183,27 +317,191 @@ pub async fn add_server_to_cluster(
         update_cluster_config(&install_path, &cluster_path);
     }
 
+    println!("  ✅ Server {} added to cluster {}", server_id, cluster_id);
     Ok(())
 }
 
 #[tauri::command]
-#[allow(dead_code)]
 pub async fn remove_server_from_cluster(
     state: State<'_, AppState>,
     cluster_id: i64,
     server_id: i64,
 ) -> Result<(), String> {
+    println!(
+        "➖ Removing server {} from cluster {}",
+        server_id, cluster_id
+    );
+
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
+    // Remove from junction table
     conn.execute(
         "DELETE FROM cluster_servers WHERE cluster_id = ?1 AND server_id = ?2",
         rusqlite::params![cluster_id, server_id],
     )
     .map_err(|e| e.to_string())?;
 
+    // Clear cluster_id on the server
+    conn.execute(
+        "UPDATE servers SET cluster_id = NULL WHERE id = ?1 AND cluster_id = ?2",
+        rusqlite::params![server_id, cluster_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    println!(
+        "  ✅ Server {} removed from cluster {}",
+        server_id, cluster_id
+    );
     Ok(())
 }
+
+// ── Path Validation ────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PathValidation {
+    pub valid: bool,
+    pub error: Option<String>,
+}
+
+#[tauri::command]
+pub async fn validate_cluster_path(path: String) -> Result<PathValidation, String> {
+    Ok(validate_path(&path))
+}
+
+fn validate_path(path: &str) -> PathValidation {
+    let path = path.trim();
+    if path.is_empty() {
+        return PathValidation {
+            valid: false,
+            error: Some("Path cannot be empty".to_string()),
+        };
+    }
+
+    let p = PathBuf::from(path);
+
+    // Check for obviously invalid / restricted paths
+    let normalized = path.replace('\\', "/").to_lowercase();
+    let restricted = ["/windows/", "/system32", "/program files/", "/programdata/"];
+    for r in &restricted {
+        if normalized.contains(r) {
+            return PathValidation {
+                valid: false,
+                error: Some(format!("Cannot use restricted system directory: {}", r)),
+            };
+        }
+    }
+
+    // If path exists, check it's a directory and writable
+    if p.exists() {
+        if !p.is_dir() {
+            return PathValidation {
+                valid: false,
+                error: Some("Path exists but is not a directory".to_string()),
+            };
+        }
+        // Test write by creating a temp file
+        let test_file = p.join(".asm_test_write");
+        match std::fs::write(&test_file, "test") {
+            Ok(_) => {
+                let _ = std::fs::remove_file(&test_file);
+            }
+            Err(e) => {
+                return PathValidation {
+                    valid: false,
+                    error: Some(format!("Directory is not writable: {}", e)),
+                };
+            }
+        }
+    }
+    // If path doesn't exist, check that the parent exists or can be created
+    else if let Some(parent) = p.parent() {
+        if !parent.exists() {
+            // Try to determine if the path looks valid (has a drive letter etc)
+            if cfg!(windows) && !path.contains(':') {
+                return PathValidation {
+                    valid: false,
+                    error: Some("Path must include a drive letter (e.g. D:\\Clusters)".to_string()),
+                };
+            }
+        }
+    }
+
+    PathValidation {
+        valid: true,
+        error: None,
+    }
+}
+
+// ── Data Migration ─────────────────────────────────────────────────────
+
+fn move_cluster_data(old_path: &str, new_path: &str) -> Result<(), String> {
+    let old = PathBuf::from(old_path);
+    let new = PathBuf::from(new_path);
+
+    if !old.exists() {
+        println!("  ℹ️ Old cluster path does not exist, nothing to move");
+        return Ok(());
+    }
+
+    // Create destination
+    std::fs::create_dir_all(&new).map_err(|e| format!("Failed to create destination: {}", e))?;
+
+    // Copy all files/directories from old to new
+    let entries =
+        std::fs::read_dir(&old).map_err(|e| format!("Failed to read source directory: {}", e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let src = entry.path();
+        let dst = new.join(entry.file_name());
+
+        if src.is_dir() {
+            copy_dir_recursive(&src, &dst)?;
+        } else {
+            std::fs::copy(&src, &dst).map_err(|e| {
+                format!(
+                    "Failed to copy file {} → {}: {}",
+                    src.display(),
+                    dst.display(),
+                    e
+                )
+            })?;
+        }
+    }
+
+    println!("  📦 Cluster data moved: {} → {}", old_path, new_path);
+    Ok(())
+}
+
+fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> Result<(), String> {
+    std::fs::create_dir_all(dst)
+        .map_err(|e| format!("Failed to create dir {}: {}", dst.display(), e))?;
+
+    for entry in
+        std::fs::read_dir(src).map_err(|e| format!("Failed to read {}: {}", src.display(), e))?
+    {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let child_src = entry.path();
+        let child_dst = dst.join(entry.file_name());
+
+        if child_src.is_dir() {
+            copy_dir_recursive(&child_src, &child_dst)?;
+        } else {
+            std::fs::copy(&child_src, &child_dst).map_err(|e| {
+                format!(
+                    "Failed to copy {} → {}: {}",
+                    child_src.display(),
+                    child_dst.display(),
+                    e
+                )
+            })?;
+        }
+    }
+    Ok(())
+}
+
+// ── Config Helpers ─────────────────────────────────────────────────────
 
 /// Update GameUserSettings.ini with ClusterDirOverride
 fn update_cluster_config(install_path: &str, cluster_path: &str) {
@@ -244,6 +542,8 @@ fn update_cluster_config(install_path: &str, cluster_path: &str) {
         println!("  📝 Updated cluster config for server at {}", install_path);
     }
 }
+
+// ── Cluster Status & Operations ────────────────────────────────────────
 
 /// Get the status of all servers in a cluster
 #[tauri::command]
@@ -301,7 +601,6 @@ pub async fn get_cluster_status(
             if matches!(status, ServerStatus::Running) {
                 running_servers += 1;
             }
-            // For now, player count is 0 - would need RCON integration to get real count
             server_statuses.push(ServerStatusInfo {
                 server_id: id,
                 server_name: name,

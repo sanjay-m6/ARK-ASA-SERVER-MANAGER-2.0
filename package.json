@@ -1,7 +1,7 @@
 {
   "name": "ark-server-manager",
   "private": true,
-  "version": "2.2.6",
+  "version": "2.2.8",
   "type": "module",
   "scripts": {
     "dev": "vite",

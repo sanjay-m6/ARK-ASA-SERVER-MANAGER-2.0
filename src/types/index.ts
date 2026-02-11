@@ -2,7 +2,13 @@
 
 export type ServerType = 'ASA';
 
-export type ServerStatus = 'stopped' | 'starting' | 'running' | 'crashed' | 'updating' | 'restarting' | 'online' | 'repairing';
+export type ServerStatus = 'stopped' | 'starting' | 'running' | 'crashed' | 'updating' | 'restarting' | 'online' | 'repairing' | 'startup_timeout';
+
+export interface ServerStartupProgressEvent {
+    server_id: number;
+    elapsed_seconds: number;
+    startup_confirmed: boolean;
+}
 
 export interface Server {
     id: number;

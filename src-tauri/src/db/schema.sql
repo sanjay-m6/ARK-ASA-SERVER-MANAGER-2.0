@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS servers (
     rcon_enabled INTEGER DEFAULT 1,
     ip_address TEXT,
     cluster_id INTEGER REFERENCES clusters(id) ON DELETE SET NULL,
+    auto_start INTEGER DEFAULT 0,
+    auto_stop INTEGER DEFAULT 0,
+    intelligent_mode INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_started TIMESTAMP,
     UNIQUE(name)

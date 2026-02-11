@@ -188,13 +188,6 @@ impl Database {
             )",
             [],
         )?;
-        if !columns.contains(&"auto_stop".to_string()) {
-            println!("📦 Migration: Adding 'auto_stop' column to servers table");
-            conn.execute(
-                "ALTER TABLE servers ADD COLUMN auto_stop INTEGER DEFAULT 0",
-                [],
-            )?;
-        }
 
         // Add intelligent_mode column if missing
         if !columns.contains(&"intelligent_mode".to_string()) {

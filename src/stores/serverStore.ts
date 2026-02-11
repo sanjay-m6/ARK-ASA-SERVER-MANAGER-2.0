@@ -67,6 +67,9 @@ export const useServerStore = create<ServerStore>((set) => ({
             set({ servers });
         } catch (error) {
             console.error('Failed to refresh servers:', error);
+            import('react-hot-toast').then(({ default: toast }) => {
+                toast.error(`Failed to load servers: ${error}`);
+            });
         }
     }
 }));

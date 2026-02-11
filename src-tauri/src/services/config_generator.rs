@@ -314,6 +314,11 @@ impl ConfigGenerator {
         content.push_str(&format!("MapName={}\r\n", config.map_name));
         content.push_str(&format!("RCONEnabled={}\r\n", config.rcon_enabled));
         content.push_str(&format!("RCONPort={}\r\n", config.rcon_port));
+        if let Some(ref ip) = config.ip_address {
+            if !ip.is_empty() {
+                content.push_str(&format!("IPAddress={}\r\n", ip));
+            }
+        }
 
         // Rates
         content.push_str(&format!("XPMultiplier={:.2}\r\n", config.xp_multiplier));
@@ -701,21 +706,18 @@ impl ConfigGenerator {
     /// Regenerate config files applying event overrides
     pub fn generate_config(
         app_handle: &tauri::AppHandle,
-        _db: &crate::db::Database,
+        db_conn: &rusqlite::Connection,
         server_id: i64,
     ) -> Result<(), String> {
-        let state = app_handle.state::<crate::AppState>();
-
         // 1. Get install path
         let install_path_str: String = {
-            let db = state.db.lock().map_err(|e| e.to_string())?;
-            let conn = db.get_connection().map_err(|e| e.to_string())?;
-            conn.query_row(
-                "SELECT install_path FROM servers WHERE id = ?1",
-                [server_id],
-                |row| row.get(0),
-            )
-            .map_err(|e| e.to_string())?
+            db_conn
+                .query_row(
+                    "SELECT install_path FROM servers WHERE id = ?1",
+                    [server_id],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?
         };
         let install_path = PathBuf::from(install_path_str);
         let config_dir = install_path.join("ShooterGame/Saved/Config/WindowsServer");
@@ -729,7 +731,10 @@ impl ConfigGenerator {
         };
 
         // 3. Get Active Profile
-        let profile = state.advanced_config.get_active_profile(server_id)?;
+        let profile =
+            crate::services::advanced_config::AdvancedConfigService::get_active_profile_from_conn(
+                db_conn, server_id,
+            )?;
 
         let mut final_gus = initial_gus_content.clone();
 
@@ -780,7 +785,10 @@ impl ConfigGenerator {
         }
 
         // 5. Apply Transfer Policy Overrides (Always Check)
-        let transfer_policy_result = { state.advanced_config.get_transfer_policy(server_id) };
+        let transfer_policy_result =
+            crate::services::advanced_config::AdvancedConfigService::get_transfer_policy_from_conn(
+                db_conn, server_id,
+            );
 
         if let Ok(Some(policy)) = transfer_policy_result {
             if policy.enabled {

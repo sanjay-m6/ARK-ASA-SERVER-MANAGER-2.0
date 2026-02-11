@@ -31,9 +31,10 @@ pub async fn activate_event_profile(
 
     // Regenerate server config to apply changes immediately
     let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
     crate::services::config_generator::ConfigGenerator::generate_config(
         &state.app_handle,
-        &*db,
+        &*conn,
         server_id,
     )
     .map_err(|e| e.to_string())?;
@@ -62,9 +63,10 @@ pub async fn save_transfer_policy(
 
     // Regenerate config to apply/remove NoTributeDownloads
     let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
     crate::services::config_generator::ConfigGenerator::generate_config(
         &state.app_handle,
-        &*db,
+        &*conn,
         server_id,
     )
     .map_err(|e| e.to_string())?;

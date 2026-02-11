@@ -222,10 +222,11 @@ pub fn run() {
             commands::server::transfer_settings,
             commands::server::extract_save_data,
             commands::server::check_server_reachability,
-            commands::server::start_log_watcher,
+            commands::server::get_server_logs,
             commands::server::import_server,
             commands::server::show_server_console,
             commands::server::toggle_automation,
+            commands::server::debug_database_check, // <-- New Command
             commands::import::import_non_dedicated_save, // <-- New Command
             // Mod commands
             commands::mods::search_mods,
@@ -264,9 +265,15 @@ pub fn run() {
             commands::cluster::create_cluster,
             commands::cluster::get_clusters,
             commands::cluster::delete_cluster,
+            commands::cluster::update_cluster,
+            commands::cluster::add_server_to_cluster,
+            commands::cluster::remove_server_from_cluster,
+            commands::cluster::validate_cluster_path,
             commands::cluster::get_cluster_status,
             commands::cluster::start_cluster,
             commands::cluster::stop_cluster,
+            commands::cluster::toggle_cluster_cross_chat,
+            commands::cluster::get_cluster_cross_chat_status,
             // Backup commands
             commands::backup::create_backup,
             commands::backup::get_backups,

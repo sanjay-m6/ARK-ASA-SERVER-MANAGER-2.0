@@ -152,12 +152,16 @@ export async function checkServerReachability(serverId: number, port: number): P
     return await invoke('check_server_reachability', { serverId, port });
 }
 
-export async function startLogWatcher(serverId: number, installPath: string): Promise<void> {
-    return await invoke('start_log_watcher', { serverId, installPath });
+export async function getServerLogs(serverId: number, installPath: string): Promise<any[]> {
+    return await invoke('get_server_logs', { serverId, installPath });
 }
 
 export async function showServerConsole(serverId: number): Promise<void> {
     return await invoke('show_server_console', { serverId });
+}
+
+export async function debugDatabaseCheck(): Promise<string> {
+    return await invoke('debug_database_check');
 }
 
 // ============================================================================
@@ -296,8 +300,8 @@ export async function getBackupContents(backupId: number): Promise<string[]> {
 // Cluster Commands
 // ============================================================================
 
-export async function createCluster(name: string, serverIds: number[]): Promise<Cluster> {
-    return await invoke('create_cluster', { name, serverIds });
+export async function createCluster(name: string, serverIds: number[], clusterPath?: string): Promise<Cluster> {
+    return await invoke('create_cluster', { name, serverIds, clusterPath: clusterPath || null });
 }
 
 export async function getClusters(): Promise<Cluster[]> {
@@ -306,6 +310,22 @@ export async function getClusters(): Promise<Cluster[]> {
 
 export async function deleteCluster(clusterId: number): Promise<void> {
     return await invoke('delete_cluster', { clusterId });
+}
+
+export async function updateCluster(clusterId: number, name?: string, newPath?: string, moveData?: boolean): Promise<void> {
+    return await invoke('update_cluster', { clusterId, name: name || null, newPath: newPath || null, moveData: moveData || false });
+}
+
+export async function addServerToCluster(clusterId: number, serverId: number): Promise<void> {
+    return await invoke('add_server_to_cluster', { clusterId, serverId });
+}
+
+export async function removeServerFromCluster(clusterId: number, serverId: number): Promise<void> {
+    return await invoke('remove_server_from_cluster', { clusterId, serverId });
+}
+
+export async function validateClusterPath(path: string): Promise<{ valid: boolean; error?: string }> {
+    return await invoke('validate_cluster_path', { path });
 }
 
 export async function getClusterStatus(clusterId: number): Promise<ClusterStatus> {
