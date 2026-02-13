@@ -194,4 +194,16 @@ MaxPlayers=70
         let updated = IniParser::update_key(content, "ServerSettings", "MaxPlayers", "100");
         assert!(updated.contains("MaxPlayers=100"));
     }
+    #[test]
+    fn test_merge_array_keys() {
+        let base = "";
+        let updates = r#"
+[/Script/ShooterGame.ShooterGameMode]
+PerLevelStatsMultiplier_Player[0]=10.0
+PerLevelStatsMultiplier_Player[1]=5.0
+"#;
+        let merged = IniParser::merge(base, updates);
+        assert!(merged.contains("PerLevelStatsMultiplier_Player[0]=10.0"));
+        assert!(merged.contains("PerLevelStatsMultiplier_Player[1]=5.0"));
+    }
 }

@@ -68,7 +68,20 @@ export default function DiscordIntegration() {
     const saveSettings = async () => {
         setIsSaving(true);
         try {
-            await setSetting('discord_webhook_url', webhookUrl);
+            const trimmed = webhookUrl.trim();
+            // Only save webhook if it's non-empty (prevent overwriting a saved URL with empty)
+            if (trimmed) {
+                await setSetting('discord_webhook_url', trimmed);
+                // Verify persistence
+                const persisted = await getSetting('discord_webhook_url');
+                if (persisted !== trimmed) {
+                    toast.error('Webhook failed to persist');
+                    setIsSaving(false);
+                    return;
+                }
+                setSavedWebhookUrl(trimmed);
+                setWebhookUrl(trimmed);
+            }
 
             const alertConfig = alerts.reduce((acc, alert) => {
                 acc[alert.key] = alert.enabled;
@@ -76,7 +89,6 @@ export default function DiscordIntegration() {
             }, {} as Record<string, boolean>);
             await setSetting('discord_alerts_config', JSON.stringify(alertConfig));
 
-            setSavedWebhookUrl(webhookUrl);
             toast.success('Discord settings saved!');
         } catch (error) {
             console.error('Failed to save Discord settings:', error);

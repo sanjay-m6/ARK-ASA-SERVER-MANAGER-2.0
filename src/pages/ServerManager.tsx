@@ -748,18 +748,31 @@ export default function ServerManager() {
                             {/* Embedded Console */}
                             {(expandedConsoles[server.id] || serverLogs[server.id]?.length > 0) && (
                                 <div className="mt-4 border-t border-slate-700/30 pt-4">
-                                    <button
-                                        onClick={() => toggleConsole(server.id)}
-                                        className="flex items-center gap-2 text-sm text-slate-400 hover:text-sky-400 transition-colors mb-2"
-                                    >
-                                        <Terminal className="w-4 h-4" />
-                                        <span>Console Output</span>
-                                        {expandedConsoles[server.id] ? (
-                                            <ChevronUp className="w-4 h-4" />
-                                        ) : (
-                                            <ChevronDown className="w-4 h-4" />
+                                    <div className="flex items-center justify-between mb-2">
+                                        <button
+                                            onClick={() => toggleConsole(server.id)}
+                                            className="flex items-center gap-2 text-sm text-slate-400 hover:text-sky-400 transition-colors"
+                                        >
+                                            <Terminal className="w-4 h-4" />
+                                            <span>Console Output</span>
+                                            {expandedConsoles[server.id] ? (
+                                                <ChevronUp className="w-4 h-4" />
+                                            ) : (
+                                                <ChevronDown className="w-4 h-4" />
+                                            )}
+                                        </button>
+
+                                        {(server.status === 'running' || server.status === 'online' || server.status === 'starting') && (
+                                            <button
+                                                onClick={() => handleShowConsole(server.id)}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 hover:text-violet-300 border border-violet-500/20 rounded-lg text-xs font-medium transition-all hover:scale-105 active:scale-95"
+                                                title="Pop up the actual ARK server console window"
+                                            >
+                                                <AppWindow className="w-3.5 h-3.5" />
+                                                <span>Show Server Console</span>
+                                            </button>
                                         )}
-                                    </button>
+                                    </div>
 
                                     {expandedConsoles[server.id] && (
                                         <div

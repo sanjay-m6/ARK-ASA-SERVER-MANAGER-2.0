@@ -79,6 +79,17 @@ pub async fn save_config(
 
     fs::write(&file_path, &final_content).map_err(|e| e.to_string())?;
     println!("  ✅ Saved {} to {:?}", config_type, file_path);
+    if config_type == "Game" {
+        println!(
+            "  🔍 [Debug] Game.ini content snippet:\n{}",
+            &final_content.lines().take(5).collect::<Vec<_>>().join("\n")
+        );
+        if final_content.contains("PerLevelStatsMultiplier_Player") {
+            println!("  ✅ [Debug] Game.ini contains Player Stats Multipliers");
+        } else {
+            println!("  ⚠️ [Debug] Game.ini DOES NOT contain Player Stats Multipliers!");
+        }
+    }
 
     // If we're saving GameUserSettings.ini, we need to sync critical values to the database
     // because the start_server command reads from the DB, not the INI files

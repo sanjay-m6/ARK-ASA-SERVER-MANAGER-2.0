@@ -48,7 +48,7 @@ mod window_hider {
     }
 
     pub fn show_process_window(pid: u32) {
-        use windows_sys::Win32::UI::WindowsAndMessaging::{SetForegroundWindow, SW_SHOW};
+        use windows_sys::Win32::UI::WindowsAndMessaging::{SetForegroundWindow, SW_SHOW, SW_RESTORE};
 
         unsafe extern "system" fn show_window_callback(hwnd: HWND, lparam: LPARAM) -> BOOL {
             let pid_ptr = lparam as *const u32;
@@ -57,15 +57,41 @@ mod window_hider {
             GetWindowThreadProcessId(hwnd, &mut window_pid);
 
             if window_pid == target_pid {
+                // Show and restore the window (SW_RESTORE handles minimized windows too)
+                ShowWindow(hwnd, SW_RESTORE);
                 ShowWindow(hwnd, SW_SHOW);
                 SetForegroundWindow(hwnd);
-                return 0; // Stop enumerating
+                // Don't stop — show ALL windows for this PID
             }
             1
         }
 
         unsafe {
             EnumWindows(Some(show_window_callback), &pid as *const _ as LPARAM);
+        }
+    }
+
+    /// Show all windows belonging to any process with the given executable name
+    pub fn show_windows_by_exe_name(exe_name: &str) {
+
+        // Use WMIC/tasklist to find all PIDs matching the exe name
+        let output = std::process::Command::new("tasklist")
+            .args(["/FI", &format!("IMAGENAME eq {}", exe_name), "/FO", "CSV", "/NH"])
+            .output();
+
+        if let Ok(output) = output {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                // CSV format: "exe_name","PID","Session Name","Session#","Mem Usage"
+                let parts: Vec<&str> = line.split(',').collect();
+                if parts.len() >= 2 {
+                    let pid_str = parts[1].trim().trim_matches('"');
+                    if let Ok(pid) = pid_str.parse::<u32>() {
+                        println!("  🖥️ Found {} with PID {}, showing its windows", exe_name, pid);
+                        show_process_window(pid);
+                    }
+                }
+            }
         }
     }
 }
@@ -1117,9 +1143,14 @@ impl ProcessManager {
         let processes = self.processes.lock().unwrap();
         if let Some(server_proc) = processes.get(&server_id) {
             let pid = server_proc.child.id();
+            println!("  🖥️ Attempting to show console window for server {} (PID: {})", server_id, pid);
             #[cfg(target_os = "windows")]
             {
+                // First try: show by exact PID
                 window_hider::show_process_window(pid);
+                // Second try: find all ArkAscendedServer.exe processes and show their windows
+                // This handles UE5 spawning child processes with different PIDs
+                window_hider::show_windows_by_exe_name("ArkAscendedServer.exe");
             }
             Ok(())
         } else {

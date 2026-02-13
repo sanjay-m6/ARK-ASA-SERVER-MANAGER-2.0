@@ -19,6 +19,23 @@ pub async fn create_cluster(
         server_ids.len()
     );
 
+    // Check if cluster name matches existing one
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM clusters WHERE name = ?1)",
+                [&name],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if exists {
+            return Err(format!("Cluster with name '{}' already exists", name));
+        }
+    }
+
     // Determine the cluster directory path
     let cluster_dir = match &cluster_path {
         Some(p) if !p.trim().is_empty() => {
@@ -36,54 +53,76 @@ pub async fn create_cluster(
     std::fs::create_dir_all(&cluster_dir)
         .map_err(|e| format!("Failed to create cluster directory: {}", e))?;
 
-    // Insert into database
+    // Perform DB operations in a transaction
     let cluster_id: i64 = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let mut conn = db.get_connection().map_err(|e| e.to_string())?;
 
+        // Start transaction
+        let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+        // 1. Insert into database
         // Serialize server_ids as JSON array
         let server_ids_json = serde_json::to_string(&server_ids)
             .map_err(|e| format!("Failed to serialize server_ids: {}", e))?;
 
-        conn.execute(
+        let cid = match tx.execute(
             "INSERT INTO clusters (name, cluster_path, server_ids) VALUES (?1, ?2, ?3)",
             rusqlite::params![name, cluster_dir, server_ids_json],
-        )
-        .map_err(|e| e.to_string())?;
+        ) {
+            Ok(_) => tx.last_insert_rowid(),
+            Err(e) => {
+                // If DB insert fails, try to cleanup directory
+                let _ = std::fs::remove_dir_all(&cluster_dir);
+                return Err(format!("Database error (insert cluster): {}", e));
+            }
+        };
 
-        conn.last_insert_rowid()
-    };
-
-    // Link servers to cluster
-    {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
-
+        // 2. Link servers to cluster
         for server_id in &server_ids {
             // Insert into cluster_servers junction table
-            conn.execute(
+            if let Err(e) = tx.execute(
                 "INSERT OR REPLACE INTO cluster_servers (cluster_id, server_id) VALUES (?1, ?2)",
-                rusqlite::params![cluster_id, server_id],
-            )
-            .map_err(|e| e.to_string())?;
+                rusqlite::params![cid, server_id],
+            ) {
+                let _ = std::fs::remove_dir_all(&cluster_dir);
+                return Err(format!("Database error (link server {}): {}", server_id, e));
+            }
 
-            // Set cluster_id on the server for startup arg lookup
-            conn.execute(
+            // Set cluster_id on the server
+            if let Err(e) = tx.execute(
                 "UPDATE servers SET cluster_id = ?1 WHERE id = ?2",
-                rusqlite::params![cluster_id, server_id],
-            )
-            .map_err(|e| e.to_string())?;
+                rusqlite::params![cid, server_id],
+            ) {
+                let _ = std::fs::remove_dir_all(&cluster_dir);
+                return Err(format!(
+                    "Database error (update server {}): {}",
+                    server_id, e
+                ));
+            }
 
             // Update server's GameUserSettings.ini with ClusterDirOverride
-            if let Ok(install_path) = conn.query_row::<String, _, _>(
+            // Note: We can only query inside the transaction or need to fetch paths before?
+            // rusqlite transaction allows queries.
+            if let Ok(install_path) = tx.query_row::<String, _, _>(
                 "SELECT install_path FROM servers WHERE id = ?1",
                 [server_id],
                 |row| row.get(0),
             ) {
+                // Side effect outside DB - nice to have, but if it fails we don't rollback DB usually
+                // But for consistency we should log it
                 update_cluster_config(&install_path, &cluster_dir);
             }
         }
-    }
+
+        // Commit transaction
+        if let Err(e) = tx.commit() {
+            let _ = std::fs::remove_dir_all(&cluster_dir);
+            return Err(format!("Failed to commit transaction: {}", e));
+        }
+
+        cid
+    };
 
     let cluster = Cluster {
         id: cluster_id,
@@ -256,28 +295,36 @@ pub async fn get_clusters(state: State<'_, AppState>) -> Result<Vec<Cluster>, St
 pub async fn delete_cluster(state: State<'_, AppState>, cluster_id: i64) -> Result<(), String> {
     println!("🗑️ Deleting cluster: {}", cluster_id);
 
-    {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    // We need a mutable connection for transaction
+    let mut conn = db.get_connection().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-        // Clear cluster_id on linked servers
-        conn.execute(
-            "UPDATE servers SET cluster_id = NULL WHERE cluster_id = ?1",
-            [cluster_id],
-        )
-        .map_err(|e| e.to_string())?;
-
-        // Remove cluster-server links
-        conn.execute(
-            "DELETE FROM cluster_servers WHERE cluster_id = ?1",
-            [cluster_id],
-        )
-        .map_err(|e| e.to_string())?;
-
-        // Remove cluster
-        conn.execute("DELETE FROM clusters WHERE id = ?1", [cluster_id])
-            .map_err(|e| e.to_string())?;
+    // Clear cluster_id on linked servers
+    if let Err(e) = tx.execute(
+        "UPDATE servers SET cluster_id = NULL WHERE cluster_id = ?1",
+        [cluster_id],
+    ) {
+        return Err(format!("Failed to unlink servers: {}", e));
     }
+
+    // Remove cluster-server links
+    if let Err(e) = tx.execute(
+        "DELETE FROM cluster_servers WHERE cluster_id = ?1",
+        [cluster_id],
+    ) {
+        return Err(format!("Failed to remove server links: {}", e));
+    }
+
+    // Remove cluster
+    match tx.execute("DELETE FROM clusters WHERE id = ?1", [cluster_id]) {
+        Ok(0) => return Err("Cluster not found".to_string()),
+        Ok(_) => (),
+        Err(e) => return Err(format!("Failed to delete cluster record: {}", e)),
+    }
+
+    tx.commit()
+        .map_err(|e| format!("Failed to commit transaction: {}", e))?;
 
     println!("  ✅ Cluster deleted");
     Ok(())

@@ -382,15 +382,25 @@ export default function ConfigEditor() {
 
             // Get parsed configs for extracting values
             let parsedConfigs = configs;
-            if (viewMode === 'visual') {
-                gusString = generateIniContent(configs.GameUserSettings);
-                gameString = generateIniContent(configs.Game);
-            } else {
-                // Parse raw text to get current values
+
+            // If in Raw Editor mode, use the text content. Otherwise (Visual, Stats, Levels, etc), use the parsed configs.
+            if (viewMode === 'gus' || viewMode === 'game') {
+                // Parse raw text to get current values to ensure we save what's in the text editor
                 parsedConfigs = {
                     GameUserSettings: parseIniContent(rawText.gus),
                     Game: parseIniContent(rawText.game)
                 };
+                gusString = rawText.gus;
+                gameString = rawText.game;
+            } else {
+                // For all other modes, generate INI from the current state maps
+                gusString = generateIniContent(configs.GameUserSettings);
+                gameString = generateIniContent(configs.Game);
+            }
+
+            // Ensure Game.ini has the required section header even if empty
+            if (!gameString.includes('[/Script/ShooterGame.ShooterGameMode]')) {
+                gameString = '[/Script/ShooterGame.ShooterGameMode]\n' + gameString;
             }
 
             // Save INI files
@@ -449,6 +459,13 @@ export default function ConfigEditor() {
             useServerStore.getState().refreshServers();
 
             toast.success('All configurations saved successfully');
+            toast(() => (
+                <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-orange-500" />
+                    <span className="font-medium text-slate-200">Restart server to apply changes!</span>
+                </div>
+            ), { duration: 5000, icon: null, style: { background: '#1e1e3a', border: '1px solid #f97316' } });
+
         } catch (err) {
             console.error(err);
             toast.error('Failed to save configurations');

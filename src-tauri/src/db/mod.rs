@@ -8,7 +8,7 @@ pub struct Database {
 
 impl Database {
     pub fn new(db_path: PathBuf) -> Result<Self> {
-        let conn = Connection::open(db_path)?;
+        let mut conn = Connection::open(db_path)?;
 
         // Enable Write-Ahead Logging (WAL) for concurrency
         // Note: PRAGMA journal_mode returns the new mode (e.g. "wal"), so execute() fails.
@@ -25,14 +25,14 @@ impl Database {
         conn.execute("PRAGMA foreign_keys = ON", [])?;
 
         // Initialize schema
-        Self::init_schema(&conn)?;
+        Self::init_schema(&mut conn)?;
 
         Ok(Database {
             conn: Mutex::new(conn),
         })
     }
 
-    fn init_schema(conn: &Connection) -> Result<()> {
+    fn init_schema(conn: &mut Connection) -> Result<()> {
         let schema = include_str!("schema.sql");
         conn.execute_batch(schema)?;
 
@@ -251,6 +251,70 @@ impl Database {
             )?;
         }
 
+        // --- Discord Bridge Config Migrations ---
+        let mut stmt_db = conn.prepare("PRAGMA table_info(discord_bridge_config)")?;
+        let db_columns: Vec<String> = stmt_db
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if !db_columns.contains(&"server_list_enabled".to_string()) {
+            println!("📦 Migration: Adding 'server_list_enabled' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN server_list_enabled INTEGER DEFAULT 0",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"server_list_channel_id".to_string()) {
+            println!("📦 Migration: Adding 'server_list_channel_id' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN server_list_channel_id TEXT",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"server_list_message_id".to_string()) {
+            println!("📦 Migration: Adding 'server_list_message_id' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN server_list_message_id TEXT",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"player_list_enabled".to_string()) {
+            println!("📦 Migration: Adding 'player_list_enabled' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN player_list_enabled INTEGER DEFAULT 0",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"player_list_channel_id".to_string()) {
+            println!("📦 Migration: Adding 'player_list_channel_id' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN player_list_channel_id TEXT",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"player_list_message_id".to_string()) {
+            println!("📦 Migration: Adding 'player_list_message_id' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN player_list_message_id TEXT",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"show_tribe_names".to_string()) {
+            println!("📦 Migration: Adding 'show_tribe_names' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN show_tribe_names INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"show_playtime".to_string()) {
+            println!("📦 Migration: Adding 'show_playtime' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN show_playtime INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -329,16 +393,22 @@ impl Database {
         Ok(())
     }
 
-    fn run_schema_repair(conn: &Connection) -> Result<()> {
+    fn run_schema_repair(conn: &mut Connection) -> Result<()> {
         // This is to fix the missing columns from the accidentally broken run_status_migration (v1)
         // Check for missing columns and add them.
 
         // 1. Check current columns
-        let mut stmt = conn.prepare("PRAGMA table_info(servers)")?;
-        let columns: Vec<String> = stmt
-            .query_map([], |row| row.get::<_, String>(1))?
-            .filter_map(|r| r.ok())
-            .collect();
+        let columns: Vec<String> = {
+            let mut stmt = conn.prepare("PRAGMA table_info(servers)")?;
+            let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
+            let mut cols = Vec::new();
+            for r in rows {
+                if let Ok(c) = r {
+                    cols.push(c);
+                }
+            }
+            cols
+        };
 
         let mut changes_made = false;
 
@@ -381,6 +451,215 @@ impl Database {
 
         if changes_made {
             println!("✅ Repair Migration Completed: Missing columns restored.");
+        }
+
+        // Run FK repair
+        Self::repair_broken_fks(conn)?;
+
+        Ok(())
+    }
+
+    fn repair_broken_fks(conn: &mut Connection) -> Result<()> {
+        // List of tables that refer to 'servers'
+        let tables = vec![
+            "mods",
+            "backups",
+            "cluster_servers",
+            "player_sessions",
+            "scheduled_tasks",
+            "anti_cheat_config",
+            "anti_cheat_logs",
+            "scheduler_settings",
+        ];
+
+        let mut repaired_any = false;
+
+        for table in tables {
+            let needs_repair = {
+                let mut stmt = conn.prepare(&format!("PRAGMA foreign_key_list({})", table))?;
+                let fks = stmt.query_map([], |row| {
+                    let table_to: String = row.get(2)?; // 'table' column
+                    Ok(table_to)
+                })?;
+
+                let mut repair_needed = false;
+                for fk in fks {
+                    if let Ok(to_table) = fk {
+                        if to_table == "servers_old" {
+                            repair_needed = true;
+                            break;
+                        }
+                    }
+                }
+                repair_needed
+            };
+
+            if needs_repair {
+                println!("🔧 Repairing table '{}' (FK points to servers_old)", table);
+
+                // Disable foreign keys during repair
+                conn.pragma_update(None, "foreign_keys", "OFF")?;
+
+                let tx = conn.transaction()?;
+
+                // Rename bad table
+                let temp_name = format!("{}_broken_fk", table);
+                tx.execute(
+                    &format!("ALTER TABLE {} RENAME TO {}", table, temp_name),
+                    [],
+                )?;
+
+                // Recreate table with correct schema
+                // We refer to schema definitions. Since we can't easily include SQL here dynamically without parsing,
+                // we'll manually define the CREATE statements for these specific tables based on schema.sql.
+
+                let create_sql = match table {
+                    "mods" => "CREATE TABLE mods (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL,
+                        mod_id TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        version TEXT,
+                        author TEXT,
+                        description TEXT,
+                        workshop_url TEXT,
+                        server_type TEXT NOT NULL DEFAULT 'ASA' CHECK(server_type IN ('ASA')),
+                        enabled BOOLEAN DEFAULT 1,
+                        load_order INTEGER NOT NULL,
+                        installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE,
+                        UNIQUE(server_id, mod_id)
+                    )",
+                    "backups" => "CREATE TABLE backups (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL,
+                        backup_type TEXT NOT NULL CHECK(backup_type IN ('auto', 'manual', 'pre-update', 'pre-restart')),
+                        file_path TEXT NOT NULL,
+                        size INTEGER NOT NULL,
+                        includes_configs BOOLEAN DEFAULT 1,
+                        includes_mods BOOLEAN DEFAULT 1,
+                        includes_saves BOOLEAN DEFAULT 1,
+                        includes_cluster BOOLEAN DEFAULT 0,
+                        verified BOOLEAN DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE
+                    )",
+                    "cluster_servers" => "CREATE TABLE cluster_servers (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        cluster_id INTEGER NOT NULL,
+                        server_id INTEGER NOT NULL,
+                        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (cluster_id) REFERENCES clusters (id) ON DELETE CASCADE,
+                        FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE,
+                        UNIQUE(cluster_id, server_id)
+                    )",
+                    "player_sessions" => "CREATE TABLE player_sessions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL,
+                        steam_id TEXT NOT NULL,
+                        player_name TEXT NOT NULL,
+                        joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        left_at TIMESTAMP,
+                        FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE
+                    )",
+                    "scheduled_tasks" => "CREATE TABLE scheduled_tasks (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL,
+                        task_type TEXT NOT NULL CHECK(task_type IN ('restart', 'backup', 'rcon-command', 'announcement', 'save-world', 'destroy-wild-dinos')),
+                        cron_expression TEXT NOT NULL,
+                        command TEXT,
+                        message TEXT,
+                        pre_warning_minutes INTEGER DEFAULT 5,
+                        enabled INTEGER DEFAULT 1,
+                        last_run TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE
+                    )",
+                    "anti_cheat_config" => "CREATE TABLE anti_cheat_config (
+                        server_id INTEGER PRIMARY KEY,
+                        enabled INTEGER DEFAULT 0,
+                        sensitivity REAL DEFAULT 1.0,
+                        log_only INTEGER DEFAULT 1,
+                        kick_enabled INTEGER DEFAULT 0,
+                        ban_enabled INTEGER DEFAULT 0,
+                        discord_alert INTEGER DEFAULT 0,
+                        rules_json TEXT,
+                        mesh_enabled INTEGER DEFAULT 0,
+                        mesh_threshold REAL DEFAULT 0.6,
+                        mesh_notify INTEGER DEFAULT 1,
+                        command_enabled INTEGER DEFAULT 0,
+                        command_blacklisted TEXT DEFAULT '',
+                        command_whitelist TEXT DEFAULT '',
+                        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+                    )",
+                    "anti_cheat_logs" => "CREATE TABLE anti_cheat_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL,
+                        player_name TEXT NOT NULL,
+                        steam_id TEXT NOT NULL,
+                        violation_type TEXT NOT NULL,
+                        severity REAL NOT NULL,
+                        details TEXT,
+                        action_taken TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+                    )",
+                    "scheduler_settings" => "CREATE TABLE scheduler_settings (
+                        server_id INTEGER PRIMARY KEY,
+                        mode TEXT NOT NULL DEFAULT 'disabled',
+                        basic_interval_hours INTEGER DEFAULT 24,
+                        basic_warning_minutes TEXT DEFAULT '30,15,10,5,1',
+                        next_run_basic TIMESTAMP,
+                        advanced_time TEXT,
+                        advanced_days TEXT,
+                        advanced_warning_minutes TEXT,
+                        advanced_shutdown INTEGER DEFAULT 0,
+                        advanced_update INTEGER DEFAULT 0,
+                        advanced_restart INTEGER DEFAULT 0,
+                        advanced_dino_wipe INTEGER DEFAULT 0,
+                        FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
+                    )",
+                    _ => "",
+                };
+
+                if create_sql.is_empty() {
+                    // Should not happen given our list
+                    continue;
+                }
+
+                tx.execute(create_sql, [])?;
+
+                // Copy data back
+                // We just select * because we are reusing the schema mostly
+                // Note: For anti_cheat_config we added columns in migrations, ensure CREATE matches current state
+                // The CREATE statements above include the NEW columns.
+                // data copy: INSERT INTO X SELECT * FROM X_broken
+                // If columns match, this works.
+                // If columns don't match exactly (order or count), we might have issues.
+                // But here we are renaming the EXISTING table (which has all current columns) to _broken.
+                // And creating a NEW table with the FULL current schema.
+                // So columns should match.
+
+                tx.execute(
+                    &format!("INSERT INTO {} SELECT * FROM {}", table, temp_name),
+                    [],
+                )?;
+
+                // Drop broken table
+                tx.execute(&format!("DROP TABLE {}", temp_name), [])?;
+
+                tx.commit()?;
+
+                // Re-enable FKs
+                conn.pragma_update(None, "foreign_keys", "ON")?;
+
+                println!("  ✅ Table '{}' repaired successfully.", table);
+                repaired_any = true;
+            }
+        }
+
+        if repaired_any {
+            println!("✅ Database FK Repair Completed.");
         }
 
         Ok(())

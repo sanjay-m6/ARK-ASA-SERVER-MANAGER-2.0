@@ -83,7 +83,6 @@ pub fn run() {
             let discord_bridge = Arc::new(DiscordBridgeService::new(
                 app_handle.clone(),
                 player_intelligence.clone(),
-                plugin_manager.clone(),
             ));
 
             let scheduler = Arc::new(SchedulerService::new(app_handle.clone()));
@@ -380,6 +379,7 @@ pub fn run() {
              commands::discord::start_discord_bridge,
              commands::discord::stop_discord_bridge,
              commands::discord::test_discord_bridge_connection,
+             commands::discord::generate_bot_invite_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

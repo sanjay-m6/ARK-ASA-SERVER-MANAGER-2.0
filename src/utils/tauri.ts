@@ -12,6 +12,18 @@ import type {
     PlayerSession,
 } from '../types';
 
+export type {
+    Server,
+    SystemInfo,
+    ModInfo,
+    Backup,
+    Cluster,
+    ClusterStatus,
+    ServerType,
+    PlayerStats,
+    PlayerSession,
+};
+
 // ============================================================================
 // System Commands
 // ============================================================================
@@ -380,6 +392,10 @@ export async function getDiscordBridgeConfig(clusterId: number): Promise<Discord
 
 export async function testDiscordConnection(botToken: string, channelId: string): Promise<string> {
     return await invoke('test_discord_bridge_connection', { botToken, channelId }); // Use correct backend command name
+}
+
+export async function generateBotInviteUrl(botToken: string): Promise<string> {
+    return await invoke('generate_bot_invite_url', { botToken });
 }
 
 export async function startDiscordBridge(): Promise<void> {

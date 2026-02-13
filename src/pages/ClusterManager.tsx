@@ -85,7 +85,7 @@ export default function ClusterManager() {
             fetchClusters();
         } catch (error) {
             console.error('Failed to create cluster:', error);
-            toast.error('Failed to create cluster');
+            toast.error(typeof error === 'string' ? error : 'Failed to create cluster');
         }
     };
 
@@ -100,7 +100,7 @@ export default function ClusterManager() {
             fetchClusters();
         } catch (error) {
             console.error('Failed to delete cluster:', error);
-            toast.error('Failed to delete cluster');
+            toast.error(typeof error === 'string' ? error : 'Failed to delete cluster');
         }
     };
 

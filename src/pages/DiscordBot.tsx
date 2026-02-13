@@ -3,7 +3,7 @@ import {
     MessageSquare, Bell, Send, CheckCircle, Loader2, AlertTriangle,
     Users, RefreshCw, Shield, Webhook, Bot, Server as ServerIcon,
     Activity, Zap, Clock, Radio, Eye, PlayCircle, StopCircle, Settings2,
-    TrendingUp, History, Wifi, WifiOff, Link, MessageCircle, List
+    TrendingUp, History, Wifi, WifiOff, Link, MessageCircle, List, Plus
 } from 'lucide-react';
 
 import { cn } from '../utils/helpers';
@@ -11,7 +11,8 @@ import {
     getSetting, setSetting,
     getDiscordBridgeConfig, saveDiscordBridgeConfig,
     startDiscordBridge, stopDiscordBridge, testDiscordConnection,
-    type DiscordBridgeConfig
+    type DiscordBridgeConfig,
+    getClusters, createCluster
 } from '../utils/tauri';
 import { useServerStore } from '../stores/serverStore';
 import toast from 'react-hot-toast';
@@ -75,6 +76,9 @@ export default function DiscordBot() {
         show_playtime: true
     });
     const [isBridgeTesting, setIsBridgeTesting] = useState(false);
+
+    const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
+    const [isCreatingCluster, setIsCreatingCluster] = useState(false);
     const autoSave = true;
 
     // Real-time connection check
@@ -123,11 +127,11 @@ export default function DiscordBot() {
 
     const loadSettings = async () => {
         try {
-            const [webhook, alertConfig, notifications, bridge] = await Promise.all([
+            const [webhook, alertConfig, notifications, fetchedClusters] = await Promise.all([
                 getSetting('discord_webhook_url'),
                 getSetting('discord_alerts_config'),
                 getSetting('discord_recent_notifications'),
-                getDiscordBridgeConfig(1) // Default to cluster 1
+                getClusters()
             ]);
 
             if (webhook) {
@@ -135,8 +139,18 @@ export default function DiscordBot() {
                 setSavedWebhookUrl(webhook);
             }
 
-            if (bridge) {
-                setBridgeConfig(bridge);
+
+
+            if (fetchedClusters.length > 0) {
+                const firstClusterId = fetchedClusters[0].id;
+                setSelectedClusterId(firstClusterId);
+
+                const bridge = await getDiscordBridgeConfig(firstClusterId);
+                if (bridge) {
+                    setBridgeConfig(bridge);
+                } else {
+                    setBridgeConfig(prev => ({ ...prev, cluster_id: firstClusterId }));
+                }
             }
 
             if (alertConfig) {
@@ -169,6 +183,22 @@ export default function DiscordBot() {
         }
     };
 
+    const handleCreateDefaultCluster = async () => {
+        setIsCreatingCluster(true);
+        try {
+            const newCluster = await createCluster("Main Cluster", []);
+
+            setSelectedClusterId(newCluster.id);
+            setBridgeConfig(prev => ({ ...prev, cluster_id: newCluster.id }));
+            toast.success('Default cluster created');
+        } catch (error) {
+            toast.error('Failed to create default cluster');
+            console.error(error);
+        } finally {
+            setIsCreatingCluster(false);
+        }
+    };
+
     const saveAlertConfig = async () => {
         try {
             const alertConfig = alerts.reduce((acc, alert) => {
@@ -182,12 +212,24 @@ export default function DiscordBot() {
     };
 
     const saveWebhook = async () => {
+        const trimmed = webhookUrl.trim();
+        if (!trimmed) {
+            toast.error('Please enter a webhook URL');
+            return;
+        }
         setIsSaving(true);
         try {
-            await setSetting('discord_webhook_url', webhookUrl);
-            setSavedWebhookUrl(webhookUrl);
-            await checkConnection();
-            toast.success('Webhook saved!');
+            await setSetting('discord_webhook_url', trimmed);
+            // Read back from backend to confirm persistence
+            const persisted = await getSetting('discord_webhook_url');
+            if (persisted === trimmed) {
+                setWebhookUrl(trimmed);
+                setSavedWebhookUrl(trimmed);
+                await checkConnection();
+                toast.success('Webhook saved!');
+            } else {
+                toast.error('Webhook failed to persist — please try again');
+            }
         } catch (error) {
             toast.error('Failed to save webhook');
         } finally {
@@ -592,187 +634,213 @@ export default function DiscordBot() {
             {
                 activeSection === 'bot' && (
                     <div className="grid lg:grid-cols-2 gap-6 animate-in fade-in duration-300">
-                        <div className="space-y-6">
-                            {/* Status Card */}
-                            <div className="glass-panel rounded-2xl p-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn("p-2.5 rounded-xl", bridgeConfig.enabled ? "bg-green-500/10" : "bg-slate-700/50")}>
-                                            <Bot className={cn("w-6 h-6", bridgeConfig.enabled ? "text-green-400" : "text-slate-400")} />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-lg font-bold text-white">Bridge Status</h2>
-                                            <p className="text-sm text-slate-500">
-                                                {bridgeConfig.enabled ? "Service is active" : "Service is stopped"}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        onClick={toggleBridge}
-                                        className={cn(
-                                            "w-12 h-7 rounded-full transition-colors relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900",
-                                            bridgeConfig.enabled ? "bg-green-500 focus:ring-green-500" : "bg-slate-700 focus:ring-slate-500"
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            "absolute w-5 h-5 bg-white rounded-full top-1 transition-transform shadow-sm",
-                                            bridgeConfig.enabled ? "translate-x-6" : "translate-x-1"
-                                        )} />
-                                    </button>
+                        {!selectedClusterId ? (
+                            <div className="lg:col-span-2 glass-panel rounded-2xl p-12 text-center space-y-6 flex flex-col items-center justify-center">
+                                <div className="p-4 bg-amber-500/10 rounded-full border border-amber-500/20">
+                                    <AlertTriangle className="w-10 h-10 text-amber-500" />
                                 </div>
-
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Bot Token</label>
-                                        <input
-                                            type="password"
-                                            value={bridgeConfig.bot_token}
-                                            onChange={e => setBridgeConfig(c => ({ ...c, bot_token: e.target.value }))}
-                                            placeholder="MTE..."
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Guild ID</label>
-                                        <input
-                                            type="text"
-                                            value={bridgeConfig.guild_id}
-                                            onChange={e => setBridgeConfig(c => ({ ...c, guild_id: e.target.value }))}
-                                            placeholder="Server ID"
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
-                                        />
-                                    </div>
-
-                                    <div className="flex gap-3 pt-2">
-                                        <button
-                                            onClick={saveBridgeConfig}
-                                            className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-2.5 font-medium transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <CheckCircle className="w-4 h-4" /> Save Config
-                                        </button>
-                                        <button
-                                            onClick={testBridge}
-                                            disabled={isBridgeTesting}
-                                            className="px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-xl py-2.5 font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                                        >
-                                            {isBridgeTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />} Test
-                                        </button>
-                                    </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-xl font-bold text-white">Cluster Required</h3>
+                                    <p className="text-slate-400 max-w-md mx-auto">
+                                        The Discord Bot integration requires a server cluster to function.
+                                        Please create a cluster to continue.
+                                    </p>
                                 </div>
+                                <button
+                                    onClick={handleCreateDefaultCluster}
+                                    disabled={isCreatingCluster}
+                                    className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isCreatingCluster ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                                    Create Default Cluster
+                                </button>
                             </div>
-
-                            {/* Features Toggles */}
-                            <div className="glass-panel rounded-2xl p-6">
-                                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                                    <Settings2 className="w-4 h-4 text-indigo-400" />
-                                    Features
-                                </h3>
-                                <div className="space-y-3">
-                                    {[
-                                        { label: 'Game to Discord', sub: 'Forward in-game chat to Discord', key: 'game_to_discord' },
-                                        { label: 'Discord to Game', sub: 'Forward Discord messages to game', key: 'discord_to_game' },
-                                        { label: 'Show Tribe Names', sub: 'Include tribe tag in headers', key: 'show_tribe_names' },
-                                        { label: 'Show Playtime', sub: 'Display playtime stats in lists', key: 'show_playtime' },
-                                    ].map(opt => (
-                                        <div key={opt.key} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-xl border border-slate-700/30">
-                                            <div>
-                                                <div className="text-sm font-medium text-white">{opt.label}</div>
-                                                <div className="text-xs text-slate-500">{opt.sub}</div>
+                        ) : (
+                            <>
+                                <div className="space-y-6">
+                                    {/* Status Card */}
+                                    <div className="glass-panel rounded-2xl p-6">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className={cn("p-2.5 rounded-xl", bridgeConfig.enabled ? "bg-green-500/10" : "bg-slate-700/50")}>
+                                                    <Bot className={cn("w-6 h-6", bridgeConfig.enabled ? "text-green-400" : "text-slate-400")} />
+                                                </div>
+                                                <div>
+                                                    <h2 className="text-lg font-bold text-white">Bridge Status</h2>
+                                                    <p className="text-sm text-slate-500">
+                                                        {bridgeConfig.enabled ? "Service is active" : "Service is stopped"}
+                                                    </p>
+                                                </div>
                                             </div>
                                             <button
-                                                onClick={() => setBridgeConfig(c => ({ ...c, [opt.key]: !(c as any)[opt.key] }))}
+                                                onClick={toggleBridge}
                                                 className={cn(
-                                                    "w-10 h-6 rounded-full transition-colors relative",
-                                                    (bridgeConfig as any)[opt.key] ? "bg-indigo-500" : "bg-slate-700"
+                                                    "w-12 h-7 rounded-full transition-colors relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900",
+                                                    bridgeConfig.enabled ? "bg-green-500 focus:ring-green-500" : "bg-slate-700 focus:ring-slate-500"
                                                 )}
                                             >
                                                 <div className={cn(
-                                                    "absolute w-4 h-4 bg-white rounded-full top-1 transition-transform",
-                                                    (bridgeConfig as any)[opt.key] ? "translate-x-5" : "translate-x-1"
+                                                    "absolute w-5 h-5 bg-white rounded-full top-1 transition-transform shadow-sm",
+                                                    bridgeConfig.enabled ? "translate-x-6" : "translate-x-1"
                                                 )} />
                                             </button>
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
 
-                        <div className="space-y-6">
-                            {/* Channel Configuration */}
-                            <div className="glass-panel rounded-2xl p-6">
-                                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                                    <MessageCircle className="w-4 h-4 text-pink-400" />
-                                    Channel Configuration
-                                </h3>
-
-                                <div className="space-y-5">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Chat Channel ID</label>
-                                        <input
-                                            type="text"
-                                            value={bridgeConfig.channel_id}
-                                            onChange={e => setBridgeConfig(c => ({ ...c, channel_id: e.target.value }))}
-                                            placeholder="Primary chat channel"
-                                            className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-pink-500 font-mono text-sm"
-                                        />
-                                        <p className="text-xs text-slate-500 mt-1">Main channel for cross-server chat relay</p>
-                                    </div>
-
-                                    <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <List className="w-4 h-4 text-cyan-400" />
-                                                <span className="text-sm font-medium text-white">Live Status Lists</span>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Bot Token</label>
+                                                <input
+                                                    type="password"
+                                                    value={bridgeConfig.bot_token}
+                                                    onChange={e => setBridgeConfig(c => ({ ...c, bot_token: e.target.value }))}
+                                                    placeholder="MTE..."
+                                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                                                />
                                             </div>
-                                        </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Guild ID</label>
+                                                <input
+                                                    type="text"
+                                                    value={bridgeConfig.guild_id}
+                                                    onChange={e => setBridgeConfig(c => ({ ...c, guild_id: e.target.value }))}
+                                                    placeholder="Server ID"
+                                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                                                />
+                                            </div>
 
-                                        <div>
-                                            <div className="flex items-center justify-between mb-2">
-                                                <label className="text-xs text-slate-400">Server List Channel</label>
+                                            <div className="flex gap-3 pt-2">
                                                 <button
-                                                    onClick={() => setBridgeConfig(c => ({ ...c, server_list_enabled: !c.server_list_enabled }))}
-                                                    className={cn("text-xs font-medium", bridgeConfig.server_list_enabled ? "text-green-400" : "text-slate-500")}
+                                                    onClick={saveBridgeConfig}
+                                                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-2.5 font-medium transition-colors flex items-center justify-center gap-2"
                                                 >
-                                                    {bridgeConfig.server_list_enabled ? "Enabled" : "Disabled"}
+                                                    <CheckCircle className="w-4 h-4" /> Save Config
+                                                </button>
+                                                <button
+                                                    onClick={testBridge}
+                                                    disabled={isBridgeTesting}
+                                                    className="px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-xl py-2.5 font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                                >
+                                                    {isBridgeTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />} Test
                                                 </button>
                                             </div>
-                                            <input
-                                                type="text"
-                                                value={bridgeConfig.server_list_channel_id}
-                                                onChange={e => setBridgeConfig(c => ({ ...c, server_list_channel_id: e.target.value }))}
-                                                disabled={!bridgeConfig.server_list_enabled}
-                                                placeholder="Channel ID for Server Status"
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm disabled:opacity-50"
-                                            />
                                         </div>
+                                    </div>
 
-                                        <div>
-                                            <div className="flex items-center justify-between mb-2">
-                                                <label className="text-xs text-slate-400">Player List Channel</label>
-                                                <button
-                                                    onClick={() => setBridgeConfig(c => ({ ...c, player_list_enabled: !c.player_list_enabled }))}
-                                                    className={cn("text-xs font-medium", bridgeConfig.player_list_enabled ? "text-green-400" : "text-slate-500")}
-                                                >
-                                                    {bridgeConfig.player_list_enabled ? "Enabled" : "Disabled"}
-                                                </button>
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={bridgeConfig.player_list_channel_id}
-                                                onChange={e => setBridgeConfig(c => ({ ...c, player_list_channel_id: e.target.value }))}
-                                                disabled={!bridgeConfig.player_list_enabled}
-                                                placeholder="Channel ID for Active Players"
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm disabled:opacity-50"
-                                            />
+                                    {/* Features Toggles */}
+                                    <div className="glass-panel rounded-2xl p-6">
+                                        <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                                            <Settings2 className="w-4 h-4 text-indigo-400" />
+                                            Features
+                                        </h3>
+                                        <div className="space-y-3">
+                                            {[
+                                                { label: 'Game to Discord', sub: 'Forward in-game chat to Discord', key: 'game_to_discord' },
+                                                { label: 'Discord to Game', sub: 'Forward Discord messages to game', key: 'discord_to_game' },
+                                                { label: 'Show Tribe Names', sub: 'Include tribe tag in headers', key: 'show_tribe_names' },
+                                                { label: 'Show Playtime', sub: 'Display playtime stats in lists', key: 'show_playtime' },
+                                            ].map(opt => (
+                                                <div key={opt.key} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-xl border border-slate-700/30">
+                                                    <div>
+                                                        <div className="text-sm font-medium text-white">{opt.label}</div>
+                                                        <div className="text-xs text-slate-500">{opt.sub}</div>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setBridgeConfig(c => ({ ...c, [opt.key]: !(c as any)[opt.key] }))}
+                                                        className={cn(
+                                                            "w-10 h-6 rounded-full transition-colors relative",
+                                                            (bridgeConfig as any)[opt.key] ? "bg-indigo-500" : "bg-slate-700"
+                                                        )}
+                                                    >
+                                                        <div className={cn(
+                                                            "absolute w-4 h-4 bg-white rounded-full top-1 transition-transform",
+                                                            (bridgeConfig as any)[opt.key] ? "translate-x-5" : "translate-x-1"
+                                                        )} />
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-300">
-                                <strong>Note:</strong> ensure the Bot has 'View Channels', 'Send Messages', and 'Manage Messages' permissions in the configured channels.
-                            </div>
-                        </div>
+                                <div className="space-y-6">
+                                    {/* Channel Configuration */}
+                                    <div className="glass-panel rounded-2xl p-6">
+                                        <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                                            <MessageCircle className="w-4 h-4 text-pink-400" />
+                                            Channel Configuration
+                                        </h3>
+
+                                        <div className="space-y-5">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Chat Channel ID</label>
+                                                <input
+                                                    type="text"
+                                                    value={bridgeConfig.channel_id}
+                                                    onChange={e => setBridgeConfig(c => ({ ...c, channel_id: e.target.value }))}
+                                                    placeholder="Primary chat channel"
+                                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-pink-500 font-mono text-sm"
+                                                />
+                                                <p className="text-xs text-slate-500 mt-1">Main channel for cross-server chat relay</p>
+                                            </div>
+
+                                            <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <List className="w-4 h-4 text-cyan-400" />
+                                                        <span className="text-sm font-medium text-white">Live Status Lists</span>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <label className="text-xs text-slate-400">Server List Channel</label>
+                                                        <button
+                                                            onClick={() => setBridgeConfig(c => ({ ...c, server_list_enabled: !c.server_list_enabled }))}
+                                                            className={cn("text-xs font-medium", bridgeConfig.server_list_enabled ? "text-green-400" : "text-slate-500")}
+                                                        >
+                                                            {bridgeConfig.server_list_enabled ? "Enabled" : "Disabled"}
+                                                        </button>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={bridgeConfig.server_list_channel_id}
+                                                        onChange={e => setBridgeConfig(c => ({ ...c, server_list_channel_id: e.target.value }))}
+                                                        disabled={!bridgeConfig.server_list_enabled}
+                                                        placeholder="Channel ID for Server Status"
+                                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm disabled:opacity-50"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <label className="text-xs text-slate-400">Player List Channel</label>
+                                                        <button
+                                                            onClick={() => setBridgeConfig(c => ({ ...c, player_list_enabled: !c.player_list_enabled }))}
+                                                            className={cn("text-xs font-medium", bridgeConfig.player_list_enabled ? "text-green-400" : "text-slate-500")}
+                                                        >
+                                                            {bridgeConfig.player_list_enabled ? "Enabled" : "Disabled"}
+                                                        </button>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={bridgeConfig.player_list_channel_id}
+                                                        onChange={e => setBridgeConfig(c => ({ ...c, player_list_channel_id: e.target.value }))}
+                                                        disabled={!bridgeConfig.player_list_enabled}
+                                                        placeholder="Channel ID for Active Players"
+                                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm disabled:opacity-50"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-300">
+                                        <strong>Note:</strong> ensure the Bot has 'View Channels', 'Send Messages', and 'Manage Messages' permissions in the configured channels.
+                                    </div>
+                                </div>
+
+                            </>
+                        )}
                     </div>
                 )
             }
@@ -913,6 +981,7 @@ export default function DiscordBot() {
                     </div>
                 )
             }
-        </div >
-    );
+        </div>
+    )
 }
+

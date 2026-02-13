@@ -2,6 +2,24 @@
 
 All notable changes to ASA Server Manager will be documented in this file.
 
+## [2.2.8] - 2026-02-13
+
+### ✨ New Features
+- **Server Console Window** — Added "Show Server Console" button in the Console Output section to pop up the actual ARK server console window.
+- **Discord Bot Setup Improvements** — Added "Generate Invite Link" button and collapsible setup guide in Discord Bridge settings.
+- **Discord Bot Online Status** — Bot now appears online in Discord via WebSocket Gateway connection.
+
+### 🐛 Bug Fixes
+- **Discord Webhook Save** — Fixed webhook configurations not saving properly.
+- **Discord Bot Save** — Fixed bot integration settings not persisting on save.
+- **Discord Server Status** — Fixed servers showing as offline in Discord when they were actually online (`online` status was not recognized).
+- **Cluster Deletion** — Fixed clusters not being deletable, causing orphaned entries.
+- **Cluster Bot Integration** — Discord Bot now correctly reports real-time server status within clusters.
+- **Mod Downloads** — Fixed mods failing to download and install.
+- **Player Stat Controls** — Fixed player stat configuration controls not applying in Config Editor.
+
+---
+
 ## [2.2.4] - 2026-01-28
 
 ### ✨ New Features

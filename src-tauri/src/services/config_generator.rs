@@ -705,7 +705,7 @@ impl ConfigGenerator {
 
     /// Regenerate config files applying event overrides
     pub fn generate_config(
-        app_handle: &tauri::AppHandle,
+        _app_handle: &tauri::AppHandle,
         db_conn: &rusqlite::Connection,
         server_id: i64,
     ) -> Result<(), String> {
@@ -778,6 +778,7 @@ impl ConfigGenerator {
             );
 
             // Write Game.ini immediately since Transfer Policy doesn't touch it YET
+            println!("  📝 [Debug] Writing Game.ini with Event overrides...");
             fs::write(&game_path, game_content).map_err(|e| e.to_string())?;
         } else {
             println!("📅 No Event Profile Active.");

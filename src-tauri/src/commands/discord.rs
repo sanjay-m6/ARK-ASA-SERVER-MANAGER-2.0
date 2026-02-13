@@ -10,8 +10,24 @@ pub async fn save_discord_bridge_config(
 ) -> Result<(), String> {
     // 1. Save to Database
     {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let cx_db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = cx_db.get_connection().map_err(|e| e.to_string())?;
+
+        // 0. Verify Cluster Exists
+        let cluster_exists: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM clusters WHERE id = ?1",
+                [config.cluster_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        if cluster_exists == 0 {
+            return Err(format!(
+                "Cluster ID {} not found. Please create a cluster first.",
+                config.cluster_id
+            ));
+        }
 
         // Check if config exists for this cluster
         let exists: i32 = conn
@@ -84,18 +100,11 @@ pub async fn save_discord_bridge_config(
     // 2. Update In-Memory Service Config
     state.discord_bridge.configure(config.clone()).await;
 
-    // 3. Restart Service if enabled
+    // 3. Restart Service if enabled (always restart to apply config changes + gateway)
     if config.enabled {
-        // If already running, this spawns a new loop if previous was potentially stopped or to ensure config logic
-        // But the service::start is idempotentish, checking atomic bool.
-        // Ideally we might want 'restart' but for now start() works.
-        // Actually, let's stop and start to apply clean state if needed, though most logic picks up live config.
-        // The service loop reads config every iteration (60s) or for chat relay it reads config.
-
-        // Ensure it's running
-        if !state.discord_bridge.is_running() {
-            state.discord_bridge.clone().start();
-        }
+        // Stop first to reset state, then start fresh with new config
+        state.discord_bridge.stop();
+        state.discord_bridge.clone().start();
     } else {
         state.discord_bridge.stop();
     }
@@ -181,7 +190,57 @@ pub async fn stop_discord_bridge(state: State<'_, AppState>) -> Result<(), Strin
 }
 
 /// Test connection with current config
+/// Test connection with current config or provided credentials
 #[tauri::command]
-pub async fn test_discord_bridge_connection(state: State<'_, AppState>) -> Result<String, String> {
-    state.discord_bridge.test_connection().await
+pub async fn test_discord_bridge_connection(
+    state: State<'_, AppState>,
+    bot_token: String,
+    channel_id: String,
+) -> Result<String, String> {
+    state
+        .discord_bridge
+        .test_connection_with_credentials(&bot_token, &channel_id)
+        .await
+}
+
+/// Generate the correct bot invite URL with proper permissions
+#[tauri::command]
+pub async fn generate_bot_invite_url(bot_token: String) -> Result<String, String> {
+    if bot_token.is_empty() {
+        return Err("Bot token is required".to_string());
+    }
+
+    // Fetch bot's application ID via /users/@me
+    let client = reqwest::Client::new();
+    let response = client
+        .get("https://discord.com/api/v10/users/@me")
+        .header("Authorization", format!("Bot {}", bot_token))
+        .send()
+        .await
+        .map_err(|e| format!("Connection failed: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(
+            "Invalid bot token. Check your token in Discord Developer Portal → Bot → Reset Token."
+                .to_string(),
+        );
+    }
+
+    let bot_info: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse bot info: {}", e))?;
+
+    let bot_id = bot_info["id"].as_str().unwrap_or("");
+    if bot_id.is_empty() {
+        return Err("Could not determine bot application ID.".to_string());
+    }
+
+    // Permissions: View Channels (1024) + Send Messages (2048) + Manage Messages (8192) + Read Message History (65536) = 76800
+    let invite_url = format!(
+        "https://discord.com/api/oauth2/authorize?client_id={}&permissions=76800&scope=bot",
+        bot_id
+    );
+
+    Ok(invite_url)
 }
