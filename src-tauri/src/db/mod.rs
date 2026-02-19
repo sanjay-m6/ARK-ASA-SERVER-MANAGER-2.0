@@ -202,6 +202,13 @@ impl Database {
                 basic_interval_hours INTEGER DEFAULT 24,
                 basic_warning_minutes TEXT DEFAULT '30,15,10,5,1',
                 next_run_basic TIMESTAMP,
+                advanced_time TEXT,
+                advanced_days TEXT,
+                advanced_warning_minutes TEXT,
+                advanced_shutdown INTEGER DEFAULT 0,
+                advanced_update INTEGER DEFAULT 0,
+                advanced_restart INTEGER DEFAULT 0,
+                advanced_dino_wipe INTEGER DEFAULT 0,
                 FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
             )",
             [],

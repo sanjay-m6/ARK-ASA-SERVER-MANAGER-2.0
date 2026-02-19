@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS player_stats (
 CREATE TABLE IF NOT EXISTS scheduled_tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     server_id INTEGER NOT NULL,
+    task_name TEXT,
     task_type TEXT NOT NULL CHECK(task_type IN ('restart', 'backup', 'rcon-command', 'announcement', 'save-world', 'destroy-wild-dinos', 'AutoUpdateMods')),
     cron_expression TEXT NOT NULL,
     command TEXT,
@@ -210,8 +211,16 @@ CREATE TABLE IF NOT EXISTS scheduler_settings (
     basic_interval_hours INTEGER DEFAULT 24,
     basic_warning_minutes TEXT DEFAULT '30,15,10,5,1',
     next_run_basic TIMESTAMP,
+    advanced_time TEXT,
+    advanced_days TEXT,
+    advanced_warning_minutes TEXT,
+    advanced_shutdown INTEGER DEFAULT 0,
+    advanced_update INTEGER DEFAULT 0,
+    advanced_restart INTEGER DEFAULT 0,
+    advanced_dino_wipe INTEGER DEFAULT 0,
     FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
 );
 
 -- Initial settings
 INSERT OR IGNORE INTO settings (key, value) VALUES ('startup_timeout', '1800');
+
