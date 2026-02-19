@@ -45,23 +45,28 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🚀 v2.2.6: Mod Filters & Firewall Automation!
-            
-            **This is a major feature update focusing on Mod Management and Automation.**
-            
-            ### 🔥 New Features
-            - **Mod Filters**: Filter by Category (Dinos, Maps, etc.) & Sort by Popularity.
-            - **Smart ID Search**: Instant result when searching by Mod ID (e.g. `928708`).
-            - **Firewall Auto-Pilot**: Automatically manages ports 7777/27015/RCON.
-            - **Smart Monitoring**: Active TCP/UDP checks for 100% accurate status.
-            
+            ## 🚀 v2.2.9 — Server Status Reliability & Discord Bot Improvements
+
+            ### ✅ Critical Fixes
+            - **Server Status Race Condition** — Fixed servers stuck in "LOADING…" / "STARTING…" even after coming online. Status now transitions to 🟢 ONLINE only when the server log confirms `"Advertising for join"`.
+            - **Log Baseline System** — Only new log lines (after server start) are scanned for startup confirmation; prevents ghost-online from stale logs.
+            - **DB Sync on Restart** — Manager correctly restores `online` status from disk logs when reopened with a server already running.
+
+            ### 🆕 New Features
+            - **Startup Progress Timer** — Live elapsed-time counter shown inside the status badge (e.g., `LOADING... 2m 14s`).
+            - **Force Stop Button** — Instantly abort a problematic startup from the status badge.
+            - **Discord Admin Commands** — New `!update` and `!broadcast` bot commands for admin-channel server control.
+
             ### 🐛 Bug Fixes
-            - Fixed "Exit Code 3" crash loops (Auto-Repair added).
-            - Fixed "No Mods Found" on direct ID search.
-            - Fixed stuck loading screens & Config Editor glitches.
-            
+            - Fixed Discord bot showing servers as offline in cluster status embeds.
+            - Fixed Auto-Update Mods task type not displaying label/icon in Scheduler UI.
+            - Fixed assigned firewall ports incorrectly showing as Closed after assignment.
+            - Fixed Offers Toggle (`is_active` / `isActive` mismatch).
+            - Fixed clusters failing to delete, leaving orphaned DB entries.
+            - Fixed `toggleServerAutomation` being called twice per button press.
+
             ### Install
-            Download the `.setup.exe` or `.msi` below.
+            Download the `.msi` installer below.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true

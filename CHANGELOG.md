@@ -2,6 +2,32 @@
 
 All notable changes to ASA Server Manager will be documented in this file.
 
+## [2.2.9] - 2026-02-19
+
+### ✨ New Features
+- **Startup Progress Timer** — Live elapsed-time counter shown inside the status badge during startup (e.g., `LOADING... 2m 14s`).
+- **Force Stop Button** — A Force Stop button appears next to the LOADING/STARTING badge for aborting problematic startups.
+- **Discord Admin Commands** — New `!update` and `!broadcast` commands for Discord bot admin channel control.
+
+### 🐛 Bug Fixes
+- **Server Status Race Condition** — Fixed servers stuck in "LOADING..." / "STARTING..." even after coming online; status now transitions on `"Advertising for join"` log detection only.
+- **Log Baseline System** — Only new log lines (after server start) are scanned for startup confirmation; prevents stale log ghost-online triggers.
+- **DB Sync on Restart** — Manager correctly restores `online` status from disk logs when reopened with a server already running.
+- **Discord Server Status** — Fixed servers showing as offline in Discord bot cluster embeds when actually running.
+- **Auto-Update Mods Scheduler** — Fixed task type not displaying its label and icon in Scheduler UI.
+- **Firewall Port Status** — Fixed assigned ports incorrectly showing as Closed after assignment.
+- **Offers Toggle** — Fixed `is_active` / `isActive` property name mismatch causing toggle not to save.
+- **Cluster Deletion** — Fixed clusters failing to delete, leaving orphaned DB entries.
+- **Duplicate Automation Toggle** — Fixed `toggleServerAutomation` being called twice per button press.
+
+### 🛠️ Technical Changes
+- Frontend log deduplication for consecutive identical lines.
+- 10-second startup-detection polling for servers in `starting`/`running` state.
+- `server-status-change` listener now calls `refreshServers()` on every status transition.
+- Full i18n migration for `ServerManager.tsx`, `ConfigEditor.tsx`, and scheduler components.
+
+---
+
 ## [2.2.8] - 2026-02-13
 
 ### ✨ New Features

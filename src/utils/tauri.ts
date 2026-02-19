@@ -364,6 +364,24 @@ export async function getClusterCrossChatStatus(clusterId: number): Promise<bool
     return await invoke('get_cluster_cross_chat_status', { clusterId });
 }
 
+export interface ClusterValidationIssue {
+    server_id: number;
+    server_name: string;
+    level: 'error' | 'warning';
+    message: string;
+}
+
+export interface ClusterValidationResult {
+    cluster_id: number;
+    cluster_name: string;
+    cluster_path: string;
+    issues: ClusterValidationIssue[];
+}
+
+export async function validateClusterConfiguration(clusterId: number): Promise<ClusterValidationResult> {
+    return await invoke('validate_cluster_configuration', { clusterId });
+}
+
 // ============================================================================
 // Discord Bridge Commands
 // ============================================================================

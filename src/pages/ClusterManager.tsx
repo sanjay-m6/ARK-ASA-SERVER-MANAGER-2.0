@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Server as ServerIcon, Network, Trash2, Loader2, Link as LinkIcon, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, toggleClusterCrossChat, getClusterCrossChatStatus, selectFolder } from '../utils/tauri';
+import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, toggleClusterCrossChat, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
 import { Cluster, Server } from '../types';
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
@@ -24,6 +24,8 @@ export default function ClusterManager() {
     const [crossChatStatus, setCrossChatStatus] = useState<Record<number, boolean>>({});
     const [expandedDiscord, setExpandedDiscord] = useState<number | null>(null);
     const [editCluster, setEditCluster] = useState<Cluster | null>(null);
+    const [validationResult, setValidationResult] = useState<ClusterValidationResult | null>(null);
+    const [validatingClusterId, setValidatingClusterId] = useState<number | null>(null);
     const { servers, refreshServers } = useServerStore();
 
     const fetchClusters = async () => {
@@ -131,6 +133,28 @@ export default function ClusterManager() {
             toast.error(t('clusterManager.stopFailed'));
         } finally {
             setStoppingCluster(null);
+        }
+    };
+
+    const handleValidateCluster = async (clusterId: number) => {
+        setValidatingClusterId(clusterId);
+        try {
+            const result = await validateClusterConfiguration(clusterId);
+            setValidationResult(result);
+
+            const hasErrors = result.issues.some((issue: ClusterValidationIssue) => issue.level === 'error');
+            if (!hasErrors && result.issues.length === 0) {
+                toast.success(t('clusterManager.validationOk', 'Cluster configuration looks good'));
+            } else if (!hasErrors) {
+                toast.success(t('clusterManager.validationWarnings', 'Cluster valid with warnings'));
+            } else {
+                toast.error(t('clusterManager.validationErrors', 'Cluster has configuration problems'));
+            }
+        } catch (error) {
+            console.error('Failed to validate cluster:', error);
+            toast.error(t('clusterManager.validationFailed', 'Failed to validate cluster configuration'));
+        } finally {
+            setValidatingClusterId(null);
         }
     };
 
@@ -359,6 +383,18 @@ export default function ClusterManager() {
                                         )}
                                         <span>{t('clusterManager.stopAll')}</span>
                                     </button>
+                                    <button
+                                        onClick={() => handleValidateCluster(cluster.id)}
+                                        disabled={validatingClusterId === cluster.id}
+                                        className="flex items-center space-x-1 px-3 py-1.5 bg-slate-700/60 hover:bg-slate-600/70 text-slate-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                    >
+                                        {validatingClusterId === cluster.id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <FlaskConical className="w-4 h-4" />
+                                        )}
+                                        <span>{t('clusterManager.validateCluster', 'Validate')}</span>
+                                    </button>
 
                                     {/* Cross-Chat Toggle */}
                                     <button
@@ -479,6 +515,27 @@ export default function ClusterManager() {
                         fetchClusters();
                         refreshServers();
                     }}
+                />
+            )}
+
+            {/* Cluster Validation Result Dialog */}
+            {validationResult && (
+                <ConfirmDialog
+                    isOpen={!!validationResult}
+                    onClose={() => setValidationResult(null)}
+                    onConfirm={() => setValidationResult(null)}
+                    title={t('clusterManager.validationTitle', 'Cluster Validation')}
+                    message={
+                        validationResult.issues.length === 0
+                            ? t('clusterManager.validationOkDetailed', 'All linked servers share the same cluster configuration and ports are unique.')
+                            : validationResult.issues
+                                .map((issue: ClusterValidationIssue) => {
+                                    const prefix = issue.level === 'error' ? '❌' : '⚠️';
+                                    return `${prefix} [${issue.server_id}] ${issue.server_name}: ${issue.message}`;
+                                })
+                                .join('\n')
+                    }
+                    confirmText={t('common.ok', 'OK')}
                 />
             )}
         </div>

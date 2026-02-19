@@ -948,3 +948,221 @@ pub async fn get_cluster_cross_chat_status(
 
     Ok(enabled)
 }
+
+// ── Cluster Validation ─────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ClusterValidationIssue {
+    pub server_id: i64,
+    pub server_name: String,
+    /// "error" | "warning"
+    pub level: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ClusterValidationResult {
+    pub cluster_id: i64,
+    pub cluster_name: String,
+    pub cluster_path: String,
+    pub issues: Vec<ClusterValidationIssue>,
+}
+
+#[tauri::command]
+pub async fn validate_cluster_configuration(
+    state: State<'_, AppState>,
+    cluster_id: i64,
+) -> Result<ClusterValidationResult, String> {
+    println!("🧪 Validating cluster configuration for {}", cluster_id);
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    // Load cluster basic info
+    let (cluster_name, raw_cluster_path): (String, String) = conn
+        .query_row(
+            "SELECT name, cluster_path FROM clusters WHERE id = ?1",
+            [cluster_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| format!("Cluster not found: {}", e))?;
+
+    let cluster_path = raw_cluster_path.clone();
+
+    // Load all servers linked to this cluster (including ports & args)
+    #[allow(clippy::type_complexity)]
+    let servers: Vec<(i64, String, u16, u16, u16, Option<String>, Option<String>)> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT s.id, s.name, s.game_port, s.query_port, s.rcon_port, s.custom_args, s.install_path
+                 FROM servers s
+                 INNER JOIN cluster_servers cs ON s.id = cs.server_id
+                 WHERE cs.cluster_id = ?1",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let mut rows = stmt.query([cluster_id]).map_err(|e| e.to_string())?;
+        let mut out = Vec::new();
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            out.push((
+                row.get::<_, i64>(0).unwrap_or(0),
+                row.get::<_, String>(1).unwrap_or_default(),
+                row.get::<_, u16>(2).unwrap_or(7777),
+                row.get::<_, u16>(3).unwrap_or(27015),
+                row.get::<_, u16>(4).unwrap_or(27020),
+                row.get::<_, Option<String>>(5).unwrap_or(None),
+                row.get::<_, Option<String>>(6).unwrap_or(None),
+            ));
+        }
+        out
+    };
+
+    let mut issues: Vec<ClusterValidationIssue> = Vec::new();
+
+    // 1) Validate cluster path itself (existence + permissions)
+    let path_validation = validate_path(&cluster_path);
+    if !path_validation.valid {
+        issues.push(ClusterValidationIssue {
+            server_id: 0,
+            server_name: cluster_name.clone(),
+            level: "error".to_string(),
+            message: path_validation
+                .error
+                .unwrap_or_else(|| "Cluster directory is invalid or not writable".to_string()),
+        });
+    }
+
+    // 2) Port uniqueness within this cluster
+    use std::collections::HashMap;
+    let mut game_ports: HashMap<u16, i64> = HashMap::new();
+    let mut query_ports: HashMap<u16, i64> = HashMap::new();
+    let mut rcon_ports: HashMap<u16, i64> = HashMap::new();
+
+    for (server_id, server_name, game_port, query_port, rcon_port, custom_args, install_path) in
+        &servers
+    {
+        // Game port
+        if let Some(existing) = game_ports.insert(*game_port, *server_id) {
+            issues.push(ClusterValidationIssue {
+                server_id: *server_id,
+                server_name: server_name.clone(),
+                level: "error".to_string(),
+                message: format!(
+                    "Game Port {} is also used by server ID {} in this cluster",
+                    game_port, existing
+                ),
+            });
+        }
+
+        // Query port
+        if let Some(existing) = query_ports.insert(*query_port, *server_id) {
+            issues.push(ClusterValidationIssue {
+                server_id: *server_id,
+                server_name: server_name.clone(),
+                level: "error".to_string(),
+                message: format!(
+                    "Query Port {} is also used by server ID {} in this cluster",
+                    query_port, existing
+                ),
+            });
+        }
+
+        // RCON port
+        if let Some(existing) = rcon_ports.insert(*rcon_port, *server_id) {
+            issues.push(ClusterValidationIssue {
+                server_id: *server_id,
+                server_name: server_name.clone(),
+                level: "error".to_string(),
+                message: format!(
+                    "RCON Port {} is also used by server ID {} in this cluster",
+                    rcon_port, existing
+                ),
+            });
+        }
+
+        // 3) Check for custom args overriding cluster flags incorrectly
+        if let Some(args) = custom_args {
+            let lowered = args.to_lowercase();
+
+            if lowered.contains("-clusterid") && !lowered.contains(&cluster_name.to_lowercase()) {
+                issues.push(ClusterValidationIssue {
+                    server_id: *server_id,
+                    server_name: server_name.clone(),
+                    level: "warning".to_string(),
+                    message: "Custom launch arguments contain a manual -clusterid that may override the manager's value"
+                        .to_string(),
+                });
+            }
+
+            if lowered.contains("-clusterdiroverride") && !lowered.contains(&cluster_path.to_lowercase()) {
+                issues.push(ClusterValidationIssue {
+                    server_id: *server_id,
+                    server_name: server_name.clone(),
+                    level: "warning".to_string(),
+                    message:
+                        "Custom launch arguments contain a manual -ClusterDirOverride that may override the manager's value"
+                            .to_string(),
+                });
+            }
+        }
+
+        // 4) Ensure GameUserSettings.ini has matching ClusterDirOverride
+        if let Some(install_path) = install_path {
+            let ini_path = PathBuf::from(install_path)
+                .join("ShooterGame")
+                .join("Saved")
+                .join("Config")
+                .join("WindowsServer")
+                .join("GameUserSettings.ini");
+
+            if let Ok(content) = std::fs::read_to_string(&ini_path) {
+                let mut found = false;
+                for line in content.lines() {
+                    if let Some(value) = line.strip_prefix("ClusterDirOverride=") {
+                        found = true;
+                        if value.trim().replace('\\', "/") != cluster_path.replace('\\', "/") {
+                            issues.push(ClusterValidationIssue {
+                                server_id: *server_id,
+                                server_name: server_name.clone(),
+                                level: "warning".to_string(),
+                                message: format!(
+                                    "GameUserSettings.ini ClusterDirOverride ({}) does not match cluster path ({})",
+                                    value.trim(),
+                                    cluster_path
+                                ),
+                            });
+                        }
+                        break;
+                    }
+                }
+                if !found {
+                    issues.push(ClusterValidationIssue {
+                        server_id: *server_id,
+                        server_name: server_name.clone(),
+                        level: "warning".to_string(),
+                        message:
+                            "GameUserSettings.ini is missing ClusterDirOverride entry; manager will inject it automatically on cluster changes"
+                                .to_string(),
+                    });
+                }
+            } else {
+                issues.push(ClusterValidationIssue {
+                    server_id: *server_id,
+                    server_name: server_name.clone(),
+                    level: "warning".to_string(),
+                    message: "Could not read GameUserSettings.ini to verify ClusterDirOverride"
+                        .to_string(),
+                });
+            }
+        }
+    }
+
+    let result = ClusterValidationResult {
+        cluster_id,
+        cluster_name,
+        cluster_path,
+        issues,
+    };
+
+    Ok(result)
+}

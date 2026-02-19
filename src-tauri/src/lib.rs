@@ -301,6 +301,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::cluster::stop_cluster,
             commands::cluster::toggle_cluster_cross_chat,
             commands::cluster::get_cluster_cross_chat_status,
+            commands::cluster::validate_cluster_configuration,
             // Backup commands
             commands::backup::create_backup,
             commands::backup::get_backups,

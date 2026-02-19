@@ -585,7 +585,14 @@
         "placeholderPath": "C:\\ASA_Clusters (default)",
         "id": "ID",
         "crossChatTooltip": "Cross-Server Chat (Experimental)",
-        "serverFallback": "Server {{id}}"
+        "serverFallback": "Server {{id}}",
+        "validateCluster": "Validate",
+        "validationTitle": "Cluster Validation",
+        "validationOk": "Cluster configuration looks good",
+        "validationOkDetailed": "All linked servers share the same cluster directory and ports are unique.",
+        "validationWarnings": "Cluster valid with warnings",
+        "validationErrors": "Cluster has configuration problems",
+        "validationFailed": "Failed to validate cluster configuration"
     },
     "scheduler": {
         "title": "Scheduler",
