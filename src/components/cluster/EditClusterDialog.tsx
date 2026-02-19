@@ -4,6 +4,7 @@ import { cn } from '../../utils/helpers';
 import { Cluster, Server } from '../../types';
 import { updateCluster, addServerToCluster, removeServerFromCluster, selectFolder, validateClusterPath } from '../../utils/tauri';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface EditClusterDialogProps {
     isOpen: boolean;
@@ -20,6 +21,7 @@ export default function EditClusterDialog({
     onClose,
     onSaved,
 }: EditClusterDialogProps) {
+    const { t } = useTranslation();
     const [clusterName, setClusterName] = useState(cluster.name);
     const [clusterPath, setClusterPath] = useState(cluster.clusterPath);
     const [moveData, setMoveData] = useState(false);
@@ -46,7 +48,7 @@ export default function EditClusterDialog({
     const nameChanged = clusterName.trim() !== cluster.name;
 
     const handleBrowse = async () => {
-        const selected = await selectFolder('Select Cluster Directory');
+        const selected = await selectFolder(t('clusterManager.selectClusterDir'));
         if (selected) {
             setClusterPath(selected);
             setPathError('');
@@ -61,12 +63,12 @@ export default function EditClusterDialog({
         try {
             const result = await validateClusterPath(clusterPath);
             if (!result.valid) {
-                setPathError(result.error || 'Invalid path');
+                setPathError(result.error || t('clusterManager.invalidPath'));
             } else {
                 setPathError('');
             }
         } catch {
-            setPathError('Failed to validate path');
+            setPathError(t('clusterManager.validatePathFailed'));
         }
     };
 
@@ -85,12 +87,12 @@ export default function EditClusterDialog({
                 pathChanged ? clusterPath.trim() : undefined,
                 pathChanged ? moveData : undefined,
             );
-            toast.success('Cluster updated successfully');
+            toast.success(t('clusterManager.updateSuccess'));
             onSaved();
             onClose();
         } catch (error) {
             console.error('Failed to update cluster:', error);
-            toast.error(`Failed to update cluster: ${error}`);
+            toast.error(t('clusterManager.updateFailed', { error: String(error) }));
         } finally {
             setIsSaving(false);
         }
@@ -99,23 +101,23 @@ export default function EditClusterDialog({
     const handleAddServer = async (serverId: number) => {
         try {
             await addServerToCluster(cluster.id, serverId);
-            toast.success('Server added to cluster');
+            toast.success(t('clusterManager.serverAdded'));
             onSaved();
         } catch (error) {
             console.error('Failed to add server:', error);
-            toast.error('Failed to add server to cluster');
+            toast.error(t('clusterManager.serverAddFailed'));
         }
     };
 
     const handleRemoveServer = async (serverId: number) => {
         try {
             await removeServerFromCluster(cluster.id, serverId);
-            toast.success('Server removed from cluster');
+            toast.success(t('clusterManager.serverRemoved'));
             setConfirmRemoveServer(null);
             onSaved();
         } catch (error) {
             console.error('Failed to remove server:', error);
-            toast.error('Failed to remove server from cluster');
+            toast.error(t('clusterManager.serverRemoveFailed'));
         }
     };
 
@@ -128,7 +130,7 @@ export default function EditClusterDialog({
                         <div className="p-3 rounded-xl bg-pink-500/10">
                             <Pencil className="w-6 h-6 text-pink-400" />
                         </div>
-                        <h2 className="text-lg font-bold text-white">Edit Cluster</h2>
+                        <h2 className="text-lg font-bold text-white">{t('clusterManager.editCluster')}</h2>
                     </div>
                     <button
                         onClick={onClose}
@@ -144,7 +146,7 @@ export default function EditClusterDialog({
                     {/* Cluster Name */}
                     <div>
                         <label className="text-sm font-medium text-slate-300 block mb-2">
-                            Cluster Name
+                            {t('clusterManager.clusterName')}
                         </label>
                         <input
                             type="text"
@@ -158,7 +160,7 @@ export default function EditClusterDialog({
                     {/* Cluster Path */}
                     <div>
                         <label className="text-sm font-medium text-slate-300 block mb-2">
-                            Cluster Folder Path
+                            {t('clusterManager.clusterDir')}
                         </label>
                         <div className="flex gap-2">
                             <input
@@ -180,7 +182,7 @@ export default function EditClusterDialog({
                                 className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center gap-2"
                             >
                                 <FolderOpen className="w-4 h-4" />
-                                Browse
+                                {t('common.browse', 'Browse')}
                             </button>
                         </div>
                         {pathError && (
@@ -199,7 +201,7 @@ export default function EditClusterDialog({
                                     onChange={e => setMoveData(e.target.checked)}
                                     className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-pink-500 focus:ring-pink-500"
                                 />
-                                <span className="text-sm text-slate-300">Move existing cluster data to new path</span>
+                                <span className="text-sm text-slate-300">{t('clusterManager.moveData')}</span>
                             </label>
                         )}
                     </div>
@@ -207,18 +209,18 @@ export default function EditClusterDialog({
                     {/* Server Membership Management */}
                     <div>
                         <label className="text-sm font-medium text-slate-300 block mb-3">
-                            Server Membership
+                            {t('clusterManager.membership')}
                         </label>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Servers IN Cluster */}
                             <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
                                 <h4 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-1.5">
                                     <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                                    In Cluster ({serversInCluster.length})
+                                    {t('clusterManager.inCluster')} ({serversInCluster.length})
                                 </h4>
                                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
                                     {serversInCluster.length === 0 ? (
-                                        <p className="text-xs text-slate-500 italic">No servers in this cluster</p>
+                                        <p className="text-xs text-slate-500 italic">{t('clusterManager.noServersInCluster')}</p>
                                     ) : (
                                         serversInCluster.map(server => (
                                             <div key={server.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-900/50 border border-slate-700/30">
@@ -229,20 +231,20 @@ export default function EditClusterDialog({
                                                             onClick={() => handleRemoveServer(server.id)}
                                                             className="px-2 py-0.5 text-xs bg-red-500 hover:bg-red-400 text-white rounded transition-colors"
                                                         >
-                                                            Yes
+                                                            {t('common.yes', 'Yes')}
                                                         </button>
                                                         <button
                                                             onClick={() => setConfirmRemoveServer(null)}
                                                             className="px-2 py-0.5 text-xs text-slate-400 hover:text-white transition-colors"
                                                         >
-                                                            No
+                                                            {t('common.no', 'No')}
                                                         </button>
                                                     </div>
                                                 ) : (
                                                     <button
                                                         onClick={() => setConfirmRemoveServer(server.id)}
                                                         className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
-                                                        title="Remove from cluster"
+                                                        title={t('clusterManager.removeServer')}
                                                     >
                                                         <Minus className="w-4 h-4" />
                                                     </button>
@@ -257,11 +259,11 @@ export default function EditClusterDialog({
                             <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
                                 <h4 className="text-sm font-semibold text-slate-400 mb-3 flex items-center gap-1.5">
                                     <span className="w-2 h-2 rounded-full bg-slate-400" />
-                                    Available ({serversAvailable.length})
+                                    {t('clusterManager.available')} ({serversAvailable.length})
                                 </h4>
                                 <div className="space-y-2 max-h-[200px] overflow-y-auto">
                                     {serversAvailable.length === 0 ? (
-                                        <p className="text-xs text-slate-500 italic">All servers are in this cluster</p>
+                                        <p className="text-xs text-slate-500 italic">{t('clusterManager.allServersInCluster')}</p>
                                     ) : (
                                         serversAvailable.map(server => (
                                             <div key={server.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-900/50 border border-slate-700/30">
@@ -269,7 +271,7 @@ export default function EditClusterDialog({
                                                 <button
                                                     onClick={() => handleAddServer(server.id)}
                                                     className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors shrink-0"
-                                                    title="Add to cluster"
+                                                    title={t('clusterManager.addServer')}
                                                 >
                                                     <Plus className="w-4 h-4" />
                                                 </button>
@@ -289,7 +291,7 @@ export default function EditClusterDialog({
                         disabled={isSaving}
                         className="px-5 py-2.5 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-all font-medium disabled:opacity-50"
                     >
-                        Cancel
+                        {t('common.cancel', 'Cancel')}
                     </button>
                     <button
                         onClick={handleSave}
@@ -299,10 +301,10 @@ export default function EditClusterDialog({
                         {isSaving ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Saving...
+                                {t('common.saving', 'Saving...')}
                             </>
                         ) : (
-                            'Save Changes'
+                            t('common.saveChanges', 'Save Changes')
                         )}
                     </button>
                 </div>

@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ExternalLink, CheckCircle, Copy, Router, Glo
 import { cn } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
+import { useTranslation } from 'react-i18next';
 
 interface Step {
     id: number;
@@ -21,6 +22,7 @@ const ROUTER_BRANDS = [
 ];
 
 export default function PortForwardingGuide() {
+    const { t } = useTranslation();
     const [expandedStep, setExpandedStep] = useState<number | null>(1);
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
 
@@ -35,7 +37,7 @@ export default function PortForwardingGuide() {
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-        toast.success('Copied to clipboard!');
+        toast.success(t('settings.portForwarding.copied'));
     };
 
     const toggleStep = (stepId: number) => {
@@ -55,15 +57,15 @@ export default function PortForwardingGuide() {
     const steps: Step[] = [
         {
             id: 1,
-            title: 'Find Your Router\'s IP Address',
+            title: t('settings.portForwarding.steps.findIp.title'),
             completed: completedSteps.has(1),
             content: (
                 <div className="space-y-4">
                     <p className="text-slate-300 text-sm">
-                        Your router's IP is usually <code className="bg-slate-800 px-2 py-0.5 rounded text-cyan-400">192.168.1.1</code> or <code className="bg-slate-800 px-2 py-0.5 rounded text-cyan-400">192.168.0.1</code>.
+                        {t('settings.portForwarding.steps.findIp.intro')} <code className="bg-slate-800 px-2 py-0.5 rounded text-cyan-400">192.168.1.1</code> {t('settings.portForwarding.steps.findIp.or')} <code className="bg-slate-800 px-2 py-0.5 rounded text-cyan-400">192.168.0.1</code>.
                     </p>
                     <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-                        <p className="text-sm text-slate-400 mb-2">Run this in Command Prompt to find it:</p>
+                        <p className="text-sm text-slate-400 mb-2">{t('settings.portForwarding.steps.findIp.cmdPrompt')}</p>
                         <div className="flex items-center gap-2">
                             <code className="flex-1 bg-slate-950 px-3 py-2 rounded font-mono text-green-400 text-sm">
                                 ipconfig | findstr "Default Gateway"
@@ -77,50 +79,50 @@ export default function PortForwardingGuide() {
                         </div>
                     </div>
                     <p className="text-xs text-slate-500">
-                        The "Default Gateway" value is your router's IP address.
+                        {t('settings.portForwarding.steps.findIp.findGateway')}
                     </p>
                 </div>
             )
         },
         {
             id: 2,
-            title: 'Log in to Your Router',
+            title: t('settings.portForwarding.steps.login.title'),
             completed: completedSteps.has(2),
             content: (
                 <div className="space-y-4">
                     <p className="text-slate-300 text-sm">
-                        Open a web browser and enter your router's IP address in the URL bar.
+                        {t('settings.portForwarding.steps.login.content')}
                     </p>
                     <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-                        <p className="text-sm text-slate-400 mb-2">Common default credentials:</p>
+                        <p className="text-sm text-slate-400 mb-2">{t('settings.portForwarding.steps.login.credentials')}</p>
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <span className="text-slate-500">Username:</span>
+                                <span className="text-slate-500">{t('settings.portForwarding.steps.login.username')}</span>
                                 <span className="text-white ml-2 font-mono">admin</span>
                             </div>
                             <div>
-                                <span className="text-slate-500">Password:</span>
-                                <span className="text-white ml-2 font-mono">admin</span> or <span className="text-white font-mono">password</span>
+                                <span className="text-slate-500">{t('settings.portForwarding.steps.login.password')}</span>
+                                <span className="text-white ml-2 font-mono">admin</span> {t('settings.portForwarding.steps.login.passwordOr')} <span className="text-white font-mono">password</span>
                             </div>
                         </div>
                     </div>
                     <p className="text-xs text-slate-500">
-                        Tip: Check the label on your router for the default password, or try leaving it blank.
+                        {t('settings.portForwarding.steps.login.tip')}
                     </p>
                 </div>
             )
         },
         {
             id: 3,
-            title: 'Find Port Forwarding Settings',
+            title: t('settings.portForwarding.steps.findSettings.title'),
             completed: completedSteps.has(3),
             content: (
                 <div className="space-y-4">
                     <p className="text-slate-300 text-sm">
-                        Look for "Port Forwarding", "NAT", "Virtual Server", or "Applications & Gaming" in your router menu.
+                        {t('settings.portForwarding.steps.findSettings.content')}
                     </p>
                     <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-                        <p className="text-sm text-slate-400 mb-3">Common menu locations:</p>
+                        <p className="text-sm text-slate-400 mb-3">{t('settings.portForwarding.steps.findSettings.locations')}</p>
                         <ul className="space-y-2 text-sm">
                             <li className="flex items-center gap-2">
                                 <Router className="w-4 h-4 text-cyan-400" />
@@ -141,65 +143,65 @@ export default function PortForwardingGuide() {
         },
         {
             id: 4,
-            title: 'Add Port Forwarding Rules',
+            title: t('settings.portForwarding.steps.addRules.title'),
             completed: completedSteps.has(4),
             content: (
                 <div className="space-y-4">
                     <p className="text-slate-300 text-sm">
-                        Create rules for each required port, pointing to your computer's local IP.
+                        {t('settings.portForwarding.steps.addRules.content')}
                     </p>
                     <div className="bg-slate-900/50 rounded-lg border border-slate-700 overflow-hidden">
                         <table className="w-full text-sm">
                             <thead className="bg-slate-800/50">
                                 <tr>
-                                    <th className="text-left p-3 text-slate-400">Port</th>
-                                    <th className="text-left p-3 text-slate-400">Protocol</th>
-                                    <th className="text-left p-3 text-slate-400">Purpose</th>
+                                    <th className="text-left p-3 text-slate-400">{t('settings.portForwarding.steps.addRules.headers.port')}</th>
+                                    <th className="text-left p-3 text-slate-400">{t('settings.portForwarding.steps.addRules.headers.protocol')}</th>
+                                    <th className="text-left p-3 text-slate-400">{t('settings.portForwarding.steps.addRules.headers.purpose')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-700/50">
                                 <tr>
                                     <td className="p-3 font-mono text-cyan-400">7777</td>
                                     <td className="p-3 text-purple-400">UDP</td>
-                                    <td className="p-3 text-slate-300">Game Port</td>
+                                    <td className="p-3 text-slate-300">{t('settings.portForwarding.steps.addRules.purposes.game')}</td>
                                 </tr>
                                 <tr>
                                     <td className="p-3 font-mono text-cyan-400">7778</td>
                                     <td className="p-3 text-purple-400">UDP</td>
-                                    <td className="p-3 text-slate-300">Game Port +1</td>
+                                    <td className="p-3 text-slate-300">{t('settings.portForwarding.steps.addRules.purposes.gamePlus')}</td>
                                 </tr>
                                 <tr>
                                     <td className="p-3 font-mono text-cyan-400">27015</td>
                                     <td className="p-3 text-purple-400">UDP</td>
-                                    <td className="p-3 text-slate-300">Steam Query</td>
+                                    <td className="p-3 text-slate-300">{t('settings.portForwarding.steps.addRules.purposes.query')}</td>
                                 </tr>
                                 <tr>
                                     <td className="p-3 font-mono text-cyan-400">27020</td>
                                     <td className="p-3 text-blue-400">TCP</td>
-                                    <td className="p-3 text-slate-300">RCON</td>
+                                    <td className="p-3 text-slate-300">{t('settings.portForwarding.steps.addRules.purposes.rcon')}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                     <p className="text-xs text-slate-500">
-                        Set "Internal IP" or "Device" to your computer's local IP address (e.g., 192.168.1.50)
+                        {t('settings.portForwarding.steps.addRules.tip')}
                     </p>
                 </div>
             )
         },
         {
             id: 5,
-            title: 'Save and Apply',
+            title: t('settings.portForwarding.steps.save.title'),
             completed: completedSteps.has(5),
             content: (
                 <div className="space-y-4">
                     <p className="text-slate-300 text-sm">
-                        Save your settings. Some routers may require a restart for changes to take effect.
+                        {t('settings.portForwarding.steps.save.content')}
                     </p>
                     <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
                         <div className="flex items-center gap-2 text-green-400">
                             <CheckCircle className="w-5 h-5" />
-                            <span className="font-medium">After saving, use the Port Status Checker above to verify!</span>
+                            <span className="font-medium">{t('settings.portForwarding.steps.save.verify')}</span>
                         </div>
                     </div>
                 </div>
@@ -213,16 +215,16 @@ export default function PortForwardingGuide() {
             <div>
                 <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                     <Globe className="w-5 h-5 text-green-400" />
-                    Port Forwarding Guide
+                    {t('settings.portForwarding.title')}
                 </h3>
                 <p className="text-sm text-slate-400 mt-1">
-                    Step-by-step instructions to configure your router for internet access
+                    {t('settings.portForwarding.description')}
                 </p>
             </div>
 
             {/* Quick Links */}
             <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
-                <h4 className="text-sm font-medium text-slate-300 mb-3">📖 Router Brand Guides</h4>
+                <h4 className="text-sm font-medium text-slate-300 mb-3">{t('settings.portForwarding.routerGuides')}</h4>
                 <div className="flex flex-wrap gap-2">
                     {ROUTER_BRANDS.map(brand => (
                         <button
@@ -282,7 +284,7 @@ export default function PortForwardingGuide() {
                                             : "bg-slate-700 text-slate-400 hover:bg-slate-600"
                                     )}
                                 >
-                                    {completedSteps.has(step.id) ? 'Done ✓' : 'Mark Done'}
+                                    {completedSteps.has(step.id) ? t('settings.portForwarding.done') : t('settings.portForwarding.markDone')}
                                 </button>
                                 {expandedStep === step.id ? (
                                     <ChevronDown className="w-5 h-5 text-slate-400" />
@@ -311,7 +313,7 @@ export default function PortForwardingGuide() {
                     />
                 </div>
                 <span className="text-sm text-slate-400">
-                    {completedSteps.size}/{steps.length} complete
+                    {t('settings.portForwarding.progress', { completed: completedSteps.size, total: steps.length })}
                 </span>
             </div>
         </div>

@@ -1,45 +1,50 @@
 import { useState } from 'react';
 import { X, ArrowRight, Check } from 'lucide-react';
 
+import { useTranslation } from 'react-i18next';
+
 interface Props {
     onComplete: () => void;
 }
 
-const TOUR_STEPS = [
-    {
-        title: 'Welcome to ARK Server Manager!',
-        description: 'Let\'s take a quick tour to get you started. This will only take 2 minutes.',
-        image: '🎮',
-    },
-    {
-        title: 'Server Manager',
-        description: 'Install and manage your ARK: Survival Ascended servers here. Click "Install Server" to get started.',
-        image: '🖥️',
-    },
-    {
-        title: 'Mod Manager',
-        description: 'Browse and install mods from Steam Workshop. Drag to reorder mod load priority.',
-        image: '🧩',
-    },
-    {
-        title: 'Config Editor',
-        description: 'Visually edit server settings with sliders and toggles. No INI file editing needed!',
-        image: '⚙️',
-    },
-    {
-        title: 'Backups & Rollback',
-        description: 'Automatic backups protect your server. Restore any backup with one click.',
-        image: '💾',
-    },
-    {
-        title: 'You\'re Ready!',
-        description: 'You now know the basics. Start by installing your first server!',
-        image: '🚀',
-    },
-];
-
 export default function OnboardingTour({ onComplete }: Props) {
+    const { t } = useTranslation();
     const [step, setStep] = useState(0);
+
+    const TOUR_STEPS = [
+        {
+            title: t('onboarding.steps.welcome.title'),
+            description: t('onboarding.steps.welcome.description'),
+            image: '🎮',
+        },
+        {
+            title: t('onboarding.steps.manager.title'),
+            description: t('onboarding.steps.manager.description'),
+            image: '🖥️',
+        },
+        {
+            title: t('onboarding.steps.mods.title'),
+            description: t('onboarding.steps.mods.description'),
+            image: '🧩',
+        },
+        {
+            title: t('onboarding.steps.config.title'),
+            description: t('onboarding.steps.config.description'),
+            image: '⚙️',
+        },
+        {
+            title: t('onboarding.steps.backups.title'),
+            description: t('onboarding.steps.backups.description'),
+            image: '💾',
+        },
+        {
+            title: t('onboarding.steps.ready.title'),
+            description: t('onboarding.steps.ready.description'),
+            image: '🚀',
+        },
+    ];
+
+
 
     const handleNext = () => {
         if (step < TOUR_STEPS.length - 1) {
@@ -60,8 +65,8 @@ export default function OnboardingTour({ onComplete }: Props) {
             <div className="bg-dark-900 border border-dark-800 rounded-xl w-full max-w-lg p-8">
                 {/* Progress */}
                 <div className="flex items-center justify-between mb-6">
-                    <span className="text-sm text-dark-400">Step {step + 1} of {TOUR_STEPS.length}</span>
-                    <button onClick={handleSkip} className="text-dark-400 hover:text-white transition-colors">
+                    <span className="text-sm text-dark-400">{t('onboarding.step', { current: step + 1, total: TOUR_STEPS.length })}</span>
+                    <button onClick={handleSkip} className="text-dark-400 hover:text-white transition-colors" title={t('onboarding.skip')}>
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -87,14 +92,14 @@ export default function OnboardingTour({ onComplete }: Props) {
                             onClick={() => setStep(step - 1)}
                             className="px-4 py-2 text-dark-400 hover:text-white transition-colors"
                         >
-                            ← Back
+                            {t('onboarding.back')}
                         </button>
                     ) : (
                         <button
                             onClick={handleSkip}
                             className="px-4 py-2 text-dark-400 hover:text-white transition-colors"
                         >
-                            Skip Tour
+                            {t('onboarding.skip')}
                         </button>
                     )}
 
@@ -102,7 +107,7 @@ export default function OnboardingTour({ onComplete }: Props) {
                         onClick={handleNext}
                         className="flex items-center space-x-2 px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
                     >
-                        <span>{step === TOUR_STEPS.length - 1 ? 'Get Started' : 'Next'}</span>
+                        <span>{step === TOUR_STEPS.length - 1 ? t('onboarding.start') : t('onboarding.next')}</span>
                         {step === TOUR_STEPS.length - 1 ? (
                             <Check className="w-4 h-4" />
                         ) : (

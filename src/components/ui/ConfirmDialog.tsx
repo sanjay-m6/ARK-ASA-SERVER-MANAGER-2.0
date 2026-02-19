@@ -1,5 +1,6 @@
 import { X, AlertTriangle, Trash2, CheckCircle } from 'lucide-react';
 import { cn } from '../../utils/helpers';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
     isOpen: boolean;
@@ -19,11 +20,17 @@ export default function ConfirmDialog({
     onConfirm,
     title,
     message,
-    confirmText = 'Confirm',
-    cancelText = 'Cancel',
+    confirmText,
+    cancelText,
     variant = 'danger',
     isLoading = false,
 }: ConfirmDialogProps) {
+    const { t } = useTranslation();
+
+    // Default values from translation if not provided
+    const effectiveConfirmText = confirmText || t('dialogs.confirm.confirm');
+    const effectiveCancelText = cancelText || t('dialogs.confirm.cancel');
+
     if (!isOpen) return null;
 
     const variantStyles = {
@@ -88,7 +95,7 @@ export default function ConfirmDialog({
                         disabled={isLoading}
                         className="px-5 py-2.5 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-all font-medium disabled:opacity-50"
                     >
-                        {cancelText}
+                        {effectiveCancelText}
                     </button>
                     <button
                         onClick={onConfirm}
@@ -104,7 +111,7 @@ export default function ConfirmDialog({
                                 Processing...
                             </>
                         ) : (
-                            confirmText
+                            effectiveConfirmText
                         )}
                     </button>
                 </div>

@@ -14,10 +14,14 @@ const queryClient = new QueryClient({
     },
 });
 
+import ErrorBoundary from './components/ErrorBoundary';
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
         <QueryClientProvider client={queryClient}>
-            <App />
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
             <Toaster
                 position="top-right"
                 toastOptions={{

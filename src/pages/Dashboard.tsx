@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Server, Activity, Cpu, HardDrive, Zap, Terminal, Copy, Puzzle,
   Play, Square, RotateCw, Clock, Database, FileEdit,
@@ -46,21 +47,22 @@ const itemVariants: Variants = {
 
 
 export default function Dashboard() {
-  const { servers, setServers, updateServerStatus } = useServerStore();
+  const { servers, setServers, updateServerStatus, refreshServers } = useServerStore();
   const { systemInfo, setSystemInfo } = useUIStore();
   const [performanceHistory, setPerformanceHistory] = useState<any[]>([]);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // ... (rest of hook logic remains same until return)
 
   // Get greeting based on time of day
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return { text: 'Good Morning', icon: Sunrise, color: 'text-amber-400' };
-    if (hour < 18) return { text: 'Good Afternoon', icon: Sun, color: 'text-yellow-400' };
-    return { text: 'Good Evening', icon: Moon, color: 'text-indigo-400' };
+    if (hour < 12) return { text: t('dashboard.goodMorning'), icon: Sunrise, color: 'text-amber-400' };
+    if (hour < 18) return { text: t('dashboard.goodAfternoon'), icon: Sun, color: 'text-yellow-400' };
+    return { text: t('dashboard.goodEvening'), icon: Moon, color: 'text-indigo-400' };
   };
 
   const greeting = getGreeting();
@@ -70,7 +72,7 @@ export default function Dashboard() {
     const ip = serverIp || '127.0.0.1';
     const address = `${ip}:${port}`;
     navigator.clipboard.writeText(address);
-    toast.success(`Copied ${address} to clipboard`);
+    toast.success(t('dashboard.copiedToClipboard', { address }));
   };
 
   // Server control handlers (Keep existing logic)
@@ -78,11 +80,11 @@ export default function Dashboard() {
     try {
       updateServerStatus(serverId, 'starting');
       await startServer(serverId);
-      updateServerStatus(serverId, 'running');
-      toast.success('Server started!');
+      // Don't set to 'running' — keep 'starting' until detection confirms 'online'
+      toast.success(t('dashboard.serverStarted'));
     } catch (error) {
       updateServerStatus(serverId, 'stopped');
-      toast.error(`Failed: ${error}`);
+      toast.error(t('dashboard.failed', { error: String(error) }));
     }
   };
 
@@ -90,9 +92,9 @@ export default function Dashboard() {
     try {
       await stopServer(serverId);
       updateServerStatus(serverId, 'stopped');
-      toast.success('Server stopped!');
+      toast.success(t('dashboard.serverStopped'));
     } catch (error) {
-      toast.error(`Failed: ${error}`);
+      toast.error(t('dashboard.failed', { error }));
     }
   };
 
@@ -100,10 +102,10 @@ export default function Dashboard() {
     try {
       updateServerStatus(serverId, 'starting');
       await restartServer(serverId);
-      updateServerStatus(serverId, 'running');
-      toast.success('Server restarted!');
+      // Don't set to 'running' — keep 'starting' until detection confirms 'online'
+      toast.success(t('dashboard.serverRestarted'));
     } catch (error) {
-      toast.error(`Failed: ${error}`);
+      toast.error(t('dashboard.failed', { error }));
     }
   };
 
@@ -119,9 +121,9 @@ export default function Dashboard() {
     try {
       const newServer = await cloneServer(cloneModalServer.id);
       setServers([...servers, newServer]);
-      toast.success(`Server cloned as "${newServer.name}"`);
+      toast.success(t('dashboard.serverCloned', { name: newServer.name }));
     } catch (error) {
-      toast.error(`Failed to clone: ${error}`);
+      toast.error(t('dashboard.failedClone', { error }));
     }
   };
 
@@ -129,9 +131,9 @@ export default function Dashboard() {
     if (!cloneModalServer) return;
     try {
       await transferSettings(cloneModalServer.id, targetServerId);
-      toast.success('Settings transferred successfully');
+      toast.success(t('dashboard.settingsTransferred'));
     } catch (error) {
-      toast.error(`Failed to transfer settings: ${error}`);
+      toast.error(t('dashboard.failedTransfer', { error }));
     }
   };
 
@@ -139,9 +141,9 @@ export default function Dashboard() {
     if (!cloneModalServer) return;
     try {
       await extractSaveData(cloneModalServer.id, targetServerId);
-      toast.success('Save data extracted successfully');
+      toast.success(t('dashboard.saveDataExtracted'));
     } catch (error) {
-      toast.error(`Failed to extract save data: ${error}`);
+      toast.error(t('dashboard.failedExtract', { error }));
     }
   };
 
@@ -177,8 +179,8 @@ export default function Dashboard() {
 
     fetchSystemInfo();
 
-    // Initial fetch
-    getAllServers().then(setServers).catch(console.error);
+    // Sync with backend state (initial, uses refreshServers to preserve existing statuses)
+    refreshServers();
 
     // Subscribe to real-time status updates
     let unlistenStatus: () => void;
@@ -194,15 +196,15 @@ export default function Dashboard() {
     // Reduced polling frequency (heartbeat)
     const interval = setInterval(() => {
       fetchSystemInfo();
-      // We still poll occasionally to sync other data like player counts or drift
-      getAllServers().then(setServers).catch(console.error);
+      // Use refreshServers which preserves 'online' status from frontend
+      refreshServers();
     }, 30000);
 
     return () => {
       clearInterval(interval);
       if (unlistenStatus) unlistenStatus();
     };
-  }, [setServers, setSystemInfo, updateServerStatus]);
+  }, [setServers, setSystemInfo, updateServerStatus, refreshServers]);
 
   useEffect(() => {
     servers.forEach(server => {
@@ -224,13 +226,13 @@ export default function Dashboard() {
 
   // Quick actions config
   const quickActions = [
-    { name: 'Deploy Server', icon: Zap, path: null, action: () => setShowInstallDialog(true), color: 'sky', shortcut: 'D' },
-    { name: 'Server Manager', icon: Server, path: '/servers', action: null, color: 'emerald', shortcut: 'S' },
-    { name: 'Config Editor', icon: FileEdit, path: '/config', action: null, color: 'violet', shortcut: 'C' },
-    { name: 'RCON Console', icon: Terminal, path: '/rcon', action: null, color: 'cyan', shortcut: 'R' },
-    { name: 'Mod Manager', icon: Puzzle, path: '/mods', action: null, color: 'pink', shortcut: 'M' },
-    { name: 'Backups', icon: Database, path: '/backups', action: null, color: 'amber', shortcut: 'B' },
-    { name: 'Scheduler', icon: Clock, path: '/scheduler', action: null, color: 'rose', shortcut: 'T' },
+    { name: t('dashboard.deployServer'), icon: Zap, path: null, action: () => setShowInstallDialog(true), color: 'sky', shortcut: 'D' },
+    { name: t('dashboard.serverManager'), icon: Server, path: '/servers', action: null, color: 'emerald', shortcut: 'S' },
+    { name: t('dashboard.configEditor'), icon: FileEdit, path: '/config', action: null, color: 'violet', shortcut: 'C' },
+    { name: t('dashboard.rconConsole'), icon: Terminal, path: '/rcon', action: null, color: 'cyan', shortcut: 'R' },
+    { name: t('dashboard.modManager'), icon: Puzzle, path: '/mods', action: null, color: 'pink', shortcut: 'M' },
+    { name: t('dashboard.backups'), icon: Database, path: '/backups', action: null, color: 'amber', shortcut: 'B' },
+    { name: t('dashboard.scheduler'), icon: Clock, path: '/scheduler', action: null, color: 'rose', shortcut: 'T' },
   ];
 
   return (
@@ -250,25 +252,25 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                {greeting.text}, Commander
+                {greeting.text}, {t('dashboard.commander')}
               </h1>
               <p className="text-slate-400 mt-1">
                 {runningServers > 0
-                  ? `${runningServers} server${runningServers > 1 ? 's' : ''} running • System healthy`
-                  : 'All systems standing by'
+                  ? t('dashboard.serversRunning', { count: runningServers })
+                  : t('dashboard.allStandby')
                 }
               </p>
             </div>
           </div>
           <div className="hidden md:flex items-center gap-4">
             <div className="text-right">
-              <p className="text-xs text-slate-500 uppercase tracking-wider">Version</p>
+              <p className="text-xs text-slate-500 uppercase tracking-wider">{t('common.version')}</p>
               <p className="text-sm font-mono text-slate-300">v{appVersion}</p>
             </div>
             <div className="w-px h-10 bg-slate-700"></div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="text-xs font-medium text-green-400">ONLINE</span>
+              <span className="text-xs font-medium text-green-400">{t('dashboard.statusOnline')}</span>
             </div>
           </div>
         </div>
@@ -278,6 +280,7 @@ export default function Dashboard() {
       <SponsorBanner />
 
       {/* Stats Grid - 6 Cards */}
+      {/* Stats Grid - 6 Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {/* Total Servers */}
         <div className="glass-panel rounded-xl p-4 group hover:border-sky-500/30 transition-all">
@@ -285,10 +288,10 @@ export default function Dashboard() {
             <div className="p-2 bg-sky-500/10 rounded-lg">
               <Server className="w-4 h-4 text-sky-400" />
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">Total</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.totalServers')}</span>
           </div>
           <p className="text-2xl font-bold text-white">{totalServers}</p>
-          <p className="text-xs text-slate-500 mt-1">Servers</p>
+          <p className="text-xs text-slate-500 mt-1">{t('dashboard.serversLabel')}</p>
         </div>
 
         {/* Running */}
@@ -297,10 +300,10 @@ export default function Dashboard() {
             <div className="p-2 bg-green-500/10 rounded-lg">
               <Activity className="w-4 h-4 text-green-400" />
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">Running</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.runningLabel')}</span>
           </div>
           <p className="text-2xl font-bold text-green-400">{runningServers}</p>
-          <p className="text-xs text-slate-500 mt-1">Online</p>
+          <p className="text-xs text-slate-500 mt-1">{t('dashboard.onlineLabel')}</p>
         </div>
 
         {/* Stopped */}
@@ -309,10 +312,10 @@ export default function Dashboard() {
             <div className="p-2 bg-slate-500/10 rounded-lg">
               <Square className="w-4 h-4 text-slate-400" />
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">Stopped</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.stoppedLabel')}</span>
           </div>
           <p className="text-2xl font-bold text-slate-400">{stoppedServers}</p>
-          <p className="text-xs text-slate-500 mt-1">Offline</p>
+          <p className="text-xs text-slate-500 mt-1">{t('dashboard.offlineLabel')}</p>
         </div>
 
         {/* CPU */}
@@ -321,7 +324,7 @@ export default function Dashboard() {
             <div className="p-2 bg-violet-500/10 rounded-lg">
               <Cpu className="w-4 h-4 text-violet-400" />
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">CPU</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.cpu')}</span>
           </div>
           <p className="text-2xl font-bold text-white">{systemInfo?.cpuUsage.toFixed(0) || 0}%</p>
           <div className="w-full bg-slate-700/50 rounded-full h-1 mt-2">
@@ -335,7 +338,7 @@ export default function Dashboard() {
             <div className="p-2 bg-pink-500/10 rounded-lg">
               <TrendingUp className="w-4 h-4 text-pink-400" />
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">RAM</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.ram')}</span>
           </div>
           <p className="text-2xl font-bold text-white">{memoryPercent.toFixed(0)}%</p>
           <div className="w-full bg-slate-700/50 rounded-full h-1 mt-2">
@@ -349,7 +352,7 @@ export default function Dashboard() {
             <div className="p-2 bg-amber-500/10 rounded-lg">
               <HardDrive className="w-4 h-4 text-amber-400" />
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">Disk</span>
+            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.disk')}</span>
           </div>
           <p className="text-2xl font-bold text-white">{diskPercent.toFixed(0)}%</p>
           <div className="w-full bg-slate-700/50 rounded-full h-1 mt-2">
@@ -363,140 +366,143 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <Terminal className="w-5 h-5 text-sky-400" />
-            Server Control Hub
+            {t('dashboard.serverControlHub')}
           </h2>
           <button
             onClick={() => navigate('/servers')}
             className="text-sm text-sky-400 hover:text-sky-300 transition-colors"
           >
-            Manage All →
+            {t('dashboard.manageAll')}
           </button>
         </div>
 
-        {servers.length === 0 ? (
-          <div className="text-center py-12 border-2 border-dashed border-slate-700/50 rounded-xl">
-            <Server className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <h3 className="text-lg font-semibold text-slate-300 mb-2">No Servers</h3>
-            <p className="text-slate-500 text-sm mb-4">Deploy your first server to get started</p>
-            <button
-              onClick={() => setShowInstallDialog(true)}
-              className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg transition-all text-sm font-medium"
-            >
-              Deploy Server
-            </button>
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            {servers.slice(0, 4).map((server) => (
-              <div
-                key={server.id}
-                className="flex items-center justify-between p-4 bg-slate-800/40 border border-slate-700/50 rounded-xl hover:bg-slate-800/60 transition-all group"
+        {
+          servers.length === 0 ? (
+            <div className="text-center py-12 border-2 border-dashed border-slate-700/50 rounded-xl">
+              <Server className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-slate-300 mb-2">{t('dashboard.noServers')}</h3>
+              <p className="text-slate-500 text-sm mb-4">{t('dashboard.deployFirst')}</p>
+              <button
+                onClick={() => setShowInstallDialog(true)}
+                className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg transition-all text-sm font-medium"
               >
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <div className={cn(
-                      'w-3 h-3 rounded-full',
-                      server.status === 'running' && 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]',
-                      server.status === 'stopped' && 'bg-slate-500',
-                      server.status === 'crashed' && 'bg-red-500',
-                      server.status === 'starting' && 'bg-yellow-500 animate-pulse',
-                      server.status === 'updating' && 'bg-blue-500 animate-pulse',
-                      server.status === 'repairing' && 'bg-orange-500 animate-pulse'
-                    )} />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">{server.name}</h3>
-                    <p className="text-xs text-slate-400">{server.config.mapName} • Port {server.ports.gamePort}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {/* IP Display + Copy */}
-                  <div className="hidden md:flex items-center bg-slate-900/50 rounded-lg px-3 py-1.5 border border-slate-700">
-                    <span className="text-xs font-mono text-slate-400 mr-2">{server.ipAddress || '127.0.0.1'}:{server.ports.gamePort}</span>
-                    <button
-                      onClick={() => handleCopyIp(server.ipAddress, server.ports.gamePort)}
-                      className="p-1 hover:bg-slate-700 rounded transition-colors"
-                      title="Copy IP"
-                    >
-                      <Copy className="w-3 h-3 text-slate-500 hover:text-sky-400" />
-                    </button>
+                {t('dashboard.deployServer')}
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {servers.slice(0, 4).map((server) => (
+                <div
+                  key={server.id}
+                  className="flex items-center justify-between p-4 bg-slate-800/40 border border-slate-700/50 rounded-xl hover:bg-slate-800/60 transition-all group"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className={cn(
+                        'w-3 h-3 rounded-full',
+                        server.status === 'online' && 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]',
+                        server.status === 'running' && 'bg-yellow-500 animate-pulse',
+                        server.status === 'stopped' && 'bg-slate-500',
+                        server.status === 'crashed' && 'bg-red-500',
+                        server.status === 'starting' && 'bg-yellow-500 animate-pulse',
+                        server.status === 'updating' && 'bg-blue-500 animate-pulse',
+                        server.status === 'repairing' && 'bg-orange-500 animate-pulse'
+                      )} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white">{server.name}</h3>
+                      <p className="text-xs text-slate-400">{server.config.mapName} • {t('common.port')} {server.ports.gamePort}</p>
+                    </div>
                   </div>
 
-                  {/* Server Controls */}
-                  {server.status === 'stopped' || server.status === 'crashed' ? (
-                    <button
-                      onClick={() => handleStartServer(server.id)}
-                      className="p-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg transition-all"
-                      title="Start"
-                    >
-                      <Play className="w-4 h-4 fill-current" />
-                    </button>
-                  ) : (server.status === 'running' || server.status === 'online') ? (
-                    <>
+                  <div className="flex items-center gap-2">
+                    {/* IP Display + Copy */}
+                    <div className="hidden md:flex items-center bg-slate-900/50 rounded-lg px-3 py-1.5 border border-slate-700">
+                      <span className="text-xs font-mono text-slate-400 mr-2">{server.ipAddress || '127.0.0.1'}:{server.ports.gamePort}</span>
                       <button
-                        onClick={() => handleRestartServer(server.id)}
-                        className="p-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded-lg transition-all"
-                        title="Restart"
+                        onClick={() => handleCopyIp(server.ipAddress, server.ports.gamePort)}
+                        className="p-1 hover:bg-slate-700 rounded transition-colors"
+                        title={t('dashboard.copyIp')}
                       >
-                        <RotateCw className="w-4 h-4" />
+                        <Copy className="w-3 h-3 text-slate-500 hover:text-sky-400" />
                       </button>
-                      <button
-                        onClick={() => handleStopServer(server.id)}
-                        className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-all"
-                        title="Stop"
-                      >
-                        <Square className="w-4 h-4 fill-current" />
-                      </button>
-                    </>
-                  ) : null}
+                    </div>
 
-                  {/* Status Badge with Reachability */}
-                  <div className={cn(
-                    'px-2.5 py-1 rounded-lg text-xs font-bold border ml-2 flex items-center gap-2 transition-all duration-300',
-                    server.status === 'online' && 'bg-green-500/20 text-green-300 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.3)] animate-pulse',
-                    server.status === 'running' && 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20 animate-pulse',
-                    server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-                    server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
-                    server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-                    server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-                    server.status === 'repairing' && 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-                  )}>
-                    <span>
-                      {server.status === 'online' ? 'ONLINE' :
-                        server.status === 'running' ? 'LOADING...' :
-                          server.status.toUpperCase()}
-                    </span>
-                    {(server.status === 'online' || server.status === 'running') && server.reachability && (
+                    {/* Server Controls */}
+                    {(server.status === 'stopped' || server.status === 'crashed') ? (
+                      <button
+                        onClick={() => handleStartServer(server.id)}
+                        className="p-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg transition-all"
+                        title={t('common.start')}
+                      >
+                        <Play className="w-4 h-4 fill-current" />
+                      </button>
+                    ) : (server.status === 'running' || server.status === 'online') ? (
                       <>
-                        <div className="w-px h-3 bg-current opacity-20"></div>
-                        <span className="opacity-90 font-medium">
-                          {server.reachability === 'Public' ? 'PUBLIC' : 'LAN'}
-                        </span>
+                        <button
+                          onClick={() => handleRestartServer(server.id)}
+                          className="p-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded-lg transition-all"
+                          title={t('common.restart')}
+                        >
+                          <RotateCw className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleStopServer(server.id)}
+                          className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-all"
+                          title={t('common.stop')}
+                        >
+                          <Square className="w-4 h-4 fill-current" />
+                        </button>
                       </>
-                    )}
-                  </div>
+                    ) : null}
 
-                  {/* Clone Button */}
-                  <button
-                    onClick={() => openCloneModal(server)}
-                    className="p-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-lg transition-all ml-1"
-                    title="Clone / Transfer / Extract"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
+                    {/* Status Badge with Reachability */}
+                    <div className={cn(
+                      'px-2.5 py-1 rounded-lg text-xs font-bold border ml-2 flex items-center gap-2 transition-all duration-300',
+                      server.status === 'online' && 'bg-green-500/20 text-green-300 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.3)] animate-pulse',
+                      server.status === 'running' && 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20 animate-pulse',
+                      server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+                      server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
+                      server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+                      server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                      server.status === 'repairing' && 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                    )}>
+                      <span>
+                        {server.status === 'online' ? t('dashboard.statusOnline') :
+                          server.status === 'running' ? t('dashboard.statusLoading') :
+                            t(`serverManager.serverStatus.${server.status}`, server.status?.toUpperCase() || 'UNKNOWN')}
+                      </span>
+                      {(server.status === 'online' || server.status === 'running') && server.reachability && (
+                        <>
+                          <div className="w-px h-3 bg-current opacity-20"></div>
+                          <span className="opacity-90 font-medium">
+                            {server.reachability === 'Public' ? t('dashboard.statusPublic') : t('dashboard.statusLan')}
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Clone Button */}
+                    <button
+                      onClick={() => openCloneModal(server)}
+                      className="p-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-lg transition-all ml-1"
+                      title={t('dashboard.cloneTransferExtract')}
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )
+        }
       </div>
 
       {/* Quick Actions Panel - 8 Actions */}
       <div className="glass-panel rounded-2xl p-6">
         <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
           <Zap className="w-5 h-5 text-amber-400" />
-          Quick Actions
+          {t('dashboard.quickActions')}
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
           {quickActions.map((action) => {
@@ -546,22 +552,26 @@ export default function Dashboard() {
       <PerformanceMonitor data={performanceHistory} />
 
       {/* Install Server Dialog */}
-      {showInstallDialog && (
-        <InstallServerDialog onClose={() => setShowInstallDialog(false)} />
-      )}
+      {
+        showInstallDialog && (
+          <InstallServerDialog onClose={() => setShowInstallDialog(false)} />
+        )
+      }
 
       {/* Clone Options Modal */}
-      {cloneModalServer && (
-        <CloneOptionsModal
-          isOpen={true}
-          onClose={() => setCloneModalServer(null)}
-          sourceServer={cloneModalServer}
-          allServers={servers}
-          onCloneServer={handleCloneServer}
-          onTransferSettings={handleTransferSettings}
-          onExtractData={handleExtractData}
-        />
-      )}
+      {
+        cloneModalServer && (
+          <CloneOptionsModal
+            isOpen={true}
+            onClose={() => setCloneModalServer(null)}
+            sourceServer={cloneModalServer}
+            allServers={servers}
+            onCloneServer={handleCloneServer}
+            onTransferSettings={handleTransferSettings}
+            onExtractData={handleExtractData}
+          />
+        )
+      }
     </motion.div>
   );
 }

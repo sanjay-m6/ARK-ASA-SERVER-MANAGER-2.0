@@ -38,6 +38,12 @@ pub async fn save_discord_bridge_config(
             )
             .unwrap_or(0);
 
+        // Ensure column exists (Migration)
+        let _ = conn.execute(
+            "ALTER TABLE discord_bridge_config ADD COLUMN admin_channel_id TEXT DEFAULT ''",
+            [],
+        );
+
         if exists > 0 {
             conn.execute(
                 "UPDATE discord_bridge_config SET 
@@ -45,8 +51,8 @@ pub async fn save_discord_bridge_config(
                     game_to_discord = ?5, discord_to_game = ?6,
                     server_list_enabled = ?7, server_list_channel_id = ?8, server_list_message_id = ?9,
                     player_list_enabled = ?10, player_list_channel_id = ?11, player_list_message_id = ?12,
-                    show_tribe_names = ?13, show_playtime = ?14, updated_at = CURRENT_TIMESTAMP
-                WHERE cluster_id = ?15",
+                    show_tribe_names = ?13, show_playtime = ?14, admin_channel_id = ?15, updated_at = CURRENT_TIMESTAMP
+                WHERE cluster_id = ?16",
                 rusqlite::params![
                     config.enabled,
                     config.bot_token,
@@ -62,6 +68,7 @@ pub async fn save_discord_bridge_config(
                     config.player_list_message_id,
                     config.show_tribe_names,
                     config.show_playtime,
+                    config.admin_channel_id,
                     config.cluster_id
                 ],
             )
@@ -73,8 +80,8 @@ pub async fn save_discord_bridge_config(
                     game_to_discord, discord_to_game,
                     server_list_enabled, server_list_channel_id, server_list_message_id,
                     player_list_enabled, player_list_channel_id, player_list_message_id,
-                    show_tribe_names, show_playtime
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                    show_tribe_names, show_playtime, admin_channel_id
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
                 rusqlite::params![
                     config.cluster_id,
                     config.enabled,
@@ -90,7 +97,8 @@ pub async fn save_discord_bridge_config(
                     config.player_list_channel_id,
                     config.player_list_message_id,
                     config.show_tribe_names,
-                    config.show_playtime
+                    config.show_playtime,
+                    config.admin_channel_id
                 ],
             )
             .map_err(|e| e.to_string())?;
@@ -135,7 +143,7 @@ pub async fn get_discord_bridge_config(
                     game_to_discord, discord_to_game,
                     server_list_enabled, server_list_channel_id, server_list_message_id,
                     player_list_enabled, player_list_channel_id, player_list_message_id,
-                    show_tribe_names, show_playtime
+                    show_tribe_names, show_playtime, admin_channel_id
              FROM discord_bridge_config WHERE cluster_id = ?1",
             [cluster_id],
             |row| {
@@ -155,6 +163,7 @@ pub async fn get_discord_bridge_config(
                     player_list_message_id: row.get(12)?,
                     show_tribe_names: row.get::<_, i32>(13)? != 0,
                     show_playtime: row.get::<_, i32>(14)? != 0,
+                    admin_channel_id: row.get::<_, Option<String>>(15)?.unwrap_or_default(),
                 })
             },
         )

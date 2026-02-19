@@ -20,43 +20,45 @@ import {
   ChevronRight,
   Folder
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
 import { useServerStore } from '../../stores/serverStore';
 import logo from '../../assets/logo.png';
-
-const navigation = [
-  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'Server Manager', path: '/servers', icon: Server },
-  { name: 'RCON Console', path: '/rcon', icon: Terminal },
-  { name: 'Scheduler', path: '/scheduler', icon: Clock },
-  { name: 'Mod Manager', path: '/mods', icon: Puzzle },
-  { name: 'Config Editor', path: '/config', icon: FileEdit },
-  { name: 'Cluster Manager', path: '/clusters', icon: Network },
-  { name: 'Backups & Rollbacks', path: '/backups', icon: Database },
-  { name: 'Logs Console', path: '/logs', icon: ScrollText },
-  {
-    name: 'Tools',
-    icon: Wrench,
-    children: [
-      { name: 'Advanced', path: '/tools/advanced', icon: Cpu },
-      { name: 'Discord Bot', path: '/tools/discord', icon: MessageSquare },
-      { name: 'Plugins', path: '/tools/plugins', icon: Plug },
-      { name: 'File Manager', path: '/tools/files', icon: Folder },
-    ]
-  },
-  { name: 'Settings', path: '/settings', icon: SettingsIcon },
-];
 
 export default function Sidebar() {
   const location = useLocation();
   const [appVersion, setAppVersion] = useState<string>('');
   const servers = useServerStore((state) => state.servers);
   const [openSections, setOpenSections] = useState<string[]>(['Tools']);
+  const { t } = useTranslation();
+
+  const navigation = [
+    { name: t('sidebar.dashboard'), path: '/dashboard', icon: LayoutDashboard },
+    { name: t('sidebar.serverManager'), path: '/servers', icon: Server },
+    { name: t('sidebar.rconConsole'), path: '/rcon', icon: Terminal },
+    { name: t('sidebar.scheduler'), path: '/scheduler', icon: Clock },
+    { name: t('sidebar.modManager'), path: '/mods', icon: Puzzle },
+    { name: t('sidebar.configEditor'), path: '/config', icon: FileEdit },
+    { name: t('sidebar.clusterManager'), path: '/clusters', icon: Network },
+    { name: t('sidebar.backups'), path: '/backups', icon: Database },
+    { name: t('sidebar.logsConsole'), path: '/logs', icon: ScrollText },
+    {
+      name: t('sidebar.tools'),
+      icon: Wrench,
+      children: [
+        { name: t('sidebar.advanced'), path: '/tools/advanced', icon: Cpu },
+        { name: t('sidebar.discordBot'), path: '/tools/discord', icon: MessageSquare },
+        { name: t('sidebar.plugins'), path: '/tools/plugins', icon: Plug },
+        { name: t('sidebar.fileManager'), path: '/tools/files', icon: Folder },
+      ]
+    },
+    { name: t('sidebar.settings'), path: '/settings', icon: SettingsIcon },
+  ];
 
   // Check if any server is running
   const runningServers = servers.filter((s) => s.status === 'running');
   const isAnyServerRunning = runningServers.length > 0;
-  const systemStatus = isAnyServerRunning ? 'RUNNING' : 'ONLINE';
+  const systemStatus = isAnyServerRunning ? t('serverManager.serverStatus.running') : t('serverManager.serverStatus.online');
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => setAppVersion('?.?.?'));
@@ -85,7 +87,7 @@ export default function Sidebar() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 font-display">ARK Manager</h1>
-            <p className="text-xs text-slate-400 font-medium tracking-wide">COMMAND CENTER 2.1</p>
+            <p className="text-xs text-slate-400 font-medium tracking-wide">{t('sidebar.commandCenter')} 2.1</p>
           </div>
         </div>
       </div>
@@ -180,7 +182,7 @@ export default function Sidebar() {
       <div className="p-6 border-t border-white/5">
         <div className="glass-panel rounded-xl p-4 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border-white/5">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-slate-300">System Status</span>
+            <span className="text-xs font-medium text-slate-300">{t('sidebar.systemStatus')}</span>
             <span className={cn(
               "text-xs font-bold",
               isAnyServerRunning ? "text-cyan-400" : "text-green-400"

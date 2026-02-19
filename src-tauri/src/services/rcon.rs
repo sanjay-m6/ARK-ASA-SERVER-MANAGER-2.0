@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 
+#[derive(Clone)]
 pub struct RconService {
     connections: Arc<Mutex<HashMap<i64, Connection<TcpStream>>>>,
 }

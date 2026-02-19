@@ -9,8 +9,10 @@ import { listen } from '@tauri-apps/api/event';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import DiscordBridgeSettings from '../components/cluster/DiscordBridgeSettings';
 import EditClusterDialog from '../components/cluster/EditClusterDialog';
+import { useTranslation } from 'react-i18next';
 
 export default function ClusterManager() {
+    const { t } = useTranslation();
     const [clusters, setClusters] = useState<Cluster[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -42,7 +44,7 @@ export default function ClusterManager() {
             setCrossChatStatus(statuses);
         } catch (error) {
             console.error('Failed to fetch clusters:', error);
-            toast.error('Failed to fetch clusters');
+            toast.error(t('clusterManager.fetchFailed', 'Failed to fetch clusters'));
         } finally {
             setIsLoading(false);
         }
@@ -63,11 +65,11 @@ export default function ClusterManager() {
 
     const handleCreateCluster = async () => {
         if (!newClusterName.trim()) {
-            toast.error('Cluster name is required');
+            toast.error(t('clusterManager.clusterNameReq'));
             return;
         }
         if (selectedServers.length < 2) {
-            toast.error('Select at least 2 servers for a cluster');
+            toast.error(t('clusterManager.selectServersReq'));
             return;
         }
 
@@ -77,7 +79,7 @@ export default function ClusterManager() {
                 selectedServers,
                 newClusterPath.trim() || undefined,
             );
-            toast.success('Cluster created successfully');
+            toast.success(t('clusterManager.clusterCreated'));
             setNewClusterName('');
             setNewClusterPath('');
             setSelectedServers([]);
@@ -85,7 +87,7 @@ export default function ClusterManager() {
             fetchClusters();
         } catch (error) {
             console.error('Failed to create cluster:', error);
-            toast.error(typeof error === 'string' ? error : 'Failed to create cluster');
+            toast.error(t('clusterManager.createFailed', { error: typeof error === 'string' ? error : 'Unknown error' }));
         }
     };
 
@@ -95,12 +97,12 @@ export default function ClusterManager() {
         if (!deleteConfirmCluster) return;
         try {
             await deleteCluster(deleteConfirmCluster.id);
-            toast.success('Cluster deleted');
+            toast.success(t('clusterManager.clusterDeleted'));
             setDeleteConfirmCluster(null);
             fetchClusters();
         } catch (error) {
             console.error('Failed to delete cluster:', error);
-            toast.error(typeof error === 'string' ? error : 'Failed to delete cluster');
+            toast.error(t('clusterManager.deleteFailed', { error: typeof error === 'string' ? error : 'Unknown error' }));
         }
     };
 
@@ -108,11 +110,11 @@ export default function ClusterManager() {
         setStartingCluster(clusterId);
         try {
             await startCluster(clusterId);
-            toast.success('Starting all servers in cluster');
+            toast.success(t('clusterManager.startCluster'));
             refreshServers();
         } catch (error) {
             console.error('Failed to start cluster:', error);
-            toast.error('Failed to start cluster');
+            toast.error(t('clusterManager.startFailed'));
         } finally {
             setStartingCluster(null);
         }
@@ -122,11 +124,11 @@ export default function ClusterManager() {
         setStoppingCluster(clusterId);
         try {
             await stopCluster(clusterId);
-            toast.success('Stopping all servers in cluster');
+            toast.success(t('clusterManager.stopCluster'));
             refreshServers();
         } catch (error) {
             console.error('Failed to stop cluster:', error);
-            toast.error('Failed to stop cluster');
+            toast.error(t('clusterManager.stopFailed'));
         } finally {
             setStoppingCluster(null);
         }
@@ -156,15 +158,15 @@ export default function ClusterManager() {
         try {
             await toggleClusterCrossChat(clusterId, !currentStatus);
             setCrossChatStatus(prev => ({ ...prev, [clusterId]: !currentStatus }));
-            toast.success(`Cross-chat ${!currentStatus ? 'enabled' : 'disabled'}`);
+            toast.success(t('clusterManager.crossChatToggled', { status: !currentStatus ? 'enabled' : 'disabled' }));
         } catch (error) {
             console.error('Failed to toggle cross-chat:', error);
-            toast.error('Failed to toggle cross-chat');
+            toast.error(t('clusterManager.crossChatFailed'));
         }
     };
 
     const handleBrowseClusterPath = async () => {
-        const selected = await selectFolder('Select Cluster Directory');
+        const selected = await selectFolder(t('clusterManager.selectClusterDir'));
         if (selected) {
             setNewClusterPath(selected);
         }
@@ -176,9 +178,9 @@ export default function ClusterManager() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">
-                        Cluster Manager
+                        {t('clusterManager.title')}
                     </h1>
-                    <p className="text-slate-400 mt-2 text-lg">Link servers for cross-ARK travel</p>
+                    <p className="text-slate-400 mt-2 text-lg">{t('clusterManager.subtitle')}</p>
                 </div>
                 {!isCreating && (
                     <button
@@ -186,7 +188,7 @@ export default function ClusterManager() {
                         className="flex items-center space-x-2 px-6 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg transition-colors shadow-lg shadow-pink-500/20 font-medium"
                     >
                         <Plus className="w-5 h-5" />
-                        <span>Create Cluster</span>
+                        <span>{t('clusterManager.createCluster')}</span>
                     </button>
                 )}
             </div>
@@ -194,24 +196,24 @@ export default function ClusterManager() {
             {/* Create Cluster Form */}
             {isCreating && (
                 <div className="glass-panel rounded-2xl p-6 border-pink-500/30 shadow-lg shadow-pink-500/10">
-                    <h3 className="text-xl font-semibold text-white mb-4">New Cluster Configuration</h3>
+                    <h3 className="text-xl font-semibold text-white mb-4">{t('clusterManager.clusterConfig')}</h3>
                     <div className="space-y-6">
                         <div>
-                            <label className="text-sm font-medium text-slate-300 block mb-2">Cluster Name</label>
+                            <label className="text-sm font-medium text-slate-300 block mb-2">{t('clusterManager.clusterName')}</label>
                             <input
                                 type="text"
                                 value={newClusterName}
                                 onChange={(e) => setNewClusterName(e.target.value)}
                                 className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
-                                placeholder="My Awesome Cluster"
+                                placeholder={t('clusterManager.placeholderName')}
                             />
                         </div>
 
                         {/* Cluster Folder Path */}
                         <div>
                             <label className="text-sm font-medium text-slate-300 block mb-2">
-                                Cluster Folder Path
-                                <span className="text-slate-500 font-normal ml-1">(optional)</span>
+                                {t('clusterManager.clusterDir')}
+                                <span className="text-slate-500 font-normal ml-1">({t('common.optional', 'optional')})</span>
                             </label>
                             <div className="flex gap-2">
                                 <input
@@ -219,23 +221,23 @@ export default function ClusterManager() {
                                     value={newClusterPath}
                                     onChange={(e) => setNewClusterPath(e.target.value)}
                                     className="flex-1 px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
-                                    placeholder="C:\ASA_Clusters (default)"
+                                    placeholder={t('clusterManager.placeholderPath')}
                                 />
                                 <button
                                     onClick={handleBrowseClusterPath}
                                     className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center gap-2"
                                 >
                                     <FolderOpen className="w-4 h-4" />
-                                    Browse
+                                    {t('common.browse', 'Browse')}
                                 </button>
                             </div>
                             <p className="text-xs text-slate-500 mt-1">
-                                Leave empty to use the default path (C:\ASA_Clusters)
+                                {t('clusterManager.defaultPath')}
                             </p>
                         </div>
 
                         <div>
-                            <label className="text-sm font-medium text-slate-300 block mb-2">Select Servers to Link</label>
+                            <label className="text-sm font-medium text-slate-300 block mb-2">{t('clusterManager.selectServers')}</label>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {servers.map(server => (
                                     <div
@@ -265,13 +267,13 @@ export default function ClusterManager() {
                                 onClick={() => setIsCreating(false)}
                                 className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
                             >
-                                Cancel
+                                {t('common.cancel', 'Cancel')}
                             </button>
                             <button
                                 onClick={handleCreateCluster}
                                 className="px-6 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg transition-colors shadow-lg shadow-pink-500/20 font-medium"
                             >
-                                Create Cluster
+                                {t('clusterManager.createCluster')}
                             </button>
                         </div>
                     </div>
@@ -287,8 +289,8 @@ export default function ClusterManager() {
                 ) : clusters.length === 0 && !isCreating ? (
                     <div className="text-center py-20 glass-panel rounded-2xl border-dashed border-2 border-slate-700/50">
                         <Network className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-slate-300">No Clusters Active</h3>
-                        <p className="text-slate-500 mt-2">Create a cluster to enable cross-server travel</p>
+                        <h3 className="text-xl font-semibold text-slate-300">{t('clusterManager.noClusters')}</h3>
+                        <p className="text-slate-500 mt-2">{t('clusterManager.createFirst')}</p>
                     </div>
                 ) : (
                     clusters.map(cluster => (
@@ -298,14 +300,14 @@ export default function ClusterManager() {
                                 <button
                                     onClick={() => setEditCluster(cluster)}
                                     className="p-2 text-slate-400 hover:text-pink-400 hover:bg-pink-500/10 rounded-lg transition-colors"
-                                    title="Edit Cluster"
+                                    title={t('clusterManager.editCluster')}
                                 >
                                     <Pencil className="w-5 h-5" />
                                 </button>
                                 <button
                                     onClick={() => setDeleteConfirmCluster(cluster)}
                                     className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                    title="Delete Cluster"
+                                    title={t('clusterManager.deleteCluster')}
                                 >
                                     <Trash2 className="w-5 h-5" />
                                 </button>
@@ -323,7 +325,7 @@ export default function ClusterManager() {
                                             "ml-1 font-medium",
                                             getClusterRunningCount(cluster) > 0 ? "text-emerald-400" : "text-slate-500"
                                         )}>
-                                            {getClusterRunningCount(cluster)}/{cluster.serverIds.length} Running
+                                            {t('clusterManager.runningCount', { running: getClusterRunningCount(cluster), total: cluster.serverIds.length })}
                                         </span>
                                     </p>
                                     <p className="text-xs text-slate-500 mt-0.5 font-mono truncate max-w-[400px]" title={cluster.clusterPath}>
@@ -343,7 +345,7 @@ export default function ClusterManager() {
                                         ) : (
                                             <Play className="w-4 h-4" />
                                         )}
-                                        <span>Start All</span>
+                                        <span>{t('clusterManager.startAll')}</span>
                                     </button>
                                     <button
                                         onClick={() => handleStopCluster(cluster.id)}
@@ -355,7 +357,7 @@ export default function ClusterManager() {
                                         ) : (
                                             <Square className="w-4 h-4" />
                                         )}
-                                        <span>Stop All</span>
+                                        <span>{t('clusterManager.stopAll')}</span>
                                     </button>
 
                                     {/* Cross-Chat Toggle */}
@@ -370,10 +372,10 @@ export default function ClusterManager() {
                                         title="Cross-Server Chat (Experimental)"
                                     >
                                         <MessageCircle className="w-4 h-4" />
-                                        <span>Chat</span>
+                                        <span>{t('clusterManager.chat')}</span>
                                         <span className="absolute -top-1.5 -right-1 px-1 py-0.5 bg-amber-500 text-[9px] font-bold text-black rounded flex items-center gap-0.5">
                                             <FlaskConical className="w-2 h-2" />
-                                            BETA
+                                            {t('clusterManager.beta')}
                                         </span>
                                     </button>
                                 </div>
@@ -432,7 +434,7 @@ export default function ClusterManager() {
                             >
                                 <div className="flex items-center gap-2">
                                     <MessageCircle className="w-4 h-4 text-violet-400" />
-                                    <span className="text-sm text-slate-300">Discord Bridge Settings</span>
+                                    <span className="text-sm text-slate-300">{t('clusterManager.discordSettings')}</span>
                                 </div>
                                 {expandedDiscord === cluster.id ? (
                                     <ChevronUp className="w-4 h-4 text-slate-400" />
@@ -460,9 +462,9 @@ export default function ClusterManager() {
                 isOpen={!!deleteConfirmCluster}
                 onClose={() => setDeleteConfirmCluster(null)}
                 onConfirm={confirmDeleteCluster}
-                title="Delete Cluster"
-                message={`Are you sure you want to delete "${deleteConfirmCluster?.name}"? This will unlink all servers from this cluster.`}
-                confirmText="Delete"
+                title={t('clusterManager.confirmDelete')}
+                message={t('clusterManager.confirmDeleteMsg', { name: deleteConfirmCluster?.name || '' })}
+                confirmText={t('common.delete', 'Delete')}
                 variant="danger"
             />
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-// import { invoke } from '@tauri-apps/api/core'; // Removed unused import
+import { useTranslation } from 'react-i18next';
 import {
     Save,
     Trash2,
@@ -10,7 +10,9 @@ import {
     Zap,
     Activity,
     Server as ServerIcon,
-    CheckCircle
+    CheckCircle,
+    Download,
+    AlertTriangle
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { toast } from 'react-hot-toast';
@@ -28,17 +30,19 @@ import {
 } from '../utils/tauri';
 
 const TASK_TYPES = [
-    { value: 'restart', label: 'Server Restart', icon: RefreshCw, color: 'text-orange-400', border: 'border-orange-500/50', bg: 'bg-orange-500/10' },
-    { value: 'backup', label: 'Auto Backup', icon: Terminal, color: 'text-blue-400', border: 'border-blue-500/50', bg: 'bg-blue-500/10' },
-    { value: 'save-world', label: 'Save World', icon: Save, color: 'text-green-400', border: 'border-green-500/50', bg: 'bg-green-500/10' },
-    { value: 'announcement', label: 'Announcement', icon: MessageSquare, color: 'text-purple-400', border: 'border-purple-500/50', bg: 'bg-purple-500/10' },
-    { value: 'destroy-wild-dinos', label: 'Destroy Wild Dinos', icon: Zap, color: 'text-red-400', border: 'border-red-500/50', bg: 'bg-red-500/10' },
-    { value: 'BoostStart', label: 'Start Rate Boost', icon: Activity, color: 'text-emerald-400', border: 'border-emerald-500/50', bg: 'bg-emerald-500/10' },
-    { value: 'BoostEnd', label: 'End Rate Boost', icon: Activity, color: 'text-slate-400', border: 'border-slate-500/50', bg: 'bg-slate-500/10' },
-    { value: 'rcon-command', label: 'Custom RCON', icon: ServerIcon, color: 'text-cyan-400', border: 'border-cyan-500/50', bg: 'bg-cyan-500/10' },
+    { value: 'restart', labelKey: 'scheduler.restart', icon: RefreshCw, color: 'text-orange-400', border: 'border-orange-500/50', bg: 'bg-orange-500/10' },
+    { value: 'AutoUpdateMods', labelKey: 'scheduler.autoUpdateMods', icon: Download, color: 'text-cyan-400', border: 'border-cyan-500/50', bg: 'bg-cyan-500/10' },
+    { value: 'backup', labelKey: 'scheduler.backup', icon: Terminal, color: 'text-blue-400', border: 'border-blue-500/50', bg: 'bg-blue-500/10' },
+    { value: 'save-world', labelKey: 'common.save', icon: Save, color: 'text-green-400', border: 'border-green-500/50', bg: 'bg-green-500/10' },
+    { value: 'announcement', labelKey: 'scheduler.broadcast', icon: MessageSquare, color: 'text-purple-400', border: 'border-purple-500/50', bg: 'bg-purple-500/10' },
+    { value: 'destroy-wild-dinos', labelKey: 'scheduler.destroyDinos', icon: Zap, color: 'text-red-400', border: 'border-red-500/50', bg: 'bg-red-500/10' },
+    { value: 'BoostStart', labelKey: 'scheduler.custom', icon: Activity, color: 'text-emerald-400', border: 'border-emerald-500/50', bg: 'bg-emerald-500/10' },
+    { value: 'BoostEnd', labelKey: 'scheduler.custom', icon: Activity, color: 'text-slate-400', border: 'border-slate-500/50', bg: 'bg-slate-500/10' },
+    { value: 'rcon-command', labelKey: 'scheduler.rconCommand', icon: ServerIcon, color: 'text-cyan-400', border: 'border-cyan-500/50', bg: 'bg-cyan-500/10' },
 ];
 
 export default function Scheduler() {
+    const { t } = useTranslation();
     const { servers, setServers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const [settings, setSettings] = useState<SchedulerSettings | null>(null);
@@ -50,12 +54,16 @@ export default function Scheduler() {
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
     // New Task Form State
+    const [newTaskName, setNewTaskName] = useState('');
     const [newTaskType, setNewTaskType] = useState('restart');
     const [cronSchedule, setCronSchedule] = useState('0 */6 * * *'); // Every 6 hours default
     const [customCron, setCustomCron] = useState('');
     const [preWarning, setPreWarning] = useState(5);
     const [customCommand, setCustomCommand] = useState('');
     const [announcementMsg, setAnnouncementMsg] = useState('');
+
+    // Delete Confirmation State
+    const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
 
     // Load servers
     useEffect(() => {
@@ -81,7 +89,7 @@ export default function Scheduler() {
             setSettings(data);
         } catch (error) {
             console.error('Failed to fetch settings:', error);
-            toast.error('Failed to load scheduler settings');
+            toast.error(t('scheduler.loadFailed'));
         }
     };
 
@@ -91,7 +99,7 @@ export default function Scheduler() {
             const data = await getScheduledTasks(selectedServerId);
             setTasks(data);
         } catch (error) {
-            toast.error('Failed to load scheduled tasks');
+            toast.error(t('scheduler.loadTasksFailed'));
         }
     };
 
@@ -103,9 +111,9 @@ export default function Scheduler() {
             } else if (settings?.mode === 'advanced') {
                 const next = calculateNextAdvancedRun();
                 if (next) updateCountdown(next.toISOString());
-                else setNextRunCountdown('Not scheduled');
+                else setNextRunCountdown(t('scheduler.notScheduled'));
             } else {
-                setNextRunCountdown('Not scheduled');
+                setNextRunCountdown(t('scheduler.notScheduled'));
             }
         }, 1000);
         return () => clearInterval(interval);
@@ -116,7 +124,7 @@ export default function Scheduler() {
         const target = new Date(targetIso).getTime();
         const distance = target - now;
         if (distance < 0) {
-            setNextRunCountdown('Pending...');
+            setNextRunCountdown(t('scheduler.pending'));
             return;
         }
         const days = Math.floor(distance / (1000 * 60 * 60 * 24));
@@ -146,9 +154,9 @@ export default function Scheduler() {
         try {
             await saveSchedulerSettings(newSettings);
             setSettings(newSettings);
-            toast.success('Settings saved');
+            toast.success(t('scheduler.saveSuccess'));
         } catch (error) {
-            toast.error('Failed to save settings');
+            toast.error(t('scheduler.saveFailed'));
         } finally {
             setIsSaving(false);
         }
@@ -167,35 +175,43 @@ export default function Scheduler() {
         if (!selectedServerId) return;
         const cron = cronSchedule === 'custom' ? customCron : cronSchedule;
         if (!cron) {
-            toast.error('Invalid schedule');
+            toast.error(t('scheduler.invalidSchedule'));
             return;
         }
 
         try {
             await createScheduledTask(
                 selectedServerId,
+                newTaskName || null,
                 newTaskType,
                 cron,
                 newTaskType === 'rcon-command' ? customCommand : null,
                 ['announcement', 'restart'].includes(newTaskType) && announcementMsg ? announcementMsg : null,
                 preWarning
             );
-            toast.success('Task created');
+            toast.success(t('scheduler.taskCreated'));
             setIsTaskModalOpen(false);
+            setNewTaskName(''); // Reset name
             fetchTasks();
         } catch (error) {
-            toast.error('Failed to create task');
+            toast.error(t('scheduler.createFailed', { error: String(error) }));
         }
     };
 
-    const handleDeleteTask = async (taskId: number) => {
-        if (!confirm('Are you sure you want to delete this task?')) return;
+    const handleDeleteClick = (taskId: number) => {
+        setTaskToDelete(taskId);
+    };
+
+    const confirmDeleteTask = async () => {
+        if (!taskToDelete) return;
         try {
-            await deleteScheduledTask(taskId);
-            toast.success('Task deleted');
+            await deleteScheduledTask(taskToDelete);
+            toast.success(t('scheduler.taskDeleted'));
             fetchTasks(); // Refresh list
         } catch (error) {
-            toast.error('Failed to delete task');
+            toast.error(t('scheduler.deleteFailed', { error: String(error) }));
+        } finally {
+            setTaskToDelete(null);
         }
     };
 
@@ -204,12 +220,14 @@ export default function Scheduler() {
             await toggleScheduledTask(taskId, !current);
             fetchTasks();
         } catch (error) {
-            toast.error('Failed to toggle task');
+            toast.error(t('scheduler.toggleFailed'));
         }
     };
 
-    if (!settings) return <div className="p-10 text-center text-slate-500">Loading scheduler settings...</div>;
+    if (!settings) return <div className="p-10 text-center text-slate-500">{t('common.loading', 'Loading...')}</div>;
 
+    // Days of week moved after t is available if needed, but labels are hardcoded 3-letter. 
+    // Usually these are fine, or we can use dayjs/date-fns/Intl. But for now keeping as is or translating short days.
     const daysOfWeek = [
         { label: 'Sun', value: 0 }, { label: 'Mon', value: 1 }, { label: 'Tue', value: 2 },
         { label: 'Wed', value: 3 }, { label: 'Thu', value: 4 }, { label: 'Fri', value: 5 }, { label: 'Sat', value: 6 },
@@ -221,9 +239,9 @@ export default function Scheduler() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
                 <div>
                     <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
-                        Scheduler
+                        {t('scheduler.title')}
                     </h1>
-                    <p className="text-slate-400 mt-1">Configure automated server restarts and workflows.</p>
+                    <p className="text-slate-400 mt-1">{t('scheduler.subtitle')}</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <select
@@ -248,19 +266,19 @@ export default function Scheduler() {
                 {settings.mode === 'basic' && (
                     <div className="absolute top-0 right-0 p-2">
                         <span className="flex items-center gap-1 text-xs font-bold text-green-400 bg-green-900/40 px-3 py-1 rounded-full uppercase tracking-wider">
-                            <CheckCircle className="w-3 h-3" /> Active
+                            <CheckCircle className="w-3 h-3" /> {t('common.active')}
                         </span>
                     </div>
                 )}
                 <h2 className={cn("text-lg font-bold mb-1", settings.mode === 'basic' ? "text-green-400" : "text-red-400")}>
-                    Basic Schedule: Loop Restart
+                    {t('scheduler.basicTitle')}
                 </h2>
-                <p className="text-slate-400 text-sm mb-4">Restart the server every X hours relative to the last start.</p>
+                <p className="text-slate-400 text-sm mb-4">{t('scheduler.basicDesc')}</p>
                 <div className="space-y-4">
                     <div className="text-sm text-slate-300">
-                        <span className="text-slate-500">Warning Sequence:</span> Players are warned at
+                        <span className="text-slate-500">{t('scheduler.warningSequence')}</span> {t('scheduler.warningMessage')}
                         <span className="text-amber-400 font-mono mx-1">{settings.basicWarningMinutes}</span>
-                        minute(s) before the server stops.
+                        {t('scheduler.warningSuffix')}
                     </div>
                     <div className="flex items-center gap-4 flex-wrap">
                         <select
@@ -279,10 +297,10 @@ export default function Scheduler() {
                                 settings.mode === 'basic' ? "bg-green-600 hover:bg-green-500 text-white" : "bg-slate-800 hover:bg-slate-700 text-slate-300"
                             )}
                         >
-                            {settings.mode === 'basic' ? "Settings Saved" : "Enable Basic Schedule"}
+                            {settings.mode === 'basic' ? t('scheduler.settingsSaved') : t('scheduler.enableBasic')}
                         </button>
                         <div className={cn("ml-auto text-sm font-mono", settings.mode === 'basic' ? "text-green-400" : "text-slate-500")}>
-                            {settings.mode === 'basic' && settings.nextRunBasic ? `Next shutdown in: ${nextRunCountdown}` : "Next shutdown not scheduled"}
+                            {settings.mode === 'basic' && settings.nextRunBasic ? t('scheduler.nextShutdown', { time: nextRunCountdown }) : t('scheduler.nextShutdownNone')}
                         </div>
                     </div>
                 </div>
@@ -298,7 +316,7 @@ export default function Scheduler() {
                 {settings.mode === 'advanced' && (
                     <div className="absolute top-0 right-0 p-2 z-10">
                         <span className="flex items-center gap-1.5 text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-1 rounded-full uppercase tracking-wider shadow-[0_0_10px_rgba(34,197,94,0.2)]">
-                            <Activity className="w-3 h-3 animate-pulse" /> Active
+                            <Activity className="w-3 h-3 animate-pulse" /> {t('common.active')}
                         </span>
                     </div>
                 )}
@@ -309,9 +327,9 @@ export default function Scheduler() {
                     </div>
                     <div>
                         <h2 className={cn("text-lg font-bold transition-colors", settings.mode === 'advanced' ? "text-green-400" : "text-slate-200")}>
-                            Advanced Schedule: Workflow
+                            {t('scheduler.advancedTitle')}
                         </h2>
-                        <p className="text-slate-400 text-sm">Automated lifecycle management for your server.</p>
+                        <p className="text-slate-400 text-sm">{t('scheduler.advancedDesc')}</p>
                     </div>
                 </div>
 
@@ -320,12 +338,12 @@ export default function Scheduler() {
                     <div className="lg:col-span-5 space-y-6">
                         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
                             <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-                                <Terminal className="w-4 h-4 text-sky-400" /> Trigger Events
+                                <Terminal className="w-4 h-4 text-sky-400" /> {t('scheduler.triggerEvents')}
                             </h3>
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">Shutdown Time</label>
+                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">{t('scheduler.shutdownTime')}</label>
                                     <div className="flex items-center gap-3">
                                         <input
                                             type="time"
@@ -337,7 +355,7 @@ export default function Scheduler() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">Active Days</label>
+                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">{t('scheduler.activeDays')}</label>
                                     <div className="flex flex-wrap gap-2">
                                         {daysOfWeek.map((day) => {
                                             const isChecked = settings.advancedDays?.split(',').map(Number).includes(day.value);
@@ -360,7 +378,7 @@ export default function Scheduler() {
                                 </div>
 
                                 <div className="pt-2 border-t border-slate-800/50">
-                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">Warning Sequence</label>
+                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">{t('scheduler.warningSequence')}</label>
                                     <div className="relative">
                                         <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-400" />
                                         <input
@@ -381,10 +399,10 @@ export default function Scheduler() {
                     <div className="lg:col-span-7 space-y-4">
                         <div className="flex items-center justify-between mb-2">
                             <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                                <Activity className="w-4 h-4 text-purple-400" /> Execution Chain
+                                <Activity className="w-4 h-4 text-purple-400" /> {t('scheduler.executionChain')}
                             </h3>
                             <div className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">
-                                Sequential Execution
+                                {t('scheduler.sequentialExecution')}
                             </div>
                         </div>
 
@@ -404,11 +422,11 @@ export default function Scheduler() {
                                 </div>
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
-                                        <span className={cn("font-bold text-sm", settings.advancedShutdown ? "text-white" : "text-slate-400")}>Stop Server</span>
+                                        <span className={cn("font-bold text-sm", settings.advancedShutdown ? "text-white" : "text-slate-400")}>{t('scheduler.stopServer')}</span>
                                         <input type="checkbox" checked={settings.advancedShutdown || false} onChange={(e) => setSettings({ ...settings, advancedShutdown: e.target.checked })} className="sr-only" />
                                         {settings.advancedShutdown && <CheckCircle className="w-4 h-4 text-red-400" />}
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-0.5">Gracefully save world and stop the server process.</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.stopServerDesc')}</p>
                                 </div>
                                 {settings.advancedShutdown && <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none" />}
                             </label>
@@ -432,11 +450,11 @@ export default function Scheduler() {
                                 </div>
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
-                                        <span className={cn("font-bold text-sm", settings.advancedUpdate ? "text-white" : "text-slate-400")}>Update Server</span>
+                                        <span className={cn("font-bold text-sm", settings.advancedUpdate ? "text-white" : "text-slate-400")}>{t('scheduler.updateServer')}</span>
                                         <input type="checkbox" checked={settings.advancedUpdate || false} onChange={(e) => setSettings({ ...settings, advancedUpdate: e.target.checked })} className="sr-only" />
                                         {settings.advancedUpdate && <CheckCircle className="w-4 h-4 text-blue-400" />}
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-0.5">Run SteamCMD update to get latest patch.</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.updateServerDesc')}</p>
                                 </div>
                                 {settings.advancedUpdate && <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent pointer-events-none" />}
                             </label>
@@ -460,11 +478,11 @@ export default function Scheduler() {
                                 </div>
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
-                                        <span className={cn("font-bold text-sm", settings.advancedRestart ? "text-white" : "text-slate-400")}>Start Server</span>
+                                        <span className={cn("font-bold text-sm", settings.advancedRestart ? "text-white" : "text-slate-400")}>{t('scheduler.startServer')}</span>
                                         <input type="checkbox" checked={settings.advancedRestart || false} onChange={(e) => setSettings({ ...settings, advancedRestart: e.target.checked })} className="sr-only" />
                                         {settings.advancedRestart && <CheckCircle className="w-4 h-4 text-green-400" />}
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-0.5">Boot up the server instance.</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.startServerDesc')}</p>
                                 </div>
                                 {settings.advancedRestart && <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-transparent pointer-events-none" />}
                             </label>
@@ -488,11 +506,11 @@ export default function Scheduler() {
                                 </div>
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
-                                        <span className={cn("font-bold text-sm", settings.advancedDinoWipe ? "text-white" : "text-slate-400")}>Destroy Wild Dinos</span>
+                                        <span className={cn("font-bold text-sm", settings.advancedDinoWipe ? "text-white" : "text-slate-400")}>{t('scheduler.destroyDinos')}</span>
                                         <input type="checkbox" checked={settings.advancedDinoWipe || false} onChange={(e) => setSettings({ ...settings, advancedDinoWipe: e.target.checked })} className="sr-only" />
                                         {settings.advancedDinoWipe && <CheckCircle className="w-4 h-4 text-purple-400" />}
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-0.5">Run 'DestroyWildDinos' command after startup.</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.destroyDinosDesc')}</p>
                                 </div>
                                 {settings.advancedDinoWipe && <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-transparent pointer-events-none" />}
                             </label>
@@ -502,14 +520,14 @@ export default function Scheduler() {
 
                 <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-800">
                     <div className="flex items-center gap-2 text-sm">
-                        <span className="text-slate-500">Status:</span>
+                        <span className="text-slate-500">{t('scheduler.status')}:</span>
                         <span className={cn("font-mono font-medium", settings.mode === 'advanced' ? "text-green-400" : "text-slate-400")}>
                             {settings.mode === 'advanced' ? (
                                 <span className="flex items-center gap-2">
                                     <Activity className="w-4 h-4" />
-                                    Next run: {nextRunCountdown}
+                                    {t('scheduler.nextRun')}: {nextRunCountdown}
                                 </span>
-                            ) : "Inactive"}
+                            ) : t('common.inactive', 'Inactive')}
                         </span>
                     </div>
                     <div className="flex gap-3">
@@ -519,7 +537,7 @@ export default function Scheduler() {
                             className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                             {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            {isSaving ? 'Saving...' : 'Save Changes'}
+                            {isSaving ? t('common.saving', 'Saving...') : t('common.saveChanges', 'Save Changes')}
                         </button>
                         <button
                             onClick={() => handleSave({ ...settings, mode: 'advanced' })}
@@ -532,11 +550,11 @@ export default function Scheduler() {
                         >
                             {settings.mode === 'advanced' ? (
                                 <>
-                                    <CheckCircle className="w-4 h-4" /> Mode Active
+                                    <CheckCircle className="w-4 h-4" /> {t('scheduler.modeActive')}
                                 </>
                             ) : (
                                 <>
-                                    <Zap className="w-4 h-4 fill-current" /> Activate Mode
+                                    <Zap className="w-4 h-4 fill-current" /> {t('scheduler.activateMode')}
                                 </>
                             )}
                         </button>
@@ -548,18 +566,18 @@ export default function Scheduler() {
             {settings.mode === 'advanced' && (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-xl font-bold text-white">Scheduled Tasks</h3>
+                        <h3 className="text-xl font-bold text-white">{t('scheduler.scheduledTasks')}</h3>
                         <button
                             onClick={() => setIsTaskModalOpen(true)}
                             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded transition-colors"
                         >
-                            <Plus className="w-4 h-4" /> Add Task
+                            <Plus className="w-4 h-4" /> {t('scheduler.addTask')}
                         </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {tasks.map(task => {
-                            const taskTypeInfo = TASK_TYPES.find(t => t.value === task.task_type) || TASK_TYPES[0];
+                            const taskTypeInfo = TASK_TYPES.find(t => t.value === task.taskType) || TASK_TYPES[0];
                             const Icon = taskTypeInfo.icon;
                             return (
                                 <div key={task.id} className="bg-slate-900 border border-slate-800 rounded-lg p-4 group hover:border-slate-700 transition-all">
@@ -568,9 +586,16 @@ export default function Scheduler() {
                                             <div className={cn("p-2 rounded-lg", taskTypeInfo.bg)}>
                                                 <Icon className={cn("w-5 h-5", taskTypeInfo.color)} />
                                             </div>
-                                            <div>
-                                                <div className="font-semibold text-white">{taskTypeInfo.label}</div>
-                                                <div className="text-xs text-slate-500 font-mono">{task.cron_expression}</div>
+                                            <div className="overflow-hidden">
+                                                <div className="font-semibold text-white truncate" title={task.taskName || t(taskTypeInfo.labelKey)}>
+                                                    {task.taskName || t(taskTypeInfo.labelKey)}
+                                                </div>
+                                                {task.taskName && (
+                                                    <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">
+                                                        {t(taskTypeInfo.labelKey)}
+                                                    </div>
+                                                )}
+                                                <div className="text-xs text-slate-500 font-mono mt-0.5">{task.cronExpression}</div>
                                             </div>
                                         </div>
                                         <button onClick={() => handleToggleTask(task.id, task.enabled)} className={cn("w-8 h-4 rounded-full relative transition-colors", task.enabled ? "bg-green-500" : "bg-slate-700")}>
@@ -579,9 +604,9 @@ export default function Scheduler() {
                                     </div>
                                     <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800">
                                         <span className="text-xs text-slate-500">
-                                            Last run: {task.last_run ? new Date(task.last_run).toLocaleString() : 'Never'}
+                                            {t('scheduler.lastRun')}: {task.lastRun ? new Date(task.lastRun).toLocaleString() : t('common.never', 'Never')}
                                         </span>
-                                        <button onClick={() => handleDeleteTask(task.id)} className="text-slate-600 hover:text-red-400 transition-colors">
+                                        <button onClick={() => handleDeleteClick(task.id)} className="text-slate-600 hover:text-red-400 transition-colors">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -590,7 +615,7 @@ export default function Scheduler() {
                         })}
                         {tasks.length === 0 && (
                             <div className="col-span-full py-8 text-center border-2 border-dashed border-slate-800 rounded-xl text-slate-500">
-                                No additional tasks scheduled
+                                {t('scheduler.noTasksDesc')}
                             </div>
                         )}
                     </div>
@@ -602,11 +627,22 @@ export default function Scheduler() {
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
                     <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-200">
                         <div className="p-6">
-                            <h2 className="text-xl font-bold text-white mb-6">Add Scheduled Task</h2>
+                            <h2 className="text-xl font-bold text-white mb-6">{t('scheduler.addScheduledTask')}</h2>
 
                             <div className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">Task Type</label>
+                                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.taskName')} <span className="text-slate-600">({t('common.optional')})</span></label>
+                                    <input
+                                        type="text"
+                                        value={newTaskName}
+                                        onChange={(e) => setNewTaskName(e.target.value)}
+                                        placeholder={t('scheduler.taskNamePlaceholder')}
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.taskType')}</label>
                                     <div className="grid grid-cols-2 gap-3">
                                         {TASK_TYPES.map(type => {
                                             const Icon = type.icon;
@@ -622,7 +658,7 @@ export default function Scheduler() {
                                                     )}
                                                 >
                                                     <Icon className={cn("w-5 h-5", type.color)} />
-                                                    <span className="text-sm font-medium text-slate-200">{type.label}</span>
+                                                    <span className="text-sm font-medium text-slate-200">{t(type.labelKey)}</span>
                                                 </button>
                                             )
                                         })}
@@ -630,17 +666,17 @@ export default function Scheduler() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">Schedule</label>
+                                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.schedule')}</label>
                                     <select
                                         value={cronSchedule}
                                         onChange={(e) => setCronSchedule(e.target.value)}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     >
-                                        <option value="0 */1 * * *">Every 1 hour</option>
-                                        <option value="0 */3 * * *">Every 3 hours</option>
-                                        <option value="0 */6 * * *">Every 6 hours</option>
-                                        <option value="0 */12 * * *">Every 12 hours</option>
-                                        <option value="0 4 * * *">Daily at 4:00 AM</option>
+                                        <option value="0 */1 * * *">{t('scheduler.every')} 1 {t('scheduler.hours')}</option>
+                                        <option value="0 */3 * * *">{t('scheduler.every')} 3 {t('scheduler.hours')}</option>
+                                        <option value="0 */6 * * *">{t('scheduler.every')} 6 {t('scheduler.hours')}</option>
+                                        <option value="0 */12 * * *">{t('scheduler.every')} 12 {t('scheduler.hours')}</option>
+                                        <option value="0 4 * * *">{t('scheduler.daily')} {t('scheduler.at')} 4:00 AM</option>
                                         <option value="custom">Custom Cron Expression</option>
                                     </select>
 
@@ -657,12 +693,12 @@ export default function Scheduler() {
 
                                 {newTaskType === 'rcon-command' && (
                                     <div className="animate-in slide-in-from-top-2 duration-200">
-                                        <label className="block text-sm font-medium text-slate-400 mb-2">RCON Command</label>
+                                        <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.rconCommand')}</label>
                                         <input
                                             type="text"
                                             value={customCommand}
                                             onChange={(e) => setCustomCommand(e.target.value)}
-                                            placeholder="e.g. SaveWorld, Broadcast Hello"
+                                            placeholder={t('scheduler.enterRcon')}
                                             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
                                         />
                                     </div>
@@ -670,25 +706,25 @@ export default function Scheduler() {
 
                                 {newTaskType === 'announcement' && (
                                     <div className="animate-in slide-in-from-top-2 duration-200">
-                                        <label className="block text-sm font-medium text-slate-400 mb-2">Announcement Message</label>
+                                        <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.announcementMsg')}</label>
                                         <textarea
                                             value={announcementMsg}
                                             onChange={(e) => setAnnouncementMsg(e.target.value)}
-                                            placeholder="Enter message to broadcast..."
+                                            placeholder={t('scheduler.enterMessage')}
                                             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px]"
                                         />
                                     </div>
                                 )}
 
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">Pre-warning (minutes)</label>
+                                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.preWarning')}</label>
                                     <input
                                         type="number"
                                         value={preWarning}
                                         onChange={(e) => setPreWarning(Number(e.target.value))}
                                         className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     />
-                                    <p className="text-xs text-slate-500 mt-1">Broadcast warning to players before task executes</p>
+                                    <p className="text-xs text-slate-500 mt-1">{t('scheduler.preWarningDesc')}</p>
                                 </div>
 
                                 <div className="flex gap-4 pt-4">
@@ -696,16 +732,49 @@ export default function Scheduler() {
                                         onClick={() => setIsTaskModalOpen(false)}
                                         className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors"
                                     >
-                                        Cancel
+                                        {t('common.cancel')}
                                     </button>
                                     <button
                                         onClick={handleCreateTask}
                                         className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-purple-900/20"
                                     >
-                                        Create Task
+                                        {t('scheduler.createTask')}
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {taskToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-6 relative">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="p-3 bg-red-500/10 rounded-full">
+                                <AlertTriangle className="w-6 h-6 text-red-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-white">{t('common.confirmDelete', 'Confirm Deletion')}</h3>
+                                <p className="text-sm text-slate-400">{t('scheduler.confirmDeleteMsg', 'Are you sure you want to delete this task?')}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={() => setTaskToDelete(null)}
+                                className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                            >
+                                {t('common.cancel', 'Cancel')}
+                            </button>
+                            <button
+                                onClick={confirmDeleteTask}
+                                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                                {t('common.delete', 'Delete')}
+                            </button>
                         </div>
                     </div>
                 </div>

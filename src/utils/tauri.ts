@@ -62,6 +62,10 @@ export async function getAllServers(): Promise<Server[]> {
     return await invoke('get_all_servers');
 }
 
+export async function updateServerStatusInDb(serverId: number, status: string): Promise<void> {
+    return await invoke('update_server_status_in_db', { serverId, status });
+}
+
 export async function getServerById(serverId: number): Promise<Server | null> {
     return await invoke('get_server_by_id', { serverId });
 }
@@ -91,8 +95,8 @@ export async function installServer(params: InstallServerParams): Promise<Server
     });
 }
 
-export async function startServer(serverId: number): Promise<void> {
-    return await invoke('start_server', { serverId });
+export async function startServer(serverId: number, updateOnStart: boolean = false): Promise<void> {
+    return await invoke('start_server', { serverId, updateOnStart });
 }
 
 export async function startServerNoMods(serverId: number): Promise<void> {
@@ -370,6 +374,7 @@ export interface DiscordBridgeConfig {
     bot_token: string;
     guild_id: string;
     channel_id: string;
+    admin_channel_id: string; // New field
     game_to_discord: boolean;
     discord_to_game: boolean;
     server_list_enabled: boolean;
@@ -564,14 +569,15 @@ export interface SchedulerSettings {
 
 export interface ScheduledTask {
     id: number;
-    server_id: number;
-    task_type: string;
-    cron_expression: string;
+    serverId: number;
+    taskName?: string;
+    taskType: string;
+    cronExpression: string;
     command?: string;
     message?: string;
-    pre_warning_minutes: number;
+    preWarningMinutes: number;
     enabled: boolean;
-    last_run?: string;
+    lastRun?: string;
 }
 
 export async function getSchedulerSettings(serverId: number): Promise<SchedulerSettings> {
@@ -588,6 +594,7 @@ export async function getScheduledTasks(serverId: number): Promise<ScheduledTask
 
 export async function createScheduledTask(
     serverId: number,
+    taskName: string | null,
     taskType: string,
     cronExpression: string,
     command: string | null,
@@ -595,12 +602,15 @@ export async function createScheduledTask(
     preWarningMinutes: number
 ): Promise<void> {
     return await invoke('create_scheduled_task', {
-        serverId,
-        taskType,
-        cronExpression,
-        command,
-        message,
-        preWarningMinutes
+        request: {
+            serverId,
+            taskName,
+            taskType,
+            cronExpression,
+            command,
+            message,
+            preWarningMinutes,
+        }
     });
 }
 

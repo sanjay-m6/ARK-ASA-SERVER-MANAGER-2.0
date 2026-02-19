@@ -11,6 +11,7 @@ use tauri::State;
 pub struct ScheduledTask {
     pub id: i64,
     pub server_id: i64,
+    pub task_name: Option<String>,
     pub task_type: String,
     pub cron_expression: String,
     pub command: Option<String>,
@@ -25,6 +26,7 @@ pub struct ScheduledTask {
 #[serde(rename_all = "camelCase")]
 pub struct CreateTaskRequest {
     pub server_id: i64,
+    pub task_name: Option<String>,
     pub task_type: String,
     pub cron_expression: String,
     pub command: Option<String>,
@@ -131,7 +133,7 @@ pub async fn get_scheduled_tasks(
     let mut stmt = conn
         .prepare(
             "SELECT id, server_id, task_type, cron_expression, command, message, 
-                    pre_warning_minutes, enabled, last_run, created_at 
+                    pre_warning_minutes, enabled, last_run, created_at, task_name
              FROM scheduled_tasks WHERE server_id = ?1 ORDER BY created_at DESC",
         )
         .map_err(|e| e.to_string())?;
@@ -149,6 +151,7 @@ pub async fn get_scheduled_tasks(
                 enabled: row.get::<_, i32>(7)? == 1,
                 last_run: row.get(8)?,
                 created_at: row.get(9)?,
+                task_name: row.get(10).unwrap_or(None),
             })
         })
         .map_err(|e| e.to_string())?;
@@ -177,10 +180,11 @@ pub async fn create_scheduled_task(
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
     conn.execute(
-        "INSERT INTO scheduled_tasks (server_id, task_type, cron_expression, command, message, pre_warning_minutes, enabled)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1)",
+        "INSERT INTO scheduled_tasks (server_id, task_name, task_type, cron_expression, command, message, pre_warning_minutes, enabled)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1)",
         rusqlite::params![
             request.server_id,
+            request.task_name,
             request.task_type,
             request.cron_expression,
             request.command,
@@ -195,6 +199,7 @@ pub async fn create_scheduled_task(
     let task = ScheduledTask {
         id,
         server_id: request.server_id,
+        task_name: request.task_name,
         task_type: request.task_type,
         cron_expression: request.cron_expression,
         command: request.command,

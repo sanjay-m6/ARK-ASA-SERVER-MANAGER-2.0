@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 export default function WelcomeOverlay({ onComplete }: { onComplete: () => void }) {
+    const { t } = useTranslation();
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -38,7 +40,7 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                         animate={{ y: 0, opacity: 1 }}
                         transition={{ delay: 0.5, duration: 0.8 }}
                     >
-                        Welcome Back
+                        {t('welcome.title')}
                     </motion.h1>
 
                     <motion.div
@@ -54,7 +56,7 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                         animate={{ opacity: 1 }}
                         transition={{ delay: 1.5, duration: 0.5 }}
                     >
-                        Commander
+                        {t('welcome.subtitle')}
                     </motion.p>
                 </motion.div>
 

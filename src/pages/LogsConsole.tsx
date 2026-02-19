@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send, Search, Download, Pause, Play, Trash2, Terminal, Users, Save, Radio, AlertTriangle, Info, Bug, RefreshCw } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { useServerStore } from '../stores/serverStore';
@@ -21,10 +22,10 @@ interface ServerLogEvent {
 }
 
 const QUICK_COMMANDS = [
-    { label: 'Save World', command: 'SaveWorld', icon: Save },
-    { label: 'List Players', command: 'ListPlayers', icon: Users },
-    { label: 'Broadcast', command: 'Broadcast ', icon: Radio },
-    { label: 'Destroy Wild Dinos', command: 'DestroyWildDinos', icon: RefreshCw },
+    { labelKey: 'quickCommands.saveWorld', command: 'SaveWorld', icon: Save },
+    { labelKey: 'quickCommands.listPlayers', command: 'ListPlayers', icon: Users },
+    { labelKey: 'quickCommands.broadcast', command: 'Broadcast ', icon: Radio },
+    { labelKey: 'quickCommands.destroyDinos', command: 'DestroyWildDinos', icon: RefreshCw },
 ];
 
 function parseLogLevel(line: string): 'info' | 'warning' | 'error' | 'debug' | 'cfcore' {
@@ -54,6 +55,7 @@ function parseTimestamp(line: string): string {
 }
 
 export default function LogsConsole() {
+    const { t } = useTranslation();
     const { servers, setServers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -200,9 +202,9 @@ export default function LogsConsole() {
             }]);
 
             setCommand('');
-            toast.success('Command sent');
+            toast.success(t('logs.commandSent'));
         } catch (error) {
-            toast.error(`RCON error: ${error}`);
+            toast.error(t('logs.rconError', { error: String(error) }));
         }
     };
 
@@ -231,7 +233,7 @@ export default function LogsConsole() {
         a.download = `server_logs_${selectedServerId}_${Date.now()}.txt`;
         a.click();
         URL.revokeObjectURL(url);
-        toast.success('Logs exported');
+        toast.success(t('logs.exportSuccess'));
     };
 
     const selectedServer = servers.find(s => s.id === selectedServerId);
@@ -242,9 +244,9 @@ export default function LogsConsole() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-                        Logs Console
+                        {t('logs.title')}
                     </h1>
-                    <p className="text-slate-400 mt-1">Real-time server logs and RCON commands</p>
+                    <p className="text-slate-400 mt-1">{t('logs.realTimeLogs')}</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -258,7 +260,7 @@ export default function LogsConsole() {
                         className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                         {servers.length === 0 ? (
-                            <option value="">No servers</option>
+                            <option value="">{t('logs.noServers')}</option>
                         ) : (
                             servers.map(server => (
                                 <option key={server.id} value={server.id}>
@@ -279,7 +281,7 @@ export default function LogsConsole() {
                         type="text"
                         value={searchQuery}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                        placeholder="Search logs..."
+                        placeholder={t('logs.searchLogs')}
                         className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                 </div>
@@ -296,7 +298,7 @@ export default function LogsConsole() {
                         )}
                     >
                         <Info className="w-3 h-3" />
-                        Info ({logStats.info})
+                        {t('logs.infoLevel')} ({logStats.info})
                     </button>
                     <button
                         onClick={() => toggleFilter('warning')}
@@ -308,7 +310,7 @@ export default function LogsConsole() {
                         )}
                     >
                         <AlertTriangle className="w-3 h-3" />
-                        Warning ({logStats.warning})
+                        {t('logs.warnLevel')} ({logStats.warning})
                     </button>
                     <button
                         onClick={() => toggleFilter('error')}
@@ -320,7 +322,7 @@ export default function LogsConsole() {
                         )}
                     >
                         <Bug className="w-3 h-3" />
-                        Error ({logStats.error})
+                        {t('logs.errorLevel')} ({logStats.error})
                     </button>
                     <button
                         onClick={() => toggleFilter('cfcore')}
@@ -331,7 +333,7 @@ export default function LogsConsole() {
                                 : 'bg-slate-800 text-slate-500 border border-slate-700'
                         )}
                     >
-                        CFCore ({logStats.cfcore})
+                        {t('logs.cfcoreLevel')} ({logStats.cfcore})
                     </button>
                 </div>
 
@@ -345,21 +347,21 @@ export default function LogsConsole() {
                                 ? 'bg-emerald-500/20 text-emerald-400'
                                 : 'bg-slate-800 text-slate-400'
                         )}
-                        title={autoScroll ? 'Pause auto-scroll' : 'Resume auto-scroll'}
+                        title={autoScroll ? t('logs.pauseAutoScroll') : t('logs.resumeAutoScroll')}
                     >
                         {autoScroll ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                     </button>
                     <button
                         onClick={() => setLogs([])}
                         className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg transition-all"
-                        title="Clear logs"
+                        title={t('logs.clearLogs')}
                     >
                         <Trash2 className="w-4 h-4" />
                     </button>
                     <button
                         onClick={exportLogs}
                         className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg transition-all"
-                        title="Export logs"
+                        title={t('logs.exportLogs')}
                     >
                         <Download className="w-4 h-4" />
                     </button>
@@ -374,9 +376,9 @@ export default function LogsConsole() {
                 {filteredLogs.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-500">
                         <Terminal className="w-12 h-12 mb-3 opacity-50" />
-                        <p>No logs yet. Start a server to see logs here.</p>
+                        <p>{t('logs.noLogsYet')}</p>
                         {selectedServer?.status !== 'running' && selectedServer?.status !== 'online' && (
-                            <p className="text-xs mt-2 text-slate-600">Selected server is not running</p>
+                            <p className="text-xs mt-2 text-slate-600">{t('logs.serverNotRunning')}</p>
                         )}
                     </div>
                 ) : (
@@ -398,7 +400,7 @@ export default function LogsConsole() {
                                 log.level === 'cfcore' && 'text-cyan-400',
                                 log.level === 'debug' && 'text-slate-500'
                             )}>
-                                [{log.level.toUpperCase()}]
+                                [{t(`logs.levels.${log.level}`)}]
                             </span>
                             <span className="ml-2 text-slate-300">{log.message}</span>
                         </div>
@@ -410,11 +412,11 @@ export default function LogsConsole() {
             <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-sm text-slate-400">
                     <Terminal className="w-4 h-4" />
-                    <span>RCON Console</span>
+                    <span>{t('logs.rconConsole')}</span>
                     {selectedServer?.status === 'running' || selectedServer?.status === 'online' && (
                         <span className="ml-auto flex items-center gap-1.5 text-xs">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            Connected to {selectedServer.name}
+                            {t('logs.connectedTo', { serverName: selectedServer.name })}
                         </span>
                     )}
                 </div>
@@ -428,7 +430,7 @@ export default function LogsConsole() {
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-all border border-slate-700"
                         >
                             <cmd.icon className="w-3 h-3" />
-                            {cmd.label}
+                            {t(`logs.${cmd.labelKey}`)}
                         </button>
                     ))}
                 </div>
@@ -440,7 +442,7 @@ export default function LogsConsole() {
                         value={command}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCommand(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Enter RCON command... (↑↓ for history)"
+                        placeholder={t('logs.enterCommand')}
                         disabled={selectedServer?.status !== 'running' && selectedServer?.status !== 'online'}
                         className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
@@ -450,7 +452,7 @@ export default function LogsConsole() {
                         className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg transition-all font-medium"
                     >
                         <Send className="w-4 h-4" />
-                        Send
+                        {t('logs.send')}
                     </button>
                 </div>
             </div>

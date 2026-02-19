@@ -12,10 +12,11 @@ import {
     getDiscordBridgeConfig, saveDiscordBridgeConfig,
     startDiscordBridge, stopDiscordBridge, testDiscordConnection,
     type DiscordBridgeConfig,
-    getClusters, createCluster
+    getClusters, createCluster, toggleClusterCrossChat
 } from '../utils/tauri';
 import { useServerStore } from '../stores/serverStore';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface AlertConfig {
     key: string;
@@ -46,7 +47,8 @@ const DEFAULT_ALERTS: AlertConfig[] = [
 ];
 
 export default function DiscordBot() {
-    const { servers } = useServerStore();
+    const { t } = useTranslation();
+    const { servers, refreshServers } = useServerStore();
     const [webhookUrl, setWebhookUrl] = useState('');
     const [savedWebhookUrl, setSavedWebhookUrl] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -57,13 +59,14 @@ export default function DiscordBot() {
     const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
     const [recentNotifications, setRecentNotifications] = useState<RecentNotification[]>([]);
     const [liveMode, setLiveMode] = useState(true);
-    const [activeSection, setActiveSection] = useState<'webhook' | 'bot' | 'alerts' | 'activity'>('webhook');
+    const [activeSection, setActiveSection] = useState<'webhook' | 'bot' | 'alerts' | 'activity' | 'admin'>('webhook');
     const [bridgeConfig, setBridgeConfig] = useState<DiscordBridgeConfig>({
         cluster_id: 1,
         enabled: false,
         bot_token: '',
         guild_id: '',
         channel_id: '',
+        admin_channel_id: '',
         game_to_discord: true,
         discord_to_game: true,
         server_list_enabled: false,
@@ -104,6 +107,7 @@ export default function DiscordBot() {
 
     useEffect(() => {
         loadSettings();
+        refreshServers();
     }, []);
 
     // Real-time connection monitoring
@@ -151,6 +155,18 @@ export default function DiscordBot() {
                 } else {
                     setBridgeConfig(prev => ({ ...prev, cluster_id: firstClusterId }));
                 }
+            } else {
+                // No clusters found! Auto-create one for smoother UX
+                try {
+                    const newCluster = await createCluster("Main Cluster", []);
+                    setSelectedClusterId(newCluster.id);
+                    setBridgeConfig(prev => ({ ...prev, cluster_id: newCluster.id }));
+                    toast.success('Initialized default cluster for Discord Bot');
+                    toast.success(t('discordBot.toasts.initSuccess'));
+                } catch (e) {
+                    console.error("Failed to auto-create cluster", e);
+                    toast.error(t('discordBot.toasts.initFailed'));
+                }
             }
 
             if (alertConfig) {
@@ -186,13 +202,19 @@ export default function DiscordBot() {
     const handleCreateDefaultCluster = async () => {
         setIsCreatingCluster(true);
         try {
-            const newCluster = await createCluster("Main Cluster", []);
+            const newCluster = await createCluster('Default Cluster', []);
+            if (newCluster?.id) {
+                await toggleClusterCrossChat(newCluster.id, true);
+            }
 
+            if (!newCluster) throw new Error("Cluster creation returned null");
+
+            await refreshServers();
             setSelectedClusterId(newCluster.id);
             setBridgeConfig(prev => ({ ...prev, cluster_id: newCluster.id }));
-            toast.success('Default cluster created');
+            toast.success(t('discordBot.toasts.defaultCreated'));
         } catch (error) {
-            toast.error('Failed to create default cluster');
+            toast.error(t('discordBot.toasts.defaultCreateFailed'));
             console.error(error);
         } finally {
             setIsCreatingCluster(false);
@@ -214,7 +236,7 @@ export default function DiscordBot() {
     const saveWebhook = async () => {
         const trimmed = webhookUrl.trim();
         if (!trimmed) {
-            toast.error('Please enter a webhook URL');
+            toast.error(t('discordBot.toasts.enterUrl'));
             return;
         }
         setIsSaving(true);
@@ -226,12 +248,12 @@ export default function DiscordBot() {
                 setWebhookUrl(trimmed);
                 setSavedWebhookUrl(trimmed);
                 await checkConnection();
-                toast.success('Webhook saved!');
+                toast.success(t('discordBot.toasts.webhookSaved'));
             } else {
-                toast.error('Webhook failed to persist — please try again');
+                toast.error(t('discordBot.toasts.webhookPersistFailed'));
             }
         } catch (error) {
-            toast.error('Failed to save webhook');
+            toast.error(t('discordBot.toasts.saveFailed'));
         } finally {
             setIsSaving(false);
         }
@@ -245,22 +267,22 @@ export default function DiscordBot() {
 
     const enableAllAlerts = () => {
         setAlerts(prev => prev.map(alert => ({ ...alert, enabled: true })));
-        toast.success('All notifications enabled');
+        toast.success(t('discordBot.toasts.allEnabled'));
     };
 
     const disableAllAlerts = () => {
         setAlerts(prev => prev.map(alert => ({ ...alert, enabled: false })));
-        toast.success('All notifications disabled');
+        toast.success(t('discordBot.toasts.allDisabled'));
     };
 
     const testWebhook = async () => {
         if (!webhookUrl) {
-            toast.error('Enter a webhook URL first');
+            toast.error(t('discordBot.toasts.enterUrlFirst'));
             return;
         }
 
         if (!webhookUrl.includes('discord.com/api/webhooks/')) {
-            toast.error('Invalid Discord webhook URL');
+            toast.error(t('discordBot.toasts.invalidUrl'));
             return;
         }
 
@@ -273,15 +295,15 @@ export default function DiscordBot() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     embeds: [{
-                        title: '🟢 Connection Established',
-                        description: 'Your Discord webhook is working perfectly!',
+                        title: t('discordBot.embeds.connectionEstablished'),
+                        description: t('discordBot.embeds.workingPerfectly'),
                         color: 0x00d4aa,
                         timestamp: new Date().toISOString(),
                         footer: { text: 'ASA Server Manager', icon_url: 'https://cdn.discordapp.com/embed/avatars/0.png' },
                         fields: [
-                            { name: '📊 Status', value: 'Active', inline: true },
-                            { name: '🔔 Alerts', value: `${alerts.filter(a => a.enabled).length} enabled`, inline: true },
-                            { name: '🖥️ Servers', value: `${servers.length} configured`, inline: true }
+                            { name: t('discordBot.embeds.status'), value: t('discordBot.embeds.active'), inline: true },
+                            { name: t('discordBot.embeds.alerts'), value: `${alerts.filter(a => a.enabled).length} ${t('discordBot.embeds.enabled')}`, inline: true },
+                            { name: t('discordBot.embeds.servers'), value: `${servers.length} ${t('discordBot.embeds.configured')}`, inline: true }
                         ],
                         thumbnail: { url: 'https://cdn.discordapp.com/embed/avatars/0.png' }
                     }]
@@ -292,6 +314,12 @@ export default function DiscordBot() {
                 setTestResult('success');
                 setConnectionStatus('connected');
 
+                // Save if successful and not saved
+                if (webhookUrl !== savedWebhookUrl) {
+                    await setSetting('discord_webhook_url', webhookUrl);
+                    setSavedWebhookUrl(webhookUrl);
+                }
+
                 // Add to recent notifications
                 const newNotification: RecentNotification = {
                     id: Date.now().toString(),
@@ -301,16 +329,16 @@ export default function DiscordBot() {
                 };
                 setRecentNotifications(prev => [newNotification, ...prev].slice(0, 10));
 
-                toast.success('Test message sent!');
+                toast.success(t('discordBot.toasts.testSent'));
             } else {
                 setTestResult('error');
                 setConnectionStatus('disconnected');
-                toast.error('Webhook failed');
+                toast.error(t('discordBot.toasts.webhookFailed'));
             }
         } catch (error) {
             setTestResult('error');
             setConnectionStatus('disconnected');
-            toast.error('Connection failed');
+            toast.error(t('discordBot.toasts.connFailed'));
         } finally {
             setIsTesting(false);
         }
@@ -318,7 +346,7 @@ export default function DiscordBot() {
 
     const sendQuickNotification = async (type: string, message: string) => {
         if (!savedWebhookUrl) {
-            toast.error('Configure webhook first');
+            toast.error(t('discordBot.toasts.configureFirst'));
             return;
         }
 
@@ -328,7 +356,7 @@ export default function DiscordBot() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     embeds: [{
-                        title: `📢 ${type}`,
+                        title: `📢 ${type} `,
                         description: message,
                         color: 0x5865F2,
                         timestamp: new Date().toISOString(),
@@ -336,19 +364,47 @@ export default function DiscordBot() {
                     }]
                 })
             });
-            toast.success('Notification sent!');
+            toast.success(t('discordBot.toasts.notifSent'));
         } catch {
-            toast.error('Failed to send');
+            toast.error(t('discordBot.toasts.sendFailed'));
         }
     };
 
     const saveBridgeConfig = async () => {
         try {
             setIsSaving(true);
-            await saveDiscordBridgeConfig(bridgeConfig);
-            toast.success('Bot configuration saved');
+
+            // Ensure we have a valid cluster ID
+            let targetClusterId = bridgeConfig.cluster_id;
+
+            // If ID is 0 or 1, verify it actually exists
+            const currentClusters = await getClusters();
+            const clusterExists = currentClusters.some(c => c.id === targetClusterId);
+
+            if (!clusterExists) {
+                if (currentClusters.length > 0) {
+                    // Use first available cluster if configured one is missing
+                    targetClusterId = currentClusters[0].id;
+                    setBridgeConfig(prev => ({ ...prev, cluster_id: targetClusterId }));
+                    setSelectedClusterId(targetClusterId);
+                } else {
+                    // No clusters at all? Create one now.
+                    try {
+                        const newCluster = await createCluster("Main Cluster", []);
+                        targetClusterId = newCluster.id;
+                        setBridgeConfig(prev => ({ ...prev, cluster_id: newCluster.id }));
+                        setSelectedClusterId(newCluster.id);
+                        toast.success(t('discordBot.toasts.createdForConfig'));
+                    } catch (e) {
+                        throw new Error(t('discordBot.toasts.createClusterFailed'));
+                    }
+                }
+            }
+
+            await saveDiscordBridgeConfig({ ...bridgeConfig, cluster_id: targetClusterId });
+            toast.success(t('discordBot.toasts.configSaved'));
         } catch (error) {
-            toast.error('Failed to save config');
+            toast.error(typeof error === 'string' ? error : 'Failed to save config');
             console.error(error);
         } finally {
             setIsSaving(false);
@@ -361,21 +417,21 @@ export default function DiscordBot() {
                 await stopDiscordBridge();
                 setBridgeConfig(prev => ({ ...prev, enabled: false }));
                 await saveDiscordBridgeConfig({ ...bridgeConfig, enabled: false });
-                toast.success('Discord Bridge Stopped');
+                toast.success(t('discordBot.toasts.bridgeStopped'));
             } else {
                 await startDiscordBridge();
                 setBridgeConfig(prev => ({ ...prev, enabled: true }));
                 await saveDiscordBridgeConfig({ ...bridgeConfig, enabled: true });
-                toast.success('Discord Bridge Started');
+                toast.success(t('discordBot.toasts.bridgeStarted'));
             }
         } catch (error) {
-            toast.error('Failed to toggle bridge');
+            toast.error(t('discordBot.toasts.toggleFailed'));
         }
     };
 
     const testBridge = async () => {
         if (!bridgeConfig.bot_token || !bridgeConfig.channel_id) {
-            toast.error('Token and Chat Channel ID required');
+            toast.error(t('discordBot.toasts.tokenRequired'));
             return;
         }
         setIsBridgeTesting(true);
@@ -383,7 +439,7 @@ export default function DiscordBot() {
             const result = await testDiscordConnection(bridgeConfig.bot_token, bridgeConfig.channel_id);
             toast.success(result);
         } catch (error) {
-            toast.error(typeof error === 'string' ? error : 'Connection Failed');
+            toast.error(typeof error === 'string' ? error : t('discordBot.toasts.connFailedGeneric'));
         } finally {
             setIsBridgeTesting(false);
         }
@@ -398,7 +454,7 @@ export default function DiscordBot() {
             <div className="flex items-center justify-center py-20">
                 <div className="text-center space-y-4">
                     <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mx-auto" />
-                    <p className="text-slate-400">Loading Discord integration...</p>
+                    <p className="text-slate-400">{t('discordBot.loading')}</p>
                 </div>
             </div>
         );
@@ -413,8 +469,8 @@ export default function DiscordBot() {
                         <Bot className="w-8 h-8 text-indigo-400" />
                     </div>
                     <div>
-                        <h1 className="text-3xl font-bold text-white">Discord Integration</h1>
-                        <p className="text-slate-400">Real-time server notifications</p>
+                        <h1 className="text-3xl font-bold text-white">{t('discordBot.title')}</h1>
+                        <p className="text-slate-400">{t('discordBot.subtitle')}</p>
                     </div>
                 </div>
 
@@ -444,7 +500,7 @@ export default function DiscordBot() {
                         )}
                     >
                         <Radio className={cn("w-4 h-4", liveMode && "animate-pulse")} />
-                        <span className="text-sm font-medium">Live</span>
+                        <span className="text-sm font-medium">{t('discordBot.live')}</span>
                     </button>
                 </div>
             </div>
@@ -456,7 +512,7 @@ export default function DiscordBot() {
                         <Bell className="w-5 h-5 text-indigo-400" />
                         <div>
                             <div className="text-2xl font-bold text-white">{enabledCount}</div>
-                            <div className="text-xs text-slate-500">Active Alerts</div>
+                            <div className="text-xs text-slate-500">{t('discordBot.stats.activeAlerts')}</div>
                         </div>
                     </div>
                 </div>
@@ -465,7 +521,7 @@ export default function DiscordBot() {
                         <ServerIcon className="w-5 h-5 text-green-400" />
                         <div>
                             <div className="text-2xl font-bold text-white">{runningServers}</div>
-                            <div className="text-xs text-slate-500">Servers Online</div>
+                            <div className="text-xs text-slate-500">{t('discordBot.stats.serversOnline')}</div>
                         </div>
                     </div>
                 </div>
@@ -474,7 +530,7 @@ export default function DiscordBot() {
                         <History className="w-5 h-5 text-purple-400" />
                         <div>
                             <div className="text-2xl font-bold text-white">{recentNotifications.length}</div>
-                            <div className="text-xs text-slate-500">Recent Sends</div>
+                            <div className="text-xs text-slate-500">{t('discordBot.stats.recentSends')}</div>
                         </div>
                     </div>
                 </div>
@@ -483,7 +539,7 @@ export default function DiscordBot() {
                         <Activity className="w-5 h-5 text-cyan-400" />
                         <div>
                             <div className="text-2xl font-bold text-white">{servers.length}</div>
-                            <div className="text-xs text-slate-500">Total Servers</div>
+                            <div className="text-xs text-slate-500">{t('discordBot.stats.totalServers')}</div>
                         </div>
                     </div>
                 </div>
@@ -492,10 +548,11 @@ export default function DiscordBot() {
             {/* Section Tabs */}
             <div className="flex gap-2 p-1 bg-slate-900/50 rounded-lg w-fit">
                 {[
-                    { key: 'webhook', label: 'Webhook', icon: Webhook },
-                    { key: 'bot', label: 'Bot Integration', icon: Bot },
-                    { key: 'alerts', label: 'Alerts', icon: Bell },
-                    { key: 'activity', label: 'Activity', icon: Activity }
+                    { key: 'webhook', label: t('discordBot.tabs.webhook'), icon: Webhook },
+                    { key: 'bot', label: t('discordBot.tabs.bot'), icon: Bot },
+                    { key: 'admin', label: t('discordBot.tabs.admin'), icon: Shield },
+                    { key: 'alerts', label: t('discordBot.tabs.alerts'), icon: Bell },
+                    { key: 'activity', label: t('discordBot.tabs.activity'), icon: Activity }
                 ].map(tab => {
                     const Icon = tab.icon;
                     return (
@@ -526,8 +583,8 @@ export default function DiscordBot() {
                                 <Webhook className="w-5 h-5 text-indigo-400" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-white">Webhook Setup</h2>
-                                <p className="text-sm text-slate-500">Connect your Discord channel</p>
+                                <h2 className="text-lg font-bold text-white">{t('discordBot.webhook.setupTitle')}</h2>
+                                <p className="text-sm text-slate-500">{t('discordBot.webhook.setupDesc')}</p>
                             </div>
                         </div>
 
@@ -536,7 +593,7 @@ export default function DiscordBot() {
                                 type="url"
                                 value={webhookUrl}
                                 onChange={(e) => setWebhookUrl(e.target.value)}
-                                placeholder="https://discord.com/api/webhooks/..."
+                                placeholder={t('discordBot.webhook.placeholder')}
                                 className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
                             />
 
@@ -547,7 +604,7 @@ export default function DiscordBot() {
                                     className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl transition-colors disabled:opacity-50 font-medium"
                                 >
                                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                                    {hasUnsavedChanges ? 'Save Webhook' : 'Saved'}
+                                    {hasUnsavedChanges ? t('discordBot.webhook.save') : t('discordBot.webhook.saved')}
                                 </button>
                                 <button
                                     onClick={testWebhook}
@@ -561,17 +618,17 @@ export default function DiscordBot() {
                                     )}
                                 >
                                     {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                                    Test
+                                    {t('discordBot.webhook.test')}
                                 </button>
                             </div>
                         </div>
 
                         <div className="bg-slate-800/50 rounded-lg p-4 text-sm text-slate-400">
-                            <p className="font-medium text-slate-300 mb-2">📖 Quick Setup:</p>
+                            <p className="font-medium text-slate-300 mb-2">{t('discordBot.webhook.quickSetup.title')}</p>
                             <ol className="list-decimal list-inside space-y-1 text-xs">
-                                <li>Open Discord → Server Settings → Integrations</li>
-                                <li>Create a Webhook → Copy URL</li>
-                                <li>Paste above and click Save</li>
+                                <li>{t('discordBot.webhook.quickSetup.step1')}</li>
+                                <li>{t('discordBot.webhook.quickSetup.step2')}</li>
+                                <li>{t('discordBot.webhook.quickSetup.step3')}</li>
                             </ol>
                         </div>
                     </div>
@@ -583,8 +640,8 @@ export default function DiscordBot() {
                                 <Zap className="w-5 h-5 text-cyan-400" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-white">Quick Actions</h2>
-                                <p className="text-sm text-slate-500">Send instant notifications</p>
+                                <h2 className="text-lg font-bold text-white">{t('discordBot.quickActions.title')}</h2>
+                                <p className="text-sm text-slate-500">{t('discordBot.quickActions.subtitle')}</p>
                             </div>
                         </div>
 
@@ -595,8 +652,8 @@ export default function DiscordBot() {
                                 className="p-4 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 transition-all disabled:opacity-50 text-left"
                             >
                                 <MessageSquare className="w-5 h-5 text-amber-400 mb-2" />
-                                <div className="font-medium text-white text-sm">Announcement</div>
-                                <div className="text-xs text-slate-500">Send custom message</div>
+                                <div className="font-medium text-white text-sm">{t('discordBot.quickActions.announcement.label')}</div>
+                                <div className="text-xs text-slate-500">{t('discordBot.quickActions.announcement.desc')}</div>
                             </button>
                             <button
                                 onClick={() => sendQuickNotification('Status', `${runningServers} server(s) currently online`)}
@@ -604,8 +661,8 @@ export default function DiscordBot() {
                                 className="p-4 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 transition-all disabled:opacity-50 text-left"
                             >
                                 <TrendingUp className="w-5 h-5 text-green-400 mb-2" />
-                                <div className="font-medium text-white text-sm">Status Update</div>
-                                <div className="text-xs text-slate-500">Current server status</div>
+                                <div className="font-medium text-white text-sm">{t('discordBot.quickActions.status.label')}</div>
+                                <div className="text-xs text-slate-500">{t('discordBot.quickActions.status.desc')}</div>
                             </button>
                             <button
                                 onClick={() => sendQuickNotification('Restart', 'Server restart in progress...')}
@@ -613,8 +670,8 @@ export default function DiscordBot() {
                                 className="p-4 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 transition-all disabled:opacity-50 text-left"
                             >
                                 <RefreshCw className="w-5 h-5 text-blue-400 mb-2" />
-                                <div className="font-medium text-white text-sm">Restart Notice</div>
-                                <div className="text-xs text-slate-500">Notify about restart</div>
+                                <div className="font-medium text-white text-sm">{t('discordBot.quickActions.restart.label')}</div>
+                                <div className="text-xs text-slate-500">{t('discordBot.quickActions.restart.desc')}</div>
                             </button>
                             <button
                                 onClick={() => sendQuickNotification('Maintenance', 'Scheduled maintenance beginning')}
@@ -622,8 +679,8 @@ export default function DiscordBot() {
                                 className="p-4 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 transition-all disabled:opacity-50 text-left"
                             >
                                 <Settings2 className="w-5 h-5 text-purple-400 mb-2" />
-                                <div className="font-medium text-white text-sm">Maintenance</div>
-                                <div className="text-xs text-slate-500">Maintenance alert</div>
+                                <div className="font-medium text-white text-sm">{t('discordBot.quickActions.maintenance.label')}</div>
+                                <div className="text-xs text-slate-500">{t('discordBot.quickActions.maintenance.desc')}</div>
                             </button>
                         </div>
                     </div>
@@ -640,10 +697,9 @@ export default function DiscordBot() {
                                     <AlertTriangle className="w-10 h-10 text-amber-500" />
                                 </div>
                                 <div className="space-y-2">
-                                    <h3 className="text-xl font-bold text-white">Cluster Required</h3>
+                                    <h3 className="text-xl font-bold text-white">{t('discordBot.bot.clusterRequired')}</h3>
                                     <p className="text-slate-400 max-w-md mx-auto">
-                                        The Discord Bot integration requires a server cluster to function.
-                                        Please create a cluster to continue.
+                                        {t('discordBot.bot.clusterRequiredDesc')}
                                     </p>
                                 </div>
                                 <button
@@ -652,7 +708,7 @@ export default function DiscordBot() {
                                     className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-all flex items-center gap-2 shadow-lg shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {isCreatingCluster ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                                    Create Default Cluster
+                                    {t('discordBot.bot.createDefault')}
                                 </button>
                             </div>
                         ) : (
@@ -666,9 +722,9 @@ export default function DiscordBot() {
                                                     <Bot className={cn("w-6 h-6", bridgeConfig.enabled ? "text-green-400" : "text-slate-400")} />
                                                 </div>
                                                 <div>
-                                                    <h2 className="text-lg font-bold text-white">Bridge Status</h2>
+                                                    <h2 className="text-lg font-bold text-white">{t('discordBot.bot.bridgeStatus')}</h2>
                                                     <p className="text-sm text-slate-500">
-                                                        {bridgeConfig.enabled ? "Service is active" : "Service is stopped"}
+                                                        {bridgeConfig.enabled ? t('discordBot.bot.active') : t('discordBot.bot.stopped')}
                                                     </p>
                                                 </div>
                                             </div>
@@ -688,7 +744,7 @@ export default function DiscordBot() {
 
                                         <div className="space-y-4">
                                             <div>
-                                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Bot Token</label>
+                                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t('discordBot.bot.token')}</label>
                                                 <input
                                                     type="password"
                                                     value={bridgeConfig.bot_token}
@@ -698,7 +754,7 @@ export default function DiscordBot() {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Guild ID</label>
+                                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t('discordBot.bot.guildId')}</label>
                                                 <input
                                                     type="text"
                                                     value={bridgeConfig.guild_id}
@@ -713,14 +769,14 @@ export default function DiscordBot() {
                                                     onClick={saveBridgeConfig}
                                                     className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-2.5 font-medium transition-colors flex items-center justify-center gap-2"
                                                 >
-                                                    <CheckCircle className="w-4 h-4" /> Save Config
+                                                    <CheckCircle className="w-4 h-4" /> {t('discordBot.bot.saveConfig')}
                                                 </button>
                                                 <button
                                                     onClick={testBridge}
                                                     disabled={isBridgeTesting}
                                                     className="px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-xl py-2.5 font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                                                 >
-                                                    {isBridgeTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />} Test
+                                                    {isBridgeTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />} {t('discordBot.bot.test')}
                                                 </button>
                                             </div>
                                         </div>
@@ -730,14 +786,14 @@ export default function DiscordBot() {
                                     <div className="glass-panel rounded-2xl p-6">
                                         <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
                                             <Settings2 className="w-4 h-4 text-indigo-400" />
-                                            Features
+                                            {t('discordBot.bot.features.title')}
                                         </h3>
                                         <div className="space-y-3">
                                             {[
-                                                { label: 'Game to Discord', sub: 'Forward in-game chat to Discord', key: 'game_to_discord' },
-                                                { label: 'Discord to Game', sub: 'Forward Discord messages to game', key: 'discord_to_game' },
-                                                { label: 'Show Tribe Names', sub: 'Include tribe tag in headers', key: 'show_tribe_names' },
-                                                { label: 'Show Playtime', sub: 'Display playtime stats in lists', key: 'show_playtime' },
+                                                { label: t('discordBot.bot.features.gameToDiscord.label'), sub: t('discordBot.bot.features.gameToDiscord.sub'), key: 'game_to_discord' },
+                                                { label: t('discordBot.bot.features.discordToGame.label'), sub: t('discordBot.bot.features.discordToGame.sub'), key: 'discord_to_game' },
+                                                { label: t('discordBot.bot.features.showTribeNames.label'), sub: t('discordBot.bot.features.showTribeNames.sub'), key: 'show_tribe_names' },
+                                                { label: t('discordBot.bot.features.showPlaytime.label'), sub: t('discordBot.bot.features.showPlaytime.sub'), key: 'show_playtime' },
                                             ].map(opt => (
                                                 <div key={opt.key} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-xl border border-slate-700/30">
                                                     <div>
@@ -767,38 +823,38 @@ export default function DiscordBot() {
                                     <div className="glass-panel rounded-2xl p-6">
                                         <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
                                             <MessageCircle className="w-4 h-4 text-pink-400" />
-                                            Channel Configuration
+                                            {t('discordBot.channelConfig.title')}
                                         </h3>
 
                                         <div className="space-y-5">
                                             <div>
-                                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Chat Channel ID</label>
+                                                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t('discordBot.channelConfig.label')}</label>
                                                 <input
                                                     type="text"
                                                     value={bridgeConfig.channel_id}
                                                     onChange={e => setBridgeConfig(c => ({ ...c, channel_id: e.target.value }))}
-                                                    placeholder="Primary chat channel"
+                                                    placeholder={t('discordBot.channelConfig.placeholder')}
                                                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-pink-500 font-mono text-sm"
                                                 />
-                                                <p className="text-xs text-slate-500 mt-1">Main channel for cross-server chat relay</p>
+                                                <p className="text-xs text-slate-500 mt-1">{t('discordBot.channelConfig.desc')}</p>
                                             </div>
 
                                             <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 space-y-4">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
                                                         <List className="w-4 h-4 text-cyan-400" />
-                                                        <span className="text-sm font-medium text-white">Live Status Lists</span>
+                                                        <span className="text-sm font-medium text-white">{t('discordBot.channelConfig.liveStats')}</span>
                                                     </div>
                                                 </div>
 
                                                 <div>
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <label className="text-xs text-slate-400">Server List Channel</label>
+                                                        <label className="text-xs text-slate-400">{t('discordBot.channelConfig.serverList')}</label>
                                                         <button
                                                             onClick={() => setBridgeConfig(c => ({ ...c, server_list_enabled: !c.server_list_enabled }))}
                                                             className={cn("text-xs font-medium", bridgeConfig.server_list_enabled ? "text-green-400" : "text-slate-500")}
                                                         >
-                                                            {bridgeConfig.server_list_enabled ? "Enabled" : "Disabled"}
+                                                            {bridgeConfig.server_list_enabled ? t('enabled') : t('disabled')}
                                                         </button>
                                                     </div>
                                                     <input
@@ -806,19 +862,19 @@ export default function DiscordBot() {
                                                         value={bridgeConfig.server_list_channel_id}
                                                         onChange={e => setBridgeConfig(c => ({ ...c, server_list_channel_id: e.target.value }))}
                                                         disabled={!bridgeConfig.server_list_enabled}
-                                                        placeholder="Channel ID for Server Status"
+                                                        placeholder={t('discordBot.channelConfig.placeholderServer')}
                                                         className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm disabled:opacity-50"
                                                     />
                                                 </div>
 
                                                 <div>
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <label className="text-xs text-slate-400">Player List Channel</label>
+                                                        <label className="text-xs text-slate-400">{t('discordBot.channelConfig.playerList')}</label>
                                                         <button
                                                             onClick={() => setBridgeConfig(c => ({ ...c, player_list_enabled: !c.player_list_enabled }))}
                                                             className={cn("text-xs font-medium", bridgeConfig.player_list_enabled ? "text-green-400" : "text-slate-500")}
                                                         >
-                                                            {bridgeConfig.player_list_enabled ? "Enabled" : "Disabled"}
+                                                            {bridgeConfig.player_list_enabled ? t('enabled') : t('disabled')}
                                                         </button>
                                                     </div>
                                                     <input
@@ -826,7 +882,7 @@ export default function DiscordBot() {
                                                         value={bridgeConfig.player_list_channel_id}
                                                         onChange={e => setBridgeConfig(c => ({ ...c, player_list_channel_id: e.target.value }))}
                                                         disabled={!bridgeConfig.player_list_enabled}
-                                                        placeholder="Channel ID for Active Players"
+                                                        placeholder={t('discordBot.channelConfig.placeholderPlayer')}
                                                         className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm disabled:opacity-50"
                                                     />
                                                 </div>
@@ -835,12 +891,103 @@ export default function DiscordBot() {
                                     </div>
 
                                     <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-300">
-                                        <strong>Note:</strong> ensure the Bot has 'View Channels', 'Send Messages', and 'Manage Messages' permissions in the configured channels.
+                                        {t('discordBot.channelConfig.note')}
                                     </div>
                                 </div>
 
                             </>
                         )}
+                    </div>
+                )
+            }
+
+            {/* Admin Commands Section */}
+            {
+                activeSection === 'admin' && (
+                    <div className="grid lg:grid-cols-2 gap-6 animate-in fade-in duration-300">
+                        {/* Admin Channel Config */}
+                        <div className="glass-panel rounded-2xl p-6 space-y-6">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2.5 bg-red-500/10 rounded-xl">
+                                    <Shield className="w-5 h-5 text-red-500" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-white">{t('discordBot.admin.title')}</h2>
+                                    <p className="text-sm text-slate-500">{t('discordBot.admin.subtitle')}</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                        {t('discordBot.admin.label')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={bridgeConfig.admin_channel_id}
+                                        onChange={e => setBridgeConfig(c => ({ ...c, admin_channel_id: e.target.value }))}
+                                        placeholder={t('discordBot.admin.placeholder')}
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        <span dangerouslySetInnerHTML={{ __html: t('discordBot.admin.desc') }} />
+                                    </p>
+                                </div>
+
+                                <button
+                                    onClick={saveBridgeConfig}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <CheckCircle className="w-4 h-4" /> {t('discordBot.admin.save')}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Command Reference */}
+                        <div className="glass-panel rounded-2xl p-6">
+                            <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                                <List className="w-4 h-4 text-indigo-400" />
+                                {t('discordBot.admin.commandsTitle')}
+                            </h3>
+
+                            <div className="space-y-2">
+                                {[
+                                    { cmd: '!list', desc: t('discordBot.commands.list') },
+                                    { cmd: '!start <ServerID>', desc: t('discordBot.commands.start') },
+                                    { cmd: '!stop <ServerID>', desc: t('discordBot.commands.stop') },
+                                    { cmd: '!restart <ServerID>', desc: t('discordBot.commands.restart') },
+                                    { cmd: '!update <ServerID>', desc: t('discordBot.commands.update') },
+                                    { cmd: '!kick <ServerID> <SteamID>', desc: t('discordBot.commands.kick') },
+                                    { cmd: '!broadcast <ServerID> <msg>', desc: t('discordBot.commands.broadcast') },
+                                    { cmd: '!status', desc: t('discordBot.commands.status') },
+                                ].map((c, i) => (
+                                    <div key={i} className="flex items-center justify-between p-2.5 bg-slate-800/30 rounded-lg border border-slate-700/30 hover:border-slate-600 transition-colors group">
+                                        <code className="text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded">
+                                            {c.cmd}
+                                        </code>
+                                        <span className="text-xs text-slate-400 group-hover:text-slate-300">{c.desc}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-4 pt-4 border-t border-slate-700/50">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">{t('discordBot.admin.serverIdsTitle')}</h4>
+                                <div className="space-y-2 bg-slate-900/50 p-3 rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
+                                    {servers.map(server => (
+                                        <div key={server.id} className="flex items-center justify-between text-xs">
+                                            <div className="flex items-center gap-2">
+                                                <div className={cn("w-2 h-2 rounded-full", server.status === 'running' ? "bg-green-500" : "bg-slate-600")} />
+                                                <span className="text-slate-300 font-medium truncate max-w-[180px]" title={server.name}>{server.name}</span>
+                                            </div>
+                                            <code className="bg-slate-800 px-2 py-0.5 rounded text-indigo-400 font-bold">ID: {server.id}</code>
+                                        </div>
+                                    ))}
+                                    {servers.length === 0 && (
+                                        <div className="text-xs text-slate-500 italic text-center py-2">{t('discordBot.admin.noServers')}</div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )
             }
@@ -855,8 +1002,8 @@ export default function DiscordBot() {
                                     <Bell className="w-5 h-5 text-amber-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-white">Notification Settings</h2>
-                                    <p className="text-sm text-slate-500">{enabledCount}/{alerts.length} alerts active</p>
+                                    <h2 className="text-lg font-bold text-white">{t('discordBot.alerts.title')}</h2>
+                                    <p className="text-sm text-slate-500">{t('discordBot.alerts.active', { count: enabledCount, total: alerts.length })}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -864,13 +1011,13 @@ export default function DiscordBot() {
                                     onClick={enableAllAlerts}
                                     className="px-3 py-1.5 bg-green-500/20 text-green-400 rounded-lg text-sm font-medium hover:bg-green-500/30 transition-colors"
                                 >
-                                    Enable All
+                                    {t('discordBot.alerts.enableAll')}
                                 </button>
                                 <button
                                     onClick={disableAllAlerts}
                                     className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/30 transition-colors"
                                 >
-                                    Disable All
+                                    {t('discordBot.alerts.disableAll')}
                                 </button>
                             </div>
                         </div>
@@ -879,9 +1026,9 @@ export default function DiscordBot() {
                         {(['server', 'player', 'system'] as const).map(category => (
                             <div key={category} className="space-y-2">
                                 <h3 className="text-sm font-medium text-slate-400 uppercase tracking-wider">
-                                    {category === 'server' && '🖥️ Server Events'}
-                                    {category === 'player' && '👥 Player Events'}
-                                    {category === 'system' && '⚙️ System Events'}
+                                    {category === 'server' && t('discordBot.alerts.serverEvents')}
+                                    {category === 'player' && t('discordBot.alerts.playerEvents')}
+                                    {category === 'system' && t('discordBot.alerts.systemEvents')}
                                 </h3>
                                 <div className="grid sm:grid-cols-2 gap-2">
                                     {alerts.filter(a => a.category === category).map((alert) => {
@@ -925,10 +1072,10 @@ export default function DiscordBot() {
                         <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
                             <div className="flex items-center gap-2 text-sm text-slate-400">
                                 <Eye className="w-4 h-4" />
-                                Auto-save enabled
+                                {t('discordBot.alerts.autoSave')}
                             </div>
                             <div className="text-xs text-slate-500">
-                                Changes save automatically
+                                {t('discordBot.alerts.autoSaveDesc')}
                             </div>
                         </div>
                     </div>
@@ -944,16 +1091,16 @@ export default function DiscordBot() {
                                 <History className="w-5 h-5 text-purple-400" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-white">Recent Activity</h2>
-                                <p className="text-sm text-slate-500">Last 10 notifications sent</p>
+                                <h2 className="text-lg font-bold text-white">{t('discordBot.activity.title')}</h2>
+                                <p className="text-sm text-slate-500">{t('discordBot.activity.subtitle')}</p>
                             </div>
                         </div>
 
                         {recentNotifications.length === 0 ? (
                             <div className="text-center py-12">
                                 <History className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                                <p className="text-slate-400">No recent notifications</p>
-                                <p className="text-sm text-slate-500">Notifications will appear here</p>
+                                <p className="text-slate-400">{t('discordBot.activity.noRecent')}</p>
+                                <p className="text-sm text-slate-500">{t('discordBot.activity.desc')}</p>
                             </div>
                         ) : (
                             <div className="space-y-2">

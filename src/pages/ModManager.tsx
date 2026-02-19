@@ -1,4 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power, ChevronDown, ChevronUp, Code } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, getModDescription, copyModsToServer, type ModConfigPreview, getModCategories, type CurseForgeCategory } from '../utils/tauri';
@@ -39,6 +40,7 @@ const ModCard = memo(({
     onSelectDetail: (mod: ModInfo) => void,
     onInstall: (mod: ModInfo) => void
 }) => {
+    const { t } = useTranslation();
     return (
         <div onClick={() => onSelectDetail(mod)} className={cn("glass-panel rounded-2xl overflow-hidden group hover:border-sky-500/50 transition-all flex flex-col cursor-pointer relative", isSelected ? "border-sky-500/80 ring-2 ring-sky-500/20 bg-sky-900/10" : "")}>
             <div className="relative h-48 overflow-hidden">
@@ -50,7 +52,7 @@ const ModCard = memo(({
                 <div className="absolute bottom-4 left-4 z-20"><h3 className="text-lg font-bold text-white leading-tight drop-shadow-md">{mod.name}</h3><p className="text-xs text-slate-300 mt-1 font-medium drop-shadow-sm">by {mod.author}</p></div>
             </div>
             <div className="p-6 flex-1 flex flex-col pointer-events-none">
-                <div dangerouslySetInnerHTML={{ __html: mod.description || 'No description' }} className="text-slate-400 text-sm line-clamp-3 mb-4 flex-1 pointer-events-none opacity-80" />
+                <div dangerouslySetInnerHTML={{ __html: mod.description || t('common.noDescription') }} className="text-slate-400 text-sm line-clamp-3 mb-4 flex-1 pointer-events-none opacity-80" />
                 <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-700/50 pointer-events-auto">
                     <button
                         onClick={(e: React.MouseEvent) => { e.stopPropagation(); onInstall(mod); }}
@@ -61,7 +63,7 @@ const ModCard = memo(({
                             }`}
                     >
                         {mod.id === '0' ? <AlertTriangle className="w-4 h-4" /> : <Download className="w-4 h-4" />}
-                        <span>{mod.id === '0' ? 'Check API Key' : 'Install'}</span>
+                        <span>{mod.id === '0' ? t('modManager.checkVersion') : t('common.install')}</span>
                     </button>
                 </div>
             </div>
@@ -70,6 +72,7 @@ const ModCard = memo(({
 });
 
 export default function ModManager() {
+    const { t } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
     const [activeTab, setActiveTab] = useState<'available' | 'installed'>('available');
@@ -170,7 +173,7 @@ export default function ModManager() {
             setInstalledMods(result);
         } catch (error) {
             console.error('Failed to load installed mods:', error);
-            toast.error('Failed to load installed mods');
+            toast.error(t('modManager.loadInstalledFailed'));
         } finally {
             setIsLoading(false);
         }
@@ -196,7 +199,8 @@ export default function ModManager() {
                 try {
                     const results = await searchMods(query, 'ASA', selectedCategory, sortField, sortOrder);
                     if (results.length === 1 && results[0].id === '0') {
-                        toast.error('CurseForge API Key required!');
+                        toast.error(t('modManager.apiKeyRequired'));
+                        t('common.noResults');
                         // Show the error card instead of empty list
                         setAvailableMods(results);
                     } else {
@@ -204,7 +208,7 @@ export default function ModManager() {
                     }
                 } catch (error) {
                     console.error('❌ Failed to search mods:', error);
-                    toast.error(`Search failed: ${error}`);
+                    toast.error(t('modManager.searchFailed', { error }));
                     setAvailableMods([]);
                 } finally {
                     setIsLoading(false);
@@ -235,18 +239,18 @@ export default function ModManager() {
 
     const handleInstallMod = async (mod: ModInfo) => {
         if (!selectedServerId) {
-            toast.error('Please select a server first');
+            toast.error(t('modManager.selectServerFirst'));
             return;
         }
 
         try {
-            toast.loading(`Installing ${mod.name}...`, { id: `install-${mod.id}` });
+            toast.loading(t('modManager.installing', { name: mod.name }), { id: `install-${mod.id}` });
             await installMod(selectedServerId, mod);
-            toast.success(`${mod.name} installed!`, { id: `install-${mod.id}` });
+            toast.success(t('modManager.installedSuccess', { name: mod.name }), { id: `install-${mod.id}` });
             // If checking installed tab, refresh
             if (activeTab === 'installed') fetchInstalled();
         } catch (error) {
-            toast.error(`Failed to install: ${error}`, { id: `install-${mod.id}` });
+            toast.error(t('modManager.installError', { error }), { id: `install-${mod.id}` });
         }
     };
 
@@ -275,7 +279,7 @@ export default function ModManager() {
         setIsBatchInstalling(false);
         setBatchProgress({ current: 0, total: 0, currentModName: '' });
         setSelectedModIds(new Set());
-        toast.success(`Batch install complete: ${successCount} installed.`);
+        toast.success(t('modManager.batchInstallComplete', { count: successCount }));
     };
 
     const handlePreviewConfig = async () => {
@@ -288,7 +292,7 @@ export default function ModManager() {
             setInstructions(inst);
             setShowPreview(true);
         } catch (error) {
-            toast.error(`Failed to generate config: ${error}`);
+            toast.error(t('modManager.configGenFailed', { error }));
         } finally {
             setIsGenerating(false);
         }
@@ -298,11 +302,11 @@ export default function ModManager() {
         if (!selectedServerId) return;
         try {
             await applyModsToServer(selectedServerId);
-            toast.success('Mods applied to server configuration!');
+            toast.success(t('modManager.modInstalled')); // Or generic success/apply message
             const preview = await generateModConfig(selectedServerId);
             setConfigPreview(preview);
         } catch (error) {
-            toast.error(`Failed to apply mods: ${error}`);
+            toast.error(t('modManager.applyFailed', { error }));
         }
     };
 
@@ -326,9 +330,9 @@ export default function ModManager() {
             // Update backend
             const modIds = newMods.map(m => m.id);
             await updateModOrder(selectedServerId, modIds);
-            toast.success('Load order updated');
+            toast.success(t('modManager.modUpdated')); // Or generic update success
         } catch (error) {
-            toast.error('Failed to update load order');
+            toast.error(t('modManager.updateFailed')); // Generic update fail
             fetchInstalled(); // Revert on error
         }
     };
@@ -345,46 +349,46 @@ export default function ModManager() {
             ));
 
             fetchInstalled(); // Refresh to be sure
-            toast.success(`Mod ${newEnabledState ? 'enabled' : 'disabled'}`);
+            toast.success(t('modManager.modUpdated')); // Generic toggle success
         } catch (error) {
-            toast.error(`Failed to toggle mod: ${error}`);
+            toast.error(t('modManager.updateFailed'));
         }
     };
 
     const handleUninstallMod = async (mod: ModInfo) => {
-        if (!selectedServerId || !confirm(`Are you sure you want to uninstall ${mod.name}?`)) return;
+        if (!selectedServerId || !confirm(t('confirmDialog.areYouSure'))) return;
 
         try {
             await uninstallMod(selectedServerId, mod.id);
-            toast.success('Mod uninstalled');
+            toast.success(t('modManager.modUninstalled'));
             fetchInstalled();
         } catch (error) {
-            toast.error(`Failed to uninstall: ${error}`);
+            toast.error(t('modManager.uninstallFailed', { error }));
         }
     };
 
     const copyToClipboard = (text: string) => {
         navigator.clipboard.writeText(text);
-        toast.success('Copied to clipboard');
+        toast.success(t('common.clipboard'));
     };
 
     const handleTransferMods = async () => {
         if (!selectedServerId || !transferTargetId) return;
 
         if (selectedServerId === transferTargetId) {
-            toast.error('Cannot transfer to the same server');
+            toast.error(t('modManager.sameServerTransfer'));
             return;
         }
 
         setIsTransferring(true);
         try {
             await copyModsToServer(selectedServerId, transferTargetId);
-            toast.success('Mods transferred successfully!');
+            toast.success(t('modManager.transferSuccess'));
             setShowTransferDialog(false);
             setTransferTargetId(null);
         } catch (error) {
             console.error('Transfer failed:', error);
-            toast.error(`Transfer failed: ${error}`);
+            toast.error(t('modManager.transferError', { error }));
         } finally {
             setIsTransferring(false);
         }
@@ -393,7 +397,7 @@ export default function ModManager() {
     // Bulk import handler for Advanced Mode
     const handleBulkImportMods = async (modIds: string[]) => {
         if (!selectedServerId || modIds.length === 0) {
-            toast.error('Please select a server first');
+            toast.error(t('modManager.selectServerFirst'));
             return;
         }
 
@@ -430,9 +434,9 @@ export default function ModManager() {
         setBatchProgress({ current: 0, total: 0, currentModName: '' });
 
         if (failCount > 0) {
-            toast.success(`Bulk import complete: ${successCount} installed, ${failCount} failed`);
+            toast.success(t('modManager.batchInstallCompleteWithFailures', { success: successCount, failed: failCount }));
         } else {
-            toast.success(`Bulk import complete: ${successCount} mods installed!`);
+            toast.success(t('modManager.batchInstallComplete', { count: successCount }));
         }
 
         // Refresh installed mods if on that tab
@@ -448,15 +452,15 @@ export default function ModManager() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-violet-400">
-                        Mod Manager
+                        {t('modManager.title')}
                     </h1>
-                    <p className="text-slate-400 mt-2 text-lg">Browse and manage ASA Mods from CurseForge</p>
+                    <p className="text-slate-400 mt-2 text-lg">{t('modManager.subtitle')}</p>
                 </div>
 
                 {/* Server Selector & Actions */}
                 <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-3 bg-slate-800/50 p-2 rounded-xl border border-slate-700">
-                        <span className="text-slate-400 text-sm pl-2">Target Server:</span>
+                        <span className="text-slate-400 text-sm pl-2">{t('modManager.selectServer')}:</span>
                         <select
                             value={selectedServerId || ''}
                             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedServerId(Number(e.target.value))}
@@ -472,7 +476,7 @@ export default function ModManager() {
                         onClick={() => setShowTransferDialog(true)}
                         disabled={!selectedServerId}
                         className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-all disabled:opacity-50"
-                        title="Transfer Mods to Another Server"
+                        title={t('modManager.transferModsTooltip')}
                     >
                         <ArrowUp className="w-5 h-5" />
                     </button>
@@ -483,7 +487,7 @@ export default function ModManager() {
                         className="flex items-center space-x-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 hover:text-white text-slate-300 border border-slate-700 rounded-xl transition-all disabled:opacity-50"
                     >
                         {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        <span className="font-bold">Apply Changes</span>
+                        <span className="font-bold">{t('modManager.applyChanges')}</span>
                     </button>
                 </div>
             </div>
@@ -494,7 +498,7 @@ export default function ModManager() {
                 {isBatchInstalling && (
                     <div className="w-full bg-slate-900/90 border border-sky-500/30 rounded-2xl p-4 shadow-2xl shadow-sky-900/20 animate-in slide-in-from-bottom-5 pointer-events-auto">
                         <div className="flex justify-between text-sm mb-2">
-                            <span className="text-sky-400 font-medium animate-pulse">Installing {batchProgress.currentModName}...</span>
+                            <span className="text-sky-400 font-medium animate-pulse">{t('modManager.installing', { name: batchProgress.currentModName })}</span>
                             <span className="text-slate-400">{batchProgress.current} / {batchProgress.total}</span>
                         </div>
                         <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
@@ -506,11 +510,11 @@ export default function ModManager() {
                 {/* Batch Action Bar */}
                 {selectedModIds.size > 0 && !isBatchInstalling && activeTab === 'available' && (
                     <div className="bg-slate-900/90 border border-slate-700 rounded-full px-6 py-3 shadow-2xl shadow-sky-900/20 flex items-center gap-6 animate-in slide-in-from-bottom-5 pointer-events-auto">
-                        <span className="text-white font-medium pl-2">{selectedModIds.size} mods selected</span>
+                        <span className="text-white font-medium pl-2">{t('modManager.batchInstallComplete', { count: selectedModIds.size })}</span>
                         <div className="h-6 w-px bg-slate-700" />
-                        <button onClick={() => setSelectedModIds(new Set())} className="text-slate-400 hover:text-white transition-colors text-sm">Clear</button>
+                        <button onClick={() => setSelectedModIds(new Set())} className="text-slate-400 hover:text-white transition-colors text-sm">{t('modManager.clearSelection')}</button>
                         <button onClick={handleBatchInstall} disabled={!selectedServerId} className="flex items-center space-x-2 px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-full font-bold transition-all shadow-lg shadow-sky-500/20">
-                            <Download className="w-4 h-4" /> <span>Install Selected</span>
+                            <Download className="w-4 h-4" /> <span>{t('modManager.installSelected')}</span>
                         </button>
                     </div>
                 )}
@@ -523,20 +527,20 @@ export default function ModManager() {
                         <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl shadow-sky-900/20">
                             <div className="p-6 border-b border-slate-800">
                                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                    <ArrowUp className="w-5 h-5 text-sky-400" /> Transfer Mods
+                                    <ArrowUp className="w-5 h-5 text-sky-400" /> {t('modManager.transferMods')}
                                 </h2>
-                                <p className="text-slate-400 text-sm mt-1">Copy installed mods from {servers.find(s => s.id === selectedServerId)?.name} to another server.</p>
+                                <p className="text-slate-400 text-sm mt-1">{t('modManager.transferModsTooltip')}</p>
                             </div>
 
                             <div className="p-6 space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-300">Select Target Server</label>
+                                    <label className="text-sm font-medium text-slate-300">{t('modManager.selectServer')}</label>
                                     <select
                                         value={transferTargetId || ''}
                                         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTransferTargetId(Number(e.target.value))}
                                         className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                                     >
-                                        <option value="">Select a server...</option>
+                                        <option value="">{t('common.select')}...</option>
                                         {servers
                                             .filter(s => s.id !== selectedServerId)
                                             .map(server => (
@@ -549,7 +553,7 @@ export default function ModManager() {
                                 <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
                                     <p className="text-yellow-200/80 text-sm flex items-start gap-2">
                                         <Info className="w-4 h-4 mt-0.5 shrink-0" />
-                                        <span>This will add all enabled mods from the current server to the target server, preserving their load order. Existing mods on the target server will be kept.</span>
+                                        <span>{t('modManager.transferModsInfo')}</span>
                                     </p>
                                 </div>
                             </div>
@@ -559,7 +563,7 @@ export default function ModManager() {
                                     onClick={() => setShowTransferDialog(false)}
                                     className="px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
                                 >
-                                    Cancel
+                                    {t('common.cancel')}
                                 </button>
                                 <button
                                     onClick={handleTransferMods}
@@ -567,7 +571,7 @@ export default function ModManager() {
                                     className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg shadow-lg shadow-sky-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
                                 >
                                     {isTransferring ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
-                                    <span>Transfer Mods</span>
+                                    <span>{t('modManager.transferMods')}</span>
                                 </button>
                             </div>
                         </div>
@@ -582,29 +586,29 @@ export default function ModManager() {
                         <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-sky-900/20">
                             {/* Header */}
                             <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-800/50">
-                                <div><h2 className="text-2xl font-bold text-white flex items-center gap-2"><BookOpen className="text-sky-400" /> Mod Configuration</h2><p className="text-slate-400 text-sm mt-1">Review and apply changes to your server configuration</p></div>
+                                <div><h2 className="text-2xl font-bold text-white flex items-center gap-2"><BookOpen className="text-sky-400" /> {t('modManager.configTitle')}</h2><p className="text-slate-400 text-sm mt-1">{t('modManager.configSubtitle')}</p></div>
                                 <button onClick={() => setShowPreview(false)} className="p-2 hover:bg-slate-700 rounded-full transition-colors"><X className="w-6 h-6 text-slate-400" /></button>
                             </div>
                             {/* Content */}
                             <div className="p-6 overflow-y-auto space-y-8 custom-scrollbar">
                                 {configPreview.validation_errors.length > 0 && (
                                     <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-                                        <h3 className="text-red-400 font-bold flex items-center gap-2 mb-2"><AlertTriangle className="w-5 h-5" /> Validation Issues</h3>
+                                        <h3 className="text-red-400 font-bold flex items-center gap-2 mb-2"><AlertTriangle className="w-5 h-5" /> {t('modManager.validationIssues')}</h3>
                                         <ul className="list-disc list-inside text-red-300/80 text-sm">{configPreview.validation_errors.map((err, i) => <li key={i}>{err}</li>)}</ul>
                                     </div>
                                 )}
                                 <div className="space-y-2">
-                                    <div className="flex items-center justify-between"><h3 className="text-white font-medium flex items-center gap-2"><FileText className="w-4 h-4 text-sky-400" /> GameUserSettings.ini</h3><span className="text-xs text-slate-500 uppercase tracking-wider">Auto-Generated</span></div>
+                                    <div className="flex items-center justify-between"><h3 className="text-white font-medium flex items-center gap-2"><FileText className="w-4 h-4 text-sky-400" /> {t('modManager.gusIni')}</h3><span className="text-xs text-slate-500 uppercase tracking-wider">{t('common.autoGenerated')}</span></div>
                                     <div className="relative group"><pre className="bg-slate-950 rounded-xl p-4 text-sm text-green-300 font-mono overflow-x-auto border border-slate-800">{configPreview.ini_section}</pre></div>
                                 </div>
                                 <div className="space-y-2">
-                                    <div className="flex items-center justify-between"><h3 className="text-white font-medium flex items-center gap-2"><Terminal className="w-4 h-4 text-violet-400" /> Startup Command</h3></div>
+                                    <div className="flex items-center justify-between"><h3 className="text-white font-medium flex items-center gap-2"><Terminal className="w-4 h-4 text-violet-400" /> {t('modManager.startupCommand')}</h3></div>
                                     <div className="relative group"><pre className="bg-slate-950 rounded-xl p-4 text-sm text-violet-300 font-mono overflow-x-auto border border-slate-800 whitespace-pre-wrap break-all">{configPreview.startup_command}</pre><button onClick={() => copyToClipboard(configPreview.startup_command)} className="absolute top-2 right-2 p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"><Copy className="w-4 h-4" /></button></div>
                                 </div>
 
                                 {/* Instructions */}
                                 <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/50">
-                                    <h3 className="text-white font-bold mb-4">Installation Instructions</h3>
+                                    <h3 className="text-white font-bold mb-4">{t('modManager.installInstructions')}</h3>
                                     <div className="space-y-3">
                                         {instructions.map((line, i) => (
                                             <p key={i} className={`text-sm ${line.startsWith('⚠️') ? 'text-amber-400 font-medium mt-4' :
@@ -618,7 +622,7 @@ export default function ModManager() {
                                 </div>
                             </div>
                             {/* Footer */}
-                            <div className="p-6 border-t border-slate-800 bg-slate-800/50 flex justify-end gap-3"><button onClick={() => setShowPreview(false)} className="px-6 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">Close</button><button onClick={() => { handleApplyConfig(); setShowPreview(false); }} className="px-8 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all flex items-center gap-2"><Save className="w-4 h-4" /> Apply to Server</button></div>
+                            <div className="p-6 border-t border-slate-800 bg-slate-800/50 flex justify-end gap-3"><button onClick={() => setShowPreview(false)} className="px-6 py-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">{t('common.close')}</button><button onClick={() => { handleApplyConfig(); setShowPreview(false); }} className="px-8 py-2.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg shadow-sky-500/20 transition-all flex items-center gap-2"><Save className="w-4 h-4" /> {t('modManager.applyChanges')}</button></div>
                         </div>
                     </div>
                 )
@@ -634,36 +638,36 @@ export default function ModManager() {
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                     <div className="lg:col-span-1 space-y-6">
                                         <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50">
-                                            <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Info className="w-4 h-4 text-sky-400" /> Mod Information</h3>
+                                            <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Info className="w-4 h-4 text-sky-400" /> {t('modManager.modInfo')}</h3>
                                             <div className="space-y-4 text-sm">
-                                                <div className="flex justify-between border-b border-slate-700/50 pb-2"><span className="text-slate-400">Mod ID</span><span className="text-white font-mono">{selectedModDetail.id}</span></div>
-                                                <div className="flex justify-between pt-1"><span className="text-slate-400">Status</span>{selectedModDetail.compatible ? <span className="text-green-400 flex items-center"><Check className="w-3 h-3 mr-1" /> Compatible</span> : <span className="text-red-400 flex items-center"><X className="w-3 h-3 mr-1" /> Check Version</span>}</div>
+                                                <div className="flex justify-between border-b border-slate-700/50 pb-2"><span className="text-slate-400">{t('common.modId')}</span><span className="text-white font-mono">{selectedModDetail.id}</span></div>
+                                                <div className="flex justify-between pt-1"><span className="text-slate-400">{t('common.status')}</span>{selectedModDetail.compatible ? <span className="text-green-400 flex items-center"><Check className="w-3 h-3 mr-1" /> {t('modManager.compatible')}</span> : <span className="text-red-400 flex items-center"><X className="w-3 h-3 mr-1" /> {t('modManager.checkVersion')}</span>}</div>
                                             </div>
                                         </div>
 
                                         <div className="flex gap-3">
                                             <a href={selectedModDetail.curseforge_url || selectedModDetail.workshopUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-center font-bold transition-all border border-slate-700 flex items-center justify-center gap-2">
-                                                <ExternalLink className="w-4 h-4" /> CurseForge
+                                                <ExternalLink className="w-4 h-4" /> {t('modManager.viewOnCurseForge')}
                                             </a>
                                             <button
                                                 onClick={() => { handleInstallMod(selectedModDetail); setSelectedModDetail(null); }}
                                                 className="flex-1 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-center font-bold transition-all shadow-lg shadow-sky-500/20 flex items-center justify-center gap-2"
                                             >
-                                                <Download className="w-4 h-4" /> Install
+                                                <Download className="w-4 h-4" /> {t('common.install')}
                                             </button>
                                         </div>
                                     </div>
 
                                     <div className="lg:col-span-2">
-                                        <h3 className="text-2xl font-bold text-white mb-6">Description</h3>
+                                        <h3 className="text-2xl font-bold text-white mb-6">{t('common.description')}</h3>
                                         <div className="prose prose-invert prose-slate max-w-none text-slate-300">
                                             {isLoadingDescription && !fullDescription ? (
                                                 <div className="flex flex-col items-center justify-center py-12 space-y-4">
                                                     <Loader2 className="w-8 h-8 text-sky-500 animate-spin" />
-                                                    <p className="text-slate-400">Loading full description...</p>
+                                                    <p className="text-slate-400">{t('common.loading')}</p>
                                                 </div>
                                             ) : (
-                                                <div dangerouslySetInnerHTML={{ __html: fullDescription || selectedModDetail.description || 'No description available.' }} />
+                                                <div dangerouslySetInnerHTML={{ __html: fullDescription || selectedModDetail.description || t('common.noDescription') }} />
                                             )}
                                         </div>
                                     </div>
@@ -679,7 +683,7 @@ export default function ModManager() {
                 <div className="mb-6 flex flex-wrap items-center gap-4 bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
                     <div className="flex items-center gap-2 text-sm text-slate-400">
                         <ListChecks className="w-4 h-4" />
-                        <span>Filters:</span>
+                        <span>{t('modManager.filters')}:</span>
                     </div>
 
                     {/* Category Select */}
@@ -688,7 +692,7 @@ export default function ModManager() {
                         onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
                         className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block p-2.5 min-w-[150px]"
                     >
-                        <option value="">All Categories</option>
+                        <option value="">{t('modManager.allCategories')}</option>
                         {categories.map((cat) => (
                             <option key={cat.id} value={cat.id}>
                                 {cat.name}
@@ -702,18 +706,18 @@ export default function ModManager() {
                         onChange={(e) => setSortField(Number(e.target.value))}
                         className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block p-2.5"
                     >
-                        <option value={1}>Featured</option>
-                        <option value={2}>Popularity</option>
-                        <option value={3}>Last Updated</option>
-                        <option value={4}>Name</option>
-                        <option value={6}>Total Downloads</option>
+                        <option value={1}>{t('modManager.sort.featured')}</option>
+                        <option value={2}>{t('modManager.sort.popularity')}</option>
+                        <option value={3}>{t('modManager.sort.lastUpdated')}</option>
+                        <option value={4}>{t('modManager.sort.name')}</option>
+                        <option value={6}>{t('modManager.sort.totalDownloads')}</option>
                     </select>
 
                     {/* Sort Order */}
                     <button
                         onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
                         className="p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:border-slate-500 transition-all"
-                        title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                        title={sortOrder === 'asc' ? t('common.ascending') : t('common.descending')}
                     >
                         {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
                     </button>
@@ -729,7 +733,7 @@ export default function ModManager() {
                             }}
                             className="ml-auto text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1"
                         >
-                            <X className="w-3 h-3" /> Clear Filters
+                            <X className="w-3 h-3" /> {t('modManager.clearFilters')}
                         </button>
                     )}
                 </div>
@@ -746,8 +750,8 @@ export default function ModManager() {
                             <Code className="w-5 h-5 text-orange-400" />
                         </div>
                         <div>
-                            <span className="text-white font-medium">Advanced Mode</span>
-                            <p className="text-slate-400 text-sm">Bulk import mod IDs for power users</p>
+                            <span className="text-white font-medium">{t('modManager.advancedMode')}</span>
+                            <p className="text-slate-400 text-sm">{t('modManager.advancedModeSubtitle')}</p>
                         </div>
                     </div>
                     {showAdvancedMode ? (
@@ -776,7 +780,7 @@ export default function ModManager() {
                         type="text"
                         value={searchQuery}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                        placeholder={activeTab === 'available' ? "Search CurseForge mods..." : "Search installed mods..."}
+                        placeholder={activeTab === 'available' ? t('modManager.searchMods') : t('modManager.searchMods')}
                         className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
                     />
                 </div>
@@ -784,13 +788,13 @@ export default function ModManager() {
                 <div className="flex gap-4 items-center">
                     {activeTab === 'available' && (
                         <button onClick={handleSelectAll} className="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
-                            <ListChecks className="w-4 h-4" /> <span>{selectedModIds.size === availableMods.length ? 'Deselect All' : 'Select All'}</span>
+                            <ListChecks className="w-4 h-4" /> <span>{selectedModIds.size === availableMods.length ? t('common.deselectAll') : t('common.selectAll')}</span>
                         </button>
                     )}
 
                     <div className="flex p-1 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                        <button onClick={() => setActiveTab('available')} className={cn('px-6 py-2 rounded-lg text-sm font-medium transition-all', activeTab === 'available' ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white')}>Available</button>
-                        <button onClick={() => setActiveTab('installed')} className={cn('px-6 py-2 rounded-lg text-sm font-medium transition-all', activeTab === 'installed' ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white')}>Installed</button>
+                        <button onClick={() => setActiveTab('available')} className={cn('px-6 py-2 rounded-lg text-sm font-medium transition-all', activeTab === 'available' ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white')}>{t('modManager.available')}</button>
+                        <button onClick={() => setActiveTab('installed')} className={cn('px-6 py-2 rounded-lg text-sm font-medium transition-all', activeTab === 'installed' ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white')}>{t('modManager.installed')}</button>
                     </div>
                 </div>
             </div>
@@ -805,7 +809,7 @@ export default function ModManager() {
                         ) : availableMods.length === 0 ? (
                             <div className="col-span-full text-center py-20 glass-panel rounded-2xl border-dashed border-2 border-slate-700/50">
                                 <Package className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                                <h3 className="text-xl font-semibold text-slate-300">No Mods Found</h3>
+                                <h3 className="text-xl font-semibold text-slate-300">{t('modManager.noModsFound')}</h3>
                             </div>
                         ) : (
                             availableMods.map((mod) => (
@@ -828,8 +832,8 @@ export default function ModManager() {
                         ) : installedMods.length === 0 ? (
                             <div className="text-center py-20 glass-panel rounded-2xl border-dashed border-2 border-slate-700/50">
                                 <Package className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                                <h3 className="text-xl font-semibold text-slate-300">No Installed Mods</h3>
-                                <button onClick={() => setActiveTab('available')} className="mt-4 px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition-colors">Browse Mods</button>
+                                <h3 className="text-xl font-semibold text-slate-300">{t('modManager.noModsInstalled')}</h3>
+                                <button onClick={() => setActiveTab('available')} className="mt-4 px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition-colors">{t('modManager.browse')}</button>
                             </div>
                         ) : (
                             installedMods
@@ -864,9 +868,9 @@ export default function ModManager() {
                                                 <div className="flex items-center gap-3">
                                                     <h3 className="text-lg font-bold text-white">{mod.name}</h3>
                                                     <span className="px-2 py-0.5 bg-slate-800 rounded text-xs font-mono text-slate-400 border border-slate-700">ID: {mod.id}</span>
-                                                    {!mod.enabled && <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-xs rounded border border-red-500/20">Disabled</span>}
+                                                    {!mod.enabled && <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-xs rounded border border-red-500/20">{t('common.disabled')}</span>}
                                                 </div>
-                                                <p className="text-slate-500 text-sm mt-1 line-clamp-1">{mod.description?.replace(/<[^>]*>?/gm, '') || 'No description'}</p>
+                                                <p className="text-slate-500 text-sm mt-1 line-clamp-1">{mod.description?.replace(/<[^>]*>?/gm, '') || t('common.noData')}</p>
                                             </div>
 
                                             {/* Actions */}

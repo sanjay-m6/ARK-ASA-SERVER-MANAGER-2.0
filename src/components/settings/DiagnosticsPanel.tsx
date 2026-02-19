@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface DiagnosticResult {
@@ -12,28 +13,29 @@ interface DiagnosticResult {
 }
 
 export default function DiagnosticsPanel() {
+    const { t } = useTranslation();
     const [result, setResult] = useState<DiagnosticResult | null>(null);
     const [isInstalling, setIsInstalling] = useState(false);
 
     const runDiagnostics = async () => {
-        const toastId = toast.loading('Running diagnostics...');
+        const toastId = toast.loading(t('settings.diagnostics.running'));
         try {
             const res = await invoke<DiagnosticResult>('run_diagnostics');
             setResult(res);
 
             if (res.issues.length === 0) {
-                toast.success('System Healthy! All checks passed.', { id: toastId });
+                toast.success(t('settings.diagnostics.healthy'), { id: toastId });
             } else {
-                toast.error(`Found ${res.issues.length} issues.`, { id: toastId });
+                toast.error(t('settings.diagnostics.issuesFound', { count: res.issues.length }), { id: toastId });
             }
 
             // Show dialog for detailed report
             const report = res.issues.length === 0
-                ? "✅ All Systems Go!\n\n• SteamCMD: Installed\n• Internet: Connected\n• Memory: OK\n• Disk Space: OK"
-                : `⚠️ Issues Found:\n\n${res.issues.map((i: string) => `• ${i}`).join('\n')}`;
+                ? t('settings.diagnostics.reportHealthy')
+                : t('settings.diagnostics.reportIssues', { issues: res.issues.map((i: string) => `• ${i}`).join('\n') });
 
             await invoke('plugin:dialog|message', {
-                title: 'Diagnostic Report',
+                title: t('settings.diagnostics.reportTitle'),
                 message: report,
                 kind: res.issues.length === 0 ? 'info' : 'warning'
             });
@@ -41,7 +43,7 @@ export default function DiagnosticsPanel() {
         } catch (e) {
             console.error(e);
             const msg = e instanceof Error ? e.message : String(e);
-            toast.error(`Diagnostics failed: ${msg}`, { id: toastId });
+            toast.error(t('settings.diagnostics.failed', { error: msg }), { id: toastId });
         }
     };
 
@@ -49,17 +51,17 @@ export default function DiagnosticsPanel() {
         if (!result || result.steamcmd_installed) return;
 
         setIsInstalling(true);
-        const toastId = toast.loading('Downloading and installing SteamCMD...');
+        const toastId = toast.loading(t('settings.diagnostics.installSteamCmd'));
 
         try {
             await invoke('install_steamcmd');
-            toast.success('SteamCMD installed successfully!', { id: toastId });
+            toast.success(t('settings.diagnostics.installSuccess'), { id: toastId });
             // Re-run diagnostics to confirm
             runDiagnostics();
         } catch (error) {
             console.error(error);
             const msg = error instanceof Error ? error.message : String(error);
-            toast.error(`Installation failed: ${msg}`, { id: toastId });
+            toast.error(t('settings.diagnostics.installFailed', { error: msg }), { id: toastId });
         } finally {
             setIsInstalling(false);
         }
@@ -72,7 +74,7 @@ export default function DiagnosticsPanel() {
                 className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-xl transition-all shadow-lg shadow-emerald-500/20 font-bold text-lg flex items-center justify-center gap-2"
             >
                 <CheckCircle className="w-6 h-6" />
-                Run System Check
+                {t('settings.diagnostics.runCheck')}
             </button>
 
             {/* Quick Fix Actions */}
@@ -84,8 +86,8 @@ export default function DiagnosticsPanel() {
                                 <AlertTriangle className="w-5 h-5 text-amber-400" />
                             </div>
                             <div>
-                                <h4 className="font-semibold text-amber-400">SteamCMD Missing</h4>
-                                <p className="text-xs text-amber-200/70">Required to download server files.</p>
+                                <h4 className="font-semibold text-amber-400">{t('settings.diagnostics.steamCmdMissing')}</h4>
+                                <p className="text-xs text-amber-200/70">{t('settings.diagnostics.steamCmdRequired')}</p>
                             </div>
                         </div>
                         <button
@@ -98,7 +100,7 @@ export default function DiagnosticsPanel() {
                             ) : (
                                 <Download className="w-4 h-4" />
                             )}
-                            {isInstalling ? 'Installing...' : 'Install Now'}
+                            {isInstalling ? t('settings.diagnostics.installing') : t('settings.diagnostics.installNow')}
                         </button>
                     </div>
                 </div>

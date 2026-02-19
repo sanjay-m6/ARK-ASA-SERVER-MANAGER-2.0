@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Plus, Play, Square, RotateCw, Trash2, Download, Settings, Terminal, Globe, Shield,
     ChevronDown, ChevronUp, Copy, AppWindow, RefreshCw,
@@ -26,6 +27,7 @@ interface ServerLogEvent {
 }
 
 export default function ServerManager() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const { servers, setServers, removeServer, updateServerStatus, refreshServers } = useServerStore();
     const [showInstallDialog, setShowInstallDialog] = useState(false);
@@ -37,6 +39,10 @@ export default function ServerManager() {
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showNonDedicatedImport, setShowNonDedicatedImport] = useState(false);
+    const [updateOnStart, setUpdateOnStart] = useState(false);
+
+    // Baseline: number of log lines at server start, so we only detect startup in NEW lines
+    const [logBaseline, setLogBaseline] = useState<Record<number, number>>({});
 
     // Startup Progress State
     const [startupProgress, setStartupProgress] = useState<Record<number, { elapsed: number, confirmed: boolean }>>({});
@@ -50,13 +56,13 @@ export default function ServerManager() {
 
     const handleForceStop = async (serverId: number, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm('Are you sure you want to FORCE STOP this server? This allows you to restart a hung process.')) {
+        if (window.confirm(t('serverManager.confirmForceStop'))) {
             try {
                 await stopServer(serverId);
-                toast.success('Server force stopped');
+                toast.success(t('serverManager.serverStopped'));
                 refreshServers();
             } catch (error) {
-                toast.error('Failed to force stop server: ' + error);
+                toast.error(t('serverManager.stopFailed', { error }));
             }
         }
     };
@@ -74,8 +80,8 @@ export default function ServerManager() {
     const handleToggleAutomation = async (serverId: number, type: 'auto_start' | 'auto_stop' | 'intelligent_mode', current: boolean) => {
         try {
             await toggleServerAutomation(serverId, type, !current);
-            const label = type === 'auto_start' ? 'Auto-Start' : type === 'auto_stop' ? 'Auto-Stop' : 'Intelligent Mode';
-            toast.success(`${label} ${!current ? 'Enabled' : 'Disabled'} `);
+            await toggleServerAutomation(serverId, type, !current);
+            toast.success(current ? t('serverManager.automationDisabled') : t('serverManager.automationEnabled'));
             // Optimistic update
             const updatedServers = servers.map(s => {
                 if (s.id === serverId) {
@@ -90,7 +96,7 @@ export default function ServerManager() {
             setServers(updatedServers);
         } catch (error) {
             console.error('Failed to toggle automation:', error);
-            toast.error(`Failed to toggle ${type}: ${error} `);
+            toast.error(t('serverManager.automationFailed', { error }));
         }
     };
 
@@ -124,7 +130,7 @@ export default function ServerManager() {
 
                 // If timed out, show error toast
                 if (status === 'startup_timeout') {
-                    toast.error(`Server startup timed out! Check logs for details.`);
+                    toast.error(t('serverManager.startupTimeout'));
                     setStartupProgress(prev => {
                         const newProgress = { ...prev };
                         delete newProgress[server_id];
@@ -165,7 +171,7 @@ export default function ServerManager() {
             if (unlistenProgress) unlistenProgress();
             clearInterval(interval);
         };
-    }, [setServers, updateServerStatus, refreshServers]);
+    }, [setServers, updateServerStatus, refreshServers, t]);
 
     // Subscribe to server log events
     useEffect(() => {
@@ -185,6 +191,16 @@ export default function ServerManager() {
                 const newLogs = [...logs, line].slice(-500); // Keep last 500 lines
                 return { ...prev, [server_id]: newLogs };
             });
+
+            // Failsafe: If log indicates startup, force UI to update status
+            const lowerLine = line.toLowerCase();
+            // STRICTER CHECK per user request: Only "advertising for join" confirms online
+            if (lowerLine.includes('advertising for join')) {
+                console.log(`[Frontend] Detected startup log for server ${server_id}, forcing ONLINE status.`);
+                updateServerStatus(server_id, 'online');
+                // Trigger a refresh to sync with backend DB (which should also be updated by now)
+                setTimeout(() => refreshServers(), 1000);
+            }
 
             // Auto-scroll logic needs to run after render, but we can try here
             setTimeout(() => {
@@ -213,7 +229,7 @@ export default function ServerManager() {
 
     useEffect(() => {
         servers.forEach(server => {
-            if ((server.status === 'running' || server.status === 'online') && !logsFetched[server.id]) {
+            if ((server.status === 'running' || server.status === 'online' || server.status === 'starting') && !logsFetched[server.id]) {
                 setLogsFetched(prev => ({ ...prev, [server.id]: true }));
                 setExpandedConsoles(prev => ({ ...prev, [server.id]: true }));
 
@@ -225,6 +241,27 @@ export default function ServerManager() {
                             ...prev,
                             [server.id]: logLines
                         }));
+
+                        // If we started this server THIS session, record current line count as baseline
+                        // so the poll only checks NEW lines. If no baseline exists, the server was
+                        // already running from DB — check ALL lines for startup.
+                        if (logBaseline[server.id] !== undefined) {
+                            // Baseline already set by handleStartServer — update to actual line count
+                            setLogBaseline(prev => ({
+                                ...prev,
+                                [server.id]: logLines.length
+                            }));
+                        } else if (server.status === 'running' || server.status === 'starting') {
+                            // Server loaded as 'running' from DB — check all lines now
+                            const hasStartupLine = logLines.some((line: string) =>
+                                line.toLowerCase().includes('advertising for join')
+                            );
+                            if (hasStartupLine) {
+                                console.log(`[Frontend] Initial fetch detected online for server ${server.id} (already running from DB)`);
+                                updateServerStatus(server.id, 'online');
+                            }
+                        }
+
                         // Auto-scroll
                         setTimeout(() => {
                             const consoleEl = consoleRefs.current[server.id];
@@ -238,6 +275,41 @@ export default function ServerManager() {
         });
     }, [servers, logsFetched]);
 
+    // Periodic startup detection: poll log file every 10s for 'starting' or 'running' servers
+    useEffect(() => {
+        const pendingServers = servers.filter(s => s.status === 'starting' || s.status === 'running');
+        if (pendingServers.length === 0) return;
+
+        const pollInterval = setInterval(() => {
+            pendingServers.forEach(server => {
+                if (server.status !== 'starting' && server.status !== 'running') return;
+                getServerLogs(server.id, server.installPath)
+                    .then(logEvents => {
+                        const logLines = logEvents.map((e: any) => e.line);
+                        setServerLogs(prev => ({
+                            ...prev,
+                            [server.id]: logLines
+                        }));
+
+                        // Only check NEW lines (after the baseline from initial fetch)
+                        const baseline = logBaseline[server.id] ?? 0;
+                        const newLines = logLines.slice(baseline);
+                        const hasStartupLine = newLines.some((line: string) =>
+                            line.toLowerCase().includes('advertising for join')
+                        );
+                        if (hasStartupLine) {
+                            console.log(`[Frontend] Startup poll detected online for server ${server.id} (new lines after baseline ${baseline})`);
+                            updateServerStatus(server.id, 'online');
+                            clearInterval(pollInterval);
+                        }
+                    })
+                    .catch(console.error);
+            });
+        }, 10000); // Check every 10 seconds
+
+        return () => clearInterval(pollInterval);
+    }, [servers, updateServerStatus, logBaseline]);
+
     const toggleConsole = (serverId: number) => {
         setExpandedConsoles(prev => ({ ...prev, [serverId]: !prev[serverId] }));
     };
@@ -245,11 +317,17 @@ export default function ServerManager() {
     const handleStartServer = async (serverId: number) => {
         try {
             updateServerStatus(serverId, 'starting');
+            // Set baseline marker — will be updated to actual line count after initial fetch
+            setLogBaseline(prev => ({ ...prev, [serverId]: 0 }));
+            setLogsFetched(prev => ({ ...prev, [serverId]: false }));
             setExpandedConsoles(prev => ({ ...prev, [serverId]: true })); // Auto-expand console
             setServerLogs(prev => ({ ...prev, [serverId]: [] })); // Clear old logs
-            await startServer(serverId);
-            updateServerStatus(serverId, 'running');
-            toast.success('Server started successfully');
+
+            await startServer(serverId, updateOnStart);
+
+            // Don't set to 'running' — keep 'starting' until STDERR/STDOUT detection confirms 'online'
+            toast.success(updateOnStart ? t('serverManager.updatingAndStarting') : t('serverManager.serverStarted'));
+            setUpdateOnStart(false); // Reset toggle
         } catch (error: any) {
             updateServerStatus(serverId, 'stopped');
             // Log error to the in-app console so it persists
@@ -267,14 +345,16 @@ export default function ServerManager() {
     const handleStartServerNoMods = async (serverId: number) => {
         try {
             updateServerStatus(serverId, 'starting');
+            setLogBaseline(prev => ({ ...prev, [serverId]: 0 }));
+            setLogsFetched(prev => ({ ...prev, [serverId]: false }));
             setExpandedConsoles(prev => ({ ...prev, [serverId]: true }));
             setServerLogs(prev => ({ ...prev, [serverId]: [] }));
             await startServerNoMods(serverId);
-            updateServerStatus(serverId, 'running');
-            toast.success('Server started (without mods)');
+            // Don't set to 'running' — keep 'starting' until detection confirms 'online'
+            toast.success(t('serverManager.serverStartedNoMods'));
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
-            toast.error(`Failed to start server: ${error} `);
+            toast.error(t('serverManager.startFailed', { error }));
         }
     };
 
@@ -285,20 +365,22 @@ export default function ServerManager() {
             // Clear logs and collapse console on stop
             setServerLogs(prev => ({ ...prev, [serverId]: [] }));
             setExpandedConsoles(prev => ({ ...prev, [serverId]: false }));
-            toast.success('Server stopped successfully');
+            toast.success(t('serverManager.serverStopped'));
         } catch (error) {
-            toast.error(`Failed to stop server: ${error} `);
+            toast.error(t('serverManager.stopFailed', { error }));
         }
     };
 
     const handleRestartServer = async (serverId: number) => {
         try {
             updateServerStatus(serverId, 'starting');
+            setLogBaseline(prev => ({ ...prev, [serverId]: 0 }));
+            setLogsFetched(prev => ({ ...prev, [serverId]: false }));
             await restartServer(serverId);
-            updateServerStatus(serverId, 'running');
-            toast.success('Server restarted successfully');
+            // Don't set to 'running' — keep 'starting' until detection confirms 'online'
+            toast.success(t('serverManager.serverRestarted'));
         } catch (error) {
-            toast.error(`Failed to restart server: ${error} `);
+            toast.error(t('serverManager.restartFailed', { error }));
         }
     };
 
@@ -307,10 +389,10 @@ export default function ServerManager() {
         try {
             await deleteServer(deleteConfirmServer.id);
             removeServer(deleteConfirmServer.id);
-            toast.success('Server deleted successfully');
+            toast.success(t('serverManager.serverDeleted'));
             setDeleteConfirmServer(null);
         } catch (error) {
-            toast.error(`Failed to delete server: ${error} `);
+            toast.error(t('serverManager.deleteFailed', { error }));
         }
     };
 
@@ -318,35 +400,35 @@ export default function ServerManager() {
         try {
             updateServerStatus(serverId, 'updating');
             await updateServer(serverId);
-            toast.success('Server update initiated');
+            toast.success(t('serverManager.serverUpdated'));
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
-            toast.error(`Failed to update server: ${error} `);
+            toast.error(t('serverManager.updateFailed', { error }));
         }
     };
 
     const handleShowConsole = async (serverId: number) => {
         try {
             await showServerConsole(serverId);
-            toast.success('Console window request sent');
+            toast.success(t('serverManager.consoleSent'));
         } catch (error) {
-            toast.error(`Failed to show console: ${error} `);
+            toast.error(t('serverManager.consoleFailed', { error }));
         }
     };
 
     const handleHardcoreRetry = async (serverId: number) => {
         try {
-            if (!window.confirm("Deep Repair will stop the server, delete the mod cache (.temp folder), and force a fresh download. This may take longer than a normal restart. Continue?")) {
+            if (!window.confirm(t('serverManager.confirmDeepRepair', 'Deep Repair will stop the server, delete the mod cache (.temp folder), and force a fresh download. This may take longer than a normal restart. Continue?'))) {
                 return;
             }
             updateServerStatus(serverId, 'starting');
             setExpandedConsoles(prev => ({ ...prev, [serverId]: true }));
             await hardcoreRetryMods(serverId);
-            updateServerStatus(serverId, 'running');
-            toast.success('Deep repair initiated successfully');
+            // Don't set to 'running' — keep 'starting' until detection confirms 'online'
+            toast.success(t('serverManager.deepRepairStarted'));
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
-            toast.error(`Deep repair failed: ${error} `);
+            toast.error(t('serverManager.deepRepairFailed', { error }));
         }
     };
 
@@ -359,9 +441,9 @@ export default function ServerManager() {
         try {
             const newServer = await cloneServer(cloneModalServer.id);
             setServers([...servers, newServer]);
-            toast.success(`Server cloned as "${newServer.name}"`);
+            toast.success(t('serverManager.serverCloned', { name: newServer.name }));
         } catch (error) {
-            toast.error(`Failed to clone server: ${error} `);
+            toast.error(t('serverManager.cloneFailed', { error }));
         }
     };
 
@@ -369,9 +451,9 @@ export default function ServerManager() {
         if (!cloneModalServer) return;
         try {
             await transferSettings(cloneModalServer.id, targetServerId);
-            toast.success('Settings transferred successfully');
+            toast.success(t('dashboard.settingsTransferred'));
         } catch (error) {
-            toast.error(`Failed to transfer settings: ${error} `);
+            toast.error(t('dashboard.failedTransfer', { error }));
         }
     };
 
@@ -379,9 +461,9 @@ export default function ServerManager() {
         if (!cloneModalServer) return;
         try {
             await extractSaveData(cloneModalServer.id, targetServerId);
-            toast.success('Save data extracted successfully');
+            toast.success(t('dashboard.saveDataExtracted'));
         } catch (error) {
-            toast.error(`Failed to extract save data: ${error} `);
+            toast.error(t('dashboard.failedExtract', { error }));
         }
     };
 
@@ -391,9 +473,9 @@ export default function ServerManager() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-violet-400">
-                        Server Manager
+                        {t('serverManager.title')}
                     </h1>
-                    <p className="text-slate-400 mt-2 text-lg">Deploy and manage your ARK instances</p>
+                    <p className="text-slate-400 mt-2 text-lg">{t('serverManager.subtitle')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
@@ -401,21 +483,21 @@ export default function ServerManager() {
                         className="flex items-center space-x-2 px-5 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-all font-medium"
                     >
                         <Download className="w-5 h-5" />
-                        <span>Import Existing</span>
+                        <span>{t('serverManager.buttons.importExisting')}</span>
                     </button>
                     <button
                         onClick={() => setShowNonDedicatedImport(true)}
                         className="flex items-center space-x-2 px-5 py-3 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded-xl transition-all font-medium"
                     >
                         <Settings className="w-5 h-5" />
-                        <span>Import Save</span>
+                        <span>{t('serverManager.buttons.importSave')}</span>
                     </button>
                     <button
                         onClick={() => setShowInstallDialog(true)}
                         className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl transition-all shadow-lg shadow-sky-500/20 font-medium group"
                     >
                         <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                        <span>Deploy Server</span>
+                        <span>{t('serverManager.buttons.deployServer')}</span>
                     </button>
                 </div>
             </div>
@@ -426,16 +508,16 @@ export default function ServerManager() {
                     <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto mb-6">
                         <Plus className="w-10 h-10 text-slate-500" />
                     </div>
-                    <h3 className="text-2xl font-bold text-white mb-2">No Servers Installed</h3>
+                    <h3 className="text-2xl font-bold text-white mb-2">{t('serverManager.emptyState.title')}</h3>
                     <p className="text-slate-400 mb-8 max-w-md mx-auto">
-                        Your server fleet is currently empty. Launch your first ARK server to begin your journey.
+                        {t('serverManager.emptyState.description')}
                     </p>
                     <div className="flex flex-col gap-4 items-center">
                         <button
                             onClick={() => setShowInstallDialog(true)}
                             className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors border border-slate-700"
                         >
-                            Install Your First Server
+                            {t('serverManager.buttons.installFirst')}
                         </button>
                         <button
                             onClick={async () => {
@@ -443,18 +525,18 @@ export default function ServerManager() {
                                     const result = await debugDatabaseCheck();
                                     toast((_t) => (
                                         <span>
-                                            <b>DB Status:</b><br />
+                                            <b>{t('serverManager.dbStatus')}:</b><br />
                                             {result}
                                         </span>
                                     ), { duration: 10000 });
                                     refreshServers();
                                 } catch (e) {
-                                    toast.error(`Debug failed: ${e}`);
+                                    toast.error(t('common.failed', { error: String(e) }));
                                 }
                             }}
                             className="px-8 py-3 bg-blue-800 hover:bg-blue-700 text-white rounded-xl transition-colors border border-blue-700"
                         >
-                            Debug Database
+                            {t('serverManager.buttons.debugDatabase')}
                         </button>
                     </div>
                 </div>
@@ -506,7 +588,7 @@ export default function ServerManager() {
                                                     {server.status === 'running' || server.status === 'starting' ? (
                                                         <>
                                                             <RefreshCw className="w-3 h-3 animate-spin" />
-                                                            LOADING...
+                                                            {t('serverManager.serverStatus.loading')}
                                                             {startupProgress[server.id] && (
                                                                 <span className="opacity-75">
                                                                     ({formatElapsedTime(startupProgress[server.id].elapsed)})
@@ -517,11 +599,11 @@ export default function ServerManager() {
                                                             )}
                                                         </>
                                                     ) : server.status === 'repairing' ? (
-                                                        'REPAIRING...'
+                                                        t('serverManager.serverStatus.repairing')
                                                     ) : server.status === 'startup_timeout' ? (
-                                                        'STARTUP TIMEOUT'
+                                                        t('serverManager.serverStatus.startup_timeout')
                                                     ) : (
-                                                        (server.status || 'UNKNOWN').toUpperCase()
+                                                        t(`serverManager.serverStatus.${server.status}`, (server.status || 'UNKNOWN').toUpperCase())
                                                     )}
                                                 </span>
 
@@ -529,10 +611,10 @@ export default function ServerManager() {
                                                     <button
                                                         onClick={(e) => handleForceStop(server.id, e)}
                                                         className="px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-md text-xs font-bold transition-colors flex items-center gap-1"
-                                                        title="Force Stop / Cancel Startup"
+                                                        title={t('serverManager.tooltips.forceStop')}
                                                     >
                                                         <XCircle className="w-3 h-3" />
-                                                        {server.status === 'starting' ? 'CANCEL' : 'FORCE STOP'}
+                                                        {server.status === 'starting' ? t('serverManager.buttons.cancel') : t('serverManager.buttons.forceStop')}
                                                     </button>
                                                 )}
                                             </div>
@@ -545,7 +627,7 @@ export default function ServerManager() {
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <Terminal className="w-4 h-4 text-slate-500" />
-                                                <span className="font-mono">Port {server.ports.gamePort}</span>
+                                                <span className="font-mono">{t('common.port')} {server.ports.gamePort}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                                 <Shield className="w-4 h-4 text-slate-500" />
@@ -557,12 +639,25 @@ export default function ServerManager() {
 
                                 {/* Actions */}
                                 <div className="flex items-center gap-3">
+                                    {/* Update on Start Toggle */}
+                                    {(server.status === 'stopped' || server.status === 'crashed') && (
+                                        <label className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer hover:text-white transition-colors mr-2 select-none" title={t('serverManager.tooltips.updateOnStart')}>
+                                            <input
+                                                type="checkbox"
+                                                checked={updateOnStart}
+                                                onChange={(e) => setUpdateOnStart(e.target.checked)}
+                                                className="w-4 h-4 rounded bg-slate-800 border-slate-600 text-sky-500 focus:ring-sky-500/50 cursor-pointer"
+                                            />
+                                            {t('serverManager.buttons.updateOnStart')}
+                                        </label>
+                                    )}
+
                                     {server.status === 'stopped' || server.status === 'crashed' ? (
                                         <div className="relative group/start">
                                             <button
                                                 onClick={() => handleStartServer(server.id)}
                                                 className="p-2.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg transition-all hover:scale-105 active:scale-95"
-                                                title="Start Server"
+                                                title={t('serverManager.tooltips.start')}
                                             >
                                                 <Play className="w-5 h-5 fill-current" />
                                             </button>
@@ -573,15 +668,15 @@ export default function ServerManager() {
                                                     className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
                                                 >
                                                     <Play className="w-4 h-4" />
-                                                    <span>Start</span>
+                                                    <span>{t('serverManager.buttons.start')}</span>
                                                 </button>
                                                 <button
                                                     onClick={() => handleStartServerNoMods(server.id)}
                                                     className="w-full text-left px-4 py-3 hover:bg-yellow-500/10 text-yellow-400 hover:text-yellow-300 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                    title="Start without any mods for troubleshooting"
+                                                    title={t('serverManager.tooltips.startNoMods')}
                                                 >
                                                     <Shield className="w-4 h-4" />
-                                                    <span>Start (No Mods)</span>
+                                                    <span>{t('serverManager.buttons.startNoMods')}</span>
                                                 </button>
                                             </div>
                                         </div>
@@ -589,7 +684,7 @@ export default function ServerManager() {
                                         <button
                                             onClick={() => handleStopServer(server.id)}
                                             className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-all hover:scale-105 active:scale-95"
-                                            title="Stop Server"
+                                            title={t('serverManager.tooltips.stop')}
                                         >
                                             <Square className="w-5 h-5 fill-current" />
                                         </button>
@@ -599,7 +694,7 @@ export default function ServerManager() {
                                         <button
                                             disabled={server.status === 'stopped'}
                                             className="p-2.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                                            title="Restart Options"
+                                            title={t('serverManager.tooltips.restartOptions')}
                                         >
                                             <RotateCw className="w-5 h-5" />
                                         </button>
@@ -611,15 +706,15 @@ export default function ServerManager() {
                                                 className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
                                             >
                                                 <RotateCw className="w-4 h-4" />
-                                                <span>Normal Restart</span>
+                                                <span>{t('serverManager.buttons.normalRestart')}</span>
                                             </button>
                                             <button
                                                 onClick={() => handleHardcoreRetry(server.id)}
                                                 className="w-full text-left px-4 py-3 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                title="Stops server, clears mod cache, and restarts"
+                                                title={t('serverManager.tooltips.deepRepair')}
                                             >
                                                 <Shield className="w-4 h-4" />
-                                                <span>Deep Repair Mods</span>
+                                                <span>{t('serverManager.buttons.deepRepair')}</span>
                                             </button>
                                         </div>
                                     </div>
@@ -628,7 +723,7 @@ export default function ServerManager() {
                                         onClick={() => handleShowConsole(server.id)}
                                         disabled={server.status === 'stopped'}
                                         className="p-2.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border border-violet-500/20 rounded-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                                        title="Show Server Console Window"
+                                        title={t('serverManager.tooltips.showConsole')}
                                     >
                                         <AppWindow className="w-5 h-5" />
                                     </button>
@@ -638,7 +733,7 @@ export default function ServerManager() {
                                     <button
                                         onClick={() => handleUpdateServer(server.id)}
                                         className="p-2.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-lg transition-all hover:scale-105 active:scale-95"
-                                        title="Update Server"
+                                        title={t('serverManager.tooltips.update')}
                                     >
                                         <Download className="w-5 h-5" />
                                     </button>
@@ -646,7 +741,7 @@ export default function ServerManager() {
                                     <button
                                         onClick={() => navigate('/config', { state: { serverId: server.id } })}
                                         className="p-2.5 bg-slate-700/30 hover:bg-slate-700/50 text-slate-300 border border-slate-600/30 rounded-lg transition-all hover:scale-105 active:scale-95"
-                                        title="Server Settings"
+                                        title={t('serverManager.tooltips.settings')}
                                     >
                                         <Settings className="w-5 h-5" />
                                     </button>
@@ -654,7 +749,7 @@ export default function ServerManager() {
                                     <button
                                         onClick={() => openCloneModal(server)}
                                         className="p-2.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-lg transition-all hover:scale-105 active:scale-95"
-                                        title="Clone / Transfer / Extract"
+                                        title={t('serverManager.tooltips.clone')}
                                     >
                                         <Copy className="w-5 h-5" />
                                     </button>
@@ -662,7 +757,7 @@ export default function ServerManager() {
                                     <button
                                         onClick={() => setDeleteConfirmServer(server)}
                                         className="p-2.5 bg-slate-700/30 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-slate-600/30 hover:border-red-500/20 rounded-lg transition-all hover:scale-105 active:scale-95"
-                                        title="Delete Server"
+                                        title={t('serverManager.tooltips.delete')}
                                     >
                                         <Trash2 className="w-5 h-5" />
                                     </button>
@@ -672,19 +767,19 @@ export default function ServerManager() {
                             {/* Server Details Footer */}
                             <div className="mt-6 pt-4 border-t border-slate-700/30 grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
                                 <div>
-                                    <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Install Path</p>
+                                    <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">{t('serverManager.serverDetails.installPath')}</p>
                                     <p className="text-slate-300 font-mono text-xs truncate" title={server.installPath}>{server.installPath}</p>
                                 </div>
                                 <div>
-                                    <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Max Players</p>
-                                    <p className="text-slate-300">{server.config.maxPlayers} Survivors</p>
+                                    <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">{t('serverManager.serverDetails.maxPlayers')}</p>
+                                    <p className="text-slate-300">{server.config.maxPlayers} {t('serverManager.serverDetails.survivors')}</p>
                                 </div>
                                 <div>
-                                    <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Session Name</p>
+                                    <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">{t('serverManager.serverDetails.sessionName')}</p>
                                     <p className="text-slate-300 truncate">{server.config.sessionName}</p>
                                 </div>
                                 <div>
-                                    <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">Connection</p>
+                                    <p className="text-slate-500 text-xs uppercase tracking-wider font-semibold mb-1">{t('serverManager.serverDetails.connection')}</p>
                                     <p className="text-slate-300 font-mono text-xs">
                                         {server.ipAddress ? server.ipAddress : "0.0.0.0"} : {server.ports.gamePort}
                                     </p>
@@ -694,7 +789,7 @@ export default function ServerManager() {
                             {/* Automation Controls */}
                             <div className="mt-4 pt-4 border-t border-slate-700/30 flex items-center gap-6">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Automation:</span>
+                                    <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">{t('serverManager.serverDetails.automation')}</span>
                                 </div>
                                 <label className="flex items-center gap-2 cursor-pointer group/toggle">
                                     <div className="relative">
@@ -706,7 +801,7 @@ export default function ServerManager() {
                                         />
                                         <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
                                     </div>
-                                    <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">Auto-Start</span>
+                                    <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStart')}</span>
                                 </label>
 
                                 <label className="flex items-center gap-2 cursor-pointer group/toggle">
@@ -720,8 +815,8 @@ export default function ServerManager() {
                                         <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500"></div>
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">Auto-Stop</span>
-                                        <span className="text-[10px] text-slate-500">On Config Change</span>
+                                        <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStop')}</span>
+                                        <span className="text-[10px] text-slate-500">{t('serverManager.serverDetails.onConfigChange')}</span>
                                     </div>
                                 </label>
 
@@ -738,9 +833,9 @@ export default function ServerManager() {
                                     <div className="flex flex-col">
                                         <div className="flex items-center gap-1.5">
                                             <Shield className={cn("w-4 h-4 transition-colors", server.intelligentMode ? "text-sky-400" : "text-slate-500")} />
-                                            <span className={cn("text-sm font-bold transition-colors", server.intelligentMode ? "text-sky-400" : "text-slate-400")}>Intelligent Mode</span>
+                                            <span className={cn("text-sm font-bold transition-colors", server.intelligentMode ? "text-sky-400" : "text-slate-400")}>{t('serverManager.serverDetails.intelligentMode')}</span>
                                         </div>
-                                        <span className="text-[10px] text-slate-500" title="Protects server during updates and save imports">Data Safety & Auto-Repair</span>
+                                        <span className="text-[10px] text-slate-500" title={t('serverManager.tooltips.dataSafety')}>{t('serverManager.serverDetails.dataSafetyLabel')}</span>
                                     </div>
                                 </label>
                             </div>
@@ -754,7 +849,7 @@ export default function ServerManager() {
                                             className="flex items-center gap-2 text-sm text-slate-400 hover:text-sky-400 transition-colors"
                                         >
                                             <Terminal className="w-4 h-4" />
-                                            <span>Console Output</span>
+                                            <span>{t('serverManager.serverDetails.consoleOutput')}</span>
                                             {expandedConsoles[server.id] ? (
                                                 <ChevronUp className="w-4 h-4" />
                                             ) : (
@@ -766,10 +861,10 @@ export default function ServerManager() {
                                             <button
                                                 onClick={() => handleShowConsole(server.id)}
                                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 hover:text-violet-300 border border-violet-500/20 rounded-lg text-xs font-medium transition-all hover:scale-105 active:scale-95"
-                                                title="Pop up the actual ARK server console window"
+                                                title={t('serverManager.tooltips.showConsoleBtn')}
                                             >
                                                 <AppWindow className="w-3.5 h-3.5" />
-                                                <span>Show Server Console</span>
+                                                <span>{t('serverManager.serverDetails.showConsole')}</span>
                                             </button>
                                         )}
                                     </div>
@@ -780,7 +875,7 @@ export default function ServerManager() {
                                             className="bg-slate-950 rounded-lg p-3 font-mono text-xs h-48 overflow-y-auto border border-slate-800"
                                         >
                                             {(serverLogs[server.id] || []).length === 0 ? (
-                                                <p className="text-slate-500 italic">Waiting for server output...</p>
+                                                <p className="text-slate-500 italic">{t('serverManager.serverDetails.waitingOutput')}</p>
                                             ) : (
                                                 (serverLogs[server.id] || []).map((lineItem, idx) => {
                                                     // Defensive check for non-string log items
@@ -900,9 +995,9 @@ export default function ServerManager() {
                 isOpen={!!deleteConfirmServer}
                 onClose={() => setDeleteConfirmServer(null)}
                 onConfirm={confirmDeleteServer}
-                title="Delete Server"
-                message={`Are you sure you want to delete "${deleteConfirmServer?.name}" ? This action cannot be undone.`}
-                confirmText="Delete"
+                title={t('serverManager.confirmDelete')}
+                message={t('serverManager.confirmDeleteMsg', { name: deleteConfirmServer?.name })}
+                confirmText={t('serverManager.buttons.delete')}
                 variant="danger"
             />
         </div>

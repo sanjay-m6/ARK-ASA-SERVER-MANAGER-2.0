@@ -28,14 +28,23 @@ export const useServerStore = create<ServerStore>((set) => ({
         activeServer: state.activeServer?.id === serverId ? null : state.activeServer,
     })),
 
-    updateServerStatus: (serverId, status) => set((state) => ({
-        servers: state.servers.map((server) =>
-            server.id === serverId ? { ...server, status } : server
-        ),
-        activeServer: state.activeServer?.id === serverId
-            ? { ...state.activeServer, status }
-            : state.activeServer,
-    })),
+    updateServerStatus: (serverId, status) => {
+        set((state) => ({
+            servers: state.servers.map((server) =>
+                server.id === serverId ? { ...server, status } : server
+            ),
+            activeServer: state.activeServer?.id === serverId
+                ? { ...state.activeServer, status }
+                : state.activeServer,
+        }));
+
+        // Persist 'online' status to DB so refreshServers reads the correct state
+        if (status === 'online') {
+            import('../utils/tauri').then(({ updateServerStatusInDb }) => {
+                updateServerStatusInDb(serverId, 'online').catch(console.error);
+            });
+        }
+    },
 
     setActiveServer: (server) => set({ activeServer: server }),
 
@@ -63,8 +72,24 @@ export const useServerStore = create<ServerStore>((set) => ({
     refreshServers: async () => {
         try {
             const { getAllServers } = await import('../utils/tauri');
-            const servers = await getAllServers();
-            set({ servers });
+            const freshServers = await getAllServers();
+
+            // Merge: preserve 'online' status from current state if DB still says 'running'
+            // This prevents the race condition where STDOUT detected 'online' but DB hasn't updated yet
+            set((state) => {
+                const currentStatusMap = new Map(
+                    state.servers.map(s => [s.id, s.status])
+                );
+                const merged = freshServers.map(s => {
+                    const currentStatus = currentStatusMap.get(s.id);
+                    // If frontend knows it's 'online' but DB still says 'running', keep 'online'
+                    if (currentStatus === 'online' && (s.status === 'running' || s.status === 'starting')) {
+                        return { ...s, status: 'online' as const };
+                    }
+                    return s;
+                });
+                return { servers: merged };
+            });
         } catch (error) {
             console.error('Failed to refresh servers:', error);
             import('react-hot-toast').then(({ default: toast }) => {

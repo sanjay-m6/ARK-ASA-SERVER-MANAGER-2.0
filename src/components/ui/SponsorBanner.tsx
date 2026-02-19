@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Heart, Coffee, Star, Sparkles, CreditCard } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
@@ -22,6 +23,7 @@ const SAMPLE_SPONSORS: Sponsor[] = [
 ];
 
 export default function SponsorBanner() {
+    const { t } = useTranslation();
     const [currentSponsorIndex, setCurrentSponsorIndex] = useState(0);
     const [sponsors] = useState<Sponsor[]>(SAMPLE_SPONSORS);
 
@@ -71,10 +73,10 @@ export default function SponsorBanner() {
                     </div>
                     <div className="flex-1">
                         <div className="text-sm font-medium text-white">
-                            Support ASA Server Manager
+                            {t('sponsorBanner.title')}
                         </div>
                         <div className="text-xs text-slate-400">
-                            Help keep this project alive and thriving
+                            {t('sponsorBanner.subtitle')}
                         </div>
                     </div>
                 </div>

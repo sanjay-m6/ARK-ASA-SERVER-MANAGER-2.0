@@ -22,6 +22,7 @@ pub struct DiscordBridgeConfig {
     pub bot_token: String,
     pub guild_id: String,
     pub channel_id: String,
+    pub admin_channel_id: String, // New field for Admin Commands
     pub game_to_discord: bool,
     pub discord_to_game: bool,
     pub server_list_enabled: bool,
@@ -42,6 +43,7 @@ impl Default for DiscordBridgeConfig {
             bot_token: String::new(),
             guild_id: String::new(),
             channel_id: String::new(),
+            admin_channel_id: String::new(),
             game_to_discord: true,
             discord_to_game: true,
             server_list_enabled: false,
@@ -91,7 +93,8 @@ impl RateLimiter {
 use crate::services::player_intelligence::PlayerIntelligenceService;
 use crate::AppState;
 use serenity::all::{
-    Client as SerenityClient, EventHandler as SerenityEventHandler, GatewayIntents, Ready,
+    Client as SerenityClient, Context, EventHandler as SerenityEventHandler, GatewayIntents,
+    Message, Ready,
 };
 use tauri::{AppHandle, Manager};
 
@@ -104,14 +107,291 @@ struct ClusterServerInfo {
     last_started: Option<String>,
 }
 
-/// Minimal serenity event handler just to keep the bot online
-struct GatewayHandler;
+/// Gateway Handler with AppHandle access
+struct GatewayHandler {
+    app_handle: AppHandle,
+    config: Arc<Mutex<Option<DiscordBridgeConfig>>>,
+}
 
 #[serenity::async_trait]
 impl SerenityEventHandler for GatewayHandler {
-    async fn ready(&self, _ctx: serenity::all::Context, ready: Ready) {
+    async fn ready(&self, _ctx: Context, ready: Ready) {
         println!("🟢 Discord bot '{}' is now ONLINE", ready.user.name);
     }
+
+    async fn message(&self, ctx: Context, msg: Message) {
+        // Ignore own messages
+        if msg.author.bot {
+            return;
+        }
+
+        // Get config to check admin channel
+        let admin_channel_id = {
+            let cfg = self.config.lock().await;
+            if let Some(c) = cfg.as_ref() {
+                if c.admin_channel_id.is_empty() {
+                    return; // No admin channel configured
+                }
+                c.admin_channel_id.clone()
+            } else {
+                return;
+            }
+        };
+
+        // Check if message is in Admin Channel
+        if msg.channel_id.to_string() != admin_channel_id {
+            return;
+        }
+
+        // Check for command prefix
+        if !msg.content.starts_with('!') {
+            return;
+        }
+
+        println!("🔔 Admin Command received: {}", msg.content);
+
+        let parts: Vec<&str> = msg.content.split_whitespace().collect();
+        if parts.is_empty() {
+            return;
+        }
+
+        let command = parts[0];
+        let args = &parts[1..];
+
+        match command {
+            "!ping" => {
+                let _ = msg.reply(&ctx.http, "Pong! 🦖").await;
+            }
+            "!help" => {
+                let help_text = concat!(
+                    "**🦖 ARK Manager Admin Commands**\n",
+                    "`!list` - List all servers and status\n",
+                    "`!start <id>` - Start a server\n",
+                    "`!stop <id>` - Stop a server\n",
+                    "`!restart <id>` - Restart a server\n",
+                    "`!update <id>` - Update a server\n",
+                    "`!kick <id> <steam_id>` - Kick a player\n",
+                    "`!broadcast <id> <msg>` - Broadcast message\n",
+                    "`!status` - Show cluster status"
+                );
+                let _ = msg.reply(&ctx.http, help_text).await;
+            }
+            "!list" | "!status" => {
+                // List servers.
+                let state = self.app_handle.state::<AppState>();
+                let servers = match get_all_servers_status(&state).await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        let _ = msg.reply(&ctx.http, format!("❌ Error: {}", e)).await;
+                        return;
+                    }
+                };
+
+                let mut response = String::from("**🦖 Server List**\n");
+                for s in servers {
+                    let status_icon = match s.status.as_str() {
+                        "online" | "running" => "🟢",
+                        "starting" => "🟡",
+                        "stopped" => "🔴",
+                        "crashed" => "💥",
+                        _ => "⚪",
+                    };
+                    response.push_str(&format!(
+                        "`{}` {} **{}** - {}\n",
+                        s.id, status_icon, s.name, s.status
+                    ));
+                }
+                let _ = msg.reply(&ctx.http, response).await;
+            }
+            "!start" => {
+                if args.is_empty() {
+                    let _ = msg.reply(&ctx.http, "❌ Usage: `!start <server_id>`").await;
+                    return;
+                }
+                if let Ok(id) = args[0].parse::<i64>() {
+                    let _ = msg
+                        .reply(&ctx.http, format!("🚀 Starting server {}...", id))
+                        .await;
+                    let app = self.app_handle.clone();
+
+                    // Call start_server command logic
+                    // We spin up a new runtime for the handle or use tauri's async runtime
+                    let _ = tauri::async_runtime::spawn(async move {
+                        let _ = crate::commands::server::start_server(app, id, false).await;
+                    });
+                } else {
+                    let _ = msg.reply(&ctx.http, "❌ Invalid Server ID").await;
+                }
+            }
+            "!stop" => {
+                if args.is_empty() {
+                    let _ = msg.reply(&ctx.http, "❌ Usage: `!stop <server_id>`").await;
+                    return;
+                }
+                if let Ok(id) = args[0].parse::<i64>() {
+                    let _ = msg
+                        .reply(&ctx.http, format!("🛑 Stopping server {}...", id))
+                        .await;
+                    let app = self.app_handle.clone();
+
+                    // Call stop_server command logic
+                    let _ = tauri::async_runtime::spawn(async move {
+                        let state = app.state::<AppState>();
+                        let _ = crate::commands::server::stop_server(state, id).await;
+                    });
+                } else {
+                    let _ = msg.reply(&ctx.http, "❌ Invalid Server ID").await;
+                }
+            }
+            "!restart" => {
+                if args.is_empty() {
+                    let _ = msg
+                        .reply(&ctx.http, "❌ Usage: `!restart <server_id>`")
+                        .await;
+                    return;
+                }
+                if let Ok(id) = args[0].parse::<i64>() {
+                    let _ = msg
+                        .reply(&ctx.http, format!("🔄 Restarting server {}...", id))
+                        .await;
+                    let app = self.app_handle.clone();
+
+                    // Call restart_server command logic
+                    let _ = tauri::async_runtime::spawn(async move {
+                        let state = app.state::<AppState>();
+                        let _ = crate::commands::server::restart_server(state, id).await;
+                    });
+                } else {
+                    let _ = msg.reply(&ctx.http, "❌ Invalid Server ID").await;
+                }
+            }
+            "!update" => {
+                if args.is_empty() {
+                    let _ = msg
+                        .reply(&ctx.http, "❌ Usage: `!update <server_id>`")
+                        .await;
+                    return;
+                }
+                if let Ok(id) = args[0].parse::<i64>() {
+                    let _ = msg
+                        .reply(&ctx.http, format!("⬇️ Updating server {}...", id))
+                        .await;
+                    let app = self.app_handle.clone();
+
+                    // Call update_server command logic
+                    let _ = tauri::async_runtime::spawn(async move {
+                        let state = app.state::<AppState>();
+                        let _ =
+                            crate::commands::server::update_server(app.clone(), state, id).await;
+                    });
+                } else {
+                    let _ = msg.reply(&ctx.http, "❌ Invalid Server ID").await;
+                }
+            }
+            "!broadcast" | "!say" => {
+                if args.len() < 2 {
+                    let _ = msg
+                        .reply(&ctx.http, "❌ Usage: `!broadcast <server_id> <message>`")
+                        .await;
+                    return;
+                }
+                if let Ok(server_id) = args[0].parse::<i64>() {
+                    let message = args[1..].join(" ");
+                    let _ = msg
+                        .reply(
+                            &ctx.http,
+                            format!("📢 Broadcasting to server {}: {}", server_id, message),
+                        )
+                        .await;
+
+                    let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
+                    let rcon_service = {
+                        let guard = rcon_state.0.lock().await;
+                        guard.clone()
+                    };
+
+                    match rcon_service.broadcast(server_id, &message).await {
+                        Ok(_) => {
+                            let _ = msg.reply(&ctx.http, "✅ Message sent.").await;
+                        }
+                        Err(e) => {
+                            let _ = msg.reply(&ctx.http, format!("❌ Failed: {}", e)).await;
+                        }
+                    }
+                } else {
+                    let _ = msg.reply(&ctx.http, "❌ Invalid Server ID").await;
+                }
+            }
+            "!kick" => {
+                if args.len() < 2 {
+                    let _ = msg
+                        .reply(&ctx.http, "❌ Usage: `!kick <server_id> <steam_id>`")
+                        .await;
+                    return;
+                }
+                if let Ok(server_id) = args[0].parse::<i64>() {
+                    let steam_id = args[1];
+                    let _ = msg
+                        .reply(
+                            &ctx.http,
+                            format!(
+                                "👢 Kicking player {} from server {}...",
+                                steam_id, server_id
+                            ),
+                        )
+                        .await;
+
+                    let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
+                    let rcon_service = {
+                        let guard = rcon_state.0.lock().await;
+                        guard.clone()
+                    };
+
+                    match rcon_service
+                        .kick_player(server_id, steam_id, Some("Kicked by Admin via Discord"))
+                        .await
+                    {
+                        Ok(_) => {
+                            let _ = msg.reply(&ctx.http, "✅ Player kicked.").await;
+                        }
+                        Err(e) => {
+                            let _ = msg.reply(&ctx.http, format!("❌ Failed: {}", e)).await;
+                        }
+                    };
+                } else {
+                    let _ = msg.reply(&ctx.http, "❌ Invalid Server ID").await;
+                }
+            }
+            _ => {
+                // Unknown command, ignore
+            }
+        }
+    }
+}
+
+// Helper to get all servers status
+async fn get_all_servers_status(state: &AppState) -> Result<Vec<ClusterServerInfo>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, name, status FROM servers")
+        .map_err(|e| e.to_string())?;
+
+    let servers = stmt
+        .query_map([], |row| {
+            Ok(ClusterServerInfo {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                status: row.get(2)?,
+                max_players: 0, // Not needed for simple list
+                last_started: None,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(servers)
 }
 
 /// Discord Bridge Service
@@ -382,12 +662,18 @@ impl DiscordBridgeService {
 
         // Only use non-privileged intents to appear online
         // MESSAGE_CONTENT is privileged and requires Portal activation
-        let intents = GatewayIntents::GUILDS;
+        let intents = GatewayIntents::GUILDS
+            | GatewayIntents::GUILD_MESSAGES
+            | GatewayIntents::MESSAGE_CONTENT;
 
         let gateway_running = self.gateway_running.clone();
 
+        // Clone for handler
+        let app_handle = self.app_handle.clone();
+        let config = self.config.clone();
+
         match SerenityClient::builder(&token, intents)
-            .event_handler(GatewayHandler)
+            .event_handler(GatewayHandler { app_handle, config })
             .await
         {
             Ok(mut client) => {

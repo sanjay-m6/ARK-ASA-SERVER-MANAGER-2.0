@@ -299,36 +299,53 @@ impl ServerInstaller {
             }
         }
 
-        // Wait for process to complete
-        let status = child
-            .wait()
-            .await
-            .map_err(|e| format!("SteamCMD process failed: {}", e))?;
+        // Wait for process to complete with timeout
+        let timeout_duration = std::time::Duration::from_secs(1800); // 30 minutes
 
-        self.emit_console("", "info");
-        if status.success() {
-            self.emit_console(
-                "═══════════════════════════════════════════════════════════",
-                "success",
-            );
-            self.emit_console("  Server installation completed successfully!", "success");
-            self.emit_console(
-                "═══════════════════════════════════════════════════════════",
-                "success",
-            );
-            self.emit_complete("Server installed successfully!");
-            Ok(())
-        } else {
-            let code = status.code();
-            let error_msg = match code {
-                Some(8) => "SteamCMD Error (8): Download failed due to disk space, network, or permissions.\n\nType: Disk/Network Error\nFix:\n1. Check disk space (approx 60GB required)\n2. Ensure stable internet connection\n3. Run as Administrator\n4. Delete 'steamapps' folder in steamcmd to clear cache".to_string(),
-                Some(7) => "SteamCMD Error (7): Command failure. The Steam servers might be busy or the command format is invalid.".to_string(),
-                Some(c) => format!("SteamCMD exited with unexpected code: {}", c),
-                None => "SteamCMD process terminated without an exit code.".to_string(),
-            };
+        let status_result = tokio::time::timeout(timeout_duration, child.wait()).await;
 
-            self.emit_error(&error_msg);
-            Err(error_msg)
+        match status_result {
+            Ok(Ok(status)) => {
+                self.emit_console("", "info");
+                if status.success() {
+                    self.emit_console(
+                        "═══════════════════════════════════════════════════════════",
+                        "success",
+                    );
+                    self.emit_console("  Server installation completed successfully!", "success");
+                    self.emit_console(
+                        "═══════════════════════════════════════════════════════════",
+                        "success",
+                    );
+                    self.emit_complete("Server installed successfully!");
+                    Ok(())
+                } else {
+                    let code = status.code();
+                    let error_msg = match code {
+                        Some(8) => "SteamCMD Error (8): Download failed due to disk space, network, or permissions.\n\nType: Disk/Network Error\nFix:\n1. Check disk space (approx 60GB required)\n2. Ensure stable internet connection\n3. Run as Administrator\n4. Delete 'steamapps' folder in steamcmd to clear cache".to_string(),
+                        Some(7) => "SteamCMD Error (7): Command failure. The Steam servers might be busy or the command format is invalid.".to_string(),
+                        Some(c) => format!("SteamCMD exited with unexpected code: {}", c),
+                        None => "SteamCMD process terminated without an exit code.".to_string(),
+                    };
+
+                    self.emit_error(&error_msg);
+                    Err(error_msg)
+                }
+            }
+            Ok(Err(e)) => {
+                let error_msg = format!("SteamCMD process failed: {}", e);
+                self.emit_error(&error_msg);
+                Err(error_msg)
+            }
+            Err(_) => {
+                // Timeout occurred
+                let _ = child.start_kill(); // Attempt to kill the process
+                let _ = child.wait().await; // Clean up zombie process
+
+                let error_msg = "SteamCMD operation timed out after 30 minutes.".to_string();
+                self.emit_error(&error_msg);
+                Err(error_msg)
+            }
         }
     }
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { emit, listen } from '@tauri-apps/api/event';
@@ -62,7 +63,7 @@ export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
                 available: true,
                 update: {
                     version: update.version,
-                    body: update.body || 'New version available!',
+                    body: update.body || 'New version available!', // Keep hardcoded fallback for manual check logic or pass t func
                 },
                 error: null,
             };
@@ -91,6 +92,7 @@ export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
 }
 
 export default function UpdateChecker() {
+    const { t } = useTranslation();
     const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
     const [updateObj, setUpdateObj] = useState<Awaited<ReturnType<typeof check>> | null>(null);
     const [isDownloading, setIsDownloading] = useState(false);
@@ -122,7 +124,7 @@ export default function UpdateChecker() {
 
                 const info = {
                     version: update.version,
-                    body: update.body || 'New version available!',
+                    body: update.body || t('updateChecker.title'), // Fallback title as body if empty
                 };
 
                 setUpdateAvailable(info);
@@ -188,7 +190,7 @@ export default function UpdateChecker() {
             await relaunch();
         } catch (err) {
             console.error('Update failed:', err);
-            setError('Failed to download update. Please try again or download manually.');
+            setError(t('updateChecker.error'));
 
             // Log failed update
             addUpdateHistory({
@@ -287,7 +289,7 @@ export default function UpdateChecker() {
                             <Download className="w-5 h-5 text-sky-400" />
                         </div>
                         <div>
-                            <h3 className="font-bold text-white text-sm">Update Available</h3>
+                            <h3 className="font-bold text-white text-sm">{t('updateChecker.title')}</h3>
                             <div className="flex items-center gap-2 mt-0.5">
                                 <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-400">v{currentAppVersion}</span>
                                 <span className="text-slate-600">→</span>
@@ -319,7 +321,7 @@ export default function UpdateChecker() {
                 {isDownloading && (
                     <div className="mb-3 space-y-2">
                         <div className="flex justify-between text-xs text-slate-400">
-                            <span>Downloading...</span>
+                            <span>{t('updateChecker.downloading')}</span>
                             <span>{Math.round(downloadProgress)}%</span>
                         </div>
                         <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
@@ -346,12 +348,12 @@ export default function UpdateChecker() {
                         {isDownloading ? (
                             <>
                                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                Installing...
+                                {t('updateChecker.installing')}
                             </>
                         ) : (
                             <>
                                 <CheckCircle className="w-3.5 h-3.5" />
-                                Update Now
+                                {t('updateChecker.updateNow')}
                             </>
                         )}
                     </button>
@@ -360,7 +362,7 @@ export default function UpdateChecker() {
                         <>
                             <button
                                 onClick={handleSkipVersion}
-                                title="Skip this version"
+                                title={t('updateChecker.skip')}
                                 className="px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700"
                             >
                                 <Clock className="w-4 h-4" />
@@ -369,7 +371,7 @@ export default function UpdateChecker() {
                                 onClick={() => setShowBanner(false)}
                                 className="px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700 text-xs font-bold uppercase tracking-wide"
                             >
-                                Later
+                                {t('updateChecker.later')}
                             </button>
                         </>
                     )}

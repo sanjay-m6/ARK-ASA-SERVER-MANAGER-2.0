@@ -3,21 +3,23 @@ import { X, FolderOpen, Server, Loader2, CheckCircle, AlertCircle } from 'lucide
 import { useServerStore } from '../../stores/serverStore';
 import { importServer, selectFolder } from '../../utils/tauri';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
     onClose: () => void;
 }
 
 export default function ImportServerDialog({ onClose }: Props) {
+    const { t } = useTranslation();
     const { addServer } = useServerStore();
     const [installPath, setInstallPath] = useState('');
-    const [serverName, setServerName] = useState('Imported Server');
+    const [serverName, setServerName] = useState(t('dialogs.importServer.namePlaceholder'));
     const [isImporting, setIsImporting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const handleSelectFolder = async () => {
         try {
-            const folder = await selectFolder('Select existing ARK server folder');
+            const folder = await selectFolder(t('dialogs.importServer.selectFolder'));
             if (folder) {
                 setInstallPath(folder);
                 setError(null);
@@ -34,7 +36,7 @@ export default function ImportServerDialog({ onClose }: Props) {
 
     const handleImport = async () => {
         if (!installPath || !serverName) {
-            setError('Please select a folder and provide a name');
+            setError(t('dialogs.importServer.error'));
             return;
         }
 
@@ -44,11 +46,11 @@ export default function ImportServerDialog({ onClose }: Props) {
         try {
             const server = await importServer(installPath, serverName);
             addServer(server);
-            toast.success(`Server "${server.name}" imported successfully!`);
+            toast.success(t('dialogs.importServer.success', { name: server.name }));
             onClose();
         } catch (err) {
             setError(String(err));
-            toast.error('Failed to import server');
+            toast.error(t('dialogs.importServer.error'));
         } finally {
             setIsImporting(false);
         }
@@ -67,8 +69,8 @@ export default function ImportServerDialog({ onClose }: Props) {
                             <FolderOpen className="w-6 h-6 text-amber-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-white">Import Existing Server</h2>
-                            <p className="text-sm text-slate-400">Add an existing ARK installation</p>
+                            <h2 className="text-xl font-bold text-white">{t('dialogs.importServer.title')}</h2>
+                            <p className="text-sm text-slate-400">{t('dialogs.importServer.subtitle')}</p>
                         </div>
                     </div>
                     {!isImporting && (
@@ -87,14 +89,14 @@ export default function ImportServerDialog({ onClose }: Props) {
                     <div>
                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
                             <FolderOpen className="w-4 h-4" />
-                            Server Installation Folder
+                            {t('dialogs.importServer.folderLabel')}
                         </label>
                         <div className="flex gap-2">
                             <input
                                 type="text"
                                 value={installPath}
                                 onChange={(e) => setInstallPath(e.target.value)}
-                                placeholder="C:\ARKServers\MyServer"
+                                placeholder={t('dialogs.importServer.folderPlaceholder')}
                                 className="flex-1 px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30"
                                 disabled={isImporting}
                             />
@@ -107,7 +109,7 @@ export default function ImportServerDialog({ onClose }: Props) {
                             </button>
                         </div>
                         <p className="text-xs text-slate-500 mt-2">
-                            Select the folder containing ShooterGame/Binaries/Win64/ArkAscendedServer.exe
+                            {t('dialogs.importServer.folderHint')}
                         </p>
                     </div>
 
@@ -115,18 +117,18 @@ export default function ImportServerDialog({ onClose }: Props) {
                     <div>
                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
                             <Server className="w-4 h-4" />
-                            Server Name
+                            {t('dialogs.importServer.nameLabel')}
                         </label>
                         <input
                             type="text"
                             value={serverName}
                             onChange={(e) => setServerName(e.target.value)}
-                            placeholder="My Server"
+                            placeholder={t('dialogs.importServer.namePlaceholder')}
                             className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30"
                             disabled={isImporting}
                         />
                         <p className="text-xs text-slate-500 mt-2">
-                            Settings will be auto-detected from GameUserSettings.ini
+                            {t('dialogs.importServer.nameHint')}
                         </p>
                     </div>
 
@@ -142,12 +144,12 @@ export default function ImportServerDialog({ onClose }: Props) {
                     <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                         <CheckCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
                         <div className="text-sm text-amber-300/80">
-                            <p className="font-medium mb-1">What gets imported:</p>
+                            <p className="font-medium mb-1">{t('dialogs.importServer.whatImports')}</p>
                             <ul className="list-disc list-inside text-xs space-y-0.5 opacity-80">
-                                <li>Session name & max players</li>
-                                <li>Port configuration</li>
-                                <li>Admin password</li>
-                                <li>RCON settings</li>
+                                <li>{t('dialogs.importServer.importDetails.session')}</li>
+                                <li>{t('dialogs.importServer.importDetails.ports')}</li>
+                                <li>{t('dialogs.importServer.importDetails.admin')}</li>
+                                <li>{t('dialogs.importServer.importDetails.rcon')}</li>
                             </ul>
                         </div>
                     </div>
@@ -160,7 +162,7 @@ export default function ImportServerDialog({ onClose }: Props) {
                         disabled={isImporting}
                         className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-xl transition-colors font-medium"
                     >
-                        Cancel
+                        {t('common.cancel')}
                     </button>
                     <button
                         onClick={handleImport}
@@ -170,12 +172,12 @@ export default function ImportServerDialog({ onClose }: Props) {
                         {isImporting ? (
                             <>
                                 <Loader2 className="w-5 h-5 animate-spin" />
-                                Importing...
+                                {t('dialogs.importServer.importing')}
                             </>
                         ) : (
                             <>
                                 <CheckCircle className="w-5 h-5" />
-                                Import Server
+                                {t('dialogs.importServer.import')}
                             </>
                         )}
                     </button>

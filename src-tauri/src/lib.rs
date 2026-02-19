@@ -37,13 +37,13 @@ pub struct AppState {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub fn run(safe_mode: bool) -> tauri::Result<()> {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .setup(|app| {
+        .setup(move |app| {
             // Check for Admin Privileges (Windows)
             #[cfg(windows)]
             {
@@ -60,7 +60,25 @@ pub fn run() {
             let app_dir = app.path().app_data_dir().expect("failed to get app data dir");
             std::fs::create_dir_all(&app_dir).expect("failed to create app data dir");
             let db_path = app_dir.join("asa_manager.db");
-            let db = Database::new(db_path).expect("failed to initialize database");
+            let db = match Database::new(db_path.clone()) {
+                Ok(db) => db,
+                Err(e) => {
+                    println!("❌ Database connection failed: {}", e);
+                    println!("⚠️ Attempting to repair by backing up and resetting...");
+                    
+                    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+                    let backup_path = app_dir.join(format!("asa_manager_corrupted_{}.db", timestamp));
+                    
+                    if let Err(rename_err) = std::fs::rename(&db_path, &backup_path) {
+                        eprintln!("Failed to rename corrupted DB: {}", rename_err);
+                    } else {
+                        println!("✅ Corrupted DB backed up to: {:?}", backup_path);
+                    }
+
+                    // Retry initialization with fresh DB
+                    Database::new(db_path).expect("failed to initialize database after reset")
+                }
+            };
 
             // Reset server status
             if let Ok(conn) = db.get_connection() {
@@ -86,10 +104,14 @@ pub fn run() {
             ));
 
             let scheduler = Arc::new(SchedulerService::new(app_handle.clone()));
-            scheduler.start();
+            if !safe_mode {
+                scheduler.start();
+            }
 
             let anti_cheat = Arc::new(AntiCheatService::new(app_handle.clone()));
-            anti_cheat.start();
+            if !safe_mode {
+                anti_cheat.start();
+            }
 
             let rcon_service = Arc::new(tokio::sync::Mutex::new(RconService::new()));
 
@@ -99,7 +121,9 @@ pub fn run() {
 
 
             // Start Discord Bridge (background tasks)
-            discord_bridge.clone().start();
+            if !safe_mode {
+                discord_bridge.clone().start();
+            }
 
             // Spawn Auto-Start and Watcher Logic
 
@@ -124,52 +148,55 @@ pub fn run() {
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 let state = app_handle_clone.state::<AppState>();
 
-                // Access DB to get servers with automation enabled
-                if let Ok(db) = state.db.lock() {
-                    if let Ok(conn) = db.get_connection() {
-                        // 1. Check for Auto-Start Servers
-                        let mut stmt = conn
-                            .prepare("SELECT id, install_path FROM servers WHERE auto_start = 1")
-                            .unwrap();
-                        let rows = stmt
-                            .query_map([], |row| {
-                                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-                            })
-                            .unwrap();
+                if !safe_mode {
+                    // Access DB to get servers with automation enabled
+                    if let Ok(db) = state.db.lock() {
+                        if let Ok(conn) = db.get_connection() {
+                            // 1. Check for Auto-Start Servers
+                            let mut stmt = conn
+                                .prepare("SELECT id, install_path FROM servers WHERE auto_start = 1")
+                                .unwrap();
+                            let rows = stmt
+                                .query_map([], |row| {
+                                    Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                                })
+                                .unwrap();
 
-                        for row in rows {
-                            if let Ok((id, _path)) = row {
-                                println!("🚀 Auto-starting server {}", id);
+                            for row in rows {
+                                if let Ok((id, _path)) = row {
+                                    println!("🚀 Auto-starting server {}", id);
 
-                                // Invoke the start_server logic via command logic wrapper
-                                let app_handle_clone_2 = app_handle_clone.clone();
+                                    // Invoke the start_server logic via command logic wrapper
+                                    let app_handle_clone_2 = app_handle_clone.clone();
 
-                                tauri::async_runtime::spawn(async move {
-                                    let _ = commands::server::start_server(app_handle_clone_2, id)
-                                        .await;
-                                });
+                                    tauri::async_runtime::spawn(async move {
+                                        let _ = commands::server::start_server(app_handle_clone_2, id, false).await;
+                                    });
+                                }
+                            }
+
+                            // 2. Initialize File Watchers for Auto-Stop
+                            let mut stmt_stop = conn
+                                .prepare("SELECT id, install_path FROM servers WHERE auto_stop = 1")
+                                .unwrap();
+                            let rows_stop = stmt_stop
+                                .query_map([], |row| {
+                                    Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                                })
+                                .unwrap();
+
+                            for row in rows_stop {
+                                if let Ok((id, path)) = row {
+                                    let _ = state
+                                        .file_watcher
+                                        .start_watching(id, std::path::PathBuf::from(path));
+                                }
                             }
                         }
-
-                        // 2. Initialize File Watchers for Auto-Stop
-                        let mut stmt_stop = conn
-                            .prepare("SELECT id, install_path FROM servers WHERE auto_stop = 1")
-                            .unwrap();
-                        let rows_stop = stmt_stop
-                            .query_map([], |row| {
-                                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-                            })
-                            .unwrap();
-
-                        for row in rows_stop {
-                            if let Ok((id, path)) = row {
-                                let _ = state
-                                    .file_watcher
-                                    .start_watching(id, std::path::PathBuf::from(path));
-                            }
-                        }
-                    }
-                };
+                    };
+                } else {
+                     println!("⚠️ Safe Mode Active: Skipping Auto-Start and Watchers.");
+                }
             });
 
             // Initialize RCON state
@@ -208,6 +235,7 @@ pub fn run() {
             commands::system::install_steamcmd, // <-- New Command
             // Server commands
             commands::server::get_all_servers,
+            commands::server::update_server_status_in_db,
             commands::server::get_server_by_id,
             commands::server::install_server,
             commands::server::start_server,
@@ -382,5 +410,4 @@ pub fn run() {
              commands::discord::generate_bot_invite_url,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
 }

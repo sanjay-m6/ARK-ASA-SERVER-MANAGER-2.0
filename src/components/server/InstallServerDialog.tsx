@@ -11,6 +11,8 @@ import toast from 'react-hot-toast';
 import type { ServerType } from '../../types';
 import { listen } from '@tauri-apps/api/event';
 
+import { useTranslation } from 'react-i18next';
+
 interface Props {
     onClose: () => void;
 }
@@ -29,40 +31,40 @@ interface ConsoleOutput {
     timestamp: string;
 }
 
-// All official ARK: Survival Ascended maps (as of January 2026)
-const MAPS_ASA = {
-    released: [
-        { id: 'TheIsland_WP', name: 'The Island', description: 'The original ARK experience', color: '#22c55e', icon: '🏝️' },
-        { id: 'ScorchedEarth_WP', name: 'Scorched Earth', description: 'Desert survival expansion', color: '#f59e0b', icon: '🏜️' },
-        { id: 'TheCenter_WP', name: 'The Center', description: 'Massive expansion map', color: '#3b82f6', icon: '🌊' },
-        { id: 'Aberration_WP', name: 'Aberration', description: 'Underground alien world', color: '#a855f7', icon: '🍄' },
-        { id: 'Extinction_WP', name: 'Extinction', description: 'Post-apocalyptic Earth', color: '#64748b', icon: '🏚️' },
-        { id: 'Ragnarok_WP', name: 'Ragnarok', description: 'Viking-themed expansion', color: '#ef4444', icon: '⚔️' },
-        { id: 'Valguero_WP', name: 'Valguero', description: 'Community map', color: '#10b981', icon: '🦖' },
-        { id: 'LostColony_WP', name: 'Lost Colony', description: 'New canonical DLC', color: '#8b5cf6', icon: '🚀' },
-    ],
-    premiumMods: [
-        { id: 'Astraeos_WP', name: 'Astraeos', description: 'Premium mod map', color: '#ec4899', icon: '✨' },
-        { id: 'Forglar_WP', name: 'Forglar', description: 'Premium mod map', color: '#06b6d4', icon: '🌿' },
-    ],
-    upcoming: [
-        { id: 'Genesis_WP', name: 'Genesis Part 1', description: 'Coming April 2026', color: '#14b8a6', icon: '🧬' },
-        { id: 'Genesis2_WP', name: 'Genesis Part 2', description: 'Coming August 2026', color: '#6366f1', icon: '🛸' },
-        { id: 'Fjordur_WP', name: 'Fjordur', description: 'Coming December 2026', color: '#0ea5e9', icon: '❄️' },
-    ],
-};
-
-const ALL_MAPS = [...MAPS_ASA.released, ...MAPS_ASA.premiumMods, ...MAPS_ASA.upcoming];
-
-const STEPS = [
-    { id: 1, title: 'Choose Map', icon: MapPin, description: 'Select your world' },
-    { id: 2, title: 'Server Details', icon: Server, description: 'Name & location' },
-    { id: 3, title: 'Network Config', icon: Network, description: 'Ports setup' },
-    { id: 4, title: 'Install', icon: Download, description: 'Deploy server' },
-];
-
 export default function InstallServerDialog({ onClose }: Props) {
+    const { t } = useTranslation();
     const { addServer } = useServerStore();
+
+    const STEPS = useMemo(() => [
+        { id: 1, title: t('dialogs.installServer.steps.map'), icon: MapPin, description: t('dialogs.installServer.steps.mapDesc') },
+        { id: 2, title: t('dialogs.installServer.steps.details'), icon: Server, description: t('dialogs.installServer.steps.detailsDesc') },
+        { id: 3, title: t('dialogs.installServer.steps.network'), icon: Network, description: t('dialogs.installServer.steps.networkDesc') },
+        { id: 4, title: t('dialogs.installServer.steps.install'), icon: Download, description: t('dialogs.installServer.steps.installDesc') },
+    ], [t]);
+
+    const MAPS_ASA = useMemo(() => ({
+        released: [
+            { id: 'TheIsland_WP', name: t('dialogs.installServer.maps.theIsland'), description: t('dialogs.installServer.mapDescriptions.original'), color: '#22c55e', icon: '🏝️' },
+            { id: 'ScorchedEarth_WP', name: t('dialogs.installServer.maps.scorchedEarth'), description: t('dialogs.installServer.mapDescriptions.desert'), color: '#f59e0b', icon: '🏜️' },
+            { id: 'TheCenter_WP', name: t('dialogs.installServer.maps.theCenter'), description: t('dialogs.installServer.mapDescriptions.massive'), color: '#3b82f6', icon: '🌊' },
+            { id: 'Aberration_WP', name: t('dialogs.installServer.maps.aberration'), description: t('dialogs.installServer.mapDescriptions.underground'), color: '#a855f7', icon: '🍄' },
+            { id: 'Extinction_WP', name: t('dialogs.installServer.maps.extinction'), description: t('dialogs.installServer.mapDescriptions.postApoc'), color: '#64748b', icon: '🏚️' },
+            { id: 'Ragnarok_WP', name: t('dialogs.installServer.maps.ragnarok'), description: t('dialogs.installServer.mapDescriptions.viking'), color: '#ef4444', icon: '⚔️' },
+            { id: 'Valguero_WP', name: t('dialogs.installServer.maps.valguero'), description: t('dialogs.installServer.mapDescriptions.community'), color: '#10b981', icon: '🦖' },
+            { id: 'LostColony_WP', name: t('dialogs.installServer.maps.lostColony'), description: t('dialogs.installServer.mapDescriptions.dlc'), color: '#8b5cf6', icon: '🚀' },
+        ],
+        premiumMods: [
+            { id: 'Astraeos_WP', name: t('dialogs.installServer.maps.astraeos'), description: t('dialogs.installServer.mapDescriptions.premium'), color: '#ec4899', icon: '✨' },
+            { id: 'Forglar_WP', name: t('dialogs.installServer.maps.forglar'), description: t('dialogs.installServer.mapDescriptions.premium'), color: '#06b6d4', icon: '🌿' },
+        ],
+        upcoming: [
+            { id: 'Genesis_WP', name: t('dialogs.installServer.maps.genesis1'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'April 2026' }), color: '#14b8a6', icon: '🧬' },
+            { id: 'Genesis2_WP', name: t('dialogs.installServer.maps.genesis2'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'August 2026' }), color: '#6366f1', icon: '🛸' },
+            { id: 'Fjordur_WP', name: t('dialogs.installServer.maps.fjordur'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'December 2026' }), color: '#0ea5e9', icon: '❄️' },
+        ],
+    }), [t]);
+
+    const ALL_MAPS = useMemo(() => [...MAPS_ASA.released, ...MAPS_ASA.premiumMods, ...MAPS_ASA.upcoming], [MAPS_ASA]);
     const [step, setStep] = useState(1);
     const [isInstalling, setIsInstalling] = useState(false);
     const [progress, setProgress] = useState<InstallProgress | null>(null);
@@ -90,9 +92,8 @@ export default function InstallServerDialog({ onClose }: Props) {
     // Base directory state (default to C:\ARKServers if empty)
     const [baseDir, setBaseDir] = useState('C:\\ARKServers');
 
-    // Helper to sanitize folder name
     const sanitizeFolderName = (name: string) => {
-        return name.replace(/[^a-zA-Z0-9_\-]/g, '_');
+        return name.replace(/[^a-zA-Z0-9_-]/g, '_');
     };
 
     // Effect: Update final install path whenever baseDir or name changes
@@ -119,7 +120,7 @@ export default function InstallServerDialog({ onClose }: Props) {
         const unlisten = listen<InstallProgress>('install-progress', (event) => {
             setProgress(event.payload);
             if (event.payload.isComplete) {
-                toast.success('Server installed successfully!');
+                toast.success(t('dialogs.installServer.success'));
             } else if (event.payload.isError) {
                 toast.error(event.payload.message);
             }
@@ -169,7 +170,7 @@ export default function InstallServerDialog({ onClose }: Props) {
             showTimestamps ? `[${log.timestamp}] ${log.line}` : log.line
         ).join('\n');
         navigator.clipboard.writeText(logText);
-        toast.success('Logs copied to clipboard!');
+        toast.success(t('dialogs.installServer.logsCopied'));
     }, [consoleLogs, showTimestamps]);
 
     // Keyboard accessibility - Escape to close, Enter to proceed
@@ -200,7 +201,7 @@ export default function InstallServerDialog({ onClose }: Props) {
         setProgress({
             stage: 'preparing',
             progress: 0,
-            message: `Creating server at ${formData.installPath}...`,
+            message: `${t('dialogs.installServer.installing')} (${formData.installPath})...`,
             isComplete: false,
             isError: false,
         });
@@ -212,7 +213,7 @@ export default function InstallServerDialog({ onClose }: Props) {
             setProgress({
                 stage: 'error',
                 progress: 0,
-                message: `Installation failed: ${error}`,
+                message: `${t('dialogs.installServer.installationFailed')}: ${error}`,
                 isComplete: false,
                 isError: true,
             });
@@ -279,8 +280,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                     {selectedMap.icon}
                                 </div>
                                 <div>
-                                    <h2 id="install-dialog-title" className="text-lg sm:text-2xl font-bold text-white">Deploy New Server</h2>
-                                    <p id="install-dialog-description" className="text-sm sm:text-base text-slate-400">{selectedMap.name} • {selectedMap.description}</p>
+                                    <h2 id="install-dialog-title" className="text-lg sm:text-2xl font-bold text-white">{t('dialogs.installServer.title')}</h2>
+                                    <p id="install-dialog-description" className="text-sm sm:text-base text-slate-400">{t('dialogs.installServer.subtitle', { map: selectedMap.name, desc: selectedMap.description })}</p>
                                 </div>
                             </div>
                         </div>
@@ -348,10 +349,10 @@ export default function InstallServerDialog({ onClose }: Props) {
                         {progress && (
                             <div role="status" aria-live="polite" className="sr-only">
                                 {progress.isComplete
-                                    ? 'Server installation complete!'
+                                    ? `${t('dialogs.installServer.success')}`
                                     : progress.isError
-                                        ? `Installation failed: ${progress.message}`
-                                        : `Installing: ${Math.round(progress.progress)}% - ${progress.message}`
+                                        ? `${t('dialogs.installServer.installationFailed')}: ${progress.message}`
+                                        : `${t('dialogs.installServer.installing')}: ${Math.round(progress.progress)}% - ${progress.message}`
                                 }
                             </div>
                         )}
@@ -359,15 +360,15 @@ export default function InstallServerDialog({ onClose }: Props) {
                         {step === 1 && !isInstalling && (
                             <div className="space-y-6">
                                 <div className="text-center mb-6">
-                                    <h3 className="text-xl font-bold text-white">Choose Your Map</h3>
-                                    <p className="text-slate-400 mt-1">Select the world you want to explore</p>
+                                    <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.chooseMap')}</h3>
+                                    <p className="text-slate-400 mt-1">{t('dialogs.installServer.chooseMapDesc')}</p>
                                 </div>
 
                                 {/* Released Maps */}
                                 <div>
                                     <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                                         <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                                        Official Maps
+                                        {t('dialogs.installServer.officialMaps')}
                                     </h4>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                         {MAPS_ASA.released.map((map) => (
@@ -391,7 +392,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                 <div>
                                     <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                                         <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
-                                        Premium Mod Maps
+                                        {t('dialogs.installServer.premiumMaps')}
                                     </h4>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                         {MAPS_ASA.premiumMods.map((map) => (
@@ -418,10 +419,10 @@ export default function InstallServerDialog({ onClose }: Props) {
                                             <Settings className="w-5 h-5 text-slate-400" />
                                         </div>
                                         <div className="flex-1">
-                                            <div className="text-sm font-medium text-white">Custom Map</div>
+                                            <div className="text-sm font-medium text-white">{t('dialogs.installServer.customMap')}</div>
                                             <input
                                                 type="text"
-                                                placeholder="Enter custom map name..."
+                                                placeholder={t('dialogs.installServer.enterMapName')}
                                                 className="mt-1 w-full bg-transparent border-none text-slate-300 text-sm focus:outline-none placeholder-slate-600"
                                                 onChange={(e) => e.target.value && setFormData({ ...formData, mapName: e.target.value })}
                                             />
@@ -435,15 +436,15 @@ export default function InstallServerDialog({ onClose }: Props) {
                         {step === 2 && !isInstalling && (
                             <div className="space-y-6 max-w-lg mx-auto">
                                 <div className="text-center mb-6">
-                                    <h3 className="text-xl font-bold text-white">Server Details</h3>
-                                    <p className="text-slate-400 mt-1">Give your server a name and location</p>
+                                    <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.serverDetails')}</h3>
+                                    <p className="text-slate-400 mt-1">{t('dialogs.installServer.serverDetailsDesc')}</p>
                                 </div>
 
                                 <div className="space-y-4">
                                     <div>
                                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
                                             <Server className="w-4 h-4" />
-                                            Server Name
+                                            {t('dialogs.installServer.serverName')}
                                         </label>
                                         <input
                                             type="text"
@@ -452,14 +453,14 @@ export default function InstallServerDialog({ onClose }: Props) {
                                             className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-lg focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent transition-all"
                                             placeholder="My Awesome Server"
                                         />
-                                        <p className="text-xs text-slate-500 mt-1">Internal name to organize servers in this app</p>
+                                        <p className="text-xs text-slate-500 mt-1">{t('dialogs.installServer.internalNameDesc')}</p>
                                     </div>
 
                                     <div>
                                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
                                             <Globe className="w-4 h-4" />
-                                            Session Name
-                                            <span className="text-xs text-emerald-500 font-normal">(Public)</span>
+                                            {t('dialogs.installServer.sessionName')}
+                                            <span className="text-xs text-emerald-500 font-normal">{t('dialogs.installServer.publicVisibility')}</span>
                                         </label>
                                         <div className="flex gap-2">
                                             <input
@@ -477,13 +478,13 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                 ↩️
                                             </button>
                                         </div>
-                                        <p className="text-xs text-slate-500 mt-1">🌐 Visible to players in the ARK server browser</p>
+                                        <p className="text-xs text-slate-500 mt-1">🌐 {t('dialogs.installServer.sessionNameDesc')}</p>
                                     </div>
 
                                     <div>
                                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
                                             <HardDrive className="w-4 h-4" />
-                                            Base Installation Folder
+                                            {t('dialogs.installServer.baseFolder')}
                                         </label>
                                         <div className="flex gap-2">
                                             <input
@@ -506,11 +507,11 @@ export default function InstallServerDialog({ onClose }: Props) {
                                         <div className="mt-2 p-3 bg-slate-900/50 rounded-lg border border-slate-800 flex items-start gap-2">
                                             <div className="mt-0.5 text-slate-500">↳</div>
                                             <div className="text-xs font-mono text-slate-400 break-all">
-                                                Will install to: <span className="text-emerald-400">{formData.installPath}</span>
+                                                {t('dialogs.installServer.willInstallTo')} <span className="text-emerald-400">{formData.installPath}</span>
                                             </div>
                                         </div>
                                         <p className="text-xs text-slate-500 mt-2">
-                                            A unique folder will be created automatically for this server.
+                                            {t('dialogs.installServer.uniqueFolder')}
                                         </p>
                                     </div>
 
@@ -518,7 +519,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                     <div>
                                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-3">
                                             <Shield className="w-4 h-4" />
-                                            Game Mode
+                                            {t('dialogs.installServer.gameMode')}
                                         </label>
                                         <div className="flex gap-2">
                                             <button
@@ -530,8 +531,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                             >
                                                 <span className="text-2xl">🌿</span>
                                                 <div className="text-left">
-                                                    <div className="font-bold">PvE</div>
-                                                    <div className="text-xs opacity-70">Peaceful</div>
+                                                    <div className="font-bold">{t('dialogs.installServer.pve')}</div>
+                                                    <div className="text-xs opacity-70">{t('dialogs.installServer.pveDesc')}</div>
                                                 </div>
                                             </button>
                                             <button
@@ -543,8 +544,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                             >
                                                 <span className="text-2xl">⚔️</span>
                                                 <div className="text-left">
-                                                    <div className="font-bold">PvP</div>
-                                                    <div className="text-xs opacity-70">Combat</div>
+                                                    <div className="font-bold">{t('dialogs.installServer.pvp')}</div>
+                                                    <div className="text-xs opacity-70">{t('dialogs.installServer.pvpDesc')}</div>
                                                 </div>
                                             </button>
                                         </div>
@@ -554,7 +555,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                     <div>
                                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-3">
                                             <Globe className="w-4 h-4" />
-                                            Crossplay
+                                            {t('dialogs.installServer.crossplay')}
                                         </label>
                                         <div className="flex gap-2">
                                             <button
@@ -566,8 +567,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                             >
                                                 <span className="text-2xl">🖥️</span>
                                                 <div className="text-left">
-                                                    <div className="font-bold">PC Only</div>
-                                                    <div className="text-xs opacity-70">Steam/Epic</div>
+                                                    <div className="font-bold">{t('dialogs.installServer.pcOnly')}</div>
+                                                    <div className="text-xs opacity-70">{t('dialogs.installServer.pcOnlyDesc')}</div>
                                                 </div>
                                             </button>
                                             <button
@@ -579,13 +580,13 @@ export default function InstallServerDialog({ onClose }: Props) {
                                             >
                                                 <span className="text-2xl">🎮</span>
                                                 <div className="text-left">
-                                                    <div className="font-bold">Crossplay</div>
-                                                    <div className="text-xs opacity-70">PC + Console</div>
+                                                    <div className="font-bold">{t('dialogs.installServer.crossplay')}</div>
+                                                    <div className="text-xs opacity-70">{t('dialogs.installServer.crossplayDesc')}</div>
                                                 </div>
                                             </button>
                                         </div>
                                         <p className="text-xs text-slate-500 mt-2">
-                                            🎮 Enable crossplay to allow Xbox, PlayStation, and PC players to join together
+                                            🎮 {t('dialogs.installServer.crossplayInfo')}
                                         </p>
                                     </div>
                                 </div>
@@ -596,8 +597,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                         {step === 3 && !isInstalling && (
                             <div className="space-y-6 max-w-lg mx-auto">
                                 <div className="text-center mb-6">
-                                    <h3 className="text-xl font-bold text-white">Network Configuration</h3>
-                                    <p className="text-slate-400 mt-1">Configure your server ports</p>
+                                    <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.networkConfig')}</h3>
+                                    <p className="text-slate-400 mt-1">{t('dialogs.installServer.configurePorts')}</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-4">
@@ -608,8 +609,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                     <Zap className="w-5 h-5 text-emerald-400" />
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-white">Game Port</div>
-                                                    <div className="text-xs text-slate-500">Main connection port</div>
+                                                    <div className="font-medium text-white">{t('dialogs.installServer.gamePort')}</div>
+                                                    <div className="text-xs text-slate-500">{t('dialogs.installServer.gamePortDesc')}</div>
                                                 </div>
                                             </div>
                                             <input
@@ -628,8 +629,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                     <Network className="w-5 h-5 text-blue-400" />
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-white">Query Port</div>
-                                                    <div className="text-xs text-slate-500">Server browser discovery</div>
+                                                    <div className="font-medium text-white">{t('dialogs.installServer.queryPort')}</div>
+                                                    <div className="text-xs text-slate-500">{t('dialogs.installServer.queryPortDesc')}</div>
                                                 </div>
                                             </div>
                                             <input
@@ -648,8 +649,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                     <Shield className="w-5 h-5 text-amber-400" />
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-white">RCON Port</div>
-                                                    <div className="text-xs text-slate-500">Remote administration</div>
+                                                    <div className="font-medium text-white">{t('dialogs.installServer.rconPort')}</div>
+                                                    <div className="text-xs text-slate-500">{t('dialogs.installServer.rconPortDesc')}</div>
                                                 </div>
                                             </div>
                                             <input
@@ -665,7 +666,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                 <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
                                     <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
                                     <div className="text-sm text-amber-300/80">
-                                        Make sure these ports are open in your firewall and forwarded on your router.
+                                        {t('dialogs.installServer.portsWarning')}
                                     </div>
                                 </div>
                             </div>
@@ -719,9 +720,9 @@ export default function InstallServerDialog({ onClose }: Props) {
                                     )}
 
                                     <h3 className="text-xl font-bold text-white">
-                                        {progress.isComplete ? 'Ready to Play!' :
-                                            progress.isError ? 'Installation Failed' :
-                                                'Installing...'}
+                                        {progress.isComplete ? t('dialogs.installServer.readyToPlay') :
+                                            progress.isError ? t('dialogs.installServer.installationFailed') :
+                                                t('dialogs.installServer.installing')}
                                     </h3>
                                     <p className="text-slate-400 mt-2">{progress.message}</p>
                                 </div>
@@ -750,8 +751,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                     <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-slate-800/50 border-b border-slate-700/50">
                                         <div className="flex items-center gap-2">
                                             <Terminal className="w-4 h-4 text-slate-400" />
-                                            <span className="text-xs sm:text-sm font-medium text-slate-300">SteamCMD Output</span>
-                                            <span className="text-xs text-slate-500 hidden sm:inline">({consoleLogs.length} lines)</span>
+                                            <span className="text-xs sm:text-sm font-medium text-slate-300">{t('dialogs.installServer.steamCmdOutput')}</span>
+                                            <span className="text-xs text-slate-500 hidden sm:inline">({consoleLogs.length} {t('common.lines')})</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                             {/* Toggle Timestamps */}
@@ -797,7 +798,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                 {consoleLogs.length === 0 ? (
                                                     <div className="text-slate-600 italic flex items-center gap-2">
                                                         <Loader2 className="w-3 h-3 animate-spin" />
-                                                        Waiting for output...
+                                                        {t('dialogs.installServer.waitingOutput')}
                                                     </div>
                                                 ) : (
                                                     consoleLogs.map((log, idx) => (
@@ -864,11 +865,11 @@ export default function InstallServerDialog({ onClose }: Props) {
                         ) : step === 4 ? (
                             <>
                                 <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                                Install Server
+                                {t('dialogs.installServer.install')}
                             </>
                         ) : (
                             <>
-                                Next
+                                {t('common.next')}
                                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                             </>
                         )}

@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { checkIsAdmin } from './utils/tauri';
 import { toast } from 'react-hot-toast';
 import ErrorBoundary from './components/ErrorBoundary';
+import './i18n'; // Initialize i18n
 
 
 // Lazy load pages for performance optimization

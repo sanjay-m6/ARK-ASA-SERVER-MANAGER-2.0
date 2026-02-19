@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     Terminal,
     Send,
@@ -38,14 +39,15 @@ interface CommandHistoryEntry {
 }
 
 const QUICK_COMMANDS = [
-    { label: 'Save World', command: 'SaveWorld', icon: Save },
-    { label: 'List Players', command: 'ListPlayers', icon: Users },
-    { label: 'Destroy Wild Dinos', command: 'DestroyWildDinos', icon: Trash2 },
-    { label: 'Day Time', command: 'SetTimeOfDay 12:00', icon: Clock },
-    { label: 'Night Time', command: 'SetTimeOfDay 00:00', icon: Clock },
+    { labelKey: 'rcon.quickCommands.saveWorld', command: 'SaveWorld', icon: Save },
+    { labelKey: 'rcon.quickCommands.listPlayers', command: 'ListPlayers', icon: Users },
+    { labelKey: 'rcon.quickCommands.destroyWild', command: 'DestroyWildDinos', icon: Trash2 },
+    { labelKey: 'rcon.quickCommands.dayTime', command: 'SetTimeOfDay 12:00', icon: Clock },
+    { labelKey: 'rcon.quickCommands.nightTime', command: 'SetTimeOfDay 00:00', icon: Clock },
 ];
 
 export default function RconConsole() {
+    const { t } = useTranslation();
     const { servers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const [isConnected, setIsConnected] = useState(false);
@@ -87,13 +89,13 @@ export default function RconConsole() {
 
             if (response.success) {
                 setIsConnected(true);
-                toast.success('Connected to RCON');
-                addToHistory('connect', 'Connected successfully', true);
+                toast.success(t('rcon.connectedMsg'));
+                addToHistory('connect', t('rcon.connectedMsg'), true);
                 refreshPlayers();
             }
         } catch (error) {
-            toast.error(`Failed to connect: ${error}`);
-            addToHistory('connect', `Failed: ${error}`, false);
+            toast.error(t('rcon.connectFailed', { error: String(error) }));
+            addToHistory('connect', t('common.failed', { error: String(error) }), false);
         } finally {
             setIsConnecting(false);
         }
@@ -106,10 +108,10 @@ export default function RconConsole() {
             await invoke<RconResponse>('rcon_disconnect', { serverId: selectedServerId });
             setIsConnected(false);
             setPlayers([]);
-            toast.success('Disconnected from RCON');
-            addToHistory('disconnect', 'Disconnected', true);
+            toast.success(t('rcon.disconnectedMsg'));
+            addToHistory('disconnect', t('rcon.disconnectedMsg'), true);
         } catch (error) {
-            toast.error(`Failed to disconnect: ${error}`);
+            toast.error(t('rcon.disconnectFailed', { error: String(error) }));
         }
     };
 
@@ -139,7 +141,7 @@ export default function RconConsole() {
                 setHistoryIndex(-1);
             }
         } catch (error) {
-            addToHistory(cmdToSend, `Error: ${error}`, false);
+            addToHistory(cmdToSend, t('common.error', { error: String(error) }), false);
         }
     };
 
@@ -165,10 +167,10 @@ export default function RconConsole() {
                 steamId,
                 reason,
             });
-            toast.success('Player kicked');
+            toast.success(t('rcon.playerKicked'));
             refreshPlayers();
         } catch (error) {
-            toast.error(`Failed to kick: ${error}`);
+            toast.error(t('rcon.kickFailed', { error: String(error) }));
         }
     };
 
@@ -180,15 +182,15 @@ export default function RconConsole() {
                 serverId: selectedServerId,
                 steamId,
             });
-            toast.success('Player banned');
+            toast.success(t('rcon.playerBanned'));
             refreshPlayers();
         } catch (error) {
-            toast.error(`Failed to ban: ${error}`);
+            toast.error(t('rcon.banFailed', { error: String(error) }));
         }
     };
 
     const broadcastMessage = async () => {
-        const message = prompt('Enter broadcast message:');
+        const message = prompt(t('rcon.broadcastPrompt'));
         if (!message || !selectedServerId) return;
 
         try {
@@ -196,10 +198,10 @@ export default function RconConsole() {
                 serverId: selectedServerId,
                 message,
             });
-            toast.success('Message broadcasted');
-            addToHistory(`ServerChat ${message}`, 'Message sent', true);
+            toast.success(t('rcon.broadcastSent'));
+            addToHistory(`ServerChat ${message}`, t('rcon.broadcastSent'), true);
         } catch (error) {
-            toast.error(`Failed to broadcast: ${error}`);
+            toast.error(t('rcon.broadcastFailed', { error: String(error) }));
         }
     };
 
@@ -234,9 +236,9 @@ export default function RconConsole() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
-                        RCON Console
+                        {t('rcon.title')}
                     </h1>
-                    <p className="text-slate-400 mt-1">Remote server control and player management</p>
+                    <p className="text-slate-400 mt-1">{t('rcon.description')}</p>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -272,7 +274,7 @@ export default function RconConsole() {
                         ) : (
                             <Wifi className="w-4 h-4" />
                         )}
-                        {isConnecting ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
+                        {isConnecting ? t('rcon.connecting') : isConnected ? t('rcon.disconnect') : t('rcon.connect')}
                     </button>
                 </div>
             </div>
@@ -290,7 +292,7 @@ export default function RconConsole() {
                                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 hover:bg-slate-700/50 border border-slate-700/50 rounded-lg text-sm text-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <qc.icon className="w-3.5 h-3.5" />
-                                {qc.label}
+                                {t(qc.labelKey)}
                             </button>
                         ))}
                         <button
@@ -299,7 +301,7 @@ export default function RconConsole() {
                             className="flex items-center gap-2 px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 rounded-lg text-sm text-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <MessageSquare className="w-3.5 h-3.5" />
-                            Broadcast
+                            {t('rcon.quickCommands.broadcast')}
                         </button>
                     </div>
 
@@ -312,8 +314,8 @@ export default function RconConsole() {
                         {commandHistory.length === 0 ? (
                             <div className="text-slate-600 italic">
                                 {isConnected
-                                    ? 'Connected. Type a command and press Enter...'
-                                    : 'Connect to a server to start sending RCON commands...'}
+                                    ? t('rcon.welcomeMsg')
+                                    : t('rcon.connectMsg')}
                             </div>
                         ) : (
                             commandHistory.map((entry, i) => (
@@ -345,7 +347,7 @@ export default function RconConsole() {
                             value={command}
                             onChange={(e) => setCommand(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            placeholder={isConnected ? "Enter RCON command..." : "Connect to send commands"}
+                            placeholder={isConnected ? t('rcon.typeCommand') : t('rcon.connectMsg')}
                             disabled={!isConnected}
                             className="flex-1 bg-transparent text-white focus:outline-none font-mono placeholder:text-slate-600 disabled:cursor-not-allowed"
                         />
@@ -364,7 +366,7 @@ export default function RconConsole() {
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                             <Users className="w-5 h-5 text-cyan-400" />
-                            Players ({players.length})
+                            {t('rcon.playersOnline', { count: players.length })}
                         </h3>
                         <button
                             onClick={refreshPlayers}
@@ -378,11 +380,11 @@ export default function RconConsole() {
                     <div className="space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100% - 60px)' }}>
                         {!isConnected ? (
                             <p className="text-slate-500 text-sm text-center py-8">
-                                Connect to view players
+                                {t('rcon.connectToView')}
                             </p>
                         ) : players.length === 0 ? (
                             <p className="text-slate-500 text-sm text-center py-8">
-                                No players online
+                                {t('rcon.noPlayers')}
                             </p>
                         ) : (
                             players.map((player) => (
@@ -399,14 +401,14 @@ export default function RconConsole() {
                                             <button
                                                 onClick={() => kickPlayer(player.steamId)}
                                                 className="p-1.5 hover:bg-amber-600/20 text-amber-400 rounded transition-colors"
-                                                title="Kick"
+                                                title={t('rcon.quickCommands.kickPlayer')}
                                             >
                                                 <UserX className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => banPlayer(player.steamId)}
                                                 className="p-1.5 hover:bg-red-600/20 text-red-400 rounded transition-colors"
-                                                title="Ban"
+                                                title={t('rcon.quickCommands.banPlayer')}
                                             >
                                                 <Ban className="w-4 h-4" />
                                             </button>

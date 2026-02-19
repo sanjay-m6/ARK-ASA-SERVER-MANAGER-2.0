@@ -2,7 +2,10 @@ import { Shield, AlertTriangle, XCircle } from 'lucide-react';
 import { exit } from '@tauri-apps/plugin-process';
 import { invoke } from '@tauri-apps/api/core';
 
+import { useTranslation } from 'react-i18next';
+
 export default function AdminBlocker() {
+    const { t } = useTranslation();
     const handleGrantAccess = async () => {
         try {
             await invoke('request_admin_privileges');
@@ -34,10 +37,10 @@ export default function AdminBlocker() {
 
                     <div className="space-y-2">
                         <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-                            Access Denied
+                            {t('adminBlocker.title')}
                         </h1>
                         <p className="text-slate-400 text-sm leading-relaxed">
-                            Full system control is required.
+                            {t('adminBlocker.description')}
                         </p>
                     </div>
 
@@ -45,20 +48,20 @@ export default function AdminBlocker() {
                         <div className="flex items-start gap-3">
                             <div className="mt-1 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                             <p className="text-sm text-red-100/90">
-                                <span className="font-semibold text-white">Administrator Privileges</span> are missing.
+                                <span className="font-semibold text-white">{t('adminBlocker.missing')}</span>
                             </p>
                         </div>
                         <div className="flex items-start gap-3">
                             <div className="mt-1 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                             <p className="text-sm text-red-100/90">
-                                This application manages system services, firewalls, and low-level processes.
+                                {t('adminBlocker.reason')}
                             </p>
                         </div>
                     </div>
 
                     <div className="w-full pt-4 space-y-3">
                         <p className="text-xs text-slate-500">
-                            Would you like to restart with Administrator privileges?
+                            {t('adminBlocker.prompt')}
                         </p>
 
                         <div className="flex gap-3 pt-2">
@@ -67,7 +70,7 @@ export default function AdminBlocker() {
                                 className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 border border-emerald-500/30 rounded-xl text-white font-bold text-sm transition-all hover:shadow-lg hover:shadow-emerald-500/20 active:scale-[0.98] flex items-center justify-center gap-2 group"
                             >
                                 <Shield className="w-4 h-4" />
-                                Yes, Grant Access
+                                {t('adminBlocker.grant')}
                             </button>
 
                             <button
@@ -75,7 +78,7 @@ export default function AdminBlocker() {
                                 className="flex-1 py-3 px-4 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-red-500/50 rounded-xl text-slate-300 hover:text-red-400 font-medium text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 group"
                             >
                                 <XCircle className="w-4 h-4 transition-colors" />
-                                No, Quit
+                                {t('adminBlocker.quit')}
                             </button>
                         </div>
                     </div>

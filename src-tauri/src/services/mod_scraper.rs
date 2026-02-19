@@ -427,6 +427,71 @@ pub async fn verify_api_key(api_key: String) -> bool {
     }
 }
 
+#[derive(Debug, serde::Serialize)]
+struct GetModsBody {
+    #[serde(rename = "modIds")]
+    mod_ids: Vec<i32>,
+}
+
+/// Check for updates for a list of mods
+/// Returns the latest info for each mod found
+pub async fn check_mod_updates(
+    mod_ids: Vec<i32>,
+    api_key: Option<String>,
+) -> Result<Vec<ModInfo>, Box<dyn Error + Send + Sync>> {
+    let api_key = api_key
+        .or_else(|| std::env::var("CURSEFORGE_API_KEY").ok())
+        .unwrap_or_default();
+
+    if api_key.trim().is_empty() || mod_ids.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()?;
+
+    let url = format!("{}/mods", CURSEFORGE_API_URL);
+    let body = GetModsBody { mod_ids };
+
+    let resp = client
+        .post(&url)
+        .header("x-api-key", api_key)
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await?;
+
+    if resp.status().is_success() {
+        let body_text = resp.text().await?;
+        let search_resp: CurseForgeSearchResponse = serde_json::from_str(&body_text)?;
+
+        let mods = search_resp
+            .data
+            .into_iter()
+            .map(|cf_mod| ModInfo {
+                id: cf_mod.id.to_string(),
+                curseforge_id: Some(cf_mod.id as i64),
+                name: cf_mod.name,
+                author: cf_mod.authors.first().map(|a| a.name.clone()),
+                version: None, // We could fetch latest file version here if needed
+                downloads: Some(cf_mod.download_count as i64),
+                description: Some(cf_mod.summary),
+                thumbnail_url: cf_mod.logo.map(|l| l.thumbnail_url),
+                curseforge_url: Some(cf_mod.links.website_url),
+                enabled: true,
+                load_order: 0,
+                last_updated: cf_mod.date_modified,
+            })
+            .collect();
+
+        Ok(mods)
+    } else {
+        println!("❌ Failed to check mod updates: {}", resp.status());
+        Ok(vec![])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -3,6 +3,7 @@ import { CheckCircle, XCircle, Loader2, RefreshCw, Wifi, Globe, Shield, AlertTri
 import { invoke } from '@tauri-apps/api/core';
 import { cn } from '../../utils/helpers';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface PortInfo {
     port: number;
@@ -13,13 +14,14 @@ interface PortInfo {
 }
 
 const DEFAULT_PORTS: PortInfo[] = [
-    { port: 7777, protocol: 'UDP', name: 'Game Port', description: 'Main game client connections' },
-    { port: 7778, protocol: 'UDP', name: 'Game Port +1', description: 'Secondary game traffic' },
-    { port: 27015, protocol: 'UDP', name: 'Query Port', description: 'Steam server browser queries' },
-    { port: 27020, protocol: 'TCP', name: 'RCON Port', description: 'Remote console connections' },
+    { port: 7777, protocol: 'UDP', name: 'settings.portValidator.ports.game', description: 'settings.portValidator.ports.gameDesc' },
+    { port: 7778, protocol: 'UDP', name: 'settings.portValidator.ports.gamePlus', description: 'settings.portValidator.ports.gamePlusDesc' },
+    { port: 27015, protocol: 'UDP', name: 'settings.portValidator.ports.query', description: 'settings.portValidator.ports.queryDesc' },
+    { port: 27020, protocol: 'TCP', name: 'settings.portValidator.ports.rcon', description: 'settings.portValidator.ports.rconDesc' },
 ];
 
 export default function PortValidator() {
+    const { t } = useTranslation();
     const [ports, setPorts] = useState<PortInfo[]>(DEFAULT_PORTS);
     const [isChecking, setIsChecking] = useState(false);
     const [lastCheckTime, setLastCheckTime] = useState<Date | null>(null);
@@ -81,11 +83,11 @@ export default function PortValidator() {
 
         const openCount = updatedPorts.filter(p => p.status === 'open').length;
         if (openCount === updatedPorts.length) {
-            toast.success('All ports are open and accessible!');
+            toast.success(t('settings.portValidator.allOpen'));
         } else if (openCount > 0) {
-            toast.success(`${openCount}/${updatedPorts.length} ports are open`);
+            toast.success(t('settings.portValidator.partialOpen', { count: openCount, total: updatedPorts.length }));
         } else {
-            toast.error('No ports appear to be open. Check your firewall and router settings.');
+            toast.error(t('settings.portValidator.noOpen'));
         }
     };
 
@@ -104,10 +106,10 @@ export default function PortValidator() {
 
     const getStatusLabel = (status?: PortInfo['status']) => {
         switch (status) {
-            case 'checking': return 'Checking...';
-            case 'open': return 'Open';
-            case 'closed': return 'Closed';
-            default: return 'Not Checked';
+            case 'checking': return t('settings.portValidator.checking');
+            case 'open': return t('settings.portValidator.open');
+            case 'closed': return t('settings.portValidator.closed');
+            default: return t('settings.portValidator.notChecked');
         }
     };
 
@@ -118,10 +120,10 @@ export default function PortValidator() {
                 <div>
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                         <Shield className="w-5 h-5 text-cyan-400" />
-                        Port Status Checker
+                        {t('settings.portValidator.title')}
                     </h3>
                     <p className="text-sm text-slate-400 mt-1">
-                        Verify that your server ports are accessible from the internet
+                        {t('settings.portValidator.description')}
                     </p>
                 </div>
                 <button
@@ -130,7 +132,7 @@ export default function PortValidator() {
                     className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <RefreshCw className={cn("w-4 h-4", isChecking && "animate-spin")} />
-                    {isChecking ? 'Checking...' : 'Check All Ports'}
+                    {isChecking ? t('settings.portValidator.checking') : t('settings.portValidator.checkAll')}
                 </button>
             </div>
 
@@ -139,19 +141,19 @@ export default function PortValidator() {
                 <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
                     <div className="flex items-center gap-2 text-sm text-slate-400 mb-1">
                         <Globe className="w-4 h-4" />
-                        Public IP
+                        {t('settings.portValidator.publicIp')}
                     </div>
                     <div className="text-white font-mono">
-                        {publicIp || 'Fetching...'}
+                        {publicIp || t('settings.portValidator.fetching')}
                     </div>
                 </div>
                 <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
                     <div className="flex items-center gap-2 text-sm text-slate-400 mb-1">
                         <Wifi className="w-4 h-4" />
-                        Local IP
+                        {t('settings.portValidator.localIp')}
                     </div>
                     <div className="text-white font-mono">
-                        {localIp || 'Not available'}
+                        {localIp || t('settings.portValidator.notAvailable')}
                     </div>
                 </div>
             </div>
@@ -161,10 +163,10 @@ export default function PortValidator() {
                 <table className="w-full">
                     <thead>
                         <tr className="border-b border-slate-700/50 bg-slate-900/50">
-                            <th className="text-left p-4 text-sm font-medium text-slate-400">Port</th>
-                            <th className="text-left p-4 text-sm font-medium text-slate-400">Protocol</th>
-                            <th className="text-left p-4 text-sm font-medium text-slate-400">Purpose</th>
-                            <th className="text-center p-4 text-sm font-medium text-slate-400">Status</th>
+                            <th className="text-left p-4 text-sm font-medium text-slate-400">{t('settings.portValidator.port')}</th>
+                            <th className="text-left p-4 text-sm font-medium text-slate-400">{t('settings.portValidator.protocol')}</th>
+                            <th className="text-left p-4 text-sm font-medium text-slate-400">{t('settings.portValidator.purpose')}</th>
+                            <th className="text-center p-4 text-sm font-medium text-slate-400">{t('settings.portValidator.status')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -184,8 +186,8 @@ export default function PortValidator() {
                                     </span>
                                 </td>
                                 <td className="p-4">
-                                    <div className="text-white text-sm">{portInfo.name}</div>
-                                    <div className="text-slate-500 text-xs">{portInfo.description}</div>
+                                    <div className="text-white text-sm">{t(portInfo.name)}</div>
+                                    <div className="text-slate-500 text-xs">{t(portInfo.description)}</div>
                                 </td>
                                 <td className="p-4">
                                     <div className="flex items-center justify-center gap-2">
@@ -210,17 +212,17 @@ export default function PortValidator() {
             {/* Last Check Time */}
             {lastCheckTime && (
                 <div className="text-center text-sm text-slate-500">
-                    Last checked: {lastCheckTime.toLocaleTimeString()}
+                    {t('settings.portValidator.lastChecked', { time: lastCheckTime.toLocaleTimeString() })}
                 </div>
             )}
 
             {/* Help Text */}
             <div className="bg-slate-800/20 rounded-lg p-4 border border-slate-700/30">
-                <h4 className="text-sm font-medium text-slate-300 mb-2">🔧 Troubleshooting</h4>
+                <h4 className="text-sm font-medium text-slate-300 mb-2">{t('settings.portValidator.troubleshooting')}</h4>
                 <ul className="text-xs text-slate-500 space-y-1">
-                    <li>• <strong className="text-slate-400">Closed ports?</strong> Check Windows Firewall and router port forwarding</li>
-                    <li>• <strong className="text-slate-400">Unknown status?</strong> The server may need to be running to test ports</li>
-                    <li>• <strong className="text-slate-400">Behind CGNAT?</strong> Contact your ISP or use a VPN with port forwarding</li>
+                    <li>• <strong className="text-slate-400">{t('settings.portValidator.tipClosed').split('?')[0]}?</strong> {t('settings.portValidator.tipClosed').split('? ')[1]}</li>
+                    <li>• <strong className="text-slate-400">{t('settings.portValidator.tipUnknown').split('?')[0]}?</strong> {t('settings.portValidator.tipUnknown').split('? ')[1]}</li>
+                    <li>• <strong className="text-slate-400">{t('settings.portValidator.tipCgnat').split('?')[0]}?</strong> {t('settings.portValidator.tipCgnat').split('? ')[1]}</li>
                 </ul>
             </div>
         </div>

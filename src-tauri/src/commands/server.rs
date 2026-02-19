@@ -82,6 +82,33 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
 }
 
 #[tauri::command]
+pub async fn update_server_status_in_db(
+    state: State<'_, AppState>,
+    server_id: i64,
+    status: String,
+) -> Result<(), String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let conn = db
+        .get_connection()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+
+    conn.execute(
+        "UPDATE servers SET status = ?1 WHERE id = ?2",
+        rusqlite::params![status, server_id],
+    )
+    .map_err(|e: rusqlite::Error| e.to_string())?;
+
+    println!(
+        "  📝 [DB] Updated server {} status to '{}'",
+        server_id, status
+    );
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn get_server_by_id(
     _state: State<'_, AppState>,
     _server_id: i64,
@@ -586,17 +613,25 @@ pub async fn extract_save_data(
 }
 
 #[tauri::command]
-pub async fn start_server(app_handle: tauri::AppHandle, server_id: i64) -> Result<(), String> {
-    println!("▶️ Starting server {} (Synchronous)", server_id);
+pub async fn start_server(
+    app_handle: tauri::AppHandle,
+    server_id: i64,
+    update_on_start: bool,
+) -> Result<(), String> {
+    println!(
+        "▶️ Starting server {} (Synchronous, Update: {})",
+        server_id, update_on_start
+    );
 
     // Run startup logic directly and return the result
-    perform_server_startup(&app_handle, server_id).await
+    perform_server_startup(&app_handle, server_id, update_on_start).await
 }
 
 // Extracted logic for readability and better error handling in the async block
 async fn perform_server_startup(
     app_handle: &tauri::AppHandle,
     server_id: i64,
+    update_on_start: bool,
 ) -> Result<(), String> {
     println!(
         "  🔍 [Debug] perform_server_startup entered for {}",
@@ -744,7 +779,30 @@ async fn perform_server_startup(
         .join("Win64")
         .join("ArkAscendedServer.exe");
 
-    if !executable.exists() {
+    if update_on_start {
+        println!("  🔄 Update requested before start. Initiating SteamCMD update...");
+
+        // Update status to 'updating'
+        {
+            let db = state
+                .db
+                .lock()
+                .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+            let conn = db
+                .get_connection()
+                .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+            conn.execute(
+                "UPDATE servers SET status = 'updating' WHERE id = ?1",
+                [server_id],
+            )
+            .map_err(|e| rusqlite::Error::to_string(&e))?;
+        }
+
+        // Run update via SteamCMD
+        let installer = ServerInstaller::new(app_handle.clone());
+        installer.update_server(&install_path_buf).await?;
+        println!("  ✅ Server update complete.");
+    } else if !executable.exists() {
         // Server executable not found, trigger installation
         println!("  📥 Server executable not found, starting automatic download...");
 

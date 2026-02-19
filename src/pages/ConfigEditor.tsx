@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useMemo, memo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3, Shield } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { readConfig, saveConfig, updateServerSettings } from '../utils/tauri';
@@ -34,6 +35,8 @@ const ConfigInput = memo(({
     isModified?: boolean,
     onFieldReset?: (source: 'GameUserSettings' | 'Game', section: string, key: string, defaultValue: string) => void
 }) => {
+    const { t } = useTranslation();
+
     // Stable handlers that call the parent's stable callbacks
     const handleChange = (val: string) => {
         onFieldChange(source, field.section, field.key, val, field.defaultValue);
@@ -58,14 +61,14 @@ const ConfigInput = memo(({
                 <div className="text-white font-medium flex items-center gap-2">
                     {field.label}
                     {isModified && (
-                        <span className="w-2 h-2 rounded-full bg-orange-500 shadow-lg shadow-orange-500/50" title="Modified from default" />
+                        <span className="w-2 h-2 rounded-full bg-orange-500 shadow-lg shadow-orange-500/50" title={t('configEditor.tooltips.modified')} />
                     )}
                 </div>
                 {isModified && onFieldReset && (
                     <button
                         onClick={handleReset}
                         className="p-1 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                        title="Reset to default"
+                        title={t('configEditor.tooltips.reset')}
                     >
                         <RotateCcw className="w-3 h-3" />
                     </button>
@@ -183,7 +186,7 @@ const ConfigInput = memo(({
                             value={value}
                             onChange={(e) => handleChange(e.target.value)}
                             className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 focus:shadow-[0_0_15px_rgba(249,115,22,0.2)] font-mono text-sm min-h-[150px] transition-all placeholder-slate-500 resize-none"
-                            placeholder="Enter values, one per line..."
+                            placeholder={t('configEditor.placeholders.enterValues')}
                         />
                         {field.description && <div className="mt-2 text-sm text-slate-400">{field.description}</div>}
                     </div>
@@ -206,6 +209,7 @@ const ConfigInput = memo(({
 });
 
 export default function ConfigEditor() {
+    const { t } = useTranslation();
     const location = useLocation();
     const { servers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
@@ -268,7 +272,7 @@ export default function ConfigEditor() {
                 // setRawText({ gus: gusContent, game: gameContent });
             } catch (err) {
                 console.error(err);
-                toast.error('Failed to load configuration files');
+                toast.error(t('configEditor.toasts.loadError'));
             } finally {
                 setIsLoading(false);
             }
@@ -370,7 +374,7 @@ export default function ConfigEditor() {
 
     const handleReset = useCallback((source: 'GameUserSettings' | 'Game', section: string, key: string, defaultValue: string) => {
         handleUpdate(source, section, key, defaultValue, defaultValue);
-        toast.success('Reset to default');
+        toast.success(t('configEditor.toasts.resetSuccess'));
     }, [handleUpdate]);
 
     const handleSave = async () => {
@@ -458,17 +462,17 @@ export default function ConfigEditor() {
             // Refresh servers list to reflect updates in UI
             useServerStore.getState().refreshServers();
 
-            toast.success('All configurations saved successfully');
+            toast.success(t('configEditor.toasts.saveSuccess'));
             toast(() => (
                 <div className="flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-orange-500" />
-                    <span className="font-medium text-slate-200">Restart server to apply changes!</span>
+                    <span className="font-medium text-slate-200">{t('configEditor.toasts.restartRequired')}</span>
                 </div>
             ), { duration: 5000, icon: null, style: { background: '#1e1e3a', border: '1px solid #f97316' } });
 
         } catch (err) {
             console.error(err);
-            toast.error('Failed to save configurations');
+            toast.error(t('configEditor.toasts.saveError'));
         } finally {
             setIsLoading(false);
         }
@@ -478,7 +482,7 @@ export default function ConfigEditor() {
         await navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-        toast.success('Copied to clipboard');
+        toast.success(t('configEditor.toasts.copySuccess'));
     };
 
     const getValue = (source: 'GameUserSettings' | 'Game', section: string, key: string, defaultValue?: string) => {
@@ -520,7 +524,7 @@ export default function ConfigEditor() {
         }
 
         setCurrentPreset(preset.id);
-        toast.success(`Applied ${preset.name} preset`);
+        toast.success(t('configEditor.toasts.presetApplied', { name: preset.name }));
         checkModifications(newConfigs);
     };
 
@@ -530,7 +534,7 @@ export default function ConfigEditor() {
         const difficulty = (level / 30).toFixed(1);
         handleUpdate('GameUserSettings', 'ServerSettings', 'OverrideOfficialDifficulty', difficulty);
         handleUpdate('GameUserSettings', 'ServerSettings', 'DifficultyOffset', '1.0');
-        toast.success(`Max wild dino level set to ${level}`);
+        toast.success(t('configEditor.toasts.dinoLevelSet', { level }));
     };
 
     const applyPlayerLevel = (maxLevel: number) => {
@@ -547,7 +551,7 @@ export default function ConfigEditor() {
 
         handleUpdate('Game', '/Script/ShooterGame.ShooterGameMode', 'LevelExperienceRampOverrides', rampString);
         handleUpdate('Game', '/Script/ShooterGame.ShooterGameMode', 'OverrideMaxExperiencePointsPlayer', Math.floor(10 * Math.pow(maxLevel, 2.2)).toString());
-        toast.success(`Max player level set to ${maxLevel}`);
+        toast.success(t('configEditor.toasts.playerLevelSet', { level: maxLevel }));
     };
 
     const conflicts = useMemo(() => {
@@ -559,7 +563,7 @@ export default function ConfigEditor() {
         if (disableTaming === 'True' && parseFloat(tamingSpeed) > 1) {
             issues.push({
                 type: 'warning',
-                message: 'Taming is disabled, but Taming Speed Multiplier is > 1.0 (multiplier will have no effect).'
+                message: t('configEditor.validation.tamingConflict')
             });
         }
 
@@ -569,7 +573,7 @@ export default function ConfigEditor() {
         if (disableFF === 'True' && parseFloat(ffMult) !== 1) {
             issues.push({
                 type: 'warning',
-                message: 'PvE Friendly Fire is disabled, but Multiplier is modified (multiplier will have no effect).'
+                message: t('configEditor.validation.friendlyFireConflict')
             });
         }
 
@@ -578,7 +582,7 @@ export default function ConfigEditor() {
         if (parseFloat(xpMult) > 50) {
             issues.push({
                 type: 'warning',
-                message: 'Extreme XP Multiplier detected (> 50x). This may cause instability or rapid progression loops.'
+                message: t('configEditor.validation.xpWarning')
             });
         }
 
@@ -625,7 +629,7 @@ export default function ConfigEditor() {
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
                                 <Sliders className="w-5 h-5 text-white" />
                             </div>
-                            <span className="bg-gradient-to-r from-white via-violet-200 to-indigo-200 bg-clip-text text-transparent">Config Editor</span>
+                            <span className="bg-gradient-to-r from-white via-violet-200 to-indigo-200 bg-clip-text text-transparent">{t('configEditor.title')}</span>
                         </h2>
 
                         <select
@@ -652,7 +656,7 @@ export default function ConfigEditor() {
                             target="_blank"
                             className="px-4 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-violet-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(139,92,246,0.15)]"
                         >
-                            <ExternalLink className="w-4 h-4" /> Wiki
+                            <ExternalLink className="w-4 h-4" /> {t('configEditor.buttons.wiki')}
                         </a>
                         <button
                             onClick={handleSave}
@@ -660,7 +664,7 @@ export default function ConfigEditor() {
                             className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                         >
                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            Save Changes
+                            {t('configEditor.buttons.save')}
                         </button>
                     </div>
                 </div>
@@ -676,7 +680,7 @@ export default function ConfigEditor() {
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
-                        <Sliders className="w-4 h-4" /> Visual Editor
+                        <Sliders className="w-4 h-4" /> {t('configEditor.tabs.visual')}
                     </button>
                     <button
                         onClick={() => handleSwitchToRaw('gus')}
@@ -687,7 +691,7 @@ export default function ConfigEditor() {
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
-                        <FileText className="w-4 h-4" /> GameUserSettings.ini
+                        <FileText className="w-4 h-4" /> {t('configEditor.tabs.gus')}
                     </button>
                     <button
                         onClick={() => handleSwitchToRaw('game')}
@@ -698,7 +702,7 @@ export default function ConfigEditor() {
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
-                        <FileText className="w-4 h-4" /> Game.ini
+                        <FileText className="w-4 h-4" /> {t('configEditor.tabs.game')}
                     </button>
                     <button
                         onClick={() => setViewMode('levels')}
@@ -709,7 +713,7 @@ export default function ConfigEditor() {
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
-                        <GraduationCap className="w-4 h-4" /> Levels Generator
+                        <GraduationCap className="w-4 h-4" /> {t('configEditor.tabs.levels')}
                     </button>
                     <button
                         onClick={() => setViewMode('stats')}
@@ -720,7 +724,7 @@ export default function ConfigEditor() {
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
-                        <BarChart3 className="w-4 h-4" /> Per-Stat Multipliers
+                        <BarChart3 className="w-4 h-4" /> {t('configEditor.tabs.stats')}
                     </button>
                     <button
                         onClick={() => setViewMode('anti-cheat')}
@@ -731,7 +735,7 @@ export default function ConfigEditor() {
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
-                        <Shield className="w-4 h-4" /> Anti-Cheat
+                        <Shield className="w-4 h-4" /> {t('configEditor.tabs.antiCheat')}
                     </button>
                     <button
                         onClick={() => setViewMode('advanced')}
@@ -742,7 +746,7 @@ export default function ConfigEditor() {
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
                         )}
                     >
-                        <Sliders className="w-4 h-4" /> Advanced Rules
+                        <Sliders className="w-4 h-4" /> {t('configEditor.tabs.advanced')}
                     </button>
                 </div>
             </div>
@@ -786,7 +790,7 @@ export default function ConfigEditor() {
                                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                                             <input
                                                 type="text"
-                                                placeholder="Search settings..."
+                                                placeholder={t('configEditor.placeholders.searchSettings')}
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
                                                 className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] transition-all"
@@ -843,7 +847,7 @@ export default function ConfigEditor() {
                                         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30 animate-pulse">
                                             <Loader2 className="w-6 h-6 text-white animate-spin" />
                                         </div>
-                                        <span className="text-slate-400 text-sm font-medium">Loading configurations...</span>
+                                        <span className="text-slate-400 text-sm font-medium">{t('configEditor.loading')}</span>
                                     </div>
                                 </div>
                             ) : filteredGroups.length > 0 ? (
@@ -888,8 +892,8 @@ export default function ConfigEditor() {
                                         <div className="absolute inset-0 bg-slate-500/10 blur-2xl rounded-full"></div>
                                         <Search className="w-16 h-16 opacity-30 relative z-10" />
                                     </div>
-                                    <p className="text-lg font-medium text-slate-400">No settings found</p>
-                                    <p className="text-sm text-slate-500 mt-1">Try searching for "{searchQuery}"</p>
+                                    <p className="text-lg font-medium text-slate-400">{t('configEditor.emptyState.title')}</p>
+                                    <p className="text-sm text-slate-500 mt-1">{t('configEditor.emptyState.description', { query: searchQuery })}</p>
                                 </div>
                             )}
                         </div>
@@ -904,15 +908,15 @@ export default function ConfigEditor() {
                                         <GraduationCap className="w-8 h-8 text-emerald-400 relative z-10" />
                                     </div>
                                     <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
-                                        Custom Levels Generator
+                                        {t('configEditor.levelsGenerator.title')}
                                     </h2>
                                 </div>
-                                <p className="text-slate-400 mb-8">Easily generate complex difficulty and XP configurations.</p>
+                                <p className="text-slate-400 mb-8">{t('configEditor.levelsGenerator.subtitle')}</p>
 
                                 <div className="grid gap-8 md:grid-cols-2">
                                     {/* Dino Levels */}
                                     <div className="space-y-4">
-                                        <label className="block text-sm font-semibold text-slate-200">Max Wild Dino Level</label>
+                                        <label className="block text-sm font-semibold text-slate-200">{t('configEditor.levelsGenerator.dinoLevelLabel')}</label>
                                         <div className="flex gap-4">
                                             <input
                                                 type="number"
@@ -926,16 +930,16 @@ export default function ConfigEditor() {
                                             onClick={() => applyDinoLevel(customDinoLevel)}
                                             className="w-full px-4 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 border border-emerald-400/20"
                                         >
-                                            Apply Dino Level
+                                            {t('configEditor.levelsGenerator.applyDinoLevel')}
                                         </button>
                                         <p className="text-xs text-slate-400 bg-slate-800/30 rounded-lg px-3 py-2 border border-slate-700/30">
-                                            Sets Difficulty Offset to 1.0 and Override Official Difficulty to {(customDinoLevel / 30).toFixed(1)}.
+                                            {t('configEditor.levelsGenerator.dinoLevelReset', { offset: (customDinoLevel / 30).toFixed(1) })}
                                         </p>
                                     </div>
 
                                     {/* Player Levels */}
                                     <div className="space-y-4">
-                                        <label className="block text-sm font-semibold text-slate-200">Max Player Level</label>
+                                        <label className="block text-sm font-semibold text-slate-200">{t('configEditor.levelsGenerator.playerLevelLabel')}</label>
                                         <div className="flex gap-4">
                                             <input
                                                 type="number"
@@ -948,10 +952,10 @@ export default function ConfigEditor() {
                                             onClick={() => applyPlayerLevel(customPlayerLevel)}
                                             className="w-full px-4 py-3 bg-gradient-to-r from-sky-600 to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40 border border-sky-400/20"
                                         >
-                                            Generate XP Ramp
+                                            {t('configEditor.levelsGenerator.generateXpRamp')}
                                         </button>
                                         <p className="text-xs text-slate-400 bg-slate-800/30 rounded-lg px-3 py-2 border border-slate-700/30">
-                                            Generates a standard exponential XP ramp for {customPlayerLevel} levels.
+                                            {t('configEditor.levelsGenerator.playerLevelDescription', { level: customPlayerLevel })}
                                         </p>
                                     </div>
                                 </div>
@@ -959,11 +963,11 @@ export default function ConfigEditor() {
 
                             {/* Info Section */}
                             <div className="bg-gradient-to-br from-slate-800/40 to-slate-800/20 rounded-xl p-5 border border-slate-700/40 backdrop-blur-sm">
-                                <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">💡 How it works</h3>
+                                <h3 className="text-sm font-semibold text-slate-200 mb-3 flex items-center gap-2">{t('configEditor.levelsGenerator.howItWorks')}</h3>
                                 <ul className="text-xs text-slate-400 space-y-2">
-                                    <li className="flex items-start gap-2"><span className="text-emerald-400">•</span> <span><strong className="text-slate-300">Dino Level</strong>: Sets OverrideOfficialDifficulty based on max level / 30</span></li>
-                                    <li className="flex items-start gap-2"><span className="text-sky-400">•</span> <span><strong className="text-slate-300">Player Level</strong>: Generates LevelExperienceRampOverrides with exponential XP curve</span></li>
-                                    <li>• Changes are applied to the config and will be saved when you click Save</li>
+                                    <li className="flex items-start gap-2"><span className="text-emerald-400">•</span> <span>{t('configEditor.levelsGenerator.howItWorksDino')}</span></li>
+                                    <li className="flex items-start gap-2"><span className="text-sky-400">•</span> <span>{t('configEditor.levelsGenerator.howItWorksPlayer')}</span></li>
+                                    <li>• {t('configEditor.levelsGenerator.howItWorksSave')}</li>
                                 </ul>
                             </div>
                         </div>
@@ -987,7 +991,7 @@ export default function ConfigEditor() {
                                 className="flex items-center gap-2 px-3 py-1.5 bg-[#252526] hover:bg-[#333] text-slate-300 rounded-md border border-[#3e3e3e] shadow-sm transition-all text-sm font-medium"
                             >
                                 {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                                Copy
+                                {t('configEditor.buttons.copy')}
                             </button>
                         </div>
                         <CodeEditor

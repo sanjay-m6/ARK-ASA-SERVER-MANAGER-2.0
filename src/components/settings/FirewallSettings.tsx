@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Shield, RefreshCw, Check, X, AlertTriangle, Server, Wifi, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '../../utils/helpers';
+import { useTranslation } from 'react-i18next';
 
 interface ServerFirewallStatus {
     serverId: number;
@@ -55,6 +56,7 @@ function StatusBadge({ status }: { status: 'open' | 'closed' | 'unknown' }) {
 }
 
 export default function FirewallSettings() {
+    const { t } = useTranslation();
     const [servers, setServers] = useState<ServerFirewallStatus[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAssigning, setIsAssigning] = useState<number | 'all' | null>(null);
@@ -73,7 +75,7 @@ export default function FirewallSettings() {
             setServers(status);
         } catch (error) {
             console.error('Failed to load firewall status:', error);
-            toast.error('Failed to load firewall status');
+            toast.error(t('settings.firewallAutomation.messages.loadFailed'));
         } finally {
             setIsLoading(false);
         }
@@ -98,7 +100,7 @@ export default function FirewallSettings() {
             }
         } catch (error) {
             console.error('Failed to create firewall rules:', error);
-            toast.error('Failed to create firewall rules');
+            toast.error(t('settings.firewallAutomation.messages.createFailed'));
         } finally {
             setIsAssigning(null);
         }
@@ -119,7 +121,7 @@ export default function FirewallSettings() {
             }
         } catch (error) {
             console.error('Failed to create firewall rules:', error);
-            toast.error('Failed to create firewall rules');
+            toast.error(t('settings.firewallAutomation.messages.createFailed'));
         } finally {
             setIsAssigning(null);
         }
@@ -140,7 +142,7 @@ export default function FirewallSettings() {
             }
         } catch (error) {
             console.error('Failed to remove firewall rules:', error);
-            toast.error('Failed to remove firewall rules');
+            toast.error(t('settings.firewallAutomation.messages.removeFailed'));
         } finally {
             setIsAssigning(null);
         }
@@ -156,13 +158,13 @@ export default function FirewallSettings() {
     const handleAddManualPort = async () => {
         const portNum = parseInt(newPort);
         if (isNaN(portNum) || portNum <= 0 || portNum > 65535) {
-            toast.error('Please enter a valid port number (1-65535)');
+            toast.error(t('settings.firewallAutomation.messages.invalidPort'));
             return;
         }
 
         // Check if port already exists in the list
         if (manualPorts.some(p => p.port === portNum && p.protocol === newProtocol)) {
-            toast.error('This port/protocol combination is already in the list');
+            toast.error(t('settings.firewallAutomation.messages.duplicatePort'));
             return;
         }
 
@@ -193,7 +195,7 @@ export default function FirewallSettings() {
             }
         } catch (error) {
             console.error('Failed to create manual firewall rule:', error);
-            toast.error('Failed to create firewall rule');
+            toast.error(t('settings.firewallAutomation.messages.manualCreateFailed'));
         } finally {
             setIsAddingPort(false);
         }
@@ -217,7 +219,7 @@ export default function FirewallSettings() {
             }
         } catch (error) {
             console.error('Failed to remove manual firewall rule:', error);
-            toast.error('Failed to remove firewall rule');
+            toast.error(t('settings.firewallAutomation.messages.manualRemoveFailed'));
         }
     };
 
@@ -231,9 +233,9 @@ export default function FirewallSettings() {
                             <Shield className="w-8 h-8 text-red-400" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold text-white">Firewall Automation</h2>
+                            <h2 className="text-2xl font-bold text-white">{t('settings.firewallAutomation.title')}</h2>
                             <p className="text-slate-400 mt-1">
-                                Automatically configure Windows Firewall rules for your ARK servers
+                                {t('settings.firewallAutomation.description')}
                             </p>
                         </div>
                     </div>
@@ -244,7 +246,7 @@ export default function FirewallSettings() {
                             className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50"
                         >
                             <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
-                            Refresh
+                            {t('settings.firewallAutomation.refresh')}
                         </button>
                         {servers.length > 0 && (
                             <button
@@ -259,12 +261,12 @@ export default function FirewallSettings() {
                                 {isAssigning === 'all' ? (
                                     <>
                                         <RefreshCw className="w-4 h-4 animate-spin" />
-                                        Assigning...
+                                        {t('settings.firewallAutomation.assigning')}
                                     </>
                                 ) : (
                                     <>
                                         <Shield className="w-4 h-4" />
-                                        Assign All Ports
+                                        {t('settings.firewallAutomation.assignAll')}
                                     </>
                                 )}
                             </button>
@@ -277,8 +279,8 @@ export default function FirewallSettings() {
                     <div className="flex items-start gap-3">
                         <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
                         <div className="text-sm text-slate-300">
-                            <p className="font-medium text-amber-400 mb-1">Administrator privileges required</p>
-                            <p>Firewall rules can only be created when running the application as Administrator. Right-click the app and select "Run as administrator" if port assignment fails.</p>
+                            <p className="font-medium text-amber-400 mb-1">{t('settings.firewallAutomation.adminRequired')}</p>
+                            <p>{t('settings.firewallAutomation.adminRequiredDesc')}</p>
                         </div>
                     </div>
                 </div>
@@ -291,19 +293,19 @@ export default function FirewallSettings() {
                 ) : servers.length === 0 ? (
                     <div className="text-center py-12">
                         <Server className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                        <p className="text-slate-400">No servers configured</p>
-                        <p className="text-sm text-slate-500 mt-1">Create a server profile first to manage firewall rules</p>
+                        <p className="text-slate-400">{t('settings.firewallAutomation.noServers')}</p>
+                        <p className="text-sm text-slate-500 mt-1">{t('settings.firewallAutomation.createProfile')}</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-slate-700">
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">Server</th>
-                                    <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">Game Port</th>
-                                    <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">Query Port</th>
-                                    <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">RCON Port</th>
-                                    <th className="text-right py-3 px-4 text-sm font-medium text-slate-400">Actions</th>
+                                    <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.server')}</th>
+                                    <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.gamePort')}</th>
+                                    <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.queryPort')}</th>
+                                    <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.rconPort')}</th>
+                                    <th className="text-right py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.actions')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
@@ -347,7 +349,7 @@ export default function FirewallSettings() {
                                                     <span className="text-[10px] text-slate-500">TCP</span>
                                                 </div>
                                             ) : (
-                                                <span className="text-sm text-slate-500">Disabled</span>
+                                                <span className="text-sm text-slate-500">{t('settings.firewallAutomation.messages.disabled')}</span>
                                             )}
                                         </td>
                                         <td className="py-4 px-4 text-right">
@@ -363,7 +365,7 @@ export default function FirewallSettings() {
                                                         ) : (
                                                             <X className="w-3.5 h-3.5" />
                                                         )}
-                                                        Remove
+                                                        {t('settings.firewallAutomation.messages.actions.remove')}
                                                     </button>
                                                 ) : (
                                                     <button
@@ -376,7 +378,7 @@ export default function FirewallSettings() {
                                                         ) : (
                                                             <Check className="w-3.5 h-3.5" />
                                                         )}
-                                                        Assign
+                                                        {t('settings.firewallAutomation.messages.actions.assign')}
                                                     </button>
                                                 )}
                                             </div>
@@ -393,28 +395,28 @@ export default function FirewallSettings() {
             <div className="glass-panel rounded-2xl p-6">
                 <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
                     <Plus className="w-5 h-5 text-emerald-400" />
-                    Manual Port Assignment
+                    {t('settings.firewallAutomation.manual.title')}
                 </h3>
                 <p className="text-sm text-slate-400 mb-6">
-                    Open custom ports for additional services, mods, or plugins that require specific network access.
+                    {t('settings.firewallAutomation.manual.description')}
                 </p>
 
                 {/* Add Port Form */}
                 <div className="flex flex-wrap items-end gap-4 mb-6">
                     <div className="flex-1 min-w-[120px]">
-                        <label className="block text-xs text-slate-400 mb-1.5">Port Number</label>
+                        <label className="block text-xs text-slate-400 mb-1.5">{t('settings.firewallAutomation.manual.portNumber')}</label>
                         <input
                             type="number"
                             value={newPort}
                             onChange={(e) => setNewPort(e.target.value)}
-                            placeholder="e.g. 8080"
+                            placeholder={t('settings.firewallAutomation.manual.placeholderPort')}
                             min="1"
                             max="65535"
                             className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
                         />
                     </div>
                     <div className="w-28">
-                        <label className="block text-xs text-slate-400 mb-1.5">Protocol</label>
+                        <label className="block text-xs text-slate-400 mb-1.5">{t('settings.firewallAutomation.manual.protocol')}</label>
                         <select
                             value={newProtocol}
                             onChange={(e) => setNewProtocol(e.target.value as 'TCP' | 'UDP')}
@@ -425,12 +427,12 @@ export default function FirewallSettings() {
                         </select>
                     </div>
                     <div className="flex-1 min-w-[200px]">
-                        <label className="block text-xs text-slate-400 mb-1.5">Description (Optional)</label>
+                        <label className="block text-xs text-slate-400 mb-1.5">{t('settings.firewallAutomation.manual.descriptionLabel')}</label>
                         <input
                             type="text"
                             value={newDescription}
                             onChange={(e) => setNewDescription(e.target.value)}
-                            placeholder="e.g. Voice Chat Port"
+                            placeholder={t('settings.firewallAutomation.manual.placeholderDesc')}
                             className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
                         />
                     </div>
@@ -444,14 +446,14 @@ export default function FirewallSettings() {
                         ) : (
                             <Plus className="w-4 h-4" />
                         )}
-                        Add Port
+                        {t('settings.firewallAutomation.manual.addPort')}
                     </button>
                 </div>
 
                 {/* Manual Ports List */}
                 {manualPorts.length > 0 && (
                     <div className="border-t border-slate-700 pt-4">
-                        <h4 className="text-sm font-medium text-slate-300 mb-3">Custom Ports</h4>
+                        <h4 className="text-sm font-medium text-slate-300 mb-3">{t('settings.firewallAutomation.manual.customPorts')}</h4>
                         <div className="space-y-2">
                             {manualPorts.map((port, index) => (
                                 <div key={index} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg">
@@ -467,7 +469,7 @@ export default function FirewallSettings() {
                                         <button
                                             onClick={() => handleRemoveManualPort(port)}
                                             className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-                                            title="Remove port"
+                                            title={t('settings.firewallAutomation.manual.remove')}
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -483,15 +485,15 @@ export default function FirewallSettings() {
             <div className="glass-panel rounded-2xl p-6 border-dashed">
                 <h3 className="text-lg font-medium text-white mb-3 flex items-center gap-2">
                     <Wifi className="w-5 h-5 text-sky-400" />
-                    About Firewall Ports
+                    {t('settings.firewallAutomation.about.title')}
                 </h3>
                 <div className="space-y-2 text-sm text-slate-400">
-                    <p>• <strong className="text-sky-400">Game Port (UDP)</strong>: Main connection port for players joining your server</p>
-                    <p>• <strong className="text-violet-400">Query Port (UDP)</strong>: Used by Steam for server browser listing and queries</p>
-                    <p>• <strong className="text-emerald-400">RCON Port (TCP)</strong>: Remote console access for server administration</p>
-                    <p className="pt-2 text-slate-500">All ports must be open for your server to be visible and accessible to players.</p>
+                    <p>• <strong className="text-sky-400">{t('settings.firewallAutomation.about.game')}</strong>: {t('settings.firewallAutomation.about.gameDesc')}</p>
+                    <p>• <strong className="text-violet-400">{t('settings.firewallAutomation.about.query')}</strong>: {t('settings.firewallAutomation.about.queryDesc')}</p>
+                    <p>• <strong className="text-emerald-400">{t('settings.firewallAutomation.about.rcon')}</strong>: {t('settings.firewallAutomation.about.rconDesc')}</p>
+                    <p className="pt-2 text-slate-500">{t('settings.firewallAutomation.about.note')}</p>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

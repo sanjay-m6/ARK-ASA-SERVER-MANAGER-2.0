@@ -46,12 +46,30 @@ impl Database {
         // Run status check migration (to allow 'online' status)
         Self::run_status_migration(conn)?;
 
+        // Run scheduler migration (v2) to allow AutoUpdateMods
+        Self::run_tasks_migration_v2(conn)?;
+
+        // Run scheduler migration (v3) to add task_name
+        Self::run_tasks_migration_v3(conn)?;
+
         // Run schema repair (restore missing columns if previous run faulty)
         Self::run_schema_repair(conn)?;
 
         // Run scheduler settings migration (advanced fields)
         Self::run_scheduler_migration(conn)?;
 
+        // Run settings migration (defaults)
+        Self::run_settings_migration(conn)?;
+
+        Ok(())
+    }
+
+    fn run_settings_migration(conn: &Connection) -> Result<()> {
+        let startup_timeout = Self::get_setting_static(conn, "startup_timeout")?;
+        if startup_timeout.is_none() {
+            println!("📦 Migration: Setting default 'startup_timeout' to 1800s");
+            Self::set_setting_static(conn, "startup_timeout", "1800")?;
+        }
         Ok(())
     }
 
@@ -313,6 +331,80 @@ impl Database {
                 "ALTER TABLE discord_bridge_config ADD COLUMN show_playtime INTEGER DEFAULT 1",
                 [],
             )?;
+        }
+
+        Ok(())
+    }
+
+    fn run_tasks_migration_v2(conn: &Connection) -> Result<()> {
+        let migration_key = "migration_tasks_check_v2";
+        let has_migrated =
+            Self::get_setting_static(conn, migration_key)?.unwrap_or("0".to_string()) == "1";
+
+        if !has_migrated {
+            println!("📦 Migration: Updating CHECK constraint on scheduled_tasks (AutoUpdateMods)");
+
+            // Disable FKs
+            conn.pragma_update(None, "foreign_keys", "OFF")?;
+
+            conn.execute("BEGIN TRANSACTION", [])?;
+
+            // Rename old table
+            conn.execute(
+                "ALTER TABLE scheduled_tasks RENAME TO scheduled_tasks_old",
+                [],
+            )?;
+
+            // Create new table with updated CHECK constraint
+            conn.execute(
+                "CREATE TABLE scheduled_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    server_id INTEGER NOT NULL,
+                    task_type TEXT NOT NULL CHECK(task_type IN ('restart', 'backup', 'rcon-command', 'announcement', 'save-world', 'destroy-wild-dinos', 'AutoUpdateMods')),
+                    cron_expression TEXT NOT NULL,
+                    command TEXT,
+                    message TEXT,
+                    pre_warning_minutes INTEGER DEFAULT 5,
+                    enabled INTEGER DEFAULT 1,
+                    last_run TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE
+                )",
+                [],
+            )?;
+
+            // Copy data from old table
+            conn.execute(
+                "INSERT INTO scheduled_tasks (id, server_id, task_type, cron_expression, command, message, pre_warning_minutes, enabled, last_run, created_at)
+                 SELECT id, server_id, task_type, cron_expression, command, message, pre_warning_minutes, enabled, last_run, created_at
+                 FROM scheduled_tasks_old",
+                [],
+            )?;
+
+            // Drop old table
+            conn.execute("DROP TABLE scheduled_tasks_old", [])?;
+
+            conn.execute("COMMIT", [])?;
+
+            // Re-enable FKs
+            conn.pragma_update(None, "foreign_keys", "ON")?;
+
+            Self::set_setting_static(conn, migration_key, "1")?;
+        }
+
+        Ok(())
+    }
+
+    fn run_tasks_migration_v3(conn: &Connection) -> Result<()> {
+        let mut stmt = conn.prepare("PRAGMA table_info(scheduled_tasks)")?;
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if !columns.contains(&"task_name".to_string()) {
+            println!("📦 Migration: Adding 'task_name' column to scheduled_tasks");
+            conn.execute("ALTER TABLE scheduled_tasks ADD COLUMN task_name TEXT", [])?;
         }
 
         Ok(())

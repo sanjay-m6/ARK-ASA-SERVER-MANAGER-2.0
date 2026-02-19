@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Settings, Eye, EyeOff, CheckCircle, XCircle, Loader2, ArrowRight, ArrowLeft, ChevronDown, BookOpen, ExternalLink, Copy, Shield, Hash, Server as ServerIcon } from 'lucide-react';
+import { Settings, Eye, EyeOff, CheckCircle, XCircle, Loader2, ChevronDown, BookOpen, ExternalLink, Copy, Shield, Hash, Server as ServerIcon } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import {
     saveDiscordBridgeConfig,
@@ -10,6 +10,7 @@ import {
 } from '../../utils/tauri';
 import toast from 'react-hot-toast';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { useTranslation, Trans } from 'react-i18next';
 
 interface DiscordBridgeSettingsProps {
     clusterId: number;
@@ -17,12 +18,14 @@ interface DiscordBridgeSettingsProps {
 }
 
 export default function DiscordBridgeSettings({ clusterId, clusterName }: DiscordBridgeSettingsProps) {
+    const { t } = useTranslation();
     const [config, setConfig] = useState<DiscordBridgeConfig>({
         cluster_id: clusterId,
         enabled: false,
         bot_token: '',
         guild_id: '',
         channel_id: '',
+        admin_channel_id: '',
         game_to_discord: true,
         discord_to_game: true,
         server_list_enabled: false,
@@ -59,7 +62,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
 
     const handleTestConnection = async () => {
         if (!config.bot_token || !config.channel_id) {
-            toast.error('Bot token and channel ID are required');
+            toast.error(t('discord.tokenAndChannelReq'));
             return;
         }
 
@@ -86,11 +89,11 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                 ...config,
                 cluster_id: clusterId,
             });
-            toast.success('Discord bridge settings saved');
+            toast.success(t('discord.settingsSaved'));
         } catch (error) {
             console.error(error);
             const message = error instanceof Error ? error.message : String(error);
-            toast.error(`Failed to save settings: ${message}`);
+            toast.error(t('discord.saveFailed', { error: message }));
         } finally {
             setIsSaving(false);
         }
@@ -106,12 +109,12 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-medium text-white">Discord Bridge</h3>
+                            <h3 className="text-lg font-medium text-white">{t('discord.title')}</h3>
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                                NATIVE
+                                {t('discord.native')}
                             </span>
                         </div>
-                        <p className="text-sm text-slate-400">Connect {clusterName} to Discord</p>
+                        <p className="text-sm text-slate-400">{t('discord.connectSubtitle', { clusterName })}</p>
                     </div>
                 </div>
 
@@ -123,7 +126,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                             : "bg-slate-800 text-slate-400 border-slate-700"
                     )}>
-                        {config.enabled ? 'Active' : 'Disabled'}
+                        {config.enabled ? t('common.active') : t('common.disabled', 'Disabled')}
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                         <input
@@ -145,7 +148,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                 >
                     <div className="flex items-center gap-3">
                         <BookOpen className="w-4 h-4 text-indigo-400" />
-                        <span className="text-sm font-medium text-slate-200">How to Set Up Your Discord Bot</span>
+                        <span className="text-sm font-medium text-slate-200">{t('discord.setupGuideTitle')}</span>
                     </div>
                     <ChevronDown className={cn(
                         "w-4 h-4 text-slate-400 transition-transform duration-200",
@@ -158,77 +161,95 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
 
                         {/* Step 1 */}
                         <div className="flex gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">1</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">{t('discord.step1')}</div>
                             <div className="space-y-1.5">
-                                <p className="text-sm font-medium text-white">Create a Discord Application</p>
+                                <p className="text-sm font-medium text-white">{t('discord.step1Title')}</p>
                                 <p className="text-xs text-slate-400">
-                                    Go to the <span onClick={() => openUrl('https://discord.com/developers/applications')} className="text-indigo-400 hover:text-indigo-300 cursor-pointer inline-flex items-center gap-1">Discord Developer Portal <ExternalLink className="w-3 h-3" /></span> and click <span className="text-white font-medium">"New Application"</span>. Give it a name (e.g., "ARK Server Bot").
+                                    <Trans
+                                        i18nKey="discord.step1Desc"
+                                        components={{
+                                            1: <span onClick={() => openUrl('https://discord.com/developers/applications')} className="text-indigo-400 hover:text-indigo-300 cursor-pointer inline-flex items-center gap-1">Discord Developer Portal <ExternalLink className="w-3 h-3" /></span>,
+                                            2: <span className="text-white font-medium" />
+                                        }}
+                                    />
                                 </p>
                             </div>
                         </div>
 
                         {/* Step 2 */}
                         <div className="flex gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">2</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">{t('discord.step2')}</div>
                             <div className="space-y-1.5">
-                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Copy className="w-3.5 h-3.5 text-indigo-400" /> Copy the Bot Token</p>
+                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Copy className="w-3.5 h-3.5 text-indigo-400" /> {t('discord.step2Title')}</p>
                                 <p className="text-xs text-slate-400">
-                                    In the left sidebar, click <span className="text-white font-medium">"Bot"</span>. Click <span className="text-white font-medium">"Reset Token"</span> and copy it. Paste it in the <span className="text-white font-medium">Bot Token</span> field above.
+                                    <Trans
+                                        i18nKey="discord.step2Desc"
+                                        components={{
+                                            1: <span className="text-white font-medium" />,
+                                            2: <span className="text-white font-medium" />,
+                                            3: <span className="text-white font-medium" />
+                                        }}
+                                    />
                                 </p>
                                 <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded text-[11px] text-amber-300">
-                                    ⚠️ Keep your token secret! Never share it publicly.
+                                    {t('discord.step2Warning')}
                                 </div>
                             </div>
                         </div>
 
                         {/* Step 3 */}
                         <div className="flex gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">3</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">{t('discord.step3')}</div>
                             <div className="space-y-1.5">
-                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-indigo-400" /> Enable Gateway Intents</p>
+                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-indigo-400" /> {t('discord.step3Title')}</p>
                                 <p className="text-xs text-slate-400">
-                                    On the same <span className="text-white font-medium">"Bot"</span> page, scroll down to <span className="text-white font-medium">"Privileged Gateway Intents"</span> and enable:
+                                    <Trans
+                                        i18nKey="discord.step3Desc"
+                                        components={{
+                                            1: <span className="text-white font-medium" />,
+                                            2: <span className="text-white font-medium" />
+                                        }}
+                                    />
                                 </p>
                                 <div className="flex flex-wrap gap-2 pt-1">
-                                    <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-300 text-[11px] rounded border border-indigo-500/20">✅ MESSAGE CONTENT INTENT</span>
-                                    <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-300 text-[11px] rounded border border-indigo-500/20">✅ SERVER MEMBERS INTENT</span>
+                                    <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-300 text-[11px] rounded border border-indigo-500/20">{t('discord.step3Intents1')}</span>
+                                    <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-300 text-[11px] rounded border border-indigo-500/20">{t('discord.step3Intents2')}</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Step 4 */}
                         <div className="flex gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">4</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">{t('discord.step4')}</div>
                             <div className="space-y-1.5">
-                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><ServerIcon className="w-3.5 h-3.5 text-indigo-400" /> Invite the Bot to Your Server</p>
+                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><ServerIcon className="w-3.5 h-3.5 text-indigo-400" /> {t('discord.step4Title')}</p>
                                 <p className="text-xs text-slate-400">
-                                    Go to <span className="text-white font-medium">"OAuth2" → "URL Generator"</span> in the sidebar.
+                                    <Trans i18nKey="discord.step4Desc" components={{ 1: <span className="text-white font-medium" /> }} />
                                 </p>
                                 <div className="space-y-1.5 text-xs text-slate-400">
-                                    <p>• Under <span className="text-white">Scopes</span>, check: <span className="text-indigo-300">bot</span></p>
-                                    <p>• Under <span className="text-white">Bot Permissions</span>, check:</p>
+                                    <p><Trans i18nKey="discord.step4Scopes" components={{ 1: <span className="text-white" />, 2: <span className="text-indigo-300" /> }} /></p>
+                                    <p><Trans i18nKey="discord.step4Perms" components={{ 1: <span className="text-white" /> }} /></p>
                                     <div className="flex flex-wrap gap-1.5 pl-3 pt-0.5">
-                                        <span className="px-1.5 py-0.5 bg-slate-800 text-slate-300 text-[10px] rounded">View Channels</span>
-                                        <span className="px-1.5 py-0.5 bg-slate-800 text-slate-300 text-[10px] rounded">Send Messages</span>
-                                        <span className="px-1.5 py-0.5 bg-slate-800 text-slate-300 text-[10px] rounded">Read Message History</span>
-                                        <span className="px-1.5 py-0.5 bg-slate-800 text-slate-300 text-[10px] rounded">Manage Messages</span>
+                                        {(t('discord.step4PermsList', { returnObjects: true }) as unknown as string).split('\n').map((item, i) => (
+                                            <span key={i} className="px-1.5 py-0.5 bg-slate-800 text-slate-300 text-[10px] rounded">{item}</span>
+                                        ))}
                                     </div>
-                                    <p>• Copy the <span className="text-white">Generated URL</span> at the bottom, open it in your browser, and select your server.</p>
+                                    <p><Trans i18nKey="discord.step4GenUrl" components={{ 1: <span className="text-white" /> }} /></p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Step 5 */}
                         <div className="flex gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">5</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">{t('discord.step5')}</div>
                             <div className="space-y-1.5">
-                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Hash className="w-3.5 h-3.5 text-indigo-400" /> Get Server & Channel IDs</p>
+                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Hash className="w-3.5 h-3.5 text-indigo-400" /> {t('discord.step5Title')}</p>
                                 <p className="text-xs text-slate-400">
-                                    In Discord, go to <span className="text-white font-medium">User Settings → Advanced → Enable Developer Mode</span>.
+                                    <Trans i18nKey="discord.step5Desc" components={{ 1: <span className="text-white font-medium" /> }} />
                                 </p>
                                 <div className="space-y-1 text-xs text-slate-400">
-                                    <p>• <span className="text-white">Server ID</span>: Right-click your server name → <span className="text-indigo-300">Copy Server ID</span></p>
-                                    <p>• <span className="text-white">Channel ID</span>: Right-click the channel → <span className="text-indigo-300">Copy Channel ID</span></p>
+                                    <p><Trans i18nKey="discord.step5ServerId" components={{ 1: <span className="text-white" />, 2: <span className="text-indigo-300" /> }} /></p>
+                                    <p><Trans i18nKey="discord.step5ChannelId" components={{ 1: <span className="text-white" />, 2: <span className="text-indigo-300" /> }} /></p>
                                 </div>
                             </div>
                         </div>
@@ -236,7 +257,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                         {/* Done */}
                         <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs text-emerald-300 flex items-start gap-2">
                             <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                            <span>Once you've completed all steps, paste your Bot Token, Guild ID, and Channel ID above, then click <span className="font-medium">Test Connection</span>.</span>
+                            <span><Trans i18nKey="discord.guideDone" components={{ 1: <span className="font-medium" /> }} /></span>
                         </div>
                     </div>
                 )}
@@ -247,7 +268,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                 {/* Bot Token */}
                 <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                        Bot Token
+                        {t('discord.botToken')}
                     </label>
                     <div className="relative">
                         <input
@@ -268,14 +289,14 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                         </button>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                        Create a bot at <span onClick={() => openUrl('https://discord.com/developers/applications')} className="text-violet-400 hover:underline cursor-pointer">Discord Developer Portal</span>
+                        <Trans i18nKey="discord.createBotLink" components={{ 1: <span onClick={() => openUrl('https://discord.com/developers/applications')} className="text-violet-400 hover:underline cursor-pointer" /> }} defaults="Create a bot at <1>Discord Developer Portal</1>" />
                     </p>
                 </div>
 
                 {/* Guild ID */}
                 <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                        Server (Guild) ID
+                        {t('discord.guildId')}
                     </label>
                     <input
                         type="text"
@@ -291,7 +312,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                 {/* Channel ID */}
                 <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                        Channel ID
+                        {t('discord.channelId')}
                     </label>
                     <input
                         type="text"
@@ -302,6 +323,28 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                         placeholder="e.g., 987654321098765432"
                         className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent select-text cursor-text"
                     />
+                </div>
+
+                {/* Admin Channel ID */}
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5 flex items-center gap-2">
+                        {t('discord.adminChannelId', 'Admin Command Channel ID')}
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            Safe & Secure
+                        </span>
+                    </label>
+                    <input
+                        type="text"
+                        value={config.admin_channel_id}
+                        onChange={(e) => setConfig({ ...config, admin_channel_id: e.target.value })}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder="Channel ID for Admin Commands (!restart, !kick)"
+                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent select-text cursor-text"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                        Commands like <code>!kick</code> and <code>!restart</code> will ONLY work in this channel.
+                    </p>
                 </div>
             </div>
 
@@ -323,7 +366,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                         {config.game_to_discord && <CheckCircle className="w-3.5 h-3.5 text-white" />}
                     </div>
                     <span className="text-sm text-slate-300 flex items-center gap-1">
-                        Game <ArrowRight className="w-3 h-3" /> Discord
+                        {t('discord.gameToDiscord')}
                     </span>
                 </label>
 
@@ -343,7 +386,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                         {config.discord_to_game && <CheckCircle className="w-3.5 h-3.5 text-white" />}
                     </div>
                     <span className="text-sm text-slate-300 flex items-center gap-1">
-                        Discord <ArrowLeft className="w-3 h-3" /> Game
+                        {t('discord.discordToGame')}
                     </span>
                 </label>
             </div>
@@ -352,8 +395,8 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
             <div className="space-y-4 pt-4 border-t border-slate-700/50">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h4 className="text-sm font-semibold text-white">Cluster Status Panel</h4>
-                        <p className="text-xs text-slate-400">Live updating server list message</p>
+                        <h4 className="text-sm font-semibold text-white">{t('discord.statusPanel')}</h4>
+                        <p className="text-xs text-slate-400">{t('discord.statusPanelDesc')}</p>
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -378,7 +421,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="md:col-span-2">
                             <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                                Channel ID
+                                {t('discord.channelId')}
                             </label>
                             <input
                                 type="text"
@@ -392,14 +435,14 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                                Message ID (Auto-filled)
+                                {t('discord.messageId')}
                             </label>
                             <div className="flex gap-2">
                                 <input
                                     type="text"
                                     value={config.server_list_message_id}
                                     readOnly
-                                    placeholder="Will appear after first update..."
+                                    placeholder={t('discord.messageIdPlaceholder')}
                                     className="w-full px-3 py-2 bg-slate-900/50 border border-slate-800 rounded-lg text-sm text-slate-500 cursor-not-allowed"
                                 />
                                 <button
@@ -419,8 +462,8 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
             <div className="space-y-4 pt-4 border-t border-slate-700/50">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h4 className="text-sm font-semibold text-white">Live Player List</h4>
-                        <p className="text-xs text-slate-400">Real-time list of online players</p>
+                        <h4 className="text-sm font-semibold text-white">{t('discord.playerList')}</h4>
+                        <p className="text-xs text-slate-400">{t('discord.playerListDesc')}</p>
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer">
                         <input
@@ -445,7 +488,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                     <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="">
                             <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                                Channel ID
+                                {t('discord.channelId')}
                             </label>
                             <input
                                 type="text"
@@ -467,21 +510,21 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                                     onChange={(e) => setConfig({ ...config, show_tribe_names: e.target.checked })}
                                     className="rounded border-slate-700 bg-slate-800 text-violet-600 focus:ring-violet-500"
                                 />
-                                <span className="text-xs text-slate-300">Show Tribes</span>
+                                <span className="text-xs text-slate-300">{t('discord.showTribes')}</span>
                             </label>
                             {/* Playtime toggle not implemented in backend yet fully but UI can have it */}
                         </div>
 
                         <div className="">
                             <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                                Message ID (Auto-filled)
+                                {t('discord.messageId')}
                             </label>
                             <div className="flex gap-2">
                                 <input
                                     type="text"
                                     value={config.player_list_message_id}
                                     readOnly
-                                    placeholder="Will appear after first update..."
+                                    placeholder={t('discord.messageIdPlaceholder')}
                                     className="w-full px-3 py-2 bg-slate-900/50 border border-slate-800 rounded-lg text-sm text-slate-500 cursor-not-allowed"
                                 />
                                 <button
@@ -517,13 +560,13 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                 <button
                     onClick={async () => {
                         if (!config.bot_token) {
-                            toast.error('Enter your bot token first');
+                            toast.error(t('discord.enterTokenFirst'));
                             return;
                         }
                         try {
                             const url = await generateBotInviteUrl(config.bot_token);
                             await openUrl(url);
-                            toast.success('Invite link opened! Select your server and authorize.');
+                            toast.success(t('discord.inviteOpened'));
                         } catch (error) {
                             toast.error(String(error));
                         }
@@ -532,7 +575,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                     className="flex items-center gap-2 px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-500/20"
                 >
                     <ExternalLink className="w-4 h-4" />
-                    <span>Generate Invite Link</span>
+                    <span>{t('discord.generateInvite')}</span>
                 </button>
                 <button
                     onClick={handleTestConnection}
@@ -544,7 +587,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                     ) : (
                         <Settings className="w-4 h-4" />
                     )}
-                    <span>Test Connection</span>
+                    <span>{t('discord.testConnection')}</span>
                 </button>
                 <button
                     onClick={handleSave}
@@ -552,7 +595,7 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
                     className="flex items-center gap-2 px-5 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors disabled:opacity-50"
                 >
                     {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-                    <span>Save Settings</span>
+                    <span>{t('common.saveSettings', 'Save Settings')}</span>
                 </button>
             </div>
         </div>

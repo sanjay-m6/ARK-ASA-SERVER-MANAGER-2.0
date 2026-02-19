@@ -45,22 +45,20 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🦖 v2.2.8: Bug Fixes & Discord Bot Integration
+            ## 🚀 v2.2.6: Mod Filters & Firewall Automation!
+            
+            **This is a major feature update focusing on Mod Management and Automation.**
+            
+            ### 🔥 New Features
+            - **Mod Filters**: Filter by Category (Dinos, Maps, etc.) & Sort by Popularity.
+            - **Smart ID Search**: Instant result when searching by Mod ID (e.g. `928708`).
+            - **Firewall Auto-Pilot**: Automatically manages ports 7777/27015/RCON.
+            - **Smart Monitoring**: Active TCP/UDP checks for 100% accurate status.
             
             ### 🐛 Bug Fixes
-            - **Discord Webhook Save** — Fixed webhook configurations not saving properly.
-            - **Discord Bot Save** — Fixed bot integration settings not persisting on save.
-            - **Discord Server Status** — Fixed servers showing as offline in Discord when actually online.
-            - **Cluster Deletion** — Fixed clusters not being deletable.
-            - **Cluster Bot Integration** — Discord Bot now correctly reports real-time server status.
-            - **Mod Downloads** — Fixed mods failing to download and install.
-            - **Player Stat Controls** — Fixed player stat controls not applying in Config Editor.
-            
-            ### ✨ New Features
-            - **Server Console Window** — Pop up the actual ARK server console directly from the app.
-            - **Discord Bot Online Status** — Bot now appears online in Discord.
-            - **Generate Invite Link** — One-click bot invite with correct permissions.
-            - **Bot Setup Guide** — In-app setup guide for Discord Bot configuration.
+            - Fixed "Exit Code 3" crash loops (Auto-Repair added).
+            - Fixed "No Mods Found" on direct ID search.
+            - Fixed stuck loading screens & Config Editor glitches.
             
             ### Install
             Download the `.setup.exe` or `.msi` below.
