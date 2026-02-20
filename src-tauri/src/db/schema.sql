@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS servers (
     name TEXT NOT NULL,
     server_type TEXT NOT NULL DEFAULT 'ASA' CHECK(server_type IN ('ASA')),
     install_path TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'stopped' CHECK(status IN ('stopped', 'starting', 'running', 'crashed', 'updating', 'restarting')),
+    status TEXT NOT NULL DEFAULT 'stopped' CHECK(status IN ('stopped', 'starting', 'running', 'online', 'crashed', 'updating', 'restarting', 'stopping', 'startup_timeout')),
     game_port INTEGER NOT NULL,
     query_port INTEGER NOT NULL,
     rcon_port INTEGER NOT NULL,

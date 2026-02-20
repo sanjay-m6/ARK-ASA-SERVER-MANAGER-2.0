@@ -654,6 +654,7 @@ export default function ConfigEditor() {
                         <a
                             href="https://ark.wiki.gg/wiki/Server_configuration"
                             target="_blank"
+                            rel="noreferrer"
                             className="px-4 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-violet-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(139,92,246,0.15)]"
                         >
                             <ExternalLink className="w-4 h-4" /> {t('configEditor.buttons.wiki')}

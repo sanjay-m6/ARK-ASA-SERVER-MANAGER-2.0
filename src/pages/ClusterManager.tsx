@@ -56,7 +56,8 @@ export default function ClusterManager() {
         fetchClusters();
 
         // Listen for server status changes to update cluster view in realtime
-        const unlisten = listen('server_status_update', () => {
+        // Backend emits 'server-status-change' from process_manager.rs
+        const unlisten = listen('server-status-change', () => {
             refreshServers();
         });
 
@@ -170,11 +171,12 @@ export default function ClusterManager() {
         return servers.find(s => s.id === serverId);
     };
 
+    const isServerActive = (server: Server | undefined): boolean => {
+        return server?.status === 'running' || server?.status === 'online' || server?.status === 'starting';
+    };
+
     const getClusterRunningCount = (cluster: Cluster): number => {
-        return cluster.serverIds.filter(id => {
-            const server = getServerStatus(id);
-            return server?.status === 'running';
-        }).length;
+        return cluster.serverIds.filter(id => isServerActive(getServerStatus(id))).length;
     };
 
     const handleToggleCrossChat = async (clusterId: number) => {

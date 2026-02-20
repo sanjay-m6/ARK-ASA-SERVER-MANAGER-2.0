@@ -111,6 +111,7 @@ struct ServerProcess {
     is_online: bool,
     ip_address: Option<String>,
     startup_confirmed: Arc<AtomicBool>,
+    webhook_sent: Arc<AtomicBool>,
 }
 
 pub struct ProcessManager {
@@ -229,16 +230,21 @@ impl ProcessManager {
                                                     status_updates.push((id, "online".to_string()));
                                                     
                                                     // Send Discord webhook if it's a fresh online event
-                                                    let wh_handle = monitor_handle.clone();
-                                                    let wh_id = id;
-                                                    std::thread::spawn(move || {
-                                                        let name = get_server_name(&wh_handle, wh_id);
-                                                        send_discord_webhook(
-                                                            &wh_handle,
-                                                            "serverStart",
-                                                            DiscordEmbed::server_online(&name),
-                                                        );
-                                                    });
+                                                    if !proc.webhook_sent.swap(true, Ordering::SeqCst) {
+                                                        log::info!("✅ [MONITOR] Spawning thread to send serverStart webhook!");
+                                                        let wh_handle = monitor_handle.clone();
+                                                        let wh_id = id;
+                                                        std::thread::spawn(move || {
+                                                            let name = get_server_name(&wh_handle, wh_id);
+                                                            send_discord_webhook(
+                                                                &wh_handle,
+                                                                "serverStart",
+                                                                DiscordEmbed::server_online(&name),
+                                                            );
+                                                        });
+                                                    } else {
+                                                        log::info!("⚠️ [MONITOR] Webhook already sent. Skipping.");
+                                                    }
                                                 },
                                                 Err(e) => println!("  ❌ DB Update Failed for Server {}: {}", id, e),
                                             }
@@ -664,6 +670,17 @@ impl ProcessManager {
             .join("Win64")
             .join("ArkAscendedServer.exe");
 
+        // Guard: reject duplicate starts — if the process is already tracked, bail immediately.
+        {
+            let procs = self.processes.lock().unwrap_or_else(|e| e.into_inner());
+            if procs.contains_key(&server_id) {
+                return Err(anyhow::anyhow!(
+                    "Server {} is already running. Ignoring duplicate start request.",
+                    server_id
+                ));
+            }
+        }
+
         if !executable.exists() {
             return Err(anyhow::anyhow!(
                 "Server executable not found at {:?}",
@@ -790,6 +807,10 @@ impl ProcessManager {
         let stdout = child.stdout.take().expect("Failed to capture stdout");
         let stderr = child.stderr.take().expect("Failed to capture stderr");
 
+        let webhook_sent = Arc::new(AtomicBool::new(false));
+        let webhook_sent_stdout = webhook_sent.clone();
+        let webhook_sent_stderr = webhook_sent.clone();
+
         let app_handle_stdout = self.app_handle.clone();
         let server_id_stdout = server_id;
 
@@ -836,6 +857,22 @@ impl ProcessManager {
                                 "server_id": server_id_stdout,
                                 "status": "online"
                             }));
+
+                            if !webhook_sent_stdout.swap(true, Ordering::SeqCst) {
+                                log::info!("✅ [STDOUT] Spawning thread to send serverStart webhook!");
+                                let wh_handle = app_handle_stdout.clone();
+                                let wh_id = server_id_stdout;
+                                std::thread::spawn(move || {
+                                    let name = get_server_name(&wh_handle, wh_id);
+                                    send_discord_webhook(
+                                        &wh_handle,
+                                        "serverStart",
+                                        DiscordEmbed::server_online(&name),
+                                    );
+                                });
+                            } else {
+                                log::info!("⚠️ [STDOUT] webhook_sent_stdout was already true!");
+                            }
                             
                             // Update DB immediately
                             if let Some(state) = app_handle_stdout.try_state::<AppState>() {
@@ -880,6 +917,19 @@ impl ProcessManager {
                                 "server_id": server_id_stderr,
                                 "status": "online"
                             }));
+
+                            if !webhook_sent_stderr.swap(true, Ordering::SeqCst) {
+                                let wh_handle = app_handle_stderr.clone();
+                                let wh_id = server_id_stderr;
+                                std::thread::spawn(move || {
+                                    let name = get_server_name(&wh_handle, wh_id);
+                                    send_discord_webhook(
+                                        &wh_handle,
+                                        "serverStart",
+                                        DiscordEmbed::server_online(&name),
+                                    );
+                                });
+                            }
 
                             // Update DB immediately
                             if let Some(state) = app_handle_stderr.try_state::<AppState>() {
@@ -928,6 +978,7 @@ impl ProcessManager {
                 is_online: false,
                 ip_address: ip_address.map(|s| s.to_string()),
                 startup_confirmed: startup_confirmed,
+                webhook_sent: webhook_sent,
             });
         }
 

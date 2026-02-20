@@ -209,6 +209,42 @@ impl SerenityEventHandler for GatewayHandler {
                     return;
                 }
                 if let Ok(id) = args[0].parse::<i64>() {
+                    // Check current server status before starting (avoid double-start)
+                    let current_status: Option<String> = {
+                        let state = self.app_handle.state::<AppState>();
+                        let locked = state.db.lock().ok();
+                        locked.as_ref().and_then(|db| {
+                            db.get_connection()
+                                .ok()
+                                .map(|conn| {
+                                    conn.query_row(
+                                        "SELECT status FROM servers WHERE id = ?1",
+                                        [id],
+                                        |row| row.get::<_, String>(0),
+                                    )
+                                    .ok()
+                                })
+                                .flatten()
+                        })
+                    };
+
+                    match current_status.as_deref() {
+                        Some("running") | Some("online") | Some("starting") => {
+                            let _ = msg.reply(
+                                &ctx.http,
+                                format!("⚠️ Server {} is already running (status: `{}`). No action taken.", id, current_status.unwrap_or_default()),
+                            ).await;
+                            return;
+                        }
+                        None => {
+                            let _ = msg
+                                .reply(&ctx.http, format!("❌ Server ID {} not found.", id))
+                                .await;
+                            return;
+                        }
+                        _ => {}
+                    }
+
                     let _ = msg
                         .reply(&ctx.http, format!("🚀 Starting server {}...", id))
                         .await;
@@ -660,8 +696,9 @@ impl DiscordBridgeService {
 
         self.gateway_running.store(true, Ordering::Relaxed);
 
-        // Only use non-privileged intents to appear online
-        // MESSAGE_CONTENT is privileged and requires Portal activation
+        // MESSAGE_CONTENT is a privileged intent.
+        // It MUST be enabled in the Discord Developer Portal:
+        //   https://discord.com/developers/applications → Your App → Bot → Privileged Gateway Intents → Message Content Intent → ON
         let intents = GatewayIntents::GUILDS
             | GatewayIntents::GUILD_MESSAGES
             | GatewayIntents::MESSAGE_CONTENT;
@@ -679,7 +716,19 @@ impl DiscordBridgeService {
             Ok(mut client) => {
                 println!("🔌 Connecting to Discord Gateway...");
                 if let Err(e) = client.start().await {
-                    println!("❌ Discord Gateway error: {:?}", e);
+                    let err_str = format!("{:?}", e);
+                    if err_str.contains("DisallowedGatewayIntents") {
+                        println!(
+                            "❌ Discord Gateway error: DisallowedGatewayIntents\n\
+                            ➡️  FIX: The bot requires the 'Message Content' privileged intent.\n\
+                            ➡️  Go to: https://discord.com/developers/applications\n\
+                            ➡️  Select your app → Bot → Privileged Gateway Intents\n\
+                            ➡️  Enable: ✅ MESSAGE CONTENT INTENT → Save Changes\n\
+                            ➡️  Then restart the Discord Bridge."
+                        );
+                    } else {
+                        println!("❌ Discord Gateway error: {:?}", e);
+                    }
                 }
                 gateway_running.store(false, Ordering::Relaxed);
             }

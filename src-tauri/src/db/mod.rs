@@ -339,6 +339,13 @@ impl Database {
                 [],
             )?;
         }
+        if !db_columns.contains(&"admin_channel_id".to_string()) {
+            println!("📦 Migration: Adding 'admin_channel_id' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN admin_channel_id TEXT DEFAULT ''",
+                [],
+            )?;
+        }
 
         Ok(())
     }

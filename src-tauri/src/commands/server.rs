@@ -1384,8 +1384,8 @@ pub async fn update_server(
 
 #[tauri::command]
 pub async fn check_server_reachability(
-    state: State<'_, AppState>,
-    server_id: i64,
+    _state: State<'_, AppState>,
+    _server_id: i64,
     port: u16,
 ) -> Result<String, String> {
     // 1. Get Public IP
@@ -1394,24 +1394,10 @@ pub async fn check_server_reachability(
         Err(_) => return Ok("LAN".to_string()), // If we can't get public IP, assume LAN or Offline
     };
 
-    // 2. Always update IP in database if we found one
-    // This allows the UI to show the correct Public IP even if the port is currently closed (e.g. server updating)
-    {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        let conn = db
-            .get_connection()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-
-        let _ = conn.execute(
-            "UPDATE servers SET ip_address = ?1 WHERE id = ?2",
-            [&public_ip, &server_id.to_string()],
-        );
-    }
-
-    // 3. Check if port is open on that IP
+    // 2. Check if port is open on that IP
+    // NOTE: We intentionally do NOT write public_ip to the database here.
+    // The ip_address column holds the user-configured IP and must never be
+    // overwritten by auto-detected network state.
     // Note: This checks if the port is reachable from "externally" (or at least hairpinned)
     let is_open = network::check_port_open(&public_ip, port);
 

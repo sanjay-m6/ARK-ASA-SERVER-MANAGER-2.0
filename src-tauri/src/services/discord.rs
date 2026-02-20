@@ -24,7 +24,7 @@ pub fn send_discord_webhook(app_handle: &tauri::AppHandle, event_key: &str, embe
             // Check if this specific alert is enabled
             if let Some(enabled) = config.get(event_key).and_then(|v| v.as_bool()) {
                 if !enabled {
-                    println!("  📭 Discord webhook skipped: '{}' is disabled", event_key);
+                    log::info!("📭 Discord webhook skipped: '{}' is disabled", event_key);
                     return;
                 }
             }
@@ -39,8 +39,8 @@ pub fn send_discord_webhook(app_handle: &tauri::AppHandle, event_key: &str, embe
         "embeds": [embed.to_json()]
     });
 
-    println!(
-        "  📤 Discord webhook: sending '{}' notification...",
+    log::info!(
+        "📤 Discord webhook: sending '{}' notification...",
         event_key
     );
 
@@ -48,17 +48,17 @@ pub fn send_discord_webhook(app_handle: &tauri::AppHandle, event_key: &str, embe
     match client.post(&webhook_url).json(&payload).send() {
         Ok(resp) => {
             if resp.status().is_success() {
-                println!("  ✅ Discord webhook sent: '{}'", event_key);
+                log::info!("✅ Discord webhook sent: '{}'", event_key);
             } else {
-                println!(
-                    "  ⚠️ Discord webhook returned status {}: '{}'",
+                log::error!(
+                    "⚠️ Discord webhook returned status {}: '{}'",
                     resp.status(),
                     event_key
                 );
             }
         }
         Err(e) => {
-            println!("  ❌ Discord webhook failed for '{}': {}", event_key, e);
+            log::error!("❌ Discord webhook failed for '{}': {}", event_key, e);
         }
     }
 }

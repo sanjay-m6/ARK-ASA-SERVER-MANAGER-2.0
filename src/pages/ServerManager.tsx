@@ -37,6 +37,7 @@ export default function ServerManager() {
     const [appVersion] = useState<string>('2.2.6');
     const [cloneModalServer, setCloneModalServer] = useState<Server | null>(null);
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
+    const [forceStopServerId, setForceStopServerId] = useState<number | null>(null);
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showNonDedicatedImport, setShowNonDedicatedImport] = useState(false);
     const [updateOnStart, setUpdateOnStart] = useState(false);
@@ -54,16 +55,21 @@ export default function ServerManager() {
         return `${mins}m ${secs} s`;
     };
 
-    const handleForceStop = async (serverId: number, e: React.MouseEvent) => {
+    const handleForceStop = (serverId: number, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm(t('serverManager.confirmForceStop'))) {
-            try {
-                await stopServer(serverId);
-                toast.success(t('serverManager.serverStopped'));
-                refreshServers();
-            } catch (error) {
-                toast.error(t('serverManager.stopFailed', { error }));
-            }
+        setForceStopServerId(serverId);
+    };
+
+    const confirmForceStop = async () => {
+        if (forceStopServerId === null) return;
+        try {
+            await stopServer(forceStopServerId);
+            toast.success(t('serverManager.serverStopped'));
+            refreshServers();
+        } catch (error) {
+            toast.error(t('serverManager.stopFailed', { error }));
+        } finally {
+            setForceStopServerId(null);
         }
     };
 
@@ -998,6 +1004,17 @@ export default function ServerManager() {
                 title={t('serverManager.confirmDelete')}
                 message={t('serverManager.confirmDeleteMsg', { name: deleteConfirmServer?.name })}
                 confirmText={t('serverManager.buttons.delete')}
+                variant="danger"
+            />
+
+            {/* Force Stop Confirmation Dialog */}
+            <ConfirmDialog
+                isOpen={forceStopServerId !== null}
+                onClose={() => setForceStopServerId(null)}
+                onConfirm={confirmForceStop}
+                title={t('serverManager.buttons.forceStop')}
+                message={t('serverManager.confirmForceStop')}
+                confirmText={t('serverManager.buttons.forceStop')}
                 variant="danger"
             />
         </div>

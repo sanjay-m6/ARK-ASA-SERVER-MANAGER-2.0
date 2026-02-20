@@ -627,7 +627,7 @@ pub async fn get_cluster_status(
             let name: String = row.get(1)?;
             let status_str: String = row.get(2)?;
             let status = match status_str.as_str() {
-                "running" => ServerStatus::Running,
+                "running" | "online" => ServerStatus::Running,
                 "starting" => ServerStatus::Starting,
                 "stopped" => ServerStatus::Stopped,
                 "crashed" => ServerStatus::Crashed,
@@ -645,7 +645,7 @@ pub async fn get_cluster_status(
 
     for server_result in server_iter {
         if let Ok((id, name, status)) = server_result {
-            if matches!(status, ServerStatus::Running) {
+            if matches!(status, ServerStatus::Running | ServerStatus::Starting) {
                 running_servers += 1;
             }
             server_statuses.push(ServerStatusInfo {
@@ -843,7 +843,7 @@ pub async fn stop_cluster(state: State<'_, AppState>, cluster_id: i64) -> Result
             .prepare(
                 "SELECT s.id FROM servers s
                  INNER JOIN cluster_servers cs ON s.id = cs.server_id
-                 WHERE cs.cluster_id = ?1 AND s.status = 'running'",
+                 WHERE cs.cluster_id = ?1 AND s.status IN ('running', 'online', 'starting', 'restarting')",
             )
             .map_err(|e| e.to_string())?;
 
@@ -1094,7 +1094,9 @@ pub async fn validate_cluster_configuration(
                 });
             }
 
-            if lowered.contains("-clusterdiroverride") && !lowered.contains(&cluster_path.to_lowercase()) {
+            if lowered.contains("-clusterdiroverride")
+                && !lowered.contains(&cluster_path.to_lowercase())
+            {
                 issues.push(ClusterValidationIssue {
                     server_id: *server_id,
                     server_name: server_name.clone(),

@@ -641,12 +641,20 @@ impl ConfigGenerator {
         fs::write(&gus_path, gus_content)
             .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
 
-        // Write Game.ini
-        let game_content = Self::generate_game_ini(config);
+        // Write Game.ini ONLY if it does not already exist (first-time setup).
+        // NEVER overwrite an existing Game.ini — it is the source of truth for
+        // custom gameplay settings (engrams, NPC replacements, stat multipliers, etc.)
         let game_path = config_dir.join("Game.ini");
-        println!("  📝 Writing Game.ini to: {:?}", game_path);
-        fs::write(&game_path, game_content)
-            .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
+        if !game_path.exists() {
+            let game_content = Self::generate_game_ini(config);
+            println!("  📝 Creating initial Game.ini at: {:?}", game_path);
+            fs::write(&game_path, game_content)
+                .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
+        } else {
+            println!(
+                "  ℹ️ Game.ini already exists — skipping overwrite to preserve custom settings."
+            );
+        }
 
         Ok(())
     }
