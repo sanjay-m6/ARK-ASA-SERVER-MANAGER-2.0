@@ -45,25 +45,18 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🚀 v2.2.9 — Server Status Reliability & Discord Bot Improvements
+            ## 🚀 v2.2.9 Hotfixes — Bug Fixes & Stability
 
-            ### ✅ Critical Fixes
-            - **Server Status Race Condition** — Fixed servers stuck in "LOADING…" / "STARTING…" even after coming online. Status now transitions to 🟢 ONLINE only when the server log confirms `"Advertising for join"`.
-            - **Log Baseline System** — Only new log lines (after server start) are scanned for startup confirmation; prevents ghost-online from stale logs.
-            - **DB Sync on Restart** — Manager correctly restores `online` status from disk logs when reopened with a server already running.
+            ### 🐛 Critical Fixes
+            - **Discord Webhook Reliability**: Fixed a major issue where `serverStart`, `playerJoin`, and `serverCrash` discord notifications were failing to send. The notification triggers have been synchronized with the live console output to ensure they fire instantly and reliably when the server comes online.
+            - **Game.ini Data Loss Prevented**: Resolved a critical bug where custom `Game.ini` configurations (such as `OverridePlayerLevelEngramPoints`, `NPCReplacements`, and other array-based settings) were being silently deleted. The internal configuration parser has been rewritten to safely preserve arrays and duplicate keys exactly as initialized.
+            - **Cluster Status Accuracy**: The Cluster Manager UI will now accurately display real-time live server counts (e.g., "2/2 Active") instead of falling out of sync or displaying stale database information.
+            - **Infinite Loading Screen Fix**: Repaired a race condition scenario that caused servers to get permanently stuck on "STARTING..." in the UI even when the server had successfully booted and was online.
+            - **Database Startup Crash**: Fixed a critical schema mismatch relating to the Task Scheduler that prevented the application from starting entirely for some users.
 
-            ### 🆕 New Features
-            - **Startup Progress Timer** — Live elapsed-time counter shown inside the status badge (e.g., `LOADING... 2m 14s`).
-            - **Force Stop Button** — Instantly abort a problematic startup from the status badge.
-            - **Discord Admin Commands** — New `!update` and `!broadcast` bot commands for admin-channel server control.
-
-            ### 🐛 Bug Fixes
-            - Fixed Discord bot showing servers as offline in cluster status embeds.
-            - Fixed Auto-Update Mods task type not displaying label/icon in Scheduler UI.
-            - Fixed assigned firewall ports incorrectly showing as Closed after assignment.
-            - Fixed Offers Toggle (`is_active` / `isActive` mismatch).
-            - Fixed clusters failing to delete, leaving orphaned DB entries.
-            - Fixed `toggleServerAutomation` being called twice per button press.
+            ### ✨ Features & UI Improvements
+            - **Cross-Chat Discord Bridge**: Heavily improved the Discord Bot Bridge. Cross-server chat is now fully operational, properly bridging in-game chat to discord and relaying Discord messages back into the game seamlessly.
+            - **Force Stop UI Enhancement**: Removed the ugly, native OS popup window when clicking "Force Stop". It has been replaced with the premium, styled in-app confirmation modal for a much cleaner user experience.
 
             ### Install
             Download the `.msi` installer below.
