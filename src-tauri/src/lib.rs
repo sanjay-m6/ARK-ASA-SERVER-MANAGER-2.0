@@ -80,12 +80,42 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 }
             };
 
-            // Reset server status
+            // Recover orphaned servers or reset status
+            // Instead of blindly setting all to 'stopped', check if server processes are still alive
             if let Ok(conn) = db.get_connection() {
-                let _ = conn.execute(
-                    "UPDATE servers SET status = 'stopped' WHERE status IN ('running', 'starting', 'restarting', 'updating', 'stopping')",
-                    [],
-                );
+                // Get all servers that were in active states
+                let active_server_ids: Vec<i64> = {
+                    let mut stmt = conn.prepare(
+                        "SELECT id FROM servers WHERE status IN ('running', 'starting', 'online', 'restarting', 'updating', 'stopping')"
+                    ).unwrap_or_else(|_| conn.prepare("SELECT 0 WHERE 0").unwrap());
+                    stmt.query_map([], |row| row.get(0))
+                        .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                        .unwrap_or_default()
+                };
+
+                if active_server_ids.is_empty() {
+                    println!("[LIFECYCLE] No active servers found on startup, skipping recovery.");
+                } else {
+                    // Check which ArkAscendedServer.exe processes are still running
+                    let mut check_sys = sysinfo::System::new();
+                    check_sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+                    let ark_alive: bool = check_sys.processes().values().any(|p| {
+                        let name = p.name().to_string_lossy().to_lowercase();
+                        name.contains("arkascendedserver")
+                    });
+
+                    if ark_alive {
+                        println!("[LIFECYCLE] Found running ArkAscendedServer processes on startup. Keeping active server status.");
+                        // Don't reset — allow the manager to re-detect these processes
+                    } else {
+                        println!("[LIFECYCLE] No ArkAscendedServer processes found. Resetting {} servers to stopped.", active_server_ids.len());
+                        let _ = conn.execute(
+                            "UPDATE servers SET status = 'stopped' WHERE status IN ('running', 'starting', 'online', 'restarting', 'updating', 'stopping')",
+                            [],
+                        );
+                    }
+                }
             }
 
             let mut sys = System::new_all();
@@ -275,6 +305,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             // Modpack commands
             commands::config::read_config,
             commands::config::save_config,
+            commands::config::load_server_config,
             commands::config::backup_config,
             commands::config::restore_config,
             commands::config::list_config_backups,

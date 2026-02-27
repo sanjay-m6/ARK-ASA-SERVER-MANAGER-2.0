@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Server, Activity, Cpu, HardDrive, Zap, Terminal, Copy, Puzzle,
   Play, Square, RotateCw, Clock, Database, FileEdit,
-  Sunrise, Sun, Moon, TrendingUp
+  TrendingUp
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -12,7 +12,6 @@ import { useServerStore } from '../stores/serverStore';
 import { useUIStore } from '../stores/uiStore';
 import { cn } from '../utils/helpers';
 import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData } from '../utils/tauri';
-import { getVersion } from '@tauri-apps/api/app';
 import { listen } from '@tauri-apps/api/event';
 import PerformanceMonitor from '../components/performance/PerformanceMonitor';
 import InstallServerDialog from '../components/server/InstallServerDialog';
@@ -31,18 +30,7 @@ const containerVariants: Variants = {
   }
 };
 
-const itemVariants: Variants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      type: "spring",
-      stiffness: 100,
-      damping: 10
-    }
-  }
-};
+
 
 
 
@@ -51,22 +39,10 @@ export default function Dashboard() {
   const { systemInfo, setSystemInfo } = useUIStore();
   const [performanceHistory, setPerformanceHistory] = useState<any[]>([]);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
-  const [appVersion, setAppVersion] = useState('');
   const navigate = useNavigate();
   const { t } = useTranslation();
 
   // ... (rest of hook logic remains same until return)
-
-  // Get greeting based on time of day
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return { text: t('dashboard.goodMorning'), icon: Sunrise, color: 'text-amber-400' };
-    if (hour < 18) return { text: t('dashboard.goodAfternoon'), icon: Sun, color: 'text-yellow-400' };
-    return { text: t('dashboard.goodEvening'), icon: Moon, color: 'text-indigo-400' };
-  };
-
-  const greeting = getGreeting();
-  const GreetingIcon = greeting.icon;
 
   const handleCopyIp = (serverIp: string | undefined, port: number) => {
     const ip = serverIp || '127.0.0.1';
@@ -149,7 +125,6 @@ export default function Dashboard() {
 
   // Effects (Keep existing logic)
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion('?.?.?'));
     getAllServers().then(setServers).catch(console.error);
 
     const fetchSystemInfo = async () => {
@@ -163,8 +138,8 @@ export default function Dashboard() {
 
           const newPoint = {
             time: timeStr,
-            cpu: info.cpuUsage,
-            memory: (info.ramUsage / info.ramTotal) * 100,
+            cpu: Math.round(info.cpuUsage * 10) / 10,
+            memory: Math.round((info.ramUsage / info.ramTotal) * 1000) / 10,
             players: 0
           };
 
@@ -193,15 +168,14 @@ export default function Dashboard() {
     };
     setupListener();
 
-    // Reduced polling frequency (heartbeat)
-    const interval = setInterval(() => {
-      fetchSystemInfo();
-      // Use refreshServers which preserves 'online' status from frontend
-      refreshServers();
-    }, 30000);
+    // Poll every 10s for smooth chart data (60 points = 10 min history)
+    const perfInterval = setInterval(fetchSystemInfo, 10000);
+    // Refresh server list less frequently
+    const serverInterval = setInterval(refreshServers, 30000);
 
     return () => {
-      clearInterval(interval);
+      clearInterval(perfInterval);
+      clearInterval(serverInterval);
       if (unlistenStatus) unlistenStatus();
     };
   }, [setServers, setSystemInfo, updateServerStatus, refreshServers]);
@@ -242,40 +216,6 @@ export default function Dashboard() {
       initial="hidden"
       animate="visible"
     >
-      {/* Hero Section */}
-      <motion.div variants={itemVariants} className="glass-panel rounded-2xl p-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-sky-500/10 via-violet-500/10 to-transparent rounded-full blur-3xl -mr-48 -mt-48"></div>
-        <div className="relative z-10 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className={cn("p-3 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900", greeting.color)}>
-              <GreetingIcon className="w-8 h-8" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-                {greeting.text}, {t('dashboard.commander')}
-              </h1>
-              <p className="text-slate-400 mt-1">
-                {runningServers > 0
-                  ? t('dashboard.serversRunning', { count: runningServers })
-                  : t('dashboard.allStandby')
-                }
-              </p>
-            </div>
-          </div>
-          <div className="hidden md:flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-xs text-slate-500 uppercase tracking-wider">{t('common.version')}</p>
-              <p className="text-sm font-mono text-slate-300">v{appVersion}</p>
-            </div>
-            <div className="w-px h-10 bg-slate-700"></div>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/20">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-              <span className="text-xs font-medium text-green-400">{t('dashboard.statusOnline')}</span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
       {/* Sponsor Banner */}
       <SponsorBanner />
 
@@ -363,133 +303,134 @@ export default function Dashboard() {
 
       {/* Server Control Hub */}
       <div className="glass-panel rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Terminal className="w-5 h-5 text-sky-400" />
-            {t('dashboard.serverControlHub')}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
+            <span className="text-sky-400 font-mono font-black leading-none mt-0.5">{'>_'}</span>
+            <span className="tracking-wide">{t('dashboard.serverControlHub', 'Server Control Hub')}</span>
           </h2>
           <button
             onClick={() => navigate('/servers')}
-            className="text-sm text-sky-400 hover:text-sky-300 transition-colors"
+            className="text-sm font-medium text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 focus:outline-none"
           >
-            {t('dashboard.manageAll')}
+            {t('dashboard.manageAll', 'Manage All →')}
           </button>
         </div>
 
         {
           servers.length === 0 ? (
-            <div className="text-center py-12 border-2 border-dashed border-slate-700/50 rounded-xl">
+            <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-xl">
               <Server className="w-12 h-12 text-slate-600 mx-auto mb-3" />
               <h3 className="text-lg font-semibold text-slate-300 mb-2">{t('dashboard.noServers')}</h3>
               <p className="text-slate-500 text-sm mb-4">{t('dashboard.deployFirst')}</p>
               <button
                 onClick={() => setShowInstallDialog(true)}
-                className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg transition-all text-sm font-medium"
+                className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg transition-all text-sm font-medium focus:outline-none"
               >
                 {t('dashboard.deployServer')}
               </button>
             </div>
           ) : (
-            <div className="grid gap-3">
+            <div className="flex flex-col gap-2">
               {servers.slice(0, 4).map((server) => (
                 <div
                   key={server.id}
-                  className="flex items-center justify-between p-4 bg-slate-800/40 border border-slate-700/50 rounded-xl hover:bg-slate-800/60 transition-all group"
+                  className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all group gap-4 lg:gap-0"
                 >
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       <div className={cn(
-                        'w-3 h-3 rounded-full',
-                        server.status === 'online' && 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]',
-                        server.status === 'running' && 'bg-yellow-500 animate-pulse',
+                        'w-2.5 h-2.5 rounded-full',
+                        server.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
+                        server.status === 'running' && 'bg-amber-500 animate-pulse',
                         server.status === 'stopped' && 'bg-slate-500',
-                        server.status === 'crashed' && 'bg-red-500',
-                        server.status === 'starting' && 'bg-yellow-500 animate-pulse',
-                        server.status === 'updating' && 'bg-blue-500 animate-pulse',
+                        server.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
+                        server.status === 'starting' && 'bg-amber-500 animate-pulse',
+                        server.status === 'updating' && 'bg-sky-500 animate-pulse',
                         server.status === 'repairing' && 'bg-orange-500 animate-pulse'
                       )} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-white">{server.name}</h3>
-                      <p className="text-xs text-slate-400">{server.config.mapName} • {t('common.port')} {server.ports.gamePort}</p>
+                      <h3 className="font-semibold text-slate-200">{server.name}</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">{server.config.mapName} • {t('common.port', 'Port')} {server.ports.gamePort}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     {/* IP Display + Copy */}
-                    <div className="hidden md:flex items-center bg-slate-900/50 rounded-lg px-3 py-1.5 border border-slate-700">
-                      <span className="text-xs font-mono text-slate-400 mr-2">{server.ipAddress || '127.0.0.1'}:{server.ports.gamePort}</span>
+                    <div className="hidden md:flex items-center h-[34px] bg-[#1a202c] rounded px-3 border border-white/5">
+                      <span className="text-xs font-mono text-slate-300 mr-2">
+                        {server.ipAddress || '127.0.0.1'}:{server.ports.gamePort}
+                      </span>
                       <button
                         onClick={() => handleCopyIp(server.ipAddress, server.ports.gamePort)}
-                        className="p-1 hover:bg-slate-700 rounded transition-colors"
+                        className="text-slate-500 hover:text-sky-400 transition-colors focus:outline-none"
                         title={t('dashboard.copyIp')}
                       >
-                        <Copy className="w-3 h-3 text-slate-500 hover:text-sky-400" />
+                        <Copy className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
                     {/* Server Controls */}
-                    {(server.status === 'stopped' || server.status === 'crashed') ? (
-                      <button
-                        onClick={() => handleStartServer(server.id)}
-                        className="p-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg transition-all"
-                        title={t('common.start')}
-                      >
-                        <Play className="w-4 h-4 fill-current" />
-                      </button>
-                    ) : (server.status === 'running' || server.status === 'online') ? (
-                      <>
+                    <div className="flex items-center gap-2.5">
+                      {/* Start/Stop/Restart Buttons */}
+                      {(server.status === 'stopped' || server.status === 'crashed') ? (
                         <button
-                          onClick={() => handleRestartServer(server.id)}
-                          className="p-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded-lg transition-all"
-                          title={t('common.restart')}
+                          onClick={() => handleStartServer(server.id)}
+                          className="w-[34px] h-[34px] flex items-center justify-center bg-[#17302b] hover:bg-[#1f423b] text-emerald-400 border border-[#234c44] rounded shadow-sm transition-all focus:outline-none"
+                          title={t('common.start')}
                         >
-                          <RotateCw className="w-4 h-4" />
+                          <Play className="w-4 h-4 fill-current ml-0.5 mt-0.5" />
                         </button>
-                        <button
-                          onClick={() => handleStopServer(server.id)}
-                          className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-all"
-                          title={t('common.stop')}
-                        >
-                          <Square className="w-4 h-4 fill-current" />
-                        </button>
-                      </>
-                    ) : null}
-
-                    {/* Status Badge with Reachability */}
-                    <div className={cn(
-                      'px-2.5 py-1 rounded-lg text-xs font-bold border ml-2 flex items-center gap-2 transition-all duration-300',
-                      server.status === 'online' && 'bg-green-500/20 text-green-300 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.3)] animate-pulse',
-                      server.status === 'running' && 'bg-yellow-500/10 text-yellow-300 border-yellow-500/20 animate-pulse',
-                      server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-                      server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
-                      server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-                      server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-                      server.status === 'repairing' && 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-                    )}>
-                      <span>
-                        {server.status === 'online' ? t('dashboard.statusOnline') :
-                          server.status === 'running' ? t('dashboard.statusLoading') :
-                            t(`serverManager.serverStatus.${server.status}`, server.status?.toUpperCase() || 'UNKNOWN')}
-                      </span>
-                      {(server.status === 'online' || server.status === 'running') && server.reachability && (
+                      ) : (server.status === 'running' || server.status === 'online') ? (
                         <>
-                          <div className="w-px h-3 bg-current opacity-20"></div>
-                          <span className="opacity-90 font-medium">
-                            {server.reachability === 'Public' ? t('dashboard.statusPublic') : t('dashboard.statusLan')}
-                          </span>
+                          <button
+                            onClick={() => handleRestartServer(server.id)}
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-[#332514] hover:bg-[#4a361d] text-amber-400 border border-[#5c4324] rounded shadow-sm transition-all focus:outline-none"
+                            title={t('common.restart')}
+                          >
+                            <RotateCw className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleStopServer(server.id)}
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-[#311719] hover:bg-[#472224] text-rose-400 border border-[#5a2a2d] rounded shadow-sm transition-all focus:outline-none"
+                            title={t('common.stop')}
+                          >
+                            <Square className="w-4 h-4 fill-current" />
+                          </button>
                         </>
+                      ) : (
+                        <button
+                          disabled
+                          className="w-[34px] h-[34px] flex items-center justify-center bg-slate-500/10 text-slate-400 border border-slate-500/20 rounded opacity-50 cursor-not-allowed focus:outline-none"
+                        >
+                          <RotateCw className="w-4 h-4 animate-spin" />
+                        </button>
                       )}
-                    </div>
 
-                    {/* Clone Button */}
-                    <button
-                      onClick={() => openCloneModal(server)}
-                      className="p-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-lg transition-all ml-1"
-                      title={t('dashboard.cloneTransferExtract')}
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
+                      {/* Status Badge */}
+                      <div className={cn(
+                        "w-[85px] h-[34px] rounded text-[10px] font-bold tracking-[0.05em] border uppercase flex items-center justify-center",
+                        server.status === 'online' ? 'bg-[#17302b] text-emerald-400 border-[#234c44]' :
+                          server.status === 'running' ? 'bg-[#332514] text-amber-400 border-[#5c4324]' :
+                            server.status === 'crashed' ? 'bg-[#311719] text-rose-400 border-[#5a2a2d]' :
+                              'bg-[#1a202c] text-slate-400 border-white/5'
+                      )}>
+                        <span>
+                          {server.status === 'online' ? t('dashboard.statusOnline', 'ONLINE') :
+                            server.status === 'running' ? t('dashboard.statusLoading', 'STARTING') :
+                              t(`serverManager.serverStatus.${server.status}`, server.status.toUpperCase() || 'UNKNOWN')}
+                        </span>
+                      </div>
+
+                      {/* Clone Button */}
+                      <button
+                        onClick={() => openCloneModal(server)}
+                        className="w-[34px] h-[34px] flex items-center justify-center bg-[#172738] hover:bg-[#1a3147] text-sky-400 border border-[#20405c] rounded shadow-sm transition-all focus:outline-none"
+                        title={t('dashboard.cloneTransferExtract', 'Clone / Extract')}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

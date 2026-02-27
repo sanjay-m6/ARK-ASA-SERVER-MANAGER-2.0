@@ -78,21 +78,39 @@ export default function ConfigBuilder({ serverId, installPath, initialMapName, o
         [config?.mapName]
     );
 
-    // Load default config on mount
+    // Load existing config or defaults on mount
     useEffect(() => {
-        loadDefaultConfig();
+        loadConfig();
     }, []);
 
-    const loadDefaultConfig = async () => {
+    const loadConfig = async () => {
         try {
-            const defaultConfig = await invoke<ServerConfig>('get_default_config');
-            if (initialMapName) {
-                defaultConfig.mapName = initialMapName;
+            if (serverId) {
+                // Load existing config from server INI files + DB
+                const existingConfig = await invoke<ServerConfig>('load_server_config', {
+                    serverId,
+                });
+                setConfig(existingConfig);
+            } else {
+                // New server: load defaults
+                const defaultConfig = await invoke<ServerConfig>('get_default_config');
+                if (initialMapName) {
+                    defaultConfig.mapName = initialMapName;
+                }
+                setConfig(defaultConfig);
             }
-            setConfig(defaultConfig);
         } catch (error) {
             console.error('Failed to load config:', error);
-            toast.error('Failed to load configuration');
+            // Fallback to defaults if INI read fails
+            try {
+                const defaultConfig = await invoke<ServerConfig>('get_default_config');
+                if (initialMapName) {
+                    defaultConfig.mapName = initialMapName;
+                }
+                setConfig(defaultConfig);
+            } catch (fallbackError) {
+                toast.error('Failed to load configuration');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -149,10 +167,23 @@ export default function ConfigBuilder({ serverId, installPath, initialMapName, o
             });
             toast.success('Configuration saved!');
 
-            // Refresh servers list to reflect the updated config in UI
+            // Check if server is running — notify about restart requirement
             const { useServerStore } = await import('../../stores/serverStore');
-            useServerStore.getState().refreshServers();
+            const serverStore = useServerStore.getState();
+            const server = serverStore.servers.find(s => s.id === serverId);
+            if (server && (server.status === 'online' || server.status === 'running' || server.status === 'starting')) {
+                toast('Server restart required to apply changes', {
+                    icon: '⚠️',
+                    duration: 6000,
+                    style: {
+                        background: '#1e293b',
+                        color: '#fbbf24',
+                        border: '1px solid #f59e0b40',
+                    },
+                });
+            }
 
+            serverStore.refreshServers();
             onConfigSaved?.();
         } catch (error) {
             console.error('Failed to save config:', error);

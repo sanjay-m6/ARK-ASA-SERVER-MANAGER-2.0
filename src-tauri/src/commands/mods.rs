@@ -643,7 +643,7 @@ pub async fn hardcore_retry_mods(
 
     // 2. Stop Server
     println!("  ⏹️ Stopping server...");
-    state.process_manager.stop_server(server_id).map_err(|e| e.to_string())?;
+    state.process_manager.stop_server_with_reason(server_id, crate::services::process_manager::StopReason::UpdateRequired).map_err(|e| e.to_string())?;
     
     // Wait a bit to ensure file handles are released
     std::thread::sleep(std::time::Duration::from_secs(3));

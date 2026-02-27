@@ -6,9 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { supportedLanguages } from '../i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
-import DiagnosticsPanel from '../components/settings/DiagnosticsPanel';
-import PortValidator from '../components/settings/PortValidator';
-import PortForwardingGuide from '../components/settings/PortForwardingGuide';
 import FirewallSettings from '../components/settings/FirewallSettings';
 import { manualCheckForUpdates } from '../components/UpdateChecker';
 import {
@@ -32,7 +29,7 @@ export default function Settings() {
     const [currentVersion, setCurrentVersion] = useState<string>('');
     const [startupTimeout, setStartupTimeout] = useState('1800');
 
-    const [activeTab, setActiveTab] = useState<'api' | 'network' | 'firewall' | 'updates' | 'language'>('api');
+    const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language'>('api');
     const { t, i18n } = useTranslation();
 
     // API Verification State
@@ -113,12 +110,12 @@ export default function Settings() {
                 setUpdateCheckResult(result.error);
                 toast.error(result.error);
             } else {
-                setUpdateCheckResult(t('settings.updatesTab.latestVersion'));
-                toast.success(t('settings.updatesTab.latestVersion'));
+                setUpdateCheckResult(t('settings.updatesTab.latestVersion', 'You are on the latest version'));
+                toast.success(t('settings.updatesTab.latestVersion', 'You are on the latest version'));
             }
         } catch (err) {
-            setUpdateCheckResult(t('settings.updatesTab.checkFailed'));
-            toast.error(t('settings.updatesTab.checkFailed'));
+            setUpdateCheckResult(t('settings.updatesTab.checkFailed', 'Failed to check for updates'));
+            toast.error(t('settings.updatesTab.checkFailed', 'Failed to check for updates'));
         } finally {
             setIsCheckingUpdates(false);
         }
@@ -132,12 +129,12 @@ export default function Settings() {
         // Notify UpdateChecker to restart interval
         window.dispatchEvent(new Event('update-settings-changed'));
 
-        toast.success(t('settings.updatesTab.intervalSet', { interval: interval === 'never' ? t('settings.updatesTab.manualOnly') : interval }));
+        toast.success(t('settings.updatesTab.intervalSet', { defaultValue: 'Update interval set to {{interval}}', interval: interval === 'never' ? t('settings.updatesTab.manualOnly', 'Manual Only') : interval }));
     };
 
     const handleClearSkipped = () => {
         clearSkippedVersions();
-        toast.success(t('settings.updatesTab.skippedCleared'));
+        toast.success(t('settings.updatesTab.skippedCleared', 'Skipped versions cleared'));
     };
 
     const handleSave = async () => {
@@ -157,11 +154,7 @@ export default function Settings() {
         }
     };
 
-    const copyFirewallScript = () => {
-        const script = `New-NetFirewallRule -DisplayName "ARK ASA Server TCP" -Direction Inbound -LocalPort 7777,7778,27015,27020 -Protocol TCP -Action Allow\nNew-NetFirewallRule -DisplayName "ARK ASA Server UDP" -Direction Inbound -LocalPort 7777,7778,27015,27020 -Protocol UDP -Action Allow`;
-        navigator.clipboard.writeText(script);
-        toast.success(t('settings.firewallConfig.scriptCopied'));
-    };
+
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500 pb-20">
@@ -172,7 +165,7 @@ export default function Settings() {
                     </h1>
                     <p className="text-slate-400 mt-2 text-lg">{t('settings.subtitle', 'Configure application and view guides')}</p>
                 </div>
-                {(activeTab === 'api' || activeTab === 'network') && (
+                {(activeTab === 'api') && (
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
@@ -194,15 +187,6 @@ export default function Settings() {
                         }`}
                 >
                     🔑 {t('settings.tabs.apiKeys')}
-                </button>
-                <button
-                    onClick={() => setActiveTab('network')}
-                    className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'network'
-                        ? 'bg-violet-500/10 text-violet-400 border-b-2 border-violet-400'
-                        : 'text-slate-400 hover:text-white'
-                        }`}
-                >
-                    🌐 {t('settings.tabs.network')}
                 </button>
                 <button
                     onClick={() => setActiveTab('firewall')}
@@ -246,9 +230,9 @@ export default function Settings() {
                                 <Key className="w-6 h-6 text-sky-400" />
                             </div>
                             <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-white mb-2">{t('settings.aboutApiKeys.steamDesc').split(':')[0]}</h2>
+                                <h2 className="text-2xl font-bold text-white mb-2">{t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(':')[0]}</h2>
                                 <p className="text-slate-400">
-                                    {t('settings.aboutApiKeys.steamDesc').split(': ')[1]}
+                                    {t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(': ')[1]}
                                 </p>
                             </div>
                         </div>
@@ -278,16 +262,16 @@ export default function Settings() {
                             </div>
 
                             <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-4">
-                                <p className="text-sm text-slate-300 font-medium mb-3">{t('settings.curseforgeKey.needKey')}</p>
+                                <p className="text-sm text-slate-300 font-medium mb-3">{t('settings.curseforgeKey.needKey', 'A Steam Web API key is required.')}</p>
                                 <button
                                     onClick={() => openUrl('https://steamcommunity.com/dev/apikey')}
                                     className="flex items-center space-x-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition-colors shadow-lg shadow-sky-500/20 w-full justify-center"
                                 >
                                     <ExternalLink className="w-4 h-4" />
-                                    <span>{t('settings.curseforgeKey.getKey').replace('CurseForge', 'Steam')}</span>
+                                    <span>{t('settings.curseforgeKey.getKey', 'Get your API key here').replace('CurseForge', 'Steam')}</span>
                                 </button>
                                 <p className="text-xs text-slate-400 mt-3">
-                                    {t('settings.curseforgeKey.instructions').replace('Create/Copy', 'Enter domain name → Copy')}
+                                    {t('settings.curseforgeKey.instructions', 'Create a key in your developer account.').replace('Create/Copy', 'Enter domain name → Copy')}
                                 </p>
                             </div>
 
@@ -295,7 +279,7 @@ export default function Settings() {
                                 <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
                                     <div className="flex items-center space-x-2">
                                         <CheckCircle className="w-5 h-5 text-green-400" />
-                                        <span className="text-green-400 font-medium">{t('settings.aboutApiKeys.steamDesc').split(':')[0]} configured</span>
+                                        <span className="text-green-400 font-medium">{t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(':')[0]} configured</span>
                                     </div>
                                 </div>
                             )}
@@ -304,7 +288,7 @@ export default function Settings() {
                                 <div className="bg-slate-500/10 border border-slate-500/20 rounded-xl p-4">
                                     <div className="flex items-center space-x-2">
                                         <AlertCircle className="w-5 h-5 text-slate-400" />
-                                        <span className="text-slate-400 font-medium">{t('settings.aboutApiKeys.steamDesc').split(': ')[1]}</span>
+                                        <span className="text-slate-400 font-medium">{t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(': ')[1]}</span>
                                     </div>
                                 </div>
                             )}
@@ -318,9 +302,9 @@ export default function Settings() {
                                 <Key className="w-6 h-6 text-violet-400" />
                             </div>
                             <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-white mb-2">{t('settings.aboutApiKeys.curseforgeDesc').split(':')[0]}</h2>
+                                <h2 className="text-2xl font-bold text-white mb-2">{t('settings.aboutApiKeys.curseforgeDesc', 'CurseForge API Key: Required for downloading and updating mods').split(':')[0]}</h2>
                                 <p className="text-slate-400">
-                                    {t('settings.aboutApiKeys.curseforgeDesc').split(': ')[1]}
+                                    {t('settings.aboutApiKeys.curseforgeDesc', 'CurseForge API Key: Required for downloading and updating mods').split(': ')[1]}
                                 </p>
                             </div>
                         </div>
@@ -339,7 +323,7 @@ export default function Settings() {
                                             setCurseforgeApiKey(e.target.value);
                                             setKeyStatus('idle');
                                         }}
-                                        placeholder={t('settings.curseforgeKey.placeholder')}
+                                        placeholder={t('settings.curseforgeKey.placeholder', 'Enter your CurseForge API key')}
                                         className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all font-mono"
                                     />
                                     <button
@@ -353,16 +337,16 @@ export default function Settings() {
                             </div>
 
                             <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-4">
-                                <p className="text-sm text-slate-300 font-medium mb-3">{t('settings.curseforgeKey.needKey')}</p>
+                                <p className="text-sm text-slate-300 font-medium mb-3">{t('settings.curseforgeKey.needKey', 'A CurseForge API key is required.')}</p>
                                 <button
                                     onClick={() => openUrl('https://console.curseforge.com')}
                                     className="flex items-center space-x-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors shadow-lg shadow-violet-500/20 w-full justify-center"
                                 >
                                     <ExternalLink className="w-4 h-4" />
-                                    <span>{t('settings.curseforgeKey.getKey')}</span>
+                                    <span>{t('settings.curseforgeKey.getKey', 'Get your API key here')}</span>
                                 </button>
                                 <p className="text-xs text-slate-400 mt-3">
-                                    {t('settings.curseforgeKey.instructions')}
+                                    {t('settings.curseforgeKey.instructions', 'Create a key in your CurseForge developer account.')}
                                 </p>
                             </div>
 
@@ -370,7 +354,7 @@ export default function Settings() {
                                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
                                     <div className="flex items-center space-x-2">
                                         <AlertCircle className="w-5 h-5 text-amber-400" />
-                                        <span className="text-amber-400 font-medium">{t('settings.curseforgeKey.notSet')}</span>
+                                        <span className="text-amber-400 font-medium">{t('settings.curseforgeKey.notSet', 'Not set')}</span>
                                     </div>
                                 </div>
                             )}
@@ -390,19 +374,19 @@ export default function Settings() {
                                     >
                                         {isVerifying ? (
                                             <>
-                                                <RefreshCw className="w-4 h-4 animate-spin" /> {t('settings.curseforgeKey.verifying')}
+                                                <RefreshCw className="w-4 h-4 animate-spin" /> {t('settings.curseforgeKey.verifying', 'Verifying...')}
                                             </>
                                         ) : keyStatus === 'valid' ? (
                                             <>
-                                                <CheckCircle className="w-4 h-4" /> {t('settings.curseforgeKey.verified')}
+                                                <CheckCircle className="w-4 h-4" /> {t('settings.curseforgeKey.verified', 'Verified')}
                                             </>
                                         ) : keyStatus === 'invalid' ? (
                                             <>
-                                                <AlertCircle className="w-4 h-4" /> {t('settings.curseforgeKey.invalid')}
+                                                <AlertCircle className="w-4 h-4" /> {t('settings.curseforgeKey.invalid', 'Invalid key')}
                                             </>
                                         ) : (
                                             <>
-                                                <CheckCircle className="w-4 h-4" /> {t('settings.curseforgeKey.verifyKey')}
+                                                <CheckCircle className="w-4 h-4" /> {t('settings.curseforgeKey.verifyKey', 'Verify Key')}
                                             </>
                                         )}
                                     </button>
@@ -413,163 +397,14 @@ export default function Settings() {
 
                     {/* Info Section */}
                     <div className="glass-panel rounded-2xl p-6 border-dashed">
-                        <h3 className="text-lg font-medium text-white mb-3">{t('settings.aboutApiKeys.title')}</h3>
+                        <h3 className="text-lg font-medium text-white mb-3">{t('settings.aboutApiKeys.title', 'About API Keys')}</h3>
                         <div className="space-y-2 text-sm text-slate-400">
-                            <p>• {t('settings.aboutApiKeys.storedLocally')}</p>
-                            <p>• {t('settings.aboutApiKeys.neverShared')}</p>
-                            <p>• <strong className="text-sky-400">{t('settings.aboutApiKeys.steamDesc').split(':')[0]}</strong>: {t('settings.aboutApiKeys.steamDesc').split(':')[1]}</p>
-                            <p>• <strong className="text-violet-400">{t('settings.aboutApiKeys.curseforgeDesc').split(':')[0]}</strong>: {t('settings.aboutApiKeys.curseforgeDesc').split(':')[1]}</p>
-                            <p>• {t('settings.aboutApiKeys.revokable')}</p>
+                            <p>• {t('settings.aboutApiKeys.storedLocally', 'Your API keys are stored locally and encrypted on your machine.')}</p>
+                            <p>• {t('settings.aboutApiKeys.neverShared', 'They are never shared with any third party, only sent directly to Steam and CurseForge API endpoints.')}</p>
+                            <p>• <strong className="text-sky-400">{t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(':')[0]}</strong>: {t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(':')[1]}</p>
+                            <p>• <strong className="text-violet-400">{t('settings.aboutApiKeys.curseforgeDesc', 'CurseForge API Key: Required for downloading and updating mods').split(':')[0]}</strong>: {t('settings.aboutApiKeys.curseforgeDesc', 'CurseForge API Key: Required for downloading and updating mods').split(':')[1]}</p>
+                            <p>• {t('settings.aboutApiKeys.revokable', 'You can revoke these keys at any time from your Steam/CurseForge developer portal.')}</p>
                         </div>
-                    </div>
-                </div>
-            ) : activeTab === 'network' ? (
-                <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
-                    {/* Quick Install Guide */}
-                    <div className="glass-panel rounded-2xl p-6">
-                        <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-                            <span className="bg-sky-500/10 p-2 rounded-lg text-sky-400">🚀</span>
-                            {t('settings.quickGuide.title')}
-                        </h2>
-                        <div className="grid md:grid-cols-4 gap-4">
-                            <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                                <div className="text-sky-400 font-bold mb-2">{t('settings.quickGuide.step1')}</div>
-                                <p className="text-sm text-slate-300">{t('settings.quickGuide.step1Desc')}</p>
-                            </div>
-                            <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                                <div className="text-sky-400 font-bold mb-2">{t('settings.quickGuide.step2')}</div>
-                                <p className="text-sm text-slate-300">{t('settings.quickGuide.step2Desc')}</p>
-                            </div>
-                            <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                                <div className="text-sky-400 font-bold mb-2">{t('settings.quickGuide.step3')}</div>
-                                <p className="text-sm text-slate-300">{t('settings.quickGuide.step3Desc')}</p>
-                            </div>
-                            <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                                <div className="text-sky-400 font-bold mb-2">{t('settings.quickGuide.step4')}</div>
-                                <p className="text-sm text-slate-300">{t('settings.quickGuide.step4Desc')}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Backend Process Settings (Timeout) */}
-                    <div className="glass-panel rounded-2xl p-6">
-                        <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-                            <span className="bg-amber-500/10 p-2 rounded-lg text-amber-400">⏱️</span>
-                            {t('settings.process.title')}
-                        </h2>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-3">
-                                    {t('settings.process.startupTimeout')}
-                                </label>
-                                <div className="flex items-center gap-4">
-                                    <div className="relative flex-1">
-                                        <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                                        <input
-                                            type="number"
-                                            value={startupTimeout}
-                                            onChange={(e) => setStartupTimeout(e.target.value)}
-                                            min="300"
-                                            max="7200"
-                                            className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all font-mono"
-                                        />
-                                    </div>
-                                    <div className="text-slate-400 text-sm">
-                                        ≈ {Math.round(parseInt(startupTimeout) / 60)} {t('common.minutes')}
-                                    </div>
-                                </div>
-                                <p className="text-xs text-slate-500 mt-3">
-                                    {t('settings.process.startupTimeoutHint')}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Auto-Diagnostics */}
-                    <div className="glass-panel rounded-2xl p-6">
-                        <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-                            <span className="bg-green-500/10 p-2 rounded-lg text-green-400">💉</span>
-                            {t('settings.diagnostics.title')}
-                        </h2>
-                        <div className="space-y-4">
-                            <p className="text-slate-400">
-                                {t('settings.diagnostics.description')}
-                            </p>
-
-                            <DiagnosticsPanel />
-                        </div>
-                    </div>
-
-                    {/* Firewall Configuration */}
-                    <div className="glass-panel rounded-2xl p-6">
-                        <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-3">
-                            <span className="bg-red-500/10 p-2 rounded-lg text-red-400">🛡️</span>
-                            {t('settings.firewallConfig.title')}
-                        </h2>
-
-                        <div className="grid md:grid-cols-2 gap-8">
-                            <div>
-                                <p className="text-slate-400 mb-4">
-                                    {t('settings.firewallConfig.description')}
-                                </p>
-                                <table className="w-full text-left bg-slate-800/50 rounded-lg overflow-hidden border border-slate-700">
-                                    <thead className="bg-slate-900/50">
-                                        <tr>
-                                            <th className="p-3 text-sm text-slate-400 font-medium">{t('settings.firewallConfig.port')}</th>
-                                            <th className="p-3 text-sm text-slate-400 font-medium">{t('settings.firewallConfig.protocol')}</th>
-                                            <th className="p-3 text-sm text-slate-400 font-medium">{t('settings.firewallConfig.purpose')}</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-700">
-                                        <tr>
-                                            <td className="p-3 text-sky-400 font-mono">7777-7778</td>
-                                            <td className="p-3 text-white text-sm">UDP</td>
-                                            <td className="p-3 text-slate-400 text-sm">{t('settings.firewallConfig.gameTraffic')}</td>
-                                        </tr>
-                                        <tr>
-                                            <td className="p-3 text-sky-400 font-mono">27015</td>
-                                            <td className="p-3 text-white text-sm">UDP</td>
-                                            <td className="p-3 text-slate-400 text-sm">{t('settings.firewallConfig.steamQuery')}</td>
-                                        </tr>
-                                        <tr>
-                                            <td className="p-3 text-sky-400 font-mono">27020</td>
-                                            <td className="p-3 text-white text-sm">TCP</td>
-                                            <td className="p-3 text-slate-400 text-sm">{t('settings.firewallConfig.rconControl')}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="bg-slate-900 rounded-xl p-4 border border-slate-700 font-mono text-xs text-green-400 overflow-x-auto whitespace-pre-wrap">
-                                    # Copy and run as Administrator in PowerShell
-                                    <br />
-                                    New-NetFirewallRule -DisplayName "ARK ASA Server TCP" -Direction Inbound -LocalPort 7777,7778,27015,27020 -Protocol TCP -Action Allow
-                                    <br />
-                                    New-NetFirewallRule -DisplayName "ARK ASA Server UDP" -Direction Inbound -LocalPort 7777,7778,27015,27020 -Protocol UDP -Action Allow
-                                </div>
-                                <button
-                                    onClick={copyFirewallScript}
-                                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2 shadow-lg shadow-red-500/20"
-                                >
-                                    <Lock className="w-4 h-4" />
-                                    {t('settings.firewallConfig.copyScript')}
-                                </button>
-                                <p className="text-xs text-center text-slate-500">
-                                    {t('settings.firewallConfig.requiresAdmin')}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Port Status Checker */}
-                    <div className="glass-panel rounded-2xl p-6">
-                        <PortValidator />
-                    </div>
-
-                    {/* Port Forwarding Guide */}
-                    <div className="glass-panel rounded-2xl p-6">
-                        <PortForwardingGuide />
                     </div>
                 </div>
             ) : activeTab === 'firewall' ? (
@@ -585,9 +420,9 @@ export default function Settings() {
                                 <RefreshCw className="w-8 h-8 text-emerald-400" />
                             </div>
                             <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-white">{t('settings.updatesTab.checkForUpdates')}</h2>
+                                <h2 className="text-2xl font-bold text-white">{t('settings.updatesTab.checkForUpdates', 'Check for Updates')}</h2>
                                 <p className="text-slate-400 mt-1">
-                                    {t('settings.updatesTab.currentVersion')} <span className="text-emerald-400 font-mono">{currentVersion}</span>
+                                    {t('settings.updatesTab.currentVersion', 'Current Version:')} <span className="text-emerald-400 font-mono">{currentVersion}</span>
                                 </p>
                             </div>
                         </div>
@@ -599,7 +434,7 @@ export default function Settings() {
                                 className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <Download className={`w-5 h-5 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
-                                {isCheckingUpdates ? t('settings.updatesTab.checking') : t('settings.updatesTab.checkNow')}
+                                {isCheckingUpdates ? t('settings.updatesTab.checking', 'Checking...') : t('settings.updatesTab.checkNow', 'Check Now')}
                             </button>
 
                             {updateCheckResult && (
@@ -625,7 +460,7 @@ export default function Settings() {
                         <div className="border-t border-slate-700 pt-6">
                             <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                                 <Clock className="w-5 h-5 text-slate-400" />
-                                {t('settings.updatesTab.automaticInterval')}
+                                {t('settings.updatesTab.automaticInterval', 'Automatic Check Interval')}
                             </h3>
                             <div className="flex flex-wrap gap-2">
                                 {(['never', '1h', '6h', '12h', '24h'] as const).map(interval => (
@@ -637,7 +472,7 @@ export default function Settings() {
                                             : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
                                             }`}
                                     >
-                                        {interval === 'never' ? t('settings.updatesTab.manualOnly') : t('settings.updatesTab.every', { interval })}
+                                        {interval === 'never' ? t('settings.updatesTab.manualOnly', 'Manual Only') : t('settings.updatesTab.every', { defaultValue: 'Every {{interval}}', interval })}
                                     </button>
                                 ))}
                             </div>
@@ -658,7 +493,7 @@ export default function Settings() {
                                     onClick={handleClearSkipped}
                                     className="text-sm text-slate-400 hover:text-white transition-colors"
                                 >
-                                    {t('settings.updatesTab.clearSkipped')}
+                                    {t('settings.updatesTab.clearSkipped', 'Clear Skipped Versions')}
                                 </button>
                             )}
                         </div>
@@ -666,7 +501,7 @@ export default function Settings() {
                         {updateHistory.length === 0 ? (
                             <div className="text-center py-8 text-slate-500">
                                 <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                                <p>{t('settings.updatesTab.noHistory')}</p>
+                                <p>{t('settings.updatesTab.noHistory', 'No update history yet')}</p>
                             </div>
                         ) : (
                             <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -710,17 +545,17 @@ export default function Settings() {
                             <span className="bg-orange-500/10 p-2 rounded-lg">
                                 <Undo2 className="w-6 h-6 text-orange-400" />
                             </span>
-                            {t('settings.updatesTab.previousVersions')}
+                            {t('settings.updatesTab.previousVersions', 'Previous Versions')}
                         </h2>
                         <p className="text-slate-400 mb-4">
-                            {t('settings.updatesTab.previousDesc')}
+                            {t('settings.updatesTab.previousDesc', 'Need to roll back? View all previous releases and download older versions from our GitHub repository.')}
                         </p>
                         <button
                             onClick={() => openUrl(getReleasesUrl())}
                             className="flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl transition-colors shadow-lg shadow-orange-500/20"
                         >
                             <ExternalLink className="w-5 h-5" />
-                            {t('settings.updatesTab.viewReleases')}
+                            {t('settings.updatesTab.viewReleases', 'View Releases on GitHub')}
                         </button>
                     </div>
                 </div>
@@ -745,7 +580,7 @@ export default function Settings() {
                                     key={lang.code}
                                     onClick={() => {
                                         i18n.changeLanguage(lang.code);
-                                        toast.success(t('settings.language.languageChanged', { language: lang.nativeName }));
+                                        toast.success(t('settings.language.languageChanged', { defaultValue: 'Language changed to {{language}}', language: lang.nativeName }));
                                     }}
                                     className={`flex items-center gap-4 px-6 py-4 rounded-xl border transition-all duration-200 ${i18n.language === lang.code || i18n.language.startsWith(lang.code + '-')
                                         ? 'bg-cyan-500/10 border-cyan-500/40 text-white shadow-lg shadow-cyan-500/10'

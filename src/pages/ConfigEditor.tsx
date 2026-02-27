@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3, Shield } from 'lucide-react';
+import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3, Shield, X } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { readConfig, saveConfig, updateServerSettings } from '../utils/tauri';
 import toast from 'react-hot-toast';
@@ -463,12 +463,15 @@ export default function ConfigEditor() {
             useServerStore.getState().refreshServers();
 
             toast.success(t('configEditor.toasts.saveSuccess'));
-            toast(() => (
-                <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-orange-500" />
-                    <span className="font-medium text-slate-200">{t('configEditor.toasts.restartRequired')}</span>
+            toast((toastItem) => (
+                <div className="flex items-center gap-3 w-full">
+                    <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0" />
+                    <span className="font-medium text-slate-200 flex-1">{t('configEditor.toasts.restartRequired')}</span>
+                    <button onClick={() => toast.dismiss(toastItem.id)} className="p-1 hover:bg-white/10 rounded-md transition-colors shrink-0">
+                        <X className="w-4 h-4 text-slate-400 hover:text-white" />
+                    </button>
                 </div>
-            ), { duration: 5000, icon: null, style: { background: '#1e1e3a', border: '1px solid #f97316' } });
+            ), { duration: 10000, icon: null, style: { background: '#1e1e3a', border: '1px solid #f97316', maxWidth: '450px' } });
 
         } catch (err) {
             console.error(err);

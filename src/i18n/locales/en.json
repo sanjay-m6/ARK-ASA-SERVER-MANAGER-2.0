@@ -1600,8 +1600,8 @@
             "quit": "No, Quit"
         },
         "sponsorBanner": {
-            "title": "Support ASA Server Manager",
-            "subtitle": "Help keep this project alive and thriving"
+            "title": "Support the Development",
+            "subtitle": "Keep Nexus running with a small contribution."
         },
         "help": {
             "title": "Help & Documentation",
@@ -1721,6 +1721,20 @@
                 "cpu": "CPU usage is within normal range (<80%)",
                 "memory": "Memory usage is stable",
                 "viewDistance": "Consider reducing view distance if CPU usage increases"
+            }
+        },
+        "settings": {
+            "curseforgeKey": {
+                "label": "API Key",
+                "needKey": "A CurseForge API key is required.",
+                "getKey": "Get your API key here",
+                "instructions": "Create a key in your CurseForge developer account.",
+                "placeholder": "Enter your CurseForge API key",
+                "notSet": "Not set",
+                "verifying": "Verifying...",
+                "verified": "Verified",
+                "invalid": "Invalid key",
+                "verifyKey": "Verify Key"
             }
         }
     }

@@ -859,7 +859,10 @@ pub async fn stop_cluster(state: State<'_, AppState>, cluster_id: i64) -> Result
 
     // Stop each server
     for server_id in server_ids {
-        if let Err(e) = state.process_manager.stop_server(server_id) {
+        if let Err(e) = state.process_manager.stop_server_with_reason(
+            server_id,
+            crate::services::process_manager::StopReason::UserAction,
+        ) {
             println!("  ⚠️ Failed to stop server {}: {}", server_id, e);
         } else {
             // Update status in database

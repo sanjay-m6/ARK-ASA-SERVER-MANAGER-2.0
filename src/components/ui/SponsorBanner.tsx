@@ -1,41 +1,16 @@
-import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Heart, Coffee, Star, Sparkles, CreditCard } from 'lucide-react';
+import { Heart, Coffee, Star, CreditCard } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
 
-interface Sponsor {
-    name: string;
-    tier: 'bronze' | 'silver' | 'gold';
-    message?: string;
-}
-
 const SUPPORT_LINKS = [
-    { name: 'Ko-fi', url: 'https://ko-fi.com/infinity86', icon: Coffee, color: 'from-pink-500 to-red-500' },
-    { name: 'PayPal', url: 'https://paypal.me/infinity86s', icon: CreditCard, color: 'from-blue-500 to-cyan-500' },
-    { name: 'GitHub Sponsors', url: 'https://github.com/sponsors/sanjay-m6', icon: Heart, color: 'from-purple-500 to-pink-500' },
-];
-
-const SAMPLE_SPONSORS: Sponsor[] = [
-    { name: 'CommunityArk', tier: 'gold', message: 'Supporting the ARK community!' },
-    { name: 'DinoMaster', tier: 'silver' },
-    { name: 'ServerPro', tier: 'bronze' },
+    { name: 'Ko-fi', url: 'https://ko-fi.com/infinity86', icon: Coffee, colorClass: 'bg-[#ff5e5b] hover:bg-[#ff4c49] text-white' },
+    { name: 'PayPal', url: 'https://paypal.me/infinity86s', icon: CreditCard, colorClass: 'bg-[#0070ba] hover:bg-[#005ea6] text-white' },
+    { name: 'GitHub', url: 'https://github.com/sponsors/sanjay-m6', icon: Star, colorClass: 'bg-[#333333] hover:bg-[#444444] text-white' },
 ];
 
 export default function SponsorBanner() {
     const { t } = useTranslation();
-    const [currentSponsorIndex, setCurrentSponsorIndex] = useState(0);
-    const [sponsors] = useState<Sponsor[]>(SAMPLE_SPONSORS);
-
-    useEffect(() => {
-        // Rotate sponsors every 10 seconds
-        if (sponsors.length > 1) {
-            const interval = setInterval(() => {
-                setCurrentSponsorIndex(prev => (prev + 1) % sponsors.length);
-            }, 10000);
-            return () => clearInterval(interval);
-        }
-    }, [sponsors.length]);
 
     const openUrl = async (url: string) => {
         try {
@@ -45,92 +20,42 @@ export default function SponsorBanner() {
         }
     };
 
-    const getTierColor = (tier: Sponsor['tier']) => {
-        switch (tier) {
-            case 'gold': return 'text-amber-400';
-            case 'silver': return 'text-slate-300';
-            case 'bronze': return 'text-orange-400';
-        }
-    };
-
-    const getTierIcon = (tier: Sponsor['tier']) => {
-        switch (tier) {
-            case 'gold': return <Sparkles className="w-4 h-4 text-amber-400" />;
-            case 'silver': return <Star className="w-4 h-4 text-slate-300" />;
-            case 'bronze': return <Star className="w-4 h-4 text-orange-400" />;
-        }
-    };
-
-    const currentSponsor = sponsors[currentSponsorIndex];
-
     return (
-        <div className="glass-panel rounded-xl p-4 border border-pink-500/20 bg-gradient-to-r from-pink-500/5 via-purple-500/5 to-cyan-500/5">
-            <div className="flex items-center justify-between gap-4">
-                {/* Left: Support message */}
-                <div className="flex items-center gap-3 flex-1">
-                    <div className="p-2 rounded-lg bg-pink-500/10">
-                        <Heart className="w-5 h-5 text-pink-400" fill="currentColor" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="text-sm font-medium text-white">
-                            {t('sponsorBanner.title')}
-                        </div>
-                        <div className="text-xs text-slate-400">
-                            {t('sponsorBanner.subtitle')}
-                        </div>
-                    </div>
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-[#1e2433] rounded-xl border border-white/5">
+            {/* Left: Support message */}
+            <div className="flex items-center gap-4 w-full sm:w-auto">
+                <div className="flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-full bg-[#2a3040]">
+                    <Heart className="w-5 h-5 text-rose-400" fill="currentColor" />
                 </div>
-
-                {/* Center: Sponsor spotlight (if any) */}
-                {currentSponsor && (
-                    <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                        {getTierIcon(currentSponsor.tier)}
-                        <span className={cn("text-sm font-medium", getTierColor(currentSponsor.tier))}>
-                            {currentSponsor.name}
-                        </span>
-                        {currentSponsor.message && (
-                            <span className="text-xs text-slate-500 hidden lg:inline">
-                                — {currentSponsor.message}
-                            </span>
-                        )}
-                    </div>
-                )}
-
-                {/* Right: Action buttons */}
-                <div className="flex items-center gap-2">
-                    {SUPPORT_LINKS.map(link => {
-                        const Icon = link.icon;
-                        return (
-                            <button
-                                key={link.name}
-                                onClick={() => openUrl(link.url)}
-                                className={cn(
-                                    "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-white transition-all hover:scale-105",
-                                    `bg-gradient-to-r ${link.color}`
-                                )}
-                            >
-                                <Icon className="w-4 h-4" />
-                                <span className="hidden sm:inline">{link.name}</span>
-                            </button>
-                        );
-                    })}
+                <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-white">
+                        {t('sponsorBanner.title', 'Support the Development')}
+                    </span>
+                    <span className="text-[13px] text-slate-400 mt-0.5">
+                        {t('sponsorBanner.subtitle', 'Keep our ASA Server Manager 2.0 running with a small contribution.')}
+                    </span>
                 </div>
             </div>
 
-            {/* Sponsor dots indicator */}
-            {sponsors.length > 1 && (
-                <div className="flex justify-center gap-1 mt-2">
-                    {sponsors.map((_, idx) => (
-                        <div
-                            key={idx}
+            {/* Right: Action buttons */}
+            <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+                {SUPPORT_LINKS.map(link => {
+                    const Icon = link.icon;
+                    return (
+                        <button
+                            key={link.name}
+                            onClick={() => openUrl(link.url)}
                             className={cn(
-                                "w-1.5 h-1.5 rounded-full transition-colors",
-                                idx === currentSponsorIndex ? "bg-pink-400" : "bg-slate-700"
+                                "flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-colors flex-shrink-0",
+                                link.colorClass
                             )}
-                        />
-                    ))}
-                </div>
-            )}
+                        >
+                            <Icon className="w-4 h-4 flex-shrink-0" />
+                            <span>{link.name}</span>
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 }

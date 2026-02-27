@@ -14,6 +14,45 @@ use std::os::windows::process::CommandExt;
 
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
+#[cfg(target_os = "windows")]
+const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+
+/// Reason why a server stop was initiated. Every stop must provide a reason.
+#[derive(Debug, Clone, Serialize)]
+pub enum StopReason {
+    UserAction,
+    ScheduledRestart,
+    UpdateRequired,
+    CrashDetected,
+    StartupTimeout,
+    SystemShutdown,
+    AutoStop,
+}
+
+impl std::fmt::Display for StopReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StopReason::UserAction => write!(f, "USER_ACTION"),
+            StopReason::ScheduledRestart => write!(f, "SCHEDULED_RESTART"),
+            StopReason::UpdateRequired => write!(f, "UPDATE_REQUIRED"),
+            StopReason::CrashDetected => write!(f, "CRASH_DETECTED"),
+            StopReason::StartupTimeout => write!(f, "STARTUP_TIMEOUT"),
+            StopReason::SystemShutdown => write!(f, "SYSTEM_SHUTDOWN"),
+            StopReason::AutoStop => write!(f, "AUTO_STOP"),
+        }
+    }
+}
+
+/// Structured lifecycle event for audit trail
+#[derive(Clone, Serialize)]
+pub struct ServerLifecycleEvent {
+    pub server_id: i64,
+    pub event: String,
+    pub reason: Option<String>,
+    pub exit_code: Option<i32>,
+    pub uptime_seconds: Option<u64>,
+    pub timestamp: String,
+}
 
 use crate::services::discord::{send_discord_webhook, get_server_name, DiscordEmbed};
 use crate::services::network;
@@ -117,6 +156,8 @@ struct ServerProcess {
 pub struct ProcessManager {
     processes: Arc<Mutex<HashMap<i64, ServerProcess>>>,
     app_handle: AppHandle,
+    /// Tracks the pending stop reason for each server (set before kill, cleared after)
+    pending_stop_reasons: Arc<Mutex<HashMap<i64, StopReason>>>,
 }
 
 #[derive(Clone, Serialize)]
@@ -135,15 +176,18 @@ pub struct ServerStartupProgressEvent {
 impl ProcessManager {
     pub fn new(app_handle: AppHandle) -> Self {
         let processes = Arc::new(Mutex::new(HashMap::new()));
+        let pending_stop_reasons = Arc::new(Mutex::new(HashMap::new()));
         let pm = ProcessManager {
             processes: processes.clone(),
             app_handle: app_handle.clone(),
+            pending_stop_reasons: pending_stop_reasons.clone(),
         };
 
         // Start background monitoring thread
         let monitor_processes = processes.clone();
         let monitor_handle = app_handle.clone();
 
+        let monitor_stop_reasons = pending_stop_reasons.clone();
         std::thread::spawn(move || {
             loop {
                 std::thread::sleep(std::time::Duration::from_secs(4)); // Check every 4s
@@ -160,10 +204,36 @@ impl ProcessManager {
                             Ok(Some(status)) => {
                                 // Process has exited
                                 let exit_code = status.code().unwrap_or(-1);
+                                let uptime = proc.started_at.elapsed().as_secs();
+
+                                // Check if this was an authorized stop
+                                let stop_reason = {
+                                    let mut reasons = monitor_stop_reasons.lock().unwrap();
+                                    reasons.remove(id)
+                                };
+                                let reason_str = stop_reason
+                                    .as_ref()
+                                    .map(|r| format!("{}", r))
+                                    .unwrap_or_else(|| "UNAUTHORIZED_TERMINATION".to_string());
+
                                 println!(
-                                    "  ⚠️ Monitor detected server {} exit with status: {:?} (code: {})",
-                                    id, status, exit_code
+                                    "  [LIFECYCLE] Server {} exited | code: {} | uptime: {}s | reason: {}",
+                                    id, exit_code, uptime, reason_str
                                 );
+
+                                // Emit lifecycle event for frontend audit trail
+                                let _ = monitor_handle.emit(
+                                    "server-lifecycle-event",
+                                    ServerLifecycleEvent {
+                                        server_id: *id,
+                                        event: if exit_code == 0 { "STOP".to_string() } else { "CRASH".to_string() },
+                                        reason: Some(reason_str),
+                                        exit_code: Some(exit_code),
+                                        uptime_seconds: Some(uptime),
+                                        timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                                    },
+                                );
+
                                 to_remove.push((*id, exit_code));
 
                                 // Signal log watcher to stop
@@ -320,7 +390,12 @@ impl ProcessManager {
                             let timeout_limit = if startup_confirmed { 3600 } else { startup_timeout_limit };
 
                             if uptime_secs > timeout_limit {
-                                println!("  ❌ Server {} timed out ({}s). Killing process.", id, uptime_secs);
+                                println!("  [LIFECYCLE] Server {} STARTUP_TIMEOUT after {}s. Killing process.", id, uptime_secs);
+                                // Register the stop reason before killing
+                                {
+                                    let mut reasons = monitor_stop_reasons.lock().unwrap();
+                                    reasons.insert(id, StopReason::StartupTimeout);
+                                }
                                 // Kill Process
                                 let _ = proc.child.kill();
                                 
@@ -796,6 +871,10 @@ impl ProcessManager {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
+        // Spawn in a new process group so the server survives if the manager exits
+        #[cfg(target_os = "windows")]
+        command.creation_flags(CREATE_NEW_PROCESS_GROUP);
+
         let mut child = command.spawn().context("Failed to start server process")?;
         let child_pid = child.id();
 
@@ -1152,12 +1231,27 @@ impl ProcessManager {
 
         Ok(())
     }
+    /// Check if a server process is tracked and alive (public helper)
+    pub fn is_server_running(&self, server_id: i64) -> bool {
+        let processes = self.processes.lock().unwrap();
+        processes.contains_key(&server_id)
+    }
 
-    /// Stop ARK server (Force)
-    pub fn stop_server(&self, server_id: i64) -> Result<()> {
+    /// Stop ARK server with a reason (authorized stop)
+    pub fn stop_server_with_reason(&self, server_id: i64, reason: StopReason) -> Result<()> {
+        println!("  [LIFECYCLE] Server {} stop requested | reason: {}", server_id, reason);
+
+        // Register the stop reason BEFORE killing so the monitor thread sees it
+        {
+            let mut reasons = self.pending_stop_reasons.lock().unwrap();
+            reasons.insert(server_id, reason.clone());
+        }
+
         let mut processes = self.processes.lock().unwrap();
 
         if let Some(mut server_proc) = processes.remove(&server_id) {
+            let uptime = server_proc.started_at.elapsed().as_secs();
+
             // Signal log watcher to stop
             server_proc.stop_flag.store(true, Ordering::SeqCst);
 
@@ -1175,6 +1269,19 @@ impl ProcessManager {
             let _ = server_proc.child.kill();
             let _ = server_proc.child.wait();
 
+            // Emit lifecycle event
+            let _ = self.app_handle.emit(
+                "server-lifecycle-event",
+                ServerLifecycleEvent {
+                    server_id,
+                    event: "STOP".to_string(),
+                    reason: Some(format!("{}", reason)),
+                    exit_code: None,
+                    uptime_seconds: Some(uptime),
+                    timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                },
+            );
+
             // Emit stopped status
             self.emit_status_change(server_id, "stopped");
 
@@ -1189,7 +1296,19 @@ impl ProcessManager {
                 );
             });
         }
+
+        // Clean up the reason after stop completes
+        {
+            let mut reasons = self.pending_stop_reasons.lock().unwrap();
+            reasons.remove(&server_id);
+        }
+
         Ok(())
+    }
+
+    /// Stop ARK server (Force) — backward-compatible wrapper, defaults to UserAction
+    pub fn stop_server(&self, server_id: i64) -> Result<()> {
+        self.stop_server_with_reason(server_id, StopReason::UserAction)
     }
 
     /// Graceful shutdown via RCON
@@ -1229,7 +1348,7 @@ impl ProcessManager {
         // 2. If still running, force stop
         if self.is_running(server_id) {
             println!("  ⚠️ Graceful shutdown timed out or failed, force stopping...");
-            self.stop_server(server_id)?;
+            self.stop_server_with_reason(server_id, StopReason::UserAction)?;
         }
 
         Ok(())

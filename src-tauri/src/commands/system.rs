@@ -17,7 +17,28 @@ pub async fn get_system_info(state: State<'_, AppState>) -> Result<SystemInfo, S
         .sys
         .lock()
         .map_err(|_| "Failed to lock system info".to_string())?;
-    sys.refresh_all();
+
+    // We rely on the frontend polling (every 10s) to provide the time delta
+    // sysinfo will compute the CPU usage since the *last* time this was called.
+    sys.refresh_cpu_all();
+    sys.refresh_memory();
+
+    // Compute CPU from per-core values (more reliable than global_cpu_usage on Windows)
+    let cpus = sys.cpus();
+    let cpu = if cpus.is_empty() {
+        sys.global_cpu_usage()
+    } else {
+        let total: f32 = cpus.iter().map(|c| c.cpu_usage()).sum();
+        total / cpus.len() as f32
+    };
+
+    // Debug print backend-side
+    println!(
+        "DEBUG CPU: {} cores, {}% global, {}% per-core",
+        cpus.len(),
+        sys.global_cpu_usage(),
+        cpu
+    );
 
     let disks = Disks::new_with_refreshed_list();
     let mut total_disk = 0u64;
@@ -31,11 +52,13 @@ pub async fn get_system_info(state: State<'_, AppState>) -> Result<SystemInfo, S
     let used_disk = total_disk.saturating_sub(available_disk);
 
     Ok(SystemInfo {
-        cpu_usage: sys.global_cpu_usage(),
-        ram_usage: (sys.used_memory() as f64) / (1024.0 * 1024.0 * 1024.0), // Convert to GB
-        ram_total: (sys.total_memory() as f64) / (1024.0 * 1024.0 * 1024.0), // Convert to GB
-        disk_usage: (used_disk as f64) / (1024.0 * 1024.0 * 1024.0),        // Convert to GB
-        disk_total: (total_disk as f64) / (1024.0 * 1024.0 * 1024.0),       // Convert to GB
+        cpu_usage: (cpu * 100.0).round() / 100.0,
+        ram_usage: ((sys.used_memory() as f64) / (1024.0 * 1024.0 * 1024.0) * 100.0).round()
+            / 100.0,
+        ram_total: ((sys.total_memory() as f64) / (1024.0 * 1024.0 * 1024.0) * 100.0).round()
+            / 100.0,
+        disk_usage: ((used_disk as f64) / (1024.0 * 1024.0 * 1024.0) * 100.0).round() / 100.0,
+        disk_total: ((total_disk as f64) / (1024.0 * 1024.0 * 1024.0) * 100.0).round() / 100.0,
     })
 }
 

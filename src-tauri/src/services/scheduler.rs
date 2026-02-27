@@ -4,9 +4,9 @@ use crate::models::{Backup, BackupOptions, BackupType, RestoreOptions};
 use crate::services::backup_service::BackupService;
 use crate::AppState;
 use chrono::{DateTime, Datelike, Local, Timelike};
-use std::time::Duration;
-use std::path::PathBuf;
 use rusqlite::params;
+use std::path::PathBuf;
+use std::time::Duration;
 use tauri::{AppHandle, Manager};
 use tokio::time::sleep;
 
@@ -465,7 +465,10 @@ impl SchedulerService {
                 let _ = commands_restart(app_handle, task).await;
             }
             "Stop" => {
-                let _ = state.process_manager.stop_server(task.server_id);
+                let _ = state.process_manager.stop_server_with_reason(
+                    task.server_id,
+                    crate::services::process_manager::StopReason::ScheduledRestart,
+                );
             }
             "Start" => {
                 // Placeholder
@@ -602,7 +605,7 @@ impl SchedulerService {
                                 }
                             }
 
-                                if update_needed {
+                            if update_needed {
                                 log::info!(
                                     "🚀 Updates found! Scheduling restart for server {}.",
                                     server_id
@@ -632,7 +635,9 @@ impl SchedulerService {
                                     server_id
                                 );
                                 let pre_backup =
-                                    SchedulerService::create_preupdate_backup_for_server(&app, server_id);
+                                    SchedulerService::create_preupdate_backup_for_server(
+                                        &app, server_id,
+                                    );
 
                                 // 6. Restart (which triggers mod update/install)
                                 log::info!(
@@ -660,7 +665,7 @@ impl SchedulerService {
 
                                         // Best-effort: ensure server is stopped
                                         let state_for_stop = app.state::<AppState>();
-                                        let _ = state_for_stop.process_manager.stop_server(server_id);
+                                        let _ = state_for_stop.process_manager.stop_server_with_reason(server_id, crate::services::process_manager::StopReason::UpdateRequired);
 
                                         // Restore saves + configs
                                         let restore_options = RestoreOptions {

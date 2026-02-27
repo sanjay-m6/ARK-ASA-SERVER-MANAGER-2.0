@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import TopBar from './TopBar';
 import { optimizeMemory } from '../../utils/tauri';
 
 export default function AppLayout() {
@@ -18,9 +19,12 @@ export default function AppLayout() {
     return (
         <div className="flex h-screen overflow-hidden bg-dark-950">
             <Sidebar />
-            <main className="flex-1 overflow-y-auto">
-                <div className="container mx-auto p-6 max-w-7xl">
-                    <Outlet />
+            <main className="flex-1 flex flex-col overflow-hidden bg-dark-950">
+                <TopBar />
+                <div className="flex-1 overflow-y-auto">
+                    <div className="container mx-auto p-6 max-w-7xl">
+                        <Outlet />
+                    </div>
                 </div>
             </main>
         </div>

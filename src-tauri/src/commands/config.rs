@@ -239,6 +239,143 @@ pub async fn save_config(
     Ok(())
 }
 
+/// Load server config from existing INI files + DB
+/// Returns a fully populated ServerConfig reflecting the server's current state
+#[tauri::command]
+pub async fn load_server_config(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<ServerConfig, String> {
+    let install_path = get_server_install_path(&state, server_id)?;
+    let config_dir = PathBuf::from(&install_path).join("ShooterGame/Saved/Config/WindowsServer");
+
+    // Start with DB values for identity/network fields
+    let mut config = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let mut cfg = ServerConfig::default();
+
+        let _ = conn
+            .query_row(
+                "SELECT session_name, server_password, admin_password, max_players, map_name, 
+             game_port, query_port, rcon_port, rcon_enabled, ip_address 
+             FROM servers WHERE id = ?1",
+                [server_id],
+                |row| {
+                    cfg.session_name = row.get::<_, String>(0).unwrap_or_default();
+                    cfg.server_password = row.get(1).ok();
+                    cfg.admin_password = row.get::<_, String>(2).unwrap_or_default();
+                    cfg.max_players = row.get::<_, i32>(3).unwrap_or(70);
+                    cfg.map_name = row.get::<_, String>(4).unwrap_or_default();
+                    cfg.game_port = row.get::<_, u16>(5).unwrap_or(7777);
+                    cfg.query_port = row.get::<_, u16>(6).unwrap_or(27015);
+                    cfg.rcon_port = row.get::<_, u16>(7).unwrap_or(32330);
+                    cfg.rcon_enabled = row.get::<_, bool>(8).unwrap_or(true);
+                    cfg.ip_address = row.get(9).ok().flatten();
+                    Ok(())
+                },
+            )
+            .map_err(|e| format!("Failed to load server from DB: {}", e))?;
+
+        cfg
+    };
+
+    // Parse GameUserSettings.ini for gameplay multipliers
+    let gus_path = config_dir.join("GameUserSettings.ini");
+    if gus_path.exists() {
+        let gus_content = fs::read_to_string(&gus_path).unwrap_or_default();
+
+        // Helper to parse float values from INI
+        let get_f32 = |section: &str, key: &str, default: f32| -> f32 {
+            IniParser::get_value(&gus_content, section, key)
+                .and_then(|v| v.parse::<f32>().ok())
+                .unwrap_or(default)
+        };
+        let get_bool = |section: &str, key: &str, default: bool| -> bool {
+            IniParser::get_value(&gus_content, section, key)
+                .map(|v| v.to_uppercase() == "TRUE" || v == "1")
+                .unwrap_or(default)
+        };
+
+        let ss = "ServerSettings";
+
+        // Rates
+        config.xp_multiplier = get_f32(ss, "XPMultiplier", 1.0);
+        config.harvest_amount_multiplier = get_f32(ss, "HarvestAmountMultiplier", 1.0);
+        config.taming_speed_multiplier = get_f32(ss, "TamingSpeedMultiplier", 1.0);
+        config.difficulty_offset = get_f32(ss, "DifficultyOffset", 1.0);
+        config.override_official_difficulty = get_f32(ss, "OverrideOfficialDifficulty", 5.0);
+
+        // Day/Night
+        config.day_cycle_speed_scale = get_f32(ss, "DayCycleSpeedScale", 1.0);
+        config.day_time_speed_scale = get_f32(ss, "DayTimeSpeedScale", 1.0);
+        config.night_time_speed_scale = get_f32(ss, "NightTimeSpeedScale", 1.0);
+
+        // Player
+        config.player_damage_multiplier = get_f32(ss, "PlayerDamageMultiplier", 1.0);
+        config.player_resistance_multiplier = get_f32(ss, "PlayerResistanceMultiplier", 1.0);
+        config.player_food_drain_multiplier =
+            get_f32(ss, "PlayerCharacterFoodDrainMultiplier", 1.0);
+        config.player_water_drain_multiplier =
+            get_f32(ss, "PlayerCharacterWaterDrainMultiplier", 1.0);
+        config.player_stamina_drain_multiplier =
+            get_f32(ss, "PlayerCharacterStaminaDrainMultiplier", 1.0);
+
+        // Dino
+        config.dino_damage_multiplier = get_f32(ss, "DinoDamageMultiplier", 1.0);
+        config.dino_resistance_multiplier = get_f32(ss, "DinoResistanceMultiplier", 1.0);
+        config.dino_food_drain_multiplier = get_f32(ss, "DinoCharacterFoodDrainMultiplier", 1.0);
+        config.wild_dino_count_multiplier = get_f32(ss, "DinoCountMultiplier", 1.0);
+
+        // Structure
+        config.structure_damage_multiplier = get_f32(ss, "StructureDamageMultiplier", 1.0);
+        config.structure_resistance_multiplier = get_f32(ss, "StructureResistanceMultiplier", 1.0);
+        config.structure_decay_multiplier = get_f32(ss, "PvEStructureDecayPeriodMultiplier", 1.0);
+        config.global_item_stack_size_multiplier = get_f32(ss, "ItemStackSizeMultiplier", 1.0);
+
+        // PvE/PvP
+        config.pve_mode = get_bool(ss, "ServerPVE", false);
+        config.pvp_gamma = get_bool(ss, "EnablePvPGamma", false);
+        config.friendly_fire = !get_bool(ss, "DisableFriendlyFire", true);
+
+        // Session name from INI overrides DB if present
+        if let Some(name) = IniParser::get_value(&gus_content, ss, "SessionName") {
+            if !name.is_empty() {
+                config.session_name = name;
+            }
+        }
+    }
+
+    // Parse Game.ini for breeding/per-level stats
+    let game_path = config_dir.join("Game.ini");
+    if game_path.exists() {
+        let game_content = fs::read_to_string(&game_path).unwrap_or_default();
+        let sgm = "/Script/ShooterGame.ShooterGameMode";
+
+        let get_f32_game = |key: &str, default: f32| -> f32 {
+            IniParser::get_value(&game_content, sgm, key)
+                .and_then(|v| v.parse::<f32>().ok())
+                .unwrap_or(default)
+        };
+        let get_bool_game = |key: &str, default: bool| -> bool {
+            IniParser::get_value(&game_content, sgm, key)
+                .map(|v| v.to_uppercase() == "TRUE" || v == "1")
+                .unwrap_or(default)
+        };
+
+        config.egg_hatch_speed_multiplier = get_f32_game("EggHatchSpeedMultiplier", 1.0);
+        config.baby_mature_speed_multiplier = get_f32_game("BabyMatureSpeedMultiplier", 1.0);
+        config.baby_food_consumption_multiplier =
+            get_f32_game("BabyFoodConsumptionSpeedMultiplier", 1.0);
+        config.mating_interval_multiplier = get_f32_game("MatingIntervalMultiplier", 1.0);
+        config.allow_flyer_speed_leveling = get_bool_game("bAllowFlyerSpeedLeveling", false);
+        config.allow_speed_leveling = get_bool_game("bAllowSpeedLeveling", false);
+    }
+
+    println!("[CONFIG] Loaded server {} config from INI files", server_id);
+    Ok(config)
+}
+
 #[tauri::command]
 pub async fn backup_config(
     state: State<'_, AppState>,

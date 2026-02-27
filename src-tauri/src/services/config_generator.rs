@@ -641,19 +641,21 @@ impl ConfigGenerator {
         fs::write(&gus_path, gus_content)
             .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
 
-        // Write Game.ini ONLY if it does not already exist (first-time setup).
-        // NEVER overwrite an existing Game.ini — it is the source of truth for
-        // custom gameplay settings (engrams, NPC replacements, stat multipliers, etc.)
+        // Write Game.ini — use merge strategy to preserve custom keys
+        // (engrams, NPC replacements, etc.) while updating multiplier values
         let game_path = config_dir.join("Game.ini");
-        if !game_path.exists() {
-            let game_content = Self::generate_game_ini(config);
-            println!("  📝 Creating initial Game.ini at: {:?}", game_path);
-            fs::write(&game_path, game_content)
+        let new_game_content = Self::generate_game_ini(config);
+        if game_path.exists() {
+            let existing = fs::read_to_string(&game_path).unwrap_or_default();
+            let merged =
+                crate::services::ini_parser::IniParser::merge(&existing, &new_game_content);
+            println!("  📝 Merging Game.ini (preserving custom keys, updating multipliers)");
+            fs::write(&game_path, merged)
                 .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
         } else {
-            println!(
-                "  ℹ️ Game.ini already exists — skipping overwrite to preserve custom settings."
-            );
+            println!("  📝 Creating initial Game.ini at: {:?}", game_path);
+            fs::write(&game_path, new_game_content)
+                .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
         }
 
         Ok(())

@@ -128,6 +128,12 @@ impl FileWatcherService {
 
                                 if let Some((intel_mode, rcon_on, pass, port, ip)) = server_details
                                 {
+                                    // Check if the server process is actually running before attempting to stop
+                                    if !state.process_manager.is_server_running(server_id_clone) {
+                                        println!("🛡️ Automation: Server {} is not running, skipping auto-stop.", server_id_clone);
+                                        return;
+                                    }
+
                                     println!("🛡️ Automation: Stopping server {} (Intelligent Mode: {})...", server_id_clone, intel_mode);
 
                                     if intel_mode && rcon_on {
@@ -151,19 +157,19 @@ impl FileWatcherService {
                                             .await
                                         {
                                             println!(
-                                                "❌ Automation Error: Graceful shutdown failed: {}",
+                                                "[LIFECYCLE] Auto-stop graceful shutdown failed: {}",
                                                 e
                                             );
                                         }
                                     } else {
-                                        // 1. Force stop (fallback or if intel mode off)
-                                        if let Err(e) =
-                                            state.process_manager.stop_server(server_id_clone)
-                                        {
-                                            println!(
-                                                "❌ Automation Error: Failed to stop server: {}",
-                                                e
-                                            );
+                                        // 1. Force stop with AutoStop reason
+                                        if let Err(e) = state
+                                            .process_manager
+                                            .stop_server_with_reason(
+                                            server_id_clone,
+                                            crate::services::process_manager::StopReason::AutoStop,
+                                        ) {
+                                            println!("[LIFECYCLE] Auto-stop failed: {}", e);
                                         }
                                     }
 
