@@ -52,9 +52,9 @@ export default function PortValidator() {
         }
     };
 
-    const checkPort = async (port: number): Promise<'open' | 'closed' | 'unknown'> => {
+    const checkPort = async (port: number, protocol: string): Promise<'open' | 'closed' | 'unknown'> => {
         try {
-            const result = await invoke<'Public' | 'LAN' | 'Unknown' | 'Offline'>('check_server_reachability', { port });
+            const result = await invoke<'Public' | 'LAN' | 'Unknown' | 'Offline'>('check_server_reachability', { port, protocol });
             if (result === 'Public' || result === 'LAN') return 'open';
             if (result === 'Offline') return 'closed';
             return 'unknown';
@@ -73,7 +73,7 @@ export default function PortValidator() {
         // Check each port
         const updatedPorts: PortInfo[] = [];
         for (const portInfo of ports) {
-            const status = await checkPort(portInfo.port);
+            const status = await checkPort(portInfo.port, portInfo.protocol);
             updatedPorts.push({ ...portInfo, status });
         }
 

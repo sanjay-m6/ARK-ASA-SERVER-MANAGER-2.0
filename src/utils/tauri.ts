@@ -164,8 +164,8 @@ export async function updateServerSettings(params: UpdateServerSettingsParams): 
     });
 }
 
-export async function checkServerReachability(serverId: number, port: number): Promise<'Public' | 'LAN' | 'Unknown' | 'Offline'> {
-    return await invoke('check_server_reachability', { serverId, port });
+export async function checkServerReachability(port: number, protocol: string): Promise<'Public' | 'LAN' | 'Unknown' | 'Offline'> {
+    return await invoke('check_server_reachability', { port, protocol });
 }
 
 export async function getServerLogs(serverId: number, installPath: string): Promise<any[]> {

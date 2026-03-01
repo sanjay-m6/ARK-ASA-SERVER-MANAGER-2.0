@@ -52,7 +52,7 @@ export const useServerStore = create<ServerStore>((set) => ({
         try {
             // Import dynamically or assume it's available since we are in the store
             const { checkServerReachability } = await import('../utils/tauri');
-            const status = await checkServerReachability(serverId, port);
+            const status = await checkServerReachability(port, 'UDP');
 
             // Assume "Offline" or other strings map to 'Unknown' or handled strictly
             let reachability: 'Public' | 'LAN' | 'Unknown' = 'Unknown';

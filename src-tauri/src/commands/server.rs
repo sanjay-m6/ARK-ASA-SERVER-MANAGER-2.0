@@ -1383,28 +1383,25 @@ pub async fn update_server(
 }
 
 #[tauri::command]
-pub async fn check_server_reachability(
-    _state: State<'_, AppState>,
-    _server_id: i64,
-    port: u16,
-) -> Result<String, String> {
+pub async fn check_server_reachability(port: u16, protocol: String) -> Result<String, String> {
     // 1. Get Public IP
     let public_ip = match network::get_public_ip().await {
         Ok(ip) => ip,
-        Err(_) => return Ok("LAN".to_string()), // If we can't get public IP, assume LAN or Offline
+        Err(_) => return Ok("LAN".to_string()),
     };
 
-    // 2. Check if port is open on that IP
-    // NOTE: We intentionally do NOT write public_ip to the database here.
-    // The ip_address column holds the user-configured IP and must never be
-    // overwritten by auto-detected network state.
-    // Note: This checks if the port is reachable from "externally" (or at least hairpinned)
-    let is_open = network::check_port_open(&public_ip, port);
+    // 2. Check reachability using the correct protocol
+    // UDP ports (game/query) need A2S_INFO query; TCP ports (RCON) use TCP connect
+    let is_open = if protocol.to_uppercase() == "UDP" {
+        network::query_server(&public_ip, port)
+    } else {
+        network::check_port_open(&public_ip, port)
+    };
 
     if is_open {
         Ok("Public".to_string())
     } else {
-        Ok("LAN".to_string())
+        Ok("Offline".to_string())
     }
 }
 

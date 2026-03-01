@@ -151,6 +151,7 @@ struct ServerProcess {
     ip_address: Option<String>,
     startup_confirmed: Arc<AtomicBool>,
     webhook_sent: Arc<AtomicBool>,
+    has_been_online: bool,
 }
 
 pub struct ProcessManager {
@@ -297,6 +298,7 @@ impl ProcessManager {
                                                 Ok(_) => {
                                                     println!("  🟢 Server {} state persisted: ONLINE (Reachable: {}, Startup Logs: {})", id, is_reachable_query, startup_confirmed);
                                                     proc.is_online = true;
+                                                    proc.has_been_online = true;
                                                     status_updates.push((id, "online".to_string()));
                                                     
                                                     // Send Discord webhook if it's a fresh online event
@@ -353,7 +355,9 @@ impl ProcessManager {
                             }
                         
                         // Stuck in "Starting" check with TIMEOUT
-                        if !proc.is_online {
+                        // We only enforce timeout if the sever has NEVER been online. 
+                        // If it came online and then dropped, it's just "running"/disconnected, not stuck starting.
+                        if !proc.has_been_online {
                             let uptime = proc.started_at.elapsed();
                             let uptime_secs = uptime.as_secs();
                             
@@ -1058,6 +1062,7 @@ impl ProcessManager {
                 ip_address: ip_address.map(|s| s.to_string()),
                 startup_confirmed: startup_confirmed,
                 webhook_sent: webhook_sent,
+                has_been_online: false,
             });
         }
 
