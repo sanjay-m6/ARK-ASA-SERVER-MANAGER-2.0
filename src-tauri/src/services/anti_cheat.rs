@@ -163,11 +163,8 @@ impl AntiCheatService {
         // C. RCON Action (Kick/Ban)
         if !config.actions.log_only {
             // Clone Arc inside block to drop State borrow immediately
-            let rcon_service_arc = {
-                let rcon_state = app_handle.state::<RconState>();
-                rcon_state.0.clone()
-            };
-            let rcon_service = rcon_service_arc.lock().await;
+            let rcon_state = app_handle.state::<RconState>();
+            let rcon_service = &rcon_state.0;
 
             if config.actions.ban_enabled {
                 println!("🔨 Banning player {}", event.player_name);

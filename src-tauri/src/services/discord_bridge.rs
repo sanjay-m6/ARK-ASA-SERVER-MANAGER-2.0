@@ -341,10 +341,7 @@ impl SerenityEventHandler for GatewayHandler {
                         .await;
 
                     let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                    let rcon_service = {
-                        let guard = rcon_state.0.lock().await;
-                        guard.clone()
-                    };
+                    let rcon_service = &rcon_state.0;
 
                     match rcon_service.broadcast(server_id, &message).await {
                         Ok(_) => {
@@ -378,10 +375,7 @@ impl SerenityEventHandler for GatewayHandler {
                         .await;
 
                     let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                    let rcon_service = {
-                        let guard = rcon_state.0.lock().await;
-                        guard.clone()
-                    };
+                    let rcon_service = &rcon_state.0;
 
                     match rcon_service
                         .kick_player(server_id, steam_id, Some("Kicked by Admin via Discord"))

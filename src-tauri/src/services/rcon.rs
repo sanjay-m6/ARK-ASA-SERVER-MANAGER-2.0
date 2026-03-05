@@ -18,15 +18,22 @@ const MAX_RETRIES: u32 = 10;
 /// Base delay between retries (multiplied by attempt number for linear backoff)
 const RETRY_BASE_DELAY: Duration = Duration::from_secs(2);
 
+struct RconSession {
+    connection: Connection<TcpStream>,
+    address: String,
+    port: u16,
+    password: String,
+}
+
 #[derive(Clone)]
 pub struct RconService {
-    connections: Arc<Mutex<HashMap<i64, Connection<TcpStream>>>>,
+    sessions: Arc<Mutex<HashMap<i64, RconSession>>>,
 }
 
 impl RconService {
     pub fn new() -> Self {
         Self {
-            connections: Arc::new(Mutex::new(HashMap::new())),
+            sessions: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -65,8 +72,16 @@ impl RconService {
             .await
             {
                 Ok(Ok(conn)) => {
-                    let mut connections = self.connections.lock().await;
-                    connections.insert(server_id, conn);
+                    let mut sessions = self.sessions.lock().await;
+                    sessions.insert(
+                        server_id,
+                        RconSession {
+                            connection: conn,
+                            address: address.to_string(),
+                            port,
+                            password: password.to_string(),
+                        },
+                    );
                     log::info!(
                         "[RCON] Successfully connected to server {} at {} on attempt {}",
                         server_id,
@@ -128,8 +143,8 @@ impl RconService {
 
     /// Disconnect from a server's RCON
     pub async fn disconnect(&self, server_id: i64) -> Result<RconResponse, String> {
-        let mut connections = self.connections.lock().await;
-        if connections.remove(&server_id).is_some() {
+        let mut sessions = self.sessions.lock().await;
+        if sessions.remove(&server_id).is_some() {
             log::info!("[RCON] Disconnected from server {}", server_id);
             Ok(RconResponse {
                 success: true,
@@ -146,22 +161,22 @@ impl RconService {
     }
 
     /// Send an RCON command. If the connection is stale (server restarted),
-    /// the dead connection is cleaned up and a clear error is returned.
+    /// the backend attempts to reconnect automatically ONCE before returning an error.
     pub async fn send_command(
         &self,
         server_id: i64,
         command: &str,
     ) -> Result<RconResponse, String> {
-        let mut connections = self.connections.lock().await;
+        let mut sessions = self.sessions.lock().await;
 
-        if let Some(conn) = connections.get_mut(&server_id) {
+        if let Some(session) = sessions.get_mut(&server_id) {
             log::info!(
                 "[RCON] Sending command to server {}: {}",
                 server_id,
                 command
             );
 
-            match conn.cmd(command).await {
+            match session.connection.cmd(command).await {
                 Ok(response) => {
                     log::info!(
                         "[RCON] Command '{}' executed on server {}, response length: {}",
@@ -176,15 +191,75 @@ impl RconService {
                     })
                 }
                 Err(e) => {
-                    // Connection is likely dead — clean it up
-                    log::error!(
-                        "[RCON] Command '{}' failed on server {}: {}. Removing stale connection.",
+                    // Connection is likely dead — try auto-reconnect
+                    log::warn!(
+                        "[RCON] Command '{}' failed on server {}: {}. Attempting auto-reconnect...",
                         command,
                         server_id,
                         e
                     );
-                    connections.remove(&server_id);
-                    Err(format!("RCON connection lost ({}). Please reconnect.", e))
+
+                    let addr = format!("{}:{}", session.address, session.port);
+                    let password = session.password.clone();
+
+                    // Drop lock before trying to connect (avoid deadlocks if connect uses it,
+                    // though connect currently uses its own local variables until the end)
+                    drop(sessions);
+
+                    // Attempt a fresh connection (single attempt, no loop here to keep it fast)
+                    match timeout(
+                        CONNECT_TIMEOUT,
+                        Connection::<TcpStream>::builder().connect(&addr, &password),
+                    )
+                    .await
+                    {
+                        Ok(Ok(new_conn)) => {
+                            log::info!("[RCON] Auto-reconnect successful for server {}", server_id);
+                            let mut sessions = self.sessions.lock().await;
+
+                            // Update the session connection
+                            if let Some(s) = sessions.get_mut(&server_id) {
+                                s.connection = new_conn;
+
+                                // Retry the command once
+                                match s.connection.cmd(command).await {
+                                    Ok(response) => {
+                                        log::info!(
+                                            "[RCON] Command '{}' executed successfully after auto-reconnect for server {}",
+                                            command,
+                                            server_id
+                                        );
+                                        return Ok(RconResponse {
+                                            success: true,
+                                            message: "Command executed after auto-reconnect"
+                                                .to_string(),
+                                            data: Some(response),
+                                        });
+                                    }
+                                    Err(retry_err) => {
+                                        log::error!("[RCON] Command failed again after auto-reconnect for server {}: {}", server_id, retry_err);
+                                        sessions.remove(&server_id);
+                                        return Err(format!(
+                                            "RCON connection lost and recovery failed ({}).",
+                                            retry_err
+                                        ));
+                                    }
+                                }
+                            } else {
+                                // Session was removed while we were reconnecting?
+                                return Err("RCON session lost during auto-reconnect.".to_string());
+                            }
+                        }
+                        _ => {
+                            log::error!(
+                                "[RCON] Auto-reconnect failed for server {}. Removing stale session.",
+                                server_id
+                            );
+                            let mut sessions = self.sessions.lock().await;
+                            sessions.remove(&server_id);
+                            return Err(format!("RCON connection lost and auto-reconnect failed."));
+                        }
+                    }
                 }
             }
         } else {
@@ -279,8 +354,35 @@ impl RconService {
 
     /// Check if connected to a server
     pub async fn is_connected(&self, server_id: i64) -> bool {
-        let connections = self.connections.lock().await;
-        connections.contains_key(&server_id)
+        let sessions = self.sessions.lock().await;
+        sessions.contains_key(&server_id)
+    }
+
+    pub fn spawn_heartbeat(&self) {
+        let service = self.clone();
+        tauri::async_runtime::spawn(async move {
+            log::info!("[RCON] Starting background keep-alive heartbeat task...");
+            let mut interval = tokio::time::interval(Duration::from_secs(60));
+
+            loop {
+                interval.tick().await;
+
+                let server_ids: Vec<i64> = {
+                    let sessions = service.sessions.lock().await;
+                    sessions.keys().cloned().collect()
+                };
+
+                if server_ids.is_empty() {
+                    continue;
+                }
+
+                for server_id in server_ids {
+                    // We use send_command here because it already has auto-reconnect logic!
+                    // Sending a simple 'ListPlayers' acts as a perfect keep-alive.
+                    let _ = service.send_command(server_id, "ListPlayers").await;
+                }
+            }
+        });
     }
 }
 

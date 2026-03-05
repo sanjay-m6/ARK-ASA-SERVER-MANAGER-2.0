@@ -123,119 +123,119 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
 
             let app_handle = app.handle().clone();
 
+            // Initialize all services
             let file_watcher = FileWatcherService::new(app_handle.clone());
-
             let player_intelligence = Arc::new(PlayerIntelligenceService::new());
             let plugin_manager = Arc::new(PluginManagerService::new(app_handle.clone()));
-
             let discord_bridge = Arc::new(DiscordBridgeService::new(
                 app_handle.clone(),
                 player_intelligence.clone(),
             ));
-
+            let rcon_service = RconService::new();
             let scheduler = Arc::new(SchedulerService::new(app_handle.clone()));
-            if !safe_mode {
-                scheduler.start();
-            }
-
             let anti_cheat = Arc::new(AntiCheatService::new(app_handle.clone()));
-            if !safe_mode {
-                anti_cheat.start();
-            }
-
-            let rcon_service = Arc::new(tokio::sync::Mutex::new(RconService::new()));
-
             let cross_chat = Arc::new(CrossChatService::new(rcon_service.clone()));
-            
             let advanced_config = Arc::new(AdvancedConfigService::new(app_handle.clone()));
 
-
-            // Start Discord Bridge (background tasks)
-            if !safe_mode {
-                discord_bridge.clone().start();
-            }
-
-            // Spawn Auto-Start and Watcher Logic
-
+            // 1. Manage AppState BEFORE starting any background tasks
             app.manage(AppState {
                 db: Mutex::new(db),
                 process_manager: ProcessManager::new(app_handle.clone()),
                 sys: Mutex::new(sys),
                 app_handle: app_handle.clone(),
                 file_watcher,
-                discord_bridge,
-                player_intelligence,
-                plugin_manager,
-                anti_cheat,
-                scheduler,
+                discord_bridge: discord_bridge.clone(),
+                player_intelligence: player_intelligence.clone(),
+                plugin_manager: plugin_manager.clone(),
+                anti_cheat: anti_cheat.clone(),
+                scheduler: scheduler.clone(),
                 cross_chat,
                 advanced_config,
             });
 
+            // 2. Initialize RCON and Guardian state
+            app.manage(RconState(rcon_service.clone()));
+            app.manage(services::guardian::GuardianState(Arc::new(
+                tokio::sync::Mutex::new(services::guardian::GuardianService::new()),
+            )));
+
+            // 3. Start background tasks ONLY AFTER state is managed
+            if !safe_mode {
+                scheduler.start();
+                anti_cheat.start();
+                discord_bridge.start();
+                rcon_service.spawn_heartbeat();
+            }
+
+            // 4. Spawn Auto-Start and Watcher Logic (after state is managed and services are started)
             let app_handle_clone = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                // Wait a moment for State to be ready
+                // Wait a moment for State to be ready and services to settle
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                let state = app_handle_clone.state::<AppState>();
+                
+                let state = match app_handle_clone.try_state::<AppState>() {
+                    Some(s) => s,
+                    None => {
+                        eprintln!("❌ AppState not found in background task!");
+                        return;
+                    }
+                };
 
                 if !safe_mode {
                     // Access DB to get servers with automation enabled
-                    if let Ok(db) = state.db.lock() {
-                        if let Ok(conn) = db.get_connection() {
+                    if let Ok(db_guard) = state.db.lock() {
+                        if let Ok(conn) = db_guard.get_connection() {
                             // 1. Check for Auto-Start Servers
-                            let mut stmt = conn
-                                .prepare("SELECT id, install_path FROM servers WHERE auto_start = 1")
-                                .unwrap();
-                            let rows = stmt
-                                .query_map([], |row| {
-                                    Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-                                })
-                                .unwrap();
+                            let mut stmt = match conn.prepare("SELECT id, install_path FROM servers WHERE auto_start = 1") {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    eprintln!("❌ Failed to prepare auto-start stmt: {}", e);
+                                    return;
+                                }
+                            };
+                            
+                            let rows = stmt.query_map([], |row| {
+                                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                            });
 
-                            for row in rows {
-                                if let Ok((id, _path)) = row {
-                                    println!("🚀 Auto-starting server {}", id);
-
-                                    // Invoke the start_server logic via command logic wrapper
-                                    let app_handle_clone_2 = app_handle_clone.clone();
-
-                                    tauri::async_runtime::spawn(async move {
-                                        let _ = commands::server::start_server(app_handle_clone_2, id, false).await;
-                                    });
+                            if let Ok(rows) = rows {
+                                for row in rows {
+                                    if let Ok((id, _path)) = row {
+                                        println!("🚀 Auto-starting server {}", id);
+                                        let h = app_handle_clone.clone();
+                                        tauri::async_runtime::spawn(async move {
+                                            let _ = commands::server::start_server(h, id, false).await;
+                                        });
+                                    }
                                 }
                             }
 
                             // 2. Initialize File Watchers for Auto-Stop
-                            let mut stmt_stop = conn
-                                .prepare("SELECT id, install_path FROM servers WHERE auto_stop = 1")
-                                .unwrap();
-                            let rows_stop = stmt_stop
-                                .query_map([], |row| {
-                                    Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-                                })
-                                .unwrap();
+                            let mut stmt_stop = match conn.prepare("SELECT id, install_path FROM servers WHERE auto_stop = 1") {
+                                Ok(s) => s,
+                                Err(e) => {
+                                    eprintln!("❌ Failed to prepare auto-stop stmt: {}", e);
+                                    return;
+                                }
+                            };
+                            
+                            let rows_stop = stmt_stop.query_map([], |row| {
+                                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                            });
 
-                            for row in rows_stop {
-                                if let Ok((id, path)) = row {
-                                    let _ = state
-                                        .file_watcher
-                                        .start_watching(id, std::path::PathBuf::from(path));
+                            if let Ok(rows_stop) = rows_stop {
+                                for row in rows_stop {
+                                    if let Ok((id, path)) = row {
+                                        let _ = state.file_watcher.start_watching(id, std::path::PathBuf::from(path));
+                                    }
                                 }
                             }
                         }
-                    };
+                    }
                 } else {
                      println!("⚠️ Safe Mode Active: Skipping Auto-Start and Watchers.");
                 }
             });
-
-            // Initialize RCON state
-            app.manage(RconState(rcon_service));
-
-            // Initialize Guardian state
-            app.manage(services::guardian::GuardianState(Arc::new(
-                tokio::sync::Mutex::new(services::guardian::GuardianService::new()),
-            )));
 
             // Check and install SteamCMD
             let app_handle = app.handle().clone();

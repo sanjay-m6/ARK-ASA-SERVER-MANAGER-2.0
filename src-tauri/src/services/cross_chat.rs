@@ -49,14 +49,14 @@ pub struct CrossChatServer {
 /// This service polls chat from each server in a cluster and relays
 /// messages to all other servers with a server name prefix.
 pub struct CrossChatService {
-    rcon_service: Arc<tokio::sync::Mutex<RconService>>,
+    rcon_service: RconService,
     active_clusters: Arc<Mutex<HashMap<i64, CrossChatConfig>>>,
     watchers: Arc<tokio::sync::Mutex<HashMap<i64, Vec<Arc<LogWatcher>>>>>,
     running: Arc<AtomicBool>,
 }
 
 impl CrossChatService {
-    pub fn new(rcon_service: Arc<tokio::sync::Mutex<RconService>>) -> Self {
+    pub fn new(rcon_service: RconService) -> Self {
         Self {
             rcon_service,
             active_clusters: Arc::new(Mutex::new(HashMap::new())),
@@ -74,15 +74,15 @@ impl CrossChatService {
         println!("🔗 Enabling cross-chat for cluster {}", cluster_id);
 
         // Connect to all servers via RCON
-        let rcon = self.rcon_service.lock().await;
         for server in &servers {
-            rcon.connect(
-                server.server_id,
-                &server.rcon_address,
-                server.rcon_port,
-                &server.rcon_password,
-            )
-            .await?;
+            self.rcon_service
+                .connect(
+                    server.server_id,
+                    &server.rcon_address,
+                    server.rcon_port,
+                    &server.rcon_password,
+                )
+                .await?;
             println!("  ✅ Connected to {} RCON", server.server_name);
         }
 
@@ -126,12 +126,15 @@ impl CrossChatService {
         message: &str,
     ) -> Result<(), String> {
         let formatted_message = format!("[{}] {}", source_server_name, message);
-        let rcon = self.rcon_service.lock().await;
 
         for server in cluster_servers {
             if server.server_id != source_server_id {
                 // Broadcast to this server
-                match rcon.broadcast(server.server_id, &formatted_message).await {
+                match self
+                    .rcon_service
+                    .broadcast(server.server_id, &formatted_message)
+                    .await
+                {
                     Ok(_) => {
                         println!(
                             "  📤 Relayed message to {} from {}",
@@ -233,7 +236,7 @@ impl CrossChatService {
 impl Default for CrossChatService {
     fn default() -> Self {
         Self {
-            rcon_service: Arc::new(Mutex::new(RconService::new())),
+            rcon_service: RconService::new(),
             active_clusters: Arc::new(Mutex::new(HashMap::new())),
             watchers: Arc::new(Mutex::new(HashMap::new())),
             running: Arc::new(AtomicBool::new(false)),

@@ -172,13 +172,13 @@ impl FileWatcherService {
                                             .app_handle
                                             .state::<crate::commands::rcon::RconState>(
                                         );
-                                        let rcon = rcon_state.0.lock().await;
+                                        let rcon = &rcon_state.0;
 
                                         if let Err(e) = state
                                             .process_manager
                                             .shutdown_server(
                                                 server_id_clone,
-                                                &*rcon,
+                                                rcon,
                                                 &addr,
                                                 port,
                                                 &pass,

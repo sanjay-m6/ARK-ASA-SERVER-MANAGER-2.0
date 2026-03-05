@@ -232,7 +232,7 @@ impl SchedulerService {
                 minutes_left
             );
             let rcon_state = app_handle.state::<RconState>();
-            let rcon = rcon_state.0.lock().await;
+            let rcon = &rcon_state.0;
             let msg = format!("SERVER RESTARTING IN {} MINUTES", minutes_left);
             let _ = rcon
                 .send_command(setting.server_id, &format!("ServerChat {}", msg))
@@ -476,14 +476,14 @@ impl SchedulerService {
             "RconCommand" => {
                 if let Some(cmd) = &task.command {
                     let rcon_state = app_handle.state::<RconState>();
-                    let rcon = rcon_state.0.lock().await;
+                    let rcon = &rcon_state.0;
                     let _ = rcon.send_command(task.server_id, cmd).await;
                 }
             }
             "BoostStart" => {
                 if let Some(cmd) = &task.command {
                     let rcon_state = app_handle.state::<RconState>();
-                    let rcon = rcon_state.0.lock().await;
+                    let rcon = &rcon_state.0;
 
                     if let Some(msg) = &task.message {
                         let _ = rcon
@@ -498,7 +498,7 @@ impl SchedulerService {
             "BoostEnd" => {
                 if let Some(cmd) = &task.command {
                     let rcon_state = app_handle.state::<RconState>();
-                    let rcon = rcon_state.0.lock().await;
+                    let rcon = &rcon_state.0;
 
                     if let Some(msg) = &task.message {
                         let _ = rcon
@@ -613,7 +613,7 @@ impl SchedulerService {
 
                                 // 3. Broadcast Warning
                                 let rcon_state = app.state::<RconState>();
-                                let rcon = rcon_state.0.lock().await;
+                                let rcon = &rcon_state.0;
                                 let msg = format!(
                                     "⚠️ SERVER UPDATING MODS IN {} MINUTES!",
                                     pre_warning_minutes
@@ -624,7 +624,6 @@ impl SchedulerService {
                                 let _ = rcon
                                     .send_command(server_id, &format!("ServerChat {}", msg))
                                     .await;
-                                drop(rcon); // release lock
 
                                 // 4. Wait for the warning window
                                 sleep(Duration::from_secs(pre_warning_minutes as u64 * 60)).await;
@@ -729,7 +728,7 @@ async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
     // Warn players if configured (Legacy handling for explicit tasks)
     if task.pre_warning_minutes > 0 {
         let rcon_state = app_handle.state::<RconState>();
-        let rcon = rcon_state.0.lock().await;
+        let rcon = &rcon_state.0;
         let msg = format!(
             "⚠️ SERVER RESTARTING IN {} MINUTES",
             task.pre_warning_minutes

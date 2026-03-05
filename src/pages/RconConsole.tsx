@@ -110,10 +110,18 @@ export default function RconConsole() {
             await invoke<RconResponse>('rcon_disconnect', { serverId: selectedServerId });
             rconStore.setConnected(selectedServerId, false);
             rconStore.setPlayers(selectedServerId, []);
-            toast.success(t('rcon.disconnectedMsg'));
-            addToHistory('disconnect', t('rcon.disconnectedMsg'), true);
+            toast.success(t('rcon.disconnectedMsg', 'Disconnected from RCON'));
+            addToHistory('disconnect', t('rcon.disconnectedMsg', 'Disconnected from RCON'), true);
         } catch (error) {
-            toast.error(t('rcon.disconnectFailed', { error: String(error) }));
+            const errMsg = String(error);
+            // If the backend already thinks we're disconnected, just update the UI state anyway
+            if (errMsg.includes('No active RCON connection')) {
+                rconStore.setConnected(selectedServerId, false);
+                rconStore.setPlayers(selectedServerId, []);
+                toast.success(t('rcon.disconnectedMsg', 'Disconnected from RCON'));
+                return;
+            }
+            toast.error(t('rcon.disconnectFailed', { error: errMsg, defaultValue: `Disconnect failed: ${errMsg}` }));
         }
     };
 
@@ -144,7 +152,14 @@ export default function RconConsole() {
                 setHistoryIndex(-1);
             }
         } catch (error) {
-            addToHistory(cmdToSend, t('common.error', { error: String(error) }), false);
+            const errMsg = String(error);
+            addToHistory(cmdToSend, t('common.error', { error: errMsg, defaultValue: `Error: ${errMsg}` }), false);
+
+            // If connection is lost, update state
+            if (errMsg.toLowerCase().includes('connection lost') || errMsg.includes('No active RCON connection')) {
+                rconStore.setConnected(selectedServerId, false);
+                rconStore.setPlayers(selectedServerId, []);
+            }
         }
     };
 
@@ -157,9 +172,40 @@ export default function RconConsole() {
             });
             rconStore.setPlayers(selectedServerId, playerList);
         } catch (error) {
-            console.error('Failed to get players:', error);
+            const errMsg = String(error);
+            console.error('Failed to get players:', errMsg);
+
+            // If connection is lost, update state
+            if (errMsg.toLowerCase().includes('connection lost') || errMsg.includes('No active RCON connection')) {
+                rconStore.setConnected(selectedServerId, false);
+                rconStore.setPlayers(selectedServerId, []);
+            }
         }
     };
+
+    // Connection Heartbeat: Verify connection is still alive every 15 seconds
+    useEffect(() => {
+        if (!isConnected || !selectedServerId) return;
+
+        const interval = setInterval(async () => {
+            try {
+                const connected = await invoke<boolean>('rcon_is_connected', {
+                    serverId: selectedServerId,
+                });
+
+                if (!connected) {
+                    console.log('[RCON] Heartbeat detected lost connection');
+                    rconStore.setConnected(selectedServerId, false);
+                    rconStore.setPlayers(selectedServerId, []);
+                    addToHistory('system', t('rcon.connectionLost', 'Connection to RCON was lost'), false);
+                }
+            } catch (error) {
+                console.error('[RCON] Heartbeat check failed:', error);
+            }
+        }, 15000); // 15 seconds
+
+        return () => clearInterval(interval);
+    }, [isConnected, selectedServerId, rconStore, t]);
 
     const kickPlayer = async (steamId: string, reason?: string) => {
         if (!selectedServerId) return;
