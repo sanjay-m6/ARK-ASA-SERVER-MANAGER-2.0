@@ -150,7 +150,6 @@ struct ServerProcess {
     is_online: bool,
     ip_address: Option<String>,
     startup_confirmed: Arc<AtomicBool>,
-    webhook_sent: Arc<AtomicBool>,
     has_been_online: bool,
 }
 
@@ -191,14 +190,14 @@ impl ProcessManager {
         let monitor_stop_reasons = pending_stop_reasons.clone();
         std::thread::spawn(move || {
             loop {
-                std::thread::sleep(std::time::Duration::from_secs(4)); // Check every 4s
+                std::thread::sleep(std::time::Duration::from_secs(3)); // Check every 3s
 
                 // Collect servers that need querying (running processes)
                 let mut servers_to_query: Vec<(i64, String, u16)> = Vec::new();
                 // 1. Check process status (Fast, holds lock)
                 let crashed_servers = {
                     let mut p_lock = monitor_processes.lock().unwrap();
-                    let mut to_remove: Vec<(i64, i32)> = Vec::new();
+                    let mut to_remove: Vec<(i64, i32, u16, Option<String>, bool)> = Vec::new();
 
                     for (id, proc) in p_lock.iter_mut() {
                         match proc.child.try_wait() {
@@ -235,7 +234,7 @@ impl ProcessManager {
                                     },
                                 );
 
-                                to_remove.push((*id, exit_code));
+                                to_remove.push((*id, exit_code, proc.query_port, proc.ip_address.clone(), proc.has_been_online));
 
                                 // Signal log watcher to stop
                                 proc.stop_flag.store(true, Ordering::SeqCst);
@@ -251,8 +250,8 @@ impl ProcessManager {
                         }
                     }
 
-                    // Remove crashed servers from the process list
-                    for (id, _) in &to_remove {
+                    // Remove exited servers from the process list
+                    for (id, _, _, _, _) in &to_remove {
                         p_lock.remove(id);
                     }
                     to_remove
@@ -301,27 +300,23 @@ impl ProcessManager {
                                                     proc.has_been_online = true;
                                                     status_updates.push((id, "online".to_string()));
                                                     
-                                                    // Send Discord webhook if it's a fresh online event
-                                                    if !proc.webhook_sent.swap(true, Ordering::SeqCst) {
-                                                        log::info!("✅ [MONITOR] Spawning thread to send serverStart webhook!");
-                                                        let wh_handle = monitor_handle.clone();
-                                                        let wh_id = id;
-                                                        std::thread::spawn(move || {
-                                                            let name = get_server_name(&wh_handle, wh_id);
-                                                            send_discord_webhook(
-                                                                &wh_handle,
-                                                                "serverStart",
-                                                                DiscordEmbed::server_online(&name),
-                                                            );
-                                                        });
-                                                    } else {
-                                                        log::info!("⚠️ [MONITOR] Webhook already sent. Skipping.");
+                                                    // CRITICAL: Tell the dedicated webhook thread that we are online!
+                                                    // If we reached here via network query before the log printed, we still want the webhook to fire.
+                                                    if !startup_confirmed {
+                                                        proc.startup_confirmed.store(true, Ordering::SeqCst);
                                                     }
+                                                    // Monitor loop only handles state transition.
                                                 },
                                                 Err(e) => println!("  ❌ DB Update Failed for Server {}: {}", id, e),
                                             }
+                                        } else {
+                                            println!("  ❌ get_connection Failed for Server {}", id);
                                         }
+                                    } else {
+                                        println!("  ❌ db.lock Failed for Server {}", id);
                                     }
+                                 } else {
+                                     println!("  ❌ try_state Failed for Server {}", id);
                                  }
                             } else if !is_reachable && proc.is_online {
                                 // Transition: Online -> Connection Lost
@@ -378,7 +373,7 @@ impl ProcessManager {
                             let startup_confirmed = proc.startup_confirmed.load(Ordering::Relaxed);
                             
                             // Fetch timeout from DB (cached/fetched per loop for simplicity)
-                            let mut startup_timeout_limit = 600; // Default 10m
+                            let mut startup_timeout_limit = 1200; // Default 20m (ARK + mods can take very long)
                             if let Some(state) = monitor_handle.try_state::<AppState>() {
                                 if let Ok(db) = state.db.lock() {
                                     if let Ok(Some(val)) = db.get_setting("startup_timeout") {
@@ -394,36 +389,54 @@ impl ProcessManager {
                             let timeout_limit = if startup_confirmed { 3600 } else { startup_timeout_limit };
 
                             if uptime_secs > timeout_limit {
-                                println!("  [LIFECYCLE] Server {} STARTUP_TIMEOUT after {}s. Killing process.", id, uptime_secs);
-                                // Register the stop reason before killing
-                                {
-                                    let mut reasons = monitor_stop_reasons.lock().unwrap();
-                                    reasons.insert(id, StopReason::StartupTimeout);
-                                }
-                                // Kill Process
-                                let _ = proc.child.kill();
-                                
-                                // FORCE status update to 'startup_timeout' immediately so UI knows WHY it died
-                                // The loop will eventually see it exit, but we want to be explicit about the cause
-                                if let Some(state) = monitor_handle.try_state::<AppState>() {
-                                    if let Ok(db) = state.db.lock() {
-                                        if let Ok(conn) = db.get_connection() {
-                                            let _ = conn.execute(
-                                                "UPDATE servers SET status = 'startup_timeout' WHERE id = ?1",
-                                                rusqlite::params![id],
-                                            );
-                                        }
-                                    }
-                                }
+                                // SAFETY: Before killing, do a final network check.
+                                // If the server is actually responding, mark it online instead of killing.
+                                let query_port = proc.query_port;
+                                let final_check_reachable = crate::services::network::query_server("127.0.0.1", query_port);
 
-                                // Emit specific timeout event
-                                let _ = monitor_handle.emit(
-                                    "server-status-change",
-                                    ServerStatusEvent {
-                                        server_id: id,
-                                        status: "startup_timeout".to_string(),
-                                    },
-                                );
+                                if final_check_reachable {
+                                    println!("  ✅ [LIFECYCLE] Server {} passed FINAL reachability check at {}s — marking online instead of killing.", id, uptime_secs);
+                                    proc.startup_confirmed.store(true, Ordering::SeqCst);
+                                    proc.is_online = true;
+                                    proc.has_been_online = true;
+                                    status_updates.push((id, "online".to_string()));
+                                } else {
+                                    println!("  [LIFECYCLE] Server {} STARTUP_TIMEOUT after {}s (final check also failed). Killing process.", id, uptime_secs);
+                                    // Register the stop reason before killing
+                                    {
+                                        let mut reasons = monitor_stop_reasons.lock().unwrap();
+                                        reasons.insert(id, StopReason::StartupTimeout);
+                                    }
+                                    // Kill Process
+                                    let _ = proc.child.kill();
+                                    
+                                    // FORCE status update to 'startup_timeout' immediately so UI knows WHY it died
+                                    if let Some(state) = monitor_handle.try_state::<AppState>() {
+                                        if let Ok(db) = state.db.lock() {
+                                            if let Ok(conn) = db.get_connection() {
+                                                let _ = conn.execute(
+                                                    "UPDATE servers SET status = 'startup_timeout' WHERE id = ?1",
+                                                    rusqlite::params![id],
+                                                );
+                                            } else {
+                                                println!("  ❌ get_connection Failed format for timeout Server {}", id);
+                                            }
+                                        } else {
+                                            println!("  ❌ db.lock Failed for timeout Server {}", id);
+                                        }
+                                    } else {
+                                        println!("  ❌ try_state Failed for timeout Server {}", id);
+                                    }
+
+                                    // Emit specific timeout event
+                                    let _ = monitor_handle.emit(
+                                        "server-status-change",
+                                        ServerStatusEvent {
+                                            server_id: id,
+                                            status: "startup_timeout".to_string(),
+                                        },
+                                    );
+                                }
                             } else if uptime_secs > 300 && uptime_secs % 60 == 0 {
                                  println!("  ⏳ Server {} still starting... ({}s)", id, uptime_secs);
                             }
@@ -463,10 +476,43 @@ impl ProcessManager {
                 }
 
                 // Now process crashed servers without holding the lock
-                for (id, exit_code) in crashed_servers {
+                for (id, exit_code, query_port, ip_address, _has_been_online) in crashed_servers {
                     // Determine status based on exit code
                     // Exit code 0 = normal stop, anything else = crash/error
-                    let status = if exit_code == 0 { "stopped" } else { "crashed" };
+                    // CRITICAL FIX: UE5 (ARK ASA) often exits the parent/launcher process with code 1
+                    // while the actual game server continues running under a child process.
+                    // Before marking as crashed, check if the server is still alive.
+                    let status = if exit_code == 0 {
+                        "stopped"
+                    } else {
+                        // Check if the server is still reachable (child process took over)
+                        let query_ip = ip_address.as_deref().unwrap_or("127.0.0.1");
+                        let still_reachable = network::query_server(query_ip, query_port)
+                            || network::query_server("127.0.0.1", query_port);
+
+                        // Also check if ArkAscendedServer.exe is still using our ports
+                        let port_still_bound = network::is_port_in_use(query_port);
+
+                        if still_reachable {
+                            println!(
+                                "  ✅ [UE5-FIX] Server {} parent exited (code {}) but server is STILL REACHABLE on port {}. Not a crash — UE5 process handoff. Keeping ONLINE.",
+                                id, exit_code, query_port
+                            );
+                            "online" // Server is alive and responding, keep it online
+                        } else if port_still_bound {
+                            println!(
+                                "  ⚠️ [UE5-FIX] Server {} parent exited (code {}) but port {} is still bound. Server still running — keeping ONLINE.",
+                                id, exit_code, query_port
+                            );
+                            "online" // Port is in use, server process still alive
+                        } else {
+                            println!(
+                                "  💥 Server {} genuinely crashed (code {}, port {} free, not reachable).",
+                                id, exit_code, query_port
+                            );
+                            "crashed"
+                        }
+                    };
 
                     println!(
                         "  📢 Server {} status changed to '{}' (exit code: {})",
@@ -476,13 +522,13 @@ impl ProcessManager {
                     // Send Discord webhook for crash
                     if exit_code != 0 {
                         let wh_handle = monitor_handle.clone();
-                        std::thread::spawn(move || {
+                        tauri::async_runtime::spawn(async move {
                             let name = get_server_name(&wh_handle, id);
                             send_discord_webhook(
                                 &wh_handle,
                                 "serverCrash",
                                 DiscordEmbed::server_crashed(&name, exit_code),
-                            );
+                            ).await;
                         });
                     }
 
@@ -743,11 +789,21 @@ impl ProcessManager {
         mods: Option<&[String]>,
         custom_args: Option<&str>,
     ) -> Result<()> {
-        let executable = install_path
+        let win64_dir = install_path
             .join("ShooterGame")
             .join("Binaries")
-            .join("Win64")
-            .join("ArkAscendedServer.exe");
+            .join("Win64");
+
+        // First check for ASA API Loader
+        let api_loader = win64_dir.join("AsaApiLoader.exe");
+        let api_dir = win64_dir.join("ArkApi");
+
+        // ASA Server API requires AsaApiLoader.exe and the ArkApi folder to be present
+        let executable = if api_loader.exists() && api_dir.exists() {
+            api_loader
+        } else {
+            win64_dir.join("ArkAscendedServer.exe")
+        };
 
         // Guard: reject duplicate starts — if the process is already tracked, bail immediately.
         {
@@ -800,11 +856,19 @@ impl ProcessManager {
         connection_url.push_str(&format!("?Port={}", game_port));
         connection_url.push_str(&format!("?QueryPort={}", query_port));
         connection_url.push_str(&format!("?RCONPort={}", rcon_port));
+        if rcon_port > 0 {
+            connection_url.push_str("?RCONEnabled=True");
+        }
         connection_url.push_str(&format!("?MaxPlayers={}", max_players));
-        connection_url.push_str(&format!("?ServerAdminPassword={}", admin_password));
+        
+        // Clean out any old corrupted ?ServerPassword= tags before setting it up
+        let clean_admin_password = admin_password.split("?ServerPassword=").next().unwrap_or(&admin_password);
+        connection_url.push_str(&format!("?ServerAdminPassword={}", clean_admin_password));
 
         if let Some(password) = server_password {
-            connection_url.push_str(&format!("?ServerPassword={}", password));
+            if !password.is_empty() {
+                connection_url.push_str(&format!("?ServerPassword={}", password));
+            }
         }
 
         let mut args = vec![connection_url];
@@ -861,11 +925,6 @@ impl ProcessManager {
 
         println!("  🚀 Executing Command: {:?} {:?}", executable, args);
 
-        let win64_dir = install_path
-            .join("ShooterGame")
-            .join("Binaries")
-            .join("Win64");
-
         println!("  📂 Setting Working Directory: {:?}", win64_dir);
 
         let mut command = Command::new(&executable);
@@ -889,10 +948,6 @@ impl ProcessManager {
         // Capture Output Streams
         let stdout = child.stdout.take().expect("Failed to capture stdout");
         let stderr = child.stderr.take().expect("Failed to capture stderr");
-
-        let webhook_sent = Arc::new(AtomicBool::new(false));
-        let webhook_sent_stdout = webhook_sent.clone();
-        let webhook_sent_stderr = webhook_sent.clone();
 
         let app_handle_stdout = self.app_handle.clone();
         let server_id_stdout = server_id;
@@ -940,22 +995,6 @@ impl ProcessManager {
                                 "server_id": server_id_stdout,
                                 "status": "online"
                             }));
-
-                            if !webhook_sent_stdout.swap(true, Ordering::SeqCst) {
-                                log::info!("✅ [STDOUT] Spawning thread to send serverStart webhook!");
-                                let wh_handle = app_handle_stdout.clone();
-                                let wh_id = server_id_stdout;
-                                std::thread::spawn(move || {
-                                    let name = get_server_name(&wh_handle, wh_id);
-                                    send_discord_webhook(
-                                        &wh_handle,
-                                        "serverStart",
-                                        DiscordEmbed::server_online(&name),
-                                    );
-                                });
-                            } else {
-                                log::info!("⚠️ [STDOUT] webhook_sent_stdout was already true!");
-                            }
                             
                             // Update DB immediately
                             if let Some(state) = app_handle_stdout.try_state::<AppState>() {
@@ -1001,19 +1040,6 @@ impl ProcessManager {
                                 "status": "online"
                             }));
 
-                            if !webhook_sent_stderr.swap(true, Ordering::SeqCst) {
-                                let wh_handle = app_handle_stderr.clone();
-                                let wh_id = server_id_stderr;
-                                std::thread::spawn(move || {
-                                    let name = get_server_name(&wh_handle, wh_id);
-                                    send_discord_webhook(
-                                        &wh_handle,
-                                        "serverStart",
-                                        DiscordEmbed::server_online(&name),
-                                    );
-                                });
-                            }
-
                             // Update DB immediately
                             if let Some(state) = app_handle_stderr.try_state::<AppState>() {
                                 if let Ok(db) = state.db.lock() {
@@ -1050,6 +1076,11 @@ impl ProcessManager {
 
         // startup_confirmed is already created above
 
+        // Clone for the log file watcher and webhook thread BEFORE moving values into the struct
+        let startup_confirmed_clone = startup_confirmed.clone();
+        let wh_startup_confirmed = startup_confirmed.clone(); // Clone for the dedicated webhook thread
+        let wh_stop_flag = stop_flag_clone.clone(); // Clone for the dedicated webhook thread
+
         // Store process
         {
             let mut processes = self.processes.lock().unwrap();
@@ -1060,15 +1091,14 @@ impl ProcessManager {
                 started_at: std::time::Instant::now(),
                 is_online: false,
                 ip_address: ip_address.map(|s| s.to_string()),
-                startup_confirmed: startup_confirmed,
-                webhook_sent: webhook_sent,
+                startup_confirmed,
                 has_been_online: false,
             });
         }
 
-        // Start log file watcher (Unchanged block omitted for brevity, keeping existing logic)
+        // Start log file watcher
         let app_handle = self.app_handle.clone();
-        let _app_handle_status = self.app_handle.clone(); // Clone for status updates inside thread
+        let _app_handle_status = self.app_handle.clone();
 
         std::thread::spawn(move || {
             // Wait for log file to be created
@@ -1090,6 +1120,11 @@ impl ProcessManager {
                 return;
             }
 
+            // Record initial file size so we can skip old content for startup detection
+            let mut initial_file_size = std::fs::metadata(&log_file_path)
+                .map(|m| m.len())
+                .unwrap_or(0);
+
             // Open log file
             let file = match File::open(&log_file_path) {
                 Ok(f) => f,
@@ -1107,6 +1142,7 @@ impl ProcessManager {
             };
 
             let mut reader = BufReader::new(file);
+            let mut bytes_read: u64 = 0;
 
             // Do NOT seek to end. Server might have already written startup logs.
             // let _ = reader.seek(SeekFrom::End(0));
@@ -1116,10 +1152,28 @@ impl ProcessManager {
                 let mut line = String::new();
                 match reader.read_line(&mut line) {
                     Ok(0) => {
+                        // EOF reached. Check if the file grew or shrunk (truncated).
+                        if let Ok(meta) = std::fs::metadata(&log_file_path) {
+                            if meta.len() < bytes_read {
+                                // Truncated! (e.g., server restarted and cleared log)
+                                println!("  🔄 Server {} LOG FILE truncated! Resetting reader.", server_id);
+                                if let Ok(new_file) = File::open(&log_file_path) {
+                                    reader = BufReader::new(new_file);
+                                    bytes_read = 0;
+                                    initial_file_size = 0; // Process all lines from the new file
+                                    continue;
+                                }
+                            } else if bytes_read == 0 && meta.len() == 0 && initial_file_size > 0 {
+                                // Edge case where file is truncated to 0 right at startup, and we haven't read anything.
+                                println!("  🔄 Server {} LOG FILE truncated to 0! Resetting target size.", server_id);
+                                initial_file_size = 0;
+                            }
+                        }
                         // No new data, wait a bit
                         std::thread::sleep(std::time::Duration::from_millis(100));
                     }
-                    Ok(_) => {
+                    Ok(n) => {
+                        bytes_read += n as u64;
                         let line = line.trim_end().to_string();
                         if !line.is_empty() {
                             // MOVED TO STDOUT thread for real-time updates
@@ -1134,45 +1188,39 @@ impl ProcessManager {
                             );
                             */
 
-                            // CHECK FOR SERVER READY STATE (LOG ONLY)
-                            // DISABLED: File watcher reads history (since we removed seek), causing false positives.
-                            // We now rely ONLY on STDOUT for real-time startup detection.
-                            /*
-                            let lower_line = line.to_lowercase();
-                            if lower_line.contains("server has successfully started")
-                                || lower_line.contains("full startup: ")
-                                || lower_line.contains("number of cores")
-                                || lower_line.contains("commandline:") 
-                                || lower_line.contains("primal game data took") // Gen 1
-                                || lower_line.contains("server has completed startup") // ASA
-                                || lower_line.contains("advertising for join") // ASA explicit
-                                || lower_line.contains("world save complete")
-                                || lower_line.contains("rcon server successfully started")
-                                || lower_line.contains("setting up listen server")
-                            {
-                                println!("  🎉 Server {} logged startup complete (Waiting for network...)", server_id);
-                                startup_confirmed_clone.store(true, Ordering::Relaxed);
-                                
-                                // Force immediate UI update
-                                // Force immediate UI update
-                                let _ = app_handle.emit("server-status-change", serde_json::json!({
-                                    "server_id": server_id,
-                                    "status": "online"
-                                }));
-                                
-                                // ALSO update the DB immediately to prevent race conditions with the monitor loop
-                                if let Some(state) = app_handle.try_state::<AppState>() {
-                                    if let Ok(db) = state.db.lock() {
-                                        if let Ok(conn) = db.get_connection() {
-                                            let _ = conn.execute(
-                                                "UPDATE servers SET status = 'online' WHERE id = ?1",
-                                                rusqlite::params![server_id],
-                                            );
+                            // CHECK FOR SERVER READY STATE (LOG FILE)
+                            // Only check lines that are NEW (written after we started watching)
+                            // to avoid false positives from a previous run's log content.
+                            if bytes_read > initial_file_size {
+                                let lower_line = line.to_lowercase();
+                                if lower_line.contains("server has completed startup")
+                                    || lower_line.contains("advertising for join")
+                                {
+                                    if !startup_confirmed_clone.load(Ordering::Relaxed) {
+                                        println!("  🎉 Server {} LOG FILE detected startup complete!", server_id);
+                                        startup_confirmed_clone.store(true, Ordering::Relaxed);
+                                        
+                                        // Force immediate UI update
+                                        let _ = app_handle.emit("server-status-change", serde_json::json!({
+                                            "server_id": server_id,
+                                            "status": "online"
+                                        }));
+                                        
+                                        // Update DB immediately
+                                        if let Some(state) = app_handle.try_state::<AppState>() {
+                                            if let Ok(db) = state.db.lock() {
+                                                if let Ok(conn) = db.get_connection() {
+                                                    let _ = conn.execute(
+                                                        "UPDATE servers SET status = 'online' WHERE id = ?1",
+                                                        rusqlite::params![server_id],
+                                                    );
+                                                }
+                                            }
                                         }
+                                        // NOTE: Discord webhook is handled by the dedicated sender thread.
                                     }
                                 }
                             }
-                            */
 
                             // DISCORD WEBHOOKS: Player Join/Leave
                             if line.contains("joined this ARK!") {
@@ -1184,13 +1232,13 @@ impl ProcessManager {
                                         let wh_handle = app_handle.clone();
                                         let wh_id = server_id;
                                         let p_name = player_name.to_string();
-                                        std::thread::spawn(move || {
+                                        tauri::async_runtime::spawn(async move {
                                             let s_name = get_server_name(&wh_handle, wh_id);
                                             send_discord_webhook(
                                                 &wh_handle,
                                                 "playerJoin",
                                                 DiscordEmbed::player_join(&s_name, &p_name),
-                                            );
+                                            ).await;
                                         });
                                     }
                                 }
@@ -1203,13 +1251,13 @@ impl ProcessManager {
                                         let wh_handle = app_handle.clone();
                                         let wh_id = server_id;
                                         let p_name = player_name.to_string();
-                                        std::thread::spawn(move || {
+                                        tauri::async_runtime::spawn(async move {
                                             let s_name = get_server_name(&wh_handle, wh_id);
                                             send_discord_webhook(
                                                 &wh_handle,
                                                 "playerLeave",
                                                 DiscordEmbed::player_leave(&s_name, &p_name),
-                                            );
+                                            ).await;
                                         });
                                     }
                                 }
@@ -1231,6 +1279,47 @@ impl ProcessManager {
                 window_hider::hide_process_windows(child_pid);
                 std::thread::sleep(std::time::Duration::from_secs(5));
                 window_hider::hide_process_windows(child_pid);
+            });
+        }
+
+        // ── DEDICATED DISCORD WEBHOOK SENDER ──
+        // Completely independent thread that watches for startup_confirmed
+        // and sends the "Server Online" Discord webhook. No shared flags.
+        {
+            let wh_app_handle = self.app_handle.clone();
+            // wh_startup_confirmed is already cloned above
+            // wh_stop_flag is already cloned above
+            let wh_server_id = server_id;
+            let wh_stop_flag_thread = wh_stop_flag.clone();
+
+            tauri::async_runtime::spawn(async move {
+                println!("  🔔 [WEBHOOK-THREAD] Started for server {}", wh_server_id);
+
+                // Poll every 2 seconds until startup is confirmed or server stops
+                loop {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+                    // If server was stopped, exit
+                    if wh_stop_flag_thread.load(Ordering::SeqCst) {
+                        println!("  🔔 [WEBHOOK-THREAD] Server {} stopped before going online. Exiting.", wh_server_id);
+                        return;
+                    }
+
+                    // Check if startup has been confirmed (by log watcher, stdout, or stderr)
+                    if wh_startup_confirmed.load(Ordering::Relaxed) {
+                        println!("  🔔 [WEBHOOK-THREAD] Server {} is ONLINE! Sending Discord webhook...", wh_server_id);
+
+                        let name = get_server_name(&wh_app_handle, wh_server_id);
+                        send_discord_webhook(
+                            &wh_app_handle,
+                            "serverStart",
+                            DiscordEmbed::server_online(&name),
+                        ).await;
+
+                        println!("  🔔 [WEBHOOK-THREAD] Done for server {}. Exiting.", wh_server_id);
+                        return;
+                    }
+                }
             });
         }
 
@@ -1292,13 +1381,13 @@ impl ProcessManager {
 
             // Send Discord webhook for server stop
             let wh_handle = self.app_handle.clone();
-            std::thread::spawn(move || {
+            tauri::async_runtime::spawn(async move {
                 let name = get_server_name(&wh_handle, server_id);
                 send_discord_webhook(
                     &wh_handle,
                     "serverStop",
                     DiscordEmbed::server_stopped(&name),
-                );
+                ).await;
             });
         }
 

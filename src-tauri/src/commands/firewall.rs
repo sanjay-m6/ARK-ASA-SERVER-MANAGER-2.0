@@ -50,8 +50,10 @@ struct FirewallRuleData {
 
 /// Fetch all relevant firewall rules (filtered for ARK to avoid hanging)
 fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
-    // Filter by DisplayName wildcard to reduce overhead significantly
-    let script = "Get-NetFirewallRule -DisplayName 'ARK Server*' -Enabled True -Direction Inbound -Action Allow | Get-NetFirewallPortFilter | Select-Object LocalPort, Protocol | ConvertTo-Json -Compress";
+    // BUG A FIX: Added -ErrorAction SilentlyContinue because Get-NetFirewallRule
+    // throws a terminating ObjectNotFound error when ZERO rules match the wildcard,
+    // which caused all ports to show as "Unassigned".
+    let script = "Get-NetFirewallRule -DisplayName 'ARK Server*' -Enabled True -Direction Inbound -Action Allow -ErrorAction SilentlyContinue | Get-NetFirewallPortFilter | Select-Object LocalPort, Protocol | ConvertTo-Json -Compress";
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
@@ -60,11 +62,30 @@ fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
 
     let mut rules_set = std::collections::HashSet::new();
 
-    if let Ok(result) = output {
-        if result.status.success() {
-            let stdout = String::from_utf8_lossy(&result.stdout);
+    match output {
+        Ok(result) => {
+            let stdout = String::from_utf8_lossy(&result.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&result.stderr).trim().to_string();
 
-            // Handle single object vs array vs empty
+            if !stderr.is_empty() {
+                log::warn!(
+                    "[FIREWALL] PowerShell stderr while fetching rules: {}",
+                    stderr
+                );
+            }
+
+            // Empty stdout means no rules found — try netsh fallback
+            if stdout.is_empty() {
+                log::info!("[FIREWALL] PowerShell pipeline returned empty — trying netsh fallback");
+                return fetch_firewall_rules_netsh();
+            }
+
+            log::info!(
+                "[FIREWALL] Raw PowerShell output: {}",
+                &stdout[..stdout.len().min(500)]
+            );
+
+            // Handle single object vs array
             if let Ok(rules) = serde_json::from_str::<Vec<FirewallRuleData>>(&stdout) {
                 for rule in rules {
                     let port_val = match &rule.local_port {
@@ -88,7 +109,105 @@ fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
                 if let Some(port) = port_val {
                     rules_set.insert((port, rule.protocol.to_uppercase()));
                 }
+            } else {
+                log::warn!(
+                    "[FIREWALL] Could not parse firewall rules JSON: {} — trying netsh fallback",
+                    stdout
+                );
+                return fetch_firewall_rules_netsh();
             }
+        }
+        Err(e) => {
+            log::error!(
+                "[FIREWALL] Failed to execute PowerShell: {} — trying netsh fallback",
+                e
+            );
+            return fetch_firewall_rules_netsh();
+        }
+    }
+
+    // If PowerShell succeeded but found 0 rules, also try netsh as a safety net
+    if rules_set.is_empty() {
+        let netsh_rules = fetch_firewall_rules_netsh();
+        if !netsh_rules.is_empty() {
+            log::info!(
+                "[FIREWALL] PowerShell found 0 rules but netsh found {} — using netsh results",
+                netsh_rules.len()
+            );
+            return netsh_rules;
+        }
+    }
+
+    rules_set
+}
+
+/// Fallback: Fetch firewall rules using netsh (works without admin elevation)
+fn fetch_firewall_rules_netsh() -> std::collections::HashSet<(u16, String)> {
+    let mut rules_set = std::collections::HashSet::new();
+
+    // netsh works without admin and is more reliable for reading rules
+    let output = Command::new("netsh")
+        .args([
+            "advfirewall",
+            "firewall",
+            "show",
+            "rule",
+            "name=all",
+            "dir=in",
+            "status=enabled",
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+
+    match output {
+        Ok(result) => {
+            let stdout = String::from_utf8_lossy(&result.stdout);
+
+            // Parse netsh output — rules are separated by blank lines
+            // Each rule block contains: Rule Name, Enabled, Direction, Protocol, LocalPort, etc.
+            let mut is_ark_rule = false;
+            let mut current_protocol = String::new();
+
+            for line in stdout.lines() {
+                let line = line.trim();
+
+                // Detect ARK Server rules by name
+                if line.starts_with("Rule Name:") {
+                    let name = line.trim_start_matches("Rule Name:").trim();
+                    is_ark_rule = name.starts_with("ARK Server");
+                    current_protocol.clear();
+                }
+
+                if !is_ark_rule {
+                    continue;
+                }
+
+                // Extract protocol
+                if line.starts_with("Protocol:") {
+                    current_protocol = line.trim_start_matches("Protocol:").trim().to_uppercase();
+                }
+
+                // Extract local port
+                if line.starts_with("LocalPort:") {
+                    let port_str = line.trim_start_matches("LocalPort:").trim();
+                    if let Ok(port) = port_str.parse::<u16>() {
+                        let proto = if current_protocol.is_empty() {
+                            "TCP".to_string()
+                        } else {
+                            current_protocol.clone()
+                        };
+                        rules_set.insert((port, proto));
+                    }
+                }
+            }
+
+            log::info!(
+                "[FIREWALL] netsh fallback found {} port/protocol rules",
+                rules_set.len()
+            );
+        }
+        Err(e) => {
+            log::error!("[FIREWALL] netsh fallback also failed: {}", e);
         }
     }
 
@@ -202,28 +321,46 @@ fn create_firewall_rules_elevated(rules: Vec<(u16, &str, String)>) -> Result<(),
         return Ok(());
     }
 
-    // Build a PowerShell script that creates all rules
+    let temp_dir = std::env::temp_dir();
+    let script_path = temp_dir.join("ark_firewall_rules.ps1");
+    let log_path = temp_dir.join("ark_firewall_rules.log");
+
+    // BUG B FIX: The elevated child process runs in a separate context where
+    // stdout/stderr are invisible to the parent. Now we redirect output to a log
+    // file that the parent can read to verify success.
     let mut script_parts = Vec::new();
+    script_parts.push(format!(
+        "$logFile = '{}'",
+        log_path.to_string_lossy().replace('\\', "\\\\")
+    ));
+    script_parts.push("$results = @()".to_string());
+
     for (port, protocol, rule_name) in &rules {
         script_parts.push(format!(
             r#"$ruleName = '{}'
 $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
 if (-not $existingRule) {{
-    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort {} -Protocol {} -Action Allow -Profile Any | Out-Null
-    Write-Host "Created: $ruleName"
+    try {{
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort {} -Protocol {} -Action Allow -Profile Any | Out-Null
+        $results += "CREATED: $ruleName"
+    }} catch {{
+        $results += "FAILED: $ruleName - $($_.Exception.Message)"
+    }}
 }} else {{
-    Write-Host "Exists: $ruleName"
+    $results += "EXISTS: $ruleName"
 }}"#,
             rule_name, port, protocol
         ));
     }
+
+    script_parts.push("$results | Out-File -FilePath $logFile -Encoding UTF8".to_string());
     let combined_script = script_parts.join("\n");
 
-    // Write script to temp file
-    let temp_dir = std::env::temp_dir();
-    let script_path = temp_dir.join("ark_firewall_rules.ps1");
     std::fs::write(&script_path, &combined_script)
         .map_err(|e| format!("Failed to write temp script: {}", e))?;
+
+    // Clean up old log file
+    let _ = std::fs::remove_file(&log_path);
 
     // Use Start-Process with -Verb RunAs to get elevation
     let launcher_script = format!(
@@ -242,18 +379,43 @@ if (-not $existingRule) {{
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 
-    // Clean up temp file
+    // Clean up script file
     let _ = std::fs::remove_file(&script_path);
 
-    if output.status.success() {
+    // BUG B FIX: Read the log file written by the elevated process to verify results
+    let log_contents = std::fs::read_to_string(&log_path).unwrap_or_default();
+    let _ = std::fs::remove_file(&log_path);
+
+    if !log_contents.is_empty() {
+        log::info!(
+            "[FIREWALL] Elevated script results:\n{}",
+            log_contents.trim()
+        );
+
+        // Check if any rule FAILED
+        if log_contents.contains("FAILED:") {
+            let failures: Vec<&str> = log_contents
+                .lines()
+                .filter(|l| l.contains("FAILED:"))
+                .collect();
+            return Err(format!(
+                "Some firewall rules failed to create: {}",
+                failures.join("; ")
+            ));
+        }
         Ok(())
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.is_empty() {
-            Ok(()) // UAC was shown but no error
-        } else {
-            Err(format!("Failed to create rules: {}", stderr))
+        // No log file means the elevated process never ran (UAC was dismissed)
+        if !output.status.success() {
+            return Err(
+                "UAC elevation was denied or failed. Please run as Administrator.".to_string(),
+            );
         }
+        // Even if parent reports success, no log means UAC was likely dismissed
+        Err(
+            "Firewall rules could not be verified. UAC elevation may have been dismissed."
+                .to_string(),
+        )
     }
 }
 
@@ -373,7 +535,6 @@ fn get_server_from_db(state: &State<'_, AppState>, server_id: i64) -> Result<Ser
 }
 
 /// Get firewall status for all servers
-/// Get firewall status for all servers
 #[tauri::command]
 pub async fn get_all_servers_firewall_status(
     state: State<'_, AppState>,
@@ -382,19 +543,66 @@ pub async fn get_all_servers_firewall_status(
 
     // Fetch all rules ONCE
     let rules_cache = fetch_all_firewall_rules();
+    log::info!(
+        "[FIREWALL] Status check: found {} cached rules",
+        rules_cache.len()
+    );
 
     let mut statuses = Vec::new();
 
     for server in servers {
-        // Check game port (UDP)
-        let game_port_status = check_port_in_cache(&rules_cache, server.game_port, "UDP");
+        // Check game port (both TCP + UDP required)
+        let game_udp = check_port_in_cache(&rules_cache, server.game_port, "UDP");
+        let game_tcp = check_port_in_cache(&rules_cache, server.game_port, "TCP");
+        let game_port_status = if game_udp == PortStatus::Open && game_tcp == PortStatus::Open {
+            PortStatus::Open
+        } else {
+            PortStatus::Closed
+        };
+        log::info!(
+            "[FIREWALL] {} game port {}: UDP={:?} TCP={:?} => {:?}",
+            server.name,
+            server.game_port,
+            game_udp,
+            game_tcp,
+            game_port_status
+        );
 
-        // Check query port (UDP)
-        let query_port_status = check_port_in_cache(&rules_cache, server.query_port, "UDP");
+        // Check query port (both TCP + UDP required)
+        let query_udp = check_port_in_cache(&rules_cache, server.query_port, "UDP");
+        let query_tcp = check_port_in_cache(&rules_cache, server.query_port, "TCP");
+        let query_port_status = if query_udp == PortStatus::Open && query_tcp == PortStatus::Open {
+            PortStatus::Open
+        } else {
+            PortStatus::Closed
+        };
+        log::info!(
+            "[FIREWALL] {} query port {}: UDP={:?} TCP={:?} => {:?}",
+            server.name,
+            server.query_port,
+            query_udp,
+            query_tcp,
+            query_port_status
+        );
 
-        // Check RCON port (TCP) only if enabled
+        // Check RCON port (both TCP + UDP required) only if enabled
         let rcon_port_status = if server.rcon_enabled {
-            check_port_in_cache(&rules_cache, server.rcon_port, "TCP")
+            let rcon_tcp = check_port_in_cache(&rules_cache, server.rcon_port, "TCP");
+            let rcon_udp = check_port_in_cache(&rules_cache, server.rcon_port, "UDP");
+            let status = if rcon_tcp == PortStatus::Open && rcon_udp == PortStatus::Open {
+                PortStatus::Open
+            } else {
+                PortStatus::Closed
+            };
+            log::info!(
+                "[FIREWALL] {} RCON port {}: TCP={:?} UDP={:?} => {:?}",
+                server.name,
+                server.rcon_port,
+                rcon_tcp,
+                rcon_udp,
+                status
+            );
+            status
         } else {
             PortStatus::Closed
         };
@@ -426,10 +634,35 @@ pub async fn get_firewall_status(
     // Use batch fetch even for single server to save process creation overhead
     let rules_cache = fetch_all_firewall_rules();
 
-    let game_port_status = check_port_in_cache(&rules_cache, server.game_port, "UDP");
-    let query_port_status = check_port_in_cache(&rules_cache, server.query_port, "UDP");
+    // Game port: both TCP + UDP required
+    let game_port_status = if check_port_in_cache(&rules_cache, server.game_port, "UDP")
+        == PortStatus::Open
+        && check_port_in_cache(&rules_cache, server.game_port, "TCP") == PortStatus::Open
+    {
+        PortStatus::Open
+    } else {
+        PortStatus::Closed
+    };
+
+    // Query port: both TCP + UDP required
+    let query_port_status = if check_port_in_cache(&rules_cache, server.query_port, "UDP")
+        == PortStatus::Open
+        && check_port_in_cache(&rules_cache, server.query_port, "TCP") == PortStatus::Open
+    {
+        PortStatus::Open
+    } else {
+        PortStatus::Closed
+    };
+
+    // RCON port: both TCP + UDP required (if enabled)
     let rcon_port_status = if server.rcon_enabled {
-        check_port_in_cache(&rules_cache, server.rcon_port, "TCP")
+        if check_port_in_cache(&rules_cache, server.rcon_port, "TCP") == PortStatus::Open
+            && check_port_in_cache(&rules_cache, server.rcon_port, "UDP") == PortStatus::Open
+        {
+            PortStatus::Open
+        } else {
+            PortStatus::Closed
+        }
     } else {
         PortStatus::Closed
     };
@@ -448,6 +681,7 @@ pub async fn get_firewall_status(
 }
 
 /// Create firewall rules for a single server (with UAC elevation)
+/// Creates BOTH TCP and UDP rules for every port to ensure full connectivity.
 #[tauri::command]
 pub async fn create_firewall_rules(
     state: State<'_, AppState>,
@@ -457,8 +691,9 @@ pub async fn create_firewall_rules(
 
     let server_name = &server.name;
 
-    // Build list of rules to create
+    // Build list of rules — BOTH TCP and UDP for each port
     let mut rules: Vec<(u16, &str, String)> = vec![
+        // Game port - UDP + TCP
         (
             server.game_port,
             "UDP",
@@ -468,6 +703,15 @@ pub async fn create_firewall_rules(
             ),
         ),
         (
+            server.game_port,
+            "TCP",
+            format!(
+                "ARK Server - {} - Game (TCP {})",
+                server_name, server.game_port
+            ),
+        ),
+        // Query port - UDP + TCP
+        (
             server.query_port,
             "UDP",
             format!(
@@ -475,9 +719,17 @@ pub async fn create_firewall_rules(
                 server_name, server.query_port
             ),
         ),
+        (
+            server.query_port,
+            "TCP",
+            format!(
+                "ARK Server - {} - Query (TCP {})",
+                server_name, server.query_port
+            ),
+        ),
     ];
 
-    // Add RCON port if enabled
+    // Add RCON port if enabled - TCP + UDP
     if server.rcon_enabled {
         rules.push((
             server.rcon_port,
@@ -487,24 +739,53 @@ pub async fn create_firewall_rules(
                 server_name, server.rcon_port
             ),
         ));
+        rules.push((
+            server.rcon_port,
+            "UDP",
+            format!(
+                "ARK Server - {} - RCON (UDP {})",
+                server_name, server.rcon_port
+            ),
+        ));
     }
+
+    log::info!(
+        "[FIREWALL] Creating {} rules for server '{}' (id={})",
+        rules.len(),
+        server_name,
+        server_id
+    );
 
     // Create all rules with elevation (single UAC prompt)
     match create_firewall_rules_elevated(rules) {
-        Ok(_) => Ok(FirewallOperationResult {
-            success: true,
-            message: format!("Firewall rules created for '{}'", server_name),
-            requires_admin: false,
-        }),
-        Err(e) => Ok(FirewallOperationResult {
-            success: false,
-            message: e,
-            requires_admin: false,
-        }),
+        Ok(_) => {
+            log::info!(
+                "[FIREWALL] Successfully created rules for '{}'",
+                server_name
+            );
+            Ok(FirewallOperationResult {
+                success: true,
+                message: format!("Firewall rules created for '{}'", server_name),
+                requires_admin: false,
+            })
+        }
+        Err(e) => {
+            log::error!(
+                "[FIREWALL] Failed to create rules for '{}': {}",
+                server_name,
+                e
+            );
+            Ok(FirewallOperationResult {
+                success: false,
+                message: e,
+                requires_admin: false,
+            })
+        }
     }
 }
 
 /// Remove firewall rules for a single server (with UAC elevation)
+/// Removes BOTH TCP and UDP rules for every port.
 #[tauri::command]
 pub async fn remove_firewall_rules(
     state: State<'_, AppState>,
@@ -514,38 +795,73 @@ pub async fn remove_firewall_rules(
 
     let server_name = &server.name;
 
-    // Build list of rule names to remove
+    // Build list of rule names to remove — BOTH protocols for each port
     let rule_names = vec![
+        // Game port
         format!(
             "ARK Server - {} - Game (UDP {})",
             server_name, server.game_port
         ),
         format!(
+            "ARK Server - {} - Game (TCP {})",
+            server_name, server.game_port
+        ),
+        // Query port
+        format!(
             "ARK Server - {} - Query (UDP {})",
             server_name, server.query_port
         ),
         format!(
+            "ARK Server - {} - Query (TCP {})",
+            server_name, server.query_port
+        ),
+        // RCON port
+        format!(
             "ARK Server - {} - RCON (TCP {})",
+            server_name, server.rcon_port
+        ),
+        format!(
+            "ARK Server - {} - RCON (UDP {})",
             server_name, server.rcon_port
         ),
     ];
 
+    log::info!(
+        "[FIREWALL] Removing {} rules for server '{}'",
+        rule_names.len(),
+        server_name
+    );
+
     // Remove all rules with elevation (single UAC prompt)
     match remove_firewall_rules_elevated(rule_names) {
-        Ok(_) => Ok(FirewallOperationResult {
-            success: true,
-            message: format!("Firewall rules removed for '{}'", server_name),
-            requires_admin: false,
-        }),
-        Err(e) => Ok(FirewallOperationResult {
-            success: false,
-            message: e,
-            requires_admin: false,
-        }),
+        Ok(_) => {
+            log::info!(
+                "[FIREWALL] Successfully removed rules for '{}'",
+                server_name
+            );
+            Ok(FirewallOperationResult {
+                success: true,
+                message: format!("Firewall rules removed for '{}'", server_name),
+                requires_admin: false,
+            })
+        }
+        Err(e) => {
+            log::error!(
+                "[FIREWALL] Failed to remove rules for '{}': {}",
+                server_name,
+                e
+            );
+            Ok(FirewallOperationResult {
+                success: false,
+                message: e,
+                requires_admin: false,
+            })
+        }
     }
 }
 
 /// Create firewall rules for all servers (with UAC elevation)
+/// Creates BOTH TCP and UDP rules for every port on every server.
 #[tauri::command]
 pub async fn create_all_firewall_rules(
     state: State<'_, AppState>,
@@ -560,13 +876,13 @@ pub async fn create_all_firewall_rules(
         });
     }
 
-    // Build list of all rules to create
+    // Build list of all rules — BOTH TCP and UDP for each port
     let mut rules: Vec<(u16, &str, String)> = Vec::new();
 
     for server in &servers {
         let server_name = &server.name;
 
-        // Game port
+        // Game port - UDP + TCP
         rules.push((
             server.game_port,
             "UDP",
@@ -575,8 +891,16 @@ pub async fn create_all_firewall_rules(
                 server_name, server.game_port
             ),
         ));
+        rules.push((
+            server.game_port,
+            "TCP",
+            format!(
+                "ARK Server - {} - Game (TCP {})",
+                server_name, server.game_port
+            ),
+        ));
 
-        // Query port
+        // Query port - UDP + TCP
         rules.push((
             server.query_port,
             "UDP",
@@ -585,8 +909,16 @@ pub async fn create_all_firewall_rules(
                 server_name, server.query_port
             ),
         ));
+        rules.push((
+            server.query_port,
+            "TCP",
+            format!(
+                "ARK Server - {} - Query (TCP {})",
+                server_name, server.query_port
+            ),
+        ));
 
-        // RCON port (if enabled)
+        // RCON port (if enabled) - TCP + UDP
         if server.rcon_enabled {
             rules.push((
                 server.rcon_port,
@@ -596,27 +928,46 @@ pub async fn create_all_firewall_rules(
                     server_name, server.rcon_port
                 ),
             ));
+            rules.push((
+                server.rcon_port,
+                "UDP",
+                format!(
+                    "ARK Server - {} - RCON (UDP {})",
+                    server_name, server.rcon_port
+                ),
+            ));
         }
     }
 
     let rule_count = rules.len();
+    log::info!(
+        "[FIREWALL] Creating {} rules for {} servers",
+        rule_count,
+        servers.len()
+    );
 
     // Create all rules with elevation (single UAC prompt)
     match create_firewall_rules_elevated(rules) {
-        Ok(_) => Ok(FirewallOperationResult {
-            success: true,
-            message: format!(
-                "Created {} firewall rules for {} servers",
-                rule_count,
-                servers.len()
-            ),
-            requires_admin: false,
-        }),
-        Err(e) => Ok(FirewallOperationResult {
-            success: false,
-            message: e,
-            requires_admin: false,
-        }),
+        Ok(_) => {
+            log::info!("[FIREWALL] Successfully created all {} rules", rule_count);
+            Ok(FirewallOperationResult {
+                success: true,
+                message: format!(
+                    "Created {} firewall rules for {} servers",
+                    rule_count,
+                    servers.len()
+                ),
+                requires_admin: false,
+            })
+        }
+        Err(e) => {
+            log::error!("[FIREWALL] Failed to create rules: {}", e);
+            Ok(FirewallOperationResult {
+                success: false,
+                message: e,
+                requires_admin: false,
+            })
+        }
     }
 }
 
@@ -649,10 +1000,10 @@ pub async fn create_manual_firewall_rule(
 ) -> Result<FirewallOperationResult, String> {
     // Validate protocol
     let protocol_upper = protocol.to_uppercase();
-    if protocol_upper != "TCP" && protocol_upper != "UDP" {
+    if protocol_upper != "TCP" && protocol_upper != "UDP" && protocol_upper != "BOTH" {
         return Ok(FirewallOperationResult {
             success: false,
-            message: "Protocol must be 'TCP' or 'UDP'".to_string(),
+            message: "Protocol must be 'TCP', 'UDP', or 'BOTH'".to_string(),
             requires_admin: false,
         });
     }
@@ -666,17 +1017,34 @@ pub async fn create_manual_firewall_rule(
         });
     }
 
-    let rule_name = if description.is_empty() {
-        format!("ARK Server Manager - Custom {} {}", protocol_upper, port)
-    } else {
-        format!(
-            "ARK Server Manager - {} ({} {})",
-            description, protocol_upper, port
-        )
-    };
+    let mut rules = Vec::new();
 
-    // Use elevated function with single rule
-    let rules = vec![(port, protocol_upper.as_str(), rule_name)];
+    if protocol_upper == "BOTH" {
+        let name_tcp = if description.is_empty() {
+            format!("ARK Server Manager - Custom TCP {}", port)
+        } else {
+            format!("ARK Server Manager - {} (TCP {})", description, port)
+        };
+        let name_udp = if description.is_empty() {
+            format!("ARK Server Manager - Custom UDP {}", port)
+        } else {
+            format!("ARK Server Manager - {} (UDP {})", description, port)
+        };
+        rules.push((port, "TCP", name_tcp));
+        rules.push((port, "UDP", name_udp));
+    } else {
+        let rule_name = if description.is_empty() {
+            format!("ARK Server Manager - Custom {} {}", protocol_upper, port)
+        } else {
+            format!(
+                "ARK Server Manager - {} ({} {})",
+                description, protocol_upper, port
+            )
+        };
+        rules.push((port, protocol_upper.as_str(), rule_name));
+    }
+
+    // Use elevated function
     match create_firewall_rules_elevated(rules) {
         Ok(_) => Ok(FirewallOperationResult {
             success: true,
@@ -700,17 +1068,35 @@ pub async fn remove_manual_firewall_rule(
 ) -> Result<FirewallOperationResult, String> {
     let protocol_upper = protocol.to_uppercase();
 
-    let rule_name = if description.is_empty() {
-        format!("ARK Server Manager - Custom {} {}", protocol_upper, port)
+    let mut rule_names = Vec::new();
+
+    if protocol_upper == "BOTH" {
+        let name_tcp = if description.is_empty() {
+            format!("ARK Server Manager - Custom TCP {}", port)
+        } else {
+            format!("ARK Server Manager - {} (TCP {})", description, port)
+        };
+        let name_udp = if description.is_empty() {
+            format!("ARK Server Manager - Custom UDP {}", port)
+        } else {
+            format!("ARK Server Manager - {} (UDP {})", description, port)
+        };
+        rule_names.push(name_tcp);
+        rule_names.push(name_udp);
     } else {
-        format!(
-            "ARK Server Manager - {} ({} {})",
-            description, protocol_upper, port
-        )
-    };
+        let rule_name = if description.is_empty() {
+            format!("ARK Server Manager - Custom {} {}", protocol_upper, port)
+        } else {
+            format!(
+                "ARK Server Manager - {} ({} {})",
+                description, protocol_upper, port
+            )
+        };
+        rule_names.push(rule_name);
+    }
 
     // Use elevated function
-    match remove_firewall_rules_elevated(vec![rule_name]) {
+    match remove_firewall_rules_elevated(rule_names) {
         Ok(_) => Ok(FirewallOperationResult {
             success: true,
             message: format!("Closed port {} ({})", port, protocol_upper),

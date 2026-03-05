@@ -4,7 +4,7 @@ import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getVersion } from '@tauri-apps/api/app';
-import { Download, X, RefreshCw, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Download, X, RefreshCw, AlertCircle, Clock } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import {
     addUpdateHistory,
@@ -279,80 +279,89 @@ export default function UpdateChecker() {
     return (
         <div className={cn(
             "fixed bottom-4 right-4 z-50 max-w-sm w-full",
-            "bg-slate-900",
-            "border border-slate-700 rounded-xl shadow-2xl shadow-black/50 animate-in slide-in-from-bottom-2 duration-300"
+            "bg-slate-900/80 backdrop-blur-xl",
+            "border border-slate-700/50 rounded-2xl shadow-[0_0_40px_-10px_rgba(0,0,0,0.5)] animate-in slide-in-from-bottom-4 duration-500",
+            "before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:bg-gradient-to-b before:from-sky-500/10 before:to-transparent"
         )}>
-            <div className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-lg bg-sky-500/10 border border-sky-500/20">
-                            <Download className="w-5 h-5 text-sky-400" />
+            <div className="p-5">
+                <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-sky-500/20 rounded-xl blur-md"></div>
+                            <div className="relative p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30">
+                                <Download className="w-5 h-5 text-sky-400" />
+                            </div>
                         </div>
                         <div>
-                            <h3 className="font-bold text-white text-sm">{t('updateChecker.title')}</h3>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-400">v{currentAppVersion}</span>
-                                <span className="text-slate-600">→</span>
-                                <span className="px-1.5 py-0.5 rounded bg-green-500/10 border border-green-500/20 text-[10px] font-mono text-green-400">v{updateAvailable.version}</span>
+                            <h3 className="font-bold text-white text-base">{t('updateChecker.title')}</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/50 text-[11px] font-mono text-slate-400">v{currentAppVersion}</span>
+                                <span className="text-slate-500">→</span>
+                                <span className="px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 text-[11px] font-mono text-sky-400 font-medium tracking-wide">v{updateAvailable.version}</span>
                             </div>
                         </div>
                     </div>
                     <button
                         onClick={() => setShowBanner(false)}
-                        className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors text-slate-500 hover:text-white"
+                        className="p-1.5 hover:bg-slate-800/80 rounded-lg transition-all text-slate-500 hover:text-white"
                     >
                         <X className="w-4 h-4" />
                     </button>
                 </div>
 
-                <div className="bg-slate-950/50 rounded-lg p-3 mb-4 border border-slate-800/50 max-h-32 overflow-y-auto custom-scrollbar">
-                    <p className="text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">
+                <div className="bg-slate-950/40 rounded-xl p-3.5 mb-5 border border-slate-800/50 max-h-32 overflow-y-auto custom-scrollbar shadow-inner">
+                    <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
                         {updateAvailable.body}
                     </p>
                 </div>
 
                 {error && (
-                    <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-400 text-xs mb-3">
+                    <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs mb-4">
                         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                         <span>{error}</span>
                     </div>
                 )}
 
                 {isDownloading && (
-                    <div className="mb-3 space-y-2">
-                        <div className="flex justify-between text-xs text-slate-400">
-                            <span>{t('updateChecker.downloading')}</span>
-                            <span>{Math.round(downloadProgress)}%</span>
+                    <div className="mb-5 space-y-2.5">
+                        <div className="flex justify-between text-xs font-medium text-sky-200/70">
+                            <span className="flex items-center gap-1.5">
+                                <RefreshCw className="w-3 h-3 animate-spin text-sky-400" />
+                                {t('updateChecker.downloading')}
+                            </span>
+                            <span className="text-sky-400 font-mono">{Math.round(downloadProgress)}%</span>
                         </div>
-                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="relative h-2 w-full bg-slate-800/80 rounded-full overflow-hidden border border-slate-700/50">
                             <div
-                                className="h-full bg-sky-500 transition-all duration-300 ease-out"
+                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(56,189,248,0.5)]"
                                 style={{ width: `${downloadProgress}%` }}
-                            />
+                            >
+                                <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                            </div>
                         </div>
                     </div>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex gap-2.5">
                     <button
                         onClick={downloadAndInstall}
                         disabled={isDownloading}
                         className={cn(
-                            "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg",
-                            "bg-sky-600 hover:bg-sky-500 active:bg-sky-700",
-                            "text-white font-bold text-xs tracking-wide uppercase",
+                            "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl",
+                            "bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500",
+                            "text-white font-bold text-xs tracking-wider uppercase",
                             "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "transition-all duration-200 shadow-lg shadow-sky-500/20"
+                            "transition-all duration-300 shadow-lg shadow-sky-500/20 hover:shadow-sky-500/40 border border-t-white/10"
                         )}
                     >
                         {isDownloading ? (
                             <>
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                <RefreshCw className="w-4 h-4 animate-spin" />
                                 {t('updateChecker.installing')}
                             </>
                         ) : (
                             <>
-                                <CheckCircle className="w-3.5 h-3.5" />
+                                <Download className="w-4 h-4" />
                                 {t('updateChecker.updateNow')}
                             </>
                         )}
@@ -363,13 +372,13 @@ export default function UpdateChecker() {
                             <button
                                 onClick={handleSkipVersion}
                                 title={t('updateChecker.skip')}
-                                className="px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700"
+                                className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-slate-700/50 hover:border-slate-600"
                             >
                                 <Clock className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setShowBanner(false)}
-                                className="px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700 text-xs font-bold uppercase tracking-wide"
+                                className="px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-slate-700/50 hover:border-slate-600 text-xs font-bold uppercase tracking-wider"
                             >
                                 {t('updateChecker.later')}
                             </button>

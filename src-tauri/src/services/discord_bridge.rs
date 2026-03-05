@@ -116,7 +116,7 @@ struct GatewayHandler {
 #[serenity::async_trait]
 impl SerenityEventHandler for GatewayHandler {
     async fn ready(&self, _ctx: Context, ready: Ready) {
-        println!("🟢 Discord bot '{}' is now ONLINE", ready.user.name);
+        log::info!("🟢 Discord bot '{}' is now ONLINE", ready.user.name);
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
@@ -148,7 +148,7 @@ impl SerenityEventHandler for GatewayHandler {
             return;
         }
 
-        println!("🔔 Admin Command received: {}", msg.content);
+        log::info!("🔔 Admin Command received: {}", msg.content);
 
         let parts: Vec<&str> = msg.content.split_whitespace().collect();
         if parts.is_empty() {
@@ -469,6 +469,46 @@ impl DiscordBridgeService {
         cfg.clone()
     }
 
+    /// Load the first enabled bridge config from the database.
+    /// Used at startup to auto-load config without waiting for a frontend call.
+    pub fn load_config_from_db(&self) -> Option<DiscordBridgeConfig> {
+        use tauri::Manager;
+        let state = self.app_handle.try_state::<crate::AppState>()?;
+        let db = state.db.lock().ok()?;
+        let conn = db.get_connection().ok()?;
+
+        conn.query_row(
+            "SELECT cluster_id, enabled, bot_token, guild_id, channel_id,
+                    game_to_discord, discord_to_game,
+                    server_list_enabled, server_list_channel_id, server_list_message_id,
+                    player_list_enabled, player_list_channel_id, player_list_message_id,
+                    show_tribe_names, show_playtime, admin_channel_id
+             FROM discord_bridge_config WHERE enabled = 1 LIMIT 1",
+            [],
+            |row| {
+                Ok(DiscordBridgeConfig {
+                    cluster_id: row.get(0)?,
+                    enabled: row.get::<_, i32>(1)? != 0,
+                    bot_token: row.get(2)?,
+                    guild_id: row.get(3)?,
+                    channel_id: row.get(4)?,
+                    game_to_discord: row.get::<_, i32>(5)? != 0,
+                    discord_to_game: row.get::<_, i32>(6)? != 0,
+                    server_list_enabled: row.get::<_, i32>(7)? != 0,
+                    server_list_channel_id: row.get(8)?,
+                    server_list_message_id: row.get(9)?,
+                    player_list_enabled: row.get::<_, i32>(10)? != 0,
+                    player_list_channel_id: row.get(11)?,
+                    player_list_message_id: row.get(12)?,
+                    show_tribe_names: row.get::<_, i32>(13)? != 0,
+                    show_playtime: row.get::<_, i32>(14)? != 0,
+                    admin_channel_id: row.get::<_, Option<String>>(15)?.unwrap_or_default(),
+                })
+            },
+        )
+        .ok()
+    }
+
     /// Test Discord connection by fetching channel info
     pub async fn test_connection(&self) -> Result<String, String> {
         let config = self.config.lock().await;
@@ -661,7 +701,7 @@ impl DiscordBridgeService {
             return;
         }
         self.running.store(true, Ordering::Relaxed);
-        println!("🌉 Discord bridge started");
+        log::info!("🌉 Discord bridge started");
 
         // Spawn HTTP-based live updates loop
         let service = self.clone();
@@ -679,7 +719,7 @@ impl DiscordBridgeService {
     /// Connect to Discord Gateway via serenity so the bot appears online
     async fn start_gateway_connection(&self) {
         if self.gateway_running.load(Ordering::Relaxed) {
-            println!("🟢 Gateway already connected");
+            log::info!("🟢 Gateway already connected");
             return;
         }
 
@@ -688,7 +728,7 @@ impl DiscordBridgeService {
             match config.as_ref() {
                 Some(c) if !c.bot_token.is_empty() => c.bot_token.clone(),
                 _ => {
-                    println!("⚠️ No bot token configured, skipping Gateway connection");
+                    log::warn!("⚠️ No bot token configured, skipping Gateway connection");
                     return;
                 }
             }
@@ -714,11 +754,11 @@ impl DiscordBridgeService {
             .await
         {
             Ok(mut client) => {
-                println!("🔌 Connecting to Discord Gateway...");
+                log::info!("🔌 Connecting to Discord Gateway...");
                 if let Err(e) = client.start().await {
                     let err_str = format!("{:?}", e);
                     if err_str.contains("DisallowedGatewayIntents") {
-                        println!(
+                        log::error!(
                             "❌ Discord Gateway error: DisallowedGatewayIntents\n\
                             ➡️  FIX: The bot requires the 'Message Content' privileged intent.\n\
                             ➡️  Go to: https://discord.com/developers/applications\n\
@@ -727,13 +767,13 @@ impl DiscordBridgeService {
                             ➡️  Then restart the Discord Bridge."
                         );
                     } else {
-                        println!("❌ Discord Gateway error: {:?}", e);
+                        log::error!("❌ Discord Gateway error: {:?}", e);
                     }
                 }
                 gateway_running.store(false, Ordering::Relaxed);
             }
             Err(e) => {
-                println!("❌ Failed to build Discord client: {:?}", e);
+                log::error!("❌ Failed to build Discord client: {:?}", e);
                 gateway_running.store(false, Ordering::Relaxed);
             }
         }
@@ -743,12 +783,33 @@ impl DiscordBridgeService {
     pub fn stop(&self) {
         self.running.store(false, Ordering::Relaxed);
         self.gateway_running.store(false, Ordering::Relaxed);
-        println!("🌉 Discord bridge stopped");
+        log::info!("🌉 Discord bridge stopped");
     }
 
     /// Main loop for live updates
     async fn start_live_updates_loop(&self) {
-        println!("🔄 Discord Live Updates loop started");
+        log::info!("🔄 Discord Live Updates loop started");
+
+        // Auto-load config from DB if not already in memory
+        if self.get_config().await.is_none() {
+            log::info!("[Discord] No config in memory, attempting DB auto-load...");
+            if let Some(loaded) = self.load_config_from_db() {
+                if loaded.enabled {
+                    log::info!(
+                        "[Discord] Auto-loaded config for cluster {}",
+                        loaded.cluster_id
+                    );
+                    self.configure(loaded).await;
+                } else {
+                    log::info!(
+                        "[Discord] Auto-loaded config but bridge is disabled, stopping loop"
+                    );
+                    return;
+                }
+            } else {
+                log::warn!("[Discord] No bridge config found in DB, live updates loop idle");
+            }
+        }
 
         loop {
             if !self.running.load(Ordering::Relaxed) {
@@ -762,14 +823,14 @@ impl DiscordBridgeService {
                     // 2. Server List Update
                     if config.server_list_enabled && !config.server_list_channel_id.is_empty() {
                         if let Err(e) = self.update_server_list(&config).await {
-                            eprintln!("❌ Failed to update Discord Server List: {}", e);
+                            log::error!("❌ Failed to update Discord Server List: {}", e);
                         }
                     }
 
                     // 3. Player List Update
                     if config.player_list_enabled && !config.player_list_channel_id.is_empty() {
                         if let Err(e) = self.update_player_list(&config).await {
-                            eprintln!("❌ Failed to update Discord Player List: {}", e);
+                            log::error!("❌ Failed to update Discord Player List: {}", e);
                         }
                     }
                 }

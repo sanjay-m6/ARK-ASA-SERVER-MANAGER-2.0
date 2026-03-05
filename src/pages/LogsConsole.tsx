@@ -84,9 +84,14 @@ export default function LogsConsole() {
         }
     }, [servers, selectedServerId]);
 
-    // Subscribe to log events
+    // Keep a ref to servers so the log effect doesn't re-run on server status changes
+    const serversRef = useRef(servers);
+    useEffect(() => { serversRef.current = servers; }, [servers]);
+
+    // Subscribe to log events — only re-run when selectedServerId changes
     useEffect(() => {
         let unlisten: UnlistenFn | null = null;
+        let cancelled = false;
 
         const setupListener = async () => {
             unlisten = await listen<ServerLogEvent>('server_log', (event) => {
@@ -98,19 +103,21 @@ export default function LogsConsole() {
                         message: line.replace(/\[\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3}\]\[\s*\d+\]/, '').trim(),
                         raw: line,
                     };
-                    setLogs(prev => [...prev, entry].slice(-1000)); // Keep last 1000 lines
+                    setLogs(prev => [...prev, entry].slice(-1000));
                 }
             });
         };
 
         if (selectedServerId) {
+            setLogs([]);
             setupListener();
             // Get initial logs (history)
-            const server = servers.find(s => s.id === selectedServerId);
+            const server = serversRef.current.find(s => s.id === selectedServerId);
             if (server) {
                 getServerLogs(selectedServerId, server.installPath)
                     .then(history => {
-                        const entries = history.map((h: any) => {
+                        if (cancelled) return;
+                        const entries: LogEntry[] = history.map((h: any) => {
                             const line = h.line;
                             return {
                                 timestamp: parseTimestamp(line),
@@ -120,26 +127,18 @@ export default function LogsConsole() {
                             };
                         });
                         setLogs(prev => {
-                            // Merge history with any live logs received while fetching
-                            // To avoid duplicates, we can check basic equality or just prepend history?
-                            // Live logs are appended. History should come FIRST.
-                            // But `prev` might already have live logs.
-                            // Simple approach: Replace `prev` with `[...history, ...prev]`?
-                            // Or just `setLogs(entries)` if we assume it's fast enough.
-                            // Better: `setLogs(entries)` creates a base.
-                            // But if `setupListener` already caught new logs, `prev` has them.
-                            // So `[...entries, ...prev]` is safest?
-                            // But if history overlaps with prev?
-                            // Since we start listener BEFORE fetching history, `prev` only contains NEW logs.
-                            return [...entries, ...prev].slice(-1000);
+                            // Deduplicate: build a Set of raw lines from live logs already received
+                            const existingRaws = new Set(prev.map(p => p.raw));
+                            const uniqueHistory = entries.filter(e => !existingRaws.has(e.raw));
+                            return [...uniqueHistory, ...prev].slice(-1000);
                         });
                     })
                     .catch(console.error);
             }
         }
 
-        return () => { unlisten?.(); };
-    }, [selectedServerId, servers]);
+        return () => { cancelled = true; unlisten?.(); };
+    }, [selectedServerId]);
 
     // Auto-scroll effect
     useEffect(() => {

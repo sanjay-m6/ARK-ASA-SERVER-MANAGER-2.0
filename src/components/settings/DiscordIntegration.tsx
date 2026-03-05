@@ -203,7 +203,7 @@ export default function DiscordIntegration() {
             </div>
 
             {/* Webhook URL */}
-            <div className="bg-slate-800/30 rounded-xl p-5 border border-slate-700/50 space-y-4">
+            <div className="glass-panel rounded-2xl p-6 space-y-4">
                 <label className="block text-sm font-medium text-slate-300">
                     Webhook URL
                 </label>
@@ -213,17 +213,17 @@ export default function DiscordIntegration() {
                         value={webhookUrl}
                         onChange={(e) => setWebhookUrl(e.target.value)}
                         placeholder="https://discord.com/api/webhooks/..."
-                        className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                        className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm shadow-inner transition-all"
                     />
                     <button
                         onClick={testWebhook}
                         disabled={isTesting || !webhookUrl}
                         className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium",
-                            testResult === 'success' && "bg-green-500/20 text-green-400 border border-green-500/30",
-                            testResult === 'error' && "bg-red-500/20 text-red-400 border border-red-500/30",
-                            !testResult && "bg-slate-700 hover:bg-slate-600 text-white",
-                            "disabled:opacity-50 disabled:cursor-not-allowed"
+                            "flex items-center gap-2 px-6 py-3 rounded-xl transition-all font-medium shadow-sm",
+                            testResult === 'success' && "bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30",
+                            testResult === 'error' && "bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30",
+                            !testResult && "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20 hover:shadow-indigo-500/40",
+                            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-700 disabled:text-slate-400 disabled:border-slate-600 disabled:bg-slate-800"
                         )}
                     >
                         {isTesting ? (
@@ -255,49 +255,55 @@ export default function DiscordIntegration() {
                     </span>
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid sm:grid-cols-2 gap-3 pb-2">
                     {alerts.map((alert) => {
                         const Icon = alert.icon;
                         return (
                             <div
                                 key={alert.key}
                                 className={cn(
-                                    "flex items-center justify-between p-3 rounded-lg border transition-all cursor-pointer",
+                                    "flex items-start justify-between p-4 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden group hover:-translate-y-0.5",
                                     alert.enabled
-                                        ? "bg-indigo-500/10 border-indigo-500/30"
-                                        : "bg-slate-800/50 border-slate-700/50 hover:border-slate-600"
+                                        ? "bg-gradient-to-br from-indigo-500/10 to-violet-500/5 border-indigo-500/30 shadow-[0_8px_20px_-6px_rgba(99,102,241,0.15)]"
+                                        : "bg-slate-800/40 border-slate-700/50 hover:border-slate-600/80 hover:bg-slate-800/60"
                                 )}
                                 onClick={() => toggleAlert(alert.key)}
                             >
-                                <div className="flex items-center gap-3">
+                                {/* Background glow when active */}
+                                {alert.enabled && (
+                                    <div className="absolute top-0 right-0 p-16 bg-indigo-500/10 rounded-full blur-2xl -z-10 animate-pulse transition-opacity"></div>
+                                )}
+
+                                <div className="flex gap-4">
                                     <div className={cn(
-                                        "p-2 rounded-lg",
-                                        alert.enabled ? "bg-indigo-500/20" : "bg-slate-700/50"
+                                        "p-3 rounded-xl transition-all duration-300 mt-0.5 border shadow-sm",
+                                        alert.enabled
+                                            ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30 shadow-indigo-500/10"
+                                            : "bg-slate-800/80 text-slate-400 border-slate-700/80"
                                     )}>
-                                        <Icon className={cn(
-                                            "w-4 h-4",
-                                            alert.enabled ? "text-indigo-400" : "text-slate-500"
-                                        )} />
+                                        <Icon className="w-5 h-5" />
                                     </div>
                                     <div>
                                         <div className={cn(
-                                            "font-medium text-sm",
-                                            alert.enabled ? "text-white" : "text-slate-400"
+                                            "font-bold text-sm tracking-wide mb-1 transition-colors",
+                                            alert.enabled ? "text-white" : "text-slate-300 group-hover:text-slate-200"
                                         )}>
                                             {alert.label}
                                         </div>
-                                        <div className="text-xs text-slate-500">
+                                        <div className="text-xs text-slate-500 leading-relaxed pr-2">
                                             {alert.description}
                                         </div>
                                     </div>
                                 </div>
                                 <div className={cn(
-                                    "w-10 h-6 rounded-full transition-colors relative",
-                                    alert.enabled ? "bg-indigo-500" : "bg-slate-700"
+                                    "w-11 h-6 rounded-full transition-all duration-300 relative flex items-center shrink-0 border",
+                                    alert.enabled
+                                        ? "bg-indigo-500 border-indigo-400 shadow-[0_0_12px_rgba(99,102,241,0.4)]"
+                                        : "bg-slate-800 border-slate-600"
                                 )}>
                                     <div className={cn(
-                                        "absolute w-4 h-4 bg-white rounded-full top-1 transition-transform",
-                                        alert.enabled ? "translate-x-5" : "translate-x-1"
+                                        "w-4 h-4 bg-white rounded-full transition-transform duration-300 shadow-sm mx-1",
+                                        alert.enabled ? "translate-x-5" : "translate-x-0"
                                     )} />
                                 </div>
                             </div>
@@ -307,9 +313,12 @@ export default function DiscordIntegration() {
             </div>
 
             {/* Embed Preview */}
-            <div className="bg-slate-800/30 rounded-xl p-5 border border-slate-700/50 space-y-3">
-                <h4 className="font-medium text-white">📬 Embed Preview</h4>
-                <div className="bg-[#36393f] rounded-lg overflow-hidden">
+            <div className="glass-panel rounded-2xl p-6 space-y-4">
+                <h4 className="font-bold text-white flex items-center gap-2">
+                    <span className="text-xl">📬</span> Embed Preview
+                </h4>
+                <div className="bg-[#36393f] rounded-xl overflow-hidden shadow-lg border border-[#202225] relative">
+                    <div className="absolute top-0 right-0 p-12 bg-emerald-500/5 rounded-full blur-2xl -z-0"></div>
                     <div className="flex">
                         <div className="w-1 bg-emerald-500" />
                         <div className="p-4 space-y-2">
@@ -340,9 +349,11 @@ export default function DiscordIntegration() {
             </div>
 
             {/* Info */}
-            <div className="bg-slate-800/20 rounded-lg p-4 border border-slate-700/30">
-                <h4 className="text-sm font-medium text-slate-300 mb-2">💡 How it works</h4>
-                <ul className="text-xs text-slate-500 space-y-1">
+            <div className="glass-panel rounded-2xl p-6 border-l-4 border-l-indigo-500">
+                <h4 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
+                    <span className="text-lg">💡</span> How it works
+                </h4>
+                <ul className="text-sm text-slate-400 space-y-2 font-medium">
                     <li>• Notifications are sent automatically when enabled events occur</li>
                     <li>• Player join/leave notifications require RCON to be enabled</li>
                     <li>• Each notification includes relevant server details in a rich embed</li>

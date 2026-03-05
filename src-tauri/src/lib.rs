@@ -440,6 +440,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::discord::stop_discord_bridge,
              commands::discord::test_discord_bridge_connection,
              commands::discord::generate_bot_invite_url,
+             commands::discord::send_discord_status_update,
         ])
         .run(tauri::generate_context!())
 }

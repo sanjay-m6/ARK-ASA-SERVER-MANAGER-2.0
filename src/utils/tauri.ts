@@ -429,6 +429,10 @@ export async function stopDiscordBridge(): Promise<void> {
     return await invoke('stop_discord_bridge');
 }
 
+export async function sendDiscordStatusUpdate(): Promise<void> {
+    return await invoke('send_discord_status_update');
+}
+
 
 // ============================================================================
 

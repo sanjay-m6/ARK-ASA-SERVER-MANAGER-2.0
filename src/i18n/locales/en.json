@@ -104,7 +104,8 @@
         "modId": "Mod ID",
         "noDescription": "No description available",
         "ascending": "Ascending",
-        "descending": "Descending"
+        "descending": "Descending",
+        "failed": "Failed: {{error}}"
     },
     "discord": {
         "title": "Discord Bridge",
@@ -288,6 +289,14 @@
         "noMods": "No mods",
         "modCount": "{{count}} mod",
         "modCount_plural": "{{count}} mods",
+        "noStartableServersSelected": "No startable servers selected.",
+        "noStartableServers": "No offline servers available to start.",
+        "noStoppableServersSelected": "No running servers selected.",
+        "noStoppableServers": "No running servers available to stop.",
+        "bulkStartInitiated": "Starting {{count}} server...",
+        "bulkStartInitiated_plural": "Starting {{count}} servers...",
+        "bulkStopInitiated": "Stopping {{count}} server...",
+        "bulkStopInitiated_plural": "Stopping {{count}} servers...",
         "automation": "Automation",
         "automationEnabled": "Automation enabled",
         "automationDisabled": "Automation disabled",
@@ -307,6 +316,12 @@
             "unknown": "UNKNOWN"
         },
         "buttons": {
+            "selectedCount": "{{count}} Selected",
+            "selectAll": "Select All",
+            "startSelected": "Start Selected",
+            "startAll": "Start All",
+            "stopSelected": "Stop Selected",
+            "stopAll": "Stop All",
             "importExisting": "Import Existing",
             "importSave": "Import Save",
             "deployServer": "Deploy Server",

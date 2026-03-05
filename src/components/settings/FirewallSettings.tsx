@@ -43,7 +43,7 @@ function StatusBadge({ status }: { status: 'open' | 'closed' | 'unknown' }) {
         return (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">
                 <Shield className="w-3 h-3" />
-                Unassigned
+                Not Configured
             </span>
         );
     }
@@ -64,7 +64,7 @@ export default function FirewallSettings() {
     // Manual port state
     const [manualPorts, setManualPorts] = useState<ManualPort[]>([]);
     const [newPort, setNewPort] = useState<string>('');
-    const [newProtocol, setNewProtocol] = useState<'TCP' | 'UDP'>('UDP');
+    const [newProtocol, setNewProtocol] = useState<'TCP' | 'UDP' | 'BOTH'>('UDP');
     const [newDescription, setNewDescription] = useState<string>('');
     const [isAddingPort, setIsAddingPort] = useState(false);
 
@@ -181,12 +181,26 @@ export default function FirewallSettings() {
             } else if (result.success) {
                 toast.success(result.message);
                 // Add to list
-                setManualPorts(prev => [...prev, {
-                    port: portNum,
-                    protocol: newProtocol,
-                    description: newDescription || `Custom Port ${portNum}`,
-                    status: 'open'
-                }]);
+                if (newProtocol === 'BOTH') {
+                    setManualPorts(prev => [...prev, {
+                        port: portNum,
+                        protocol: 'TCP',
+                        description: newDescription || `Custom Port ${portNum}`,
+                        status: 'open'
+                    }, {
+                        port: portNum,
+                        protocol: 'UDP',
+                        description: newDescription || `Custom Port ${portNum}`,
+                        status: 'open'
+                    }]);
+                } else {
+                    setManualPorts(prev => [...prev, {
+                        port: portNum,
+                        protocol: newProtocol as 'TCP' | 'UDP',
+                        description: newDescription || `Custom Port ${portNum}`,
+                        status: 'open'
+                    }]);
+                }
                 // Reset form
                 setNewPort('');
                 setNewDescription('');
@@ -419,11 +433,12 @@ export default function FirewallSettings() {
                         <label className="block text-xs text-slate-400 mb-1.5">{t('settings.firewallAutomation.manual.protocol', 'Protocol')}</label>
                         <select
                             value={newProtocol}
-                            onChange={(e) => setNewProtocol(e.target.value as 'TCP' | 'UDP')}
+                            onChange={(e) => setNewProtocol(e.target.value as 'TCP' | 'UDP' | 'BOTH')}
                             className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500 transition-colors"
                         >
                             <option value="UDP">UDP</option>
                             <option value="TCP">TCP</option>
+                            <option value="BOTH">BOTH</option>
                         </select>
                     </div>
                     <div className="flex-1 min-w-[200px]">

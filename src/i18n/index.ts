@@ -7,6 +7,7 @@ import de from './locales/de.json';
 import fr from './locales/fr.json';
 import es from './locales/es.json';
 import ru from './locales/ru.json';
+import zhCN from './locales/zh-CN.json';
 
 export const supportedLanguages = [
     { code: 'en', name: 'English', nativeName: 'English', flag: '🇬🇧' },
@@ -14,6 +15,7 @@ export const supportedLanguages = [
     { code: 'fr', name: 'French', nativeName: 'Français', flag: '🇫🇷' },
     { code: 'es', name: 'Spanish', nativeName: 'Español', flag: '🇪🇸' },
     { code: 'ru', name: 'Russian', nativeName: 'Русский', flag: '🇷🇺' },
+    { code: 'zh-CN', name: 'Simplified Chinese', nativeName: '简体中文', flag: '🇨🇳' },
 ] as const;
 
 export type LanguageCode = typeof supportedLanguages[number]['code'];
@@ -28,6 +30,7 @@ i18n
             fr: { translation: fr },
             es: { translation: es },
             ru: { translation: ru },
+            'zh-CN': { translation: zhCN },
         },
         fallbackLng: 'en',
         interpolation: {

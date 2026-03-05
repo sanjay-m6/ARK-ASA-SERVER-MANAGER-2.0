@@ -11,6 +11,7 @@ import {
     getSetting, setSetting,
     getDiscordBridgeConfig, saveDiscordBridgeConfig,
     startDiscordBridge, stopDiscordBridge, testDiscordConnection,
+    sendDiscordStatusUpdate,
     type DiscordBridgeConfig,
     getClusters, createCluster, toggleClusterCrossChat
 } from '../utils/tauri';
@@ -447,7 +448,7 @@ export default function DiscordBot() {
 
     const hasUnsavedChanges = webhookUrl !== savedWebhookUrl;
     const enabledCount = alerts.filter(a => a.enabled).length;
-    const runningServers = servers.filter(s => s.status === 'running').length;
+    const runningServers = servers.filter(s => s.status === 'running' || s.status === 'online').length;
 
     if (isLoading) {
         return (
@@ -478,15 +479,22 @@ export default function DiscordBot() {
                 <div className="flex items-center gap-4">
                     {/* Connection Status */}
                     <div className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full border",
-                        connectionStatus === 'connected' && "bg-green-500/10 border-green-500/30 text-green-400",
-                        connectionStatus === 'disconnected' && "bg-red-500/10 border-red-500/30 text-red-400",
-                        connectionStatus === 'checking' && "bg-yellow-500/10 border-yellow-500/30 text-yellow-400"
+                        "flex items-center gap-2 px-4 py-2 rounded-full border shadow-sm transition-colors",
+                        connectionStatus === 'connected' && "bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.15)]",
+                        connectionStatus === 'disconnected' && "bg-red-500/10 border-red-500/30 text-red-500",
+                        connectionStatus === 'checking' && "bg-amber-500/10 border-amber-500/30 text-amber-500"
                     )}>
-                        {connectionStatus === 'connected' && <Wifi className="w-4 h-4" />}
-                        {connectionStatus === 'disconnected' && <WifiOff className="w-4 h-4" />}
-                        {connectionStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin" />}
-                        <span className="text-sm font-medium capitalize">{connectionStatus}</span>
+                        <div className="relative flex items-center justify-center">
+                            {connectionStatus === 'connected' && (
+                                <>
+                                    <div className="absolute w-full h-full bg-emerald-400 rounded-full animate-ping opacity-20"></div>
+                                    <Wifi className="w-4 h-4 relative z-10" />
+                                </>
+                            )}
+                            {connectionStatus === 'disconnected' && <WifiOff className="w-4 h-4" />}
+                            {connectionStatus === 'checking' && <Loader2 className="w-4 h-4 animate-spin" />}
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-wider">{connectionStatus}</span>
                     </div>
 
                     {/* Live Mode Toggle */}
@@ -656,7 +664,14 @@ export default function DiscordBot() {
                                 <div className="text-xs text-slate-500">{t('discordBot.quickActions.announcement.desc')}</div>
                             </button>
                             <button
-                                onClick={() => sendQuickNotification('Status', `${runningServers} server(s) currently online`)}
+                                onClick={async () => {
+                                    try {
+                                        await sendDiscordStatusUpdate();
+                                        toast.success(t('discordBot.toasts.notifSent'));
+                                    } catch {
+                                        toast.error(t('discordBot.toasts.sendFailed'));
+                                    }
+                                }}
                                 disabled={!savedWebhookUrl}
                                 className="p-4 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 transition-all disabled:opacity-50 text-left"
                             >
@@ -731,13 +746,15 @@ export default function DiscordBot() {
                                             <button
                                                 onClick={toggleBridge}
                                                 className={cn(
-                                                    "w-12 h-7 rounded-full transition-colors relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900",
-                                                    bridgeConfig.enabled ? "bg-green-500 focus:ring-green-500" : "bg-slate-700 focus:ring-slate-500"
+                                                    "w-12 h-7 rounded-full transition-all duration-300 relative flex items-center shrink-0 border focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900",
+                                                    bridgeConfig.enabled
+                                                        ? "bg-green-500 border-green-400 shadow-[0_0_12px_rgba(34,197,94,0.4)] focus:ring-green-500"
+                                                        : "bg-slate-800 border-slate-600 focus:ring-slate-500"
                                                 )}
                                             >
                                                 <div className={cn(
-                                                    "absolute w-5 h-5 bg-white rounded-full top-1 transition-transform shadow-sm",
-                                                    bridgeConfig.enabled ? "translate-x-6" : "translate-x-1"
+                                                    "w-5 h-5 bg-white rounded-full transition-transform duration-300 shadow-sm mx-1",
+                                                    bridgeConfig.enabled ? "translate-x-5" : "translate-x-0"
                                                 )} />
                                             </button>
                                         </div>
@@ -803,13 +820,15 @@ export default function DiscordBot() {
                                                     <button
                                                         onClick={() => setBridgeConfig(c => ({ ...c, [opt.key]: !(c as any)[opt.key] }))}
                                                         className={cn(
-                                                            "w-10 h-6 rounded-full transition-colors relative",
-                                                            (bridgeConfig as any)[opt.key] ? "bg-indigo-500" : "bg-slate-700"
+                                                            "w-11 h-6 rounded-full transition-all duration-300 relative flex items-center shrink-0 border",
+                                                            (bridgeConfig as any)[opt.key]
+                                                                ? "bg-indigo-500 border-indigo-400 shadow-[0_0_12px_rgba(99,102,241,0.4)]"
+                                                                : "bg-slate-800 border-slate-600"
                                                         )}
                                                     >
                                                         <div className={cn(
-                                                            "absolute w-4 h-4 bg-white rounded-full top-1 transition-transform",
-                                                            (bridgeConfig as any)[opt.key] ? "translate-x-5" : "translate-x-1"
+                                                            "w-4 h-4 bg-white rounded-full transition-transform duration-300 shadow-sm mx-1",
+                                                            (bridgeConfig as any)[opt.key] ? "translate-x-5" : "translate-x-0"
                                                         )} />
                                                     </button>
                                                 </div>
@@ -976,7 +995,7 @@ export default function DiscordBot() {
                                     {servers.map(server => (
                                         <div key={server.id} className="flex items-center justify-between text-xs">
                                             <div className="flex items-center gap-2">
-                                                <div className={cn("w-2 h-2 rounded-full", server.status === 'running' ? "bg-green-500" : "bg-slate-600")} />
+                                                <div className={cn("w-2 h-2 rounded-full", server.status === 'running' || server.status === 'online' ? "bg-green-500" : "bg-slate-600")} />
                                                 <span className="text-slate-300 font-medium truncate max-w-[180px]" title={server.name}>{server.name}</span>
                                             </div>
                                             <code className="bg-slate-800 px-2 py-0.5 rounded text-indigo-400 font-bold">ID: {server.id}</code>
@@ -1030,36 +1049,55 @@ export default function DiscordBot() {
                                     {category === 'player' && t('discordBot.alerts.playerEvents')}
                                     {category === 'system' && t('discordBot.alerts.systemEvents')}
                                 </h3>
-                                <div className="grid sm:grid-cols-2 gap-2">
+                                <div className="grid sm:grid-cols-2 gap-3 pb-2">
                                     {alerts.filter(a => a.category === category).map((alert) => {
                                         const Icon = alert.icon;
                                         return (
                                             <div
                                                 key={alert.key}
                                                 className={cn(
-                                                    "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                                                    "flex items-start justify-between p-4 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden group hover:-translate-y-0.5",
                                                     alert.enabled
-                                                        ? "bg-indigo-500/10 border-indigo-500/30"
-                                                        : "bg-slate-800/50 border-slate-700/50 hover:border-slate-600"
+                                                        ? "bg-gradient-to-br from-indigo-500/10 to-violet-500/5 border-indigo-500/30 shadow-[0_8px_20px_-6px_rgba(99,102,241,0.15)]"
+                                                        : "bg-slate-800/40 border-slate-700/50 hover:border-slate-600/80 hover:bg-slate-800/60"
                                                 )}
                                                 onClick={() => toggleAlert(alert.key)}
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <Icon className={cn("w-4 h-4", alert.enabled ? "text-indigo-400" : "text-slate-500")} />
+                                                {/* Background glow when active */}
+                                                {alert.enabled && (
+                                                    <div className="absolute top-0 right-0 p-16 bg-indigo-500/10 rounded-full blur-2xl -z-10 animate-pulse transition-opacity"></div>
+                                                )}
+
+                                                <div className="flex gap-4">
+                                                    <div className={cn(
+                                                        "p-3 rounded-xl transition-all duration-300 mt-0.5 border shadow-sm",
+                                                        alert.enabled
+                                                            ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/30 shadow-indigo-500/10"
+                                                            : "bg-slate-800/80 text-slate-400 border-slate-700/80"
+                                                    )}>
+                                                        <Icon className="w-5 h-5" />
+                                                    </div>
                                                     <div>
-                                                        <div className={cn("font-medium text-sm", alert.enabled ? "text-white" : "text-slate-400")}>
+                                                        <div className={cn(
+                                                            "font-bold text-sm tracking-wide mb-1 transition-colors",
+                                                            alert.enabled ? "text-white" : "text-slate-300 group-hover:text-slate-200"
+                                                        )}>
                                                             {alert.label}
                                                         </div>
-                                                        <div className="text-xs text-slate-500">{alert.description}</div>
+                                                        <div className="text-xs text-slate-500 leading-relaxed pr-2">
+                                                            {alert.description}
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className={cn(
-                                                    "w-10 h-6 rounded-full transition-colors relative",
-                                                    alert.enabled ? "bg-indigo-500" : "bg-slate-700"
+                                                    "w-11 h-6 rounded-full transition-all duration-300 relative flex items-center shrink-0 border",
+                                                    alert.enabled
+                                                        ? "bg-indigo-500 border-indigo-400 shadow-[0_0_12px_rgba(99,102,241,0.4)]"
+                                                        : "bg-slate-800 border-slate-600"
                                                 )}>
                                                     <div className={cn(
-                                                        "absolute w-4 h-4 bg-white rounded-full top-1 transition-transform",
-                                                        alert.enabled ? "translate-x-5" : "translate-x-1"
+                                                        "w-4 h-4 bg-white rounded-full transition-transform duration-300 shadow-sm mx-1",
+                                                        alert.enabled ? "translate-x-5" : "translate-x-0"
                                                     )} />
                                                 </div>
                                             </div>

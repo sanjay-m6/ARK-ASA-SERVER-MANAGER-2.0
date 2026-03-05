@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::RecvTimeoutError;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::Manager;
 
 pub struct FileWatcherService {
@@ -31,24 +31,25 @@ impl FileWatcherService {
         let mut watcher = RecommendedWatcher::new(tx, Config::default())
             .map_err(|e| format!("Failed to create watcher: {}", e))?;
 
-        // Watch the specific directories
+        // ONLY watch the config directory for admin-initiated changes.
+        // DO NOT watch SavedArks/ — ARK auto-saves every 15-30 minutes
+        // which would trigger auto-stop and kill the running server.
         let config_path = path.join("ShooterGame/Saved/Config/WindowsServer");
-        let saves_path = path.join("ShooterGame/Saved/SavedArks");
 
         if config_path.exists() {
             let _ = watcher.watch(&config_path, RecursiveMode::NonRecursive);
             println!("🛡️ Automation: Watching config dir: {:?}", config_path);
+        } else {
+            println!("🛡️ Automation: Config dir not found for server {}, auto-stop will not function until server is installed.", server_id);
         }
 
-        if saves_path.exists() {
-            let _ = watcher.watch(&saves_path, RecursiveMode::NonRecursive);
-            println!("🛡️ Automation: Watching saves dir: {:?}", saves_path);
-        }
+        // NOTE: SavedArks/ and root path are intentionally NOT watched.
+        // SavedArks/ changes are routine game saves that must NOT trigger auto-stop.
+        // Root path watching was too broad and could trigger on any file change.
 
-        // Always watch the root path as well (for general updates)
-        watcher
-            .watch(&path, RecursiveMode::NonRecursive)
-            .map_err(|e| format!("Failed to watch root path: {}", e))?;
+        // Record when the watcher started — ignore changes in the first 120 seconds
+        // to avoid false triggers during server startup.
+        let watcher_start_time = Instant::now();
 
         // Start a thread to handle events
         let server_id_clone = server_id;
@@ -60,24 +61,52 @@ impl FileWatcherService {
                     Ok(event) => {
                         if let Ok(e) = event {
                             // Ignore Access events (too noisy), focus on Modify/Create/Remove
-                            // notify 6.x: Access, Create, Modify, Remove, Rename, Other.
                             if matches!(e.kind, notify::EventKind::Access(_)) {
                                 continue;
                             }
 
+                            // STARTUP GRACE PERIOD: ignore changes in the first 120 seconds
+                            // Server startup often modifies config files as part of initialization.
+                            if watcher_start_time.elapsed() < Duration::from_secs(120) {
+                                println!(
+                                    "🛡️ Automation: Ignoring file change for server {} (startup grace period, {}s elapsed)",
+                                    server_id_clone,
+                                    watcher_start_time.elapsed().as_secs()
+                                );
+                                continue;
+                            }
+
+                            // FILTER: Only trigger on config file changes (.ini files)
+                            // Ignore non-config files like logs, temp files, etc.
+                            let is_config_change = e.paths.iter().any(|p| {
+                                if let Some(ext) = p.extension() {
+                                    let ext_lower = ext.to_string_lossy().to_lowercase();
+                                    ext_lower == "ini"
+                                } else {
+                                    false
+                                }
+                            });
+
+                            if !is_config_change {
+                                println!(
+                                    "🛡️ Automation: Ignoring non-config file change for server {} ({:?})",
+                                    server_id_clone, e.paths
+                                );
+                                continue;
+                            }
+
                             println!(
-                                "🛡️ Automation: Detected file change for server {} ({:?})",
-                                server_id_clone, e.kind
+                                "🛡️ Automation: Detected CONFIG file change for server {} ({:?}): {:?}",
+                                server_id_clone, e.kind, e.paths
                             );
 
-                            // Debounce: Wait for 2 seconds of silence
+                            // Debounce: Wait for 5 seconds of silence (increased from 2s)
                             let mut quiet = false;
                             while !quiet {
-                                match rx.recv_timeout(Duration::from_secs(2)) {
+                                match rx.recv_timeout(Duration::from_secs(5)) {
                                     Ok(next_event) => {
                                         if let Ok(next_e) = next_event {
                                             if matches!(next_e.kind, notify::EventKind::Access(_)) {
-                                                // Ignore access events even during debounce
                                                 continue;
                                             }
                                             println!("   ... Debouncing (more changes detected)");
@@ -91,7 +120,7 @@ impl FileWatcherService {
                             }
 
                             println!(
-                                "🛡️ Automation: Triggering Auto-Stop for server {}...",
+                                "🛡️ Automation: Triggering Auto-Stop for server {} (config change detected)...",
                                 server_id_clone
                             );
 
@@ -182,18 +211,8 @@ impl FileWatcherService {
                                             );
                                         }
                                     };
-
-                                    // 3. Optional: Restart if Auto-Start is on?
-                                    // Maybe wait a bit more for the file operation to fully complete.
                                 }
                             });
-
-                            // Prevent rapid re-triggering? The stop_server takes time.
-                            // We loop back to recv(), but likely files will change during stop?
-                            // If server stops, we might want to keep watching or not?
-                            // Logic: stop_server updates status.
-                            // If we detect changes WHILE stopping, we might re-trigger stop?
-                            // Ideally, stop_server is idempotent.
                         }
                     }
                     Err(_) => {
@@ -206,7 +225,10 @@ impl FileWatcherService {
         let mut watchers = self.watchers.lock().unwrap();
         watchers.insert(server_id, watcher);
 
-        println!("🛡️ Automation: Started watching server {}", server_id);
+        println!(
+            "🛡️ Automation: Started watching server {} (config-only mode)",
+            server_id
+        );
         Ok(())
     }
 

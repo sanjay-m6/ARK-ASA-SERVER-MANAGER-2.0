@@ -97,8 +97,11 @@ impl GuardianService {
         let pids = self.server_pids.lock().await;
         let pid = pids.get(&server_id)?;
 
-        let mut sys = System::new_all();
-        sys.refresh_all();
+        // Use lightweight System — only refresh processes, not all system resources.
+        // System::new_all() + refresh_all() enumerates disks, network, users, etc.
+        // which is extremely wasteful when we only need process info.
+        let mut sys = System::new();
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
         let process = sys.process(Pid::from_u32(*pid));
         let is_alive = process.is_some();

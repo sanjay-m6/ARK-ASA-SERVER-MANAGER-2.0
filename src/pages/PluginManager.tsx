@@ -13,6 +13,7 @@ import {
 } from '../utils/tauri';
 import { PluginInfo, Server as ServerType } from '../types';
 import toast from 'react-hot-toast';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 // Official ASA Server API Plugin Repository URL
 const PLUGIN_REPOSITORY_URL = 'https://ark-server-api.com/';
@@ -213,9 +214,12 @@ export default function PluginManager() {
                                     <p className="text-white font-medium">ASA Server API Not Installed</p>
                                     <p className="text-slate-400 text-sm">
                                         Install ASA Server API first to use plugins.
-                                        <a href={`${PLUGIN_REPOSITORY_URL}resources/asa-server-api.31/`} target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:underline ml-1">
+                                        <button
+                                            onClick={() => openUrl(`${PLUGIN_REPOSITORY_URL}resources/asa-server-api.31/`)}
+                                            className="text-violet-400 hover:underline ml-1 cursor-pointer"
+                                        >
                                             Download here
-                                        </a>
+                                        </button>
                                     </p>
                                 </div>
                             </>
@@ -238,15 +242,13 @@ export default function PluginManager() {
                                 <p className="text-slate-400 mb-4">
                                     Download ASA Server API plugins from the official repository. Each plugin includes documentation and installation instructions.
                                 </p>
-                                <a
-                                    href={PLUGIN_REPOSITORY_URL}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center space-x-2 px-5 py-2.5 bg-violet-600/20 hover:bg-violet-500/30 text-violet-300 border border-violet-500/30 rounded-xl transition-all font-medium"
+                                <button
+                                    onClick={() => openUrl(PLUGIN_REPOSITORY_URL)}
+                                    className="inline-flex items-center space-x-2 px-5 py-2.5 bg-violet-600/20 hover:bg-violet-500/30 text-violet-300 border border-violet-500/30 rounded-xl transition-all font-medium cursor-pointer"
                                 >
                                     <ExternalLink className="w-4 h-4" />
                                     <span>Browse Plugins at ark-server-api.com</span>
-                                </a>
+                                </button>
                             </div>
                         </div>
                     </div>

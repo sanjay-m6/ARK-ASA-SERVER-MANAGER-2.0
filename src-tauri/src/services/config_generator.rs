@@ -127,7 +127,7 @@ impl Default for ServerConfig {
         Self {
             session_name: "My ASA Server".to_string(),
             server_password: None,
-            admin_password: "admin123".to_string(),
+            admin_password: "".to_string(),
             max_players: 70,
             map_name: "TheIsland_WP".to_string(),
             game_port: 7777,
@@ -304,12 +304,16 @@ impl ConfigGenerator {
         content.push_str("[ServerSettings]\r\n");
         content.push_str(&format!("SessionName={}\r\n", config.session_name));
         if let Some(ref pwd) = config.server_password {
-            content.push_str(&format!("ServerPassword={}\r\n", pwd));
+            if !pwd.is_empty() {
+                content.push_str(&format!("ServerPassword={}\r\n", pwd));
+            }
         }
-        content.push_str(&format!(
-            "ServerAdminPassword={}\r\n",
-            config.admin_password
-        ));
+        let clean_admin_password = config
+            .admin_password
+            .split("?ServerPassword=")
+            .next()
+            .unwrap_or(&config.admin_password);
+        content.push_str(&format!("ServerAdminPassword={}\r\n", clean_admin_password));
         content.push_str(&format!("MaxPlayers={}\r\n", config.max_players));
         content.push_str(&format!("MapName={}\r\n", config.map_name));
         content.push_str(&format!("RCONEnabled={}\r\n", config.rcon_enabled));
@@ -554,7 +558,9 @@ impl ConfigGenerator {
         );
 
         if let Some(ref pwd) = config.server_password {
-            cmd.push_str(&format!("?ServerPassword={}", pwd));
+            if !pwd.is_empty() {
+                cmd.push_str(&format!("?ServerPassword={}", pwd));
+            }
         }
 
         cmd.push_str(&format!("?ServerAdminPassword={}", config.admin_password));

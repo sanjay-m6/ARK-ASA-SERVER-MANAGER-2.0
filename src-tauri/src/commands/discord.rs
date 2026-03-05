@@ -1,3 +1,5 @@
+use crate::models::ServerStatus;
+use crate::services::discord::{send_discord_webhook, DiscordEmbed};
 use crate::services::discord_bridge::DiscordBridgeConfig;
 use crate::AppState;
 use tauri::State;
@@ -252,4 +254,80 @@ pub async fn generate_bot_invite_url(bot_token: String) -> Result<String, String
     );
 
     Ok(invite_url)
+}
+
+/// Send a Discord webhook status update with live server data from the backend.
+/// Reads all servers from DB, fetches live player counts, and sends a rich embed.
+#[tauri::command]
+pub async fn send_discord_status_update(
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    // 1. Read all servers from DB (including max_players)
+    let servers = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        let mut stmt = conn
+            .prepare("SELECT id, name, status, map_name, max_players FROM servers")
+            .map_err(|e| e.to_string())?;
+
+        let mut servers = Vec::new();
+        let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
+
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            let id: i64 = row.get(0).unwrap_or(0);
+            let name: String = row.get(1).unwrap_or_default();
+            let status_str: String = row.get(2).unwrap_or_else(|_| "stopped".to_string());
+            let map_name: String = row.get(3).unwrap_or_else(|_| "Unknown".to_string());
+            let max_players: i32 = row.get(4).unwrap_or(70);
+
+            let status = match status_str.as_str() {
+                "running" => ServerStatus::Running,
+                "online" => ServerStatus::Online,
+                "starting" => ServerStatus::Starting,
+                "stopped" => ServerStatus::Stopped,
+                "crashed" => ServerStatus::Crashed,
+                "updating" => ServerStatus::Updating,
+                "restarting" => ServerStatus::Restarting,
+                _ => ServerStatus::Stopped,
+            };
+
+            servers.push((id, name, status, map_name, max_players));
+        }
+        servers
+    };
+
+    // 2. Get live player counts from PlayerIntelligenceService
+    let player_counts = state.player_intelligence.get_player_counts().await;
+
+    // 3. Count online servers and collect details with player counts
+    let total_count = servers.len();
+    let online_servers: Vec<(String, String, i32, i32)> = servers
+        .iter()
+        .filter(|(_, _, status, _, _)| {
+            matches!(status, ServerStatus::Running | ServerStatus::Online)
+        })
+        .map(|(id, name, _, map, max)| {
+            let current_players = player_counts.get(id).copied().unwrap_or(0);
+            (name.clone(), map.clone(), current_players, *max)
+        })
+        .collect();
+    let online_count = online_servers.len();
+
+    log::info!(
+        "[Discord] Sending status update: {} / {} servers online, players: {:?}",
+        online_count,
+        total_count,
+        online_servers
+            .iter()
+            .map(|(n, _, p, m)| format!("{}:{}/{}", n, p, m))
+            .collect::<Vec<_>>()
+    );
+
+    // 4. Build and send the embed
+    let embed = DiscordEmbed::status_update(online_count, total_count, online_servers);
+    send_discord_webhook(&app_handle, "statusUpdate", embed).await;
+
+    Ok(())
 }

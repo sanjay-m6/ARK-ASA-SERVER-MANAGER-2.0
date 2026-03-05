@@ -211,7 +211,7 @@ pub async fn install_server(
         config: ServerConfig {
             max_players: 70,
             server_password: None,
-            admin_password: "admin123".to_string(),
+            admin_password: "".to_string(),
             map_name: map_name.clone(),
             session_name: unique_name,
             motd: None,
@@ -220,7 +220,7 @@ pub async fn install_server(
         },
         rcon_config: RconConfig {
             enabled: true,
-            password: "admin123".to_string(),
+            password: "".to_string(),
         },
         ip_address: None,
         created_at: chrono::Utc::now().to_rfc3339(),
@@ -1267,8 +1267,9 @@ pub async fn update_server_settings(
         params.push(Box::new(v));
     }
     if let Some(v) = admin_password {
+        let clean_v = v.split("?ServerPassword=").next().unwrap_or(&v).to_string();
         updates.push("admin_password = ?");
-        params.push(Box::new(v));
+        params.push(Box::new(clean_v));
     }
     if let Some(v) = map_name {
         updates.push("map_name = ?");
@@ -1526,7 +1527,7 @@ pub async fn import_server(
     let map_name = "TheIsland_WP".to_string();
     let mut session_name = name.clone();
     let mut server_password: Option<String> = None;
-    let mut admin_password = "admin123".to_string();
+    let mut admin_password = "".to_string();
     let mut game_port: u16 = 7777;
     let mut query_port: u16 = 27015;
     let mut rcon_port: u16 = 27020;
@@ -1559,7 +1560,9 @@ pub async fn import_server(
                                 server_password = Some(value.to_string())
                             }
                             "ServerAdminPassword" if !value.is_empty() => {
-                                admin_password = value.to_string()
+                                let clean_password =
+                                    value.split("?ServerPassword=").next().unwrap_or(value);
+                                admin_password = clean_password.to_string();
                             }
                             "SessionName" if !value.is_empty() => session_name = value.to_string(),
                             "RCONEnabled" => rcon_enabled = value.to_lowercase() == "true",

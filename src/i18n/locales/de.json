@@ -231,7 +231,15 @@
             "starting": "STARTET",
             "updating": "AKTUALISIERT",
             "repairing": "REPARIERT"
-        }
+        },
+        "buttons": {
+            "stopSelected": "Ausgewählte stoppen",
+            "stopAll": "Alle stoppen"
+        },
+        "noStoppableServersSelected": "Keine laufenden Server ausgewählt.",
+        "noStoppableServers": "Keine laufenden Server zum Stoppen verfügbar.",
+        "bulkStopInitiated": "Stoppe {{count}} Server...",
+        "bulkStopInitiated_plural": "Stoppe {{count}} Server..."
     },
     "configEditor": {
         "title": "Konfigurationseditor",

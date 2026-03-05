@@ -7,6 +7,16 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
+use tokio::time::{timeout, Duration};
+
+/// Maximum time to wait for a single RCON connection attempt
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Maximum number of retry attempts when connecting
+const MAX_RETRIES: u32 = 10;
+
+/// Base delay between retries (multiplied by attempt number for linear backoff)
+const RETRY_BASE_DELAY: Duration = Duration::from_secs(2);
 
 #[derive(Clone)]
 pub struct RconService {
@@ -20,7 +30,9 @@ impl RconService {
         }
     }
 
-    /// Connect to a server's RCON
+    /// Connect to a server's RCON with timeout and retry logic.
+    /// ARK: ASA servers can take 30–120s to fully start RCON, so we retry
+    /// up to MAX_RETRIES times with linear backoff before giving up.
     pub async fn connect(
         &self,
         server_id: i64,
@@ -29,39 +41,112 @@ impl RconService {
         password: &str,
     ) -> Result<RconResponse, String> {
         let addr = format!("{}:{}", address, port);
+        log::info!(
+            "[RCON] Attempting to connect to server {} at {}",
+            server_id,
+            addr
+        );
 
-        match Connection::<TcpStream>::builder()
-            .connect(&addr, password)
+        let mut last_error = String::new();
+
+        for attempt in 1..=MAX_RETRIES {
+            log::info!(
+                "[RCON] Connection attempt {}/{} for server {} at {}",
+                attempt,
+                MAX_RETRIES,
+                server_id,
+                addr
+            );
+
+            match timeout(
+                CONNECT_TIMEOUT,
+                Connection::<TcpStream>::builder().connect(&addr, password),
+            )
             .await
-        {
-            Ok(conn) => {
-                let mut connections = self.connections.lock().await;
-                connections.insert(server_id, conn);
-                Ok(RconResponse {
-                    success: true,
-                    message: format!("Connected to RCON at {}", addr),
-                    data: None,
-                })
+            {
+                Ok(Ok(conn)) => {
+                    let mut connections = self.connections.lock().await;
+                    connections.insert(server_id, conn);
+                    log::info!(
+                        "[RCON] Successfully connected to server {} at {} on attempt {}",
+                        server_id,
+                        addr,
+                        attempt
+                    );
+                    return Ok(RconResponse {
+                        success: true,
+                        message: format!("Connected to RCON at {}", addr),
+                        data: None,
+                    });
+                }
+                Ok(Err(e)) => {
+                    last_error = format!("{}", e);
+                    log::warn!(
+                        "[RCON] Attempt {}/{} failed for server {}: {}",
+                        attempt,
+                        MAX_RETRIES,
+                        server_id,
+                        last_error
+                    );
+                }
+                Err(_) => {
+                    last_error = "Connection timed out".to_string();
+                    log::warn!(
+                        "[RCON] Attempt {}/{} timed out for server {} ({}s limit)",
+                        attempt,
+                        MAX_RETRIES,
+                        server_id,
+                        CONNECT_TIMEOUT.as_secs()
+                    );
+                }
             }
-            Err(e) => Err(format!("Failed to connect to RCON: {}", e)),
+
+            // Don't sleep after the last attempt
+            if attempt < MAX_RETRIES {
+                let delay = RETRY_BASE_DELAY * attempt;
+                log::info!(
+                    "[RCON] Waiting {}s before retry for server {}...",
+                    delay.as_secs(),
+                    server_id
+                );
+                tokio::time::sleep(delay).await;
+            }
         }
+
+        log::error!(
+            "[RCON] All {} connection attempts exhausted for server {} at {}. Last error: {}",
+            MAX_RETRIES,
+            server_id,
+            addr,
+            last_error
+        );
+        Err(format!(
+            "Failed to connect to RCON after {} attempts. Last error: {}",
+            MAX_RETRIES, last_error
+        ))
     }
 
     /// Disconnect from a server's RCON
     pub async fn disconnect(&self, server_id: i64) -> Result<RconResponse, String> {
         let mut connections = self.connections.lock().await;
         if connections.remove(&server_id).is_some() {
+            log::info!("[RCON] Disconnected from server {}", server_id);
             Ok(RconResponse {
                 success: true,
                 message: "Disconnected from RCON".to_string(),
                 data: None,
             })
         } else {
+            log::warn!(
+                "[RCON] Disconnect requested but no active connection for server {}",
+                server_id
+            );
             Err("No active RCON connection for this server".to_string())
         }
     }
 
-    /// Send an RCON command
+    /// Send an RCON command. If the connection is stale (server restarted),
+    /// the dead connection is cleaned up and a clear error is returned.
     pub async fn send_command(
         &self,
         server_id: i64,
@@ -70,15 +155,44 @@ impl RconService {
         let mut connections = self.connections.lock().await;
 
         if let Some(conn) = connections.get_mut(&server_id) {
+            log::info!(
+                "[RCON] Sending command to server {}: {}",
+                server_id,
+                command
+            );
+
             match conn.cmd(command).await {
-                Ok(response) => Ok(RconResponse {
-                    success: true,
-                    message: "Command executed".to_string(),
-                    data: Some(response),
-                }),
-                Err(e) => Err(format!("Failed to execute command: {}", e)),
+                Ok(response) => {
+                    log::info!(
+                        "[RCON] Command '{}' executed on server {}, response length: {}",
+                        command,
+                        server_id,
+                        response.len()
+                    );
+                    Ok(RconResponse {
+                        success: true,
+                        message: "Command executed".to_string(),
+                        data: Some(response),
+                    })
+                }
+                Err(e) => {
+                    // Connection is likely dead — clean it up
+                    log::error!(
+                        "[RCON] Command '{}' failed on server {}: {}. Removing stale connection.",
+                        command,
+                        server_id,
+                        e
+                    );
+                    connections.remove(&server_id);
+                    Err(format!("RCON connection lost ({}). Please reconnect.", e))
+                }
             }
         } else {
+            log::warn!(
+                "[RCON] Command '{}' rejected — no active connection for server {}",
+                command,
+                server_id
+            );
             Err("No active RCON connection for this server".to_string())
         }
     }

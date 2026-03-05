@@ -19,7 +19,15 @@ pub async fn rcon_connect(
     password: String,
 ) -> Result<RconResponse, String> {
     let service = state.0.lock().await;
-    service.connect(server_id, &address, port, &password).await
+    // Sanitize any corrupted ?ServerPassword= suffixes from the database
+    let clean_password = password
+        .split("?ServerPassword=")
+        .next()
+        .unwrap_or(&password)
+        .to_string();
+    service
+        .connect(server_id, &address, port, &clean_password)
+        .await
 }
 
 /// Disconnect from a server's RCON

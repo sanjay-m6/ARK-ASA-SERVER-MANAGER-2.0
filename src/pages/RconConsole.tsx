@@ -12,30 +12,20 @@ import {
     UserX,
     Ban,
     Clock,
-    RefreshCw
+    RefreshCw,
+    HelpCircle
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
-
-interface RconPlayer {
-    id: number;
-    name: string;
-    steamId: string;
-}
+import { useRconStore, RconPlayer } from '../stores/rconStore';
+import RconHelpModal from '../components/ui/RconHelpModal';
 
 interface RconResponse {
     success: boolean;
     message: string;
     data?: string;
-}
-
-interface CommandHistoryEntry {
-    command: string;
-    response: string;
-    timestamp: Date;
-    success: boolean;
 }
 
 const QUICK_COMMANDS = [
@@ -49,12 +39,20 @@ const QUICK_COMMANDS = [
 export default function RconConsole() {
     const { t } = useTranslation();
     const { servers } = useServerStore();
-    const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
-    const [isConnected, setIsConnected] = useState(false);
-    const [isConnecting, setIsConnecting] = useState(false);
+
+    const [isHelpOpen, setIsHelpOpen] = useState(false);
+    // Zustand global state for RCON
+    const rconStore = useRconStore();
+    const selectedServerId = rconStore.selectedServerId;
+    const setSelectedServerId = rconStore.setSelectedServerId;
+
+    const serverState = selectedServerId ? rconStore.serverStates[selectedServerId] : null;
+    const isConnected = serverState?.isConnected || false;
+    const isConnecting = serverState?.isConnecting || false;
+    const commandHistory = serverState?.commandHistory || [];
+    const players = serverState?.players || [];
+
     const [command, setCommand] = useState('');
-    const [commandHistory, setCommandHistory] = useState<CommandHistoryEntry[]>([]);
-    const [players, setPlayers] = useState<RconPlayer[]>([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
     const terminalRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -78,8 +76,9 @@ export default function RconConsole() {
     const connect = useCallback(async () => {
         if (!selectedServer) return;
 
-        setIsConnecting(true);
+        rconStore.setConnecting(selectedServer.id, true);
         try {
+            console.log(`[RCON] Connecting to ${selectedServer.ipAddress || '127.0.0.1'}:${selectedServer.ports.rconPort}...`);
             const response = await invoke<RconResponse>('rcon_connect', {
                 serverId: selectedServer.id,
                 address: selectedServer.ipAddress || '127.0.0.1',
@@ -88,26 +87,29 @@ export default function RconConsole() {
             });
 
             if (response.success) {
-                setIsConnected(true);
-                toast.success(t('rcon.connectedMsg'));
-                addToHistory('connect', t('rcon.connectedMsg'), true);
+                console.log('[RCON] Connected successfully!');
+                rconStore.setConnected(selectedServer.id, true);
+                toast.success(t('rcon.connectedMsg', 'Connected to RCON'));
+                addToHistory('connect', t('rcon.connectedMsg', 'Connected to RCON'), true);
                 refreshPlayers();
             }
         } catch (error) {
-            toast.error(t('rcon.connectFailed', { error: String(error) }));
-            addToHistory('connect', t('common.failed', { error: String(error) }), false);
+            const errMsg = String(error);
+            console.error('[RCON] Connection failed:', errMsg);
+            toast.error(t('rcon.connectFailed', { error: errMsg, defaultValue: `Connection failed: ${errMsg}` }));
+            addToHistory('connect', `Failed: ${errMsg}`, false);
         } finally {
-            setIsConnecting(false);
+            rconStore.setConnecting(selectedServer.id, false);
         }
-    }, [selectedServer]);
+    }, [selectedServer, rconStore]);
 
     const disconnect = async () => {
         if (!selectedServerId) return;
 
         try {
             await invoke<RconResponse>('rcon_disconnect', { serverId: selectedServerId });
-            setIsConnected(false);
-            setPlayers([]);
+            rconStore.setConnected(selectedServerId, false);
+            rconStore.setPlayers(selectedServerId, []);
             toast.success(t('rcon.disconnectedMsg'));
             addToHistory('disconnect', t('rcon.disconnectedMsg'), true);
         } catch (error) {
@@ -116,12 +118,13 @@ export default function RconConsole() {
     };
 
     const addToHistory = (cmd: string, response: string, success: boolean) => {
-        setCommandHistory(prev => [...prev, {
+        if (!selectedServerId) return;
+        rconStore.addHistory(selectedServerId, {
             command: cmd,
             response,
             timestamp: new Date(),
             success,
-        }]);
+        });
     };
 
     const sendCommand = async (cmd?: string) => {
@@ -152,7 +155,7 @@ export default function RconConsole() {
             const playerList = await invoke<RconPlayer[]>('rcon_get_players', {
                 serverId: selectedServerId,
             });
-            setPlayers(playerList);
+            rconStore.setPlayers(selectedServerId, playerList);
         } catch (error) {
             console.error('Failed to get players:', error);
         }
@@ -246,8 +249,6 @@ export default function RconConsole() {
                         value={selectedServerId || ''}
                         onChange={(e) => {
                             setSelectedServerId(Number(e.target.value));
-                            setIsConnected(false);
-                            setPlayers([]);
                         }}
                         className="bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     >
@@ -255,6 +256,14 @@ export default function RconConsole() {
                             <option key={server.id} value={server.id}>{server.name}</option>
                         ))}
                     </select>
+
+                    <button
+                        onClick={() => setIsHelpOpen(true)}
+                        className="p-2 bg-slate-800 border border-slate-700 hover:bg-slate-700/80 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors"
+                        title="RCON Guide"
+                    >
+                        <HelpCircle className="w-5 h-5" />
+                    </button>
 
                     <button
                         onClick={isConnected ? disconnect : connect}
@@ -420,6 +429,11 @@ export default function RconConsole() {
                     </div>
                 </div>
             </div>
+
+            <RconHelpModal
+                isOpen={isHelpOpen}
+                onClose={() => setIsHelpOpen(false)}
+            />
         </div>
     );
 }

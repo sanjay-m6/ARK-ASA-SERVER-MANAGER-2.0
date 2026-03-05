@@ -8,6 +8,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import FirewallSettings from '../components/settings/FirewallSettings';
 import { manualCheckForUpdates } from '../components/UpdateChecker';
+import { cn } from '../utils/helpers';
 import {
     getUpdateSettings,
     setUpdateSettings,
@@ -414,63 +415,74 @@ export default function Settings() {
             ) : activeTab === 'updates' ? (
                 <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
                     {/* Check for Updates */}
-                    <div className="glass-panel rounded-2xl p-8">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="p-3 bg-emerald-500/10 rounded-xl">
-                                <RefreshCw className="w-8 h-8 text-emerald-400" />
+                    <div className="glass-panel rounded-2xl p-8 relative overflow-hidden">
+                        {/* Background glow */}
+                        <div className="absolute top-0 right-0 p-32 bg-emerald-500/5 rounded-full blur-3xl -z-10 animate-pulse"></div>
+
+                        <div className="flex items-start space-x-5 mb-8">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-emerald-500/20 rounded-2xl blur-md"></div>
+                                <div className="relative p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                                    <RefreshCw className={cn("w-8 h-8 text-emerald-400", isCheckingUpdates && "animate-spin")} />
+                                </div>
                             </div>
-                            <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-white">{t('settings.updatesTab.checkForUpdates', 'Check for Updates')}</h2>
-                                <p className="text-slate-400 mt-1">
-                                    {t('settings.updatesTab.currentVersion', 'Current Version:')} <span className="text-emerald-400 font-mono">{currentVersion}</span>
-                                </p>
+                            <div className="flex-1 mt-1">
+                                <h2 className="text-2xl font-bold text-white tracking-tight">{t('settings.updatesTab.checkForUpdates', 'Software Updates')}</h2>
+                                <div className="flex items-center gap-3 mt-2">
+                                    <span className="text-slate-400">{t('settings.updatesTab.currentVersion', 'Current Version:')}</span>
+                                    <span className="px-2.5 py-1 rounded-md bg-slate-800/80 border border-slate-700/50 text-emerald-400 font-mono text-sm tracking-wide shadow-sm">v{currentVersion}</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4 mb-6">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
                             <button
                                 onClick={handleCheckForUpdates}
                                 disabled={isCheckingUpdates}
-                                className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 border border-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed font-medium tracking-wide"
                             >
-                                <Download className={`w-5 h-5 ${isCheckingUpdates ? 'animate-spin' : ''}`} />
-                                {isCheckingUpdates ? t('settings.updatesTab.checking', 'Checking...') : t('settings.updatesTab.checkNow', 'Check Now')}
+                                <Download className={`w-5 h-5 ${isCheckingUpdates ? 'animate-bounce' : ''}`} />
+                                {isCheckingUpdates ? t('settings.updatesTab.checking', 'Checking Servers...') : t('settings.updatesTab.checkNow', 'Check Now')}
                             </button>
 
                             {updateCheckResult && (
-                                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${updateCheckResult.includes('available')
-                                    ? 'bg-sky-500/10 text-sky-400'
-                                    : updateCheckResult.includes('latest')
-                                        ? 'bg-green-500/10 text-green-400'
-                                        : 'bg-red-500/10 text-red-400'
-                                    }`}>
+                                <div className={cn(
+                                    "flex items-center gap-3 px-5 py-3.5 rounded-xl border w-full sm:w-auto animate-in slide-in-from-left-4",
+                                    updateCheckResult.includes('available')
+                                        ? "bg-sky-500/10 border-sky-500/30 text-sky-400"
+                                        : updateCheckResult.includes('latest')
+                                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                                            : "bg-red-500/10 border-red-500/30 text-red-400"
+                                )}>
                                     {updateCheckResult.includes('available') ? (
-                                        <Download className="w-4 h-4" />
+                                        <div className="p-1 bg-sky-500/20 rounded-lg"><Download className="w-4 h-4" /></div>
                                     ) : updateCheckResult.includes('latest') ? (
-                                        <CheckCircle className="w-4 h-4" />
+                                        <div className="p-1 bg-emerald-500/20 rounded-lg"><CheckCircle className="w-4 h-4" /></div>
                                     ) : (
-                                        <AlertCircle className="w-4 h-4" />
+                                        <div className="p-1 bg-red-500/20 rounded-lg"><AlertCircle className="w-4 h-4" /></div>
                                     )}
-                                    {updateCheckResult}
+                                    <span className="font-medium">{updateCheckResult}</span>
                                 </div>
                             )}
                         </div>
 
                         {/* Update Interval */}
-                        <div className="border-t border-slate-700 pt-6">
-                            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                                <Clock className="w-5 h-5 text-slate-400" />
+                        <div className="border-t border-slate-700/50 pt-6">
+                            <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                                <Clock className="w-5 h-5 text-indigo-400" />
                                 {t('settings.updatesTab.automaticInterval', 'Automatic Check Interval')}
                             </h3>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2.5">
                                 {(['never', '1h', '6h', '12h', '24h'] as const).map(interval => (
                                     <button
                                         key={interval}
                                         onClick={() => handleUpdateIntervalChange(interval)}
-                                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${updateSettings?.checkInterval === interval
-                                            ? 'bg-emerald-500 text-white'
-                                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
-                                            }`}
+                                        className={cn(
+                                            "px-5 py-2.5 rounded-xl font-medium transition-all duration-200 border",
+                                            updateSettings?.checkInterval === interval
+                                                ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white border-indigo-500/50 shadow-md shadow-indigo-500/20"
+                                                : "bg-slate-800/50 text-slate-400 hover:bg-slate-700 border-slate-700/50 hover:text-white hover:border-slate-600"
+                                        )}
                                     >
                                         {interval === 'never' ? t('settings.updatesTab.manualOnly', 'Manual Only') : t('settings.updatesTab.every', { defaultValue: 'Every {{interval}}', interval })}
                                     </button>
@@ -481,17 +493,17 @@ export default function Settings() {
 
                     {/* Update History */}
                     <div className="glass-panel rounded-2xl p-8">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
-                                <span className="bg-violet-500/10 p-2 rounded-lg">
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-2xl font-bold text-white flex items-center gap-3 tracking-tight">
+                                <div className="p-2.5 bg-violet-500/10 border border-violet-500/20 rounded-xl">
                                     <History className="w-6 h-6 text-violet-400" />
-                                </span>
+                                </div>
                                 Update History
                             </h2>
                             {updateHistory.length > 0 && (
                                 <button
                                     onClick={handleClearSkipped}
-                                    className="text-sm text-slate-400 hover:text-white transition-colors"
+                                    className="text-sm px-4 py-2 rounded-lg bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700/50 transition-all font-medium"
                                 >
                                     {t('settings.updatesTab.clearSkipped', 'Clear Skipped Versions')}
                                 </button>
@@ -499,39 +511,61 @@ export default function Settings() {
                         </div>
 
                         {updateHistory.length === 0 ? (
-                            <div className="text-center py-8 text-slate-500">
-                                <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                                <p>{t('settings.updatesTab.noHistory', 'No update history yet')}</p>
+                            <div className="flex flex-col items-center justify-center py-12 text-slate-500 border-2 border-dashed border-slate-700/50 rounded-2xl bg-slate-800/20">
+                                <div className="p-4 bg-slate-800 rounded-full mb-4">
+                                    <History className="w-8 h-8 opacity-50 text-slate-400" />
+                                </div>
+                                <p className="font-medium text-slate-400">{t('settings.updatesTab.noHistory', 'No update history yet')}</p>
+                                <p className="text-sm mt-1">Updates will appear here once installed or skipped.</p>
                             </div>
                         ) : (
-                            <div className="space-y-3 max-h-64 overflow-y-auto">
-                                {updateHistory.slice(0, 10).map(entry => (
+                            <div className="space-y-4 max-h-[28rem] overflow-y-auto custom-scrollbar pr-2">
+                                {updateHistory.slice(0, 10).map((entry, i) => (
                                     <div
                                         key={entry.id}
-                                        className="flex items-center justify-between bg-slate-800/50 rounded-lg p-3 border border-slate-700"
+                                        className="relative flex items-center justify-between bg-slate-800/40 hover:bg-slate-800/80 rounded-xl p-4 border border-slate-700/50 transition-all group"
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`p-2 rounded-lg ${entry.action === 'installed'
-                                                ? 'bg-green-500/10 text-green-400'
-                                                : entry.action === 'skipped'
-                                                    ? 'bg-yellow-500/10 text-yellow-400'
-                                                    : 'bg-red-500/10 text-red-400'
-                                                }`}>
+                                        <div className="flex items-center gap-4">
+                                            <div className={cn(
+                                                "p-2.5 rounded-xl border shadow-sm",
+                                                entry.action === 'installed'
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                    : entry.action === 'skipped'
+                                                        ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                                                        : 'bg-red-500/10 text-red-500 border-red-500/20'
+                                            )}>
                                                 {entry.action === 'installed' ? (
-                                                    <CheckCircle className="w-4 h-4" />
+                                                    <CheckCircle className="w-5 h-5" />
                                                 ) : entry.action === 'skipped' ? (
-                                                    <Clock className="w-4 h-4" />
+                                                    <Clock className="w-5 h-5" />
                                                 ) : (
-                                                    <AlertCircle className="w-4 h-4" />
+                                                    <AlertCircle className="w-5 h-5" />
                                                 )}
                                             </div>
                                             <div>
-                                                <div className="font-medium text-white">v{entry.version}</div>
-                                                <div className="text-xs text-slate-500 capitalize">{entry.action}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-white text-lg tracking-wide">v{entry.version}</span>
+                                                    {i === 0 && entry.action === 'installed' && (
+                                                        <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 rounded-full border border-emerald-500/20">Current</span>
+                                                    )}
+                                                </div>
+                                                <div className="text-sm text-slate-400 font-medium capitalize mt-0.5 flex items-center gap-1.5">
+                                                    <span className={cn(
+                                                        "w-1.5 h-1.5 rounded-full",
+                                                        entry.action === 'installed' ? "bg-emerald-500" :
+                                                            entry.action === 'skipped' ? "bg-yellow-500" : "bg-red-500"
+                                                    )}></span>
+                                                    {entry.action}
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="text-sm text-slate-400">
-                                            {formatRelativeTime(entry.date)}
+                                        <div className="text-right">
+                                            <div className="text-sm font-medium text-slate-300">
+                                                {formatRelativeTime(entry.date)}
+                                            </div>
+                                            <div className="text-xs text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {new Date(entry.date).toLocaleDateString()}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

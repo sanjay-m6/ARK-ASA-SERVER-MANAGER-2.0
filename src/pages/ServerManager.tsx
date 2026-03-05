@@ -41,6 +41,7 @@ export default function ServerManager() {
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showNonDedicatedImport, setShowNonDedicatedImport] = useState(false);
     const [updateOnStart, setUpdateOnStart] = useState(false);
+    const [selectedServers, setSelectedServers] = useState<number[]>([]);
 
     // Baseline: number of log lines at server start, so we only detect startup in NEW lines
     const [logBaseline, setLogBaseline] = useState<Record<number, number>>({});
@@ -169,7 +170,7 @@ export default function ServerManager() {
         refreshServers();
 
         // Poll for updates (heartbeat)
-        const interval = setInterval(refreshServers, 30000);
+        const interval = setInterval(refreshServers, 3000);
 
         return () => {
             isMounted = false;
@@ -473,6 +474,82 @@ export default function ServerManager() {
         }
     };
 
+    const handleSelectServer = (serverId: number) => {
+        setSelectedServers(prev =>
+            prev.includes(serverId) ? prev.filter(id => id !== serverId) : [...prev, serverId]
+        );
+    };
+
+    const handleSelectAll = () => {
+        if (selectedServers.length === servers.length && servers.length > 0) {
+            setSelectedServers([]);
+        } else {
+            setSelectedServers(servers.map(s => s.id));
+        }
+    };
+
+    const handleBulkStart = async () => {
+        const serversToStart = servers.filter(s => selectedServers.includes(s.id) && (s.status === 'stopped' || s.status === 'crashed'));
+        if (serversToStart.length === 0) {
+            toast.error(t('serverManager.noStartableServersSelected', 'No startable servers selected.'));
+            return;
+        }
+
+        toast.success(t('serverManager.bulkStartInitiated', { count: serversToStart.length }));
+
+        for (const server of serversToStart) {
+            handleStartServer(server.id); // fire off and continue
+            await new Promise(resolve => setTimeout(resolve, 500)); // stagger starts
+        }
+        setSelectedServers([]); // Clear selection after starting
+    };
+
+    const handleStartAll = async () => {
+        const serversToStart = servers.filter(s => s.status === 'stopped' || s.status === 'crashed');
+        if (serversToStart.length === 0) {
+            toast.error(t('serverManager.noStartableServers', 'No offline servers available to start.'));
+            return;
+        }
+
+        toast.success(t('serverManager.bulkStartInitiated', { count: serversToStart.length }));
+
+        for (const server of serversToStart) {
+            handleStartServer(server.id);
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    };
+
+    const handleBulkStop = async () => {
+        const serversToStop = servers.filter(s => selectedServers.includes(s.id) && (s.status === 'running' || s.status === 'online' || s.status === 'starting'));
+        if (serversToStop.length === 0) {
+            toast.error(t('serverManager.noStoppableServersSelected', 'No running servers selected.'));
+            return;
+        }
+
+        toast.success(t('serverManager.bulkStopInitiated', { count: serversToStop.length }));
+
+        for (const server of serversToStop) {
+            handleStopServer(server.id); // fire off and continue
+            await new Promise(resolve => setTimeout(resolve, 500)); // stagger stops
+        }
+        setSelectedServers([]); // Clear selection after stopping
+    };
+
+    const handleStopAll = async () => {
+        const serversToStop = servers.filter(s => s.status === 'running' || s.status === 'online' || s.status === 'starting');
+        if (serversToStop.length === 0) {
+            toast.error(t('serverManager.noStoppableServers', 'No running servers available to stop.'));
+            return;
+        }
+
+        toast.success(t('serverManager.bulkStopInitiated', { count: serversToStop.length }));
+
+        for (const server of serversToStop) {
+            handleStopServer(server.id);
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
@@ -507,6 +584,61 @@ export default function ServerManager() {
                     </button>
                 </div>
             </div>
+
+            {/* Bulk Actions Bar */}
+            {servers.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-800/30 border border-slate-700/50 rounded-xl p-4 mt-2 mb-2 gap-4">
+                    <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-white transition-colors select-none">
+                            <input
+                                type="checkbox"
+                                checked={servers.length > 0 && selectedServers.length === servers.length}
+                                onChange={handleSelectAll}
+                                className="w-5 h-5 rounded border-slate-600 text-sky-500 focus:ring-sky-500/50 cursor-pointer"
+                                style={{ backgroundColor: 'transparent' }}
+                            />
+                            <span className="font-medium">
+                                {selectedServers.length > 0
+                                    ? t('serverManager.buttons.selectedCount', { count: selectedServers.length })
+                                    : t('serverManager.buttons.selectAll')}
+                            </span>
+                        </label>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                        <button
+                            onClick={handleBulkStart}
+                            disabled={selectedServers.length === 0}
+                            className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Play className="w-4 h-4 fill-current" />
+                            <span>{t('serverManager.buttons.startSelected')}</span>
+                        </button>
+                        <button
+                            onClick={handleStartAll}
+                            className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-lg transition-all font-medium"
+                        >
+                            <Play className="w-4 h-4 fill-current" />
+                            <span>{t('serverManager.buttons.startAll')}</span>
+                        </button>
+                        <div className="w-px h-6 bg-slate-700 hidden sm:block mx-1"></div>
+                        <button
+                            onClick={handleBulkStop}
+                            disabled={selectedServers.length === 0}
+                            className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <Square className="w-4 h-4 fill-current" />
+                            <span>{t('serverManager.buttons.stopSelected', 'Stop Selected')}</span>
+                        </button>
+                        <button
+                            onClick={handleStopAll}
+                            className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg transition-all font-medium"
+                        >
+                            <Square className="w-4 h-4 fill-current" />
+                            <span>{t('serverManager.buttons.stopAll', 'Stop All')}</span>
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Server List */}
             {servers.length === 0 ? (
@@ -557,7 +689,17 @@ export default function ServerManager() {
 
                             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                                 {/* Server Info */}
-                                <div className="flex items-start space-x-6">
+                                <div className="flex items-start space-x-4">
+                                    {/* Selection Checkbox */}
+                                    <div className="flex items-center h-full pt-1.5">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedServers.includes(server.id)}
+                                            onChange={() => handleSelectServer(server.id)}
+                                            className="w-5 h-5 rounded border-slate-600 text-sky-500 focus:ring-sky-500/50 cursor-pointer"
+                                            style={{ backgroundColor: 'transparent' }}
+                                        />
+                                    </div>
                                     <div className="relative mt-1">
                                         <div className={cn(
                                             'w-4 h-4 rounded-full',

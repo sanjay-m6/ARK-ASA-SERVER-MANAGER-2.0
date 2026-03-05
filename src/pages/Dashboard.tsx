@@ -170,8 +170,8 @@ export default function Dashboard() {
 
     // Poll every 10s for smooth chart data (60 points = 10 min history)
     const perfInterval = setInterval(fetchSystemInfo, 10000);
-    // Refresh server list less frequently
-    const serverInterval = setInterval(refreshServers, 30000);
+    // Poll for updates (heartbeat)
+    const serverInterval = setInterval(refreshServers, 3000);
 
     return () => {
       clearInterval(perfInterval);

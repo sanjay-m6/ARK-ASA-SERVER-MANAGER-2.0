@@ -2,63 +2,97 @@
 // Sends notifications for server events to Discord channels
 
 use crate::AppState;
-use reqwest::blocking::Client as BlockingClient;
+use reqwest::Client;
 use serde_json::json;
 use tauri::Manager;
 
 /// Standalone function to send a Discord webhook notification.
 /// Reads `discord_webhook_url` and `discord_alerts_config` from the settings DB table.
 /// `event_key` should match a key in the alerts JSON (e.g. "serverStart", "serverStop", "serverCrash", "scheduledTask").
-/// This function is safe to call from any synchronous thread (e.g. process manager monitor).
-pub fn send_discord_webhook(app_handle: &tauri::AppHandle, event_key: &str, embed: DiscordEmbed) {
+pub async fn send_discord_webhook(
+    app_handle: &tauri::AppHandle,
+    event_key: &str,
+    embed: DiscordEmbed,
+) {
+    println!(
+        "  🔔 [DISCORD] send_discord_webhook called for event: '{}'",
+        event_key
+    );
+
     // 1. Read webhook URL from settings
     let webhook_url = match read_setting(app_handle, "discord_webhook_url") {
-        Some(url) if !url.is_empty() => url,
-        _ => return, // No webhook configured, silently skip
+        Some(url) if !url.is_empty() => {
+            println!(
+                "  🔔 [DISCORD] Webhook URL found: {}...{}",
+                &url[..url.len().min(40)],
+                if url.len() > 40 { "..." } else { "" }
+            );
+            url
+        }
+        Some(_) => {
+            println!("  ⚠️ [DISCORD] Webhook URL is EMPTY. Skipping.");
+            return;
+        }
+        None => {
+            println!("  ⚠️ [DISCORD] No webhook URL configured in settings. Skipping.");
+            return;
+        }
     };
 
     // 2. Read alerts config and check if this event type is enabled
     let alerts_config = read_setting(app_handle, "discord_alerts_config");
-    if let Some(config_json) = alerts_config {
-        if let Ok(config) = serde_json::from_str::<serde_json::Value>(&config_json) {
+    if let Some(config_json) = &alerts_config {
+        println!("  🔔 [DISCORD] Alerts config found: {}", config_json);
+        if let Ok(config) = serde_json::from_str::<serde_json::Value>(config_json) {
             // Check if this specific alert is enabled
             if let Some(enabled) = config.get(event_key).and_then(|v| v.as_bool()) {
                 if !enabled {
-                    log::info!("📭 Discord webhook skipped: '{}' is disabled", event_key);
+                    println!(
+                        "  📭 [DISCORD] Event '{}' is DISABLED in alerts config. Skipping.",
+                        event_key
+                    );
                     return;
                 }
+                println!("  🔔 [DISCORD] Event '{}' is enabled.", event_key);
+            } else {
+                println!(
+                    "  🔔 [DISCORD] Event '{}' not found in config, defaulting to enabled.",
+                    event_key
+                );
             }
-            // If key not found in config, default to sending (enabled by default)
         }
-        // If JSON parse fails, default to sending
+    } else {
+        println!("  🔔 [DISCORD] No alerts config found, defaulting to all enabled.");
     }
-    // If no alerts config at all, default to sending
 
     // 3. Build payload and send
     let payload = json!({
         "embeds": [embed.to_json()]
     });
 
-    log::info!(
-        "📤 Discord webhook: sending '{}' notification...",
+    println!(
+        "  📤 [DISCORD] Sending '{}' webhook to Discord...",
         event_key
     );
 
-    let client = BlockingClient::new();
-    match client.post(&webhook_url).json(&payload).send() {
+    let client = Client::new();
+    match client.post(&webhook_url).json(&payload).send().await {
         Ok(resp) => {
             if resp.status().is_success() {
-                log::info!("✅ Discord webhook sent: '{}'", event_key);
+                println!("  ✅ [DISCORD] Webhook SENT successfully: '{}'", event_key);
             } else {
-                log::error!(
-                    "⚠️ Discord webhook returned status {}: '{}'",
-                    resp.status(),
-                    event_key
+                let status = resp.status();
+                println!(
+                    "  ⚠️ [DISCORD] Webhook returned HTTP {}: '{}'",
+                    status, event_key
                 );
+                if let Ok(body) = resp.text().await {
+                    println!("  ⚠️ [DISCORD] Error body: {}", body);
+                }
             }
         }
         Err(e) => {
-            log::error!("❌ Discord webhook failed for '{}': {}", event_key, e);
+            println!("  ❌ [DISCORD] Webhook FAILED for '{}': {}", event_key, e);
         }
     }
 }
@@ -213,6 +247,61 @@ impl DiscordEmbed {
             description: format!("**{}** has left **{}**", player_name, server_name),
             color: 0x6B7280, // Gray
             fields: vec![],
+            footer: Some("ASA Server Manager 2.0".to_string()),
+            timestamp: Some(chrono::Utc::now().to_rfc3339()),
+        }
+    }
+
+    /// Build a rich status update embed with per-server details
+    /// Each entry: (name, map_name, current_players, max_players)
+    pub fn status_update(
+        online_count: usize,
+        total_count: usize,
+        server_details: Vec<(String, String, i32, i32)>,
+    ) -> Self {
+        let color = if online_count > 0 { 0x22C55E } else { 0xEF4444 };
+
+        let total_players: i32 = server_details.iter().map(|(_, _, p, _)| p).sum();
+        let total_max: i32 = server_details.iter().map(|(_, _, _, m)| m).sum();
+
+        let mut fields: Vec<EmbedField> = if server_details.is_empty() {
+            vec![EmbedField {
+                name: "No Servers Online".to_string(),
+                value: "All servers are currently offline.".to_string(),
+                inline: false,
+            }]
+        } else {
+            server_details
+                .into_iter()
+                .map(|(name, map, players, max)| EmbedField {
+                    name: format!("🖥️ {}", name),
+                    value: format!(
+                        "Players: **{}/{}**\nMap: **{}**\nStatus: 🟢 Online",
+                        players, max, map
+                    ),
+                    inline: true,
+                })
+                .collect()
+        };
+
+        // Add summary field
+        fields.push(EmbedField {
+            name: "📈 Total".to_string(),
+            value: format!(
+                "{} / {} servers online — **{}** player(s) active",
+                online_count, total_count, total_players
+            ),
+            inline: false,
+        });
+
+        Self {
+            title: "📊 Server Status Update".to_string(),
+            description: format!(
+                "**{}** of **{}** server(s) online — **{}/{}** player slots in use",
+                online_count, total_count, total_players, total_max
+            ),
+            color,
+            fields,
             footer: Some("ASA Server Manager 2.0".to_string()),
             timestamp: Some(chrono::Utc::now().to_rfc3339()),
         }
