@@ -45,16 +45,22 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🚀 v2.3.0 — Config Hot-Reloading & Performance Tracking
+            ## 🚀 v2.3.3 — SteamCMD Recovery, Presets & UI Enhancements
 
             ### ✨ New Features
-            - **Config Hot-Reloading**: Changes to the Config Editor now selectively update INI files array-by-array in real time instead of destroying the server's database configuration.
-            - **Non-blocking Saves**: Running servers now prompt a smooth, dismissable "Restart Required" toast (complete with a dedicated `X` button) when configurations are updated, rather than automatically reloading via RCON.
-            - **Enhanced Performance Metrics**: CPU metrics now dynamically poll Windows via a targeted process instead of refreshing all underlying system stats. Charts are fully rounded, and polling smoothly pulses every 10 seconds.
+            - **SteamCMD Error Recovery System**: installation failures now show actionable recovery panel with "Try Again", "Repair SteamCMD", and "Clear Cache" buttons instead of a dead-end error screen.
+            - **SteamCMD Health Check**: new backend service to verify SteamCMD executable integrity, disk space, and cache status.
+            - **Ark Club map**: added to map selector with custom landscape image and map profile.
+            - **Preset Export/Import**: server config presets can now be exported as `.json` files and imported on any machine.
+            - **Custom Presets**: save your current server configuration as a named preset stored in localStorage.
+            - **Traditional Chinese (zh-TW)**: full UI translation added to language selector.
+            - **Bulk Mod Import from URLs**: AdvancedModInput now extracts mod IDs from CurseForge URLs automatically.
+            - **Clipboard Paste & File Import for Mods**: added quick actions to import mod lists from clipboard or `.txt` files.
 
             ### 🐛 Bug Fixes
-            - **Null CPU Usage Fixed**: The critical bug where CPU usage remained locked at `0%` due to a thread blocking flaw in the reporting framework has been resolved.
-            - **Build Stability**: Eliminated conflict errors in `cargo run` setups by removing the test bin execution context.
+            - **SteamCMD Error (7) dead-end**: users no longer get stuck on error screen with no recovery path.
+            - **Silent install failures**: all installation errors now provide clear, categorized messages with suggested actions.
+            - **Preset selector**: built-in presets can now be exported for sharing.
 
             ### Install
             Download the `.msi` installer below.
