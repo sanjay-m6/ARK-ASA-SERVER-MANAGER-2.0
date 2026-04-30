@@ -271,6 +271,16 @@ impl ConfigGenerator {
                 recommended_mods: vec![],
                 custom_settings: HashMap::new(),
             },
+            MapProfile {
+                map_id: "TheCenter_WP".to_string(),
+                map_name: "The Center".to_string(),
+                difficulty_offset: 1.0,
+                xp_multiplier: 1.0,
+                harvest_multiplier: 1.0,
+                taming_multiplier: 1.0,
+                recommended_mods: vec![],
+                custom_settings: HashMap::new(),
+            },
         ]
     }
 
@@ -308,12 +318,15 @@ impl ConfigGenerator {
                 content.push_str(&format!("ServerPassword={}\r\n", pwd));
             }
         }
+        // Only write admin password if it has been set by the user
         let clean_admin_password = config
             .admin_password
             .split("?ServerPassword=")
             .next()
             .unwrap_or(&config.admin_password);
-        content.push_str(&format!("ServerAdminPassword={}\r\n", clean_admin_password));
+        if !clean_admin_password.is_empty() {
+            content.push_str(&format!("ServerAdminPassword={}\r\n", clean_admin_password));
+        }
         content.push_str(&format!("MaxPlayers={}\r\n", config.max_players));
         content.push_str(&format!("MapName={}\r\n", config.map_name));
         content.push_str(&format!("RCONEnabled={}\r\n", config.rcon_enabled));
@@ -640,12 +653,28 @@ impl ConfigGenerator {
             let _ = Self::backup_configs(install_path);
         }
 
-        // Write GameUserSettings.ini
+        // Write GameUserSettings.ini — use merge strategy to preserve custom keys
+        // (third-party INI settings, advanced PvP rules, etc.)
         let gus_content = Self::generate_game_user_settings(config);
         let gus_path = config_dir.join("GameUserSettings.ini");
-        println!("  📝 Writing GameUserSettings.ini to: {:?}", gus_path);
-        fs::write(&gus_path, gus_content)
-            .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
+        if gus_path.exists() {
+            let existing = fs::read_to_string(&gus_path).unwrap_or_default();
+            if !existing.is_empty() {
+                let merged =
+                    crate::services::ini_parser::IniParser::merge(&existing, &gus_content);
+                println!("  📝 Merging GameUserSettings.ini (preserving custom keys, updating known values)");
+                fs::write(&gus_path, merged)
+                    .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
+            } else {
+                println!("  📝 Writing fresh GameUserSettings.ini to: {:?}", gus_path);
+                fs::write(&gus_path, gus_content)
+                    .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
+            }
+        } else {
+            println!("  📝 Creating initial GameUserSettings.ini at: {:?}", gus_path);
+            fs::write(&gus_path, gus_content)
+                .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
+        }
 
         // Write Game.ini — use merge strategy to preserve custom keys
         // (engrams, NPC replacements, etc.) while updating multiplier values

@@ -196,7 +196,7 @@ impl ProcessManager {
                 let mut servers_to_query: Vec<(i64, String, u16)> = Vec::new();
                 // 1. Check process status (Fast, holds lock)
                 let crashed_servers = {
-                    let mut p_lock = monitor_processes.lock().unwrap();
+                    let mut p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
                     let mut to_remove: Vec<(i64, i32, u16, Option<String>, bool)> = Vec::new();
 
                     for (id, proc) in p_lock.iter_mut() {
@@ -208,7 +208,7 @@ impl ProcessManager {
 
                                 // Check if this was an authorized stop
                                 let stop_reason = {
-                                    let mut reasons = monitor_stop_reasons.lock().unwrap();
+                                    let mut reasons = monitor_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
                                     reasons.remove(id)
                                 };
                                 let reason_str = stop_reason
@@ -273,7 +273,7 @@ impl ProcessManager {
                     
                     // Re-acquire lock to update state
                     // We must check if the process still exists (it might have been stopped/crashed in the meantime)
-                    let mut p_lock = monitor_processes.lock().unwrap();
+                    let mut p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
                     
                     if let Some(proc) = p_lock.get_mut(&id) {
                         let _message_startup_confirmed = proc.startup_confirmed.load(Ordering::Relaxed);
@@ -404,7 +404,7 @@ impl ProcessManager {
                                     println!("  [LIFECYCLE] Server {} STARTUP_TIMEOUT after {}s (final check also failed). Killing process.", id, uptime_secs);
                                     // Register the stop reason before killing
                                     {
-                                        let mut reasons = monitor_stop_reasons.lock().unwrap();
+                                        let mut reasons = monitor_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
                                         reasons.insert(id, StopReason::StartupTimeout);
                                     }
                                     // Kill Process
@@ -851,8 +851,10 @@ impl ProcessManager {
             .join("ShooterGame.log");
 
         // Build launch arguments
+        // BUG FIX 2: Sanitize session name — UE5 treats spaces as arg delimiters
+        let safe_session_name = session_name.replace(' ', "_");
         let mut connection_url = format!("{}?listen", map_name);
-        connection_url.push_str(&format!("?SessionName={}", session_name));
+        connection_url.push_str(&format!("?SessionName={}", safe_session_name));
         connection_url.push_str(&format!("?Port={}", game_port));
         connection_url.push_str(&format!("?QueryPort={}", query_port));
         connection_url.push_str(&format!("?RCONPort={}", rcon_port));
@@ -861,13 +863,15 @@ impl ProcessManager {
         }
         connection_url.push_str(&format!("?MaxPlayers={}", max_players));
         
-        // Clean out any old corrupted ?ServerPassword= tags before setting it up
+        // BUG FIX 10: Clean out any old corrupted ?ServerPassword= tags before setting it up
         let clean_admin_password = admin_password.split("?ServerPassword=").next().unwrap_or(&admin_password);
         connection_url.push_str(&format!("?ServerAdminPassword={}", clean_admin_password));
 
         if let Some(password) = server_password {
-            if !password.is_empty() {
-                connection_url.push_str(&format!("?ServerPassword={}", password));
+            // Sanitize server password — strip any '?' characters to prevent query-string injection
+            let clean_password = password.replace('?', "");
+            if !clean_password.is_empty() {
+                connection_url.push_str(&format!("?ServerPassword={}", clean_password));
             }
         }
 
@@ -1083,7 +1087,7 @@ impl ProcessManager {
 
         // Store process
         {
-            let mut processes = self.processes.lock().unwrap();
+            let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
             processes.insert(server_id, ServerProcess { 
                 child, 
                 stop_flag,
@@ -1327,7 +1331,7 @@ impl ProcessManager {
     }
     /// Check if a server process is tracked and alive (public helper)
     pub fn is_server_running(&self, server_id: i64) -> bool {
-        let processes = self.processes.lock().unwrap();
+        let processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
         processes.contains_key(&server_id)
     }
 
@@ -1337,11 +1341,11 @@ impl ProcessManager {
 
         // Register the stop reason BEFORE killing so the monitor thread sees it
         {
-            let mut reasons = self.pending_stop_reasons.lock().unwrap();
+            let mut reasons = self.pending_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
             reasons.insert(server_id, reason.clone());
         }
 
-        let mut processes = self.processes.lock().unwrap();
+        let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
 
         if let Some(mut server_proc) = processes.remove(&server_id) {
             let uptime = server_proc.started_at.elapsed().as_secs();
@@ -1393,7 +1397,7 @@ impl ProcessManager {
 
         // Clean up the reason after stop completes
         {
-            let mut reasons = self.pending_stop_reasons.lock().unwrap();
+            let mut reasons = self.pending_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
             reasons.remove(&server_id);
         }
 
@@ -1450,7 +1454,7 @@ impl ProcessManager {
 
     /// Check if server is running
     pub fn is_running(&self, server_id: i64) -> bool {
-        let mut processes = self.processes.lock().unwrap();
+        let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
 
         if let Some(server_proc) = processes.get_mut(&server_id) {
             match server_proc.child.try_wait() {
@@ -1542,7 +1546,7 @@ impl ProcessManager {
 
     /// Show the hidden server window
     pub fn show_server_window(&self, server_id: i64) -> Result<()> {
-        let processes = self.processes.lock().unwrap();
+        let processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(server_proc) = processes.get(&server_id) {
             let pid = server_proc.child.id();
             println!("  🖥️ Attempting to show console window for server {} (PID: {})", server_id, pid);

@@ -94,7 +94,7 @@ use crate::services::player_intelligence::PlayerIntelligenceService;
 use crate::AppState;
 use serenity::all::{
     Client as SerenityClient, Context, EventHandler as SerenityEventHandler, GatewayIntents,
-    Message, Ready,
+    Message, Ready, ShardManager,
 };
 use tauri::{AppHandle, Manager};
 
@@ -249,11 +249,20 @@ impl SerenityEventHandler for GatewayHandler {
                         .reply(&ctx.http, format!("🚀 Starting server {}...", id))
                         .await;
                     let app = self.app_handle.clone();
+                    let http = ctx.http.clone();
+                    let channel_id = msg.channel_id;
 
-                    // Call start_server command logic
-                    // We spin up a new runtime for the handle or use tauri's async runtime
-                    let _ = tauri::async_runtime::spawn(async move {
-                        let _ = crate::commands::server::start_server(app, id, false).await;
+                    tauri::async_runtime::spawn(async move {
+                        match crate::commands::server::start_server(app, id, false).await {
+                            Ok(_) => {
+                                log::info!("✅ Discord !start: Server {} started successfully", id);
+                                let _ = channel_id.say(&http, format!("✅ Server {} started successfully.", id)).await;
+                            }
+                            Err(e) => {
+                                log::error!("❌ Discord !start: Failed to start server {}: {}", id, e);
+                                let _ = channel_id.say(&http, format!("❌ Failed to start server {}: {}", id, e)).await;
+                            }
+                        }
                     });
                 } else {
                     let _ = msg.reply(&ctx.http, "❌ Invalid Server ID").await;
@@ -269,11 +278,21 @@ impl SerenityEventHandler for GatewayHandler {
                         .reply(&ctx.http, format!("🛑 Stopping server {}...", id))
                         .await;
                     let app = self.app_handle.clone();
+                    let http = ctx.http.clone();
+                    let channel_id = msg.channel_id;
 
-                    // Call stop_server command logic
-                    let _ = tauri::async_runtime::spawn(async move {
+                    tauri::async_runtime::spawn(async move {
                         let state = app.state::<AppState>();
-                        let _ = crate::commands::server::stop_server(state, id).await;
+                        match crate::commands::server::stop_server(state, id).await {
+                            Ok(_) => {
+                                log::info!("✅ Discord !stop: Server {} stopped successfully", id);
+                                let _ = channel_id.say(&http, format!("✅ Server {} stopped.", id)).await;
+                            }
+                            Err(e) => {
+                                log::error!("❌ Discord !stop: Failed to stop server {}: {}", id, e);
+                                let _ = channel_id.say(&http, format!("❌ Failed to stop server {}: {}", id, e)).await;
+                            }
+                        }
                     });
                 } else {
                     let _ = msg.reply(&ctx.http, "❌ Invalid Server ID").await;
@@ -291,11 +310,21 @@ impl SerenityEventHandler for GatewayHandler {
                         .reply(&ctx.http, format!("🔄 Restarting server {}...", id))
                         .await;
                     let app = self.app_handle.clone();
+                    let http = ctx.http.clone();
+                    let channel_id = msg.channel_id;
 
-                    // Call restart_server command logic
-                    let _ = tauri::async_runtime::spawn(async move {
+                    tauri::async_runtime::spawn(async move {
                         let state = app.state::<AppState>();
-                        let _ = crate::commands::server::restart_server(state, id).await;
+                        match crate::commands::server::restart_server(state, id).await {
+                            Ok(_) => {
+                                log::info!("✅ Discord !restart: Server {} restarted successfully", id);
+                                let _ = channel_id.say(&http, format!("✅ Server {} restarted.", id)).await;
+                            }
+                            Err(e) => {
+                                log::error!("❌ Discord !restart: Failed to restart server {}: {}", id, e);
+                                let _ = channel_id.say(&http, format!("❌ Failed to restart server {}: {}", id, e)).await;
+                            }
+                        }
                     });
                 } else {
                     let _ = msg.reply(&ctx.http, "❌ Invalid Server ID").await;
@@ -313,12 +342,21 @@ impl SerenityEventHandler for GatewayHandler {
                         .reply(&ctx.http, format!("⬇️ Updating server {}...", id))
                         .await;
                     let app = self.app_handle.clone();
+                    let http = ctx.http.clone();
+                    let channel_id = msg.channel_id;
 
-                    // Call update_server command logic
-                    let _ = tauri::async_runtime::spawn(async move {
+                    tauri::async_runtime::spawn(async move {
                         let state = app.state::<AppState>();
-                        let _ =
-                            crate::commands::server::update_server(app.clone(), state, id).await;
+                        match crate::commands::server::update_server(app.clone(), state, id).await {
+                            Ok(_) => {
+                                log::info!("✅ Discord !update: Server {} updated successfully", id);
+                                let _ = channel_id.say(&http, format!("✅ Server {} updated.", id)).await;
+                            }
+                            Err(e) => {
+                                log::error!("❌ Discord !update: Failed to update server {}: {}", id, e);
+                                let _ = channel_id.say(&http, format!("❌ Failed to update server {}: {}", id, e)).await;
+                            }
+                        }
                     });
                 } else {
                     let _ = msg.reply(&ctx.http, "❌ Invalid Server ID").await;
@@ -435,6 +473,8 @@ pub struct DiscordBridgeService {
     gateway_running: Arc<AtomicBool>,
     rate_limiter: Arc<Mutex<RateLimiter>>,
     sent_messages: Arc<Mutex<Vec<String>>>,
+    /// Handle to the active serenity ShardManager, used to shut down the gateway on stop()
+    shard_manager: Arc<Mutex<Option<Arc<ShardManager>>>>,
 }
 
 impl DiscordBridgeService {
@@ -448,6 +488,7 @@ impl DiscordBridgeService {
             gateway_running: Arc::new(AtomicBool::new(false)),
             rate_limiter: Arc::new(Mutex::new(RateLimiter::new(5, 10))), // 5 msgs per 10 seconds
             sent_messages: Arc::new(Mutex::new(Vec::new())),
+            shard_manager: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -691,10 +732,11 @@ impl DiscordBridgeService {
 
     /// Start the bridge (HTTP updates loop + Gateway for online status)
     pub fn start(self: Arc<Self>) {
-        if self.running.load(Ordering::Relaxed) {
+        // Atomic swap: only proceed if we transition from false → true
+        if self.running.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+            log::info!("🌉 Discord bridge already running, skipping duplicate start");
             return;
         }
-        self.running.store(true, Ordering::Relaxed);
         log::info!("🌉 Discord bridge started");
 
         // Spawn HTTP-based live updates loop
@@ -749,6 +791,13 @@ impl DiscordBridgeService {
         {
             Ok(mut client) => {
                 log::info!("🔌 Connecting to Discord Gateway...");
+
+                // Store the ShardManager so stop() can shut down the gateway
+                {
+                    let mut sm = self.shard_manager.lock().await;
+                    *sm = Some(client.shard_manager.clone());
+                }
+
                 if let Err(e) = client.start().await {
                     let err_str = format!("{:?}", e);
                     if err_str.contains("DisallowedGatewayIntents") {
@@ -764,6 +813,11 @@ impl DiscordBridgeService {
                         log::error!("❌ Discord Gateway error: {:?}", e);
                     }
                 }
+                // Clear stored shard manager after disconnect
+                {
+                    let mut sm = self.shard_manager.lock().await;
+                    *sm = None;
+                }
                 gateway_running.store(false, Ordering::Relaxed);
             }
             Err(e) => {
@@ -773,10 +827,22 @@ impl DiscordBridgeService {
         }
     }
 
-    /// Stop the bridge
+    /// Stop the bridge — shuts down the live serenity Gateway connection
     pub fn stop(&self) {
-        self.running.store(false, Ordering::Relaxed);
-        self.gateway_running.store(false, Ordering::Relaxed);
+        self.running.store(false, Ordering::SeqCst);
+        self.gateway_running.store(false, Ordering::SeqCst);
+
+        // Shut down the actual serenity Gateway so the old handler stops receiving messages
+        let sm = self.shard_manager.clone();
+        tauri::async_runtime::spawn(async move {
+            let mut guard = sm.lock().await;
+            if let Some(manager) = guard.take() {
+                log::info!("🔌 Shutting down Discord Gateway shards...");
+                manager.shutdown_all().await;
+                log::info!("✅ Discord Gateway shards shut down");
+            }
+        });
+
         log::info!("🌉 Discord bridge stopped");
     }
 

@@ -13,6 +13,23 @@ import { listen } from '@tauri-apps/api/event';
 
 import { useTranslation } from 'react-i18next';
 
+// Map images
+import mapTheIsland from '../../assets/maps/the_island.png';
+import mapScorchedEarth from '../../assets/maps/scorched_earth.png';
+import mapTheCenter from '../../assets/maps/the_center.png';
+import mapAberration from '../../assets/maps/aberration.png';
+import mapExtinction from '../../assets/maps/extinction.png';
+import mapRagnarok from '../../assets/maps/ragnarok.png';
+import mapValguero from '../../assets/maps/valguero.png';
+import mapLostColony from '../../assets/maps/lost_colony.png';
+import mapAstraeos from '../../assets/maps/astraeos.png';
+import mapForglar from '../../assets/maps/forglar.png';
+import mapGenesis from '../../assets/maps/genesis.png';
+import mapGenesis2 from '../../assets/maps/genesis2.png';
+import mapFjordur from '../../assets/maps/fjordur.png';
+import mapCrystalIsles from '../../assets/maps/crystal_isles.png';
+import mapLostIsland from '../../assets/maps/lost_island.png';
+
 interface Props {
     onClose: () => void;
 }
@@ -44,27 +61,31 @@ export default function InstallServerDialog({ onClose }: Props) {
 
     const MAPS_ASA = useMemo(() => ({
         released: [
-            { id: 'TheIsland_WP', name: t('dialogs.installServer.maps.theIsland'), description: t('dialogs.installServer.mapDescriptions.original'), color: '#22c55e', icon: '🏝️' },
-            { id: 'ScorchedEarth_WP', name: t('dialogs.installServer.maps.scorchedEarth'), description: t('dialogs.installServer.mapDescriptions.desert'), color: '#f59e0b', icon: '🏜️' },
-            { id: 'TheCenter_WP', name: t('dialogs.installServer.maps.theCenter'), description: t('dialogs.installServer.mapDescriptions.massive'), color: '#3b82f6', icon: '🌊' },
-            { id: 'Aberration_WP', name: t('dialogs.installServer.maps.aberration'), description: t('dialogs.installServer.mapDescriptions.underground'), color: '#a855f7', icon: '🍄' },
-            { id: 'Extinction_WP', name: t('dialogs.installServer.maps.extinction'), description: t('dialogs.installServer.mapDescriptions.postApoc'), color: '#64748b', icon: '🏚️' },
-            { id: 'Ragnarok_WP', name: t('dialogs.installServer.maps.ragnarok'), description: t('dialogs.installServer.mapDescriptions.viking'), color: '#ef4444', icon: '⚔️' },
-            { id: 'Valguero_WP', name: t('dialogs.installServer.maps.valguero'), description: t('dialogs.installServer.mapDescriptions.community'), color: '#10b981', icon: '🦖' },
-            { id: 'LostColony_WP', name: t('dialogs.installServer.maps.lostColony'), description: t('dialogs.installServer.mapDescriptions.dlc'), color: '#8b5cf6', icon: '🚀' },
+            { id: 'TheIsland_WP', name: t('dialogs.installServer.maps.theIsland', 'The Island'), description: t('dialogs.installServer.mapDescriptions.original', 'The original ARK experience'), color: '#22c55e', icon: '🏝️', size: 'Large', image: mapTheIsland },
+            { id: 'ScorchedEarth_WP', name: t('dialogs.installServer.maps.scorchedEarth', 'Scorched Earth'), description: t('dialogs.installServer.mapDescriptions.desert', 'Harsh desert survival'), color: '#f59e0b', icon: '🏜️', size: 'Medium', image: mapScorchedEarth },
+            { id: 'TheCenter_WP', name: t('dialogs.installServer.maps.theCenter', 'The Center'), description: t('dialogs.installServer.mapDescriptions.massive', 'Massive open-world map'), color: '#3b82f6', icon: '🌊', size: 'Large', image: mapTheCenter },
+            { id: 'Aberration_WP', name: t('dialogs.installServer.maps.aberration', 'Aberration'), description: t('dialogs.installServer.mapDescriptions.underground', 'Underground bioluminescent world'), color: '#a855f7', icon: '🍄', size: 'Medium', image: mapAberration },
+            { id: 'Extinction_WP', name: t('dialogs.installServer.maps.extinction', 'Extinction'), description: t('dialogs.installServer.mapDescriptions.postApoc', 'Post-apocalyptic Earth'), color: '#64748b', icon: '🏚️', size: 'Large', image: mapExtinction },
+            { id: 'Ragnarok_WP', name: t('dialogs.installServer.maps.ragnarok', 'Ragnarok'), description: t('dialogs.installServer.mapDescriptions.viking', 'Viking-themed mega map'), color: '#ef4444', icon: '⚔️', size: 'Large', image: mapRagnarok },
+            { id: 'Valguero_WP', name: t('dialogs.installServer.maps.valguero', 'Valguero'), description: t('dialogs.installServer.mapDescriptions.community', 'Diverse biomes & underground'), color: '#10b981', icon: '🦖', size: 'Large', image: mapValguero },
+        ],
+        dlc: [
+            { id: 'LostColony_WP', name: t('dialogs.installServer.maps.lostColony', 'Lost Colony'), description: t('dialogs.installServer.mapDescriptions.dlc', 'Paid DLC expansion'), color: '#8b5cf6', icon: '🚀', size: 'Large', image: mapLostColony },
         ],
         premiumMods: [
-            { id: 'Astraeos_WP', name: t('dialogs.installServer.maps.astraeos'), description: t('dialogs.installServer.mapDescriptions.premium'), color: '#ec4899', icon: '✨' },
-            { id: 'Forglar_WP', name: t('dialogs.installServer.maps.forglar'), description: t('dialogs.installServer.mapDescriptions.premium'), color: '#06b6d4', icon: '🌿' },
+            { id: 'Astraeos_WP', name: t('dialogs.installServer.maps.astraeos', 'Astraeos'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#ec4899', icon: '✨', size: 'Large', image: mapAstraeos },
+            { id: 'Forglar_WP', name: t('dialogs.installServer.maps.forglar', 'Forglar'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#06b6d4', icon: '🌿', size: 'Medium', image: mapForglar },
         ],
         upcoming: [
-            { id: 'Genesis_WP', name: t('dialogs.installServer.maps.genesis1'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'April 2026' }), color: '#14b8a6', icon: '🧬' },
-            { id: 'Genesis2_WP', name: t('dialogs.installServer.maps.genesis2'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'August 2026' }), color: '#6366f1', icon: '🛸' },
-            { id: 'Fjordur_WP', name: t('dialogs.installServer.maps.fjordur'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'December 2026' }), color: '#0ea5e9', icon: '❄️' },
+            { id: 'Genesis_WP', name: t('dialogs.installServer.maps.genesis1', 'Genesis Part 1'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'June 2026', defaultValue: 'Coming June 2026' }), color: '#14b8a6', icon: '🧬', size: 'Medium', image: mapGenesis },
+            { id: 'Genesis2_WP', name: t('dialogs.installServer.maps.genesis2', 'Genesis Part 2'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: '2026 TBC', defaultValue: 'Coming 2026' }), color: '#6366f1', icon: '🛸', size: 'Large', image: mapGenesis2 },
+            { id: 'Fjordur_WP', name: t('dialogs.installServer.maps.fjordur', 'Fjordur'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: '2026 TBC', defaultValue: 'Coming 2026' }), color: '#0ea5e9', icon: '❄️', size: 'Large', image: mapFjordur },
+            { id: 'CrystalIsles_WP', name: t('dialogs.installServer.maps.crystalIsles', 'Crystal Isles'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: '2026-2027 TBC', defaultValue: 'Coming 2026-2027' }), color: '#c084fc', icon: '💎', size: 'Large', image: mapCrystalIsles },
+            { id: 'LostIsland_WP', name: t('dialogs.installServer.maps.lostIsland', 'Lost Island'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: '2026-2027 TBC', defaultValue: 'Coming 2026-2027' }), color: '#fb923c', icon: '🌋', size: 'Large', image: mapLostIsland },
         ],
     }), [t]);
 
-    const ALL_MAPS = useMemo(() => [...MAPS_ASA.released, ...MAPS_ASA.premiumMods, ...MAPS_ASA.upcoming], [MAPS_ASA]);
+    const ALL_MAPS = useMemo(() => [...MAPS_ASA.released, ...MAPS_ASA.dlc, ...MAPS_ASA.premiumMods, ...MAPS_ASA.upcoming], [MAPS_ASA]);
     const [step, setStep] = useState(1);
     const [isInstalling, setIsInstalling] = useState(false);
     const [progress, setProgress] = useState<InstallProgress | null>(null);
@@ -360,29 +381,78 @@ export default function InstallServerDialog({ onClose }: Props) {
                         {step === 1 && !isInstalling && (
                             <div className="space-y-6">
                                 <div className="text-center mb-6">
-                                    <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.chooseMap')}</h3>
-                                    <p className="text-slate-400 mt-1">{t('dialogs.installServer.chooseMapDesc')}</p>
+                                    <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.chooseMap', 'Choose Your Map')}</h3>
+                                    <p className="text-slate-400 mt-1">{t('dialogs.installServer.chooseMapDesc', 'Select the world you want to host')}</p>
                                 </div>
 
-                                {/* Released Maps */}
+                                {/* Released Official Maps */}
                                 <div>
                                     <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                                         <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                                        {t('dialogs.installServer.officialMaps')}
+                                        {t('dialogs.installServer.officialMaps', 'Official Maps')}
+                                        <span className="text-xs font-normal text-emerald-500/70 normal-case">({MAPS_ASA.released.length})</span>
                                     </h4>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                         {MAPS_ASA.released.map((map) => (
                                             <button
                                                 key={map.id}
                                                 onClick={() => setFormData({ ...formData, mapName: map.id })}
-                                                className={`p-4 rounded-xl border-2 transition-all text-left ${formData.mapName === map.id
-                                                    ? 'border-white/30 bg-white/10'
-                                                    : 'border-slate-700/50 bg-slate-800/30 hover:border-slate-600'
+                                                className={`rounded-xl border-2 transition-all text-left relative group overflow-hidden ${formData.mapName === map.id
+                                                    ? 'border-white/40 scale-[1.02] ring-2 ring-white/20'
+                                                    : 'border-slate-700/50 hover:border-slate-500 hover:scale-[1.01]'
                                                     }`}
+                                                style={{ minHeight: '140px' }}
                                             >
-                                                <div className="text-2xl mb-2">{map.icon}</div>
-                                                <div className="font-semibold text-white text-sm">{map.name}</div>
-                                                <div className="text-xs text-slate-500 mt-1">{map.description}</div>
+                                                <img src={map.image} alt={map.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                                                <div className="absolute top-2 right-2">
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-black/50 backdrop-blur-sm text-slate-300 font-medium">{map.size}</span>
+                                                </div>
+                                                {formData.mapName === map.id && (
+                                                    <div className="absolute top-2 left-2">
+                                                        <CheckCircle className="w-4 h-4 text-emerald-400 drop-shadow-lg" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute bottom-0 left-0 right-0 p-3">
+                                                    <div className="font-semibold text-white text-sm drop-shadow-lg">{map.name}</div>
+                                                    <div className="text-[11px] text-slate-300/80 mt-0.5 drop-shadow-md">{map.description}</div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* DLC Maps */}
+                                <div>
+                                    <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                        <span className="w-2 h-2 bg-violet-500 rounded-full"></span>
+                                        {t('dialogs.installServer.dlcMaps', 'DLC Expansions')}
+                                    </h4>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        {MAPS_ASA.dlc.map((map) => (
+                                            <button
+                                                key={map.id}
+                                                onClick={() => setFormData({ ...formData, mapName: map.id })}
+                                                className={`rounded-xl border-2 transition-all text-left relative group overflow-hidden ${formData.mapName === map.id
+                                                    ? 'border-white/40 scale-[1.02] ring-2 ring-violet-500/30'
+                                                    : 'border-slate-700/50 hover:border-slate-500 hover:scale-[1.01]'
+                                                    }`}
+                                                style={{ minHeight: '140px' }}
+                                            >
+                                                <img src={map.image} alt={map.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                                                <div className="absolute top-2 right-2">
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-violet-500/40 backdrop-blur-sm text-violet-200 font-medium">DLC</span>
+                                                </div>
+                                                {formData.mapName === map.id && (
+                                                    <div className="absolute top-2 left-2">
+                                                        <CheckCircle className="w-4 h-4 text-emerald-400 drop-shadow-lg" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute bottom-0 left-0 right-0 p-3">
+                                                    <div className="font-semibold text-white text-sm drop-shadow-lg">{map.name}</div>
+                                                    <div className="text-[11px] text-slate-300/80 mt-0.5 drop-shadow-md">{map.description}</div>
+                                                </div>
                                             </button>
                                         ))}
                                     </div>
@@ -392,22 +462,61 @@ export default function InstallServerDialog({ onClose }: Props) {
                                 <div>
                                     <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                                         <span className="w-2 h-2 bg-pink-500 rounded-full"></span>
-                                        {t('dialogs.installServer.premiumMaps')}
+                                        {t('dialogs.installServer.premiumMaps', 'Premium Mod Maps')}
                                     </h4>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                         {MAPS_ASA.premiumMods.map((map) => (
                                             <button
                                                 key={map.id}
                                                 onClick={() => setFormData({ ...formData, mapName: map.id })}
-                                                className={`p-4 rounded-xl border-2 transition-all text-left ${formData.mapName === map.id
-                                                    ? 'border-white/30 bg-white/10'
-                                                    : 'border-slate-700/50 bg-slate-800/30 hover:border-slate-600'
+                                                className={`rounded-xl border-2 transition-all text-left relative group overflow-hidden ${formData.mapName === map.id
+                                                    ? 'border-white/40 scale-[1.02] ring-2 ring-pink-500/30'
+                                                    : 'border-slate-700/50 hover:border-slate-500 hover:scale-[1.01]'
                                                     }`}
+                                                style={{ minHeight: '140px' }}
                                             >
-                                                <div className="text-2xl mb-2">{map.icon}</div>
-                                                <div className="font-semibold text-white text-sm">{map.name}</div>
-                                                <div className="text-xs text-slate-500 mt-1">{map.description}</div>
+                                                <img src={map.image} alt={map.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                                                <div className="absolute top-2 right-2">
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-pink-500/40 backdrop-blur-sm text-pink-200 font-medium">MOD</span>
+                                                </div>
+                                                {formData.mapName === map.id && (
+                                                    <div className="absolute top-2 left-2">
+                                                        <CheckCircle className="w-4 h-4 text-emerald-400 drop-shadow-lg" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute bottom-0 left-0 right-0 p-3">
+                                                    <div className="font-semibold text-white text-sm drop-shadow-lg">{map.name}</div>
+                                                    <div className="text-[11px] text-slate-300/80 mt-0.5 drop-shadow-md">{map.description}</div>
+                                                </div>
                                             </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Upcoming Maps */}
+                                <div>
+                                    <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                        <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
+                                        {t('dialogs.installServer.upcomingMaps', 'Coming Soon')}
+                                    </h4>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        {MAPS_ASA.upcoming.map((map) => (
+                                            <div
+                                                key={map.id}
+                                                className="rounded-xl border-2 border-slate-700/30 text-left relative overflow-hidden opacity-60 cursor-not-allowed"
+                                                style={{ minHeight: '140px' }}
+                                            >
+                                                <img src={map.image} alt={map.name} className="absolute inset-0 w-full h-full object-cover grayscale" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/30" />
+                                                <div className="absolute top-2 right-2">
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/30 backdrop-blur-sm text-amber-300 font-medium">SOON</span>
+                                                </div>
+                                                <div className="absolute bottom-0 left-0 right-0 p-3">
+                                                    <div className="font-semibold text-slate-300 text-sm">{map.name}</div>
+                                                    <div className="text-[11px] text-slate-500 mt-0.5">{map.description}</div>
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
@@ -419,10 +528,10 @@ export default function InstallServerDialog({ onClose }: Props) {
                                             <Settings className="w-5 h-5 text-slate-400" />
                                         </div>
                                         <div className="flex-1">
-                                            <div className="text-sm font-medium text-white">{t('dialogs.installServer.customMap')}</div>
+                                            <div className="text-sm font-medium text-white">{t('dialogs.installServer.customMap', 'Custom Map')}</div>
                                             <input
                                                 type="text"
-                                                placeholder={t('dialogs.installServer.enterMapName')}
+                                                placeholder={t('dialogs.installServer.enterMapName', 'Enter map ID (e.g. MyCustomMap_WP)')}
                                                 className="mt-1 w-full bg-transparent border-none text-slate-300 text-sm focus:outline-none placeholder-slate-600"
                                                 onChange={(e) => e.target.value && setFormData({ ...formData, mapName: e.target.value })}
                                             />

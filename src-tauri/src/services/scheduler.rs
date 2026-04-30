@@ -259,12 +259,16 @@ impl SchedulerService {
         // If interval is 24, next is Midnight.
 
         // Reset to midnight of From Time
-        let midnight = from_time
+        let midnight = match from_time
             .date_naive()
             .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .and_local_timezone(Local)
-            .unwrap();
+        {
+            Some(naive) => match naive.and_local_timezone(Local) {
+                chrono::LocalResult::Single(t) => t,
+                _ => from_time, // Fallback: use from_time if timezone conversion fails
+            },
+            None => from_time, // Fallback: use from_time if midnight construction fails
+        };
 
         // Add intervals until > from_time
         let mut target = midnight;
@@ -537,19 +541,28 @@ impl SchedulerService {
                                     )
                                     .unwrap_or(None);
 
-                                let mut stmt = conn.prepare(
+                                let stmt_result = conn.prepare(
                                     "SELECT mod_id FROM mods WHERE server_id = ?1 AND enabled = 1"
-                                ).unwrap();
+                                );
 
-                                let mods: Vec<i32> = stmt
-                                    .query_map([server_id], |row| {
-                                        let s: String = row.get(0)?;
-                                        Ok(s.parse::<i32>().unwrap_or(0))
-                                    })
-                                    .unwrap()
-                                    .filter_map(|r| r.ok())
-                                    .filter(|&id| id > 0)
-                                    .collect();
+                                let mods: Vec<i32> = match stmt_result {
+                                    Ok(mut stmt) => {
+                                        match stmt.query_map([server_id], |row| {
+                                            let s: String = row.get(0)?;
+                                            Ok(s.parse::<i32>().unwrap_or(0))
+                                        }) {
+                                            Ok(rows) => rows
+                                                .filter_map(|r| r.ok())
+                                                .filter(|&id| id > 0)
+                                                .collect(),
+                                            Err(_) => vec![],
+                                        }
+                                    }
+                                    Err(e) => {
+                                        log::warn!("[SCHEDULER] Failed to query mods: {}", e);
+                                        vec![]
+                                    }
+                                };
 
                                 (last_started, mods)
                             } else {

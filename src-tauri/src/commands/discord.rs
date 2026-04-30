@@ -114,6 +114,8 @@ pub async fn save_discord_bridge_config(
     if config.enabled {
         // Stop first to reset state, then start fresh with new config
         state.discord_bridge.stop();
+        // Wait for the old gateway connection to fully shut down before reconnecting
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         state.discord_bridge.clone().start();
     } else {
         state.discord_bridge.stop();

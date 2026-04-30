@@ -5,7 +5,7 @@ use crate::AppState;
 use anyhow::Error as AnyhowError;
 use rusqlite::Row;
 use std::path::PathBuf;
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 
 #[tauri::command]
 pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, String> {
@@ -321,7 +321,7 @@ pub async fn clone_server(
         name,
         install_path,
         map_name,
-        session_name,
+        _session_name,
         game_port,
         query_port,
         rcon_port,
@@ -361,8 +361,35 @@ pub async fn clone_server(
         .map_err(|e| format!("Source server not found: {}", e))?
     };
 
-    // Generate new name and paths
-    let new_name = format!("{} (Copy)", name);
+    // Generate unique clone name using a counter loop (avoids stuck "(Copy)" names)
+    let new_name = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+
+        let base_name = name.clone();
+        let mut candidate = format!("{} (Clone)", base_name);
+        let mut counter = 2u32;
+        loop {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM servers WHERE name = ?1)",
+                    [&candidate],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
+            if !exists {
+                break;
+            }
+            candidate = format!("{} (Clone {})", base_name, counter);
+            counter += 1;
+        }
+        candidate
+    };
     let source_path = PathBuf::from(&install_path);
     let new_install_path = source_path.parent().unwrap_or(&source_path).join(format!(
         "{}_copy",
@@ -420,7 +447,7 @@ pub async fn clone_server(
                 max_players,
                 admin_password,
                 map_name,
-                format!("{} (Copy)", session_name),
+                new_name.clone(),
                 server_password,
                 ip_address
             ],
@@ -451,7 +478,7 @@ pub async fn clone_server(
             server_password,
             admin_password: admin_password.clone(),
             map_name,
-            session_name: format!("{} (Copy)", session_name),
+            session_name: new_name.clone(),
             motd: None,
             mods: vec![],
             custom_args: None,
@@ -587,16 +614,41 @@ pub async fn extract_save_data(
     std::fs::create_dir_all(&target_saves)
         .map_err(|e| format!("Failed to create target saves dir: {}", e))?;
 
-    // Copy all files recursively
-    fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    // Copy all files recursively (with overlap and depth protection)
+    fn copy_dir_recursive_safe(
+        src: &std::path::Path,
+        dst: &std::path::Path,
+        canonical_dst_root: &std::path::Path,
+        depth: u32,
+    ) -> std::io::Result<()> {
+        const MAX_DEPTH: u32 = 20;
+        if depth > MAX_DEPTH {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Directory copy exceeded max depth of {}", MAX_DEPTH),
+            ));
+        }
+
         if src.is_dir() {
             std::fs::create_dir_all(dst)?;
             for entry in std::fs::read_dir(src)? {
                 let entry = entry?;
                 let src_path = entry.path();
+
+                // Skip entries that resolve inside the destination (prevents infinite recursion)
+                if let Ok(canon_entry) = std::fs::canonicalize(&src_path) {
+                    if canon_entry.starts_with(canonical_dst_root) {
+                        println!(
+                            "  ⚠️ Skipping overlapping entry: {}",
+                            canon_entry.display()
+                        );
+                        continue;
+                    }
+                }
+
                 let dst_path = dst.join(entry.file_name());
                 if src_path.is_dir() {
-                    copy_dir_recursive(&src_path, &dst_path)?;
+                    copy_dir_recursive_safe(&src_path, &dst_path, canonical_dst_root, depth + 1)?;
                 } else {
                     std::fs::copy(&src_path, &dst_path)?;
                 }
@@ -605,7 +657,24 @@ pub async fn extract_save_data(
         Ok(())
     }
 
-    copy_dir_recursive(&source_saves, &target_saves)
+    // Canonicalize source; create destination so it can be canonicalized
+    let canon_source = std::fs::canonicalize(&source_saves)
+        .map_err(|e| format!("Failed to resolve source path: {}", e))?;
+    std::fs::create_dir_all(&target_saves)
+        .map_err(|e| format!("Failed to create target saves dir: {}", e))?;
+    let canon_target = std::fs::canonicalize(&target_saves)
+        .map_err(|e| format!("Failed to resolve target path: {}", e))?;
+
+    // CRITICAL: Reject overlapping paths
+    if canon_source.starts_with(&canon_target) || canon_target.starts_with(&canon_source) {
+        return Err(format!(
+            "Source and target paths overlap — aborting to prevent infinite copy.\n  src: {}\n  dst: {}",
+            canon_source.display(),
+            canon_target.display()
+        ));
+    }
+
+    copy_dir_recursive_safe(&canon_source, &canon_target, &canon_target, 0)
         .map_err(|e| format!("Failed to copy save data: {}", e))?;
 
     println!("  ✅ Save data extracted successfully");
@@ -660,6 +729,47 @@ async fn perform_server_startup(
         }
     } // Lock released
     println!("  ✅ [Debug] Config block finished. DB lock released.");
+
+    // === BUG FIX 3: Port conflict detection against other servers in DB ===
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        let (game_port, query_port, rcon_port): (u16, u16, u16) = conn
+            .query_row(
+                "SELECT game_port, query_port, rcon_port FROM servers WHERE id = ?1",
+                [server_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .map_err(|e| format!("Failed to get ports: {}", e))?;
+
+        // Check for duplicate ports against other servers
+        let mut stmt = conn
+            .prepare("SELECT id, name, game_port, query_port, rcon_port FROM servers WHERE id != ?1")
+            .map_err(|e| e.to_string())?;
+        let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+
+        let my_ports = [game_port, query_port, rcon_port];
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            let other_id: i64 = row.get(0).map_err(|e| e.to_string())?;
+            let other_name: String = row.get(1).map_err(|e| e.to_string())?;
+            let other_ports: [u16; 3] = [
+                row.get(2).map_err(|e| e.to_string())?,
+                row.get(3).map_err(|e| e.to_string())?,
+                row.get(4).map_err(|e| e.to_string())?,
+            ];
+
+            for my_port in &my_ports {
+                if other_ports.contains(my_port) {
+                    return Err(format!(
+                        "Port {} conflicts with server '{}' (ID: {}). Change the port before starting.",
+                        my_port, other_name, other_id
+                    ));
+                }
+            }
+        }
+        println!("  ✅ Port conflict check passed for server {}", server_id);
+    }
 
     // Get server details including cluster info
     println!("  🔍 [Debug] Acquiring DB lock for Server Details...");
@@ -827,6 +937,48 @@ async fn perform_server_startup(
         installer.install_asa_server(&install_path_buf).await?;
 
         println!("  ✅ Server download complete, now starting...");
+    }
+
+    // === BUG FIX 7: Mod integrity warnings (informational only — ARK auto-downloads missing) ===
+    if !enabled_mods.is_empty() {
+        let mods_dir = install_path_buf
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64")
+            .join("ShooterGame")
+            .join("Content")
+            .join("Mods");
+        for mod_id in &enabled_mods {
+            let mod_path = mods_dir.join(mod_id);
+            if !mod_path.exists() {
+                println!("  ⚠️ Mod {} not found locally — ARK will attempt to download it on startup", mod_id);
+                let _ = app_handle.emit(
+                    "server_log",
+                    serde_json::json!({
+                        "server_id": server_id,
+                        "line": format!("⚠️ Mod {} not found locally — will be downloaded on startup", mod_id),
+                        "is_stderr": false
+                    }),
+                );
+            }
+        }
+    }
+
+    // === BUG FIX 6: Auto-create firewall rules on every start (idempotent) ===
+    {
+        let fw_state = app_handle.state::<AppState>();
+        match crate::commands::firewall::create_firewall_rules(fw_state, server_id).await {
+            Ok(result) => {
+                if result.success {
+                    println!("  🔥 Firewall rules verified/created for server {}", server_id);
+                } else {
+                    println!("  ⚠️ Firewall rule creation skipped or failed: {}", result.message);
+                }
+            }
+            Err(e) => {
+                println!("  ⚠️ Firewall check failed (non-blocking): {}", e);
+            }
+        }
     }
 
     // Start the server process with all enabled mods (ARK will download missing ones)
@@ -1042,14 +1194,97 @@ pub async fn start_server_no_mods(
     Ok(())
 }
 
-#[tauri::command]
-pub async fn stop_server(state: State<'_, AppState>, server_id: i64) -> Result<(), String> {
-    println!("⏹️ Stopping server {}", server_id);
+/// Graceful stop helper: SaveWorld → DoExit → wait → force-kill fallback.
+/// Used by both stop_server and restart_server to ensure world data is saved.
+async fn graceful_stop(state: &State<'_, AppState>, server_id: i64) -> Result<(), String> {
+    // Only attempt RCON graceful shutdown if the server process is actually running
+    if state.process_manager.is_running(server_id) {
+        // Get RCON connection details from DB
+        let (rcon_port, admin_password): (u16, String) = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.query_row(
+                "SELECT rcon_port, admin_password FROM servers WHERE id = ?1",
+                [server_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|e| format!("Server not found: {}", e))?
+        };
 
+        // Clean admin password for RCON auth
+        let clean_password = admin_password
+            .split("?ServerPassword=")
+            .next()
+            .unwrap_or(&admin_password)
+            .to_string();
+
+        let rcon = crate::services::rcon::RconService::new();
+
+        // Step 1: Connect to RCON (short timeout — if server is unresponsive, skip to force-kill)
+        println!("  📡 Attempting RCON connection for graceful shutdown...");
+        let rcon_connected = match tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            rcon.connect(server_id, "127.0.0.1", rcon_port, &clean_password),
+        )
+        .await
+        {
+            Ok(Ok(resp)) => resp.success,
+            _ => {
+                println!("  ⚠️ RCON connection failed — skipping graceful shutdown");
+                false
+            }
+        };
+
+        if rcon_connected {
+            // Step 2: SaveWorld
+            println!("  💾 Sending SaveWorld command...");
+            match tokio::time::timeout(
+                std::time::Duration::from_secs(15),
+                rcon.save_world(server_id),
+            )
+            .await
+            {
+                Ok(Ok(_)) => println!("  ✅ SaveWorld completed successfully"),
+                Ok(Err(e)) => println!("  ⚠️ SaveWorld failed: {} — continuing shutdown", e),
+                Err(_) => println!("  ⚠️ SaveWorld timed out (15s) — continuing shutdown"),
+            }
+
+            // Brief pause to let the save flush to disk
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+            // Step 3: DoExit
+            println!("  🚪 Sending DoExit command...");
+            let _ = rcon.send_command(server_id, "DoExit").await;
+
+            // Step 4: Wait up to 10 seconds for natural exit
+            let mut wait_count = 0u32;
+            while state.process_manager.is_running(server_id) && wait_count < 10 {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                wait_count += 1;
+            }
+
+            if !state.process_manager.is_running(server_id) {
+                println!("  ✅ Server {} exited gracefully after DoExit", server_id);
+                return Ok(());
+            }
+            println!("  ⚠️ Server {} still running after DoExit — force stopping", server_id);
+        }
+    }
+
+    // Step 5: Force-kill fallback
     state
         .process_manager
         .stop_server(server_id)
         .map_err(|e: AnyhowError| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn stop_server(state: State<'_, AppState>, server_id: i64) -> Result<(), String> {
+    println!("⏹️ Stopping server {} (graceful)", server_id);
+
+    graceful_stop(&state, server_id).await?;
 
     // Update status in database
     let db = state
@@ -1071,7 +1306,10 @@ pub async fn stop_server(state: State<'_, AppState>, server_id: i64) -> Result<(
 
 #[tauri::command]
 pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Result<(), String> {
-    println!("🔄 Restarting server {}", server_id);
+    println!("🔄 Restarting server {} (graceful stop first)", server_id);
+
+    // Graceful stop before restart — ensures SaveWorld is called
+    graceful_stop(&state, server_id).await?;
 
     // Get server details including cluster info
     let (
@@ -1167,9 +1405,10 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
         Some(enabled_mods.as_slice())
     };
 
+    // Server was already gracefully stopped above — just start fresh
     state
         .process_manager
-        .restart_server(
+        .start_server(
             server_id,
             "ASA",
             &PathBuf::from(&install_path),
