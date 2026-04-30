@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Save, Calendar, Layers, Power, Loader2, Shield, ArrowRightLeft, Trash2, Plus, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Save, Calendar, Layers, Power, Loader2, Shield, ArrowRightLeft, Plus, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
