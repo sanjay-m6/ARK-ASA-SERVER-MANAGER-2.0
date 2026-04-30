@@ -797,7 +797,7 @@ async fn perform_server_startup(
     } // Lock released
     println!("  ✅ [Debug] Config block finished. DB lock released.");
 
-    // === BUG FIX 3: Port conflict detection against other servers in DB ===
+    // === BUG FIX 3: Live Port conflict detection ===
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -810,27 +810,44 @@ async fn perform_server_startup(
             )
             .map_err(|e| format!("Failed to get ports: {}", e))?;
 
-        // Check for duplicate ports against other servers
-        let mut stmt = conn
-            .prepare("SELECT id, name, game_port, query_port, rcon_port FROM servers WHERE id != ?1")
-            .map_err(|e| e.to_string())?;
-        let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
-
         let my_ports = [game_port, query_port, rcon_port];
-        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
-            let other_id: i64 = row.get(0).map_err(|e| e.to_string())?;
-            let other_name: String = row.get(1).map_err(|e| e.to_string())?;
-            let other_ports: [u16; 3] = [
-                row.get(2).map_err(|e| e.to_string())?,
-                row.get(3).map_err(|e| e.to_string())?,
-                row.get(4).map_err(|e| e.to_string())?,
-            ];
 
-            for my_port in &my_ports {
-                if other_ports.contains(my_port) {
+        for my_port in &my_ports {
+            if crate::services::network::is_port_in_use(*my_port) {
+                // Determine if we know who owns this port
+                let mut owner_name = String::from("an unknown process");
+                let mut owner_id = 0;
+                
+                let mut stmt = conn
+                    .prepare("SELECT id, name, game_port, query_port, rcon_port FROM servers WHERE id != ?1")
+                    .map_err(|e| e.to_string())?;
+                let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+
+                while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+                    let other_id: i64 = row.get(0).map_err(|e| e.to_string())?;
+                    let other_name_str: String = row.get(1).map_err(|e| e.to_string())?;
+                    let other_ports: [u16; 3] = [
+                        row.get(2).map_err(|e| e.to_string())?,
+                        row.get(3).map_err(|e| e.to_string())?,
+                        row.get(4).map_err(|e| e.to_string())?,
+                    ];
+                    
+                    if other_ports.contains(my_port) {
+                        owner_name = other_name_str;
+                        owner_id = other_id;
+                        break;
+                    }
+                }
+
+                if owner_id > 0 {
                     return Err(format!(
-                        "Port {} conflicts with server '{}' (ID: {}). Change the port before starting.",
-                        my_port, other_name, other_id
+                        "Port {} is actively in use by server '{}' (ID: {}). Stop the other server before starting.",
+                        my_port, owner_name, owner_id
+                    ));
+                } else {
+                    return Err(format!(
+                        "Port {} is actively in use by an unknown process. Change the port before starting.",
+                        my_port
                     ));
                 }
             }
@@ -2081,4 +2098,95 @@ pub async fn get_steamcmd_health(
     steamcmd
         .check_health()
         .map_err(|e| format!("Failed to check SteamCMD health: {}", e))
+}
+
+// ==========================================
+// Port Conflict Detection
+// ==========================================
+
+#[derive(serde::Serialize)]
+pub struct PortConflict {
+    pub port_type: String,
+    pub port_number: u16,
+    pub conflicting_server_name: Option<String>,
+    pub is_running: bool,
+}
+
+#[derive(serde::Serialize)]
+pub struct ConflictCheckResult {
+    pub has_active_conflicts: bool,
+    pub has_inactive_conflicts: bool,
+    pub conflicts: Vec<PortConflict>,
+}
+
+#[tauri::command]
+pub async fn check_port_conflicts(
+    state: tauri::State<'_, AppState>,
+    server_id: i64,
+) -> Result<ConflictCheckResult, String> {
+    let mut conflicts = Vec::new();
+    let mut has_active_conflicts = false;
+    let mut has_inactive_conflicts = false;
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let (game_port, query_port, rcon_port): (u16, u16, u16) = conn
+        .query_row(
+            "SELECT game_port, query_port, rcon_port FROM servers WHERE id = ?1",
+            [server_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|e| format!("Failed to get ports: {}", e))?;
+
+    let my_ports = [
+        ("Game", game_port),
+        ("Query", query_port),
+        ("RCON", rcon_port)
+    ];
+
+    for (port_type, port) in &my_ports {
+        let is_in_use = crate::services::network::is_port_in_use(*port);
+
+        let mut owner_name = None;
+
+        let mut stmt = conn
+            .prepare("SELECT id, name, game_port, query_port, rcon_port FROM servers WHERE id != ?1")
+            .map_err(|e| e.to_string())?;
+        let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            let other_name_str: String = row.get(1).map_err(|e| e.to_string())?;
+            let other_ports: [u16; 3] = [
+                row.get(2).map_err(|e| e.to_string())?,
+                row.get(3).map_err(|e| e.to_string())?,
+                row.get(4).map_err(|e| e.to_string())?,
+            ];
+
+            if other_ports.contains(port) {
+                owner_name = Some(other_name_str);
+                break;
+            }
+        }
+
+        if is_in_use || owner_name.is_some() {
+            if is_in_use {
+                has_active_conflicts = true;
+            } else {
+                has_inactive_conflicts = true;
+            }
+            conflicts.push(PortConflict {
+                port_type: port_type.to_string(),
+                port_number: *port,
+                conflicting_server_name: owner_name,
+                is_running: is_in_use,
+            });
+        }
+    }
+
+    Ok(ConflictCheckResult {
+        has_active_conflicts,
+        has_inactive_conflicts,
+        conflicts,
+    })
 }

@@ -18,6 +18,11 @@ We fixed a critical issue where the **Admin Password** and **Server Password** w
 * **Clean Passwords:** Passwords now remain fully isolated.
 * **Auto-Repair:** If your passwords were corrupted, they will be **automatically fixed** the next time you open the manager!
 
+### 🛑 Smart Port Conflict Detection
+* **Dynamic Validation:** The manager now actively checks your network ports before launching a server.
+* **Soft Bypass:** If you share ports between multiple offline server profiles, the manager will give you an advisory warning but allow you to "Start Anyway".
+* **Hard Block:** If a port is actively being used by another *running* server, the system will block startup to prevent crashes and port conflicts.
+
 ### 🔒 Password Security UI
 * **Masked Inputs:** Passwords are now hidden by default (`••••••••`).
 * **Toggle Visibility:** Added an Eye icon (👁️) to show/hide passwords.

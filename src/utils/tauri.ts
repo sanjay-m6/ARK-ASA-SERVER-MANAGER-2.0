@@ -203,6 +203,23 @@ export async function debugDatabaseCheck(): Promise<string> {
     return await invoke('debug_database_check');
 }
 
+export interface PortConflict {
+    port_type: string;
+    port_number: number;
+    conflicting_server_name: string | null;
+    is_running: boolean;
+}
+
+export interface ConflictCheckResult {
+    has_active_conflicts: boolean;
+    has_inactive_conflicts: boolean;
+    conflicts: PortConflict[];
+}
+
+export async function checkPortConflicts(serverId: number): Promise<ConflictCheckResult> {
+    return await invoke('check_port_conflicts', { serverId });
+}
+
 // ============================================================================
 // Mod Commands
 // ============================================================================

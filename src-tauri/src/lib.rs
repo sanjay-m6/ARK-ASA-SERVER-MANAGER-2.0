@@ -287,6 +287,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::repair_steamcmd,
             commands::server::clear_steamcmd_cache,
             commands::server::get_steamcmd_health,
+            commands::server::check_port_conflicts,
             commands::import::import_non_dedicated_save, // <-- New Command
             // Mod commands
             commands::mods::search_mods,

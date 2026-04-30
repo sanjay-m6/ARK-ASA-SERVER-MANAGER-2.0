@@ -12,8 +12,9 @@ import ImportServerDialog from '../components/server/ImportServerDialog';
 import ImportNonDedicatedDialog from '../components/server/ImportNonDedicatedDialog';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import PortConflictModal from '../components/server/PortConflictModal';
 
-import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
 
@@ -48,6 +49,27 @@ export default function ServerManager() {
 
     // Startup Progress State
     const [startupProgress, setStartupProgress] = useState<Record<number, { elapsed: number, confirmed: boolean }>>({});
+
+    // Port Conflict State
+    const [showConflictModal, setShowConflictModal] = useState(false);
+    const [conflictResult, setConflictResult] = useState<ConflictCheckResult | null>(null);
+    const [pendingStartParams, setPendingStartParams] = useState<{ id: number, noMods: boolean } | null>(null);
+
+    const checkPortsBeforeStart = async (serverId: number): Promise<boolean> => {
+        try {
+            const result = await checkPortConflicts(serverId);
+            if (result.has_active_conflicts || result.has_inactive_conflicts) {
+                setConflictResult(result);
+                setShowConflictModal(true);
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.error("Failed to check port conflicts:", error);
+            // If check fails, proceed anyway and let backend handle errors
+            return true;
+        }
+    };
 
     // Helper to format elapsed time
     const formatElapsedTime = (seconds: number) => {
@@ -321,7 +343,15 @@ export default function ServerManager() {
         setExpandedConsoles(prev => ({ ...prev, [serverId]: !prev[serverId] }));
     };
 
-    const handleStartServer = async (serverId: number) => {
+    const handleStartServer = async (serverId: number, skipCheck: boolean = false) => {
+        if (!skipCheck) {
+            const ok = await checkPortsBeforeStart(serverId);
+            if (!ok) {
+                setPendingStartParams({ id: serverId, noMods: false });
+                return;
+            }
+        }
+
         try {
             updateServerStatus(serverId, 'starting');
             // Set baseline marker — will be updated to actual line count after initial fetch
@@ -349,7 +379,15 @@ export default function ServerManager() {
         }
     };
 
-    const handleStartServerNoMods = async (serverId: number) => {
+    const handleStartServerNoMods = async (serverId: number, skipCheck: boolean = false) => {
+        if (!skipCheck) {
+            const ok = await checkPortsBeforeStart(serverId);
+            if (!ok) {
+                setPendingStartParams({ id: serverId, noMods: true });
+                return;
+            }
+        }
+
         try {
             updateServerStatus(serverId, 'starting');
             setLogBaseline(prev => ({ ...prev, [serverId]: 0 }));
@@ -1139,6 +1177,25 @@ export default function ServerManager() {
                 message={t('serverManager.confirmForceStop')}
                 confirmText={t('serverManager.buttons.forceStop')}
                 variant="danger"
+            />
+
+            {/* Port Conflict Modal */}
+            <PortConflictModal
+                isOpen={showConflictModal}
+                onClose={() => {
+                    setShowConflictModal(false);
+                    setPendingStartParams(null);
+                }}
+                onConfirm={() => {
+                    if (pendingStartParams) {
+                        if (pendingStartParams.noMods) {
+                            handleStartServerNoMods(pendingStartParams.id, true);
+                        } else {
+                            handleStartServer(pendingStartParams.id, true);
+                        }
+                    }
+                }}
+                result={conflictResult}
             />
         </div>
     );
