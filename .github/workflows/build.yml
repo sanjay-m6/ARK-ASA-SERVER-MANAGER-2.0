@@ -45,22 +45,23 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🚀 v2.3.3 — SteamCMD Recovery, Presets & UI Enhancements
+            ## 🔐 v2.3.4 — Password Corruption Hotfix & Advanced Config UI
+
+            ### 🐛 Critical Bug Fix
+            - **Password Corruption Fixed** — Admin Password no longer gets corrupted to `Admin123?ServerPassword=Ark123` on server startup
+            - **Password Sanitization** — `ServerAdminPassword` and `ServerPassword` are now strictly isolated at config sync, INI generation, and startup argument layers
+            - **Dynamic Password Clearing** — INI generator writes password fields unconditionally, allowing users to clear passwords
+            - **Auto-Repair** — Existing corrupted passwords in the database are automatically detected and fixed on load
 
             ### ✨ New Features
-            - **SteamCMD Error Recovery System**: installation failures now show actionable recovery panel with "Try Again", "Repair SteamCMD", and "Clear Cache" buttons instead of a dead-end error screen.
-            - **SteamCMD Health Check**: new backend service to verify SteamCMD executable integrity, disk space, and cache status.
-            - **Ark Club map**: added to map selector with custom landscape image and map profile.
-            - **Preset Export/Import**: server config presets can now be exported as `.json` files and imported on any machine.
-            - **Custom Presets**: save your current server configuration as a named preset stored in localStorage.
-            - **Traditional Chinese (zh-TW)**: full UI translation added to language selector.
-            - **Bulk Mod Import from URLs**: AdvancedModInput now extracts mod IDs from CurseForge URLs automatically.
-            - **Clipboard Paste & File Import for Mods**: added quick actions to import mod lists from clipboard or `.txt` files.
+            - **Password Masking UI** — Server Password and Admin Password fields now use masked input with Eye/EyeOff toggle
+            - **Advanced Config Profile List** — Saved event profiles displayed in a selectable list with LIVE badge
+            - **MultiplierSlider Component** — Custom slider with visual fill bar + inline numeric input
+            - **Toast Feedback** — All Advanced Config save/toggle actions now show success/error notifications
 
-            ### 🐛 Bug Fixes
-            - **SteamCMD Error (7) dead-end**: users no longer get stuck on error screen with no recovery path.
-            - **Silent install failures**: all installation errors now provide clear, categorized messages with suggested actions.
-            - **Preset selector**: built-in presets can now be exported for sharing.
+            ### 🎨 UI Improvements
+            - **Advanced Configuration Dashboard** — Complete UI rebuild with better layout and profile management
+            - **Structure Overrides Tab** — Informative placeholder with redirect to Event Profiles
 
             ### Install
             Download the `.msi` installer below.
