@@ -328,24 +328,22 @@ impl ProcessManager {
                                      // Do nothing, trust the logs.
                                      // Maybe log a warning?
                                      // println!("  ⚠️ Server {} query failed but startup confirmed. Keeping ONLINE.", id);
-                                } else {
-                                     if let Some(state) = monitor_handle.try_state::<AppState>() {
-                                        if let Ok(db) = state.db.lock() {
-                                            if let Ok(conn) = db.get_connection() {
-                                                match conn.execute(
-                                                    "UPDATE servers SET status = 'running' WHERE id = ?1",
-                                                    rusqlite::params![id],
-                                                ) {
-                                                    Ok(_) => {
-                                                        println!("  ⚠️ Server {} lost connection and startup not confirmed", id);
-                                                        proc.is_online = false;
-                                                        status_updates.push((id, "running".to_string()));
-                                                    },
-                                                    Err(e) => println!("  ❌ DB Update Failed for Server {}: {}", id, e),
-                                                }
-                                            }
-                                        }
-                                     }
+                                } else if let Some(state) = monitor_handle.try_state::<AppState>() {
+                                   if let Ok(db) = state.db.lock() {
+                                       if let Ok(conn) = db.get_connection() {
+                                           match conn.execute(
+                                               "UPDATE servers SET status = 'running' WHERE id = ?1",
+                                               rusqlite::params![id],
+                                           ) {
+                                               Ok(_) => {
+                                                   println!("  ⚠️ Server {} lost connection and startup not confirmed", id);
+                                                   proc.is_online = false;
+                                                   status_updates.push((id, "running".to_string()));
+                                               },
+                                               Err(e) => println!("  ❌ DB Update Failed for Server {}: {}", id, e),
+                                           }
+                                       }
+                                   }
                                 }
                             }
                         
@@ -864,7 +862,7 @@ impl ProcessManager {
         connection_url.push_str(&format!("?MaxPlayers={}", max_players));
         
         // BUG FIX 10: Clean out any old corrupted ?ServerPassword= tags before setting it up
-        let clean_admin_password = admin_password.split("?ServerPassword=").next().unwrap_or(&admin_password);
+        let clean_admin_password = admin_password.split("?ServerPassword=").next().unwrap_or(admin_password);
         connection_url.push_str(&format!("?ServerAdminPassword={}", clean_admin_password));
 
         if let Some(password) = server_password {
@@ -950,8 +948,8 @@ impl ProcessManager {
         let startup_confirmed_stdout = startup_confirmed.clone(); // Clone for stdout thread
 
         // Capture Output Streams
-        let stdout = child.stdout.take().expect("Failed to capture stdout");
-        let stderr = child.stderr.take().expect("Failed to capture stderr");
+        let stdout = child.stdout.take().ok_or_else(|| anyhow::anyhow!("Failed to capture stdout"))?;
+        let stderr = child.stderr.take().ok_or_else(|| anyhow::anyhow!("Failed to capture stderr"))?;
 
         let app_handle_stdout = self.app_handle.clone();
         let server_id_stdout = server_id;
@@ -1197,10 +1195,9 @@ impl ProcessManager {
                             // to avoid false positives from a previous run's log content.
                             if bytes_read > initial_file_size {
                                 let lower_line = line.to_lowercase();
-                                if lower_line.contains("server has completed startup")
-                                    || lower_line.contains("advertising for join")
-                                {
-                                    if !startup_confirmed_clone.load(Ordering::Relaxed) {
+                                if (lower_line.contains("server has completed startup")
+                                    || lower_line.contains("advertising for join"))
+                                    && !startup_confirmed_clone.load(Ordering::Relaxed) {
                                         println!("  🎉 Server {} LOG FILE detected startup complete!", server_id);
                                         startup_confirmed_clone.store(true, Ordering::Relaxed);
                                         
@@ -1223,7 +1220,6 @@ impl ProcessManager {
                                         }
                                         // NOTE: Discord webhook is handled by the dedicated sender thread.
                                     }
-                                }
                             }
 
                             // DISCORD WEBHOOKS: Player Join/Leave

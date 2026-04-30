@@ -13,7 +13,7 @@ import ImportNonDedicatedDialog from '../components/server/ImportNonDedicatedDia
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 
-import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, debugDatabaseCheck } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
 
@@ -656,25 +656,6 @@ export default function ServerManager() {
                             className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors border border-slate-700"
                         >
                             {t('serverManager.buttons.installFirst')}
-                        </button>
-                        <button
-                            onClick={async () => {
-                                try {
-                                    const result = await debugDatabaseCheck();
-                                    toast((_t) => (
-                                        <span>
-                                            <b>{t('serverManager.dbStatus')}:</b><br />
-                                            {result}
-                                        </span>
-                                    ), { duration: 10000 });
-                                    refreshServers();
-                                } catch (e) {
-                                    toast.error(t('common.failed', { error: String(e) }));
-                                }
-                            }}
-                            className="px-8 py-3 bg-blue-800 hover:bg-blue-700 text-white rounded-xl transition-colors border border-blue-700"
-                        >
-                            {t('serverManager.buttons.debugDatabase')}
                         </button>
                     </div>
                 </div>

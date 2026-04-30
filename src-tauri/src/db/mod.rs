@@ -508,10 +508,8 @@ impl Database {
             let mut stmt = conn.prepare("PRAGMA table_info(servers)")?;
             let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
             let mut cols = Vec::new();
-            for r in rows {
-                if let Ok(c) = r {
-                    cols.push(c);
-                }
+            for c in rows.flatten() {
+                cols.push(c);
             }
             cols
         };
@@ -589,12 +587,10 @@ impl Database {
                 })?;
 
                 let mut repair_needed = false;
-                for fk in fks {
-                    if let Ok(to_table) = fk {
-                        if to_table == "servers_old" {
-                            repair_needed = true;
-                            break;
-                        }
+                for to_table in fks.flatten() {
+                    if to_table == "servers_old" {
+                        repair_needed = true;
+                        break;
                     }
                 }
                 repair_needed
@@ -795,7 +791,7 @@ impl Database {
     }
 
     pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
         let mut rows = stmt.query([key])?;
 
@@ -807,7 +803,7 @@ impl Database {
     }
 
     pub fn set_setting(&self, key: &str, value: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         conn.execute(
             "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, CURRENT_TIMESTAMP) 
              ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = CURRENT_TIMESTAMP",

@@ -34,7 +34,7 @@ pub async fn activate_event_profile(
     let conn = db.get_connection().map_err(|e| e.to_string())?;
     crate::services::config_generator::ConfigGenerator::generate_config(
         &state.app_handle,
-        &*conn,
+        &conn,
         server_id,
     )
     .map_err(|e| e.to_string())?;
@@ -66,7 +66,7 @@ pub async fn save_transfer_policy(
     let conn = db.get_connection().map_err(|e| e.to_string())?;
     crate::services::config_generator::ConfigGenerator::generate_config(
         &state.app_handle,
-        &*conn,
+        &conn,
         server_id,
     )
     .map_err(|e| e.to_string())?;

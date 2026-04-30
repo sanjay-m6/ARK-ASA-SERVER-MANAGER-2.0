@@ -38,7 +38,7 @@ pub struct CreateTaskRequest {
 /// Expects 5 fields: minute hour day month weekday (standard cron format)
 /// Each field can be *, a number, or a range/step expression
 fn validate_cron_expression(expr: &str) -> Result<(), String> {
-    let parts: Vec<&str> = expr.trim().split_whitespace().collect();
+    let parts: Vec<&str> = expr.split_whitespace().collect();
 
     if parts.len() != 5 {
         return Err(format!(
@@ -55,7 +55,7 @@ fn validate_cron_expression(expr: &str) -> Result<(), String> {
         (0, 7, "weekday"), // 0 and 7 are Sunday
     ];
 
-    for (_i, (part, (min, max, name))) in parts.iter().zip(ranges.iter()).enumerate() {
+    for (part, (min, max, name)) in parts.iter().zip(ranges.iter()) {
         if *part == "*" {
             continue;
         }

@@ -502,8 +502,9 @@ mod tests {
         std::env::remove_var("CURSEFORGE_API_KEY");
         let results = search_curseforge("dino", None, None, None, None).await;
         assert!(results.is_ok());
-        let mods = results.unwrap();
-        assert_eq!(mods.len(), 1);
-        assert_eq!(mods[0].name, "API Key Missing");
+        if let Ok(mods) = results {
+            assert_eq!(mods.len(), 1);
+            assert_eq!(mods[0].name, "API Key Missing");
+        }
     }
 }

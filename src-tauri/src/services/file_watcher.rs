@@ -222,7 +222,7 @@ impl FileWatcherService {
             }
         });
 
-        let mut watchers = self.watchers.lock().unwrap();
+        let mut watchers = self.watchers.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         watchers.insert(server_id, watcher);
 
         println!(
@@ -233,7 +233,7 @@ impl FileWatcherService {
     }
 
     pub fn stop_watching(&self, server_id: i64) {
-        let mut watchers = self.watchers.lock().unwrap();
+        let mut watchers = self.watchers.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if watchers.remove(&server_id).is_some() {
             println!("🛡️ Automation: Stopped watching server {}", server_id);
         }

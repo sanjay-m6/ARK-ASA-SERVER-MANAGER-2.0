@@ -58,19 +58,19 @@ pub fn query_server(ip: &str, port: u16) -> bool {
     match UdpSocket::bind("0.0.0.0:0") {
         Ok(socket) => {
             // Set a short timeout
-            if let Err(_) = socket.set_read_timeout(Some(Duration::from_secs(2))) {
+            if socket.set_read_timeout(Some(Duration::from_secs(2))).is_err() {
                 return false;
             }
-            if let Err(_) = socket.set_write_timeout(Some(Duration::from_secs(2))) {
+            if socket.set_write_timeout(Some(Duration::from_secs(2))).is_err() {
                 return false;
             }
 
             let addr = format!("{}:{}", ip, port);
-            if let Err(_) = socket.connect(addr) {
+            if socket.connect(addr).is_err() {
                 return false;
             }
 
-            if let Err(_) = socket.send(&request) {
+            if socket.send(&request).is_err() {
                 return false;
             }
 

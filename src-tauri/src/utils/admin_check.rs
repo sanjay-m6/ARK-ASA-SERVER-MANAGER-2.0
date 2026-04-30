@@ -16,7 +16,7 @@ pub fn is_app_elevated() -> bool {
         // Only if API fails or implies false, double check?
         // Actually IsUserAnAdmin is quite reliable.
         // But for completeness let's stick to API for now as it aligns with existing code.
-        return false;
+        false
     }
 
     #[cfg(not(target_os = "windows"))]

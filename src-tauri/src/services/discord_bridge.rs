@@ -216,7 +216,7 @@ impl SerenityEventHandler for GatewayHandler {
                         locked.as_ref().and_then(|db| {
                             db.get_connection()
                                 .ok()
-                                .map(|conn| {
+                                .and_then(|conn| {
                                     conn.query_row(
                                         "SELECT status FROM servers WHERE id = ?1",
                                         [id],
@@ -224,7 +224,6 @@ impl SerenityEventHandler for GatewayHandler {
                                     )
                                     .ok()
                                 })
-                                .flatten()
                         })
                     };
 
@@ -1035,18 +1034,16 @@ impl DiscordBridgeService {
                 .await?;
             // Update DB with new message ID
             self.save_message_id_to_db(cluster_id, col_name, &new_id);
-        } else {
-            if let Err(_) = self
-                .edit_discord_message(channel_id, message_id, &bot_token, content)
-                .await
-            {
-                println!("⚠️ Failed to edit Discord message, sending new one.");
-                let new_id = self
-                    .send_discord_message(channel_id, &bot_token, content)
-                    .await?;
-                // Update DB with new message ID
-                self.save_message_id_to_db(cluster_id, col_name, &new_id);
-            }
+        } else if let Err(_) = self
+            .edit_discord_message(channel_id, message_id, &bot_token, content)
+            .await
+        {
+            println!("⚠️ Failed to edit Discord message, sending new one.");
+            let new_id = self
+                .send_discord_message(channel_id, &bot_token, content)
+                .await?;
+            // Update DB with new message ID
+            self.save_message_id_to_db(cluster_id, col_name, &new_id);
         }
         Ok(())
     }

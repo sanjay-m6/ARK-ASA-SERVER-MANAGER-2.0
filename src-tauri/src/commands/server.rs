@@ -110,11 +110,79 @@ pub async fn update_server_status_in_db(
 
 #[tauri::command]
 pub async fn get_server_by_id(
-    _state: State<'_, AppState>,
-    _server_id: i64,
+    state: State<'_, AppState>,
+    server_id: i64,
 ) -> Result<Option<Server>, String> {
-    // TODO: Implement
-    Ok(None)
+    let db = state
+        .db
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let conn = db
+        .get_connection()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, install_path, status, game_port, query_port, rcon_port, max_players, 
+         server_password, admin_password, ip_address, created_at, last_started, 
+         auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args FROM servers WHERE id = ?1",
+        )
+        .map_err(|e: rusqlite::Error| e.to_string())?;
+
+    let mut rows = stmt.query([server_id]).map_err(|e: rusqlite::Error| e.to_string())?;
+
+    if let Some(row) = rows.next().map_err(|e: rusqlite::Error| e.to_string())? {
+        let status_str: String = row.get(3).unwrap_or_else(|_| "stopped".to_string());
+        let status = match status_str.as_str() {
+            "running" => ServerStatus::Running,
+            "starting" => ServerStatus::Starting,
+            "stopped" => ServerStatus::Stopped,
+            "crashed" => ServerStatus::Crashed,
+            "updating" => ServerStatus::Updating,
+            "restarting" => ServerStatus::Restarting,
+            "online" => ServerStatus::Online,
+            _ => ServerStatus::Stopped,
+        };
+
+        let auto_start: i32 = row.get(13).unwrap_or(0);
+        let auto_stop: i32 = row.get(14).unwrap_or(0);
+        let intelligent_mode: i32 = row.get(15).unwrap_or(0);
+
+        let server = Server {
+            id: row.get(0).map_err(|e| e.to_string())?,
+            name: row.get(1).map_err(|e| e.to_string())?,
+            install_path: PathBuf::from(row.get::<_, String>(2).map_err(|e| e.to_string())?),
+            status,
+            ports: ServerPorts {
+                game_port: row.get(4).map_err(|e| e.to_string())?,
+                query_port: row.get(5).map_err(|e| e.to_string())?,
+                rcon_port: row.get(6).map_err(|e| e.to_string())?,
+            },
+            config: ServerConfig {
+                max_players: row.get(7).map_err(|e| e.to_string())?,
+                server_password: row.get(8).map_err(|e| e.to_string())?,
+                admin_password: row.get(9).map_err(|e| e.to_string())?,
+                map_name: row.get::<_, String>(16).unwrap_or_default(),
+                session_name: row.get::<_, String>(17).unwrap_or_default(),
+                motd: None,
+                mods: vec![],
+                custom_args: row.get::<_, Option<String>>(18).unwrap_or(None),
+            },
+            rcon_config: RconConfig {
+                enabled: true,
+                password: "".to_string(),
+            },
+            ip_address: row.get(10).map_err(|e| e.to_string())?,
+            created_at: row.get(11).map_err(|e| e.to_string())?,
+            last_started: row.get(12).map_err(|e| e.to_string())?,
+            auto_start: auto_start != 0,
+            auto_stop: auto_stop != 0,
+            intelligent_mode: intelligent_mode != 0,
+        };
+        Ok(Some(server))
+    } else {
+        Ok(None)
+    }
 }
 
 #[tauri::command]
@@ -623,8 +691,7 @@ pub async fn extract_save_data(
     ) -> std::io::Result<()> {
         const MAX_DEPTH: u32 = 20;
         if depth > MAX_DEPTH {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(std::io::Error::other(
                 format!("Directory copy exceeded max depth of {}", MAX_DEPTH),
             ));
         }
@@ -717,7 +784,7 @@ async fn perform_server_startup(
 
         println!("  🔍 [Debug] Calling ConfigGenerator::generate_config...");
         if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config(
-            app_handle, &*conn, server_id,
+            app_handle, &conn, server_id,
         ) {
             println!(
                 "⚠️ Failed to sync config files (Server will start with current on-disk config): {}",
@@ -1691,7 +1758,7 @@ pub async fn get_server_logs(
     if let Ok(meta) = file_meta {
         let file_size = meta.len() as i64;
         let seek_pos = std::cmp::max(0, file_size - 100000); // 100KB history
-        if let Ok(_) = reader.seek(SeekFrom::Start(seek_pos as u64)) {
+        if reader.seek(SeekFrom::Start(seek_pos as u64)).is_ok() {
             // Skip partial first line if we seeked into the middle
             if seek_pos > 0 {
                 let mut skip = String::new();
@@ -1701,16 +1768,14 @@ pub async fn get_server_logs(
     }
 
     // Read all content
-    for line in reader.lines() {
-        if let Ok(line) = line {
-            let trimmed = line.trim_end().to_string();
-            if !trimmed.is_empty() {
-                logs.push(ServerLogEvent {
-                    server_id,
-                    line: trimmed,
-                    is_stderr: false,
-                });
-            }
+    for line in reader.lines().flatten() {
+        let trimmed = line.trim_end().to_string();
+        if !trimmed.is_empty() {
+            logs.push(ServerLogEvent {
+                server_id,
+                line: trimmed,
+                is_stderr: false,
+            });
         }
     }
 

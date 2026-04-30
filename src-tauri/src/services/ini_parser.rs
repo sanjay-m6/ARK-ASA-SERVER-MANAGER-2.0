@@ -267,10 +267,12 @@ SessionName=Test Server
 "#;
         let (sections, _) = IniParser::parse(content);
         assert!(sections.contains_key("ServerSettings"));
-        assert_eq!(
-            sections.get("ServerSettings").unwrap().get("MaxPlayers"),
-            Some(&"70".to_string())
-        );
+        if let Some(settings) = sections.get("ServerSettings") {
+            assert_eq!(
+                settings.get("MaxPlayers"),
+                Some(&"70".to_string())
+            );
+        }
     }
 
     #[test]

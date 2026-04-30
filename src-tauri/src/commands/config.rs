@@ -139,7 +139,10 @@ pub async fn save_config(
                         "MapName" => map_name = Some(value.to_string()),
                         "MaxPlayers" => max_players = value.parse().ok(),
                         "ServerPassword" => server_password = Some(value.to_string()),
-                        "ServerAdminPassword" => admin_password = Some(value.to_string()),
+                        "ServerAdminPassword" => {
+                            let clean_pwd = value.split("?ServerPassword=").next().unwrap_or(value);
+                            admin_password = Some(clean_pwd.to_string());
+                        }
                         "RCONEnabled" => rcon_enabled = Some(value.to_uppercase() == "TRUE"),
                         "RCONPort" => rcon_port = value.parse().ok(),
                         "Match" => {} // Ignore Match key if present
@@ -255,7 +258,7 @@ pub async fn load_server_config(
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         let mut cfg = ServerConfig::default();
 
-        let _ = conn
+        conn
             .query_row(
                 "SELECT session_name, server_password, admin_password, max_players, map_name, 
              game_port, query_port, rcon_port, rcon_enabled, ip_address 
@@ -264,7 +267,20 @@ pub async fn load_server_config(
                 |row| {
                     cfg.session_name = row.get::<_, String>(0).unwrap_or_default();
                     cfg.server_password = row.get(1).ok();
-                    cfg.admin_password = row.get::<_, String>(2).unwrap_or_default();
+                    let mut loaded_admin_pwd = row.get::<_, String>(2).unwrap_or_default();
+                    
+                    // Auto-repair polluted admin_password from previous bugs
+                    if loaded_admin_pwd.contains("?ServerPassword=") {
+                        let parts: Vec<&str> = loaded_admin_pwd.split("?ServerPassword=").collect();
+                        let clean_admin = parts.first().unwrap_or(&"").to_string();
+                        
+                        // If the server password is empty but we found it baked into the admin password, recover it
+                        if parts.len() > 1 && (cfg.server_password.is_none() || cfg.server_password.as_ref().unwrap().is_empty()) {
+                            cfg.server_password = Some(parts[1].to_string());
+                        }
+                        loaded_admin_pwd = clean_admin;
+                    }
+                    cfg.admin_password = loaded_admin_pwd;
                     cfg.max_players = row.get::<_, i32>(3).unwrap_or(70);
                     cfg.map_name = row.get::<_, String>(4).unwrap_or_default();
                     cfg.game_port = row.get::<_, u16>(5).unwrap_or(7777);
@@ -527,6 +543,13 @@ pub async fn write_server_configs(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
+    let clean_admin_password = config
+        .admin_password
+        .split("?ServerPassword=")
+        .next()
+        .unwrap_or(&config.admin_password)
+        .to_string();
+
     conn.execute(
         "UPDATE servers SET max_players = ?1, map_name = ?2, session_name = ?3, 
          game_port = ?4, query_port = ?5, rcon_port = ?6, admin_password = ?7,
@@ -538,7 +561,7 @@ pub async fn write_server_configs(
             config.game_port,
             config.query_port,
             config.rcon_port,
-            config.admin_password,
+            clean_admin_password,
             config.server_password,
             config.rcon_enabled,
             config.ip_address,

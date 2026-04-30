@@ -152,7 +152,7 @@ impl BackupService {
                 zip.write_all(&buffer)
                     .map_err(|e| format!("Failed to write to zip: {}", e))?;
             } else if path.is_dir() && !archive_path.ends_with('/') {
-                zip.add_directory(&format!("{}/", archive_path), *options)
+                zip.add_directory(format!("{}/", archive_path), *options)
                     .map_err(|e| format!("Failed to create directory in zip: {}", e))?;
             }
         }
@@ -216,7 +216,10 @@ impl BackupService {
                 if !options.restore_configs {
                     continue;
                 }
-                let relative = out_path.strip_prefix("Config").unwrap();
+                let relative = match out_path.strip_prefix("Config") {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
                 server_path
                     .join("ShooterGame/Saved/Config/WindowsServer")
                     .join(relative)
@@ -279,21 +282,19 @@ impl BackupService {
 
         // Find all backup files for this server
         let pattern = format!("backup_{}_", server_id);
-        for entry in fs::read_dir(backup_dir)
-            .map_err(|e| format!("Failed to read backup directory: {}", e))?
+        for entry in (fs::read_dir(backup_dir)
+            .map_err(|e| format!("Failed to read backup directory: {}", e))?).flatten()
         {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.is_file()
-                    && path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().starts_with(&pattern))
-                        .unwrap_or(false)
-                {
-                    if let Ok(metadata) = path.metadata() {
-                        if let Ok(modified) = metadata.modified() {
-                            backups.push((path, modified));
-                        }
+            let path = entry.path();
+            if path.is_file()
+                && path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().starts_with(&pattern))
+                    .unwrap_or(false)
+            {
+                if let Ok(metadata) = path.metadata() {
+                    if let Ok(modified) = metadata.modified() {
+                        backups.push((path, modified));
                     }
                 }
             }

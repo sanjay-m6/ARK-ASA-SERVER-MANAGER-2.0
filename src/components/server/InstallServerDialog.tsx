@@ -69,7 +69,7 @@ export default function InstallServerDialog({ onClose }: Props) {
             { id: 'Extinction_WP', name: t('dialogs.installServer.maps.extinction', 'Extinction'), description: t('dialogs.installServer.mapDescriptions.postApoc', 'Post-apocalyptic Earth'), color: '#64748b', icon: '🏚️', size: 'Large', image: mapExtinction },
             { id: 'Ragnarok_WP', name: t('dialogs.installServer.maps.ragnarok', 'Ragnarok'), description: t('dialogs.installServer.mapDescriptions.viking', 'Viking-themed mega map'), color: '#ef4444', icon: '⚔️', size: 'Large', image: mapRagnarok },
             { id: 'Valguero_WP', name: t('dialogs.installServer.maps.valguero', 'Valguero'), description: t('dialogs.installServer.mapDescriptions.community', 'Diverse biomes & underground'), color: '#10b981', icon: '🦖', size: 'Large', image: mapValguero },
-            { id: 'ArkClub_WP', name: t('dialogs.installServer.maps.arkClub', 'Ark Club'), description: t('dialogs.installServer.mapDescriptions.arkClub', 'Community club map with tropical zones'), color: '#e11d48', icon: '🌴', size: 'Large', image: mapArkClub },
+            { id: 'ClubARK_WP', name: t('dialogs.installServer.maps.clubArk', 'Club ARK'), description: t('dialogs.installServer.mapDescriptions.clubArk', 'Social hub with mini-games'), color: '#e11d48', icon: '🌴', size: 'Large', image: mapArkClub },
         ],
         dlc: [
             { id: 'LostColony_WP', name: t('dialogs.installServer.maps.lostColony', 'Lost Colony'), description: t('dialogs.installServer.mapDescriptions.dlc', 'Paid DLC expansion'), color: '#8b5cf6', icon: '🚀', size: 'Large', image: mapLostColony },
@@ -303,7 +303,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                     {selectedMap.icon}
                                 </div>
                                 <div>
-                                    <h2 id="install-dialog-title" className="text-lg sm:text-2xl font-bold text-white">{t('dialogs.installServer.title')}</h2>
+                                    <h2 id="install-dialog-title" className="text-lg sm:text-2xl font-bold text-white">{t('dialogs.installServer.title', 'Deploy New Server')}</h2>
                                     <p id="install-dialog-description" className="text-sm sm:text-base text-slate-400">{t('dialogs.installServer.subtitle', { map: selectedMap.name, desc: selectedMap.description })}</p>
                                 </div>
                             </div>
@@ -400,7 +400,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                 key={map.id}
                                                 onClick={() => setFormData({ ...formData, mapName: map.id })}
                                                 className={`rounded-xl border-2 transition-all text-left relative group overflow-hidden ${formData.mapName === map.id
-                                                    ? 'border-white/40 scale-[1.02] ring-2 ring-white/20'
+                                                    ? 'border-emerald-500 scale-[1.02] ring-4 ring-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.4)] z-10'
                                                     : 'border-slate-700/50 hover:border-slate-500 hover:scale-[1.01]'
                                                     }`}
                                                 style={{ minHeight: '140px' }}
@@ -411,8 +411,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-black/50 backdrop-blur-sm text-slate-300 font-medium">{map.size}</span>
                                                 </div>
                                                 {formData.mapName === map.id && (
-                                                    <div className="absolute top-2 left-2">
-                                                        <CheckCircle className="w-4 h-4 text-emerald-400 drop-shadow-lg" />
+                                                    <div className="absolute top-2 left-2 bg-black/40 rounded-full p-0.5 backdrop-blur-sm border border-emerald-500/50">
+                                                        <CheckCircle className="w-5 h-5 text-emerald-400 drop-shadow-lg" />
                                                     </div>
                                                 )}
                                                 <div className="absolute bottom-0 left-0 right-0 p-3">
@@ -436,7 +436,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                 key={map.id}
                                                 onClick={() => setFormData({ ...formData, mapName: map.id })}
                                                 className={`rounded-xl border-2 transition-all text-left relative group overflow-hidden ${formData.mapName === map.id
-                                                    ? 'border-white/40 scale-[1.02] ring-2 ring-violet-500/30'
+                                                    ? 'border-violet-500 scale-[1.02] ring-4 ring-violet-500/30 shadow-[0_0_15px_rgba(139,92,246,0.4)] z-10'
                                                     : 'border-slate-700/50 hover:border-slate-500 hover:scale-[1.01]'
                                                     }`}
                                                 style={{ minHeight: '140px' }}
@@ -447,8 +447,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-violet-500/40 backdrop-blur-sm text-violet-200 font-medium">DLC</span>
                                                 </div>
                                                 {formData.mapName === map.id && (
-                                                    <div className="absolute top-2 left-2">
-                                                        <CheckCircle className="w-4 h-4 text-emerald-400 drop-shadow-lg" />
+                                                    <div className="absolute top-2 left-2 bg-black/40 rounded-full p-0.5 backdrop-blur-sm border border-violet-500/50">
+                                                        <CheckCircle className="w-5 h-5 text-violet-400 drop-shadow-lg" />
                                                     </div>
                                                 )}
                                                 <div className="absolute bottom-0 left-0 right-0 p-3">
@@ -472,7 +472,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                 key={map.id}
                                                 onClick={() => setFormData({ ...formData, mapName: map.id })}
                                                 className={`rounded-xl border-2 transition-all text-left relative group overflow-hidden ${formData.mapName === map.id
-                                                    ? 'border-white/40 scale-[1.02] ring-2 ring-pink-500/30'
+                                                    ? 'border-pink-500 scale-[1.02] ring-4 ring-pink-500/30 shadow-[0_0_15px_rgba(236,72,153,0.4)] z-10'
                                                     : 'border-slate-700/50 hover:border-slate-500 hover:scale-[1.01]'
                                                     }`}
                                                 style={{ minHeight: '140px' }}
@@ -483,8 +483,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                     <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-pink-500/40 backdrop-blur-sm text-pink-200 font-medium">MOD</span>
                                                 </div>
                                                 {formData.mapName === map.id && (
-                                                    <div className="absolute top-2 left-2">
-                                                        <CheckCircle className="w-4 h-4 text-emerald-400 drop-shadow-lg" />
+                                                    <div className="absolute top-2 left-2 bg-black/40 rounded-full p-0.5 backdrop-blur-sm border border-pink-500/50">
+                                                        <CheckCircle className="w-5 h-5 text-pink-400 drop-shadow-lg" />
                                                     </div>
                                                 )}
                                                 <div className="absolute bottom-0 left-0 right-0 p-3">
@@ -547,8 +547,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                         {step === 2 && !isInstalling && (
                             <div className="space-y-6 max-w-lg mx-auto">
                                 <div className="text-center mb-6">
-                                    <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.serverDetails')}</h3>
-                                    <p className="text-slate-400 mt-1">{t('dialogs.installServer.serverDetailsDesc')}</p>
+                                    <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.serverDetails', 'Server Details')}</h3>
+                                    <p className="text-slate-400 mt-1">{t('dialogs.installServer.serverDetailsDesc', 'Name & location')}</p>
                                 </div>
 
                                 <div className="space-y-4">
@@ -708,8 +708,8 @@ export default function InstallServerDialog({ onClose }: Props) {
                         {step === 3 && !isInstalling && (
                             <div className="space-y-6 max-w-lg mx-auto">
                                 <div className="text-center mb-6">
-                                    <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.networkConfig')}</h3>
-                                    <p className="text-slate-400 mt-1">{t('dialogs.installServer.configurePorts')}</p>
+                                    <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.networkConfig', 'Network Config')}</h3>
+                                    <p className="text-slate-400 mt-1">{t('dialogs.installServer.configurePorts', 'Configure Ports')}</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-4">
@@ -1031,7 +1031,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                         ) : step === 4 ? (
                             <>
                                 <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-                                {t('dialogs.installServer.install')}
+                                {t('dialogs.installServer.install', 'Install')}
                             </>
                         ) : (
                             <>

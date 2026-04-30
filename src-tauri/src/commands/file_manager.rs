@@ -101,9 +101,9 @@ pub fn rename_item(old_path: String, new_path: String) -> Result<(), String> {
 pub fn delete_item(path: String) -> Result<(), String> {
     let path = Path::new(&path);
     if path.is_dir() {
-        fs::remove_dir_all(&path).map_err(|e| e.to_string())
+        fs::remove_dir_all(path).map_err(|e| e.to_string())
     } else {
-        fs::remove_file(&path).map_err(|e| e.to_string())
+        fs::remove_file(path).map_err(|e| e.to_string())
     }
 }
 

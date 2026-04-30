@@ -57,8 +57,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             }
 
             // Initialize database
-            let app_dir = app.path().app_data_dir().expect("failed to get app data dir");
-            std::fs::create_dir_all(&app_dir).expect("failed to create app data dir");
+            let app_dir = app.path().app_data_dir().map_err(|e| format!("failed to get app data dir: {}", e))?;
+            std::fs::create_dir_all(&app_dir).map_err(|e| format!("failed to create app data dir: {}", e))?;
             let db_path = app_dir.join("asa_manager.db");
             let db = match Database::new(db_path.clone()) {
                 Ok(db) => db,
@@ -76,7 +76,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                     }
 
                     // Retry initialization with fresh DB
-                    Database::new(db_path).expect("failed to initialize database after reset")
+                    Database::new(db_path).map_err(|e| format!("failed to initialize database after reset: {}", e))?
                 }
             };
 
@@ -85,12 +85,16 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             if let Ok(conn) = db.get_connection() {
                 // Get all servers that were in active states
                 let active_server_ids: Vec<i64> = {
-                    let mut stmt = conn.prepare(
+                    let stmt_result = conn.prepare(
                         "SELECT id FROM servers WHERE status IN ('running', 'starting', 'online', 'restarting', 'updating', 'stopping')"
-                    ).unwrap_or_else(|_| conn.prepare("SELECT 0 WHERE 0").unwrap());
-                    stmt.query_map([], |row| row.get(0))
-                        .map(|iter| iter.filter_map(|r| r.ok()).collect())
-                        .unwrap_or_default()
+                    );
+                    if let Ok(mut stmt) = stmt_result {
+                        stmt.query_map([], |row| row.get(0))
+                            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    }
                 };
 
                 if active_server_ids.is_empty() {
@@ -199,14 +203,12 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                             });
 
                             if let Ok(rows) = rows {
-                                for row in rows {
-                                    if let Ok((id, _path)) = row {
-                                        println!("🚀 Auto-starting server {}", id);
-                                        let h = app_handle_clone.clone();
-                                        tauri::async_runtime::spawn(async move {
-                                            let _ = commands::server::start_server(h, id, false).await;
-                                        });
-                                    }
+                                for (id, _path) in rows.flatten() {
+                                    println!("🚀 Auto-starting server {}", id);
+                                    let h = app_handle_clone.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        let _ = commands::server::start_server(h, id, false).await;
+                                    });
                                 }
                             }
 
@@ -224,10 +226,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                             });
 
                             if let Ok(rows_stop) = rows_stop {
-                                for row in rows_stop {
-                                    if let Ok((id, path)) = row {
-                                        let _ = state.file_watcher.start_watching(id, std::path::PathBuf::from(path));
-                                    }
+                                for (id, path) in rows_stop.flatten() {
+                                    let _ = state.file_watcher.start_watching(id, std::path::PathBuf::from(path));
                                 }
                             }
                         }

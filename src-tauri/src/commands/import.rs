@@ -47,7 +47,7 @@ pub async fn import_non_dedicated_save(
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
     let backup_dir = saved_arks_dir
         .parent()
-        .unwrap()
+        .ok_or_else(|| "Could not find parent directory for SavedArks".to_string())?
         .join("Backups")
         .join(format!("PreImport_{}", timestamp));
 
@@ -116,8 +116,7 @@ fn copy_dir_recursive_safe(
     depth: u32,
 ) -> std::io::Result<()> {
     if depth > MAX_COPY_DEPTH {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        return Err(std::io::Error::other(
             format!(
                 "Directory copy exceeded maximum depth of {} — aborting (possible circular structure)",
                 MAX_COPY_DEPTH

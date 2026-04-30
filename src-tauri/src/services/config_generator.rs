@@ -313,20 +313,15 @@ impl ConfigGenerator {
         // ServerSettings section
         content.push_str("[ServerSettings]\r\n");
         content.push_str(&format!("SessionName={}\r\n", config.session_name));
-        if let Some(ref pwd) = config.server_password {
-            if !pwd.is_empty() {
-                content.push_str(&format!("ServerPassword={}\r\n", pwd));
-            }
-        }
-        // Only write admin password if it has been set by the user
+        let server_pwd = config.server_password.as_deref().unwrap_or("");
+        content.push_str(&format!("ServerPassword={}\r\n", server_pwd));
+
         let clean_admin_password = config
             .admin_password
             .split("?ServerPassword=")
             .next()
             .unwrap_or(&config.admin_password);
-        if !clean_admin_password.is_empty() {
-            content.push_str(&format!("ServerAdminPassword={}\r\n", clean_admin_password));
-        }
+        content.push_str(&format!("ServerAdminPassword={}\r\n", clean_admin_password));
         content.push_str(&format!("MaxPlayers={}\r\n", config.max_players));
         content.push_str(&format!("MapName={}\r\n", config.map_name));
         content.push_str(&format!("RCONEnabled={}\r\n", config.rcon_enabled));
@@ -546,7 +541,7 @@ impl ConfigGenerator {
             }
         }
 
-        content.push_str("\n");
+        content.push('\n');
 
         content
     }
@@ -715,7 +710,7 @@ impl ConfigGenerator {
 
         let mut config = ServerConfig::default();
 
-        let _ = stmt
+        stmt
             .query_row([server_id], |row| {
                 config.session_name = row.get(0)?;
                 config.server_password = row.get(1)?;

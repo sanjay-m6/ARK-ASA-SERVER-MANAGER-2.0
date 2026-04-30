@@ -285,7 +285,7 @@ impl SchedulerService {
         let future_threshold = from_time + chrono::Duration::minutes(1);
 
         while target <= future_threshold {
-            target = target + p_interval;
+            target += p_interval;
         }
 
         // Persist
@@ -404,7 +404,7 @@ impl SchedulerService {
     fn is_due(cron_expr: &str, time: &DateTime<Local>) -> bool {
         // Simple Cron Parser matching the one in commands/scheduler.rs validation logic
         // Format: minute hour day month weekday
-        let parts: Vec<&str> = cron_expr.trim().split_whitespace().collect();
+        let parts: Vec<&str> = cron_expr.split_whitespace().collect();
         if parts.len() != 5 {
             return false;
         }

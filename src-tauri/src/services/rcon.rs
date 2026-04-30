@@ -229,25 +229,25 @@ impl RconService {
                                             command,
                                             server_id
                                         );
-                                        return Ok(RconResponse {
+                                        Ok(RconResponse {
                                             success: true,
                                             message: "Command executed after auto-reconnect"
                                                 .to_string(),
                                             data: Some(response),
-                                        });
+                                        })
                                     }
                                     Err(retry_err) => {
                                         log::error!("[RCON] Command failed again after auto-reconnect for server {}: {}", server_id, retry_err);
                                         sessions.remove(&server_id);
-                                        return Err(format!(
+                                        Err(format!(
                                             "RCON connection lost and recovery failed ({}).",
                                             retry_err
-                                        ));
+                                        ))
                                     }
                                 }
                             } else {
                                 // Session was removed while we were reconnecting?
-                                return Err("RCON session lost during auto-reconnect.".to_string());
+                                Err("RCON session lost during auto-reconnect.".to_string())
                             }
                         }
                         _ => {
@@ -257,7 +257,7 @@ impl RconService {
                             );
                             let mut sessions = self.sessions.lock().await;
                             sessions.remove(&server_id);
-                            return Err(format!("RCON connection lost and auto-reconnect failed."));
+                            Err("RCON connection lost and auto-reconnect failed.".to_string())
                         }
                     }
                 }

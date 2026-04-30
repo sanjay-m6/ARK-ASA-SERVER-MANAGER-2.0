@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.4] — 2026-04-30
+
+### Fixed
+- **🔐 Password Corruption** — Admin Password no longer gets corrupted to `Admin123?ServerPassword=Ark123` on server startup; launch argument builder now strictly isolates password parameters
+- **Password field merging** — `ServerAdminPassword` and `ServerPassword` are sanitized at config sync, INI generation, and startup argument layers
+- **Stale password persistence** — INI generator now writes password fields unconditionally, allowing users to clear passwords dynamically
+- **Corrupted DB passwords** — Auto-repair system detects and fixes legacy polluted admin passwords on load without manual intervention
+
+### Added
+- **Password masking UI** — Server Password and Admin Password fields now use masked input with Eye/EyeOff toggle for visibility
+- **SettingPassword component** — New reusable masked input component for sensitive fields in ConfigBuilder
+- **Advanced Config profile list** — Saved event profiles are now displayed in a selectable list with LIVE badge indicator
+- **MultiplierSlider component** — Custom slider with visual fill bar + inline numeric input for precise value editing
+- **Toast feedback** — All Advanced Config save/toggle actions now show success/error notifications
+
+### Changed
+- **Advanced Configuration Dashboard** — Complete UI rebuild with better layout, profile management, and polished transfer policy controls
+- **Structure Overrides tab** — Replaced empty placeholder with informative redirect to Event Profiles
+
+---
+
 ## [2.3.3] — 2026-04-30
 
 ### Added

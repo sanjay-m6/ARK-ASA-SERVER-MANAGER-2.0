@@ -28,7 +28,7 @@ impl PerformanceTracker {
     }
 
     pub fn record_snapshot(&self, snapshot: PerformanceSnapshot) {
-        let mut snapshots = self.snapshots.lock().unwrap();
+        let mut snapshots = self.snapshots.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
 
         if snapshots.len() >= self.max_snapshots {
             snapshots.pop_front();
@@ -38,12 +38,12 @@ impl PerformanceTracker {
     }
 
     pub fn get_recent_snapshots(&self, count: usize) -> Vec<PerformanceSnapshot> {
-        let snapshots = self.snapshots.lock().unwrap();
+        let snapshots = self.snapshots.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         snapshots.iter().rev().take(count).cloned().collect()
     }
 
     pub fn get_average_cpu(&self) -> f32 {
-        let snapshots = self.snapshots.lock().unwrap();
+        let snapshots = self.snapshots.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if snapshots.is_empty() {
             return 0.0;
         }
@@ -53,7 +53,7 @@ impl PerformanceTracker {
     }
 
     pub fn get_average_memory(&self) -> f64 {
-        let snapshots = self.snapshots.lock().unwrap();
+        let snapshots = self.snapshots.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if snapshots.is_empty() {
             return 0.0;
         }
@@ -63,7 +63,7 @@ impl PerformanceTracker {
     }
 
     pub fn clear(&self) {
-        let mut snapshots = self.snapshots.lock().unwrap();
+        let mut snapshots = self.snapshots.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         snapshots.clear();
     }
 }

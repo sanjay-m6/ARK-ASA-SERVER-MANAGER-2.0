@@ -98,7 +98,7 @@ impl AntiCheatService {
     ) {
         // 1. Check Config
         let config = {
-            let cache = config_cache.lock().unwrap();
+            let cache = config_cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             cache.get(&event.server_id).cloned()
         };
 
@@ -193,7 +193,7 @@ impl AntiCheatService {
     /// Update the config cache (called when config is saved via command)
     pub async fn update_cache(&self, server_id: i64, config: AntiCheatConfig) {
         {
-            let mut cache = self.config_cache.lock().unwrap();
+            let mut cache = self.config_cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             cache.insert(server_id, config.clone());
         }
         println!("🛡️ Anti-Cheat config cache updated for server {}", server_id);
@@ -208,7 +208,7 @@ impl AntiCheatService {
 
     /// Ensure a log watcher is running for the server
     pub async fn ensure_watcher(&self, server_id: i64) {
-        let mut watchers = self.watchers.lock().unwrap();
+        let mut watchers = self.watchers.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if watchers.contains_key(&server_id) {
             return;
         }
@@ -260,7 +260,7 @@ impl AntiCheatService {
 
     /// Stop looking at logs for a server
     pub async fn stop_watcher(&self, server_id: i64) {
-        let mut watchers = self.watchers.lock().unwrap();
+        let mut watchers = self.watchers.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Some(watcher) = watchers.remove(&server_id) {
             watcher.stop();
             println!("🛡️ Anti-Cheat: Stopped log watcher for server {}", server_id);
@@ -275,17 +275,28 @@ impl AntiCheatService {
         event_tx: mpsc::Sender<ViolationEvent>,
     ) {
         // Regex patterns
-        // Example AdminCmd: [2024.02.05-12.00.00] AdminCmd: PlayerName (SteamID) executed command: Fly
-        let cmd_regex = Regex::new(r"AdminCmd: (.*) \((\d+)\) executed command: (.*)").unwrap();
+        let cmd_regex = match Regex::new(r"AdminCmd: (.*) \((\d+)\) executed command: (.*)") {
+            Ok(r) => r,
+            Err(e) => {
+                println!("Regex compilation error for cmd_regex: {}", e);
+                return;
+            }
+        };
         
         // Example Mesh: [NgcCore] Player PlayerName (SteamID) tried to place structure inside mesh.
         // Note: Use a generic pattern that might match NgcCore logs
-        let mesh_regex = Regex::new(r"\[NgcCore\] Player (.*) \((\d+)\) tried to place structure inside mesh").unwrap();
+        let mesh_regex = match Regex::new(r"\[NgcCore\] Player (.*) \((\d+)\) tried to place structure inside mesh") {
+            Ok(r) => r,
+            Err(e) => {
+                println!("Regex compilation error for mesh_regex: {}", e);
+                return;
+            }
+        };
 
         while let Some(line) = rx.recv().await {
             // Check Config First
             let config = {
-                let cache = config_cache.lock().unwrap();
+                let cache = config_cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
                 match cache.get(&server_id) {
                     Some(c) if c.enabled => c.clone(),
                     _ => continue,
@@ -402,7 +413,7 @@ impl AntiCheatService {
 
         // Update cache
         if !loaded_configs.is_empty() {
-            let mut cache = self.config_cache.lock().unwrap();
+            let mut cache = self.config_cache.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
             for (server_id, config) in loaded_configs {
                 cache.insert(server_id, config);
             }

@@ -643,18 +643,16 @@ pub async fn get_cluster_status(
     let mut running_servers = 0;
     let total_players = 0;
 
-    for server_result in server_iter {
-        if let Ok((id, name, status)) = server_result {
-            if matches!(status, ServerStatus::Running | ServerStatus::Starting) {
-                running_servers += 1;
-            }
-            server_statuses.push(ServerStatusInfo {
-                server_id: id,
-                server_name: name,
-                status,
-                player_count: 0,
-            });
+    for (id, name, status) in server_iter.flatten() {
+        if matches!(status, ServerStatus::Running | ServerStatus::Starting) {
+            running_servers += 1;
         }
+        server_statuses.push(ServerStatusInfo {
+            server_id: id,
+            server_name: name,
+            status,
+            player_count: 0,
+        });
     }
 
     let status = ClusterStatus {

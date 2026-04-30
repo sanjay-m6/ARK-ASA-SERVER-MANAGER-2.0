@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-    Save, Loader2, Map, Users, Swords, Egg, Home, Sun, Copy, FileText, Zap
+    Save, Loader2, Map, Users, Swords, Egg, Home, Sun, Copy, FileText, Zap, Eye, EyeOff
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import toast from 'react-hot-toast';
@@ -313,8 +313,8 @@ export default function ConfigBuilder({ serverId, installPath, initialMapName, o
                             description="Requires server restart to apply"
                         />
                         <SettingInput label="Session Name" value={config.sessionName} onChange={v => updateConfig('sessionName', v)} />
-                        <SettingInput label="Server Password" value={config.serverPassword || ''} onChange={v => updateConfig('serverPassword', v || null)} placeholder="Leave empty for no password" />
-                        <SettingInput label="Admin Password" value={config.adminPassword} onChange={v => updateConfig('adminPassword', v)} />
+                        <SettingPassword label="Server Password" value={config.serverPassword || ''} onChange={v => updateConfig('serverPassword', v || null)} placeholder="Leave empty for no password" />
+                        <SettingPassword label="Admin Password" value={config.adminPassword} onChange={v => updateConfig('adminPassword', v)} />
                         <SettingSlider label="Max Players" value={config.maxPlayers} onChange={v => updateConfig('maxPlayers', v)} min={1} max={127} step={1} />
                         <SettingToggle label="PvE Mode" value={config.pveMode} onChange={v => updateConfig('pveMode', v)} description="Disable player damage" />
                         <SettingToggle label="RCON Enabled" value={config.rconEnabled} onChange={v => updateConfig('rconEnabled', v)} description="Enable remote console access" />
@@ -475,6 +475,40 @@ function SettingInput({ label, value, onChange, placeholder, description }: {
                 placeholder={placeholder}
                 className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
+        </div>
+    );
+}
+
+function SettingPassword({ label, value, onChange, placeholder, description }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    placeholder?: string;
+    description?: string;
+}) {
+    const [show, setShow] = useState(false);
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-slate-300">{label}</label>
+                {description && <span className="text-xs text-amber-500/80">{description}</span>}
+            </div>
+            <div className="relative">
+                <input
+                    type={show ? "text" : "password"}
+                    value={value}
+                    onChange={e => onChange(e.target.value)}
+                    placeholder={placeholder}
+                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 pr-10"
+                />
+                <button 
+                    type="button" 
+                    onClick={() => setShow(!show)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                    {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+            </div>
         </div>
     );
 }

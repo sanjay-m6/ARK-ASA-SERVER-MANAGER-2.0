@@ -158,10 +158,15 @@ impl CrossChatService {
         self.running.store(true, Ordering::Relaxed);
         println!("🔄 Starting cross-chat relay for cluster {}", cluster_id);
 
-        let chat_regex = Regex::new(
+        let chat_regex = match Regex::new(
             r"(\d{4}\.\d{2}\.\d{2}_\d{2}\.\d{2}\.\d{2}): (?:[A-Za-z0-9_]+): ([^:]+): (.*)",
-        )
-        .unwrap();
+        ) {
+            Ok(r) => r,
+            Err(e) => {
+                println!("❌ Failed to compile cross-chat regex: {}", e);
+                return;
+            }
+        };
         // Example: 2024.02.05_12.00.00: LogServer: PlayerName: Hello World
         // Adjusted regex to match typical ARK logs. Needs verification of ASA format.
 
