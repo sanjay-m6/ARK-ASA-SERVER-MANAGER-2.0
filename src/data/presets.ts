@@ -235,3 +235,133 @@ export function applyPreset(
 
     return newConfigs;
 }
+
+// ============================================================================
+// Custom Preset Management (localStorage)
+// ============================================================================
+
+const CUSTOM_PRESETS_KEY = 'ark_sm_custom_presets';
+const PRESET_EXPORT_VERSION = 1;
+
+export interface ExportedPreset {
+    version: number;
+    preset: ConfigPreset;
+    exportedAt: string;
+    appVersion: string;
+}
+
+/** Save a custom preset to localStorage */
+export function saveCustomPreset(preset: ConfigPreset): void {
+    const existing = getCustomPresets();
+    const idx = existing.findIndex(p => p.id === preset.id);
+    if (idx >= 0) {
+        existing[idx] = preset;
+    } else {
+        existing.push(preset);
+    }
+    localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(existing));
+}
+
+/** Load all custom presets from localStorage */
+export function getCustomPresets(): ConfigPreset[] {
+    try {
+        const raw = localStorage.getItem(CUSTOM_PRESETS_KEY);
+        if (!raw) return [];
+        return JSON.parse(raw) as ConfigPreset[];
+    } catch {
+        return [];
+    }
+}
+
+/** Delete a custom preset by ID */
+export function deleteCustomPreset(presetId: string): void {
+    const existing = getCustomPresets();
+    const filtered = existing.filter(p => p.id !== presetId);
+    localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(filtered));
+}
+
+/** Export current config state as a downloadable JSON preset */
+export function exportPresetToJson(preset: ConfigPreset): void {
+    const exported: ExportedPreset = {
+        version: PRESET_EXPORT_VERSION,
+        preset,
+        exportedAt: new Date().toISOString(),
+        appVersion: '2.4.0',
+    };
+
+    const blob = new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ark-preset-${preset.id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+/** Import a preset from a JSON file. Returns the preset or throws. */
+export function importPresetFromJson(jsonString: string): ConfigPreset {
+    const data = JSON.parse(jsonString);
+
+    // Validate structure
+    if (!data.preset || !data.preset.id || !data.preset.name || !data.preset.settings) {
+        throw new Error('Invalid preset file: missing required fields (id, name, settings)');
+    }
+
+    if (!data.preset.settings.GameUserSettings || !data.preset.settings.Game) {
+        throw new Error('Invalid preset file: missing GameUserSettings or Game settings');
+    }
+
+    const preset: ConfigPreset = {
+        id: `custom_${Date.now()}`,
+        name: data.preset.name,
+        description: data.preset.description || 'Imported preset',
+        icon: data.preset.icon || '📦',
+        color: data.preset.color || 'from-slate-500 to-slate-600',
+        settings: data.preset.settings,
+    };
+
+    return preset;
+}
+
+/** Create a preset from current config state */
+export function createPresetFromConfig(
+    name: string,
+    description: string,
+    configs: {
+        GameUserSettings: Map<string, Map<string, string>>;
+        Game: Map<string, Map<string, string>>;
+    }
+): ConfigPreset {
+    const gusSettings: Record<string, string> = {};
+    const gameSettings: Record<string, string> = {};
+
+    // Extract ServerSettings from GUS
+    const serverSettings = configs.GameUserSettings.get('ServerSettings');
+    if (serverSettings) {
+        serverSettings.forEach((value, key) => {
+            gusSettings[key] = value;
+        });
+    }
+
+    // Extract ShooterGameMode from Game
+    const gameMode = configs.Game.get('/Script/ShooterGame.ShooterGameMode');
+    if (gameMode) {
+        gameMode.forEach((value, key) => {
+            gameSettings[key] = value;
+        });
+    }
+
+    return {
+        id: `custom_${Date.now()}`,
+        name,
+        description,
+        icon: '⚙️',
+        color: 'from-sky-500 to-blue-600',
+        settings: {
+            GameUserSettings: gusSettings,
+            Game: gameSettings,
+        },
+    };
+}

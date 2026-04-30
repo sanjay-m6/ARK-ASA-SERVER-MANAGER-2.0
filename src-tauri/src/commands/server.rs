@@ -1983,3 +1983,37 @@ pub async fn toggle_automation(
 
     Ok(())
 }
+
+// ==========================================
+// SteamCMD Recovery Commands
+// ==========================================
+
+#[tauri::command]
+pub async fn repair_steamcmd(app_handle: tauri::AppHandle) -> Result<(), String> {
+    use crate::services::steamcmd::SteamCmdService;
+    let steamcmd = SteamCmdService::new(app_handle);
+    steamcmd
+        .repair()
+        .await
+        .map_err(|e| format!("Failed to repair SteamCMD: {}", e))
+}
+
+#[tauri::command]
+pub async fn clear_steamcmd_cache(app_handle: tauri::AppHandle) -> Result<(), String> {
+    use crate::services::steamcmd::SteamCmdService;
+    let steamcmd = SteamCmdService::new(app_handle);
+    steamcmd
+        .clear_cache()
+        .map_err(|e| format!("Failed to clear SteamCMD cache: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_steamcmd_health(
+    app_handle: tauri::AppHandle,
+) -> Result<crate::services::steamcmd::SteamCmdHealth, String> {
+    use crate::services::steamcmd::SteamCmdService;
+    let steamcmd = SteamCmdService::new(app_handle);
+    steamcmd
+        .check_health()
+        .map_err(|e| format!("Failed to check SteamCMD health: {}", e))
+}

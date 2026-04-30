@@ -52,7 +52,30 @@ export async function checkIsAdmin(): Promise<boolean> {
     return await invoke('check_is_admin');
 }
 
+// ============================================================================
+// SteamCMD Recovery Commands
+// ============================================================================
 
+export interface SteamCmdHealth {
+    isHealthy: boolean;
+    exeExists: boolean;
+    exeSizeBytes: number;
+    diskSpaceGb: number;
+    hasStaleCache: boolean;
+    installPath: string;
+}
+
+export async function repairSteamcmd(): Promise<void> {
+    return await invoke('repair_steamcmd');
+}
+
+export async function clearSteamcmdCache(): Promise<void> {
+    return await invoke('clear_steamcmd_cache');
+}
+
+export async function getSteamcmdHealth(): Promise<SteamCmdHealth> {
+    return await invoke('get_steamcmd_health');
+}
 
 // ============================================================================
 // Server Commands

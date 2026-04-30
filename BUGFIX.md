@@ -1,11 +1,97 @@
-# ARK ASA Server Manager — Bug Fix Report v2.3.3
+# ARK ASA Server Manager — Bug Fix Report v2.4.0
 
 > **Release Date:** April 30, 2026
-> **Version:** 2.3.3
-> **Type:** Bug Fix + UI Enhancement
+> **Version:** 2.4.0
+> **Type:** Major Bug Fix + Feature Enhancement
 
 ---
 
+## 🔥 v2.4.0 New Fixes
+
+### SteamCMD Error (7) — Dead-End Installation Failure
+
+**Problem:** Users encountering SteamCMD Error 7 during installation were shown a static error message with no way to recover — no retry button, no repair option, no diagnostics.
+
+**Fix:** Implemented a full error recovery system:
+- **Backend:** Added `repair_steamcmd`, `clear_steamcmd_cache`, and `get_steamcmd_health` Tauri commands in `server.rs`
+- **Backend:** Added `repair()`, `clear_cache()`, and `check_health()` methods to `SteamCmdService` in `steamcmd.rs`
+- **Frontend:** Replaced static error display with actionable recovery panel containing:
+  - "Try Again" button — re-runs installation
+  - "Repair SteamCMD" button — re-downloads and re-extracts SteamCMD
+  - "Clear Cache" button — removes `appcache`, `downloading`, and `temp` folders
+  - Diagnostic tips section (disk space, antivirus, permissions, path format)
+
+**Files Changed:**
+- `src-tauri/src/services/steamcmd.rs`
+- `src-tauri/src/commands/server.rs`
+- `src-tauri/src/lib.rs`
+- `src/utils/tauri.ts`
+- `src/components/server/InstallServerDialog.tsx`
+
+---
+
+### Preset Selector — No Export/Import
+
+**Problem:** Server presets could only be applied from the built-in list. No way to save custom configs, share presets between machines, or import community presets.
+
+**Fix:** Full preset management system:
+- Export any preset (built-in or custom) as a `.json` file
+- Import presets from `.json` files with validation
+- Save current server config as a named custom preset
+- Delete custom presets
+- Custom presets persisted in localStorage
+
+**Files Changed:**
+- `src/data/presets.ts`
+- `src/components/config/PresetSelector.tsx`
+
+---
+
+### Bulk Mod Import — No URL Support
+
+**Problem:** Users copying CurseForge URLs instead of raw mod IDs would get validation errors. No way to paste from clipboard or import from file.
+
+**Fix:**
+- Added CurseForge URL parser that auto-extracts numeric mod IDs
+- Added "Paste from Clipboard" button
+- Added "Import from File" button (`.txt` format)
+- Added URL format hint below textarea
+
+**Files Changed:**
+- `src/components/mods/AdvancedModInput.tsx`
+
+---
+
+## 🗺️ v2.4.0 Map Updates
+
+### Ark Club Map Added
+
+Added "Ark Club" to the released maps category with:
+- Custom landscape thumbnail image
+- Map profile entry in backend (`ArkClub_WP`)
+
+**Files Changed:**
+- `src/assets/maps/ark_club.png`
+- `src/components/server/InstallServerDialog.tsx`
+
+---
+
+## 🌐 v2.4.0 Localization
+
+### Traditional Chinese (zh-TW)
+
+Added full Traditional Chinese translation:
+- New locale file `src/i18n/locales/zh-TW.json`
+- Registered in i18n config with 🇹🇼 flag
+- Appears in language selector as "繁體中文"
+
+**Files Changed:**
+- `src/i18n/locales/zh-TW.json`
+- `src/i18n/index.ts`
+
+---
+
+## Previous Fixes (v2.3.3)
 ## 🐛 Critical Bug Fixes
 
 ### 1. Config INI Overwrite on Server Startup

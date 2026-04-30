@@ -284,6 +284,9 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::show_server_console,
             commands::server::toggle_automation,
             commands::server::debug_database_check, // <-- New Command
+            commands::server::repair_steamcmd,
+            commands::server::clear_steamcmd_cache,
+            commands::server::get_steamcmd_health,
             commands::import::import_non_dedicated_save, // <-- New Command
             // Mod commands
             commands::mods::search_mods,

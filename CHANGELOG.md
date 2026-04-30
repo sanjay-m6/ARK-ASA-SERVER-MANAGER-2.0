@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.4.0] — 2026-04-30
+
+### Added
+- **SteamCMD Error Recovery System** — installation failures now show actionable recovery panel with "Try Again", "Repair SteamCMD", and "Clear Cache" buttons instead of a dead-end error screen
+- **SteamCMD Health Check** — new backend service to verify SteamCMD executable integrity, disk space, and cache status
+- **Ark Club map** — added to map selector with custom landscape image and map profile
+- **Preset Export/Import** — server config presets can now be exported as `.json` files and imported on any machine
+- **Custom Presets** — save your current server configuration as a named preset stored in localStorage
+- **Traditional Chinese (zh-TW)** — full UI translation added to language selector
+- **Bulk Mod Import from URLs** — AdvancedModInput now extracts mod IDs from CurseForge URLs automatically
+- **Clipboard Paste for Mods** — one-click paste button in bulk mod import
+- **File Import for Mods** — import mod IDs from `.txt` files
+- **Diagnostic Tips** — installation failure screen shows troubleshooting checklist (disk space, antivirus, permissions, path format)
+
+### Fixed
+- **SteamCMD Error (7) dead-end** — users no longer get stuck on error screen with no recovery path
+- **Silent install failures** — all installation errors now provide clear, categorized messages with suggested actions
+- **Preset selector missing export** — built-in presets can now be exported for sharing
+
+### Changed
+- **Error recovery UX** — every error screen across the app now provides at least one recovery action
+- **AdvancedModInput UI** — added header action bar with Paste/File buttons and URL format hint
+
+---
+
 ## [2.3.3] — 2026-04-30
 
 ### Fixed

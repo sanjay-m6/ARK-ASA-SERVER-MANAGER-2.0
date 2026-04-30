@@ -53,4 +53,149 @@ impl SteamCmdService {
         println!("SteamCMD installed successfully at {:?}", install_dir);
         Ok(())
     }
+
+    /// Re-download and re-extract SteamCMD to repair a broken installation
+    pub async fn repair(&self) -> Result<()> {
+        let install_dir = self.get_steamcmd_dir()?;
+
+        // Remove existing steamcmd files but keep steamapps (server data)
+        let exe_path = install_dir.join("steamcmd.exe");
+        if exe_path.exists() {
+            let _ = std::fs::remove_file(&exe_path);
+        }
+        // Remove appcache
+        let appcache = install_dir.join("appcache");
+        if appcache.exists() {
+            let _ = std::fs::remove_dir_all(&appcache);
+        }
+        // Remove package folder
+        let package_dir = install_dir.join("package");
+        if package_dir.exists() {
+            let _ = std::fs::remove_dir_all(&package_dir);
+        }
+
+        println!("Repairing SteamCMD - re-downloading...");
+        self.install().await
+    }
+
+    /// Clear SteamCMD download cache to fix stale download issues
+    pub fn clear_cache(&self) -> Result<()> {
+        let install_dir = self.get_steamcmd_dir()?;
+
+        // Clear appcache
+        let appcache = install_dir.join("appcache");
+        if appcache.exists() {
+            std::fs::remove_dir_all(&appcache)
+                .context("Failed to remove appcache directory")?;
+            println!("Cleared SteamCMD appcache");
+        }
+
+        // Clear downloading folder inside steamapps
+        let downloading = install_dir.join("steamapps").join("downloading");
+        if downloading.exists() {
+            std::fs::remove_dir_all(&downloading)
+                .context("Failed to remove downloading directory")?;
+            println!("Cleared SteamCMD downloading cache");
+        }
+
+        // Clear temp folder
+        let temp = install_dir.join("steamapps").join("temp");
+        if temp.exists() {
+            std::fs::remove_dir_all(&temp)
+                .context("Failed to remove temp directory")?;
+            println!("Cleared SteamCMD temp cache");
+        }
+
+        Ok(())
+    }
+
+    /// Check if SteamCMD is healthy (exists, non-zero size, basic structure)
+    pub fn check_health(&self) -> Result<SteamCmdHealth> {
+        let exe_path = self.get_steamcmd_exe()?;
+        let install_dir = self.get_steamcmd_dir()?;
+
+        let exe_exists = exe_path.exists();
+        let exe_size = if exe_exists {
+            std::fs::metadata(&exe_path).map(|m| m.len()).unwrap_or(0)
+        } else {
+            0
+        };
+
+        // Check disk space on the drive where steamcmd is installed
+        let disk_space_gb = get_available_disk_space(&install_dir);
+
+        // Check if appcache exists (might be stale)
+        let has_stale_cache = install_dir.join("appcache").exists();
+
+        let is_healthy = exe_exists && exe_size > 1000; // steamcmd.exe should be > 1KB
+
+        Ok(SteamCmdHealth {
+            is_healthy,
+            exe_exists,
+            exe_size_bytes: exe_size,
+            disk_space_gb,
+            has_stale_cache,
+            install_path: install_dir.to_string_lossy().to_string(),
+        })
+    }
+}
+
+/// Health status report for SteamCMD
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamCmdHealth {
+    pub is_healthy: bool,
+    pub exe_exists: bool,
+    pub exe_size_bytes: u64,
+    pub disk_space_gb: f64,
+    pub has_stale_cache: bool,
+    pub install_path: String,
+}
+
+/// Get available disk space in GB for the drive containing the given path
+fn get_available_disk_space(path: &PathBuf) -> f64 {
+    #[cfg(windows)]
+    {
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+
+        // Get the root of the path (e.g., "C:\")
+        let root = path
+            .components()
+            .next()
+            .map(|c| {
+                let mut root_str = c.as_os_str().to_string_lossy().to_string();
+                if !root_str.ends_with('\\') {
+                    root_str.push('\\');
+                }
+                root_str
+            })
+            .unwrap_or_else(|| "C:\\".to_string());
+
+        let wide: Vec<u16> = OsStr::new(&root)
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        let mut free_bytes: u64 = 0;
+        let mut total_bytes: u64 = 0;
+        let mut total_free: u64 = 0;
+
+        unsafe {
+            windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW(
+                wide.as_ptr(),
+                &mut free_bytes as *mut u64,
+                &mut total_bytes as *mut u64,
+                &mut total_free as *mut u64,
+            );
+        }
+
+        free_bytes as f64 / (1024.0 * 1024.0 * 1024.0)
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = path;
+        0.0
+    }
 }

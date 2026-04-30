@@ -1,11 +1,27 @@
-import React, { useState, useCallback } from 'react';
-import { FileText, Upload, AlertCircle, Check, X } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { FileText, Upload, AlertCircle, Check, X, Clipboard, FileUp, Link } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 
 interface AdvancedModInputProps {
     onImport: (modIds: string[]) => void;
     isLoading?: boolean;
+}
+
+/** Extract mod ID from a CurseForge URL or return the raw value */
+function extractModId(input: string): string {
+    const trimmed = input.trim();
+
+    // Match CurseForge project URLs: https://www.curseforge.com/ark-survival-ascended/mods/MODNAME/files/12345
+    // or https://legacy.curseforge.com/ark-survival-ascended/mods/12345
+    const cfMatch = trimmed.match(/curseforge\.com\/.*\/(\d+)/);
+    if (cfMatch) return cfMatch[1];
+
+    // Match direct numeric IDs in URLs
+    const numericMatch = trimmed.match(/\/(\d{4,})(?:\/|$|\?)/);
+    if (numericMatch) return numericMatch[1];
+
+    return trimmed;
 }
 
 export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
@@ -15,8 +31,9 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
     const [inputText, setInputText] = useState('');
     const [parsedIds, setParsedIds] = useState<string[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Parse and validate mod IDs
+    // Parse and validate mod IDs (supports raw IDs, URLs, commas, newlines)
     const parseModIds = useCallback((text: string) => {
         // Split by comma, newline, or space
         const rawIds = text.split(/[,\n\s]+/).filter(id => id.trim());
@@ -25,23 +42,23 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
         const seen = new Set<string>();
 
         rawIds.forEach((id, index) => {
-            const trimmed = id.trim();
-            if (!trimmed) return;
+            const extracted = extractModId(id);
+            if (!extracted) return;
 
-            // Validate: must be numeric only
-            if (!/^\d+$/.test(trimmed)) {
-                errorList.push(`Line ${index + 1}: "${trimmed}" is not a valid mod ID (numbers only)`);
+            // Validate: must be numeric only after extraction
+            if (!/^\d+$/.test(extracted)) {
+                errorList.push(`Line ${index + 1}: "${id}" is not a valid mod ID or URL`);
                 return;
             }
 
             // Check for duplicates
-            if (seen.has(trimmed)) {
-                errorList.push(`Duplicate mod ID: ${trimmed}`);
+            if (seen.has(extracted)) {
+                errorList.push(`Duplicate mod ID: ${extracted}`);
                 return;
             }
 
-            seen.add(trimmed);
-            validIds.push(trimmed);
+            seen.add(extracted);
+            validIds.push(extracted);
         });
 
         setParsedIds(validIds);
@@ -68,19 +85,75 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
         setErrors([]);
     };
 
+    const handlePasteFromClipboard = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text) {
+                setInputText(text);
+                parseModIds(text);
+                toast.success('Pasted from clipboard');
+            }
+        } catch {
+            toast.error('Failed to read clipboard. Try pasting manually.');
+        }
+    };
+
+    const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            setInputText(text);
+            parseModIds(text);
+            toast.success(`Loaded ${file.name}`);
+        } catch {
+            toast.error('Failed to read file');
+        }
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center gap-2 text-white/70">
-                <FileText className="w-4 h-4" />
-                <span className="text-sm font-medium">Bulk Mod ID Import</span>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-white/70">
+                    <FileText className="w-4 h-4" />
+                    <span className="text-sm font-medium">Bulk Mod ID Import</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={handlePasteFromClipboard}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 text-xs transition-all"
+                        title="Paste from clipboard"
+                    >
+                        <Clipboard className="w-3 h-3" />
+                        Paste
+                    </button>
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 text-xs transition-all"
+                        title="Import from .txt file"
+                    >
+                        <FileUp className="w-3 h-3" />
+                        File
+                    </button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".txt,.csv,.text"
+                        onChange={handleFileImport}
+                        className="hidden"
+                        aria-label="Import mod IDs from file"
+                    />
+                </div>
             </div>
 
             {/* Input Textarea */}
             <textarea
                 value={inputText}
                 onChange={handleTextChange}
-                placeholder="Paste mod IDs here (comma, newline, or space separated)&#10;&#10;Example:&#10;123456789&#10;987654321&#10;456789123"
+                placeholder={"Paste mod IDs or CurseForge URLs (comma, newline, or space separated)\n\nExamples:\n123456789\nhttps://www.curseforge.com/ark-survival-ascended/mods/mymod/files/987654"}
                 className={cn(
                     "w-full h-32 px-4 py-3 rounded-xl",
                     "bg-white/5 border border-white/10",
@@ -90,6 +163,12 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
                     "resize-none transition-all"
                 )}
             />
+
+            {/* URL hint */}
+            <div className="flex items-center gap-1.5 text-white/30 text-xs">
+                <Link className="w-3 h-3" />
+                <span>Supports CurseForge URLs — mod IDs are extracted automatically</span>
+            </div>
 
             {/* Status Bar */}
             <div className="flex items-center justify-between text-sm">

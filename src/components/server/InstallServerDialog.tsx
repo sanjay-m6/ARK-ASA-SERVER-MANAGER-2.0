@@ -29,6 +29,7 @@ import mapGenesis2 from '../../assets/maps/genesis2.png';
 import mapFjordur from '../../assets/maps/fjordur.png';
 import mapCrystalIsles from '../../assets/maps/crystal_isles.png';
 import mapLostIsland from '../../assets/maps/lost_island.png';
+import mapArkClub from '../../assets/maps/ark_club.png';
 
 interface Props {
     onClose: () => void;
@@ -68,6 +69,7 @@ export default function InstallServerDialog({ onClose }: Props) {
             { id: 'Extinction_WP', name: t('dialogs.installServer.maps.extinction', 'Extinction'), description: t('dialogs.installServer.mapDescriptions.postApoc', 'Post-apocalyptic Earth'), color: '#64748b', icon: '🏚️', size: 'Large', image: mapExtinction },
             { id: 'Ragnarok_WP', name: t('dialogs.installServer.maps.ragnarok', 'Ragnarok'), description: t('dialogs.installServer.mapDescriptions.viking', 'Viking-themed mega map'), color: '#ef4444', icon: '⚔️', size: 'Large', image: mapRagnarok },
             { id: 'Valguero_WP', name: t('dialogs.installServer.maps.valguero', 'Valguero'), description: t('dialogs.installServer.mapDescriptions.community', 'Diverse biomes & underground'), color: '#10b981', icon: '🦖', size: 'Large', image: mapValguero },
+            { id: 'ArkClub_WP', name: t('dialogs.installServer.maps.arkClub', 'Ark Club'), description: t('dialogs.installServer.mapDescriptions.arkClub', 'Community club map with tropical zones'), color: '#e11d48', icon: '🌴', size: 'Large', image: mapArkClub },
         ],
         dlc: [
             { id: 'LostColony_WP', name: t('dialogs.installServer.maps.lostColony', 'Lost Colony'), description: t('dialogs.installServer.mapDescriptions.dlc', 'Paid DLC expansion'), color: '#8b5cf6', icon: '🚀', size: 'Large', image: mapLostColony },
@@ -813,8 +815,61 @@ export default function InstallServerDialog({ onClose }: Props) {
                                             <CheckCircle className="w-12 h-12 text-emerald-400" />
                                         </div>
                                     ) : progress.isError ? (
-                                        <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-red-500/20 mb-4">
-                                            <AlertCircle className="w-12 h-12 text-red-400" />
+                                        <div className="space-y-5">
+                                            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/20 mb-2">
+                                                <AlertCircle className="w-10 h-10 text-red-400" />
+                                            </div>
+                                            <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.installationFailed', 'Installation Failed')}</h3>
+                                            <p className="text-red-300/80 text-sm max-w-md mx-auto bg-red-500/10 border border-red-500/20 rounded-xl p-3">{progress.message}</p>
+
+                                            {/* Recovery Actions */}
+                                            <div className="flex flex-wrap justify-center gap-3 pt-2">
+                                                <button
+                                                    onClick={() => { setIsInstalling(false); setProgress(null); handleInstall(); }}
+                                                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold transition-all shadow-lg shadow-emerald-500/20 text-sm"
+                                                >
+                                                    <Zap className="w-4 h-4" />
+                                                    {t('dialogs.installServer.tryAgain', 'Try Again')}
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const { repairSteamcmd } = await import('../../utils/tauri');
+                                                            toast.loading('Repairing SteamCMD...', { id: 'repair' });
+                                                            await repairSteamcmd();
+                                                            toast.success('SteamCMD repaired! Try installing again.', { id: 'repair' });
+                                                        } catch (e) { toast.error(`Repair failed: ${e}`, { id: 'repair' }); }
+                                                    }}
+                                                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-semibold transition-all shadow-lg shadow-amber-500/20 text-sm"
+                                                >
+                                                    <Settings className="w-4 h-4" />
+                                                    {t('dialogs.installServer.repairSteamcmd', 'Repair SteamCMD')}
+                                                </button>
+                                                <button
+                                                    onClick={async () => {
+                                                        try {
+                                                            const { clearSteamcmdCache } = await import('../../utils/tauri');
+                                                            toast.loading('Clearing cache...', { id: 'cache' });
+                                                            await clearSteamcmdCache();
+                                                            toast.success('Cache cleared! Try installing again.', { id: 'cache' });
+                                                        } catch (e) { toast.error(`Clear cache failed: ${e}`, { id: 'cache' }); }
+                                                    }}
+                                                    className="flex items-center gap-2 px-5 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-all text-sm"
+                                                >
+                                                    <HardDrive className="w-4 h-4" />
+                                                    {t('dialogs.installServer.clearCache', 'Clear Cache')}
+                                                </button>
+                                            </div>
+
+                                            {/* Diagnostic Tips */}
+                                            <div className="text-left bg-slate-800/50 border border-slate-700/50 rounded-xl p-4 text-xs space-y-1.5 max-w-md mx-auto">
+                                                <p className="text-slate-300 font-semibold mb-2">{t('dialogs.installServer.diagnosticTips', 'Troubleshooting Tips')}:</p>
+                                                <p className="text-slate-400">• Ensure at least 60 GB of free disk space</p>
+                                                <p className="text-slate-400">• Check that your antivirus isn't blocking SteamCMD</p>
+                                                <p className="text-slate-400">• Verify stable internet connection</p>
+                                                <p className="text-slate-400">• Try running the app as Administrator</p>
+                                                <p className="text-slate-400">• Avoid special characters or spaces in install path</p>
+                                            </div>
                                         </div>
                                     ) : (
                                         <div
@@ -828,12 +883,14 @@ export default function InstallServerDialog({ onClose }: Props) {
                                         </div>
                                     )}
 
-                                    <h3 className="text-xl font-bold text-white">
-                                        {progress.isComplete ? t('dialogs.installServer.readyToPlay') :
-                                            progress.isError ? t('dialogs.installServer.installationFailed') :
-                                                t('dialogs.installServer.installing')}
-                                    </h3>
-                                    <p className="text-slate-400 mt-2">{progress.message}</p>
+                                    {!progress.isError && (
+                                        <>
+                                            <h3 className="text-xl font-bold text-white">
+                                                {progress.isComplete ? t('dialogs.installServer.readyToPlay') : t('dialogs.installServer.installing')}
+                                            </h3>
+                                            <p className="text-slate-400 mt-2">{progress.message}</p>
+                                        </>
+                                    )}
                                 </div>
 
                                 {/* Progress Bar */}
