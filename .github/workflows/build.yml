@@ -53,6 +53,11 @@ jobs:
             - **Dynamic Password Clearing** — INI generator writes password fields unconditionally, allowing users to clear passwords
             - **Auto-Repair** — Existing corrupted passwords in the database are automatically detected and fixed on load
 
+            ### 🛑 Smart Port Conflict Detection
+            - **Dynamic Validation** — The manager now actively checks your network ports before launching a server
+            - **Soft Bypass** — If you share ports between multiple offline server profiles, the manager will give you an advisory warning but allow you to "Start Anyway"
+            - **Hard Block** — If a port is actively being used by another *running* server, the system will block startup to prevent crashes and port conflicts
+
             ### ✨ New Features
             - **Password Masking UI** — Server Password and Admin Password fields now use masked input with Eye/EyeOff toggle
             - **Advanced Config Profile List** — Saved event profiles displayed in a selectable list with LIVE badge
