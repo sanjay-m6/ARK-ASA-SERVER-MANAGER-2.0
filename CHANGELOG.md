@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.4.0] — 2026-04-30
+## [2.3.3] — 2026-04-30
 
 ### Added
 - **SteamCMD Error Recovery System** — installation failures now show actionable recovery panel with "Try Again", "Repair SteamCMD", and "Clear Cache" buttons instead of a dead-end error screen

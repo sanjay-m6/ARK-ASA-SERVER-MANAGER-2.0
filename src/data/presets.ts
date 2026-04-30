@@ -286,7 +286,7 @@ export function exportPresetToJson(preset: ConfigPreset): void {
         version: PRESET_EXPORT_VERSION,
         preset,
         exportedAt: new Date().toISOString(),
-        appVersion: '2.4.0',
+        appVersion: '2.3.3',
     };
 
     const blob = new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' });

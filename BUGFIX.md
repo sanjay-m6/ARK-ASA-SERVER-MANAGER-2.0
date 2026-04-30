@@ -1,7 +1,7 @@
-# ARK ASA Server Manager — Bug Fix Report v2.4.0
+# ARK ASA Server Manager — Bug Fix Report v2.3.3
 
 > **Release Date:** April 30, 2026
-> **Version:** 2.4.0
+> **Version:** 2.3.3
 > **Type:** Major Bug Fix + Feature Enhancement
 
 ---
