@@ -18,7 +18,9 @@ import {
   Plug,
   ChevronDown,
   ChevronRight,
-  Folder
+  Folder,
+  Bot,
+  Wifi
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
@@ -46,10 +48,13 @@ export default function Sidebar() {
       name: t('sidebar.tools'),
       icon: Wrench,
       children: [
+        { name: t('sidebar.aiAssistant', 'AI Assistant'), path: '/tools/ai', icon: Bot },
         { name: t('sidebar.advanced'), path: '/tools/advanced', icon: Cpu },
         { name: t('sidebar.discordBot'), path: '/tools/discord', icon: MessageSquare },
         { name: t('sidebar.plugins'), path: '/tools/plugins', icon: Plug },
         { name: t('sidebar.fileManager'), path: '/tools/files', icon: Folder },
+        { name: t('sidebar.tribeLogs', 'Tribe Logs'), path: '/tools/tribe-logs', icon: ScrollText },
+        { name: t('sidebar.upnp', 'UPnP Ports'), path: '/tools/upnp', icon: Wifi },
       ]
     },
     { name: t('sidebar.settings'), path: '/settings', icon: SettingsIcon },

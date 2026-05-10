@@ -814,4 +814,362 @@ pub async fn copy_mods_to_server(
     Ok(())
 }
 
+// =============================================================================
+// MOD CONFLICT SCANNER (A1)
+// =============================================================================
 
+#[derive(serde::Serialize)]
+pub struct ModConflict {
+    pub mod_a_id: String,
+    pub mod_a_name: String,
+    pub mod_b_id: String,
+    pub mod_b_name: String,
+    pub reason: String,
+    pub severity: String, // "critical", "warning", "info"
+}
+
+/// Known conflict pairs for ASA mods (hardcoded knowledge base)
+fn get_known_conflicts() -> Vec<(String, String, String, String)> {
+    // (mod_id_a, mod_id_b, reason, severity)
+    vec![
+        // Structure mods that override the same base classes
+        ("928793".to_string(), "927090".to_string(), "Both mods override core structure placement logic, causing placement failures".to_string(), "critical".to_string()),
+        // Stacking mods that conflict
+        ("929820".to_string(), "928988".to_string(), "Duplicate stack size overrides — items may duplicate or vanish".to_string(), "critical".to_string()),
+        // Map extension conflicts
+        ("935813".to_string(), "936220".to_string(), "Both mods modify world composition, causing terrain glitches".to_string(), "warning".to_string()),
+        // Dino overhaul conflicts
+        ("927131".to_string(), "930568".to_string(), "Conflicting creature stat overrides may cause server instability".to_string(), "warning".to_string()),
+        // UI mods that clash
+        ("931455".to_string(), "932701".to_string(), "Both mods replace the HUD overlay, only one will render".to_string(), "info".to_string()),
+    ]
+}
+
+/// Check installed mods for known conflicts
+#[tauri::command]
+pub async fn check_mod_conflicts(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<Vec<ModConflict>, String> {
+    println!("🔍 Checking mod conflicts for server {}", server_id);
+
+    // Get installed mods
+    let mods = get_installed_mods(state.clone(), server_id).await?;
+    let mod_ids: std::collections::HashSet<String> = mods.iter().map(|m| m.id.clone()).collect();
+    let mod_names: std::collections::HashMap<String, String> = mods
+        .iter()
+        .map(|m| (m.id.clone(), m.name.clone()))
+        .collect();
+
+    let known_conflicts = get_known_conflicts();
+    let mut conflicts = Vec::new();
+
+    for (id_a, id_b, reason, severity) in &known_conflicts {
+        if mod_ids.contains(id_a) && mod_ids.contains(id_b) {
+            conflicts.push(ModConflict {
+                mod_a_id: id_a.clone(),
+                mod_a_name: mod_names
+                    .get(id_a)
+                    .cloned()
+                    .unwrap_or_else(|| format!("Mod {}", id_a)),
+                mod_b_id: id_b.clone(),
+                mod_b_name: mod_names
+                    .get(id_b)
+                    .cloned()
+                    .unwrap_or_else(|| format!("Mod {}", id_b)),
+                reason: reason.clone(),
+                severity: severity.clone(),
+            });
+        }
+    }
+
+    // Also check for duplicate mod IDs (shouldn't happen but worth detecting)
+    let mut seen = std::collections::HashSet::new();
+    for m in &mods {
+        if !seen.insert(m.id.clone()) {
+            conflicts.push(ModConflict {
+                mod_a_id: m.id.clone(),
+                mod_a_name: m.name.clone(),
+                mod_b_id: m.id.clone(),
+                mod_b_name: m.name.clone(),
+                reason: "Duplicate mod ID detected — mod is installed twice".to_string(),
+                severity: "critical".to_string(),
+            });
+        }
+    }
+
+    println!(
+        "  ✅ Found {} conflicts among {} installed mods",
+        conflicts.len(),
+        mods.len()
+    );
+    Ok(conflicts)
+}
+
+// =============================================================================
+// MODPACK EXPORT / IMPORT (A2)
+// =============================================================================
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ModpackData {
+    pub name: String,
+    pub version: i32,
+    pub created_at: String,
+    pub server_name: String,
+    pub mods: Vec<ModpackEntry>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ModpackEntry {
+    pub mod_id: String,
+    pub name: String,
+    pub author: Option<String>,
+    pub load_order: i32,
+}
+
+/// Export all installed mods as a shareable modpack JSON
+#[tauri::command]
+pub async fn export_modpack(
+    state: State<'_, AppState>,
+    server_id: i64,
+    modpack_name: String,
+) -> Result<String, String> {
+    println!("📦 Exporting modpack for server {}", server_id);
+
+    let server_name: String = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT session_name FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|_| "Unknown Server".to_string())
+    };
+
+    let mods = get_installed_mods(state.clone(), server_id).await?;
+
+    let modpack = ModpackData {
+        name: modpack_name,
+        version: 1,
+        created_at: chrono::Utc::now().to_rfc3339(),
+        server_name,
+        mods: mods
+            .iter()
+            .enumerate()
+            .map(|(i, m)| ModpackEntry {
+                mod_id: m.id.clone(),
+                name: m.name.clone(),
+                author: m.author.clone(),
+                load_order: i as i32,
+            })
+            .collect(),
+    };
+
+    let json = serde_json::to_string_pretty(&modpack).map_err(|e| e.to_string())?;
+    println!("  ✅ Exported {} mods", modpack.mods.len());
+    Ok(json)
+}
+
+/// Import a modpack JSON and install missing mods
+#[tauri::command]
+pub async fn import_modpack(
+    state: State<'_, AppState>,
+    server_id: i64,
+    modpack_json: String,
+) -> Result<ModpackImportResult, String> {
+    println!("📦 Importing modpack for server {}", server_id);
+
+    let modpack: ModpackData =
+        serde_json::from_str(&modpack_json).map_err(|e| format!("Invalid modpack format: {}", e))?;
+
+    // Get currently installed mod IDs
+    let existing_mods = get_installed_mods(state.clone(), server_id).await?;
+    let existing_ids: std::collections::HashSet<String> =
+        existing_mods.iter().map(|m| m.id.clone()).collect();
+
+    let mut installed_count = 0;
+    let mut skipped_count = 0;
+    let mut failed_ids = Vec::new();
+
+    // Get highest load order
+    let mut max_order: i32 = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT COALESCE(MAX(load_order), 0) FROM mods WHERE server_id = ?1",
+            [server_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0)
+    };
+
+    for entry in &modpack.mods {
+        if existing_ids.contains(&entry.mod_id) {
+            skipped_count += 1;
+            continue;
+        }
+
+        max_order += 1;
+
+        let result = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.execute(
+                "INSERT OR REPLACE INTO mods (server_id, mod_id, name, version, author, description, workshop_url, server_type, enabled, load_order)
+                 VALUES (?1, ?2, ?3, '', ?4, '', '', 'ASA', 1, ?5)",
+                rusqlite::params![
+                    server_id,
+                    entry.mod_id,
+                    entry.name,
+                    entry.author.as_deref().unwrap_or(""),
+                    max_order
+                ],
+            )
+        };
+
+        match result {
+            Ok(_) => installed_count += 1,
+            Err(e) => {
+                println!("  ❌ Failed to install mod {}: {}", entry.mod_id, e);
+                failed_ids.push(entry.mod_id.clone());
+            }
+        }
+    }
+
+    // Sync to INI
+    sync_mods_to_ini(&state, server_id).await?;
+
+    println!(
+        "  ✅ Import complete: {} installed, {} skipped, {} failed",
+        installed_count, skipped_count, failed_ids.len()
+    );
+
+    Ok(ModpackImportResult {
+        modpack_name: modpack.name,
+        total_mods: modpack.mods.len(),
+        installed_count,
+        skipped_count,
+        failed_ids,
+    })
+}
+
+#[derive(serde::Serialize)]
+pub struct ModpackImportResult {
+    pub modpack_name: String,
+    pub total_mods: usize,
+    pub installed_count: usize,
+    pub skipped_count: usize,
+    pub failed_ids: Vec<String>,
+}
+
+// =============================================================================
+// BAN-LIST SYNC (A3)
+// =============================================================================
+
+/// Sync a remote ban list into the server's BanList.txt
+#[tauri::command]
+pub async fn sync_banlist(
+    state: State<'_, AppState>,
+    server_id: i64,
+    url: String,
+) -> Result<BanlistSyncResult, String> {
+    println!("🚫 Syncing ban list from {} for server {}", url, server_id);
+
+    // Get server install path
+    let install_path: String = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT install_path FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?
+    };
+
+    // Fetch remote ban list
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch ban list: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Ban list server returned HTTP {}",
+            response.status()
+        ));
+    }
+
+    let body = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read ban list response: {}", e))?;
+
+    // Parse remote bans (one Steam ID per line, skip comments and empty lines)
+    let remote_bans: std::collections::HashSet<String> = body
+        .lines()
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with("//"))
+        .collect();
+
+    // Read existing BanList.txt
+    let ban_file = PathBuf::from(&install_path)
+        .join("ShooterGame/Saved/BanList.txt");
+
+    let existing_bans: std::collections::HashSet<String> = if ban_file.exists() {
+        std::fs::read_to_string(&ban_file)
+            .unwrap_or_default()
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect()
+    } else {
+        std::collections::HashSet::new()
+    };
+
+    // Merge (union)
+    let new_bans: Vec<String> = remote_bans
+        .difference(&existing_bans)
+        .cloned()
+        .collect();
+    let new_count = new_bans.len();
+
+    let merged: Vec<String> = existing_bans
+        .union(&remote_bans)
+        .cloned()
+        .collect();
+
+    // Ensure parent directory exists
+    if let Some(parent) = ban_file.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+
+    // Write merged ban list
+    std::fs::write(&ban_file, merged.join("\n") + "\n").map_err(|e| e.to_string())?;
+
+    println!(
+        "  ✅ Ban list synced: {} new bans added, {} total",
+        new_count,
+        merged.len()
+    );
+
+    Ok(BanlistSyncResult {
+        new_bans_added: new_count,
+        total_bans: merged.len(),
+        source_url: url,
+    })
+}
+
+#[derive(serde::Serialize)]
+pub struct BanlistSyncResult {
+    pub new_bans_added: usize,
+    pub total_bans: usize,
+    pub source_url: String,
+}

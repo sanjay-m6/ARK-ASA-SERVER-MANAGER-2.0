@@ -779,8 +779,8 @@ impl ProcessManager {
         query_port: u16,
         rcon_port: u16,
         max_players: i32,
-        server_password: Option<&str>,
-        admin_password: &str,
+        _server_password: Option<&str>,
+        _admin_password: &str,
         ip_address: Option<&str>,
         cluster_id: Option<&str>,
         cluster_dir: Option<&str>,
@@ -861,17 +861,10 @@ impl ProcessManager {
         }
         connection_url.push_str(&format!("?MaxPlayers={}", max_players));
         
-        // BUG FIX 10: Clean out any old corrupted ?ServerPassword= tags before setting it up
-        let clean_admin_password = admin_password.split("?ServerPassword=").next().unwrap_or(admin_password);
-        connection_url.push_str(&format!("?ServerAdminPassword={}", clean_admin_password));
-
-        if let Some(password) = server_password {
-            // Sanitize server password — strip any '?' characters to prevent query-string injection
-            let clean_password = password.replace('?', "");
-            if !clean_password.is_empty() {
-                connection_url.push_str(&format!("?ServerPassword={}", clean_password));
-            }
-        }
+        // Note: ServerAdminPassword and ServerPassword are intentionally NOT passed
+        // on the command line. They are already written to GameUserSettings.ini.
+        // Passing them here causes a known ARK engine bug where the URL parser
+        // merges them into a corrupted string and saves it back to the INI file.
 
         let mut args = vec![connection_url];
 

@@ -7,7 +7,7 @@ Copy the text below and paste it into your Discord #announcements channel.
 ```markdown
 @everyone
 
-# 🔐 v2.3.4 Hotfix & UI Update
+# 🔐 v3.3.4 Hotfix & UI Update
 
 **Download:** https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases/tag/v2.3.4
 
@@ -17,11 +17,6 @@ Copy the text below and paste it into your Discord #announcements channel.
 We fixed a critical issue where the **Admin Password** and **Server Password** were getting merged during server startup (e.g., `Admin123?ServerPassword=Ark123`).
 * **Clean Passwords:** Passwords now remain fully isolated.
 * **Auto-Repair:** If your passwords were corrupted, they will be **automatically fixed** the next time you open the manager!
-
-### 🛑 Smart Port Conflict Detection
-* **Dynamic Validation:** The manager now actively checks your network ports before launching a server.
-* **Soft Bypass:** If you share ports between multiple offline server profiles, the manager will give you an advisory warning but allow you to "Start Anyway".
-* **Hard Block:** If a port is actively being used by another *running* server, the system will block startup to prevent crashes and port conflicts.
 
 ### 🔒 Password Security UI
 * **Masked Inputs:** Passwords are now hidden by default (`••••••••`).

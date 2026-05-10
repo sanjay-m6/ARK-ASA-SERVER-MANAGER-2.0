@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Server as ServerIcon, Network, Trash2, Loader2, Link as LinkIcon, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen } from 'lucide-react';
+import { Plus, Network, Trash2, Loader2, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, toggleClusterCrossChat, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
 import { Cluster, Server } from '../types';
@@ -9,6 +9,7 @@ import { listen } from '@tauri-apps/api/event';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import DiscordBridgeSettings from '../components/cluster/DiscordBridgeSettings';
 import EditClusterDialog from '../components/cluster/EditClusterDialog';
+import VisualClusterBuilder from '../components/cluster/VisualClusterBuilder';
 import { useTranslation } from 'react-i18next';
 
 export default function ClusterManager() {
@@ -419,50 +420,13 @@ export default function ClusterManager() {
                                 </div>
                             </div>
 
-                            <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
-                                <div className="flex items-center justify-center space-x-4 flex-wrap gap-y-4">
-                                    {cluster.serverIds.map((serverId, index) => {
-                                        const server = getServerStatus(serverId);
-                                        const isRunning = server?.status === 'running';
-                                        const isStarting = server?.status === 'starting';
-                                        return (
-                                            <div key={serverId} className="flex items-center">
-                                                {index > 0 && (
-                                                    <div className="h-0.5 w-8 bg-slate-600 mx-2 relative">
-                                                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-slate-800 p-0.5 rounded-full border border-slate-600">
-                                                            <LinkIcon className="w-2 h-2 text-slate-400" />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                <div className="flex flex-col items-center">
-                                                    <div className={cn(
-                                                        "w-10 h-10 rounded-lg border flex items-center justify-center mb-2 relative",
-                                                        isRunning ? "bg-emerald-500/20 border-emerald-500/50" :
-                                                            isStarting ? "bg-amber-500/20 border-amber-500/50" :
-                                                                "bg-slate-800 border-slate-600"
-                                                    )}>
-                                                        <ServerIcon className={cn(
-                                                            "w-5 h-5",
-                                                            isRunning ? "text-emerald-400" :
-                                                                isStarting ? "text-amber-400" :
-                                                                    "text-slate-400"
-                                                        )} />
-                                                        {/* Status indicator dot */}
-                                                        <div className={cn(
-                                                            "absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-900",
-                                                            isRunning ? "bg-emerald-400" :
-                                                                isStarting ? "bg-amber-400 animate-pulse" :
-                                                                    "bg-slate-600"
-                                                        )} />
-                                                    </div>
-                                                    <span className="text-xs text-slate-300 font-medium max-w-[80px] truncate">
-                                                        {server?.name || `Server ${serverId}`}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                            {/* Visual Topology Builder */}
+                            <div className="mt-4">
+                                <VisualClusterBuilder
+                                    cluster={cluster}
+                                    servers={servers}
+                                    allServers={servers}
+                                />
                             </div>
 
                             {/* Discord Bridge Settings Toggle */}

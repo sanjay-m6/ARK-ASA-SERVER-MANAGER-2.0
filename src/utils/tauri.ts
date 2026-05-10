@@ -311,6 +311,143 @@ export async function copyModsToServer(sourceServerId: number, targetServerId: n
     return await invoke('copy_mods_to_server', { sourceServerId, targetServerId });
 }
 
+// Mod Conflict Scanner
+export interface ModConflict {
+    mod_a_id: string;
+    mod_a_name: string;
+    mod_b_id: string;
+    mod_b_name: string;
+    reason: string;
+    severity: 'critical' | 'warning' | 'info';
+}
+
+export async function checkModConflicts(serverId: number): Promise<ModConflict[]> {
+    return await invoke('check_mod_conflicts', { serverId });
+}
+
+// Modpack Export / Import
+export interface ModpackImportResult {
+    modpack_name: string;
+    total_mods: number;
+    installed_count: number;
+    skipped_count: number;
+    failed_ids: string[];
+}
+
+export async function exportModpack(serverId: number, modpackName: string): Promise<string> {
+    return await invoke('export_modpack', { serverId, modpackName });
+}
+
+export async function importModpack(serverId: number, modpackJson: string): Promise<ModpackImportResult> {
+    return await invoke('import_modpack', { serverId, modpackJson });
+}
+
+// Ban-list Sync
+export interface BanlistSyncResult {
+    new_bans_added: number;
+    total_bans: number;
+    source_url: string;
+}
+
+export async function syncBanlist(serverId: number, url: string): Promise<BanlistSyncResult> {
+    return await invoke('sync_banlist', { serverId, url });
+}
+
+// Tribe Log Viewer
+export interface TribeLogEntry {
+    timestamp: string;
+    day: number;
+    event_type: string;
+    message: string;
+    raw_line: string;
+}
+
+export interface TribeLogResult {
+    server_name: string;
+    entries: TribeLogEntry[];
+    total_parsed: number;
+    total_lines: number;
+}
+
+export async function getTribeLogs(serverId: number, limit?: number): Promise<TribeLogResult> {
+    return await invoke('get_tribe_logs', { serverId, limit: limit || null });
+}
+
+// UPnP Port Forwarding
+export interface UPnPGatewayInfo {
+    gateway_address: string;
+    external_ip: string;
+    available: boolean;
+}
+
+export interface PortMappingResult {
+    port: number;
+    protocol: string;
+    success: boolean;
+    error: string | null;
+}
+
+export interface UPnPForwardResult {
+    gateway: UPnPGatewayInfo;
+    mappings: PortMappingResult[];
+    all_success: boolean;
+}
+
+export async function discoverUpnpGateway(): Promise<UPnPGatewayInfo> {
+    return await invoke('discover_upnp_gateway');
+}
+
+export async function forwardServerPorts(serverId: number, leaseDuration?: number): Promise<UPnPForwardResult> {
+    return await invoke('forward_server_ports', { serverId, leaseDuration: leaseDuration || null });
+}
+
+export async function removeServerPortForwards(serverId: number): Promise<PortMappingResult[]> {
+    return await invoke('remove_server_port_forwards', { serverId });
+}
+
+// ============================================================================
+// Community Commands
+// ============================================================================
+
+export interface SupportTicket {
+    id: number;
+    discordUser_id?: string;
+    steamId?: string;
+    issueText: string;
+    status: 'open' | 'in_progress' | 'resolved' | 'closed';
+    adminNotes?: string;
+    createdAt: string;
+    resolvedAt?: string;
+}
+
+export interface DiscordUser {
+    discordId: string;
+    steamId: string;
+    discordUsername: string;
+    linkedAt: string;
+}
+
+export interface PointsUpdateResult {
+    success: boolean;
+    newBalance: number;
+    error?: string;
+}
+
+export async function getSupportTickets(statusFilter?: string): Promise<SupportTicket[]> {
+    return await invoke('get_support_tickets', { statusFilter: statusFilter || null });
+}
+
+export async function updateTicketStatus(ticketId: number, status: string, adminNotes?: string): Promise<boolean> {
+    return await invoke('update_ticket_status', { ticketId, status, adminNotes: adminNotes || null });
+}
+
+export async function getDiscordUsers(): Promise<DiscordUser[]> {
+    return await invoke('get_discord_users');
+}
+
+export async function addPlayerPoints(steamId: string, points: number): Promise<PointsUpdateResult> {
+    return await invoke('add_player_points', { steamId, points });
+}
 
 // ============================================================================
 // Config Commands

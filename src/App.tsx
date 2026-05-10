@@ -25,6 +25,9 @@ const DiscordBot = lazy(() => import('./pages/DiscordBot'));
 const AdvancedPage = lazy(() => import('./pages/tools/AdvancedPage'));
 const PluginManager = lazy(() => import('./pages/PluginManager'));
 const FileManager = lazy(() => import('./pages/FileManager'));
+const AIAssistant = lazy(() => import('./pages/AIAssistant'));
+const TribeLogViewer = lazy(() => import('./pages/tools/TribeLogViewer'));
+const UPnPPanel = lazy(() => import('./pages/tools/UPnPPanel'));
 
 function App() {
     const [appState, setAppState] = useState<'welcome' | 'app'>('welcome');
@@ -81,6 +84,9 @@ function App() {
                                 <Route path="tools/discord" element={<DiscordBot />} />
                                 <Route path="tools/plugins" element={<PluginManager />} />
                                 <Route path="tools/files" element={<FileManager />} />
+                                <Route path="tools/ai" element={<AIAssistant />} />
+                                <Route path="tools/tribe-logs" element={<TribeLogViewer />} />
+                                <Route path="tools/upnp" element={<UPnPPanel />} />
                                 <Route path="settings" element={<Settings />} />
                             </Route>
                         </Routes>

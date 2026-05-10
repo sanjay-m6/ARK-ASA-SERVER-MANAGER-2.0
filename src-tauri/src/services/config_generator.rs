@@ -178,6 +178,26 @@ impl Default for ServerConfig {
 pub struct ConfigGenerator;
 
 impl ConfigGenerator {
+    /// Strip `?ServerPassword=<value>` corruption from ServerAdminPassword lines in INI content.
+    ///
+    /// The ARK server engine appends the server password to the admin password line at runtime.
+    /// This method cleans that corruption from raw INI text.
+    fn sanitize_admin_password(content: &str) -> String {
+        content
+            .lines()
+            .map(|line| {
+                let trimmed = line.trim();
+                if let Some(rest) = trimmed.strip_prefix("ServerAdminPassword=") {
+                    if let Some(idx) = rest.find("?ServerPassword=") {
+                        return format!("ServerAdminPassword={}", &rest[..idx]);
+                    }
+                }
+                line.to_string()
+            })
+            .collect::<Vec<_>>()
+            .join("\r\n")
+    }
+
     /// Get all available map profiles
     pub fn get_map_profiles() -> Vec<MapProfile> {
         vec![
@@ -274,6 +294,86 @@ impl ConfigGenerator {
             MapProfile {
                 map_id: "TheCenter_WP".to_string(),
                 map_name: "The Center".to_string(),
+                difficulty_offset: 1.0,
+                xp_multiplier: 1.0,
+                harvest_multiplier: 1.0,
+                taming_multiplier: 1.0,
+                recommended_mods: vec![],
+                custom_settings: HashMap::new(),
+            },
+            MapProfile {
+                map_id: "ClubARK_WP".to_string(),
+                map_name: "Club ARK".to_string(),
+                difficulty_offset: 1.0,
+                xp_multiplier: 1.0,
+                harvest_multiplier: 1.0,
+                taming_multiplier: 1.0,
+                recommended_mods: vec![],
+                custom_settings: HashMap::new(),
+            },
+            MapProfile {
+                map_id: "Astraeos_WP".to_string(),
+                map_name: "Astraeos".to_string(),
+                difficulty_offset: 1.0,
+                xp_multiplier: 1.0,
+                harvest_multiplier: 1.0,
+                taming_multiplier: 1.0,
+                recommended_mods: vec![],
+                custom_settings: HashMap::new(),
+            },
+            MapProfile {
+                map_id: "Svartalfheim_WP".to_string(),
+                map_name: "Svartalfheim".to_string(),
+                difficulty_offset: 1.0,
+                xp_multiplier: 1.0,
+                harvest_multiplier: 1.0,
+                taming_multiplier: 1.0,
+                recommended_mods: vec![],
+                custom_settings: HashMap::new(),
+            },
+            MapProfile {
+                map_id: "Amissa_WP".to_string(),
+                map_name: "Amissa".to_string(),
+                difficulty_offset: 1.0,
+                xp_multiplier: 1.0,
+                harvest_multiplier: 1.0,
+                taming_multiplier: 1.0,
+                recommended_mods: vec![],
+                custom_settings: HashMap::new(),
+            },
+            MapProfile {
+                map_id: "Insaluna_WP".to_string(),
+                map_name: "Insaluna".to_string(),
+                difficulty_offset: 1.0,
+                xp_multiplier: 1.0,
+                harvest_multiplier: 1.0,
+                taming_multiplier: 1.0,
+                recommended_mods: vec![],
+                custom_settings: HashMap::new(),
+            },
+            MapProfile {
+                map_id: "TemptressLagoon_WP".to_string(),
+                map_name: "Temptress Lagoon".to_string(),
+                difficulty_offset: 1.0,
+                xp_multiplier: 1.0,
+                harvest_multiplier: 1.0,
+                taming_multiplier: 1.0,
+                recommended_mods: vec![],
+                custom_settings: HashMap::new(),
+            },
+            MapProfile {
+                map_id: "Reverence_WP".to_string(),
+                map_name: "Reverence".to_string(),
+                difficulty_offset: 1.0,
+                xp_multiplier: 1.0,
+                harvest_multiplier: 1.0,
+                taming_multiplier: 1.0,
+                recommended_mods: vec![],
+                custom_settings: HashMap::new(),
+            },
+            MapProfile {
+                map_id: "Forglar_WP".to_string(),
+                map_name: "Forglar".to_string(),
                 difficulty_offset: 1.0,
                 xp_multiplier: 1.0,
                 harvest_multiplier: 1.0,
@@ -565,13 +665,9 @@ impl ConfigGenerator {
             config.max_players
         );
 
-        if let Some(ref pwd) = config.server_password {
-            if !pwd.is_empty() {
-                cmd.push_str(&format!("?ServerPassword={}", pwd));
-            }
-        }
-
-        cmd.push_str(&format!("?ServerAdminPassword={}", config.admin_password));
+        // Note: ServerPassword and ServerAdminPassword are intentionally NOT passed
+        // on the command line. They are already written to GameUserSettings.ini.
+        // Passing them here causes the ARK engine URL parser to corrupt them.
 
         if config.rcon_enabled {
             cmd.push_str("?RCONEnabled=True");
@@ -653,8 +749,11 @@ impl ConfigGenerator {
         let gus_content = Self::generate_game_user_settings(config);
         let gus_path = config_dir.join("GameUserSettings.ini");
         if gus_path.exists() {
-            let existing = fs::read_to_string(&gus_path).unwrap_or_default();
-            if !existing.is_empty() {
+            let raw_existing = fs::read_to_string(&gus_path).unwrap_or_default();
+            if !raw_existing.is_empty() {
+                // BUG FIX: Strip ?ServerPassword= corruption from existing file before merge
+                // ARK engine may have appended it at runtime
+                let existing = Self::sanitize_admin_password(&raw_existing);
                 let merged =
                     crate::services::ini_parser::IniParser::merge(&existing, &gus_content);
                 println!("  📝 Merging GameUserSettings.ini (preserving custom keys, updating known values)");

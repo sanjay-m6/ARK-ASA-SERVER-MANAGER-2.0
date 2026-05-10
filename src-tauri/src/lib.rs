@@ -10,6 +10,7 @@ use services::discord_bridge::DiscordBridgeService;
 use services::advanced_config::AdvancedConfigService;
 use services::anti_cheat::AntiCheatService;
 use services::file_watcher::FileWatcherService;
+use services::log_watcher::LogWatcherService;
 use services::player_intelligence::PlayerIntelligenceService;
 use services::plugin_manager::PluginManagerService;
 use services::process_manager::ProcessManager;
@@ -27,6 +28,7 @@ pub struct AppState {
     pub sys: Mutex<System>,
     pub app_handle: tauri::AppHandle,
     pub file_watcher: FileWatcherService,
+    pub log_watcher: LogWatcherService,
     pub discord_bridge: Arc<DiscordBridgeService>,
     pub player_intelligence: Arc<PlayerIntelligenceService>,
     pub plugin_manager: Arc<PluginManagerService>,
@@ -129,6 +131,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
 
             // Initialize all services
             let file_watcher = FileWatcherService::new(app_handle.clone());
+            let log_watcher = LogWatcherService::new(app_handle.clone());
             let player_intelligence = Arc::new(PlayerIntelligenceService::new());
             let plugin_manager = Arc::new(PluginManagerService::new(app_handle.clone()));
             let discord_bridge = Arc::new(DiscordBridgeService::new(
@@ -148,6 +151,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 sys: Mutex::new(sys),
                 app_handle: app_handle.clone(),
                 file_watcher,
+                log_watcher,
                 discord_bridge: discord_bridge.clone(),
                 player_intelligence: player_intelligence.clone(),
                 plugin_manager: plugin_manager.clone(),
@@ -306,7 +310,12 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::mods::copy_mods_to_server,
             commands::mods::verify_curseforge_key,
             commands::mods::get_mod_categories,
-            // Modpack commands
+            // Modpack & Conflict Scanner commands
+            commands::mods::check_mod_conflicts,
+            commands::mods::export_modpack,
+            commands::mods::import_modpack,
+            commands::mods::sync_banlist,
+            // Config commands
             commands::config::read_config,
             commands::config::save_config,
             commands::config::load_server_config,
@@ -445,6 +454,24 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::discord::test_discord_bridge_connection,
              commands::discord::generate_bot_invite_url,
              commands::discord::send_discord_status_update,
+
+             // AI Agent Commands
+             commands::ai::ai_chat,
+             commands::ai::ai_chat_stream,
+
+             // Tribe Log Commands
+             commands::tribe_log::get_tribe_logs,
+
+             // UPnP Commands
+             commands::upnp::discover_upnp_gateway,
+             commands::upnp::forward_server_ports,
+             commands::upnp::remove_server_port_forwards,
+
+             // Community Commands
+             commands::community::get_support_tickets,
+             commands::community::update_ticket_status,
+             commands::community::get_discord_users,
+             commands::community::add_player_points,
         ])
         .run(tauri::generate_context!())
 }

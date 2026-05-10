@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { Shield, AlertTriangle, Save, RefreshCw, Activity, Terminal } from 'lucide-react';
-import { AntiCheatConfig, ViolationEvent, getAntiCheatConfig, saveAntiCheatConfig, getAntiCheatLogs } from '../../utils/tauri';
+import { Shield, AlertTriangle, Save, RefreshCw, Activity, Terminal, Globe, Loader2, Check } from 'lucide-react';
+import { AntiCheatConfig, ViolationEvent, getAntiCheatConfig, saveAntiCheatConfig, getAntiCheatLogs, syncBanlist, type BanlistSyncResult } from '../../utils/tauri';
 import toast from 'react-hot-toast';
 import { cn } from '../../utils/helpers';
 
@@ -36,6 +36,11 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
     const [logs, setLogs] = useState<ViolationEvent[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Ban-list sync state
+    const [banlistUrl, setBanlistUrl] = useState('');
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [lastSyncResult, setLastSyncResult] = useState<BanlistSyncResult | null>(null);
 
     useEffect(() => {
         if (!serverId) return;
@@ -349,6 +354,65 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+
+                {/* Ban-list Sync Panel */}
+                <div className="glass-panel p-6 rounded-2xl border border-slate-700/50 bg-[#12121f]">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <Globe className="w-5 h-5 text-cyan-400" />
+                        Global Ban-list Sync
+                    </h3>
+
+                    <p className="text-slate-400 text-sm mb-4">Merge a remote community ban list into this server's BanList.txt</p>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="block text-xs text-slate-400">Ban List URL</label>
+                            <input
+                                type="url"
+                                value={banlistUrl}
+                                onChange={(e) => setBanlistUrl(e.target.value)}
+                                placeholder="https://example.com/global-banlist.txt"
+                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                            />
+                        </div>
+
+                        <button
+                            onClick={async () => {
+                                if (!serverId || !banlistUrl.trim()) return;
+                                setIsSyncing(true);
+                                try {
+                                    const result = await syncBanlist(serverId, banlistUrl.trim());
+                                    setLastSyncResult(result);
+                                    toast.success(`Ban list synced! ${result.new_bans_added} new bans added.`);
+                                } catch (error) {
+                                    toast.error(`Sync failed: ${error}`);
+                                } finally {
+                                    setIsSyncing(false);
+                                }
+                            }}
+                            disabled={isSyncing || !banlistUrl.trim()}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 rounded-xl transition-all disabled:opacity-50"
+                        >
+                            {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                            <span>{isSyncing ? 'Syncing...' : 'Sync Ban List'}</span>
+                        </button>
+
+                        {lastSyncResult && (
+                            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-sm">
+                                <div className="flex items-center gap-2 text-emerald-400 mb-1">
+                                    <Check className="w-4 h-4" />
+                                    <span className="font-bold">Last Sync Successful</span>
+                                </div>
+                                <p className="text-slate-400 text-xs">+{lastSyncResult.new_bans_added} new bans • {lastSyncResult.total_bans} total</p>
+                            </div>
+                        )}
+
+                        <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200">
+                            <AlertTriangle className="w-3 h-3 inline mr-1 mb-0.5" />
+                            Syncing merges bans — existing entries are never removed. A server restart may be needed.
+                        </div>
                     </div>
                 </div>
             </div>

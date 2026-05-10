@@ -1121,6 +1121,9 @@ async fn perform_server_startup(
     }
 
     println!("  ✅ Server {} started", server_id);
+
+    // Start log watcher for anomaly detection
+    let _ = state.log_watcher.start_watching(server_id, install_path_buf.clone());
     Ok(())
 }
 
@@ -1275,6 +1278,9 @@ pub async fn start_server_no_mods(
     }
 
     println!("  ✅ Server {} started (NO MODS)", server_id);
+
+    // Start log watcher for anomaly detection
+    let _ = state.log_watcher.start_watching(server_id, install_path_buf.clone());
     Ok(())
 }
 
@@ -1385,6 +1391,9 @@ pub async fn stop_server(state: State<'_, AppState>, server_id: i64) -> Result<(
     .map_err(|e: rusqlite::Error| e.to_string())?;
 
     println!("  ✅ Server {} stopped", server_id);
+
+    // Stop log watcher
+    state.log_watcher.stop_watching(server_id);
     Ok(())
 }
 

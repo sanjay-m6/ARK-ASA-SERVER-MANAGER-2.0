@@ -13,7 +13,7 @@ export interface MapProfile {
     tamingMultiplier: number;
     recommendedMods: string[];
     notes: string[];
-    environment: 'normal' | 'desert' | 'underground' | 'ocean' | 'space' | 'varied';
+    environment: 'normal' | 'desert' | 'underground' | 'ocean' | 'space' | 'varied' | 'nordic' | 'lunar' | 'oceanic';
 }
 
 export const MAP_PROFILES: MapProfile[] = [
@@ -184,6 +184,90 @@ export const MAP_PROFILES: MapProfile[] = [
         recommendedMods: [],
         notes: ['Premium mod content', 'Dense forests', 'Custom biomes'],
         environment: 'normal'
+    },
+    {
+        mapId: 'Svartalfheim_WP',
+        mapName: 'Svartalfheim',
+        icon: '⛰️',
+        color: '#0284c7',
+        description: 'Dwarven realm inspired premium mod map',
+        difficultyOffset: 1.0,
+        xpMultiplier: 1.0,
+        harvestMultiplier: 1.0,
+        tamingMultiplier: 1.0,
+        recommendedMods: [],
+        notes: ['No flyers allowed', 'Nordic inspired', 'Rich mineral resources'],
+        environment: 'nordic'
+    },
+    {
+        mapId: 'Amissa_WP',
+        mapName: 'Amissa',
+        icon: '🍃',
+        color: '#16a34a',
+        description: 'Premium mod map with ancient overgrown ruins',
+        difficultyOffset: 1.0,
+        xpMultiplier: 1.0,
+        harvestMultiplier: 1.0,
+        tamingMultiplier: 1.0,
+        recommendedMods: [],
+        notes: ['Lush environments', 'Unique flora', 'Ancient civilization ruins'],
+        environment: 'varied'
+    },
+    {
+        mapId: 'Insaluna_WP',
+        mapName: 'Insaluna',
+        icon: '🌙',
+        color: '#818cf8',
+        description: 'Lunar and alien themed premium mod map',
+        difficultyOffset: 1.0,
+        xpMultiplier: 1.0,
+        harvestMultiplier: 1.0,
+        tamingMultiplier: 1.0,
+        recommendedMods: [],
+        notes: ['Bioluminescence', 'Low gravity zones', 'Alien landscapes'],
+        environment: 'lunar'
+    },
+    {
+        mapId: 'TemptressLagoon_WP',
+        mapName: 'Temptress Lagoon',
+        icon: '🏝️',
+        color: '#0ea5e9',
+        description: 'Tropical paradise premium mod map',
+        difficultyOffset: 1.0,
+        xpMultiplier: 1.0,
+        harvestMultiplier: 1.0,
+        tamingMultiplier: 1.0,
+        recommendedMods: [],
+        notes: ['Vast ocean areas', 'Tropical islands', 'Rich marine life'],
+        environment: 'oceanic'
+    },
+    {
+        mapId: 'Reverence_WP',
+        mapName: 'Reverence',
+        icon: '🏛️',
+        color: '#d97706',
+        description: 'Sacred realms and ancient temples premium mod map',
+        difficultyOffset: 1.0,
+        xpMultiplier: 1.0,
+        harvestMultiplier: 1.0,
+        tamingMultiplier: 1.0,
+        recommendedMods: [],
+        notes: ['Sacred locations', 'Monumental architecture', 'Boss arenas'],
+        environment: 'varied'
+    },
+    {
+        mapId: 'ClubARK_WP',
+        mapName: 'Club ARK',
+        icon: '🌴',
+        color: '#e11d48',
+        description: 'Social hub with mini-games',
+        difficultyOffset: 1.0,
+        xpMultiplier: 1.0,
+        harvestMultiplier: 1.0,
+        tamingMultiplier: 1.0,
+        recommendedMods: [],
+        notes: ['Mini-games', 'Social area', 'Events'],
+        environment: 'normal'
     }
 ];
 
@@ -196,10 +280,10 @@ export function getMapProfile(mapId: string): MapProfile | undefined {
 export function getProfilesByCategory() {
     return {
         released: MAP_PROFILES.filter(p =>
-            ['TheIsland_WP', 'ScorchedEarth_WP', 'TheCenter_WP', 'Aberration_WP', 'Extinction_WP', 'Ragnarok_WP', 'Valguero_WP', 'LostColony_WP'].includes(p.mapId)
+            ['TheIsland_WP', 'ScorchedEarth_WP', 'TheCenter_WP', 'Aberration_WP', 'Extinction_WP', 'Ragnarok_WP', 'Valguero_WP', 'LostColony_WP', 'ClubARK_WP'].includes(p.mapId)
         ),
         premiumMods: MAP_PROFILES.filter(p =>
-            ['Astraeos_WP', 'Forglar_WP'].includes(p.mapId)
+            ['Astraeos_WP', 'Forglar_WP', 'Svartalfheim_WP', 'Amissa_WP', 'Insaluna_WP', 'TemptressLagoon_WP', 'Reverence_WP'].includes(p.mapId)
         ),
         upcoming: MAP_PROFILES.filter(p =>
             ['Genesis_WP', 'Genesis2_WP'].includes(p.mapId)

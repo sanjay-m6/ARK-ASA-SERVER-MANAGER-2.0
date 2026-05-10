@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe } from 'lucide-react';
+import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot } from 'lucide-react';
 import { getSetting, setSetting } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ import {
     setUpdateSettings,
     getUpdateHistory,
     clearSkippedVersions,
+    resetUpdateCache,
     getReleasesUrl,
     formatRelativeTime,
     type UpdateSettings,
@@ -27,6 +28,8 @@ export default function Settings() {
     const [isSaving, setIsSaving] = useState(false);
     const [showCurseforgeKey, setShowCurseforgeKey] = useState(false);
     const [showSteamKey, setShowSteamKey] = useState(false);
+    const [nvidiaApiKey, setNvidiaApiKey] = useState('');
+    const [showNvidiaKey, setShowNvidiaKey] = useState(false);
     const [currentVersion, setCurrentVersion] = useState<string>('');
     const [startupTimeout, setStartupTimeout] = useState('1800');
 
@@ -79,14 +82,16 @@ export default function Settings() {
 
     const loadSettings = async () => {
         try {
-            const [curseforgeKey, steamKey, timeout] = await Promise.all([
+            const [curseforgeKey, steamKey, timeout, nvidiaKey] = await Promise.all([
                 getSetting('curseforge_api_key'),
                 getSetting('steam_api_key'),
-                getSetting('startup_timeout')
+                getSetting('startup_timeout'),
+                getSetting('nvidia_api_key')
             ]);
             if (curseforgeKey) setCurseforgeApiKey(curseforgeKey);
             if (steamKey) setSteamApiKey(steamKey);
             if (timeout) setStartupTimeout(timeout);
+            if (nvidiaKey) setNvidiaApiKey(nvidiaKey);
 
             // Load update settings
             setUpdateSettingsState(getUpdateSettings());
@@ -122,20 +127,35 @@ export default function Settings() {
         }
     };
 
-    const handleUpdateIntervalChange = (interval: UpdateSettings['checkInterval']) => {
-        setUpdateSettings({ checkInterval: interval });
+    const handleAutoUpdateToggle = () => {
+        const newValue = !updateSettings?.autoUpdate;
+        setUpdateSettings({ autoUpdate: newValue });
         // Update local state directly for immediate UI feedback
-        setUpdateSettingsState(prev => prev ? { ...prev, checkInterval: interval } : getUpdateSettings());
+        setUpdateSettingsState(prev => prev ? { ...prev, autoUpdate: newValue } : { ...getUpdateSettings(), autoUpdate: newValue });
 
         // Notify UpdateChecker to restart interval
         window.dispatchEvent(new Event('update-settings-changed'));
 
-        toast.success(t('settings.updatesTab.intervalSet', { defaultValue: 'Update interval set to {{interval}}', interval: interval === 'never' ? t('settings.updatesTab.manualOnly', 'Manual Only') : interval }));
+        toast.success(newValue 
+            ? t('settings.updatesTab.autoEnabled', 'Automatic updates enabled') 
+            : t('settings.updatesTab.autoDisabled', 'Automatic updates disabled')
+        );
     };
 
     const handleClearSkipped = () => {
         clearSkippedVersions();
+        setUpdateSettingsState(getUpdateSettings());
         toast.success(t('settings.updatesTab.skippedCleared', 'Skipped versions cleared'));
+    };
+
+    const handleResetUpdateCache = () => {
+        resetUpdateCache();
+        setUpdateSettingsState(getUpdateSettings());
+        setUpdateHistoryState([]);
+        setUpdateCheckResult(null);
+        // Notify UpdateChecker to restart its interval with fresh settings
+        window.dispatchEvent(new Event('update-settings-changed'));
+        toast.success(t('settings.updatesTab.cacheReset', 'Update cache cleared. The updater will re-check on next cycle.'));
     };
 
     const handleSave = async () => {
@@ -144,7 +164,8 @@ export default function Settings() {
             await Promise.all([
                 setSetting('curseforge_api_key', curseforgeApiKey),
                 setSetting('steam_api_key', steamApiKey),
-                setSetting('startup_timeout', startupTimeout)
+                setSetting('startup_timeout', startupTimeout),
+                setSetting('nvidia_api_key', nvidiaApiKey),
             ]);
             toast.success(t('settings.saved'));
         } catch (error) {
@@ -396,6 +417,78 @@ export default function Settings() {
                         </div>
                     </div>
 
+                    {/* NVIDIA AI API Key */}
+                    <div className="glass-panel rounded-2xl p-8">
+                        <div className="flex items-start space-x-4 mb-6">
+                            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                                <Bot className="w-6 h-6 text-emerald-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h2 className="text-2xl font-bold text-white mb-2">{t('settings.nvidiaKey.title', 'NVIDIA AI API Key')}</h2>
+                                <p className="text-slate-400">
+                                    {t('settings.nvidiaKey.description', 'Powers the Infinity AI assistant for autonomous server management')}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-3">
+                                    {t('settings.nvidiaKey.label', 'API Key')}
+                                </label>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                                    <input
+                                        type={showNvidiaKey ? 'text' : 'password'}
+                                        value={nvidiaApiKey}
+                                        onChange={(e) => setNvidiaApiKey(e.target.value)}
+                                        placeholder={t('settings.nvidiaKey.placeholder', 'Enter your NVIDIA API key (nvapi-...)')}
+                                        className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-mono"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNvidiaKey(!showNvidiaKey)}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors text-sm"
+                                    >
+                                        {showNvidiaKey ? t('common.hide') : t('common.show')}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
+                                <p className="text-sm text-slate-300 font-medium mb-3">{t('settings.nvidiaKey.needKey', 'Get a free NVIDIA API key to enable AI features.')}</p>
+                                <button
+                                    onClick={() => openUrl('https://build.nvidia.com/')}
+                                    className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors shadow-lg shadow-emerald-500/20 w-full justify-center"
+                                >
+                                    <ExternalLink className="w-4 h-4" />
+                                    <span>{t('settings.nvidiaKey.getKey', 'Get your NVIDIA API key')}</span>
+                                </button>
+                                <p className="text-xs text-slate-400 mt-3">
+                                    {t('settings.nvidiaKey.instructions', 'Sign in → Select a model → Generate API Key → Paste above.')}
+                                </p>
+                            </div>
+
+                            {nvidiaApiKey && (
+                                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+                                    <div className="flex items-center space-x-2">
+                                        <CheckCircle className="w-5 h-5 text-green-400" />
+                                        <span className="text-green-400 font-medium">{t('settings.nvidiaKey.configured', 'NVIDIA AI API Key configured')}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {!nvidiaApiKey && (
+                                <div className="bg-slate-500/10 border border-slate-500/20 rounded-xl p-4">
+                                    <div className="flex items-center space-x-2">
+                                        <AlertCircle className="w-5 h-5 text-slate-400" />
+                                        <span className="text-slate-400 font-medium">{t('settings.nvidiaKey.notConfigured', 'AI features require an NVIDIA API key')}</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Info Section */}
                     <div className="glass-panel rounded-2xl p-6 border-dashed">
                         <h3 className="text-lg font-medium text-white mb-3">{t('settings.aboutApiKeys.title', 'About API Keys')}</h3>
@@ -466,27 +559,37 @@ export default function Settings() {
                             )}
                         </div>
 
-                        {/* Update Interval */}
+                        {/* Update Settings */}
                         <div className="border-t border-slate-700/50 pt-6">
-                            <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                                <Clock className="w-5 h-5 text-indigo-400" />
-                                {t('settings.updatesTab.automaticInterval', 'Automatic Check Interval')}
-                            </h3>
-                            <div className="flex flex-wrap gap-2.5">
-                                {(['never', '1h', '6h', '12h', '24h'] as const).map(interval => (
-                                    <button
-                                        key={interval}
-                                        onClick={() => handleUpdateIntervalChange(interval)}
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
+                                        <Clock className="w-5 h-5 text-indigo-400" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-semibold text-white">
+                                            {t('settings.updatesTab.autoUpdate', 'Automatic Background Updates')}
+                                        </h3>
+                                        <p className="text-sm text-slate-400">
+                                            {t('settings.updatesTab.autoUpdateDesc', 'Download and prepare updates silently in the background.')}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <button
+                                    onClick={handleAutoUpdateToggle}
+                                    className={cn(
+                                        "relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-900",
+                                        updateSettings?.autoUpdate ? "bg-indigo-500" : "bg-slate-700"
+                                    )}
+                                >
+                                    <span
                                         className={cn(
-                                            "px-5 py-2.5 rounded-xl font-medium transition-all duration-200 border",
-                                            updateSettings?.checkInterval === interval
-                                                ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white border-indigo-500/50 shadow-md shadow-indigo-500/20"
-                                                : "bg-slate-800/50 text-slate-400 hover:bg-slate-700 border-slate-700/50 hover:text-white hover:border-slate-600"
+                                            "inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-sm",
+                                            updateSettings?.autoUpdate ? "translate-x-8" : "translate-x-1"
                                         )}
-                                    >
-                                        {interval === 'never' ? t('settings.updatesTab.manualOnly', 'Manual Only') : t('settings.updatesTab.every', { defaultValue: 'Every {{interval}}', interval })}
-                                    </button>
-                                ))}
+                                    />
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -501,12 +604,21 @@ export default function Settings() {
                                 Update History
                             </h2>
                             {updateHistory.length > 0 && (
-                                <button
-                                    onClick={handleClearSkipped}
-                                    className="text-sm px-4 py-2 rounded-lg bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700/50 transition-all font-medium"
-                                >
-                                    {t('settings.updatesTab.clearSkipped', 'Clear Skipped Versions')}
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleClearSkipped}
+                                        className="text-sm px-4 py-2 rounded-lg bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700/50 transition-all font-medium"
+                                    >
+                                        {t('settings.updatesTab.clearSkipped', 'Clear Skipped Versions')}
+                                    </button>
+                                    <button
+                                        onClick={handleResetUpdateCache}
+                                        className="text-sm px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:text-red-300 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/30 transition-all font-medium flex items-center gap-1.5"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        {t('settings.updatesTab.resetCache', 'Reset Update Cache')}
+                                    </button>
+                                </div>
                             )}
                         </div>
 

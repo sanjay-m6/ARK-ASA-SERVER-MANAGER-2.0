@@ -159,11 +159,63 @@ export default function Dashboard() {
 
     // Subscribe to real-time status updates
     let unlistenStatus: () => void;
+    let unlistenLogAnomaly: () => void;
 
     const setupListener = async () => {
       unlistenStatus = await listen<{ server_id: number, status: any }>('server-status-change', (event) => {
         console.log('⚡ Server Status Update:', event.payload);
         updateServerStatus(event.payload.server_id, event.payload.status);
+      });
+
+      unlistenLogAnomaly = await listen<any>('log_anomaly', async (event) => {
+        console.log('🔥 Log Anomaly Detected:', event.payload);
+        const { server_id, anomaly_type, details } = event.payload;
+        
+        toast.error(`Anomaly (${anomaly_type}) detected on Server ${server_id}! AI is analyzing...`, { 
+            duration: 6000,
+            icon: '🔥'
+        });
+
+        // Trigger AI analysis asynchronously
+        import('../stores/aiStore').then(({ useAiStore }) => {
+            import('../utils/aiAgent').then(async ({ sendAiMessage, generateMessageId, buildSystemPrompt }) => {
+                const aiStore = useAiStore.getState();
+                
+                const prompt = `A ${anomaly_type} anomaly was just detected on Server ${server_id}.\nDetails:\n\`\`\`\n${details}\n\`\`\`\nPlease analyze this log anomaly and provide a diagnosis or recommended fix.`;
+                
+                aiStore.addMessage({
+                    id: generateMessageId(),
+                    role: 'user',
+                    content: prompt,
+                    timestamp: Date.now()
+                });
+
+                try {
+                    const apiMessages = [
+                        { role: 'system', content: buildSystemPrompt() },
+                        ...aiStore.messages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content })),
+                        { role: 'user', content: prompt }
+                    ];
+
+                    const response = await sendAiMessage(apiMessages, aiStore.model);
+                    
+                    if (response.content) {
+                        aiStore.addMessage({
+                            id: generateMessageId(),
+                            role: 'assistant',
+                            content: `**[Automated Crash Diagnosis]**\n\n${response.content}`,
+                            timestamp: Date.now()
+                        });
+                        toast.success(`AI Diagnosis ready for Server ${server_id}! Open AI Assistant to view.`, { 
+                            duration: 10000,
+                            icon: '🤖'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Failed to get AI diagnosis:', error);
+                }
+            });
+        });
       });
     };
     setupListener();
@@ -177,6 +229,7 @@ export default function Dashboard() {
       clearInterval(perfInterval);
       clearInterval(serverInterval);
       if (unlistenStatus) unlistenStatus();
+      if (unlistenLogAnomaly) unlistenLogAnomaly();
     };
   }, [setServers, setSystemInfo, updateServerStatus, refreshServers]);
 

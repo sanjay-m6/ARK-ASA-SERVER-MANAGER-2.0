@@ -24,6 +24,11 @@ import mapValguero from '../../assets/maps/valguero.png';
 import mapLostColony from '../../assets/maps/lost_colony.png';
 import mapAstraeos from '../../assets/maps/astraeos.png';
 import mapForglar from '../../assets/maps/forglar.png';
+import mapSvartalfheim from '../../assets/maps/svartalfheim.png';
+import mapAmissa from '../../assets/maps/amissa.png';
+import mapInsaluna from '../../assets/maps/insaluna.png';
+import mapTemptressLagoon from '../../assets/maps/temptress_lagoon.png';
+import mapReverence from '../../assets/maps/reverence.png';
 import mapGenesis from '../../assets/maps/genesis.png';
 import mapGenesis2 from '../../assets/maps/genesis2.png';
 import mapFjordur from '../../assets/maps/fjordur.png';
@@ -77,6 +82,11 @@ export default function InstallServerDialog({ onClose }: Props) {
         premiumMods: [
             { id: 'Astraeos_WP', name: t('dialogs.installServer.maps.astraeos', 'Astraeos'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#ec4899', icon: '✨', size: 'Large', image: mapAstraeos },
             { id: 'Forglar_WP', name: t('dialogs.installServer.maps.forglar', 'Forglar'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#06b6d4', icon: '🌿', size: 'Medium', image: mapForglar },
+            { id: 'Svartalfheim_WP', name: t('dialogs.installServer.maps.svartalfheim', 'Svartalfheim'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#0284c7', icon: '⛰️', size: 'Medium', image: mapSvartalfheim },
+            { id: 'Amissa_WP', name: t('dialogs.installServer.maps.amissa', 'Amissa'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#16a34a', icon: '🍃', size: 'Large', image: mapAmissa },
+            { id: 'Insaluna_WP', name: t('dialogs.installServer.maps.insaluna', 'Insaluna'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#818cf8', icon: '🌙', size: 'Large', image: mapInsaluna },
+            { id: 'TemptressLagoon_WP', name: t('dialogs.installServer.maps.temptressLagoon', 'Temptress Lagoon'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#0ea5e9', icon: '🏝️', size: 'Medium', image: mapTemptressLagoon },
+            { id: 'Reverence_WP', name: t('dialogs.installServer.maps.reverence', 'Reverence'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#d97706', icon: '🏛️', size: 'Large', image: mapReverence },
         ],
         upcoming: [
             { id: 'Genesis_WP', name: t('dialogs.installServer.maps.genesis1', 'Genesis Part 1'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'June 2026', defaultValue: 'Coming June 2026' }), color: '#14b8a6', icon: '🧬', size: 'Medium', image: mapGenesis },

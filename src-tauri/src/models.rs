@@ -373,3 +373,25 @@ pub struct SchedulerSettings {
     pub advanced_restart: Option<bool>,
     pub advanced_dino_wipe: Option<bool>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordUser {
+    pub discord_id: String,
+    pub steam_id: String,
+    pub discord_username: String,
+    pub linked_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SupportTicket {
+    pub id: i64,
+    pub discord_user_id: Option<String>,
+    pub steam_id: Option<String>,
+    pub issue_text: String,
+    pub status: String,
+    pub admin_notes: Option<String>,
+    pub created_at: String,
+    pub resolved_at: Option<String>,
+}

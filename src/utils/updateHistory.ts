@@ -10,7 +10,7 @@ export interface UpdateHistoryEntry {
 }
 
 export interface UpdateSettings {
-    checkInterval: 'never' | '1h' | '6h' | '12h' | '24h';
+    autoUpdate: boolean;
     lastCheck: string | null;
     skippedVersions: string[];
 }
@@ -20,7 +20,7 @@ const SETTINGS_KEY = 'update_settings';
 
 // Default settings
 const DEFAULT_SETTINGS: UpdateSettings = {
-    checkInterval: '24h',
+    autoUpdate: true,
     lastCheck: null,
     skippedVersions: [],
 };
@@ -74,7 +74,7 @@ export function setUpdateSettings(settings: Partial<UpdateSettings>): void {
 export function shouldCheckForUpdates(): boolean {
     const settings = getUpdateSettings();
 
-    if (settings.checkInterval === 'never') {
+    if (!settings.autoUpdate) {
         return false;
     }
 
@@ -84,15 +84,8 @@ export function shouldCheckForUpdates(): boolean {
 
     const lastCheck = new Date(settings.lastCheck).getTime();
     const now = Date.now();
+    const interval = 24 * 60 * 60 * 1000; // 24 hours
 
-    const intervals: Record<string, number> = {
-        '1h': 60 * 60 * 1000,
-        '6h': 6 * 60 * 60 * 1000,
-        '12h': 12 * 60 * 60 * 1000,
-        '24h': 24 * 60 * 60 * 1000,
-    };
-
-    const interval = intervals[settings.checkInterval] || intervals['24h'];
     return now - lastCheck >= interval;
 }
 
@@ -105,18 +98,11 @@ export function updateLastCheck(): void {
 export function getCheckIntervalMs(): number | null {
     const settings = getUpdateSettings();
 
-    if (settings.checkInterval === 'never') {
+    if (!settings.autoUpdate) {
         return null;
     }
 
-    const intervals: Record<string, number> = {
-        '1h': 60 * 60 * 1000,
-        '6h': 6 * 60 * 60 * 1000,
-        '12h': 12 * 60 * 60 * 1000,
-        '24h': 24 * 60 * 60 * 1000,
-    };
-
-    return intervals[settings.checkInterval] || intervals['24h'];
+    return 24 * 60 * 60 * 1000; // 24 hours
 }
 
 // Check if a version is skipped
@@ -138,6 +124,35 @@ export function skipVersion(version: string): void {
 // Clear skipped versions
 export function clearSkippedVersions(): void {
     setUpdateSettings({ skippedVersions: [] });
+}
+
+// Compare two semver version strings (e.g., "2.3.4" vs "2.3.1")
+// Returns: positive if a > b, negative if a < b, 0 if equal
+function compareVersions(a: string, b: string): number {
+    const pa = a.replace(/^v/, '').split('.').map(Number);
+    const pb = b.replace(/^v/, '').split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const diff = (pa[i] || 0) - (pb[i] || 0);
+        if (diff !== 0) return diff;
+    }
+    return 0;
+}
+
+// Remove skipped versions that are at or below the current installed version
+export function pruneSkippedVersions(currentVersion: string): void {
+    const settings = getUpdateSettings();
+    const validSkips = settings.skippedVersions.filter(v =>
+        compareVersions(v, currentVersion) > 0
+    );
+    if (validSkips.length !== settings.skippedVersions.length) {
+        setUpdateSettings({ skippedVersions: validSkips });
+    }
+}
+
+// Full reset of update cache — clears all settings and history
+export function resetUpdateCache(): void {
+    localStorage.removeItem(HISTORY_KEY);
+    localStorage.removeItem(SETTINGS_KEY);
 }
 
 // Get GitHub releases URL for manual rollback

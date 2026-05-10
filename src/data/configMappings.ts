@@ -117,9 +117,15 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                     { value: 'Ragnarok_WP', label: '⚔️ Ragnarok', group: 'released' },
                     { value: 'Valguero_WP', label: '🦖 Valguero', group: 'released' },
                     { value: 'LostColony_WP', label: '🚀 Lost Colony', group: 'released' },
+                    { value: 'ClubARK_WP', label: '🌴 Club ARK', group: 'released' },
                     // Premium Mod Maps
                     { value: 'Astraeos_WP', label: '✨ Astraeos', group: 'premium' },
                     { value: 'Forglar_WP', label: '🌿 Forglar', group: 'premium' },
+                    { value: 'Svartalfheim_WP', label: '⛰️ Svartalfheim', group: 'premium' },
+                    { value: 'Amissa_WP', label: '🍃 Amissa', group: 'premium' },
+                    { value: 'Insaluna_WP', label: '🌙 Insaluna', group: 'premium' },
+                    { value: 'TemptressLagoon_WP', label: '🏝️ Temptress Lagoon', group: 'premium' },
+                    { value: 'Reverence_WP', label: '🏛️ Reverence', group: 'premium' },
                     // Coming 2026
                     { value: 'Genesis_WP', label: '🧬 Genesis Part 1', group: 'upcoming' },
                     { value: 'Genesis2_WP', label: '🛸 Genesis Part 2', group: 'upcoming' },

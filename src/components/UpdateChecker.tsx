@@ -4,7 +4,7 @@ import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getVersion } from '@tauri-apps/api/app';
-import { Download, X, RefreshCw, AlertCircle, Clock } from 'lucide-react';
+import { Download, X, RefreshCw, AlertCircle, Clock, Rocket } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import {
     addUpdateHistory,
@@ -12,7 +12,9 @@ import {
     shouldCheckForUpdates,
     getCheckIntervalMs,
     isVersionSkipped,
-    skipVersion
+    skipVersion,
+    pruneSkippedVersions,
+    getUpdateSettings
 } from '../utils/updateHistory';
 
 // Export types for use in Settings
@@ -95,16 +97,22 @@ export default function UpdateChecker() {
     const { t } = useTranslation();
     const [updateAvailable, setUpdateAvailable] = useState<{ version: string; body: string } | null>(null);
     const [updateObj, setUpdateObj] = useState<Awaited<ReturnType<typeof check>> | null>(null);
-    const [isDownloading, setIsDownloading] = useState(false);
+    
+    // UI States: 'hidden' | 'prompt' | 'downloading' | 'ready'
+    const [uiState, setUiState] = useState<'hidden' | 'prompt' | 'downloading' | 'ready'>('hidden');
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
-    const [showBanner, setShowBanner] = useState(false);
+    
     const [settingsRevision, setSettingsRevision] = useState(0); // Used to trigger interval restart
     const [currentAppVersion, setCurrentAppVersion] = useState<string>('');
 
     // Load current version on mount
     useEffect(() => {
-        getVersion().then(setCurrentAppVersion).catch(console.error);
+        getVersion().then(v => {
+            setCurrentAppVersion(v);
+            // Auto-prune skipped versions that are now irrelevant
+            pruneSkippedVersions(v);
+        }).catch(console.error);
     }, []);
 
     const checkForUpdates = useCallback(async (isManual = false) => {
@@ -124,18 +132,25 @@ export default function UpdateChecker() {
 
                 const info = {
                     version: update.version,
-                    body: update.body || t('updateChecker.title'), // Fallback title as body if empty
+                    body: update.body || t('updateChecker.title', 'New Update Available'),
                 };
 
                 setUpdateAvailable(info);
                 setUpdateObj(update);
-                setShowBanner(true);
 
                 lastCheckResult = {
                     available: true,
                     update: info,
                     error: null,
                 };
+
+                const settings = getUpdateSettings();
+                if (settings.autoUpdate && !isManual) {
+                    // Silently download and install in the background
+                    downloadAndInstall(update, info, true);
+                } else {
+                    setUiState('prompt');
+                }
             }
         } catch (err) {
             console.error('Update check failed:', err);
@@ -152,21 +167,27 @@ export default function UpdateChecker() {
                 action: 'skipped',
                 previousVersion: currentAppVersion,
             });
-            setShowBanner(false);
+            setUiState('hidden');
         }
     };
 
-    const downloadAndInstall = async () => {
-        if (!updateObj || !updateAvailable) return;
+    const downloadAndInstall = async (
+        updater: Awaited<ReturnType<typeof check>> | null = updateObj, 
+        info: {version: string} | null = updateAvailable, 
+        silent: boolean = false
+    ) => {
+        if (!updater || !info) return;
 
-        setIsDownloading(true);
+        if (!silent) {
+            setUiState('downloading');
+        }
         setError(null);
 
         try {
             let downloaded = 0;
             let totalSize = 0;
 
-            await updateObj.downloadAndInstall((event) => {
+            await updater.downloadAndInstall((event) => {
                 if (event.event === 'Started') {
                     totalSize = event.data.contentLength || 0;
                 }
@@ -181,25 +202,33 @@ export default function UpdateChecker() {
 
             // Log successful update
             addUpdateHistory({
-                version: updateAvailable.version,
+                version: info.version,
                 action: 'installed',
                 previousVersion: currentAppVersion,
             });
 
-            console.log("Update installed, relaunching...");
-            await relaunch();
+            setUiState('ready'); // Prompt user to restart
         } catch (err) {
             console.error('Update failed:', err);
-            setError(t('updateChecker.error'));
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            setError(`${t('updateChecker.error', 'Update failed')}: ${errorMsg}`);
 
             // Log failed update
             addUpdateHistory({
-                version: updateAvailable.version,
+                version: info.version,
                 action: 'failed',
                 previousVersion: currentAppVersion,
             });
 
-            setIsDownloading(false);
+            setUiState('prompt'); // Revert to prompt to show error
+        }
+    };
+
+    const handleRelaunch = async () => {
+        try {
+            await relaunch();
+        } catch (err) {
+            console.error("Failed to relaunch:", err);
         }
     };
 
@@ -250,19 +279,11 @@ export default function UpdateChecker() {
     // Listen for manual check events
     useEffect(() => {
         let unlistenUpdate: (() => void) | null = null;
-        let unlistenError: (() => void) | null = null;
 
         const setupListeners = async () => {
             unlistenUpdate = await listen<UpdateInfo>('update-found', (event) => {
                 setUpdateAvailable(event.payload);
-                setShowBanner(true);
-            });
-
-            unlistenError = await listen<string>('update-error', (event) => {
-                // For manual checks, we might want to show this in the banner too if open?
-                // But usually this is handled by the caller (Settings page)
-                // We'll just log it here
-                console.warn("Update error received:", event.payload);
+                setUiState('prompt');
             });
         };
 
@@ -270,120 +291,162 @@ export default function UpdateChecker() {
 
         return () => {
             if (unlistenUpdate) unlistenUpdate();
-            if (unlistenError) unlistenError();
         };
     }, []);
 
-    if (!showBanner || !updateAvailable) return null;
+    if (uiState === 'hidden') return null;
 
     return (
-        <div className={cn(
-            "fixed bottom-4 right-4 z-50 max-w-sm w-full",
-            "bg-slate-900/80 backdrop-blur-xl",
-            "border border-slate-700/50 rounded-2xl shadow-[0_0_40px_-10px_rgba(0,0,0,0.5)] animate-in slide-in-from-bottom-4 duration-500",
-            "before:absolute before:inset-0 before:-z-10 before:rounded-2xl before:bg-gradient-to-b before:from-sky-500/10 before:to-transparent"
-        )}>
-            <div className="p-5">
-                <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <div className="absolute inset-0 bg-sky-500/20 rounded-xl blur-md"></div>
-                            <div className="relative p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30">
-                                <Download className="w-5 h-5 text-sky-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className={cn(
+                "w-full max-w-lg bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl shadow-sky-500/10 overflow-hidden",
+                "animate-in zoom-in-95 duration-500 relative"
+            )}>
+                {/* Header Graphic Background */}
+                <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-sky-500/20 to-transparent opacity-50 pointer-events-none"></div>
+
+                <div className="p-8 relative">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-6">
+                        <div className="flex items-center gap-5">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-sky-500/20 rounded-2xl blur-lg animate-pulse"></div>
+                                <div className="relative p-3.5 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-sky-500/30 shadow-inner">
+                                    {uiState === 'ready' ? (
+                                        <Rocket className="w-8 h-8 text-sky-400" />
+                                    ) : (
+                                        <Download className="w-8 h-8 text-sky-400" />
+                                    )}
+                                </div>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-white tracking-tight">
+                                    {uiState === 'ready' 
+                                        ? t('updateChecker.readyTitle', 'Update Ready')
+                                        : t('updateChecker.title', 'Software Update')}
+                                </h3>
+                                <div className="flex items-center gap-2 mt-1.5 opacity-80">
+                                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-xs font-mono text-slate-400">v{currentAppVersion}</span>
+                                    <span className="text-slate-500">→</span>
+                                    <span className="px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 text-xs font-mono text-sky-400 font-medium">v{updateAvailable?.version}</span>
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <h3 className="font-bold text-white text-base">{t('updateChecker.title')}</h3>
-                            <div className="flex items-center gap-2 mt-1">
-                                <span className="px-2 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/50 text-[11px] font-mono text-slate-400">v{currentAppVersion}</span>
-                                <span className="text-slate-500">→</span>
-                                <span className="px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 text-[11px] font-mono text-sky-400 font-medium tracking-wide">v{updateAvailable.version}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => setShowBanner(false)}
-                        className="p-1.5 hover:bg-slate-800/80 rounded-lg transition-all text-slate-500 hover:text-white"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-
-                <div className="bg-slate-950/40 rounded-xl p-3.5 mb-5 border border-slate-800/50 max-h-32 overflow-y-auto custom-scrollbar shadow-inner">
-                    <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
-                        {updateAvailable.body}
-                    </p>
-                </div>
-
-                {error && (
-                    <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs mb-4">
-                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <span>{error}</span>
-                    </div>
-                )}
-
-                {isDownloading && (
-                    <div className="mb-5 space-y-2.5">
-                        <div className="flex justify-between text-xs font-medium text-sky-200/70">
-                            <span className="flex items-center gap-1.5">
-                                <RefreshCw className="w-3 h-3 animate-spin text-sky-400" />
-                                {t('updateChecker.downloading')}
-                            </span>
-                            <span className="text-sky-400 font-mono">{Math.round(downloadProgress)}%</span>
-                        </div>
-                        <div className="relative h-2 w-full bg-slate-800/80 rounded-full overflow-hidden border border-slate-700/50">
-                            <div
-                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-300 ease-out shadow-[0_0_10px_rgba(56,189,248,0.5)]"
-                                style={{ width: `${downloadProgress}%` }}
+                        
+                        {uiState !== 'downloading' && (
+                            <button
+                                onClick={() => setUiState('hidden')}
+                                className="p-2 hover:bg-slate-800 rounded-xl transition-all text-slate-400 hover:text-white"
                             >
-                                <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                                <X className="w-5 h-5" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Content */}
+                    {uiState === 'ready' ? (
+                        <div className="bg-slate-950/50 rounded-xl p-5 mb-8 border border-slate-800/80 shadow-inner text-center">
+                            <p className="text-slate-300 leading-relaxed">
+                                {t('updateChecker.readyDesc', 'The update has been downloaded and is ready to install. Restart the application to apply the changes.')}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="bg-slate-950/50 rounded-xl p-5 mb-6 border border-slate-800/80 max-h-48 overflow-y-auto custom-scrollbar shadow-inner">
+                            <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed font-medium">
+                                {updateAvailable?.body}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Error State */}
+                    {error && (
+                        <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm mb-6">
+                            <AlertCircle className="w-5 h-5 shrink-0" />
+                            <span className="leading-relaxed">{error}</span>
+                        </div>
+                    )}
+
+                    {/* Progress Bar */}
+                    {uiState === 'downloading' && (
+                        <div className="mb-8 space-y-3 bg-slate-950/30 p-5 rounded-xl border border-slate-800/50">
+                            <div className="flex justify-between text-sm font-medium text-sky-200/80">
+                                <span className="flex items-center gap-2">
+                                    <RefreshCw className="w-4 h-4 animate-spin text-sky-400" />
+                                    {t('updateChecker.downloading', 'Downloading update...')}
+                                </span>
+                                <span className="text-sky-400 font-mono text-lg">{Math.round(downloadProgress)}%</span>
+                            </div>
+                            <div className="relative h-3 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-700/50 shadow-inner">
+                                <div
+                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-300 ease-out shadow-[0_0_15px_rgba(56,189,248,0.6)]"
+                                    style={{ width: `${downloadProgress}%` }}
+                                >
+                                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                <div className="flex gap-2.5">
-                    <button
-                        onClick={downloadAndInstall}
-                        disabled={isDownloading}
-                        className={cn(
-                            "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl",
-                            "bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500",
-                            "text-white font-bold text-xs tracking-wider uppercase",
-                            "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "transition-all duration-300 shadow-lg shadow-sky-500/20 hover:shadow-sky-500/40 border border-t-white/10"
-                        )}
-                    >
-                        {isDownloading ? (
-                            <>
-                                <RefreshCw className="w-4 h-4 animate-spin" />
-                                {t('updateChecker.installing')}
-                            </>
+                    {/* Actions */}
+                    <div className="flex gap-3">
+                        {uiState === 'ready' ? (
+                            <button
+                                onClick={handleRelaunch}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl",
+                                    "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500",
+                                    "text-white font-bold tracking-wider uppercase",
+                                    "transition-all duration-300 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 border border-emerald-400/20"
+                                )}
+                            >
+                                <RefreshCw className="w-5 h-5" />
+                                {t('updateChecker.relaunch', 'Restart Now')}
+                            </button>
                         ) : (
-                            <>
-                                <Download className="w-4 h-4" />
-                                {t('updateChecker.updateNow')}
-                            </>
+                            <button
+                                onClick={() => downloadAndInstall()}
+                                disabled={uiState === 'downloading'}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl",
+                                    "bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500",
+                                    "text-white font-bold tracking-wider uppercase",
+                                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                                    "transition-all duration-300 shadow-lg shadow-sky-500/20 hover:shadow-sky-500/40 border border-sky-400/20"
+                                )}
+                            >
+                                {uiState === 'downloading' ? (
+                                    <>
+                                        <RefreshCw className="w-5 h-5 animate-spin" />
+                                        {t('updateChecker.installing', 'Installing...')}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download className="w-5 h-5" />
+                                        {t('updateChecker.updateNow', 'Download & Install')}
+                                    </>
+                                )}
+                            </button>
                         )}
-                    </button>
 
-                    {!isDownloading && (
-                        <>
+                        {uiState !== 'downloading' && (
+                            <button
+                                onClick={() => setUiState('hidden')}
+                                className="px-6 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all border border-slate-700 hover:border-slate-600 font-bold uppercase tracking-wider"
+                            >
+                                {uiState === 'ready' ? t('updateChecker.later', 'Later') : t('updateChecker.later', 'Not Now')}
+                            </button>
+                        )}
+                        
+                        {uiState === 'prompt' && (
                             <button
                                 onClick={handleSkipVersion}
-                                title={t('updateChecker.skip')}
-                                className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-slate-700/50 hover:border-slate-600"
+                                title={t('updateChecker.skip', 'Skip this version')}
+                                className="px-4 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-slate-700 hover:border-slate-600"
                             >
-                                <Clock className="w-4 h-4" />
+                                <Clock className="w-5 h-5" />
                             </button>
-                            <button
-                                onClick={() => setShowBanner(false)}
-                                className="px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-slate-700/50 hover:border-slate-600 text-xs font-bold uppercase tracking-wider"
-                            >
-                                {t('updateChecker.later')}
-                            </button>
-                        </>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

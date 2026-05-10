@@ -1,7 +1,9 @@
+pub mod ai;
 pub mod advanced_config;
 pub mod anti_cheat;
 pub mod backup;
 pub mod cluster;
+pub mod community;
 pub mod config;
 pub mod cross_chat;
 pub mod discord;
@@ -15,3 +17,5 @@ pub mod rcon;
 pub mod scheduler;
 pub mod server;
 pub mod system;
+pub mod tribe_log;
+pub mod upnp;

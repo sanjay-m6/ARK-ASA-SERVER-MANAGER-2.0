@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
     Database as BackupIcon, Plus, RotateCcw, Trash2, Loader2, FileArchive,
     Calendar, Clock, HardDrive, CheckCircle, XCircle, Eye, Shield,
-    Settings, ChevronDown, ChevronUp, FolderOpen, Sparkles
+    Settings, ChevronDown, ChevronUp, FolderOpen, Sparkles, LayoutList, GitBranch
 } from 'lucide-react';
 import { formatBytes, cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
@@ -37,6 +37,9 @@ export default function Backups() {
         includeMods: false,
         compress: true,
     });
+
+    // View mode: list or timeline
+    const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
 
     // Styled confirm dialog state
     const [confirmState, setConfirmState] = useState<{
@@ -327,6 +330,34 @@ export default function Backups() {
                 </div>
             </div>
 
+            {/* View Toggle */}
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={() => setViewMode('list')}
+                    className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all",
+                        viewMode === 'list'
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:text-white'
+                    )}
+                >
+                    <LayoutList className="w-4 h-4" />
+                    {t('backups.listView', 'List View')}
+                </button>
+                <button
+                    onClick={() => setViewMode('timeline')}
+                    className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all",
+                        viewMode === 'timeline'
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:text-white'
+                    )}
+                >
+                    <GitBranch className="w-4 h-4" />
+                    {t('backups.timelineView', 'Timeline')}
+                </button>
+            </div>
+
             {/* Backup List */}
             <div className="space-y-4">
                 {isLoading ? (
@@ -338,6 +369,108 @@ export default function Backups() {
                         <FileArchive className="w-16 h-16 text-slate-600 mx-auto mb-4" />
                         <h3 className="text-xl font-semibold text-slate-300">{t('backups.noBackups')}</h3>
                         <p className="text-slate-500 mt-2">{t('backups.createFirst')}</p>
+                    </div>
+                ) : viewMode === 'timeline' ? (
+                    /* ================= TIMELINE VIEW (B1) ================= */
+                    <div className="relative">
+                        {/* Timeline spine */}
+                        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-amber-500/50 via-amber-500/20 to-transparent" />
+
+                        {(() => {
+                            // Group backups by date
+                            const grouped: Record<string, Backup[]> = {};
+                            for (const b of backups) {
+                                const dateKey = new Date(b.createdAt).toLocaleDateString();
+                                if (!grouped[dateKey]) grouped[dateKey] = [];
+                                grouped[dateKey].push(b);
+                            }
+                            return Object.entries(grouped).map(([date, dayBackups]) => (
+                                <div key={date} className="mb-8">
+                                    {/* Date header */}
+                                    <div className="flex items-center gap-3 mb-4 relative">
+                                        <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center border-2 border-amber-500/40 z-10">
+                                            <Calendar className="w-5 h-5 text-amber-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-white font-bold text-lg">{date}</p>
+                                            <p className="text-slate-500 text-sm">{dayBackups.length} backup{dayBackups.length !== 1 ? 's' : ''}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Day's backups */}
+                                    <div className="ml-6 space-y-3 pl-6 border-l-2 border-slate-800">
+                                        {dayBackups.map((backup) => {
+                                            const typeColor = backup.backupType === 'manual'
+                                                ? 'bg-amber-500'
+                                                : backup.backupType === 'auto'
+                                                    ? 'bg-blue-500'
+                                                    : 'bg-green-500';
+                                            return (
+                                                <div key={backup.id} className="relative group">
+                                                    {/* Timeline dot */}
+                                                    <div className={cn(
+                                                        "absolute -left-[30px] top-4 w-3 h-3 rounded-full border-2 border-slate-900 shadow-lg",
+                                                        typeColor
+                                                    )} />
+
+                                                    <div className="glass-panel rounded-xl p-4 hover:border-amber-500/30 transition-all">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={cn(
+                                                                    "px-2.5 py-1 rounded-lg text-xs font-bold uppercase",
+                                                                    backup.backupType === 'manual'
+                                                                        ? 'bg-amber-500/20 text-amber-300'
+                                                                        : backup.backupType === 'auto'
+                                                                            ? 'bg-blue-500/20 text-blue-300'
+                                                                            : 'bg-green-500/20 text-green-300'
+                                                                )}>
+                                                                    {backup.backupType}
+                                                                </div>
+                                                                <div className="flex items-center gap-2 text-sm">
+                                                                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                                                                    <span className="text-slate-300 font-mono">{new Date(backup.createdAt).toLocaleTimeString()}</span>
+                                                                </div>
+                                                                <span className="text-slate-500 text-sm flex items-center gap-1">
+                                                                    <HardDrive className="w-3.5 h-3.5" />
+                                                                    {formatBytes(backup.size)}
+                                                                </span>
+                                                                {backup.verified && (
+                                                                    <CheckCircle className="w-4 h-4 text-green-400" />
+                                                                )}
+                                                            </div>
+
+                                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button
+                                                                    onClick={() => handleRestore(backup.id)}
+                                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-green-500/20 hover:text-green-400 text-slate-300 rounded-lg text-sm transition-colors"
+                                                                >
+                                                                    <RotateCcw className="w-3.5 h-3.5" />
+                                                                    <span>{t('backups.restoreBackup', 'Restore')}</span>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(backup.id)}
+                                                                    className="p-1.5 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-300 rounded-lg transition-colors"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Content tags */}
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            {backup.includesConfigs && <span className="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] rounded font-mono">CONFIGS</span>}
+                                                            {backup.includesSaves && <span className="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] rounded font-mono">SAVES</span>}
+                                                            {backup.includesMods && <span className="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] rounded font-mono">MODS</span>}
+                                                            {backup.includesCluster && <span className="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] rounded font-mono">CLUSTER</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ));
+                        })()}
                     </div>
                 ) : (
                     <div className="grid gap-3">

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power, ChevronDown, ChevronUp, Code } from 'lucide-react';
+import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power, ChevronDown, ChevronUp, Code, Shield, Upload, PackagePlus, ScanSearch } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, getModDescription, copyModsToServer, type ModConfigPreview, getModCategories, type CurseForgeCategory } from '../utils/tauri';
+import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, getModDescription, copyModsToServer, type ModConfigPreview, getModCategories, type CurseForgeCategory, checkModConflicts, exportModpack, importModpack, type ModConflict, type ModpackImportResult } from '../utils/tauri';
 import { ModInfo } from '../types';
 import toast from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
@@ -142,6 +142,19 @@ export default function ModManager() {
     // Advanced Mode State
     const [showAdvancedMode, setShowAdvancedMode] = useState(false);
     const [isBulkImporting, setIsBulkImporting] = useState(false);
+
+    // Mod Conflict Scanner State
+    const [conflicts, setConflicts] = useState<ModConflict[]>([]);
+    const [isScanning, setIsScanning] = useState(false);
+    const [showConflicts, setShowConflicts] = useState(false);
+
+    // Modpack State
+    const [showModpackExport, setShowModpackExport] = useState(false);
+    const [modpackName, setModpackName] = useState('');
+    const [isExporting, setIsExporting] = useState(false);
+    const [showModpackImport, setShowModpackImport] = useState(false);
+    const [modpackJson, setModpackJson] = useState('');
+    const [isImporting, setIsImporting] = useState(false);
 
     // Load available categories
     useEffect(() => {
@@ -394,6 +407,62 @@ export default function ModManager() {
         }
     };
 
+    // === MOD CONFLICT SCANNER ===
+    const handleScanConflicts = async () => {
+        if (!selectedServerId) return;
+        setIsScanning(true);
+        try {
+            const result = await checkModConflicts(selectedServerId);
+            setConflicts(result);
+            setShowConflicts(true);
+            if (result.length === 0) {
+                toast.success(t('modManager.noConflicts', 'No conflicts detected!'));
+            } else {
+                toast.error(t('modManager.conflictsFound', `${result.length} conflict(s) found!`));
+            }
+        } catch (error) {
+            toast.error(`Conflict scan failed: ${error}`);
+        } finally {
+            setIsScanning(false);
+        }
+    };
+
+    // === MODPACK EXPORT ===
+    const handleExportModpack = async () => {
+        if (!selectedServerId || !modpackName.trim()) return;
+        setIsExporting(true);
+        try {
+            const json = await exportModpack(selectedServerId, modpackName.trim());
+            await navigator.clipboard.writeText(json);
+            toast.success(t('modManager.modpackExported', 'Modpack copied to clipboard!'));
+            setShowModpackExport(false);
+            setModpackName('');
+        } catch (error) {
+            toast.error(`Export failed: ${error}`);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    // === MODPACK IMPORT ===
+    const handleImportModpack = async () => {
+        if (!selectedServerId || !modpackJson.trim()) return;
+        setIsImporting(true);
+        try {
+            const result: ModpackImportResult = await importModpack(selectedServerId, modpackJson.trim());
+            toast.success(
+                `Modpack "${result.modpack_name}" imported! ${result.installed_count} installed, ${result.skipped_count} skipped.`
+            );
+            setShowModpackImport(false);
+            setModpackJson('');
+            if (activeTab === 'installed') fetchInstalled();
+        } catch (error) {
+            toast.error(`Import failed: ${error}`);
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
     // Bulk import handler for Advanced Mode
     const handleBulkImportMods = async (modIds: string[]) => {
         if (!selectedServerId || modIds.length === 0) {
@@ -471,6 +540,36 @@ export default function ModManager() {
                             ))}
                         </select>
                     </div>
+
+                    {/* Modpack Export */}
+                    <button
+                        onClick={() => setShowModpackExport(true)}
+                        disabled={!selectedServerId}
+                        className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-all disabled:opacity-50"
+                        title={t('modManager.exportModpack', 'Export Modpack')}
+                    >
+                        <Upload className="w-5 h-5" />
+                    </button>
+
+                    {/* Modpack Import */}
+                    <button
+                        onClick={() => setShowModpackImport(true)}
+                        disabled={!selectedServerId}
+                        className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-all disabled:opacity-50"
+                        title={t('modManager.importModpack', 'Import Modpack')}
+                    >
+                        <PackagePlus className="w-5 h-5" />
+                    </button>
+
+                    {/* Conflict Scanner */}
+                    <button
+                        onClick={handleScanConflicts}
+                        disabled={!selectedServerId || isScanning}
+                        className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-all disabled:opacity-50"
+                        title={t('modManager.scanConflicts', 'Scan for Conflicts')}
+                    >
+                        {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <ScanSearch className="w-5 h-5" />}
+                    </button>
 
                     <button
                         onClick={() => setShowTransferDialog(true)}
@@ -627,6 +726,133 @@ export default function ModManager() {
                     </div>
                 )
             }
+
+            {/* Conflict Scanner Results Banner */}
+            {showConflicts && conflicts.length > 0 && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 animate-in slide-in-from-top-3 duration-300">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-red-400 font-bold flex items-center gap-2 text-lg">
+                            <Shield className="w-5 h-5" />
+                            {t('modManager.conflictsDetected', `${conflicts.length} Mod Conflict(s) Detected`)}
+                        </h3>
+                        <button onClick={() => setShowConflicts(false)} className="p-1 hover:bg-red-500/20 rounded-lg transition-colors">
+                            <X className="w-5 h-5 text-red-400" />
+                        </button>
+                    </div>
+                    <div className="space-y-3">
+                        {conflicts.map((conflict, i) => (
+                            <div key={i} className={cn(
+                                "p-4 rounded-xl border flex items-start gap-4",
+                                conflict.severity === 'critical' ? 'bg-red-900/20 border-red-500/30' :
+                                conflict.severity === 'warning' ? 'bg-amber-900/20 border-amber-500/30' :
+                                'bg-blue-900/20 border-blue-500/30'
+                            )}>
+                                <AlertTriangle className={cn(
+                                    "w-5 h-5 mt-0.5 shrink-0",
+                                    conflict.severity === 'critical' ? 'text-red-400' :
+                                    conflict.severity === 'warning' ? 'text-amber-400' : 'text-blue-400'
+                                )} />
+                                <div className="flex-1">
+                                    <p className="text-white font-medium">
+                                        <span className="text-sky-400">{conflict.mod_a_name}</span>
+                                        <span className="text-slate-500 mx-2">×</span>
+                                        <span className="text-sky-400">{conflict.mod_b_name}</span>
+                                    </p>
+                                    <p className="text-slate-400 text-sm mt-1">{conflict.reason}</p>
+                                    <span className={cn(
+                                        "inline-block mt-2 px-2 py-0.5 text-xs font-bold uppercase rounded",
+                                        conflict.severity === 'critical' ? 'bg-red-500/20 text-red-300' :
+                                        conflict.severity === 'warning' ? 'bg-amber-500/20 text-amber-300' :
+                                        'bg-blue-500/20 text-blue-300'
+                                    )}>{conflict.severity}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Modpack Export Modal */}
+            {showModpackExport && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-200">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl shadow-sky-900/20">
+                        <div className="p-6 border-b border-slate-800">
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                <Upload className="w-5 h-5 text-sky-400" />
+                                {t('modManager.exportModpack', 'Export Modpack')}
+                            </h2>
+                            <p className="text-slate-400 text-sm mt-1">{t('modManager.exportDesc', 'Generate a shareable JSON of your installed mods')}</p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">{t('modManager.modpackName', 'Modpack Name')}</label>
+                                <input
+                                    type="text"
+                                    value={modpackName}
+                                    onChange={(e) => setModpackName(e.target.value)}
+                                    placeholder="My ARK Modpack"
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                />
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-slate-800 bg-slate-800/50 flex justify-end gap-3">
+                            <button onClick={() => setShowModpackExport(false)} className="px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">{t('common.cancel')}</button>
+                            <button
+                                onClick={handleExportModpack}
+                                disabled={!modpackName.trim() || isExporting}
+                                className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-lg shadow-lg shadow-sky-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+                                <span>{t('modManager.exportToClipboard', 'Copy to Clipboard')}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modpack Import Modal */}
+            {showModpackImport && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-200">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl shadow-sky-900/20">
+                        <div className="p-6 border-b border-slate-800">
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                <PackagePlus className="w-5 h-5 text-green-400" />
+                                {t('modManager.importModpack', 'Import Modpack')}
+                            </h2>
+                            <p className="text-slate-400 text-sm mt-1">{t('modManager.importDesc', 'Paste a modpack JSON to install mods')}</p>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">{t('modManager.modpackJson', 'Modpack JSON')}</label>
+                                <textarea
+                                    value={modpackJson}
+                                    onChange={(e) => setModpackJson(e.target.value)}
+                                    placeholder='{"name": "...", "mods": [...]}'
+                                    rows={8}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
+                                />
+                            </div>
+                            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                                <p className="text-amber-200/80 text-sm flex items-start gap-2">
+                                    <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                                    <span>{t('modManager.importWarning', 'Existing mods with the same ID will be skipped. Server restart is required.')}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-slate-800 bg-slate-800/50 flex justify-end gap-3">
+                            <button onClick={() => setShowModpackImport(false)} className="px-4 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700 transition-colors">{t('common.cancel')}</button>
+                            <button
+                                onClick={handleImportModpack}
+                                disabled={!modpackJson.trim() || isImporting}
+                                className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg shadow-lg shadow-green-500/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                <span>{t('modManager.importMods', 'Import Mods')}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Mod Details Modal */}
             {

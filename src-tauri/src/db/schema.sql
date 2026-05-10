@@ -147,7 +147,8 @@ CREATE TABLE IF NOT EXISTS player_stats (
     total_sessions INTEGER DEFAULT 0,
     notes TEXT,
     is_whitelisted INTEGER DEFAULT 0,
-    is_banned INTEGER DEFAULT 0
+    is_banned INTEGER DEFAULT 0,
+    points INTEGER DEFAULT 0
 );
 
 -- Scheduled tasks table
@@ -220,6 +221,31 @@ CREATE TABLE IF NOT EXISTS scheduler_settings (
     advanced_dino_wipe INTEGER DEFAULT 0,
     FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
 );
+
+-- Discord Users mapping
+CREATE TABLE IF NOT EXISTS discord_users (
+    discord_id TEXT PRIMARY KEY,
+    steam_id TEXT NOT NULL UNIQUE,
+    discord_username TEXT NOT NULL,
+    linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(steam_id) REFERENCES player_stats(steam_id) ON DELETE CASCADE
+);
+
+-- Support Tickets
+CREATE TABLE IF NOT EXISTS support_tickets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    discord_user_id TEXT,
+    steam_id TEXT,
+    issue_text TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'in_progress', 'resolved', 'closed')),
+    admin_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP
+);
+
+-- Add points to player_stats (migration will handle if missing, but for new schemas)
+-- SQLite requires ALTER TABLE for existing, but for fresh installs:
+-- In db/mod.rs we will run the ALTER TABLE script for migrations.
 
 -- Initial settings
 INSERT OR IGNORE INTO settings (key, value) VALUES ('startup_timeout', '1800');

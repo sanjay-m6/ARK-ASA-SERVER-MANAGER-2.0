@@ -45,28 +45,25 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🔐 v2.3.4 — Password Corruption Hotfix & Advanced Config UI
+            ## 🚀 v2.3.5 — Infinity AI, Visual Clusters, and Community Tools
 
-            ### 🐛 Critical Bug Fix
-            - **Password Corruption Fixed** — Admin Password no longer gets corrupted to `Admin123?ServerPassword=Ark123` on server startup
-            - **Password Sanitization** — `ServerAdminPassword` and `ServerPassword` are now strictly isolated at config sync, INI generation, and startup argument layers
-            - **Dynamic Password Clearing** — INI generator writes password fields unconditionally, allowing users to clear passwords
-            - **Auto-Repair** — Existing corrupted passwords in the database are automatically detected and fixed on load
+            ### 🤖 Infinity AI Assistant
+            - **Autonomous Agent**: Integrated NVIDIA-powered Infinity AI assistant for advanced server management via natural language.
+            - **Secure Execution**: AI destructive actions require user confirmation through a robust tool-calling framework.
 
-            ### 🛑 Smart Port Conflict Detection
-            - **Dynamic Validation** — The manager now actively checks your network ports before launching a server
-            - **Soft Bypass** — If you share ports between multiple offline server profiles, the manager will give you an advisory warning but allow you to "Start Anyway"
-            - **Hard Block** — If a port is actively being used by another *running* server, the system will block startup to prevent crashes and port conflicts
+            ### 🌍 Visual Cluster Builder
+            - **Drag-and-Drop Mapping**: Build and manage multi-server cross-ARK configurations visually with node-based connections.
 
-            ### ✨ New Features
-            - **Password Masking UI** — Server Password and Admin Password fields now use masked input with Eye/EyeOff toggle
-            - **Advanced Config Profile List** — Saved event profiles displayed in a selectable list with LIVE badge
-            - **MultiplierSlider Component** — Custom slider with visual fill bar + inline numeric input
-            - **Toast Feedback** — All Advanced Config save/toggle actions now show success/error notifications
+            ### 👥 Community & Points System
+            - **Support Tickets**: Players can submit tickets via Discord, managed directly within the app.
+            - **Player Points**: Easily modify player balances directly from the manager for community events.
 
-            ### 🎨 UI Improvements
-            - **Advanced Configuration Dashboard** — Complete UI rebuild with better layout and profile management
-            - **Structure Overrides Tab** — Informative placeholder with redirect to Event Profiles
+            ### 🛠️ New Tools
+            - **Tribe Log Viewer**: Native parsing and viewing of active tribe logs.
+            - **UPnP Panel**: Simplify automatic port mapping and routing troubleshooting.
+
+            ### 🗺️ New Map Support
+            - Added Amissa, Insaluna, Reverence, Svartalfheim, and Temptress Lagoon.
 
             ### Install
             Download the `.msi` installer below.

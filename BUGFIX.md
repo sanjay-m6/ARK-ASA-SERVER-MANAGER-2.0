@@ -1,12 +1,35 @@
-# ARK ASA Server Manager — Bug Fix Report v2.3.3
+# ARK ASA Server Manager — Release Report v2.3.5
 
-> **Release Date:** April 30, 2026
-> **Version:** 2.3.3
-> **Type:** Major Bug Fix + Feature Enhancement
+> **Release Date:** May 10, 2026
+> **Version:** 2.3.5
+> **Type:** Major Feature Update & Enhancements
 
 ---
 
-## 🔥 v2.4.0 New Fixes
+## 🚀 v2.3.5 New Features & Updates
+
+### Infinity AI Assistant
+- **Autonomous Agent**: Integrated NVIDIA-powered Infinity AI assistant for advanced server management via natural language.
+- **Secure Backend Proxy**: Securely channels AI API requests without exposing keys to the frontend.
+- **Safe Execution**: All destructive actions suggested by the AI enforce user confirmation via a robust tool-calling framework.
+
+### Community & Points System
+- **Support Tickets**: Players can submit support tickets linked with their Discord profile, manageable directly in-app.
+- **Player Points**: Easily award or modify player points from the backend database for community events.
+
+### Tribe Log Viewer & UPnP Panel
+- **Log Watcher**: Parses tribe logs natively with an elegant viewer panel.
+- **UPnP Controls**: Automatic port mapping simplified with a new UPnP settings tab.
+
+### Visual Cluster Builder
+- Build and manage multi-server configurations visually. Simply link servers together into cohesive clusters via the UI.
+
+### New Map Support
+- Added official profiles and cover art for new maps: **Amissa, Insaluna, Reverence, Svartalfheim, Temptress Lagoon**.
+
+---
+
+## 🔥 v2.4.0 Preview Fixes
 
 ### SteamCMD Error (7) — Dead-End Installation Failure
 

@@ -6,6 +6,28 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::State;
 
+/// Strip ARK engine's `?ServerPassword=<value>` corruption from ServerAdminPassword lines.
+///
+/// The ARK server engine modifies GameUserSettings.ini at runtime and appends the server
+/// password onto the admin password value (e.g. `ServerAdminPassword=Admin123?ServerPassword=Ark123`).
+/// This function scans the full INI text and repairs any such lines in-place.
+fn sanitize_admin_password_in_ini(content: &str) -> String {
+    content
+        .lines()
+        .map(|line| {
+            let trimmed = line.trim();
+            if let Some(rest) = trimmed.strip_prefix("ServerAdminPassword=") {
+                if let Some(idx) = rest.find("?ServerPassword=") {
+                    // Reconstruct with only the admin password portion
+                    return format!("ServerAdminPassword={}", &rest[..idx]);
+                }
+            }
+            line.to_string()
+        })
+        .collect::<Vec<_>>()
+        .join("\r\n")
+}
+
 /// Helper to get server install path from database
 fn get_server_install_path(state: &State<'_, AppState>, server_id: i64) -> Result<String, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -41,7 +63,22 @@ pub async fn read_config(
 
     if path.exists() {
         println!("📖 Reading config from: {:?}", path);
-        fs::read_to_string(path).map_err(|e| e.to_string())
+        let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+
+        // BUG FIX: The ARK server engine appends ?ServerPassword=<value> to the
+        // ServerAdminPassword line in GameUserSettings.ini at runtime. Strip it on
+        // read so the frontend never sees (or re-saves) the corrupted value.
+        if config_type == "GameUserSettings" {
+            let sanitized = sanitize_admin_password_in_ini(&content);
+            if sanitized != content {
+                println!("  🔧 Sanitized ?ServerPassword= corruption from ServerAdminPassword");
+                // Also fix the on-disk file so the corruption doesn't persist
+                let _ = fs::write(&path, &sanitized);
+            }
+            Ok(sanitized)
+        } else {
+            Ok(content)
+        }
     } else {
         // Return default/empty config if file doesn't exist
         Ok(String::new())
@@ -63,18 +100,32 @@ pub async fn save_config(
 
     let file_path = dir_path.join(format!("{}.ini", config_type));
 
-    // Use merge strategy to preserve existing keys (like per-level stats)
-    let final_content = if file_path.exists() {
-        let existing_content = fs::read_to_string(&file_path).unwrap_or_default();
-        if !existing_content.is_empty() {
-            // Merge: existing keys are preserved, new content takes precedence on conflicts
-            println!("  🔄 Merging INI config (preserving existing keys)...");
-            IniParser::merge(&existing_content, &content)
-        } else {
-            content.clone()
-        }
+    // BUG FIX: Sanitize incoming content AND existing file to strip ARK engine's
+    // ?ServerPassword= corruption from ServerAdminPassword before merge/write.
+    let clean_content = if config_type == "GameUserSettings" {
+        sanitize_admin_password_in_ini(&content)
     } else {
         content.clone()
+    };
+
+    // Use merge strategy to preserve existing keys (like per-level stats)
+    let final_content = if file_path.exists() {
+        let existing_raw = fs::read_to_string(&file_path).unwrap_or_default();
+        if !existing_raw.is_empty() {
+            // Sanitize the existing file too — ARK may have corrupted it at runtime
+            let existing_content = if config_type == "GameUserSettings" {
+                sanitize_admin_password_in_ini(&existing_raw)
+            } else {
+                existing_raw
+            };
+            // Merge: existing keys are preserved, new content takes precedence on conflicts
+            println!("  🔄 Merging INI config (preserving existing keys)...");
+            IniParser::merge(&existing_content, &clean_content)
+        } else {
+            clean_content
+        }
+    } else {
+        clean_content
     };
 
     fs::write(&file_path, &final_content).map_err(|e| e.to_string())?;

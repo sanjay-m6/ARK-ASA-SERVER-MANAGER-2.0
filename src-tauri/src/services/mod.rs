@@ -7,6 +7,7 @@ pub mod cross_chat;
 pub mod discord;
 pub mod discord_bridge;
 pub mod file_watcher;
+pub mod log_watcher;
 pub mod guardian;
 pub mod health_checker;
 pub mod ini_parser;
