@@ -126,12 +126,16 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                     { value: 'Insaluna_WP', label: '🌙 Insaluna', group: 'premium' },
                     { value: 'TemptressLagoon_WP', label: '🏝️ Temptress Lagoon', group: 'premium' },
                     { value: 'Reverence_WP', label: '🏛️ Reverence', group: 'premium' },
+                    // Modded Maps
+                    { value: 'ScorchedEarthRM_WP', label: '🔥 Scorched Earth Reborn', group: 'modded' },
                     // Coming 2026
                     { value: 'Genesis_WP', label: '🧬 Genesis Part 1', group: 'upcoming' },
                     { value: 'Genesis2_WP', label: '🛸 Genesis Part 2', group: 'upcoming' },
                     { value: 'CrystalIsles_WP', label: '💎 Crystal Isles', group: 'upcoming' },
                     { value: 'LostIsland_WP', label: '🗿 Lost Island', group: 'upcoming' },
-                    { value: 'Fjordur_WP', label: '❄️ Fjordur', group: 'upcoming' }
+                    { value: 'Fjordur_WP', label: '❄️ Fjordur', group: 'upcoming' },
+                    // Custom Map
+                    { value: '__CUSTOM__', label: '✏️ Custom Map Name...', group: 'custom' }
                 ],
                 description: 'The map to load'
             },

@@ -10,7 +10,7 @@ env:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     permissions:
       contents: write
     
@@ -64,9 +64,15 @@ jobs:
 
             ### 🗺️ New Map Support
             - Added Amissa, Insaluna, Reverence, Svartalfheim, and Temptress Lagoon.
+            - **🔥 Scorched Earth Reborn**: Full support for the modded expansion map (`ScorchedEarthRM_WP`) with one-click launch arg presets.
+            - **Custom Map Names**: Select "Custom" in the map dropdown to type any mod map identifier.
+
+            ### ⚙️ Updater Overhaul
+            - Modernized auto-update system with background downloads and a glassmorphism restart modal.
 
             ### Install
             Download the `.msi` installer below.
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
+

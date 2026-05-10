@@ -88,6 +88,9 @@ export default function InstallServerDialog({ onClose }: Props) {
             { id: 'TemptressLagoon_WP', name: t('dialogs.installServer.maps.temptressLagoon', 'Temptress Lagoon'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#0ea5e9', icon: '🏝️', size: 'Medium', image: mapTemptressLagoon },
             { id: 'Reverence_WP', name: t('dialogs.installServer.maps.reverence', 'Reverence'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#d97706', icon: '🏛️', size: 'Large', image: mapReverence },
         ],
+        moddedMaps: [
+            { id: 'ScorchedEarthRM_WP', name: t('dialogs.installServer.maps.scorchedEarthReborn', 'Scorched Earth Reborn'), description: t('dialogs.installServer.mapDescriptions.moddedExpansion', 'Modded expansion by armangamer & tweee'), color: '#f97316', icon: '🔥', size: 'Large', image: mapScorchedEarth },
+        ],
         upcoming: [
             { id: 'Genesis_WP', name: t('dialogs.installServer.maps.genesis1', 'Genesis Part 1'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'June 2026', defaultValue: 'Coming June 2026' }), color: '#14b8a6', icon: '🧬', size: 'Medium', image: mapGenesis },
             { id: 'Genesis2_WP', name: t('dialogs.installServer.maps.genesis2', 'Genesis Part 2'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: '2026 TBC', defaultValue: 'Coming 2026' }), color: '#6366f1', icon: '🛸', size: 'Large', image: mapGenesis2 },
@@ -97,7 +100,7 @@ export default function InstallServerDialog({ onClose }: Props) {
         ],
     }), [t]);
 
-    const ALL_MAPS = useMemo(() => [...MAPS_ASA.released, ...MAPS_ASA.dlc, ...MAPS_ASA.premiumMods, ...MAPS_ASA.upcoming], [MAPS_ASA]);
+    const ALL_MAPS = useMemo(() => [...MAPS_ASA.released, ...MAPS_ASA.dlc, ...MAPS_ASA.premiumMods, ...MAPS_ASA.moddedMaps, ...MAPS_ASA.upcoming], [MAPS_ASA]);
     const [step, setStep] = useState(1);
     const [isInstalling, setIsInstalling] = useState(false);
     const [progress, setProgress] = useState<InstallProgress | null>(null);
@@ -504,6 +507,46 @@ export default function InstallServerDialog({ onClose }: Props) {
                                             </button>
                                         ))}
                                     </div>
+                                </div>
+
+                                {/* Modded Expansion Maps */}
+                                <div>
+                                    <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                        <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                                        {t('dialogs.installServer.moddedMaps', 'Modded Expansion Maps')}
+                                    </h4>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        {MAPS_ASA.moddedMaps.map((map) => (
+                                            <button
+                                                key={map.id}
+                                                onClick={() => setFormData({ ...formData, mapName: map.id })}
+                                                className={`rounded-xl border-2 transition-all text-left relative group overflow-hidden ${formData.mapName === map.id
+                                                    ? 'border-orange-500 scale-[1.02] ring-4 ring-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.4)] z-10'
+                                                    : 'border-slate-700/50 hover:border-slate-500 hover:scale-[1.01]'
+                                                    }`}
+                                                style={{ minHeight: '140px' }}
+                                            >
+                                                <img src={map.image} alt={map.name} className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                                                <div className="absolute top-2 right-2">
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-orange-500/40 backdrop-blur-sm text-orange-200 font-medium">MODDED</span>
+                                                </div>
+                                                {formData.mapName === map.id && (
+                                                    <div className="absolute top-2 left-2 bg-black/40 rounded-full p-0.5 backdrop-blur-sm border border-orange-500/50">
+                                                        <CheckCircle className="w-5 h-5 text-orange-400 drop-shadow-lg" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute bottom-0 left-0 right-0 p-3">
+                                                    <div className="font-semibold text-white text-sm drop-shadow-lg">{map.name}</div>
+                                                    <div className="text-[11px] text-slate-300/80 mt-0.5 drop-shadow-md">{map.description}</div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="mt-2 text-xs text-amber-400/70 flex items-center gap-1">
+                                        <AlertCircle className="w-3 h-3" />
+                                        {t('dialogs.installServer.moddedMapHint', 'Modded maps require launch args: -MapModID=<id> -mods=<id> in Advanced Settings')}
+                                    </p>
                                 </div>
 
                                 {/* Upcoming Maps */}

@@ -145,22 +145,50 @@ const ConfigInput = memo(({
                     </div>
                 </div>
             );
-        case 'dropdown':
+        case 'dropdown': {
+            // Detect if the current value is a custom (not in predefined options)
+            const knownValues = field.options?.filter(o => o.value !== '__CUSTOM__').map(o => o.value) || [];
+            const isCustomValue = value !== '' && !knownValues.includes(value);
+            const dropdownValue = isCustomValue ? '__CUSTOM__' : value;
+
             return (
                 <div className={containerClassName}>
                     {labelContent}
                     <select
-                        value={value}
-                        onChange={(e) => handleChange(e.target.value)}
+                        value={dropdownValue}
+                        onChange={(e) => {
+                            const selected = e.target.value;
+                            if (selected === '__CUSTOM__') {
+                                // Switch to custom mode — keep current value if already custom, else clear
+                                handleChange(isCustomValue ? value : '');
+                            } else {
+                                handleChange(selected);
+                            }
+                        }}
                         className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] cursor-pointer transition-all hover:border-[#3d3d5c]"
                     >
                         {field.options?.map(opt => (
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                     </select>
+                    {/* Custom map name text input — shown when __CUSTOM__ is active */}
+                    {(dropdownValue === '__CUSTOM__') && (
+                        <div className="mt-3 space-y-2">
+                            <label className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">Custom Map Name</label>
+                            <input
+                                type="text"
+                                value={value}
+                                onChange={(e) => handleChange(e.target.value)}
+                                placeholder="e.g. ScorchedEarthRM_WP"
+                                className="w-full bg-[#1a1a2e] border-2 border-amber-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.2)] font-mono text-sm transition-all placeholder-slate-500"
+                            />
+                            <p className="text-xs text-slate-500">Enter the exact map identifier from the mod (e.g. <code className="text-amber-400/80">ScorchedEarthRM_WP</code>)</p>
+                        </div>
+                    )}
                     {field.description && <div className="mt-2 text-sm text-slate-400">{field.description}</div>}
                 </div>
             );
+        }
         case 'array':
             return (
                 <div className="col-span-1 md:col-span-2 lg:col-span-2">

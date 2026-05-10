@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useServerStore } from '../../stores/serverStore';
 import { updateServerSettings, optimizeMemory, setProcessPriority, toggleEcoMode } from '../../utils/tauri';
-import { Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Leaf } from 'lucide-react';
+import { Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Leaf, Copy, Flame } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -134,6 +134,70 @@ export default function AdvancedPage() {
                                 <p className="text-xs text-slate-500">
                                     Arguments are appended to the start command. Do not use quotes unless necessary.
                                 </p>
+                            </div>
+
+                            {/* Active Arguments Preview */}
+                            {selectedServerId && (() => {
+                                const server = servers.find(s => s.id === selectedServerId);
+                                if (!server) return null;
+                                const mapName = server.config?.mapName || 'TheIsland_WP';
+                                const activeArgs = customArgs ? customArgs.trim() : '(none)';
+                                return (
+                                    <div className="bg-slate-900/70 rounded-lg p-4 border border-slate-700/30 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-semibold text-slate-300">Active Configuration Preview</h4>
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(`Map: ${mapName}\nCustom Args: ${activeArgs}`);
+                                                    toast.success('Copied to clipboard');
+                                                }}
+                                                className="p-1.5 hover:bg-slate-700 rounded-md transition-colors"
+                                                title="Copy to clipboard"
+                                            >
+                                                <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Map Name</span>
+                                                <p className="text-sm text-white font-mono mt-0.5">{mapName}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Custom Launch Args</span>
+                                                <p className={`text-sm font-mono mt-0.5 ${activeArgs === '(none)' ? 'text-slate-500 italic' : 'text-emerald-400'}`}>{activeArgs}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Quick Presets for Mod Maps */}
+                            <div className="border-t border-slate-700/30 pt-4">
+                                <h4 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                                    <Flame className="w-4 h-4 text-orange-400" />
+                                    Quick Presets
+                                </h4>
+                                <div className="space-y-2">
+                                    <button
+                                        onClick={() => {
+                                            const preset = '-MapModID=1460513 -mods=1460513';
+                                            if (customArgs.includes('-MapModID=1460513')) {
+                                                toast('Already applied', { icon: '✓' });
+                                                return;
+                                            }
+                                            setCustomArgs(prev => prev ? `${prev.trim()} ${preset}` : preset);
+                                            toast.success('Scorched Earth Reborn args applied');
+                                        }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/20 hover:border-orange-500/40 rounded-lg transition-all group text-left"
+                                    >
+                                        <span className="text-lg">🔥</span>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm font-medium text-white">Scorched Earth Reborn</div>
+                                            <div className="text-xs text-slate-400 font-mono truncate">-MapModID=1460513 -mods=1460513</div>
+                                        </div>
+                                        <span className="text-xs text-orange-400/70 font-medium opacity-0 group-hover:opacity-100 transition-opacity">Apply</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
