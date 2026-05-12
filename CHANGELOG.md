@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.6] — 2026-05-13
+
+### Added
+- **⚡ Hardware Isolation Engine** — new hardware allocation dashboard to bind server instances to specific CPU logical cores and eliminate OS thread migration overhead
+- **⚡ High-Performance Task Scheduling** — configurable Windows Process Priority settings (Normal, High, AboveNormal, etc.) for every ASA server instance to ensure stable CPU cycles under load
+- **🐕 Mod Update Watchdog System** — automated background worker that continuously monitors installed mods for new releases on CurseForge and prepares automated grace-periods and server maintenance windows
+- **☁️ Advanced Cloud Backup Integration** — direct synchronization and scheduled disaster-recovery backups to enterprise cloud storage buckets
+- **💻 Interactive CPU Topology Grid** — visual dashboard mapping the host machine’s physical and logical processor count automatically for easy server-affinity distribution
+
+### Fixed
+- **IPC Serialization Error** — resolved invalid argument payload crash (`missing field serverId`) in the `save_hardware_allocation` Tauri command by aligning Rust structs with React CamelCase naming conventions
+- **TS Compilation Warnings** — fixed unused getters and type mismatches in `hardwareStore.ts` and lazy-loading components in `App.tsx`
+- **Cloud Backup Navigation** — patched routing and permission bugs preventing standard access to the remote storage dashboard panel
+
+---
+
 ## [2.3.4] — 2026-04-30
 
 ### Fixed

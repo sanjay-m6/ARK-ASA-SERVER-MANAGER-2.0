@@ -1,12 +1,13 @@
 import React, { useState, useEffect, memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power, ChevronDown, ChevronUp, Code, Shield, Upload, PackagePlus, ScanSearch } from 'lucide-react';
+import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power, ChevronDown, ChevronUp, Code, Shield, Upload, PackagePlus, ScanSearch, ShieldCheck } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, getModDescription, copyModsToServer, type ModConfigPreview, getModCategories, type CurseForgeCategory, checkModConflicts, exportModpack, importModpack, type ModConflict, type ModpackImportResult } from '../utils/tauri';
 import { ModInfo } from '../types';
 import toast from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
 import { AdvancedModInput } from '../components/mods/AdvancedModInput';
+import { ModWatchdogDashboard } from '../components/mods/ModWatchdogDashboard';
 
 interface ServerBasic {
     id: number;
@@ -75,7 +76,7 @@ export default function ModManager() {
     const { t } = useTranslation();
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
-    const [activeTab, setActiveTab] = useState<'available' | 'installed'>('available');
+    const [activeTab, setActiveTab] = useState<'available' | 'installed' | 'watchdog'>('available');
 
     // Filters
     const [categories, setCategories] = useState<CurseForgeCategory[]>([]);
@@ -1021,13 +1022,16 @@ export default function ModManager() {
                     <div className="flex p-1 bg-slate-800/50 rounded-xl border border-slate-700/50">
                         <button onClick={() => setActiveTab('available')} className={cn('px-6 py-2 rounded-lg text-sm font-medium transition-all', activeTab === 'available' ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white')}>{t('modManager.available')}</button>
                         <button onClick={() => setActiveTab('installed')} className={cn('px-6 py-2 rounded-lg text-sm font-medium transition-all', activeTab === 'installed' ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white')}>{t('modManager.installed')}</button>
+                        <button onClick={() => setActiveTab('watchdog')} className={cn('px-6 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5', activeTab === 'watchdog' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'text-slate-400 hover:text-white')}><ShieldCheck className="w-4 h-4" />{t('modManager.watchdog', 'Watchdog')}</button>
                     </div>
                 </div>
             </div>
 
             {/* Content Area */}
             {
-                activeTab === 'available' ? (
+                activeTab === 'watchdog' ? (
+                    <ModWatchdogDashboard serverId={selectedServerId} />
+                ) : activeTab === 'available' ? (
                     /* Available Mods Grid */
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {isLoading ? (

@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot } from 'lucide-react';
-import { getSetting, setSetting } from '../utils/tauri';
+import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, Cloud } from 'lucide-react';
+import { getSetting, setSetting, getAllServers } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { supportedLanguages } from '../i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import FirewallSettings from '../components/settings/FirewallSettings';
+import CloudBackupDashboard from '../components/backups/CloudBackupDashboard';
 import { manualCheckForUpdates } from '../components/UpdateChecker';
 import { cn } from '../utils/helpers';
+import { useServerStore } from '../stores/serverStore';
 import {
     getUpdateSettings,
     setUpdateSettings,
@@ -33,7 +35,9 @@ export default function Settings() {
     const [currentVersion, setCurrentVersion] = useState<string>('');
     const [startupTimeout, setStartupTimeout] = useState('1800');
 
-    const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language'>('api');
+    const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language' | 'cloud'>('api');
+    const { servers, setServers } = useServerStore();
+    const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const { t, i18n } = useTranslation();
 
     // API Verification State
@@ -69,6 +73,10 @@ export default function Settings() {
     useEffect(() => {
         loadSettings();
         getVersion().then(setCurrentVersion).catch(console.error);
+        getAllServers().then((s) => {
+            setServers(s);
+            if (s.length > 0 && !selectedServerId) setSelectedServerId(s[0].id);
+        }).catch(console.error);
     }, []);
 
     const openUrl = async (url: string) => {
@@ -227,6 +235,15 @@ export default function Settings() {
                         }`}
                 >
                     🔄 {t('settings.tabs.updates')}
+                </button>
+                <button
+                    onClick={() => setActiveTab('cloud')}
+                    className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'cloud'
+                        ? 'bg-blue-500/10 text-blue-400 border-b-2 border-blue-400'
+                        : 'text-slate-400 hover:text-white'
+                        }`}
+                >
+                    <span className="flex items-center gap-2"><Cloud className="w-4 h-4" /> {t('settings.tabs.cloudBackup', 'Cloud Backup')}</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('language')}
@@ -704,6 +721,23 @@ export default function Settings() {
                             {t('settings.updatesTab.viewReleases', 'View Releases on GitHub')}
                         </button>
                     </div>
+                </div>
+            ) : activeTab === 'cloud' ? (
+                <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
+                    {/* Server Selector */}
+                    <div className="flex items-center gap-4">
+                        <label className="text-sm font-medium text-slate-300">{t('backups.selectServer', 'Select Server')}</label>
+                        <select
+                            value={selectedServerId || ''}
+                            onChange={(e) => setSelectedServerId(Number(e.target.value))}
+                            className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            {servers.map(server => (
+                                <option key={server.id} value={server.id}>{server.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <CloudBackupDashboard serverId={selectedServerId} />
                 </div>
             ) : activeTab === 'language' ? (
                 <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">

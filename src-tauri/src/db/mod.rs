@@ -61,6 +61,8 @@ impl Database {
         // Run settings migration (defaults)
         Self::run_settings_migration(conn)?;
 
+        Self::run_hardware_allocation_migration(conn)?;
+
         Ok(())
     }
 
@@ -69,6 +71,26 @@ impl Database {
         if startup_timeout.is_none() {
             println!("📦 Migration: Setting default 'startup_timeout' to 1800s");
             Self::set_setting_static(conn, "startup_timeout", "1800")?;
+        }
+        Ok(())
+    }
+
+    fn run_hardware_allocation_migration(conn: &Connection) -> Result<()> {
+        let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='hardware_allocation'")?;
+        let table_exists = stmt.exists([])?;
+        
+        if !table_exists {
+            println!("📦 Migration: Creating hardware_allocation table");
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS hardware_allocation (
+                    server_id INTEGER PRIMARY KEY,
+                    use_all_cores INTEGER DEFAULT 1,
+                    cpu_affinity TEXT,
+                    process_priority TEXT DEFAULT 'Normal',
+                    FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
+                )",
+                [],
+            )?;
         }
         Ok(())
     }

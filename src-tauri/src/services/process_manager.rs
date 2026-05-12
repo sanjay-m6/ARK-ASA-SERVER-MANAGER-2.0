@@ -60,6 +60,11 @@ use crate::AppState;
 use tauri::Manager;
 
 #[cfg(target_os = "windows")]
+use std::os::windows::io::AsRawHandle;
+#[cfg(target_os = "windows")]
+use windows_sys::Win32::System::Threading::{SetProcessAffinityMask, SetPriorityClass, HIGH_PRIORITY_CLASS, ABOVE_NORMAL_PRIORITY_CLASS, REALTIME_PRIORITY_CLASS, NORMAL_PRIORITY_CLASS, IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS};
+
+#[cfg(target_os = "windows")]
 mod window_hider {
     use std::sync::atomic::{AtomicU32, Ordering};
     use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM};
@@ -934,7 +939,60 @@ impl ProcessManager {
         command.creation_flags(CREATE_NEW_PROCESS_GROUP);
 
         let mut child = command.spawn().context("Failed to start server process")?;
-        let child_pid = child.id();
+                let child_pid = child.id();
+
+        // [NEW] Apply Hardware Allocation (CPU Affinity & Priority)
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(state) = self.app_handle.try_state::<AppState>() {
+                if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        let mut stmt = conn.prepare("SELECT use_all_cores, cpu_affinity, process_priority FROM hardware_allocation WHERE server_id = ?1");
+                        if let Ok(mut stmt) = stmt {
+                            let result = stmt.query_row([server_id], |row| {
+                                Ok((
+                                    row.get::<_, i32>(0)? != 0,
+                                    row.get::<_, String>(1).unwrap_or_else(|_| "[]".to_string()),
+                                    row.get::<_, String>(2).unwrap_or_else(|_| "Normal".to_string()),
+                                ))
+                            });
+                            
+                            if let Ok((use_all_cores, cpu_affinity_json, process_priority)) = result {
+                                let handle = child.as_raw_handle() as *mut std::ffi::c_void;
+                                
+                                // Apply Priority
+                                let priority_flag = match process_priority.as_str() {
+                                    "RealTime" => REALTIME_PRIORITY_CLASS,
+                                    "High" => HIGH_PRIORITY_CLASS,
+                                    "AboveNormal" => ABOVE_NORMAL_PRIORITY_CLASS,
+                                    "BelowNormal" => BELOW_NORMAL_PRIORITY_CLASS,
+                                    "Idle" => IDLE_PRIORITY_CLASS,
+                                    _ => NORMAL_PRIORITY_CLASS,
+                                };
+                                unsafe { SetPriorityClass(handle, priority_flag) };
+                                
+                                // Apply Affinity
+                                if !use_all_cores {
+                                    if let Ok(cores) = serde_json::from_str::<Vec<usize>>(&cpu_affinity_json) {
+                                        if !cores.is_empty() {
+                                            let mut mask: usize = 0;
+                                            for core in cores {
+                                                mask |= 1 << core;
+                                            }
+                                            if mask > 0 {
+                                                unsafe { SetProcessAffinityMask(handle, mask) };
+                                                println!("  ?? Applied CPU Affinity Mask: {} for Server {}", mask, server_id);
+                                            }
+                                        }
+                                    }
+                                }
+                                println!("  ?? Applied Process Priority: {} for Server {}", process_priority, server_id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         // Create startup confirmed flag (Moved up to share with stdout thread)
         let startup_confirmed = Arc::new(AtomicBool::new(false));
@@ -1553,3 +1611,5 @@ impl ProcessManager {
         }
     }
 }
+
+

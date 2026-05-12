@@ -177,6 +177,17 @@ pub struct EmbedField {
 // ── Convenience constructors for common events ─────────────────────────
 
 impl DiscordEmbed {
+    pub fn custom(title: &str, description: &str, color: u32) -> Self {
+        Self {
+            title: title.to_string(),
+            description: description.to_string(),
+            color,
+            fields: vec![],
+            footer: Some("ASA Server Manager 2.0".to_string()),
+            timestamp: Some(chrono::Utc::now().to_rfc3339()),
+        }
+    }
+
     pub fn server_online(server_name: &str) -> Self {
         Self {
             title: "🟢 Server Online".to_string(),

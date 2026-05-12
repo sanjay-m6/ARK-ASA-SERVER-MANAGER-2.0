@@ -45,30 +45,25 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🚀 v2.3.5 — Infinity AI, Visual Clusters, and Community Tools
+            ## 🚀 v2.3.6 — Hardware Isolation, Watchdog & Cloud Backups
 
-            ### 🤖 Infinity AI Assistant
-            - **Autonomous Agent**: Integrated NVIDIA-powered Infinity AI assistant for advanced server management via natural language.
-            - **Secure Execution**: AI destructive actions require user confirmation through a robust tool-calling framework.
+            ### ⚡ Hardware Isolation Engine
+            - **Core Affinity**: Bind server instances to specific CPU logical cores to eliminate OS thread migration overhead.
+            - **High-Performance Scheduling**: Configurable Windows Process Priority settings for stable CPU cycles under load.
 
-            ### 🌍 Visual Cluster Builder
-            - **Drag-and-Drop Mapping**: Build and manage multi-server cross-ARK configurations visually with node-based connections.
+            ### 🐕 Mod Update Watchdog System
+            - **Automated Monitoring**: Background worker monitors CurseForge for mod updates and handles server maintenance windows.
 
-            ### 👥 Community & Points System
-            - **Support Tickets**: Players can submit tickets via Discord, managed directly within the app.
-            - **Player Points**: Easily modify player balances directly from the manager for community events.
+            ### ☁️ Advanced Cloud Backup Integration
+            - **Disaster Recovery**: Direct synchronization and scheduled backups to enterprise cloud storage buckets.
 
-            ### 🛠️ New Tools
-            - **Tribe Log Viewer**: Native parsing and viewing of active tribe logs.
-            - **UPnP Panel**: Simplify automatic port mapping and routing troubleshooting.
+            ### 💻 Interactive CPU Topology Grid
+            - **Visual Mapping**: Dashboard mapping the host machine's physical and logical processors for server-affinity distribution.
 
-            ### 🗺️ New Map Support
-            - Added Amissa, Insaluna, Reverence, Svartalfheim, and Temptress Lagoon.
-            - **🔥 Scorched Earth Reborn**: Full support for the modded expansion map (`ScorchedEarthRM_WP`) with one-click launch arg presets.
-            - **Custom Map Names**: Select "Custom" in the map dropdown to type any mod map identifier.
-
-            ### ⚙️ Updater Overhaul
-            - Modernized auto-update system with background downloads and a glassmorphism restart modal.
+            ### 🐛 Bug Fixes
+            - **IPC Serialization Error**: Resolved invalid argument payload crash (`missing field serverId`) in the `save_hardware_allocation` Tauri command.
+            - **TS Compilation Warnings**: Fixed unused getters and type mismatches in `hardwareStore.ts` and lazy-loading components in `App.tsx`.
+            - **Cloud Backup Navigation**: Patched routing and permission bugs preventing access to the remote storage dashboard panel.
 
             ### Install
             Download the `.msi` installer below.

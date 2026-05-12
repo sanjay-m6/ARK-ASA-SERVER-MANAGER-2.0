@@ -177,6 +177,13 @@ impl Default for ServerConfig {
 
 pub struct ConfigGenerator;
 
+/// Format a Rust bool as ARK-compatible INI value ("True"/"False").
+/// ARK's Unreal Engine INI parser requires capitalized boolean values;
+/// Rust's Display trait outputs lowercase "true"/"false" which ARK ignores.
+fn ark_bool(value: bool) -> &'static str {
+    if value { "True" } else { "False" }
+}
+
 impl ConfigGenerator {
     /// Strip `?ServerPassword=<value>` corruption from ServerAdminPassword lines in INI content.
     ///
@@ -424,7 +431,7 @@ impl ConfigGenerator {
         content.push_str(&format!("ServerAdminPassword={}\r\n", clean_admin_password));
         content.push_str(&format!("MaxPlayers={}\r\n", config.max_players));
         content.push_str(&format!("MapName={}\r\n", config.map_name));
-        content.push_str(&format!("RCONEnabled={}\r\n", config.rcon_enabled));
+        content.push_str(&format!("RCONEnabled={}\r\n", ark_bool(config.rcon_enabled)));
         content.push_str(&format!("RCONPort={}\r\n", config.rcon_port));
         if let Some(ref ip) = config.ip_address {
             if !ip.is_empty() {
@@ -520,7 +527,7 @@ impl ConfigGenerator {
         ));
         content.push_str(&format!(
             "OverrideStructurePlatformPrevention={}\r\n",
-            config.override_structure_platform_prevention
+            ark_bool(config.override_structure_platform_prevention)
         ));
         content.push_str(&format!(
             "ItemStackSizeMultiplier={:.2}\r\n",
@@ -528,11 +535,11 @@ impl ConfigGenerator {
         ));
 
         // PvP/PvE
-        content.push_str(&format!("ServerPVE={}\r\n", config.pve_mode));
-        content.push_str(&format!("EnablePvPGamma={}\r\n", config.pvp_gamma));
+        content.push_str(&format!("ServerPVE={}\r\n", ark_bool(config.pve_mode)));
+        content.push_str(&format!("EnablePvPGamma={}\r\n", ark_bool(config.pvp_gamma)));
         content.push_str(&format!(
             "DisableFriendlyFire={}\r\n",
-            !config.friendly_fire
+            ark_bool(!config.friendly_fire)
         ));
 
         // Mods
@@ -560,11 +567,11 @@ impl ConfigGenerator {
         // Speed Leveling
         content.push_str(&format!(
             "bAllowFlyerSpeedLeveling={}\n",
-            config.allow_flyer_speed_leveling
+            ark_bool(config.allow_flyer_speed_leveling)
         ));
         content.push_str(&format!(
             "bAllowSpeedLeveling={}\n",
-            config.allow_speed_leveling
+            ark_bool(config.allow_speed_leveling)
         ));
 
         // Breeding

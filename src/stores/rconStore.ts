@@ -13,11 +13,19 @@ export interface CommandHistoryEntry {
     success: boolean;
 }
 
+export interface ConnectionInfo {
+    address: string;
+    port: number;
+    connectedSince: Date | null;
+}
+
 export interface ServerRconState {
     isConnected: boolean;
     isConnecting: boolean;
     commandHistory: CommandHistoryEntry[];
     players: RconPlayer[];
+    lastError: string | null;
+    connectionInfo: ConnectionInfo | null;
 }
 
 const defaultServerState: ServerRconState = {
@@ -25,6 +33,8 @@ const defaultServerState: ServerRconState = {
     isConnecting: false,
     commandHistory: [],
     players: [],
+    lastError: null,
+    connectionInfo: null,
 };
 
 interface RconStore {
@@ -36,6 +46,8 @@ interface RconStore {
     setConnecting: (serverId: number, isConnecting: boolean) => void;
     addHistory: (serverId: number, entry: CommandHistoryEntry) => void;
     setPlayers: (serverId: number, players: RconPlayer[]) => void;
+    setLastError: (serverId: number, error: string | null) => void;
+    setConnectionInfo: (serverId: number, info: ConnectionInfo | null) => void;
     clearServerState: (serverId: number) => void;
 }
 
@@ -84,6 +96,26 @@ export const useRconStore = create<RconStore>((set) => ({
             [serverId]: {
                 ...(state.serverStates[serverId] || defaultServerState),
                 players
+            }
+        }
+    })),
+
+    setLastError: (serverId, error) => set((state) => ({
+        serverStates: {
+            ...state.serverStates,
+            [serverId]: {
+                ...(state.serverStates[serverId] || defaultServerState),
+                lastError: error
+            }
+        }
+    })),
+
+    setConnectionInfo: (serverId, info) => set((state) => ({
+        serverStates: {
+            ...state.serverStates,
+            [serverId]: {
+                ...(state.serverStates[serverId] || defaultServerState),
+                connectionInfo: info
             }
         }
     })),

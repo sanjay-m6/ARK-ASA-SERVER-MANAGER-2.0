@@ -13,7 +13,11 @@ import {
     Ban,
     Clock,
     RefreshCw,
-    HelpCircle
+    HelpCircle,
+    AlertTriangle,
+    ShieldAlert,
+    Timer,
+    Unplug
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
@@ -36,6 +40,24 @@ const QUICK_COMMANDS = [
     { labelKey: 'rcon.quickCommands.nightTime', command: 'SetTimeOfDay 00:00', icon: Clock },
 ];
 
+/** Classify error messages into categories for display styling */
+function classifyError(errMsg: string): { category: string; icon: typeof AlertTriangle; colorClass: string } {
+    const lower = errMsg.toLowerCase();
+    if (lower.includes('authentication failed') || lower.includes('wrong admin password')) {
+        return { category: 'Authentication Failed', icon: ShieldAlert, colorClass: 'text-red-400' };
+    }
+    if (lower.includes('timed out') || lower.includes('timeout')) {
+        return { category: 'Command Timeout', icon: Timer, colorClass: 'text-amber-400' };
+    }
+    if (lower.includes('connection lost') || lower.includes('reconnect failed') || lower.includes('socket closed')) {
+        return { category: 'Connection Lost', icon: Unplug, colorClass: 'text-orange-400' };
+    }
+    if (lower.includes('no active rcon connection')) {
+        return { category: 'Not Connected', icon: WifiOff, colorClass: 'text-slate-400' };
+    }
+    return { category: 'Error', icon: AlertTriangle, colorClass: 'text-red-400' };
+}
+
 export default function RconConsole() {
     const { t } = useTranslation();
     const { servers } = useServerStore();
@@ -51,6 +73,7 @@ export default function RconConsole() {
     const isConnecting = serverState?.isConnecting || false;
     const commandHistory = serverState?.commandHistory || [];
     const players = serverState?.players || [];
+    const connectionInfo = serverState?.connectionInfo || null;
 
     const [command, setCommand] = useState('');
     const [historyIndex, setHistoryIndex] = useState(-1);
@@ -77,18 +100,26 @@ export default function RconConsole() {
         if (!selectedServer) return;
 
         rconStore.setConnecting(selectedServer.id, true);
+        rconStore.setLastError(selectedServer.id, null);
         try {
-            console.log(`[RCON] Connecting to ${selectedServer.ipAddress || '127.0.0.1'}:${selectedServer.ports.rconPort}...`);
+            const address = selectedServer.ipAddress || '127.0.0.1';
+            const port = selectedServer.ports.rconPort;
+            console.log(`[RCON] Connecting to ${address}:${port}...`);
             const response = await invoke<RconResponse>('rcon_connect', {
                 serverId: selectedServer.id,
-                address: selectedServer.ipAddress || '127.0.0.1',
-                port: selectedServer.ports.rconPort,
+                address,
+                port,
                 password: selectedServer.config.adminPassword,
             });
 
             if (response.success) {
                 console.log('[RCON] Connected successfully!');
                 rconStore.setConnected(selectedServer.id, true);
+                rconStore.setConnectionInfo(selectedServer.id, {
+                    address,
+                    port,
+                    connectedSince: new Date(),
+                });
                 toast.success(t('rcon.connectedMsg', 'Connected to RCON'));
                 addToHistory('connect', t('rcon.connectedMsg', 'Connected to RCON'), true);
                 refreshPlayers();
@@ -96,6 +127,7 @@ export default function RconConsole() {
         } catch (error) {
             const errMsg = String(error);
             console.error('[RCON] Connection failed:', errMsg);
+            rconStore.setLastError(selectedServer.id, errMsg);
             toast.error(t('rcon.connectFailed', { error: errMsg, defaultValue: `Connection failed: ${errMsg}` }));
             addToHistory('connect', `Failed: ${errMsg}`, false);
         } finally {
@@ -110,6 +142,8 @@ export default function RconConsole() {
             await invoke<RconResponse>('rcon_disconnect', { serverId: selectedServerId });
             rconStore.setConnected(selectedServerId, false);
             rconStore.setPlayers(selectedServerId, []);
+            rconStore.setConnectionInfo(selectedServerId, null);
+            rconStore.setLastError(selectedServerId, null);
             toast.success(t('rcon.disconnectedMsg', 'Disconnected from RCON'));
             addToHistory('disconnect', t('rcon.disconnectedMsg', 'Disconnected from RCON'), true);
         } catch (error) {
@@ -118,6 +152,7 @@ export default function RconConsole() {
             if (errMsg.includes('No active RCON connection')) {
                 rconStore.setConnected(selectedServerId, false);
                 rconStore.setPlayers(selectedServerId, []);
+                rconStore.setConnectionInfo(selectedServerId, null);
                 toast.success(t('rcon.disconnectedMsg', 'Disconnected from RCON'));
                 return;
             }
@@ -146,6 +181,7 @@ export default function RconConsole() {
             });
 
             addToHistory(cmdToSend, response.data || response.message, response.success);
+            rconStore.setLastError(selectedServerId, null);
 
             if (!cmd) {
                 setCommand('');
@@ -153,12 +189,14 @@ export default function RconConsole() {
             }
         } catch (error) {
             const errMsg = String(error);
-            addToHistory(cmdToSend, t('common.error', { error: errMsg, defaultValue: `Error: ${errMsg}` }), false);
+            addToHistory(cmdToSend, errMsg, false);
+            rconStore.setLastError(selectedServerId, errMsg);
 
             // If connection is lost, update state
-            if (errMsg.toLowerCase().includes('connection lost') || errMsg.includes('No active RCON connection')) {
+            if (errMsg.toLowerCase().includes('connection lost') || errMsg.includes('No active RCON connection') || errMsg.toLowerCase().includes('reconnect')) {
                 rconStore.setConnected(selectedServerId, false);
                 rconStore.setPlayers(selectedServerId, []);
+                rconStore.setConnectionInfo(selectedServerId, null);
             }
         }
     };
@@ -176,9 +214,10 @@ export default function RconConsole() {
             console.error('Failed to get players:', errMsg);
 
             // If connection is lost, update state
-            if (errMsg.toLowerCase().includes('connection lost') || errMsg.includes('No active RCON connection')) {
+            if (errMsg.toLowerCase().includes('connection lost') || errMsg.includes('No active RCON connection') || errMsg.toLowerCase().includes('reconnect')) {
                 rconStore.setConnected(selectedServerId, false);
                 rconStore.setPlayers(selectedServerId, []);
+                rconStore.setConnectionInfo(selectedServerId, null);
             }
         }
     };
@@ -197,6 +236,7 @@ export default function RconConsole() {
                     console.log('[RCON] Heartbeat detected lost connection');
                     rconStore.setConnected(selectedServerId, false);
                     rconStore.setPlayers(selectedServerId, []);
+                    rconStore.setConnectionInfo(selectedServerId, null);
                     addToHistory('system', t('rcon.connectionLost', 'Connection to RCON was lost'), false);
                 }
             } catch (error) {
@@ -279,6 +319,20 @@ export default function RconConsole() {
         }
     };
 
+    /** Render an error response with categorized styling */
+    const renderErrorResponse = (response: string) => {
+        const { category, icon: ErrorIcon, colorClass } = classifyError(response);
+        return (
+            <div className={cn("pl-4 mt-1 flex items-start gap-2", colorClass)}>
+                <ErrorIcon className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                    <span className="font-medium">{category}:</span>{' '}
+                    <span className="whitespace-pre-wrap opacity-80">{response}</span>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
             {/* Header */}
@@ -337,6 +391,21 @@ export default function RconConsole() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Terminal */}
                 <div className="lg:col-span-3 glass-panel rounded-2xl p-4 flex flex-col" style={{ height: '600px' }}>
+                    {/* Connection Info Bar */}
+                    {isConnected && connectionInfo && (
+                        <div className="flex items-center gap-4 mb-3 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs font-mono text-emerald-400">
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                <span>{t('rcon.connectedTo', { address: `${connectionInfo.address}:${connectionInfo.port}`, defaultValue: `Connected to ${connectionInfo.address}:${connectionInfo.port}` })}</span>
+                            </div>
+                            {connectionInfo.connectedSince && (
+                                <span className="text-emerald-500/60">
+                                    {t('rcon.since', { time: connectionInfo.connectedSince.toLocaleTimeString(), defaultValue: `since ${connectionInfo.connectedSince.toLocaleTimeString()}` })}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
                     {/* Quick Commands */}
                     <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-slate-700/50">
                         {QUICK_COMMANDS.map((qc) => (
@@ -382,12 +451,13 @@ export default function RconConsole() {
                                             {entry.timestamp.toLocaleTimeString()}
                                         </span>
                                     </div>
-                                    <div className={cn(
-                                        "pl-4 mt-1 whitespace-pre-wrap",
-                                        entry.success ? "text-slate-300" : "text-red-400"
-                                    )}>
-                                        {entry.response}
-                                    </div>
+                                    {entry.success ? (
+                                        <div className="pl-4 mt-1 whitespace-pre-wrap text-slate-300">
+                                            {entry.response}
+                                        </div>
+                                    ) : (
+                                        renderErrorResponse(entry.response)
+                                    )}
                                 </div>
                             ))
                         )}

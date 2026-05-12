@@ -1,16 +1,17 @@
 // RCON Service for ASA Server Manager
 // Handles remote console connections to ARK: Survival Ascended servers
+//
+// Uses a custom ArkRconClient to correctly handle ASA's quirks:
+// 1. Lossy UTF-8 parsing to prevent crashes from garbage bytes/foreign characters.
+// 2. Fragment-based multi-packet aggregation since ASA doesn't send sentinel empty packets.
+// (File updated by AI - IDE sync trigger)
 
 use crate::models::{RconPlayer, RconResponse};
-use rcon::Connection;
+use crate::services::ark_rcon::ArkRconClient;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::net::TcpStream;
 use tokio::sync::Mutex;
-use tokio::time::{timeout, Duration};
-
-/// Maximum time to wait for a single RCON connection attempt
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+use tokio::time::Duration;
 
 /// Maximum number of retry attempts when connecting
 const MAX_RETRIES: u32 = 10;
@@ -19,7 +20,7 @@ const MAX_RETRIES: u32 = 10;
 const RETRY_BASE_DELAY: Duration = Duration::from_secs(2);
 
 struct RconSession {
-    connection: Connection<TcpStream>,
+    connection: ArkRconClient,
     address: String,
     port: u16,
     password: String,
@@ -65,13 +66,8 @@ impl RconService {
                 addr
             );
 
-            match timeout(
-                CONNECT_TIMEOUT,
-                Connection::<TcpStream>::builder().connect(&addr, password),
-            )
-            .await
-            {
-                Ok(Ok(conn)) => {
+            match ArkRconClient::connect(&addr, password).await {
+                Ok(conn) => {
                     let mut sessions = self.sessions.lock().await;
                     sessions.insert(
                         server_id,
@@ -83,7 +79,7 @@ impl RconService {
                         },
                     );
                     log::info!(
-                        "[RCON] Successfully connected to server {} at {} on attempt {}",
+                        "[RCON] Successfully connected and authenticated to server {} at {} on attempt {}",
                         server_id,
                         addr,
                         attempt
@@ -94,24 +90,25 @@ impl RconService {
                         data: None,
                     });
                 }
-                Ok(Err(e)) => {
-                    last_error = format!("{}", e);
+                Err(err_str) => {
+                    if err_str.contains("Authentication Failed") {
+                        log::error!(
+                            "[RCON] Authentication failed for server {} at {} — wrong admin password",
+                            server_id,
+                            addr
+                        );
+                        return Err(
+                            "Authentication Failed: The admin password was rejected by the server."
+                                .to_string(),
+                        );
+                    }
+                    last_error = err_str;
                     log::warn!(
                         "[RCON] Attempt {}/{} failed for server {}: {}",
                         attempt,
                         MAX_RETRIES,
                         server_id,
                         last_error
-                    );
-                }
-                Err(_) => {
-                    last_error = "Connection timed out".to_string();
-                    log::warn!(
-                        "[RCON] Attempt {}/{} timed out for server {} ({}s limit)",
-                        attempt,
-                        MAX_RETRIES,
-                        server_id,
-                        CONNECT_TIMEOUT.as_secs()
                     );
                 }
             }
@@ -160,8 +157,8 @@ impl RconService {
         }
     }
 
-    /// Send an RCON command. If the connection is stale (server restarted),
-    /// the backend attempts to reconnect automatically ONCE before returning an error.
+    /// Send an RCON command with timeout protection.
+    /// If the connection is stale (server restarted), attempts auto-reconnect ONCE.
     pub async fn send_command(
         &self,
         server_id: i64,
@@ -171,18 +168,24 @@ impl RconService {
 
         if let Some(session) = sessions.get_mut(&server_id) {
             log::info!(
-                "[RCON] Sending command to server {}: {}",
+                "[RCON] Sending command to server {}: '{}'",
                 server_id,
                 command
             );
 
-            match session.connection.cmd(command).await {
+            match session.connection.send_command(command).await {
                 Ok(response) => {
                     log::info!(
-                        "[RCON] Command '{}' executed on server {}, response length: {}",
+                        "[RCON] Command '{}' executed on server {}, response length: {} bytes",
                         command,
                         server_id,
                         response.len()
+                    );
+                    log::debug!(
+                        "[RCON] Response body for '{}' on server {}: {:?}",
+                        command,
+                        server_id,
+                        &response[..response.len().min(500)]
                     );
                     Ok(RconResponse {
                         success: true,
@@ -191,7 +194,7 @@ impl RconService {
                     })
                 }
                 Err(e) => {
-                    // Connection is likely dead — try auto-reconnect
+                    // Command returned an error — connection is likely dead
                     log::warn!(
                         "[RCON] Command '{}' failed on server {}: {}. Attempting auto-reconnect...",
                         command,
@@ -201,65 +204,10 @@ impl RconService {
 
                     let addr = format!("{}:{}", session.address, session.port);
                     let password = session.password.clone();
-
-                    // Drop lock before trying to connect (avoid deadlocks if connect uses it,
-                    // though connect currently uses its own local variables until the end)
                     drop(sessions);
 
-                    // Attempt a fresh connection (single attempt, no loop here to keep it fast)
-                    match timeout(
-                        CONNECT_TIMEOUT,
-                        Connection::<TcpStream>::builder().connect(&addr, &password),
-                    )
-                    .await
-                    {
-                        Ok(Ok(new_conn)) => {
-                            log::info!("[RCON] Auto-reconnect successful for server {}", server_id);
-                            let mut sessions = self.sessions.lock().await;
-
-                            // Update the session connection
-                            if let Some(s) = sessions.get_mut(&server_id) {
-                                s.connection = new_conn;
-
-                                // Retry the command once
-                                match s.connection.cmd(command).await {
-                                    Ok(response) => {
-                                        log::info!(
-                                            "[RCON] Command '{}' executed successfully after auto-reconnect for server {}",
-                                            command,
-                                            server_id
-                                        );
-                                        Ok(RconResponse {
-                                            success: true,
-                                            message: "Command executed after auto-reconnect"
-                                                .to_string(),
-                                            data: Some(response),
-                                        })
-                                    }
-                                    Err(retry_err) => {
-                                        log::error!("[RCON] Command failed again after auto-reconnect for server {}: {}", server_id, retry_err);
-                                        sessions.remove(&server_id);
-                                        Err(format!(
-                                            "RCON connection lost and recovery failed ({}).",
-                                            retry_err
-                                        ))
-                                    }
-                                }
-                            } else {
-                                // Session was removed while we were reconnecting?
-                                Err("RCON session lost during auto-reconnect.".to_string())
-                            }
-                        }
-                        _ => {
-                            log::error!(
-                                "[RCON] Auto-reconnect failed for server {}. Removing stale session.",
-                                server_id
-                            );
-                            let mut sessions = self.sessions.lock().await;
-                            sessions.remove(&server_id);
-                            Err("RCON connection lost and auto-reconnect failed.".to_string())
-                        }
-                    }
+                    self.try_reconnect_and_retry(server_id, &addr, &password, command)
+                        .await
                 }
             }
         } else {
@@ -269,6 +217,66 @@ impl RconService {
                 server_id
             );
             Err("No active RCON connection for this server".to_string())
+        }
+    }
+
+    /// Attempt a single reconnection and retry the command.
+    async fn try_reconnect_and_retry(
+        &self,
+        server_id: i64,
+        addr: &str,
+        password: &str,
+        command: &str,
+    ) -> Result<RconResponse, String> {
+        match ArkRconClient::connect(addr, password).await {
+            Ok(new_conn) => {
+                log::info!("[RCON] Auto-reconnect successful for server {}", server_id);
+                let mut sessions = self.sessions.lock().await;
+
+                if let Some(s) = sessions.get_mut(&server_id) {
+                    s.connection = new_conn;
+
+                    // Retry the command once
+                    match s.connection.send_command(command).await {
+                        Ok(response) => {
+                            log::info!(
+                                "[RCON] Command '{}' executed successfully after auto-reconnect for server {}",
+                                command,
+                                server_id
+                            );
+                            Ok(RconResponse {
+                                success: true,
+                                message: "Command executed after auto-reconnect".to_string(),
+                                data: Some(response),
+                            })
+                        }
+                        Err(retry_err) => {
+                            log::error!(
+                                "[RCON] Command failed again after auto-reconnect for server {}: {}",
+                                server_id,
+                                retry_err
+                            );
+                            sessions.remove(&server_id);
+                            Err(format!(
+                                "Connection lost and recovery failed: {}",
+                                retry_err
+                            ))
+                        }
+                    }
+                } else {
+                    Err("RCON session lost during auto-reconnect.".to_string())
+                }
+            }
+            Err(e) => {
+                log::error!(
+                    "[RCON] Auto-reconnect authentication failed for server {}: {}",
+                    server_id,
+                    e
+                );
+                let mut sessions = self.sessions.lock().await;
+                sessions.remove(&server_id);
+                Err(format!("Connection lost — reconnect failed: {}", e))
+            }
         }
     }
 

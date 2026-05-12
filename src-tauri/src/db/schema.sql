@@ -243,6 +243,15 @@ CREATE TABLE IF NOT EXISTS support_tickets (
     resolved_at TIMESTAMP
 );
 
+-- Hardware Allocation (CPU Affinity & Priority)
+CREATE TABLE IF NOT EXISTS hardware_allocation (
+    server_id INTEGER PRIMARY KEY,
+    use_all_cores INTEGER DEFAULT 1,
+    cpu_affinity TEXT, -- JSON array of logical core indices
+    process_priority TEXT DEFAULT 'Normal', -- 'Normal', 'AboveNormal', 'High', 'RealTime', 'BelowNormal', 'Idle'
+    FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
+);
+
 -- Add points to player_stats (migration will handle if missing, but for new schemas)
 -- SQLite requires ALTER TABLE for existing, but for fresh installs:
 -- In db/mod.rs we will run the ALTER TABLE script for migrations.

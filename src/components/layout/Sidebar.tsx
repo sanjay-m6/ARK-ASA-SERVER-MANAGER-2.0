@@ -50,6 +50,7 @@ export default function Sidebar() {
       children: [
         { name: t('sidebar.aiAssistant', 'AI Assistant'), path: '/tools/ai', icon: Bot },
         { name: t('sidebar.advanced'), path: '/tools/advanced', icon: Cpu },
+        { name: 'Hardware Allocation', path: '/hardware', icon: Cpu },
         { name: t('sidebar.discordBot'), path: '/tools/discord', icon: MessageSquare },
         { name: t('sidebar.plugins'), path: '/tools/plugins', icon: Plug },
         { name: t('sidebar.fileManager'), path: '/tools/files', icon: Folder },

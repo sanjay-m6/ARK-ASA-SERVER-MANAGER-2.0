@@ -28,6 +28,7 @@ const FileManager = lazy(() => import('./pages/FileManager'));
 const AIAssistant = lazy(() => import('./pages/AIAssistant'));
 const TribeLogViewer = lazy(() => import('./pages/tools/TribeLogViewer'));
 const UPnPPanel = lazy(() => import('./pages/tools/UPnPPanel'));
+const Hardware = lazy(() => import('./pages/Hardware'));
 
 function App() {
     const [appState, setAppState] = useState<'welcome' | 'app'>('welcome');
@@ -87,6 +88,7 @@ function App() {
                                 <Route path="tools/ai" element={<AIAssistant />} />
                                 <Route path="tools/tribe-logs" element={<TribeLogViewer />} />
                                 <Route path="tools/upnp" element={<UPnPPanel />} />
+                                <Route path="hardware" element={<Hardware />} />
                                 <Route path="settings" element={<Settings />} />
                             </Route>
                         </Routes>

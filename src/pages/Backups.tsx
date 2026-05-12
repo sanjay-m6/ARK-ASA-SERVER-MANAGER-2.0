@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
     Database as BackupIcon, Plus, RotateCcw, Trash2, Loader2, FileArchive,
     Calendar, Clock, HardDrive, CheckCircle, XCircle, Eye, Shield,
-    Settings, ChevronDown, ChevronUp, FolderOpen, Sparkles, LayoutList, GitBranch
+    Settings, ChevronDown, ChevronUp, FolderOpen, Sparkles, LayoutList, GitBranch, Cloud
 } from 'lucide-react';
 import { formatBytes, cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
 import { getAllServers } from '../utils/tauri';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
+import CloudBackupDashboard from '../components/backups/CloudBackupDashboard';
 
 interface BackupOptions {
     includeConfigs: boolean;
@@ -40,6 +41,9 @@ export default function Backups() {
 
     // View mode: list or timeline
     const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
+    
+    // Tab state
+    const [activeTab, setActiveTab] = useState<'local' | 'cloud'>('local');
 
     // Styled confirm dialog state
     const [confirmState, setConfirmState] = useState<{
@@ -201,6 +205,29 @@ export default function Backups() {
                     <p className="text-slate-400 mt-2 text-lg">{t('backups.subtitle')}</p>
                 </div>
 
+                <div className="flex bg-slate-800/50 p-1 rounded-xl border border-slate-700 mx-4">
+                    <button
+                        onClick={() => setActiveTab('local')}
+                        className={cn(
+                            "px-6 py-2 rounded-lg font-medium transition-all flex items-center gap-2",
+                            activeTab === 'local' ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:text-slate-200"
+                        )}
+                    >
+                        <HardDrive className="w-4 h-4" />
+                        Local Storage
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('cloud')}
+                        className={cn(
+                            "px-6 py-2 rounded-lg font-medium transition-all flex items-center gap-2",
+                            activeTab === 'cloud' ? "bg-blue-500/20 text-blue-400" : "text-slate-400 hover:text-slate-200"
+                        )}
+                    >
+                        <Cloud className="w-4 h-4" />
+                        Cloud Archive
+                    </button>
+                </div>
+
                 <div className="flex items-center gap-3">
                     <select
                         value={selectedServerId || ''}
@@ -358,8 +385,12 @@ export default function Backups() {
                 </button>
             </div>
 
-            {/* Backup List */}
-            <div className="space-y-4">
+            {activeTab === 'cloud' ? (
+                <CloudBackupDashboard serverId={selectedServerId} />
+            ) : (
+                <>
+                {/* Backup List */}
+                <div className="space-y-4">
                 {isLoading ? (
                     <div className="flex justify-center py-20">
                         <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
@@ -588,6 +619,8 @@ export default function Backups() {
                     </div>
                 )}
             </div>
+            </>
+            )}
             {/* Confirm Dialog */}
             <ConfirmDialog
                 isOpen={isConfirmOpen}

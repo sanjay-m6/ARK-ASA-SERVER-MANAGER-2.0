@@ -395,3 +395,13 @@ pub struct SupportTicket {
     pub created_at: String,
     pub resolved_at: Option<String>,
 }
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HardwareAllocation {
+    pub server_id: i64,
+    pub use_all_cores: bool,
+    pub cpu_affinity: String,
+    pub process_priority: String,
+}

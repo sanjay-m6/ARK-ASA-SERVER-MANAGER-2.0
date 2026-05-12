@@ -18,6 +18,8 @@ use services::rcon::RconService;
 use services::steamcmd::SteamCmdService;
 use services::scheduler::SchedulerService;
 use services::cross_chat::CrossChatService;
+use services::cloud_backup_service::CloudBackupService;
+use services::mod_watchdog::ModWatchdogService;
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
 use tauri::Manager;
@@ -36,6 +38,8 @@ pub struct AppState {
     pub scheduler: Arc<SchedulerService>,
     pub cross_chat: Arc<CrossChatService>,
     pub advanced_config: Arc<AdvancedConfigService>,
+    pub cloud_backup: Arc<CloudBackupService>,
+    pub mod_watchdog: Arc<ModWatchdogService>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -143,6 +147,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             let anti_cheat = Arc::new(AntiCheatService::new(app_handle.clone()));
             let cross_chat = Arc::new(CrossChatService::new(rcon_service.clone()));
             let advanced_config = Arc::new(AdvancedConfigService::new(app_handle.clone()));
+            let cloud_backup = Arc::new(CloudBackupService::new());
+            let mod_watchdog = Arc::new(ModWatchdogService::new(app_handle.clone()));
 
             // 1. Manage AppState BEFORE starting any background tasks
             app.manage(AppState {
@@ -159,6 +165,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 scheduler: scheduler.clone(),
                 cross_chat,
                 advanced_config,
+                cloud_backup: cloud_backup.clone(),
+                mod_watchdog: mod_watchdog.clone(),
             });
 
             // 2. Initialize RCON and Guardian state
@@ -166,6 +174,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             app.manage(services::guardian::GuardianState(Arc::new(
                 tokio::sync::Mutex::new(services::guardian::GuardianService::new()),
             )));
+            app.manage(cloud_backup.clone());
 
             // 3. Start background tasks ONLY AFTER state is managed
             if !safe_mode {
@@ -173,6 +182,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 anti_cheat.start();
                 discord_bridge.start();
                 rcon_service.spawn_heartbeat();
+                mod_watchdog.start_worker();
             }
 
             // 4. Spawn Auto-Start and Watcher Logic (after state is managed and services are started)
@@ -425,6 +435,11 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::system::set_process_priority,
             commands::system::toggle_eco_mode,
             commands::system::request_admin_privileges, // <-- New Command
+            
+            // Hardware commands
+            commands::hardware::get_cpu_topology,
+            commands::hardware::get_hardware_allocation,
+            commands::hardware::save_hardware_allocation,
             // Anti-Cheat commands
             commands::anti_cheat::get_anti_cheat_config,
             commands::anti_cheat::save_anti_cheat_config,
@@ -472,6 +487,18 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::community::update_ticket_status,
              commands::community::get_discord_users,
              commands::community::add_player_points,
+
+             // Cloud Backup Commands
+             commands::cloud_backup::get_cloud_backup_settings,
+             commands::cloud_backup::save_cloud_backup_settings,
+             commands::cloud_backup::test_cloud_provider_connection,
+             commands::cloud_backup::list_cloud_backups,
+             commands::cloud_backup::trigger_manual_cloud_backup,
+             commands::cloud_backup::restore_cloud_backup,
+
+             // Mod Watchdog Commands
+             commands::watchdog::get_watchdog_config,
+             commands::watchdog::set_watchdog_config,
         ])
         .run(tauri::generate_context!())
 }

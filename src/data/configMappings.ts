@@ -519,7 +519,7 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         fields: [
             {
                 section: 'ServerSettings',
-                key: 'serverPVE',
+                key: 'ServerPVE',
                 label: 'PvE Mode',
                 type: 'boolean',
                 defaultValue: 'False',

@@ -617,6 +617,16 @@ export default function ConfigEditor() {
             });
         }
 
+        // 4. PvE + Offline PvP Conflict
+        const pveMode = getValue('GameUserSettings', 'ServerSettings', 'ServerPVE');
+        const offlinePvP = getValue('GameUserSettings', 'ServerSettings', 'PreventOfflinePvP');
+        if (pveMode === 'True' && offlinePvP === 'True') {
+            issues.push({
+                type: 'warning',
+                message: t('configEditor.validation.pveOfflinePvpConflict', 'PvE Mode is enabled alongside Prevent Offline PvP. Offline PvP protection is redundant in PvE mode — consider disabling it to avoid confusion.')
+            });
+        }
+
         return issues;
     }, [configs]);
 
