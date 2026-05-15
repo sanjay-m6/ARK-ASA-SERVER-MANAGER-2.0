@@ -227,6 +227,270 @@ fn get_tool_definitions() -> serde_json::Value {
                     "required": ["server_id"]
                 }
             }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "analyze_crash_log",
+                "description": "Fetches recent crash events and log anomalies to diagnose server instability.",
+                "parameters": { "type": "object", "properties": {}, "required": [] }
+            }
+        },
+        // ── Config Engine Tools ──────────────────────────────
+        {
+            "type": "function",
+            "function": {
+                "name": "read_ini_config",
+                "description": "Reads the raw contents of a server INI config file. Use config_type: 'GameUserSettings', 'Game', or 'Engine'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" },
+                        "config_type": { "type": "string", "description": "Config file type: 'GameUserSettings', 'Game', or 'Engine'" }
+                    },
+                    "required": ["server_id", "config_type"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "save_ini_config",
+                "description": "Writes INI content to a server config file. Always backup first. Requires confirmation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" },
+                        "config_type": { "type": "string", "description": "Config type: 'GameUserSettings', 'Game', or 'Engine'" },
+                        "content": { "type": "string", "description": "The full INI content to write" }
+                    },
+                    "required": ["server_id", "config_type", "content"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "load_server_config",
+                "description": "Loads the fully parsed server configuration including all multipliers, rates, and settings as a structured object.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" }
+                    },
+                    "required": ["server_id"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "backup_ini_config",
+                "description": "Creates a timestamped backup of a config file before making changes.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" },
+                        "config_type": { "type": "string", "description": "Config type to backup" }
+                    },
+                    "required": ["server_id", "config_type"]
+                }
+            }
+        },
+        // ── Backup Management Tools ──────────────────────────
+        {
+            "type": "function",
+            "function": {
+                "name": "list_backups",
+                "description": "Lists all backups for a server, sorted newest first.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" }
+                    },
+                    "required": ["server_id"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "restore_backup",
+                "description": "Restores a server from a specific backup. Requires confirmation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "backup_id": { "type": "integer", "description": "The backup ID to restore" }
+                    },
+                    "required": ["backup_id"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "delete_backup",
+                "description": "Deletes a specific backup by ID. Requires confirmation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "backup_id": { "type": "integer", "description": "The backup ID to delete" }
+                    },
+                    "required": ["backup_id"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "cleanup_old_backups",
+                "description": "Removes old backups, keeping only the most recent N backups for a server.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" },
+                        "keep_count": { "type": "integer", "description": "Number of recent backups to keep. Defaults to 5" }
+                    },
+                    "required": ["server_id"]
+                }
+            }
+        },
+        // ── Player Management Tools ──────────────────────────
+        {
+            "type": "function",
+            "function": {
+                "name": "list_players",
+                "description": "Lists all currently online players on a server via RCON ListPlayers.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" }
+                    },
+                    "required": ["server_id"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "kick_player",
+                "description": "Kicks a player from the server. Requires confirmation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" },
+                        "player_id": { "type": "string", "description": "The Steam ID or player name to kick" }
+                    },
+                    "required": ["server_id", "player_id"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "ban_player",
+                "description": "Permanently bans a player from the server by Steam ID. Requires confirmation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" },
+                        "player_id": { "type": "string", "description": "The Steam ID to ban" }
+                    },
+                    "required": ["server_id", "player_id"]
+                }
+            }
+        },
+        // ── Scheduler Tools ──────────────────────────────────
+        {
+            "type": "function",
+            "function": {
+                "name": "create_scheduled_task",
+                "description": "Creates a new scheduled task. Types: 'backup', 'restart', 'update', 'rcon_command'. Requires confirmation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" },
+                        "task_type": { "type": "string", "description": "Type: 'backup', 'restart', 'update', or 'rcon_command'" },
+                        "cron_expression": { "type": "string", "description": "Cron expression like '0 3 * * 0' for every Sunday at 3am" },
+                        "name": { "type": "string", "description": "Human-readable name for the task" },
+                        "rcon_command": { "type": "string", "description": "RCON command if task_type is 'rcon_command'" }
+                    },
+                    "required": ["server_id", "task_type", "cron_expression", "name"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "delete_scheduled_task",
+                "description": "Deletes a scheduled task by its ID. Requires confirmation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "task_id": { "type": "integer", "description": "The task ID to delete" }
+                    },
+                    "required": ["task_id"]
+                }
+            }
+        },
+        // ── Navigation Tool ──────────────────────────────────
+        {
+            "type": "function",
+            "function": {
+                "name": "navigate_to_page",
+                "description": "Navigates the user to a specific page: '/dashboard', '/servers', '/mods', '/config-editor', '/backup', '/rcon', '/scheduler', '/players', '/infinity-ai', '/settings', '/cluster', '/plugins', '/firewall', '/import', '/community', '/advanced-config'",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "path": { "type": "string", "description": "The route path to navigate to" }
+                    },
+                    "required": ["path"]
+                }
+            }
+        },
+        // ── Mod Manager Tools ────────────────────────────────
+        {
+            "type": "function",
+            "function": {
+                "name": "search_mods",
+                "description": "Searches for ARK mods on CurseForge or Steam Workshop.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": { "type": "string", "description": "Search query for mod name" },
+                        "source": { "type": "string", "description": "Source: 'curseforge' or 'steam'. Defaults to 'curseforge'" }
+                    },
+                    "required": ["query"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_installed_mods",
+                "description": "Gets the list of mods currently installed on a server.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" }
+                    },
+                    "required": ["server_id"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "save_world",
+                "description": "Forces a world save on a running server via RCON SaveWorld command.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "server_id": { "type": "integer", "description": "The server ID" }
+                    },
+                    "required": ["server_id"]
+                }
+            }
         }
     ])
 }

@@ -1,5 +1,6 @@
 // AI Agent utilities — tool definitions, system prompt, tool execution
 import { invoke } from '@tauri-apps/api/core';
+import { formatMemoryForPrompt } from './aiMemory';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -208,8 +209,11 @@ Goal:
 Create the ultimate AI-powered ARK ASA server management experience with intelligent automation, professional server engineering, and advanced ASM integration.
 
 ${serverContext ? `\nCurrent Application Context:\n${serverContext}` : ''}
+${formatMemoryForPrompt()}
 
-You have full access to the ASM application through tool functions. Use them proactively when relevant.`;
+You have full access to the ASM application through tool functions. Use them proactively when relevant.
+
+When performing multi-step tasks, chain multiple tool calls in sequence. After each tool result, decide if another tool call is needed to complete the user's request. Do not stop after a single tool call if the task requires more steps.`;
 }
 
 // ── Tool Registry ──────────────────────────────────────────────────────
@@ -358,7 +362,224 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
             return await invoke('get_crash_log');
         },
     },
+
+    // ── Config Engine Tools ────────────────────────────────────────────
+
+    read_ini_config: {
+        name: 'read_ini_config',
+        label: 'Read INI Config',
+        description: 'Reads the contents of a server INI configuration file',
+        requiresConfirmation: false,
+        execute: async (args) => {
+            return await invoke('read_config', {
+                serverId: Number(args.server_id),
+                configType: (args.config_type as string) || 'GameUserSettings',
+            });
+        },
+    },
+    save_ini_config: {
+        name: 'save_ini_config',
+        label: 'Save INI Config',
+        description: 'Writes content to a server INI configuration file',
+        requiresConfirmation: true,
+        execute: async (args) => {
+            return await invoke('save_config', {
+                serverId: Number(args.server_id),
+                configType: (args.config_type as string) || 'GameUserSettings',
+                content: args.content as string,
+            });
+        },
+    },
+    load_server_config: {
+        name: 'load_server_config',
+        label: 'Load Server Config',
+        description: 'Loads the full parsed server configuration with all multipliers and settings',
+        requiresConfirmation: false,
+        execute: async (args) => {
+            return await invoke('load_server_config', {
+                serverId: Number(args.server_id),
+            });
+        },
+    },
+    backup_ini_config: {
+        name: 'backup_ini_config',
+        label: 'Backup INI Config',
+        description: 'Creates a timestamped backup of a config file before making changes',
+        requiresConfirmation: false,
+        execute: async (args) => {
+            return await invoke('backup_config', {
+                serverId: Number(args.server_id),
+                configType: (args.config_type as string) || 'GameUserSettings',
+            });
+        },
+    },
+
+    // ── Backup Management Tools ────────────────────────────────────────
+
+    list_backups: {
+        name: 'list_backups',
+        label: 'List Backups',
+        description: 'Lists all backups for a server',
+        requiresConfirmation: false,
+        execute: async (args) => {
+            return await invoke('get_backups', {
+                serverId: Number(args.server_id),
+            });
+        },
+    },
+    restore_backup: {
+        name: 'restore_backup',
+        label: 'Restore Backup',
+        description: 'Restores a server from a backup by backup ID',
+        requiresConfirmation: true,
+        execute: async (args) => {
+            return await invoke('restore_backup', {
+                backupId: Number(args.backup_id),
+            });
+        },
+    },
+    delete_backup: {
+        name: 'delete_backup',
+        label: 'Delete Backup',
+        description: 'Deletes a specific backup by its ID',
+        requiresConfirmation: true,
+        execute: async (args) => {
+            return await invoke('delete_backup', {
+                backupId: Number(args.backup_id),
+            });
+        },
+    },
+    cleanup_old_backups: {
+        name: 'cleanup_old_backups',
+        label: 'Cleanup Old Backups',
+        description: 'Removes old backups keeping only the most recent N backups',
+        requiresConfirmation: true,
+        execute: async (args) => {
+            return await invoke('cleanup_old_backups', {
+                serverId: Number(args.server_id),
+                keepCount: Number(args.keep_count) || 5,
+            });
+        },
+    },
+
+    // ── Player Management Tools ────────────────────────────────────────
+
+    list_players: {
+        name: 'list_players',
+        label: 'List Online Players',
+        description: 'Lists all currently online players on a server via RCON',
+        requiresConfirmation: false,
+        execute: async (args) => {
+            return await invoke('rcon_send_command', {
+                serverId: Number(args.server_id),
+                command: 'ListPlayers',
+            });
+        },
+    },
+    kick_player: {
+        name: 'kick_player',
+        label: 'Kick Player',
+        description: 'Kicks a player from the server by their Steam ID or name',
+        requiresConfirmation: true,
+        execute: async (args) => {
+            return await invoke('rcon_send_command', {
+                serverId: Number(args.server_id),
+                command: `KickPlayer ${args.player_id}`,
+            });
+        },
+    },
+    ban_player: {
+        name: 'ban_player',
+        label: 'Ban Player',
+        description: 'Bans a player from the server by their Steam ID',
+        requiresConfirmation: true,
+        execute: async (args) => {
+            return await invoke('rcon_send_command', {
+                serverId: Number(args.server_id),
+                command: `BanPlayer ${args.player_id}`,
+            });
+        },
+    },
+
+    // ── Scheduler Tools ────────────────────────────────────────────────
+
+    create_scheduled_task: {
+        name: 'create_scheduled_task',
+        label: 'Create Scheduled Task',
+        description: 'Creates a new scheduled task (backup, restart, update, or RCON command)',
+        requiresConfirmation: true,
+        execute: async (args) => {
+            return await invoke('create_scheduled_task', {
+                task: args,
+            });
+        },
+    },
+    delete_scheduled_task: {
+        name: 'delete_scheduled_task',
+        label: 'Delete Scheduled Task',
+        description: 'Deletes a scheduled task by its ID',
+        requiresConfirmation: true,
+        execute: async (args) => {
+            return await invoke('delete_scheduled_task', {
+                taskId: Number(args.task_id),
+            });
+        },
+    },
+
+    // ── Navigation Tool ───────────────────────────────────────────────
+
+    navigate_to_page: {
+        name: 'navigate_to_page',
+        label: 'Navigate to Page',
+        description: 'Navigates the user to a specific page in the application',
+        requiresConfirmation: false,
+        execute: async (args) => {
+            // This is handled specially in the frontend — the router navigates
+            return { navigateTo: args.path as string, success: true };
+        },
+    },
+
+    // ── Mod Manager Tools ─────────────────────────────────────────────
+
+    search_mods: {
+        name: 'search_mods',
+        label: 'Search Mods',
+        description: 'Searches for ARK mods on Steam Workshop or CurseForge',
+        requiresConfirmation: false,
+        execute: async (args) => {
+            return await invoke('search_mods', {
+                query: args.query as string,
+                source: (args.source as string) || 'curseforge',
+            });
+        },
+    },
+    get_installed_mods: {
+        name: 'get_installed_mods',
+        label: 'Get Installed Mods',
+        description: 'Gets the list of mods installed on a server',
+        requiresConfirmation: false,
+        execute: async (args) => {
+            return await invoke('get_server_mods', {
+                serverId: Number(args.server_id),
+            });
+        },
+    },
+    save_world: {
+        name: 'save_world',
+        label: 'Save World',
+        description: 'Saves the current world state via RCON SaveWorld command',
+        requiresConfirmation: false,
+        execute: async (args) => {
+            return await invoke('rcon_send_command', {
+                serverId: Number(args.server_id),
+                command: 'SaveWorld',
+            });
+        },
+    },
 };
+
+// Maximum tool turns for agentic loop
+export const MAX_TOOL_TURNS = 5;
 
 // ── Tool Execution ─────────────────────────────────────────────────────
 

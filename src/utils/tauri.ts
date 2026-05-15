@@ -40,6 +40,19 @@ export async function selectFile(title: string, extensions?: string[]): Promise<
     return await invoke('select_file', { title, extensions });
 }
 
+// File Manager commands
+export async function readDirectory(path: string): Promise<any[]> {
+    return await invoke('read_directory', { path });
+}
+
+export async function readFileContent(path: string): Promise<string> {
+    return await invoke('read_file_content', { path });
+}
+
+export async function getParentDirectory(path: string): Promise<string> {
+    return await invoke('get_parent_directory', { path });
+}
+
 export async function getSetting(key: string): Promise<string | null> {
     return await invoke('get_setting', { key });
 }

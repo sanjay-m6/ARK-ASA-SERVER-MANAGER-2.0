@@ -7,6 +7,7 @@
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=for-the-badge&logo=windows)
 ![License](https://img.shields.io/badge/license-MIT-orange?style=for-the-badge)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/Pr69DHEnXJ)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/infinity86s)
 
 **A professional-grade ARK: Survival Ascended dedicated server management application built with Tauri, React, and Rust.**
 
@@ -200,6 +201,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for the ARK Community**
 
-[Discord](https://discord.gg/Pr69DHEnXJ) • [Report Bug](https://github.com/sanjay-m6/ASA-SERVER-MANAGER-2.0/issues) • [Request Feature](https://github.com/sanjay-m6/ASA-SERVER-MANAGER-2.0/issues)
+[Discord](https://discord.gg/Pr69DHEnXJ) • [Report Bug](https://github.com/sanjay-m6/ASA-SERVER-MANAGER-2.0/issues) • [Request Feature](https://github.com/sanjay-m6/ASA-SERVER-MANAGER-2.0/issues) • [Donate via PayPal](https://paypal.me/infinity86s)
 
 </div>

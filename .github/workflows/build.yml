@@ -10,7 +10,7 @@ env:
 
 jobs:
   build:
-    runs-on: windows-2025-vs2026
+    runs-on: windows-latest
     permissions:
       contents: write
     
@@ -45,25 +45,19 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🚀 v2.3.6 — Hardware Isolation, Watchdog & Cloud Backups
+            ## 🚀 v2.3.7 — Infinity AI Dashboard & Integrated Wiki
 
-            ### ⚡ Hardware Isolation Engine
-            - **Core Affinity**: Bind server instances to specific CPU logical cores to eliminate OS thread migration overhead.
-            - **High-Performance Scheduling**: Configurable Windows Process Priority settings for stable CPU cycles under load.
+            ### 🤖 Infinity AI Platform
+            - **Multi-Session Conversations**: Chat sidebar supporting multiple isolated chat contexts, history retention, and persistent sessions.
+            - **AI Logic Expansion**: Enhanced Tauri integration for real-time system troubleshooting and log interpretation.
 
-            ### 🐕 Mod Update Watchdog System
-            - **Automated Monitoring**: Background worker monitors CurseForge for mod updates and handles server maintenance windows.
+            ### 📖 Dynamic Documentation Portal
+            - **Integrated Wiki**: Complete offline documentation viewer powered by local Markdown ingestion and fluid page navigation.
+            - **Liquid Glass Design**: Fully modernized documentation dialogs, icon selectors, and content editors.
 
-            ### ☁️ Advanced Cloud Backup Integration
-            - **Disaster Recovery**: Direct synchronization and scheduled backups to enterprise cloud storage buckets.
-
-            ### 💻 Interactive CPU Topology Grid
-            - **Visual Mapping**: Dashboard mapping the host machine's physical and logical processors for server-affinity distribution.
-
-            ### 🐛 Bug Fixes
-            - **IPC Serialization Error**: Resolved invalid argument payload crash (`missing field serverId`) in the `save_hardware_allocation` Tauri command.
-            - **TS Compilation Warnings**: Fixed unused getters and type mismatches in `hardwareStore.ts` and lazy-loading components in `App.tsx`.
-            - **Cloud Backup Navigation**: Patched routing and permission bugs preventing access to the remote storage dashboard panel.
+            ### ⚡ Core Enhancements
+            - **Theme Modernization**: Continued migration to Prestige Dark aesthetics across layouts.
+            - **Build Fixes**: Resolved compilation warnings and updated package metadata schemas for stable distributions.
 
             ### Install
             Download the `.msi` installer below.

@@ -20,7 +20,8 @@ import {
   ChevronRight,
   Folder,
   Bot,
-  Wifi
+  Wifi,
+  FileText
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
@@ -58,6 +59,7 @@ export default function Sidebar() {
         { name: t('sidebar.upnp', 'UPnP Ports'), path: '/tools/upnp', icon: Wifi },
       ]
     },
+    { name: t('sidebar.wiki', 'Knowledge Base'), path: '/wiki', icon: FileText },
     { name: t('sidebar.settings'), path: '/settings', icon: SettingsIcon },
   ];
 

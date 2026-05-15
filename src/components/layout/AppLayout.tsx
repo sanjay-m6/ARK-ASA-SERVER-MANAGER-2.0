@@ -1,8 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import { optimizeMemory } from '../../utils/tauri';
+
+// Lazy-load copilot to avoid impacting initial page load
+const InfinityCopilot = lazy(() => import('../ai/InfinityCopilot'));
 
 export default function AppLayout() {
     useEffect(() => {
@@ -27,6 +30,11 @@ export default function AppLayout() {
                     </div>
                 </div>
             </main>
+
+            {/* Global AI Copilot — floating panel on every page */}
+            <Suspense fallback={null}>
+                <InfinityCopilot />
+            </Suspense>
         </div>
     );
 }

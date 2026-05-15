@@ -29,6 +29,7 @@ const AIAssistant = lazy(() => import('./pages/AIAssistant'));
 const TribeLogViewer = lazy(() => import('./pages/tools/TribeLogViewer'));
 const UPnPPanel = lazy(() => import('./pages/tools/UPnPPanel'));
 const Hardware = lazy(() => import('./pages/Hardware'));
+const Wiki = lazy(() => import('./pages/Wiki'));
 
 function App() {
     const [appState, setAppState] = useState<'welcome' | 'app'>('welcome');
@@ -89,6 +90,7 @@ function App() {
                                 <Route path="tools/tribe-logs" element={<TribeLogViewer />} />
                                 <Route path="tools/upnp" element={<UPnPPanel />} />
                                 <Route path="hardware" element={<Hardware />} />
+                                <Route path="wiki" element={<Wiki />} />
                                 <Route path="settings" element={<Settings />} />
                             </Route>
                         </Routes>
