@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { readDirectory, readFileContent } from '../utils/tauri';
 import HelpDocumentation from '../components/help/HelpDocumentation';
 import { 
@@ -22,7 +21,6 @@ interface DocFile {
 }
 
 export default function Wiki() {
-    const { t } = useTranslation();
     const [files, setFiles] = useState<DocFile[]>([]);
     const [selectedFile, setSelectedFile] = useState<DocFile | null>(null);
     const [content, setContent] = useState<string>('');
