@@ -21,11 +21,36 @@ pub struct DiskEntry {
     pub available_space: u64,
 }
 
+
+fn resolve_path(path: &str) -> PathBuf {
+    let path_buf = PathBuf::from(path);
+    if path_buf.is_absolute() {
+        path_buf
+    } else {
+        // Check relative to current working directory
+        if let Ok(current_dir) = std::env::current_dir() {
+            let direct_path = current_dir.join(&path_buf);
+            if direct_path.exists() {
+                return direct_path;
+            }
+            // Check relative to parent directory (e.g., if running from src-tauri in dev)
+            if let Some(parent) = current_dir.parent() {
+                let parent_path = parent.join(&path_buf);
+                if parent_path.exists() {
+                    return parent_path;
+                }
+            }
+        }
+        path_buf
+    }
+}
+
 #[tauri::command]
 pub fn read_directory(path: String) -> Result<Vec<FileEntry>, String> {
-    let dir_path = Path::new(&path);
+    let resolved = resolve_path(&path);
+    let dir_path = resolved.as_path();
     if !dir_path.exists() {
-        return Err("Directory does not exist".to_string());
+        return Err(format!("Directory does not exist: {}", dir_path.display()));
     }
 
     let mut entries = Vec::new();
@@ -79,7 +104,8 @@ pub fn get_disks() -> Result<Vec<DiskEntry>, String> {
 
 #[tauri::command]
 pub fn read_file_content(path: String) -> Result<String, String> {
-    fs::read_to_string(&path).map_err(|e| e.to_string())
+    let resolved = resolve_path(&path);
+    fs::read_to_string(&resolved).map_err(|e| format!("Failed to read file {}: {}", resolved.display(), e))
 }
 
 #[tauri::command]

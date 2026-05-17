@@ -26,6 +26,8 @@ export default function DiscordBridgeSettings({ clusterId, clusterName }: Discor
         guild_id: '',
         channel_id: '',
         admin_channel_id: '',
+        admin_role_ids: [],
+        moderator_role_ids: [],
         game_to_discord: true,
         discord_to_game: true,
         server_list_enabled: false,

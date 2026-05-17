@@ -22,6 +22,7 @@ const RconConsole = lazy(() => import('./pages/RconConsole'));
 const Scheduler = lazy(() => import('./pages/Scheduler'));
 const Settings = lazy(() => import('./pages/Settings'));
 const DiscordBot = lazy(() => import('./pages/DiscordBot'));
+const DiscordControlPanel = lazy(() => import('./pages/DiscordControlPanel'));
 const AdvancedPage = lazy(() => import('./pages/tools/AdvancedPage'));
 const PluginManager = lazy(() => import('./pages/PluginManager'));
 const FileManager = lazy(() => import('./pages/FileManager'));
@@ -84,6 +85,7 @@ function App() {
                                 <Route path="logs" element={<LogsConsole />} />
                                 <Route path="tools/advanced" element={<AdvancedPage />} />
                                 <Route path="tools/discord" element={<DiscordBot />} />
+                                <Route path="tools/discord-control" element={<DiscordControlPanel />} />
                                 <Route path="tools/plugins" element={<PluginManager />} />
                                 <Route path="tools/files" element={<FileManager />} />
                                 <Route path="tools/ai" element={<AIAssistant />} />

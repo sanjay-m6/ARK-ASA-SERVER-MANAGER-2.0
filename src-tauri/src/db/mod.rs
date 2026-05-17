@@ -368,6 +368,69 @@ impl Database {
                 [],
             )?;
         }
+        if !db_columns.contains(&"notifications_channel_id".to_string()) {
+            println!("📦 Migration: Adding 'notifications_channel_id' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN notifications_channel_id TEXT DEFAULT ''",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"notify_player_join_leave".to_string()) {
+            println!("📦 Migration: Adding 'notify_player_join_leave' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN notify_player_join_leave INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"notify_server_crashes".to_string()) {
+            println!("📦 Migration: Adding 'notify_server_crashes' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN notify_server_crashes INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"notify_server_recovery".to_string()) {
+            println!("📦 Migration: Adding 'notify_server_recovery' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN notify_server_recovery INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"notify_scheduled_restarts".to_string()) {
+            println!("📦 Migration: Adding 'notify_scheduled_restarts' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN notify_scheduled_restarts INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"notify_backup_completion".to_string()) {
+            println!("📦 Migration: Adding 'notify_backup_completion' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN notify_backup_completion INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"notify_performance_alerts".to_string()) {
+            println!("📦 Migration: Adding 'notify_performance_alerts' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN notify_performance_alerts INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"notify_mod_watchdog".to_string()) {
+            println!("📦 Migration: Adding 'notify_mod_watchdog' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN notify_mod_watchdog INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
+        if !db_columns.contains(&"notify_anti_cheat".to_string()) {
+            println!("📦 Migration: Adding 'notify_anti_cheat' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN notify_anti_cheat INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
 
         Ok(())
     }

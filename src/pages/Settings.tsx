@@ -70,25 +70,7 @@ export default function Settings() {
     const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
     const [updateCheckResult, setUpdateCheckResult] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadSettings();
-        getVersion().then(setCurrentVersion).catch(console.error);
-        getAllServers().then((s) => {
-            setServers(s);
-            if (s.length > 0 && !selectedServerId) setSelectedServerId(s[0].id);
-        }).catch(console.error);
-    }, []);
-
-    const openUrl = async (url: string) => {
-        try {
-            await invoke('plugin:opener|open_url', { url });
-        } catch (error) {
-            console.error('Failed to open URL:', error);
-            toast.error('Failed to open link');
-        }
-    };
-
-    const loadSettings = async () => {
+    async function loadSettings() {
         try {
             const [curseforgeKey, steamKey, timeout, nvidiaKey] = await Promise.all([
                 getSetting('curseforge_api_key'),
@@ -110,6 +92,24 @@ export default function Settings() {
         } finally {
             setIsLoading(false);
         }
+    }
+
+    useEffect(() => {
+        loadSettings();
+        getVersion().then(setCurrentVersion).catch(console.error);
+        getAllServers().then((s) => {
+            setServers(s);
+            if (s.length > 0 && !selectedServerId) setSelectedServerId(s[0].id);
+        }).catch(console.error);
+    }, []);
+
+    const openUrl = async (url: string) => {
+        try {
+            await invoke('plugin:opener|open_url', { url });
+        } catch (error) {
+            console.error('Failed to open URL:', error);
+            toast.error('Failed to open link');
+        }
     };
 
     const handleCheckForUpdates = async () => {
@@ -128,6 +128,7 @@ export default function Settings() {
                 toast.success(t('settings.updatesTab.latestVersion', 'You are on the latest version'));
             }
         } catch (err) {
+            console.error('Failed to check for updates:', err);
             setUpdateCheckResult(t('settings.updatesTab.checkFailed', 'Failed to check for updates'));
             toast.error(t('settings.updatesTab.checkFailed', 'Failed to check for updates'));
         } finally {
@@ -148,6 +149,16 @@ export default function Settings() {
             ? t('settings.updatesTab.autoEnabled', 'Automatic updates enabled') 
             : t('settings.updatesTab.autoDisabled', 'Automatic updates disabled')
         );
+    };
+
+    const handleUpdateChannelChange = (channel: 'release' | 'beta' | 'nightly') => {
+        setUpdateSettings({ updateChannel: channel });
+        setUpdateSettingsState(prev => prev ? { ...prev, updateChannel: channel } : { ...getUpdateSettings(), updateChannel: channel });
+
+        // Notify UpdateChecker to restart interval
+        window.dispatchEvent(new Event('update-settings-changed'));
+
+        toast.success(t('settings.updatesTab.channelChanged', 'Update channel switched to {{channel}}', { channel }));
     };
 
     const handleClearSkipped = () => {
@@ -607,6 +618,53 @@ export default function Settings() {
                                         )}
                                     />
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Update Channel Selector */}
+                        <div className="border-t border-slate-700/50 pt-6 mt-6">
+                            <h3 className="text-base font-semibold text-white mb-2">
+                                {t('settings.updatesTab.updateChannel', 'Update Channel')}
+                            </h3>
+                            <p className="text-sm text-slate-400 mb-4 font-medium">
+                                {t('settings.updatesTab.channelDesc', 'Select which update stream you want to receive. Beta and Nightly streams get features earlier but may be less stable.')}
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                {[
+                                    { id: 'release', name: t('settings.updatesTab.releaseChannel', 'Stable Release'), desc: t('settings.updatesTab.releaseDesc', 'Recommended for production servers. Fully tested and verified stable.'), color: 'sky' },
+                                    { id: 'beta', name: t('settings.updatesTab.betaChannel', 'Beta Build'), desc: t('settings.updatesTab.betaDesc', 'Pre-release builds for early testing of upcoming major updates.'), color: 'amber' },
+                                    { id: 'nightly', name: t('settings.updatesTab.nightlyChannel', 'Nightly Build'), desc: t('settings.updatesTab.nightlyDesc', 'Bleeding-edge automated builds updated daily. Highly experimental.'), color: 'rose' },
+                                ].map((channel) => {
+                                    const isSelected = (updateSettings?.updateChannel || 'release') === channel.id;
+                                    return (
+                                        <button
+                                            key={channel.id}
+                                            onClick={() => handleUpdateChannelChange(channel.id as any)}
+                                            className={cn(
+                                                "p-4 rounded-xl border text-left transition-all duration-200 flex flex-col justify-between h-full group relative overflow-hidden active:scale-[0.99]",
+                                                isSelected
+                                                    ? channel.id === 'release' ? 'bg-sky-500/10 border-sky-500/40 text-white shadow-lg shadow-sky-500/5'
+                                                        : channel.id === 'beta' ? 'bg-amber-500/10 border-amber-500/40 text-white shadow-lg shadow-amber-500/5'
+                                                        : 'bg-rose-500/10 border-rose-500/40 text-white shadow-lg shadow-rose-500/5'
+                                                    : 'bg-slate-800/40 border-slate-700/50 text-slate-300 hover:bg-slate-700/40 hover:border-slate-600'
+                                            )}
+                                        >
+                                            <div>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="font-bold text-sm tracking-wide uppercase">{channel.name}</span>
+                                                    {isSelected && (
+                                                        <span className={cn(
+                                                            "w-2 h-2 rounded-full animate-pulse",
+                                                            channel.id === 'release' ? "bg-sky-400" :
+                                                                channel.id === 'beta' ? "bg-amber-400" : "bg-rose-400"
+                                                        )}></span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-slate-400 leading-relaxed font-medium mt-1">{channel.desc}</p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>

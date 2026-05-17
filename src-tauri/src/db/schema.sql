@@ -121,6 +121,16 @@ CREATE TABLE IF NOT EXISTS discord_bridge_config (
     player_list_message_id TEXT,
     show_tribe_names INTEGER DEFAULT 1,
     show_playtime INTEGER DEFAULT 1,
+    admin_channel_id TEXT DEFAULT '',
+    notifications_channel_id TEXT DEFAULT '',
+    notify_player_join_leave INTEGER DEFAULT 1,
+    notify_server_crashes INTEGER DEFAULT 1,
+    notify_server_recovery INTEGER DEFAULT 1,
+    notify_scheduled_restarts INTEGER DEFAULT 1,
+    notify_backup_completion INTEGER DEFAULT 1,
+    notify_performance_alerts INTEGER DEFAULT 1,
+    notify_mod_watchdog INTEGER DEFAULT 1,
+    notify_anti_cheat INTEGER DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cluster_id) REFERENCES clusters(id) ON DELETE CASCADE
@@ -258,4 +268,30 @@ CREATE TABLE IF NOT EXISTS hardware_allocation (
 
 -- Initial settings
 INSERT OR IGNORE INTO settings (key, value) VALUES ('startup_timeout', '1800');
+
+-- Persistent Discord sent messages (echo-prevention across restarts)
+CREATE TABLE IF NOT EXISTS discord_sent_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cluster_id INTEGER NOT NULL,
+    message_hash TEXT NOT NULL,
+    excerpt TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cluster_id) REFERENCES clusters(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_discord_sent_messages_hash ON discord_sent_messages(message_hash);
+CREATE INDEX IF NOT EXISTS idx_discord_sent_messages_created_at ON discord_sent_messages(created_at);
+
+-- Discord rate limit configuration per cluster
+CREATE TABLE IF NOT EXISTS discord_rate_limits (
+    cluster_id INTEGER PRIMARY KEY,
+    max_messages_per_window INTEGER DEFAULT 5,
+    window_seconds INTEGER DEFAULT 10,
+    enabled INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cluster_id) REFERENCES clusters(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_discord_rate_limits_cluster ON discord_rate_limits(cluster_id);
 

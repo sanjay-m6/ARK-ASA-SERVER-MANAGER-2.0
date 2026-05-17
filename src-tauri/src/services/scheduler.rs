@@ -734,9 +734,27 @@ impl SchedulerService {
     }
 }
 
+fn get_server_name(app_handle: &AppHandle, server_id: i64) -> String {
+    if let Some(state) = app_handle.try_state::<AppState>() {
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                if let Ok(name) = conn.query_row(
+                    "SELECT name FROM servers WHERE id = ?1",
+                    [server_id],
+                    |row| row.get::<_, String>(0),
+                ) {
+                    return name;
+                }
+            }
+        }
+    }
+    format!("Server #{}", server_id)
+}
+
 // Logic helpers
 async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
     let _state = app_handle.state::<AppState>();
+    let name = get_server_name(app_handle, task.server_id);
 
     // Warn players if configured (Legacy handling for explicit tasks)
     if task.pre_warning_minutes > 0 {
@@ -749,19 +767,65 @@ async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
         let _ = rcon
             .send_command(task.server_id, &format!("ServerChat {}", msg))
             .await;
+
+        let app_handle_clone = app_handle.clone();
+        let name_clone = name.clone();
+        let mins = task.pre_warning_minutes;
+        tauri::async_runtime::spawn(async move {
+            crate::services::discord::send_discord_webhook(
+                &app_handle_clone,
+                "scheduledRestarts",
+                crate::services::discord::DiscordEmbed::scheduled_task(
+                    &name_clone,
+                    "Server Restart Warning",
+                    &format!("Scheduled server restart warning: restarting in **{} minutes**.", mins),
+                ),
+            ).await;
+        });
     }
 
     // Call restart command from server module
     let state = app_handle.state::<AppState>();
     match crate::commands::server::restart_server(state, task.server_id).await {
-        Ok(_) => log::info!(
-            "  ✅ Scheduled restart initiated for server {}",
-            task.server_id
-        ),
-        Err(e) => log::error!(
-            "  ❌ Scheduled restart failed for server {}: {}",
-            task.server_id,
-            e
-        ),
+        Ok(_) => {
+            log::info!(
+                "  Ok Scheduled restart initiated for server {}",
+                task.server_id
+            );
+            let app_handle_clone = app_handle.clone();
+            let name_clone = name.clone();
+            tauri::async_runtime::spawn(async move {
+                crate::services::discord::send_discord_webhook(
+                    &app_handle_clone,
+                    "scheduledRestarts",
+                    crate::services::discord::DiscordEmbed::scheduled_task(
+                        &name_clone,
+                        "Server Restart Initiated",
+                        "Scheduled server restart initiated successfully.",
+                    ),
+                ).await;
+            });
+        }
+        Err(e) => {
+            log::error!(
+                "  Err Scheduled restart failed for server {}: {}",
+                task.server_id,
+                e
+            );
+            let app_handle_clone = app_handle.clone();
+            let name_clone = name.clone();
+            let err_msg = e.to_string();
+            tauri::async_runtime::spawn(async move {
+                crate::services::discord::send_discord_webhook(
+                    &app_handle_clone,
+                    "scheduledRestarts",
+                    crate::services::discord::DiscordEmbed::scheduled_task(
+                        &name_clone,
+                        "Server Restart Failed",
+                        &format!("❌ Scheduled server restart failed: **{}**", err_msg),
+                    ),
+                ).await;
+            });
+        }
     }
 }

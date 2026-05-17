@@ -13,6 +13,7 @@ export interface UpdateSettings {
     autoUpdate: boolean;
     lastCheck: string | null;
     skippedVersions: string[];
+    updateChannel?: 'release' | 'beta' | 'nightly';
 }
 
 const HISTORY_KEY = 'update_history';
@@ -23,6 +24,7 @@ const DEFAULT_SETTINGS: UpdateSettings = {
     autoUpdate: true,
     lastCheck: null,
     skippedVersions: [],
+    updateChannel: 'release',
 };
 
 // Get update history

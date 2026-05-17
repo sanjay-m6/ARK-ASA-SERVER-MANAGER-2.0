@@ -19,7 +19,9 @@ const DEFAULT_ALERTS: AlertConfig[] = [
     { key: 'playerJoin', label: 'Player Join', description: 'When a player joins the server', icon: Users, enabled: false },
     { key: 'playerLeave', label: 'Player Leave', description: 'When a player leaves the server', icon: Users, enabled: false },
     { key: 'serverUpdate', label: 'Server Update', description: 'When server files are updated', icon: RefreshCw, enabled: true },
-    { key: 'backupComplete', label: 'Backup Complete', description: 'When a backup completes successfully', icon: Shield, enabled: true },
+    { key: 'backupCompletion', label: 'Backup Complete', description: 'When a backup completes successfully', icon: Shield, enabled: true },
+    { key: 'serverRecovery', label: 'Server Recovery', description: 'When intelligent auto-recovery runs', icon: Shield, enabled: true },
+    { key: 'scheduledRestarts', label: 'Scheduled Tasks', description: 'Scheduled restarts and warnings', icon: Bell, enabled: true },
 ];
 
 export default function DiscordIntegration() {

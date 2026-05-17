@@ -241,6 +241,71 @@ impl DiscordEmbed {
         }
     }
 
+    pub fn server_recovery(server_name: &str, is_success: bool, details: &str) -> Self {
+        let (title, color, description) = if is_success {
+            (
+                "🟢 Auto-Recovery Success",
+                0x22C55E, // Green
+                format!("Intelligent auto-recovery successfully restarted server **{}**!", server_name),
+            )
+        } else {
+            (
+                "⚠️ Auto-Recovery Failed",
+                0xF59E0B, // Amber/Orange
+                format!("Intelligent auto-recovery failed to restore server **{}**.", server_name),
+            )
+        };
+
+        Self {
+            title: title.to_string(),
+            description,
+            color,
+            fields: vec![EmbedField {
+                name: "Details".to_string(),
+                value: details.to_string(),
+                inline: false,
+            }],
+            footer: Some("ASA Server Manager 2.0".to_string()),
+            timestamp: Some(chrono::Utc::now().to_rfc3339()),
+        }
+    }
+
+    pub fn backup_completed(server_name: &str, backup_type: &str, size: &str, is_success: bool) -> Self {
+        let (title, color, description) = if is_success {
+            (
+                "💾 Backup Completed",
+                0x10B981, // Emerald Green
+                format!("Backup completed successfully for server **{}**.", server_name),
+            )
+        } else {
+            (
+                "❌ Backup Failed",
+                0xEF4444, // Red
+                format!("Backup failed for server **{}**.", server_name),
+            )
+        };
+
+        Self {
+            title: title.to_string(),
+            description,
+            color,
+            fields: vec![
+                EmbedField {
+                    name: "Type".to_string(),
+                    value: backup_type.to_string(),
+                    inline: true,
+                },
+                EmbedField {
+                    name: "Size / Error Details".to_string(),
+                    value: size.to_string(),
+                    inline: true,
+                },
+            ],
+            footer: Some("ASA Server Manager 2.0".to_string()),
+            timestamp: Some(chrono::Utc::now().to_rfc3339()),
+        }
+    }
+
     pub fn player_join(server_name: &str, player_name: &str) -> Self {
         Self {
             title: "👤 Player Joined".to_string(),

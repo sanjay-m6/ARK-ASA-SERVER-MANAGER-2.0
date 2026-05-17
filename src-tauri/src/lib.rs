@@ -386,6 +386,10 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::rcon::rcon_set_time,
             commands::rcon::rcon_message_player,
             commands::rcon::rcon_is_connected,
+            // Discord panel commands
+            commands::discord_panel::get_cluster_servers_health,
+            commands::discord_panel::get_active_players,
+            commands::discord_panel::get_discord_bridge_status,
             // Guardian commands
             services::guardian::get_server_health,
             services::guardian::get_all_server_health,

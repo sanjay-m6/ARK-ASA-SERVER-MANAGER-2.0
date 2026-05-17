@@ -7,6 +7,7 @@ pub mod community;
 pub mod config;
 pub mod cross_chat;
 pub mod discord;
+pub mod discord_panel;
 pub mod file_manager;
 pub mod firewall;
 pub mod import;

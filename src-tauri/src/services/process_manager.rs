@@ -629,6 +629,20 @@ impl ProcessManager {
 
                     // Auto-repair: Clear mod cache and restart without mods
                     if should_auto_repair {
+                        let recovery_handle = monitor_handle.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let name = get_server_name(&recovery_handle, id);
+                            send_discord_webhook(
+                                &recovery_handle,
+                                "serverRecovery",
+                                DiscordEmbed::server_recovery(
+                                    &name,
+                                    true,
+                                    "Intelligent Mode auto-repair triggered. Clearing mod caches and restarting the server without mods...",
+                                ),
+                            ).await;
+                        });
+
                         if let Some(install_path) = server_install_path {
                             let repair_handle = monitor_handle.clone();
                             let repair_id = id;
@@ -720,6 +734,21 @@ impl ProcessManager {
                                                         is_stderr: true,
                                                     },
                                                 );
+
+                                                let fail_handle = repair_handle.clone();
+                                                let fail_err = e.clone();
+                                                tauri::async_runtime::spawn(async move {
+                                                    let name = get_server_name(&fail_handle, repair_id);
+                                                    send_discord_webhook(
+                                                        &fail_handle,
+                                                        "serverRecovery",
+                                                        DiscordEmbed::server_recovery(
+                                                            &name,
+                                                            false,
+                                                            &format!("Auto-repair failed: {}. Manual intervention is required.", fail_err),
+                                                        ),
+                                                    ).await;
+                                                });
                                                 
                                                 // Update status back to stopped
                                                 if let Some(state) = repair_handle.try_state::<AppState>() {
@@ -742,6 +771,20 @@ impl ProcessManager {
                                                         is_stderr: false,
                                                     },
                                                 );
+
+                                                let success_handle = repair_handle.clone();
+                                                tauri::async_runtime::spawn(async move {
+                                                    let name = get_server_name(&success_handle, repair_id);
+                                                    send_discord_webhook(
+                                                        &success_handle,
+                                                        "serverRecovery",
+                                                        DiscordEmbed::server_recovery(
+                                                            &name,
+                                                            true,
+                                                            "Auto-repair successful! Mod caches cleared and server process restarted successfully.",
+                                                        ),
+                                                    ).await;
+                                                });
                                             }
                                         });
                                     }
@@ -947,7 +990,7 @@ impl ProcessManager {
             if let Some(state) = self.app_handle.try_state::<AppState>() {
                 if let Ok(db) = state.db.lock() {
                     if let Ok(conn) = db.get_connection() {
-                        let mut stmt = conn.prepare("SELECT use_all_cores, cpu_affinity, process_priority FROM hardware_allocation WHERE server_id = ?1");
+                        let stmt = conn.prepare("SELECT use_all_cores, cpu_affinity, process_priority FROM hardware_allocation WHERE server_id = ?1");
                         if let Ok(mut stmt) = stmt {
                             let result = stmt.query_row([server_id], |row| {
                                 Ok((

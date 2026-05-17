@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     MessageSquare, Bell, Send, CheckCircle, Loader2, AlertTriangle,
     Users, RefreshCw, Shield, Webhook, Bot, Server as ServerIcon,
@@ -43,12 +44,14 @@ const DEFAULT_ALERTS: AlertConfig[] = [
     { key: 'serverUpdate', label: 'Server Update', description: 'Files updated via SteamCMD', icon: RefreshCw, enabled: true, category: 'server' },
     { key: 'playerJoin', label: 'Player Join', description: 'Player connects', icon: Users, enabled: false, category: 'player' },
     { key: 'playerLeave', label: 'Player Leave', description: 'Player disconnects', icon: Users, enabled: false, category: 'player' },
-    { key: 'backupComplete', label: 'Backup Complete', description: 'Backup finished', icon: Shield, enabled: true, category: 'system' },
-    { key: 'scheduledTask', label: 'Scheduled Task', description: 'Task executed', icon: Clock, enabled: false, category: 'system' },
+    { key: 'backupCompletion', label: 'Backup Complete', description: 'Backup finished', icon: Shield, enabled: true, category: 'system' },
+    { key: 'serverRecovery', label: 'Server Recovery', description: 'Intelligent auto-recovery executed', icon: Shield, enabled: true, category: 'system' },
+    { key: 'scheduledRestarts', label: 'Scheduled Tasks', description: 'Scheduled restarts and warnings', icon: Clock, enabled: true, category: 'system' },
 ];
 
 export default function DiscordBot() {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const { servers, refreshServers } = useServerStore();
     const [webhookUrl, setWebhookUrl] = useState('');
     const [savedWebhookUrl, setSavedWebhookUrl] = useState('');
@@ -68,6 +71,8 @@ export default function DiscordBot() {
         guild_id: '',
         channel_id: '',
         admin_channel_id: '',
+        admin_role_ids: [],
+        moderator_role_ids: [],
         game_to_discord: true,
         discord_to_game: true,
         server_list_enabled: false,
@@ -496,6 +501,15 @@ export default function DiscordBot() {
                         </div>
                         <span className="text-xs font-bold uppercase tracking-wider">{connectionStatus}</span>
                     </div>
+
+                    {/* Control Panel Button */}
+                    <button
+                        onClick={() => navigate('/tools/discord-control')}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all shadow-sm font-medium text-sm"
+                    >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Control Panel</span>
+                    </button>
 
                     {/* Live Mode Toggle */}
                     <button
@@ -950,6 +964,38 @@ export default function DiscordBot() {
                                     />
                                     <p className="text-xs text-slate-500 mt-2">
                                         <span dangerouslySetInnerHTML={{ __html: t('discordBot.admin.desc') }} />
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                        {t('discordBot.admin.adminRoles', 'Admin Role IDs (Comma separated)')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={bridgeConfig.admin_role_ids.join(', ')}
+                                        onChange={e => setBridgeConfig(c => ({ ...c, admin_role_ids: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
+                                        placeholder="Role ID 1, Role ID 2"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        {t('discordBot.admin.adminRolesDesc', 'Roles that have full control over bot commands.')}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                        {t('discordBot.admin.modRoles', 'Moderator Role IDs (Comma separated)')}
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={bridgeConfig.moderator_role_ids.join(', ')}
+                                        onChange={e => setBridgeConfig(c => ({ ...c, moderator_role_ids: e.target.value.split(',').map(s => s.trim()).filter(Boolean) }))}
+                                        placeholder="Role ID 1, Role ID 2"
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500 font-mono text-sm"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        {t('discordBot.admin.modRolesDesc', 'Roles that can perform safe actions like broadcasts or status checks.')}
                                     </p>
                                 </div>
 

@@ -57,7 +57,9 @@ export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
     }
 
     try {
-        const update = await check();
+        const settings = getUpdateSettings();
+        const target = settings.updateChannel || 'release';
+        const update = await check({ target });
         updateLastCheck();
 
         if (update) {
@@ -105,72 +107,6 @@ export default function UpdateChecker() {
     
     const [settingsRevision, setSettingsRevision] = useState(0); // Used to trigger interval restart
     const [currentAppVersion, setCurrentAppVersion] = useState<string>('');
-
-    // Load current version on mount
-    useEffect(() => {
-        getVersion().then(v => {
-            setCurrentAppVersion(v);
-            // Auto-prune skipped versions that are now irrelevant
-            pruneSkippedVersions(v);
-        }).catch(console.error);
-    }, []);
-
-    const checkForUpdates = useCallback(async (isManual = false) => {
-        if (!isManual && checkInProgress) return;
-        if (!isManual && !acquireCheckLock()) return;
-
-        try {
-            const update = await check();
-            updateLastCheck();
-
-            if (update) {
-                // Check if user skipped this version
-                if (!isManual && isVersionSkipped(update.version)) {
-                    console.log(`Version ${update.version} was skipped by user`);
-                    return;
-                }
-
-                const info = {
-                    version: update.version,
-                    body: update.body || t('updateChecker.title', 'New Update Available'),
-                };
-
-                setUpdateAvailable(info);
-                setUpdateObj(update);
-
-                lastCheckResult = {
-                    available: true,
-                    update: info,
-                    error: null,
-                };
-
-                const settings = getUpdateSettings();
-                if (settings.autoUpdate && !isManual) {
-                    // Silently download and install in the background
-                    downloadAndInstall(update, info, true);
-                } else {
-                    setUiState('prompt');
-                }
-            }
-        } catch (err) {
-            console.error('Update check failed:', err);
-        } finally {
-            if (!isManual) releaseCheckLock();
-        }
-    }, []);
-
-    const handleSkipVersion = () => {
-        if (updateAvailable) {
-            skipVersion(updateAvailable.version);
-            addUpdateHistory({
-                version: updateAvailable.version,
-                action: 'skipped',
-                previousVersion: currentAppVersion,
-            });
-            setUiState('hidden');
-        }
-    };
-
     const downloadAndInstall = async (
         updater: Awaited<ReturnType<typeof check>> | null = updateObj, 
         info: {version: string} | null = updateAvailable, 
@@ -221,6 +157,73 @@ export default function UpdateChecker() {
             });
 
             setUiState('prompt'); // Revert to prompt to show error
+        }
+    };
+
+    // Load current version on mount
+    useEffect(() => {
+        getVersion().then(v => {
+            setCurrentAppVersion(v);
+            // Auto-prune skipped versions that are now irrelevant
+            pruneSkippedVersions(v);
+        }).catch(console.error);
+    }, []);
+
+    const checkForUpdates = useCallback(async (isManual = false) => {
+        if (!isManual && checkInProgress) return;
+        if (!isManual && !acquireCheckLock()) return;
+
+        try {
+            const settings = getUpdateSettings();
+            const target = settings.updateChannel || 'release';
+            const update = await check({ target });
+            updateLastCheck();
+
+            if (update) {
+                // Check if user skipped this version
+                if (!isManual && isVersionSkipped(update.version)) {
+                    console.log(`Version ${update.version} was skipped by user`);
+                    return;
+                }
+
+                const info = {
+                    version: update.version,
+                    body: update.body || t('updateChecker.title', 'New Update Available'),
+                };
+
+                setUpdateAvailable(info);
+                setUpdateObj(update);
+
+                lastCheckResult = {
+                    available: true,
+                    update: info,
+                    error: null,
+                };
+
+                const settings = getUpdateSettings();
+                if (settings.autoUpdate && !isManual) {
+                    // Silently download and install in the background
+                    downloadAndInstall(update, info, true);
+                } else {
+                    setUiState('prompt');
+                }
+            }
+        } catch (err) {
+            console.error('Update check failed:', err);
+        } finally {
+            if (!isManual) releaseCheckLock();
+        }
+    }, [downloadAndInstall, t]);
+
+    const handleSkipVersion = () => {
+        if (updateAvailable) {
+            skipVersion(updateAvailable.version);
+            addUpdateHistory({
+                version: updateAvailable.version,
+                action: 'skipped',
+                previousVersion: currentAppVersion,
+            });
+            setUiState('hidden');
         }
     };
 

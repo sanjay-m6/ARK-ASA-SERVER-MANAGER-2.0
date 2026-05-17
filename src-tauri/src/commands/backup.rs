@@ -18,21 +18,21 @@ pub async fn create_backup(
     );
 
     // Get server info from database
-    let (install_path, app_data_dir) = {
+    let (install_path, app_data_dir, server_name) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        let install_path: String = conn
+        let (install_path, server_name): (String, String) = conn
             .query_row(
-                "SELECT install_path FROM servers WHERE id = ?1",
+                "SELECT install_path, name FROM servers WHERE id = ?1",
                 [server_id],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .map_err(|e| format!("Server not found: {}", e))?;
 
         // Get app data dir for backups
         let app_data_dir = PathBuf::from("C:/ASA_Backups");
-        (install_path, app_data_dir)
+        (install_path, app_data_dir, server_name)
     };
 
     let backup_type_enum = match backup_type.as_str() {
@@ -46,13 +46,36 @@ pub async fn create_backup(
     let backup_options = options.unwrap_or_default();
     let backup_dir = BackupService::get_backup_dir(&app_data_dir, server_id);
 
-    let mut backup = BackupService::create_backup(
+    let backup_res = BackupService::create_backup(
         &PathBuf::from(&install_path),
         &backup_dir,
         server_id,
         backup_type_enum,
         &backup_options,
-    )?;
+    );
+
+    let mut backup = match backup_res {
+        Ok(b) => b,
+        Err(e) => {
+            let app_handle = state.app_handle.clone();
+            let name_clone = server_name.clone();
+            let backup_type_str = backup_type.clone();
+            let err_msg = e.clone();
+            tauri::async_runtime::spawn(async move {
+                crate::services::discord::send_discord_webhook(
+                    &app_handle,
+                    "backupCompletion",
+                    crate::services::discord::DiscordEmbed::backup_completed(
+                        &name_clone,
+                        &backup_type_str,
+                        &format!("Failed: {}", err_msg),
+                        false,
+                    ),
+                ).await;
+            });
+            return Err(e);
+        }
+    };
 
     // Save backup to database
     {
@@ -81,6 +104,33 @@ pub async fn create_backup(
     }
 
     println!("  ✅ Backup created: ID {}", backup.id);
+
+    // Send Discord notification for backup completion
+    let app_handle = state.app_handle.clone();
+    let name_clone = server_name.clone();
+    let size_bytes = backup.size;
+    let backup_type_str = backup_type.clone();
+    tauri::async_runtime::spawn(async move {
+        // Human readable size
+        let size_mb = size_bytes as f64 / 1024.0 / 1024.0;
+        let size_str = if size_mb >= 1024.0 {
+            format!("{:.2} GB", size_mb / 1024.0)
+        } else {
+            format!("{:.2} MB", size_mb)
+        };
+
+        crate::services::discord::send_discord_webhook(
+            &app_handle,
+            "backupCompletion",
+            crate::services::discord::DiscordEmbed::backup_completed(
+                &name_clone,
+                &backup_type_str,
+                &size_str,
+                true,
+            ),
+        ).await;
+    });
+
     Ok(backup)
 }
 

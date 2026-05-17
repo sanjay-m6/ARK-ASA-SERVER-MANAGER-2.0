@@ -583,6 +583,8 @@ export interface DiscordBridgeConfig {
     guild_id: string;
     channel_id: string;
     admin_channel_id: string; // New field
+    admin_role_ids: string[];
+    moderator_role_ids: string[];
     game_to_discord: boolean;
     discord_to_game: boolean;
     server_list_enabled: boolean;
