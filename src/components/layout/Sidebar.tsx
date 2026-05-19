@@ -296,8 +296,8 @@ export default function Sidebar() {
             )}></div>
           </div>
           <div className="mt-3 text-[10px] text-slate-500 flex items-center justify-center gap-1 font-mono">
-            <span>v{appVersion}</span>
-            {appVersion.includes('beta') && (
+            <span>v{appVersion.replace('-0', '-beta')}</span>
+            {(appVersion.includes('beta') || appVersion.includes('-0')) && (
               <span className={cn(
                 "px-1 py-0.2 text-[8px] font-extrabold tracking-wider rounded uppercase scale-90 origin-center leading-none",
                 isASE

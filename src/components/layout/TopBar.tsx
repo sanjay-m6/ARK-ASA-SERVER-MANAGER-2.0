@@ -142,8 +142,8 @@ export default function TopBar() {
                 <div className="flex flex-col items-end">
                     <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">{t('common.version', 'VERSION')}</span>
                     <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-slate-300">v{appVersion}</span>
-                        {appVersion.includes('beta') && (
+                        <span className="text-sm font-bold text-slate-300">v{appVersion.replace('-0', '-beta')}</span>
+                        {(appVersion.includes('beta') || appVersion.includes('-0')) && (
                             <span className={cn(
                                 "px-1.5 py-0.5 text-[8px] font-extrabold tracking-wider rounded border uppercase backdrop-blur-sm leading-none",
                                 isASE
