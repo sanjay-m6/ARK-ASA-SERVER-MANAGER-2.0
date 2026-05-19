@@ -32,7 +32,7 @@ const defaultSortOptions: SaveSortOptions = {
   sortOrder: 'desc',
 };
 
-export const useAutoSaveStore = create<AutoSaveStore>((set, get) => ({
+export const useAutoSaveStore = create<AutoSaveStore>((set) => ({
   // =========================================================================
   // State
   // =========================================================================
@@ -59,9 +59,9 @@ export const useAutoSaveStore = create<AutoSaveStore>((set, get) => ({
   // =========================================================================
 
   setSaves: (saves: AutoSave[]) => {
-    set((state) => ({
+    set({
       saves: new Map(saves.map((save) => [save.id, save])),
-    }));
+    });
   },
 
   addSave: (save: AutoSave) => {
@@ -363,16 +363,16 @@ export const useAutoSaveActions = () => {
   const store = useAutoSaveStore();
 
   return {
-    loadSaves: async (serverId: number) => {
+    loadSaves: async (_serverId: number) => {
       // Implementation in API utilities
     },
-    refreshStatistics: async (serverId: number) => {
+    refreshStatistics: async (_serverId: number) => {
       // Implementation in API utilities
     },
     restoreSave: async (
-      serverId: number,
-      saveId: number,
-      createBackup: boolean
+      _serverId: number,
+      _saveId: number,
+      _createBackup: boolean
     ) => {
       // Implementation in API utilities
     },

@@ -21,15 +21,12 @@ import {
     Layers,
     Search,
     Play,
-    CheckCircle2,
     XCircle,
     Database,
     ShieldCheck,
     Eye,
     EyeOff,
     Check,
-    Sparkles,
-    Sliders,
     Pause,
     History
 } from 'lucide-react';

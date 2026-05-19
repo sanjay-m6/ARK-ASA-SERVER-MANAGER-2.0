@@ -11,7 +11,7 @@ import {
     checkAsaApiInstalled,
     getAllServers
 } from '../utils/tauri';
-import { PluginInfo, Server as ServerType } from '../types';
+import { PluginInfo } from '../types';
 import toast from 'react-hot-toast';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import ServerSelect from '../components/ui/ServerSelect';
@@ -20,7 +20,6 @@ import ServerSelect from '../components/ui/ServerSelect';
 const PLUGIN_REPOSITORY_URL = 'https://ark-server-api.com/';
 
 export default function PluginManager() {
-    const [servers, setServers] = useState<ServerType[]>([]);
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const [plugins, setPlugins] = useState<PluginInfo[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -49,7 +48,6 @@ export default function PluginManager() {
     const loadServers = async () => {
         try {
             const result = await getAllServers();
-            setServers(result);
             // Auto-select first server if available
             if (result.length > 0 && !selectedServerId) {
                 setSelectedServerId(result[0].id);

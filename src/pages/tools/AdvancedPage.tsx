@@ -86,7 +86,7 @@ export default function AdvancedPage() {
                         <ServerSelect 
                             value={selectedServerId} 
                             onChange={setSelectedServerId} 
-                            accentColor="rose" 
+                            accentColor="amber" 
                         />
                     </div>
 

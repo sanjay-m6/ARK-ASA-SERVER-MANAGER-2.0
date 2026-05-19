@@ -44,7 +44,7 @@ const TASK_TYPES = [
 
 export default function Scheduler() {
     const { t } = useTranslation();
-    const { servers, setServers } = useServerStore();
+    const { setServers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const [settings, setSettings] = useState<SchedulerSettings | null>(null);
     const [tasks, setTasks] = useState<ScheduledTask[]>([]);

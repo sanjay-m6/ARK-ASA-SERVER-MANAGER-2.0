@@ -8,6 +8,7 @@ import {
   MoreVertical,
   Minimize2,
   Maximize2,
+  Zap,
   Tag,
   FileText,
   Trash2,

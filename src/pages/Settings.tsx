@@ -47,7 +47,7 @@ export default function Settings() {
     const [silentHeadlessStartup, setSilentHeadlessStartup] = useState(false);
 
     const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language' | 'cloud' | 'startup'>('api');
-    const { servers, setServers } = useServerStore();
+    const { setServers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const { t, i18n } = useTranslation();
 

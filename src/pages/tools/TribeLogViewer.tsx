@@ -7,7 +7,6 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { getTribeLogs, getAllServers, type TribeLogEntry, type TribeLogResult } from '../../utils/tauri';
-import { Server } from '../../types';
 import toast from 'react-hot-toast';
 import ServerSelect from '../../components/ui/ServerSelect';
 
@@ -29,7 +28,6 @@ const EVENT_CONFIG: Record<string, { icon: any; color: string; label: string }> 
 
 export default function TribeLogViewer() {
     const { t } = useTranslation();
-    const [servers, setServers] = useState<Server[]>([]);
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const [logResult, setLogResult] = useState<TribeLogResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +37,6 @@ export default function TribeLogViewer() {
     useEffect(() => {
         getAllServers()
             .then((s) => {
-                setServers(s);
                 if (s.length > 0) setSelectedServerId(s[0].id);
             })
             .catch(console.error);
@@ -102,7 +99,7 @@ export default function TribeLogViewer() {
                     <ServerSelect 
                         value={selectedServerId} 
                         onChange={setSelectedServerId} 
-                        accentColor="violet" 
+                        accentColor="purple" 
                     />
                     <button
                         onClick={loadLogs}
