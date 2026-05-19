@@ -2,12 +2,10 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDown,
-  ChevronRight,
   Folder,
   MoreVertical,
   Edit2,
   Trash2,
-  Plus,
   FolderPlus,
   Hash,
 } from 'lucide-react';
@@ -48,7 +46,7 @@ export const ServerFolderComponent: React.FC<ServerFolderComponentProps> = ({
   const [showMenu, setShowMenu] = useState(false);
 
   const isSelected = selectedFolder?.id === folder.id;
-  const serverCount = folder.server_ids?.length ?? 0;
+  const serverCount = folder.serverIds?.length ?? 0;
   const hasChildren = (folder.children?.length ?? 0) > 0;
   const paddingLeft = level * 16;
 

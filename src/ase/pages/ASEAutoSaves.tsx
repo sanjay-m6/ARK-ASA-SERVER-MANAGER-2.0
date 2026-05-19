@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { RotateCcw } from 'lucide-react';
 import { useAseServerStore } from '../stores/aseServerStore';
 import ServerSelect from '../../components/ui/ServerSelect';
@@ -14,7 +13,6 @@ import AutoSavePreferencesPanel from '../../components/autosave/AutoSavePreferen
 import { History, LayoutGrid, GitCompare, Settings } from 'lucide-react';
 
 export default function ASEAutoSaves() {
-    const { t } = useTranslation();
     const { servers } = useAseServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const { loadSaves, restoreSave } = useAutoSaveActions();

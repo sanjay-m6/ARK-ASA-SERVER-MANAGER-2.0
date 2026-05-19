@@ -33,8 +33,8 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<ServerFilter>({});
   const [sort, setSort] = useState<ServerSortOptions>({
-    sort_by: 'name',
-    sort_order: 'asc',
+    sortBy: 'name',
+    sortOrder: 'asc',
   });
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
@@ -45,7 +45,7 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
   }, [servers]);
 
   const uniqueMaps = useMemo(() => {
-    return Array.from(new Set(servers.map((s) => s.config.map_name))).sort();
+    return Array.from(new Set(servers.map((s) => s.config.mapName))).sort();
   }, [servers]);
 
   // Filter servers
@@ -57,8 +57,8 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
       const lowerQuery = searchQuery.toLowerCase();
       result = result.filter((server) =>
         server.name.toLowerCase().includes(lowerQuery) ||
-        server.config.map_name.toLowerCase().includes(lowerQuery) ||
-        server.config.session_name.toLowerCase().includes(lowerQuery)
+        server.config.mapName.toLowerCase().includes(lowerQuery) ||
+        server.config.sessionName.toLowerCase().includes(lowerQuery)
       );
     }
 
@@ -68,15 +68,15 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
     }
 
     // Map filter
-    if (filter.map_name && filter.map_name.length > 0) {
-      result = result.filter((server) => filter.map_name!.includes(server.config.map_name));
+    if (filter.mapName && filter.mapName.length > 0) {
+      result = result.filter((server) => filter.mapName!.includes(server.config.mapName));
     }
 
     // Sort
     result.sort((a, b) => {
       let comparison = 0;
 
-      switch (sort.sort_by) {
+      switch (sort.sortBy) {
         case 'name':
           comparison = a.name.localeCompare(b.name);
           break;
@@ -84,18 +84,18 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
           comparison = a.status.localeCompare(b.status);
           break;
         case 'created_at':
-          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         case 'last_started':
-          const aTime = a.last_started ? new Date(a.last_started).getTime() : 0;
-          const bTime = b.last_started ? new Date(b.last_started).getTime() : 0;
+          const aTime = a.lastStarted ? new Date(a.lastStarted).getTime() : 0;
+          const bTime = b.lastStarted ? new Date(b.lastStarted).getTime() : 0;
           comparison = aTime - bTime;
           break;
         default:
           comparison = 0;
       }
 
-      return sort.sort_order === 'asc' ? comparison : -comparison;
+      return sort.sortOrder === 'asc' ? comparison : -comparison;
     });
 
     return result;
@@ -105,7 +105,7 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
   const handleSearchChange = useCallback(
     (query: string) => {
       setSearchQuery(query);
-      onFilterChange?.({ ...filter, search_query: query || undefined });
+      onFilterChange?.({ ...filter, searchQuery: query || undefined });
       onFiltered?.(filteredServers);
     },
     [filter, filteredServers, onFilterChange, onFiltered]
@@ -131,12 +131,12 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
   const handleMapFilterChange = useCallback(
     (map: string, checked: boolean) => {
       const newMaps = checked
-        ? [...(filter.map_name || []), map]
-        : (filter.map_name || []).filter((m) => m !== map);
+        ? [...(filter.mapName || []), map]
+        : (filter.mapName || []).filter((m: string) => m !== map);
 
       const newFilter = {
         ...filter,
-        map_name: newMaps.length > 0 ? newMaps : undefined,
+        mapName: newMaps.length > 0 ? newMaps : undefined,
       };
 
       setFilter(newFilter);
@@ -148,8 +148,8 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
   const handleSortChange = useCallback(
     (sortBy: string) => {
       const newSort: ServerSortOptions = {
-        sort_by: sortBy as any,
-        sort_order: sort.sort_order,
+        sortBy: sortBy as any,
+        sortOrder: sort.sortOrder,
       };
 
       setSort(newSort);
@@ -162,7 +162,7 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
   const handleSortOrderChange = useCallback(() => {
     const newSort: ServerSortOptions = {
       ...sort,
-      sort_order: sort.sort_order === 'asc' ? 'desc' : 'asc',
+      sortOrder: sort.sortOrder === 'asc' ? 'desc' : 'asc',
     };
 
     setSort(newSort);
@@ -178,10 +178,10 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
   const activeFilterCount = useMemo(() => {
     let count = searchQuery ? 1 : 0;
     if (filter.status?.length) count++;
-    if (filter.map_name?.length) count++;
+    if (filter.mapName?.length) count++;
     if (filter.tags?.length) count++;
-    if (filter.is_favorite !== undefined) count++;
-    if (filter.is_archived !== undefined) count++;
+    if (filter.isFavorite !== undefined) count++;
+    if (filter.isArchived !== undefined) count++;
     return count;
   }, [filter, searchQuery]);
 
@@ -217,7 +217,7 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
             onClick={() => setShowSortMenu(!showSortMenu)}
             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700/50 border border-slate-600 text-sm text-slate-300 hover:bg-slate-700 hover:border-slate-500 transition-all"
           >
-            <span>Sort: {SORT_OPTIONS.find((o) => o.value === sort.sort_by)?.label}</span>
+            <span>Sort: {SORT_OPTIONS.find((o) => o.value === sort.sortBy)?.label}</span>
             <ChevronDown className="h-4 w-4" />
           </motion.button>
 
@@ -235,7 +235,7 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
                     onClick={() => handleSortChange(option.value)}
                     className={cn(
                       'flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors',
-                      sort.sort_by === option.value
+                      sort.sortBy === option.value
                         ? 'bg-purple-600/20 text-purple-300'
                         : 'text-slate-300 hover:bg-slate-700/50'
                     )}
@@ -255,7 +255,7 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
           onClick={handleSortOrderChange}
           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700/50 border border-slate-600 text-sm text-slate-300 hover:bg-slate-700 hover:border-slate-500 transition-all"
         >
-          <span>{sort.sort_order === 'asc' ? '↑' : '↓'}</span>
+          <span>{sort.sortOrder === 'asc' ? '↑' : '↓'}</span>
         </motion.button>
 
         {/* Advanced Filters Toggle */}
@@ -340,7 +340,7 @@ export const ServerSearchFilter: React.FC<ServerSearchFilterProps> = ({
                   >
                     <input
                       type="checkbox"
-                      checked={filter.map_name?.includes(map) ?? false}
+                      checked={filter.mapName?.includes(map) ?? false}
                       onChange={(e) => handleMapFilterChange(map, e.target.checked)}
                       className="w-4 h-4 rounded border-slate-600 bg-slate-800 accent-purple-500 cursor-pointer"
                     />

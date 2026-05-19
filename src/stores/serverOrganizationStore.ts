@@ -119,7 +119,7 @@ export const useServerOrganizationStore = create<ServerOrganizationStore>((set, 
   
   updateServerCustomization: (customization) => set((state) => {
     const newCustomizations = new Map(state.customizations);
-    newCustomizations.set(customization.server_id, customization);
+    newCustomizations.set(customization.serverId, customization);
     return { customizations: newCustomizations };
   }),
   
@@ -130,7 +130,7 @@ export const useServerOrganizationStore = create<ServerOrganizationStore>((set, 
     const newCustomizations = new Map(state.customizations);
     newCustomizations.set(serverId, {
       ...customization,
-      is_pinned: !customization.is_pinned,
+      isPinned: !customization.isPinned,
     });
     return { customizations: newCustomizations };
   }),
@@ -142,7 +142,7 @@ export const useServerOrganizationStore = create<ServerOrganizationStore>((set, 
     const newCustomizations = new Map(state.customizations);
     newCustomizations.set(serverId, {
       ...customization,
-      is_minimized: !customization.is_minimized,
+      isMinimized: !customization.isMinimized,
     });
     return { customizations: newCustomizations };
   }),
@@ -195,7 +195,7 @@ export const useServerOrganizationStore = create<ServerOrganizationStore>((set, 
     const newCustomizations = new Map(state.customizations);
     newCustomizations.set(serverId, {
       ...customization,
-      color_tag: color,
+      colorTag: color,
     });
     return { customizations: newCustomizations };
   }),
@@ -211,10 +211,10 @@ export const useServerOrganizationStore = create<ServerOrganizationStore>((set, 
     const newArchived = new Map(state.archivedServers);
     newArchived.set(serverId, {
       id: serverId,
-      server_id: serverId,
-      archived_at: new Date().toISOString(),
-      archive_reason: reason,
-      archived_by: undefined,
+      serverId: serverId,
+      archivedAt: new Date().toISOString(),
+      archiveReason: reason,
+      archivedBy: undefined,
       notes,
     });
     return { archivedServers: newArchived };
@@ -227,7 +227,7 @@ export const useServerOrganizationStore = create<ServerOrganizationStore>((set, 
   }),
   
   setArchivedServers: (archives) => set(() => {
-    const map = new Map(archives.map((a) => [a.server_id, a]));
+    const map = new Map(archives.map((a) => [a.serverId, a]));
     return { archivedServers: map };
   }),
 
@@ -273,20 +273,20 @@ export const useServerOrganizationStore = create<ServerOrganizationStore>((set, 
 
   // Filtering and Sorting
   currentFilter: {
-    search_query: undefined,
+    searchQuery: undefined,
     status: undefined,
-    map_name: undefined,
-    folder_id: undefined,
-    group_id: undefined,
+    mapName: undefined,
+    folderId: undefined,
+    groupId: undefined,
     tags: undefined,
-    is_favorite: undefined,
-    is_archived: undefined,
-    is_pinned: undefined,
+    isFavorite: undefined,
+    isArchived: undefined,
+    isPinned: undefined,
   },
   
   currentSort: {
-    sort_by: 'name',
-    sort_order: 'asc',
+    sortBy: 'name',
+    sortOrder: 'asc',
   },
   
   setFilter: (filter) => set({ currentFilter: filter }),

@@ -1,13 +1,11 @@
 // Auto-Save Browser Component
 // Main interface for browsing, searching, and managing auto-saves
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDown,
   Search,
-  Plus,
-  Trash2,
   Shield,
   Star,
   Clock,
@@ -16,11 +14,7 @@ import {
   Grid3x3,
   List,
   MoreVertical,
-  Download,
   Zap,
-  Eye,
-  EyeOff,
-  Check,
 } from 'lucide-react';
 import { useAutoSaveStore, selectFilteredAndSortedSaves } from '@/stores/autoSaveStore';
 import { AutoSave, SaveBrowserViewMode } from '@/types/autosave';

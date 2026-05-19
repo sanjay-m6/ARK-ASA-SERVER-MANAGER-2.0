@@ -4,27 +4,20 @@ import {
   Pin,
   Star,
   Archive,
-  ChevronDown,
-  ChevronUp,
   Edit2,
   MoreVertical,
   Minimize2,
   Maximize2,
   Zap,
-  Users,
-  Clock,
-  AlertCircle,
   Tag,
   FileText,
-  Palette,
-  Copy,
   Trash2,
+  RotateCw,
+  Square,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useServerOrganizationStore } from '../../stores/serverOrganizationStore';
-import { useServerStore } from '../../stores/serverStore';
 import type { Server } from '../../types';
-import type { ServerCustomization } from '../../types/server-organization';
 import { cn } from '../../utils/helpers';
 
 interface EnhancedServerCardProps {
@@ -57,16 +50,16 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState(customization?.display_name || server.name);
+  const [renameValue, setRenameValue] = useState(customization?.displayName || server.name);
   const [showNotes, setShowNotes] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const displayName = customization?.display_name || server.name;
-  const isMinimized = customization?.is_minimized ?? false;
-  const isPinned = customization?.is_pinned ?? false;
+  const displayName = customization?.displayName || server.name;
+  const isMinimized = customization?.isMinimized ?? false;
+  const isPinned = customization?.isPinned ?? false;
   const isFavorite = customization?.favorite ?? false;
   const tags = customization?.tags ?? [];
-  const colorTag = customization?.color_tag;
+  const colorTag = customization?.colorTag;
   const notes = customization?.notes;
 
   const getStatusColor = (status: string) => {
@@ -86,27 +79,22 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
     }
   };
 
-  const getColorBg = (color?: string) => {
-    if (!color) return 'bg-gradient-to-br from-slate-700 to-slate-900';
-    return `bg-gradient-to-br from-[${color}]/20 to-[${color}]/5`;
-  };
-
   const handleTogglePin = () => {
     updateServerCustomization({
       ...(customization || {
-        server_id: server.id,
-        display_name: server.name,
-        color_tag: undefined,
-        is_pinned: false,
-        pin_order: 0,
-        is_minimized: false,
+        serverId: server.id,
+        displayName: server.name,
+        colorTag: undefined,
+        isPinned: false,
+        pinOrder: 0,
+        isMinimized: false,
         tags: [],
         favorite: false,
         notes: undefined,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }),
-      is_pinned: !isPinned,
+      isPinned: !isPinned,
     });
     toast.success(isPinned ? 'Server unpinned' : 'Server pinned to top');
   };
@@ -114,17 +102,17 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
   const handleToggleFavorite = () => {
     updateServerCustomization({
       ...(customization || {
-        server_id: server.id,
-        display_name: server.name,
-        color_tag: undefined,
-        is_pinned: false,
-        pin_order: 0,
-        is_minimized: false,
+        serverId: server.id,
+        displayName: server.name,
+        colorTag: undefined,
+        isPinned: false,
+        pinOrder: 0,
+        isMinimized: false,
         tags: [],
         favorite: false,
         notes: undefined,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }),
       favorite: !isFavorite,
     });
@@ -134,39 +122,39 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
   const handleToggleMinimize = () => {
     updateServerCustomization({
       ...(customization || {
-        server_id: server.id,
-        display_name: server.name,
-        color_tag: undefined,
-        is_pinned: false,
-        pin_order: 0,
-        is_minimized: false,
+        serverId: server.id,
+        displayName: server.name,
+        colorTag: undefined,
+        isPinned: false,
+        pinOrder: 0,
+        isMinimized: false,
         tags: [],
         favorite: false,
         notes: undefined,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }),
-      is_minimized: !isMinimized,
+      isMinimized: !isMinimized,
     });
   };
 
   const handleRename = () => {
-    if (renameValue && renameValue !== customization?.display_name) {
+    if (renameValue && renameValue !== customization?.displayName) {
       updateServerCustomization({
         ...(customization || {
-          server_id: server.id,
-          display_name: renameValue,
-          color_tag: undefined,
-          is_pinned: false,
-          pin_order: 0,
-          is_minimized: false,
+          serverId: server.id,
+          displayName: renameValue,
+          colorTag: undefined,
+          isPinned: false,
+          pinOrder: 0,
+          isMinimized: false,
           tags: [],
           favorite: false,
           notes: undefined,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         }),
-        display_name: renameValue,
+        displayName: renameValue,
       });
       toast.success('Server renamed');
     }
@@ -178,17 +166,17 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
       const newTags = [...tags, tag];
       updateServerCustomization({
         ...(customization || {
-          server_id: server.id,
-          display_name: server.name,
-          color_tag: undefined,
-          is_pinned: false,
-          pin_order: 0,
-          is_minimized: false,
+          serverId: server.id,
+          displayName: server.name,
+          colorTag: undefined,
+          isPinned: false,
+          pinOrder: 0,
+          isMinimized: false,
           tags: [],
           favorite: false,
           notes: undefined,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         }),
         tags: newTags,
       });
@@ -199,17 +187,17 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
     const newTags = tags.filter((t) => t !== tag);
     updateServerCustomization({
       ...(customization || {
-        server_id: server.id,
-        display_name: server.name,
-        color_tag: undefined,
-        is_pinned: false,
-        pin_order: 0,
-        is_minimized: false,
+        serverId: server.id,
+        displayName: server.name,
+        colorTag: undefined,
+        isPinned: false,
+        pinOrder: 0,
+        isMinimized: false,
         tags: [],
         favorite: false,
         notes: undefined,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }),
       tags: newTags,
     });
@@ -227,10 +215,10 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
       )}
     >
       {/* Background Banner */}
-      {customization?.custom_banner && (
+      {customization?.customBanner && (
         <div
           className="absolute inset-x-0 top-0 h-24 rounded-t-lg bg-cover bg-center opacity-20"
-          style={{ backgroundImage: `url(${customization.custom_banner})` }}
+          style={{ backgroundImage: `url(${customization.customBanner})` }}
         />
       )}
 
@@ -423,12 +411,12 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded bg-slate-700/50 p-2">
                   <p className="text-slate-400">Map</p>
-                  <p className="font-medium text-white truncate">{server.config.map_name}</p>
+                  <p className="font-medium text-white truncate">{server.config.mapName}</p>
                 </div>
                 <div className="rounded bg-slate-700/50 p-2">
                   <p className="text-slate-400">Players</p>
                   <p className="font-medium text-white">
-                    0/{server.config.max_players}
+                    0/{server.config.maxPlayers}
                   </p>
                 </div>
               </div>
@@ -468,17 +456,17 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
                           if (e.currentTarget.value !== notes) {
                             updateServerCustomization({
                               ...(customization || {
-                                server_id: server.id,
-                                display_name: server.name,
-                                color_tag: undefined,
-                                is_pinned: false,
-                                pin_order: 0,
-                                is_minimized: false,
+                                serverId: server.id,
+                                displayName: server.name,
+                                colorTag: undefined,
+                                isPinned: false,
+                                pinOrder: 0,
+                                isMinimized: false,
                                 tags: [],
                                 favorite: false,
                                 notes: undefined,
-                                created_at: new Date().toISOString(),
-                                updated_at: new Date().toISOString(),
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString(),
                               }),
                               notes: e.currentTarget.value,
                             });
@@ -540,7 +528,7 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
               <span className={cn('px-2 py-1 rounded font-medium border', getStatusColor(server.status))}>
                 {server.status.toUpperCase()}
               </span>
-              <span className="text-slate-400">{server.config.map_name}</span>
+              <span className="text-slate-400">{server.config.mapName}</span>
             </motion.div>
           )}
         </AnimatePresence>

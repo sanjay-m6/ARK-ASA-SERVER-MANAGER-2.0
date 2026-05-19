@@ -8,19 +8,15 @@ import {
   Zap,
   Archive,
   LayoutGrid,
-  Settings,
   Plus,
   ChevronDown,
-  X,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useTranslation } from 'react-i18next';
 import { useServerStore } from '../../stores/serverStore';
 import { useServerOrganizationStore } from '../../stores/serverOrganizationStore';
 import EnhancedServerCard from './EnhancedServerCard';
 import ServerFolder from './ServerFolder';
 import type { Server } from '../../types';
-import type { ServerFolder as ServerFolderType } from '../../types/server-organization';
 import { cn } from '../../utils/helpers';
 
 interface EnhancedDashboardProps {
@@ -42,17 +38,13 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
   onArchiveServer,
   onRestoreServer,
 }) => {
-  const { t } = useTranslation();
   const { servers } = useServerStore();
   const {
     folders,
     selectedFolder,
     archivedServers,
     customizations,
-    currentFilter,
     currentSort,
-    setFilter,
-    setSort,
     archiveServer,
     restoreServer,
   } = useServerOrganizationStore();
@@ -74,14 +66,14 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
 
       // Folder filter
       if (selectedFolder) {
-        const isInFolder = selectedFolder.server_ids?.includes(server.id) ?? false;
+        const isInFolder = selectedFolder.serverIds?.includes(server.id) ?? false;
         if (!isInFolder) return false;
       }
 
       // Search filter
       if (searchQuery) {
         const lowerQuery = searchQuery.toLowerCase();
-        const serverName = (customizations.get(server.id)?.display_name || server.name).toLowerCase();
+        const serverName = (customizations.get(server.id)?.displayName || server.name).toLowerCase();
         if (!serverName.includes(lowerQuery)) return false;
       }
 
@@ -98,25 +90,25 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
       const aCustom = customizations.get(a.id);
       const bCustom = customizations.get(b.id);
 
-      const aName = aCustom?.display_name || a.name;
-      const bName = bCustom?.display_name || b.name;
+      const aName = aCustom?.displayName || a.name;
+      const bName = bCustom?.displayName || b.name;
 
       let comparison = 0;
-      if (currentSort.sort_by === 'name') {
+      if (currentSort.sortBy === 'name') {
         comparison = aName.localeCompare(bName);
-      } else if (currentSort.sort_by === 'status') {
+      } else if (currentSort.sortBy === 'status') {
         comparison = a.status.localeCompare(b.status);
-      } else if (currentSort.sort_by === 'created_at') {
-        comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      } else if (currentSort.sortBy === 'created_at') {
+        comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       }
 
-      return currentSort.sort_order === 'asc' ? comparison : -comparison;
+      return currentSort.sortOrder === 'asc' ? comparison : -comparison;
     });
 
     // Pin servers to top
     return result.sort((a, b) => {
-      const aIsPinned = customizations.get(a.id)?.is_pinned ?? false;
-      const bIsPinned = customizations.get(b.id)?.is_pinned ?? false;
+      const aIsPinned = customizations.get(a.id)?.isPinned ?? false;
+      const bIsPinned = customizations.get(b.id)?.isPinned ?? false;
       if (aIsPinned !== bIsPinned) {
         return aIsPinned ? -1 : 1;
       }
@@ -125,8 +117,8 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
   }, [servers, archivedServers, selectedFolder, searchQuery, selectedStatuses, customizations, currentSort, showArchived]);
 
   // Pinned and regular servers
-  const pinnedServers = filteredServers.filter((s) => customizations.get(s.id)?.is_pinned);
-  const regularServers = filteredServers.filter((s) => !customizations.get(s.id)?.is_pinned);
+  const pinnedServers = filteredServers.filter((s) => customizations.get(s.id)?.isPinned);
+  const regularServers = filteredServers.filter((s) => !customizations.get(s.id)?.isPinned);
 
   // Statistics
   const stats = useMemo(() => {
@@ -251,7 +243,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
                 whileTap={{ scale: 0.95 }}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-300 hover:bg-slate-700/50 transition-colors"
               >
-                <span className="text-sm">Sort by: {currentSort.sort_by}</span>
+                <span className="text-sm">Sort by: {currentSort.sortBy}</span>
                 <ChevronDown className="h-4 w-4" />
               </motion.button>
             </div>
