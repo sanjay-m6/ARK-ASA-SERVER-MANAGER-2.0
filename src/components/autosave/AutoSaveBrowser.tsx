@@ -17,7 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useAutoSaveStore, selectFilteredAndSortedSaves } from '@/stores/autoSaveStore';
-import { AutoSave, SaveBrowserViewMode } from '@/types/autosave';
+import { AutoSave } from '@/types/autosave';
 import { formatFileSize, formatDate, formatRelativeTime } from '@/utils/autoSaveApi';
 
 interface AutoSaveBrowserProps {

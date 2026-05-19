@@ -45,7 +45,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'ASA Server Manager ${{ github.ref_name }}'
+          releaseName: 'ARK Server Manager ${{ github.ref_name }}'
           releaseBody: |
             ## 🚀 ${{ github.ref_name }} — Complete ASE Support & Automation Engine!
 

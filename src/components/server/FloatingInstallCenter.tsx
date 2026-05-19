@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function FloatingInstallCenter() {
     const { t } = useTranslation();
-    const { activeInstalls, currentlyViewingPath, setViewingPath, removeInstall, clearCompleted } = useInstallStore();
+    const { activeInstalls, setViewingPath, removeInstall, clearCompleted } = useInstallStore();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     const tasks = Object.values(activeInstalls);

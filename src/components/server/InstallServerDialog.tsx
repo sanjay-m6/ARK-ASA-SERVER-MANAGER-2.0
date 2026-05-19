@@ -10,7 +10,6 @@ import { useInstallStore } from '../../stores/installStore';
 import { installServer, InstallServerParams, selectFolder } from '../../utils/tauri';
 import toast from 'react-hot-toast';
 import type { ServerType } from '../../types';
-import { listen } from '@tauri-apps/api/event';
 
 import { useTranslation } from 'react-i18next';
 
@@ -39,20 +38,6 @@ import mapArkClub from '../../assets/maps/ark_club.png';
 
 interface Props {
     onClose: () => void;
-}
-
-interface InstallProgress {
-    stage: string;
-    progress: number;
-    message: string;
-    isComplete: boolean;
-    isError: boolean;
-}
-
-interface ConsoleOutput {
-    line: string;
-    lineType: string;
-    timestamp: string;
 }
 
 export default function InstallServerDialog({ onClose }: Props) {
@@ -108,7 +93,7 @@ export default function InstallServerDialog({ onClose }: Props) {
     const dialogRef = useRef<HTMLDivElement>(null);
 
     // Connect to global concurrent installation store
-    const { activeInstalls, currentlyViewingPath, startInstall, setViewingPath } = useInstallStore();
+    const { activeInstalls, currentlyViewingPath, startInstall, setViewingPath, removeInstall } = useInstallStore();
     const activeTask = currentlyViewingPath ? activeInstalls[currentlyViewingPath] : null;
 
     const isInstalling = !!activeTask;
@@ -879,7 +864,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                             {/* Recovery Actions */}
                                             <div className="flex flex-wrap justify-center gap-3 pt-2">
                                                 <button
-                                                    onClick={() => { setIsInstalling(false); setProgress(null); handleInstall(); }}
+                                                    onClick={() => { removeInstall(formData.installPath); handleInstall(); }}
                                                     className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-semibold transition-all shadow-lg shadow-emerald-500/20 text-sm"
                                                 >
                                                     <Zap className="w-4 h-4" />

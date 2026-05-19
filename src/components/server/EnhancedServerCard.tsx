@@ -8,7 +8,6 @@ import {
   MoreVertical,
   Minimize2,
   Maximize2,
-  Zap,
   Tag,
   FileText,
   Trash2,
@@ -161,27 +160,6 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
     setIsRenaming(false);
   };
 
-  const handleAddTag = (tag: string) => {
-    if (!tags.includes(tag)) {
-      const newTags = [...tags, tag];
-      updateServerCustomization({
-        ...(customization || {
-          serverId: server.id,
-          displayName: server.name,
-          colorTag: undefined,
-          isPinned: false,
-          pinOrder: 0,
-          isMinimized: false,
-          tags: [],
-          favorite: false,
-          notes: undefined,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }),
-        tags: newTags,
-      });
-    }
-  };
 
   const handleRemoveTag = (tag: string) => {
     const newTags = tags.filter((t) => t !== tag);

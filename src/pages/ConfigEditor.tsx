@@ -677,7 +677,7 @@ export default function ConfigEditor() {
                         <ServerSelect 
                             value={selectedServerId} 
                             onChange={setSelectedServerId} 
-                            accentColor="violet" 
+                            accentColor="purple" 
                         />
 
                         <div className="h-8 w-px bg-[#2d2d44] mx-2" />

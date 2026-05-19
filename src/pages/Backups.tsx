@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
     Database as BackupIcon, Plus, RotateCcw, Trash2, Loader2, FileArchive,
     Calendar, Clock, HardDrive, CheckCircle, XCircle, Eye, Shield,
-    Settings, ChevronDown, ChevronUp, FolderOpen, Sparkles, LayoutList, GitBranch, Cloud, Check
+    Settings, ChevronDown, ChevronUp, FolderOpen, Sparkles, LayoutList, GitBranch, Cloud
 } from 'lucide-react';
 import { formatBytes, cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
