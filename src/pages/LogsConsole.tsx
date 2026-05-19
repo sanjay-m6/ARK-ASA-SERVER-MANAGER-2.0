@@ -7,6 +7,7 @@ import { getAllServers, getServerLogs } from '../utils/tauri';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import toast from 'react-hot-toast';
+import ServerSelect from '../components/ui/ServerSelect';
 
 interface LogEntry {
     timestamp: string;
@@ -247,27 +248,12 @@ export default function LogsConsole() {
                     </h1>
                     <p className="text-slate-400 mt-1">{t('logs.realTimeLogs')}</p>
                 </div>
-
                 <div className="flex items-center gap-3">
-                    {/* Server Selector */}
-                    <select
-                        value={selectedServerId || ''}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                            setSelectedServerId(Number(e.target.value));
-                            setLogs([]);
-                        }}
-                        className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
-                        {servers.length === 0 ? (
-                            <option value="">{t('logs.noServers')}</option>
-                        ) : (
-                            servers.map(server => (
-                                <option key={server.id} value={server.id}>
-                                    {server.name} {server.status === 'running' || server.status === 'online' ? '🟢' : '⚫'}
-                                </option>
-                            ))
-                        )}
-                    </select>
+                    <ServerSelect 
+                        value={selectedServerId} 
+                        onChange={(id) => { setSelectedServerId(id); setLogs([]); }} 
+                        accentColor="emerald" 
+                    />
                 </div>
             </div>
 

@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub mod autosave;
+pub mod server_organization;
+
 // ARK Server Manager 2.0 - ASA and ASE Models
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +37,7 @@ impl ToString for ServerStatus {
 pub struct Server {
     pub id: i64,
     pub name: String,
+    pub server_type: String,
 
     pub install_path: PathBuf,
     pub status: ServerStatus,
@@ -108,6 +112,27 @@ pub struct Backup {
     pub includes_cluster: bool,
     pub verified: bool,
     pub created_at: String,
+    pub label: Option<String>,
+    pub notes: Option<String>,
+    pub is_protected: bool,
+    pub status: String,
+    pub hash: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupPolicy {
+    pub server_id: i64,
+    pub enabled: bool,
+    pub interval_hours: i32,
+    pub retention_days: i32,
+    pub retention_count: i32,
+    pub storage_quota_gb: f64,
+    pub backup_before_update: bool,
+    pub backup_before_restart: bool,
+    pub compression_enabled: bool,
+    pub cloud_sync_enabled: bool,
+    pub discord_webhook: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

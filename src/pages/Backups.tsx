@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
     Database as BackupIcon, Plus, RotateCcw, Trash2, Loader2, FileArchive,
     Calendar, Clock, HardDrive, CheckCircle, XCircle, Eye, Shield,
-    Settings, ChevronDown, ChevronUp, FolderOpen, Sparkles, LayoutList, GitBranch, Cloud
+    Settings, ChevronDown, ChevronUp, FolderOpen, Sparkles, LayoutList, GitBranch, Cloud, Check
 } from 'lucide-react';
 import { formatBytes, cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
@@ -13,6 +13,8 @@ import { useServerStore } from '../stores/serverStore';
 import { getAllServers } from '../utils/tauri';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import CloudBackupDashboard from '../components/backups/CloudBackupDashboard';
+import BackupPolicies from '../components/backups/BackupPolicies';
+import ServerSelect from '../components/ui/ServerSelect';
 
 interface BackupOptions {
     includeConfigs: boolean;
@@ -43,7 +45,7 @@ export default function Backups() {
     const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
     
     // Tab state
-    const [activeTab, setActiveTab] = useState<'local' | 'cloud'>('local');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'browser' | 'policies' | 'cloud'>('dashboard');
 
     // Styled confirm dialog state
     const [confirmState, setConfirmState] = useState<{
@@ -105,88 +107,120 @@ export default function Backups() {
             setShowOptions(false);
         } catch (error) {
             console.error('Failed to create backup:', error);
-            toast.error(t('backups.createFailed', { error: String(error) }));
+            toast.error(t('backups.createFailed'));
         } finally {
             setIsCreating(false);
         }
     };
 
-    const handleRestore = (id: number) => {
-        setConfirmState({ action: 'restore', backupId: id });
-        setIsConfirmOpen(true);
-    };
-
-    const handleDelete = (id: number) => {
-        setConfirmState({ action: 'delete', backupId: id });
-        setIsConfirmOpen(true);
-    };
-
-    const handleVerify = async (id: number) => {
+    const handleRestoreBackup = async (backupId: number) => {
+        setIsConfirmLoading(true);
         try {
-            const isValid = await invoke<boolean>('verify_backup', { backupId: id });
-            if (isValid) {
-                toast.success(t('backups.verifySuccess'));
-            } else {
-                toast.error(t('backups.verifyFailed'));
-            }
+            await invoke('restore_backup', { backupId });
+            toast.success(t('backups.restoreSuccess'));
             fetchBackups();
         } catch (error) {
-            toast.error(t('backups.verifyError', { error: String(error) }));
+            console.error('Failed to restore backup:', error);
+            toast.error(t('backups.restoreFailed'));
+        } finally {
+            setIsConfirmLoading(false);
+            setIsConfirmOpen(false);
+            setConfirmState({ action: null });
         }
     };
 
-    const handlePreview = async (id: number) => {
-        setPreviewBackupId(id);
+    const handleDeleteBackup = async (backupId: number) => {
+        setIsConfirmLoading(true);
+        try {
+            await invoke('delete_backup', { backupId });
+            toast.success(t('backups.deleteSuccess'));
+            fetchBackups();
+        } catch (error) {
+            console.error('Failed to delete backup:', error);
+            toast.error(t('backups.deleteFailed'));
+        } finally {
+            setIsConfirmLoading(false);
+            setIsConfirmOpen(false);
+            setConfirmState({ action: null });
+        }
+    };
+
+    const handleCleanupBackups = async () => {
+        if (!selectedServerId) return;
+
+        setIsConfirmLoading(true);
+        try {
+            await invoke('cleanup_old_backups', { serverId: selectedServerId });
+            toast.success(t('backups.cleanupSuccess', 'Old backups cleaned up successfully!'));
+            fetchBackups();
+        } catch (error) {
+            console.error('Failed to cleanup backups:', error);
+            toast.error(t('backups.cleanupFailed', 'Failed to cleanup old backups'));
+        } finally {
+            setIsConfirmLoading(false);
+            setIsConfirmOpen(false);
+            setConfirmState({ action: null });
+        }
+    };
+
+    const handleRestore = (backupId: number) => {
+        setConfirmState({ action: 'restore', backupId });
+        setIsConfirmOpen(true);
+    };
+
+    const handleDelete = (backupId: number) => {
+        setConfirmState({ action: 'delete', backupId });
+        setIsConfirmOpen(true);
+    };
+
+    const handleCleanup = () => {
+        setConfirmState({ action: 'cleanup' });
+        setIsConfirmOpen(true);
+    };
+
+    const handlePreview = async (backupId: number) => {
+        if (previewBackupId === backupId) {
+            setPreviewBackupId(null);
+            return;
+        }
+        setPreviewBackupId(backupId);
         setLoadingPreview(true);
         try {
-            const contents = await invoke<string[]>('get_backup_contents', { backupId: id });
-            setPreviewContents(contents);
+            const files = await invoke<string[]>('get_backup_contents', { backupId });
+            setPreviewContents(files);
         } catch (error) {
-            toast.error(t('backups.loadContentsFailed', { error: String(error) }));
-            setPreviewBackupId(null);
+            console.error('Failed to get backup contents:', error);
+            toast.error(t('backups.previewFailed', 'Failed to read backup contents'));
         } finally {
             setLoadingPreview(false);
         }
     };
 
-    const handleCleanup = () => {
-        if (!selectedServerId) return;
-        setConfirmState({ action: 'cleanup' });
-        setIsConfirmOpen(true);
-    };
-
-    const handleConfirmAction = async () => {
-        if (!confirmState.action) return;
-        setIsConfirmLoading(true);
-
+    const handleVerify = async (backupId: number) => {
+        const loadingToast = toast.loading(t('backups.verifying', 'Verifying backup integrity...'));
         try {
-            if (confirmState.action === 'restore' && confirmState.backupId != null) {
-                await invoke('restore_backup', { backupId: confirmState.backupId });
-                toast.success(t('backups.backupRestored'));
-            } else if (confirmState.action === 'delete' && confirmState.backupId != null) {
-                await invoke('delete_backup', { backupId: confirmState.backupId });
-                toast.success(t('backups.backupDeleted'));
+            const verified = await invoke<boolean>('verify_backup', { backupId });
+            toast.dismiss(loadingToast);
+            if (verified) {
+                toast.success(t('backups.verifySuccess', 'Backup integrity verified successfully!'));
                 fetchBackups();
-            } else if (confirmState.action === 'cleanup' && selectedServerId) {
-                const deleted = await invoke<string[]>('cleanup_old_backups', {
-                    serverId: selectedServerId,
-                    keepCount: 5
-                });
-                toast.success(t('backups.cleanupSuccess', { count: deleted.length }));
-                fetchBackups();
+            } else {
+                toast.error(t('backups.verifyFailed', 'Backup verification failed or corrupted.'));
             }
         } catch (error) {
-            if (confirmState.action === 'restore') {
-                toast.error(t('backups.restoreFailed', { error: String(error) }));
-            } else if (confirmState.action === 'delete') {
-                toast.error(t('backups.deleteFailed', { error: String(error) }));
-            } else if (confirmState.action === 'cleanup') {
-                toast.error(t('backups.cleanupFailed', { error: String(error) }));
-            }
-        } finally {
-            setIsConfirmLoading(false);
-            setIsConfirmOpen(false);
-            setConfirmState({ action: null });
+            toast.dismiss(loadingToast);
+            console.error('Failed to verify backup:', error);
+            toast.error(t('backups.verifyError', 'Failed to run backup verification'));
+        }
+    };
+
+    const handleConfirmAction = () => {
+        if (confirmState.action === 'restore' && confirmState.backupId !== undefined) {
+            handleRestoreBackup(confirmState.backupId);
+        } else if (confirmState.action === 'delete' && confirmState.backupId !== undefined) {
+            handleDeleteBackup(confirmState.backupId);
+        } else if (confirmState.action === 'cleanup') {
+            handleCleanupBackups();
         }
     };
 
@@ -197,120 +231,154 @@ export default function Backups() {
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400">
-                        {t('backups.title')}
-                    </h1>
-                    <p className="text-slate-400 mt-2 text-lg">{t('backups.subtitle')}</p>
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 pb-6 border-b border-white/5 mb-6">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-2xl border border-amber-500/20 text-amber-400 flex-shrink-0 shadow-lg shadow-amber-500/5">
+                        <BackupIcon className="w-8 h-8" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-black tracking-tight text-white font-display uppercase bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-orange-500">
+                            {t('backups.title')}
+                        </h1>
+                        <p className="text-slate-400 mt-1 text-sm font-medium tracking-wide">{t('backups.subtitle')}</p>
+                    </div>
                 </div>
 
-                <div className="flex bg-slate-800/50 p-1 rounded-xl border border-slate-700 mx-4">
-                    <button
-                        onClick={() => setActiveTab('local')}
-                        className={cn(
-                            "px-6 py-2 rounded-lg font-medium transition-all flex items-center gap-2",
-                            activeTab === 'local' ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:text-slate-200"
-                        )}
-                    >
-                        <HardDrive className="w-4 h-4" />
-                        Local Storage
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('cloud')}
-                        className={cn(
-                            "px-6 py-2 rounded-lg font-medium transition-all flex items-center gap-2",
-                            activeTab === 'cloud' ? "bg-blue-500/20 text-blue-400" : "text-slate-400 hover:text-slate-200"
-                        )}
-                    >
-                        <Cloud className="w-4 h-4" />
-                        Cloud Archive
-                    </button>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <select
-                        value={selectedServerId || ''}
-                        onChange={(e) => setSelectedServerId(Number(e.target.value))}
-                        className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    >
-                        {servers.map(server => (
-                            <option key={server.id} value={server.id}>{server.name}</option>
-                        ))}
-                    </select>
-
-                    <div className="relative">
+                <div className="flex flex-wrap items-center gap-4">
+                    {/* Navigation Tabs */}
+                    <div className="flex bg-[#0A0F1C]/80 p-1.5 rounded-2xl border border-white/5 shadow-inner backdrop-blur-xl flex-shrink-0">
                         <button
-                            onClick={() => setShowOptions(!showOptions)}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors shadow-lg shadow-amber-500/20 font-medium"
+                            onClick={() => setActiveTab('dashboard')}
+                            className={cn(
+                                "px-4 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all flex items-center gap-2 whitespace-nowrap flex-shrink-0",
+                                activeTab === 'dashboard' 
+                                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]" 
+                                    : "text-slate-400 hover:text-slate-200"
+                            )}
                         >
-                            <Plus className="w-5 h-5" />
-                            <span>{t('backups.createBackup')}</span>
-                            <ChevronDown className={cn("w-4 h-4 transition-transform", showOptions && "rotate-180")} />
+                            <LayoutList className="w-3.5 h-3.5" />
+                            Dashboard
                         </button>
+                        <button
+                            onClick={() => setActiveTab('browser')}
+                            className={cn(
+                                "px-4 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all flex items-center gap-2 whitespace-nowrap flex-shrink-0",
+                                activeTab === 'browser' 
+                                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.2)]" 
+                                    : "text-slate-400 hover:text-slate-200"
+                            )}
+                        >
+                            <HardDrive className="w-3.5 h-3.5" />
+                            Browser
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('policies')}
+                            className={cn(
+                                "px-4 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all flex items-center gap-2 whitespace-nowrap flex-shrink-0",
+                                activeTab === 'policies' 
+                                    ? "bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.2)]" 
+                                    : "text-slate-400 hover:text-slate-200"
+                            )}
+                        >
+                            <Shield className="w-3.5 h-3.5" />
+                            Policies
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('cloud')}
+                            className={cn(
+                                "px-4 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all flex items-center gap-2 whitespace-nowrap flex-shrink-0",
+                                activeTab === 'cloud' 
+                                    ? "bg-sky-500/20 text-sky-300 border border-sky-500/30 shadow-[0_0_15px_rgba(14,165,233,0.2)]" 
+                                    : "text-slate-400 hover:text-slate-200"
+                            )}
+                        >
+                            <Cloud className="w-3.5 h-3.5" />
+                            Cloud Sync
+                        </button>
+                    </div>
 
-                        {/* Options Dropdown */}
-                        {showOptions && (
-                            <div className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-xl z-50 overflow-hidden">
-                                <div className="p-4 border-b border-slate-800">
-                                    <h4 className="font-semibold text-white flex items-center gap-2">
-                                        <Settings className="w-4 h-4" />
-                                        {t('backups.options')}
-                                    </h4>
+                    {/* Controls Container */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                        {/* Custom Server Selector Dropdown */}
+                        <ServerSelect
+                            value={selectedServerId}
+                            onChange={(id) => setSelectedServerId(id)}
+                            accentColor="amber"
+                        />
+
+                        <div className="relative flex-shrink-0">
+                            <button
+                                onClick={() => setShowOptions(!showOptions)}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-2xl transition-all shadow-lg shadow-amber-500/20 font-black text-xs uppercase tracking-wider h-[42px] flex-shrink-0 whitespace-nowrap"
+                            >
+                                <Plus className="w-4 h-4" />
+                                <span>{t('backups.createBackup')}</span>
+                                <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showOptions && "rotate-180")} />
+                            </button>
+
+                            {/* Options Dropdown */}
+                            {showOptions && (
+                                <div className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                    <div className="p-4 border-b border-slate-800 bg-slate-900/90">
+                                        <h4 className="font-semibold text-white flex items-center gap-2">
+                                            <Settings className="w-4 h-4" />
+                                            {t('backups.options')}
+                                        </h4>
+                                    </div>
+                                    <div className="p-4 space-y-3 bg-slate-900/95">
+                                        <label className="flex items-center justify-between cursor-pointer">
+                                            <span className="text-slate-300 text-sm font-medium">{t('backups.includeConfigs')}</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={backupOptions.includeConfigs}
+                                                onChange={(e) => setBackupOptions({ ...backupOptions, includeConfigs: e.target.checked })}
+                                                className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
+                                            />
+                                        </label>
+                                        <label className="flex items-center justify-between cursor-pointer">
+                                            <span className="text-slate-300 text-sm font-medium">{t('backups.includeSaves')}</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={backupOptions.includeSaves}
+                                                onChange={(e) => setBackupOptions({ ...backupOptions, includeSaves: e.target.checked })}
+                                                className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
+                                            />
+                                        </label>
+                                        <label className="flex items-center justify-between cursor-pointer">
+                                            <span className="text-slate-300 text-sm font-medium">{t('backups.includeMods')}</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={backupOptions.includeMods}
+                                                onChange={(e) => setBackupOptions({ ...backupOptions, includeMods: e.target.checked })}
+                                                className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
+                                            />
+                                        </label>
+                                        <label className="flex items-center justify-between cursor-pointer">
+                                            <span className="text-slate-300 text-sm font-medium">{t('backups.compress')}</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={backupOptions.compress}
+                                                onChange={(e) => setBackupOptions({ ...backupOptions, compress: e.target.checked })}
+                                                className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
+                                            />
+                                        </label>
+                                    </div>
+                                    <div className="p-4 border-t border-slate-800 bg-slate-800/30">
+                                        <button
+                                            onClick={handleCreateBackup}
+                                            disabled={isCreating}
+                                            className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 disabled:from-slate-700 disabled:to-slate-700 text-white rounded-xl transition-all font-bold text-xs uppercase tracking-wider"
+                                        >
+                                            {isCreating ? (
+                                                <><Loader2 className="w-4 h-4 animate-spin" /> {t('backups.creating')}</>
+                                            ) : (
+                                                <><Sparkles className="w-4 h-4" /> {t('backups.createNow')}</>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="p-4 space-y-3">
-                                    <label className="flex items-center justify-between cursor-pointer">
-                                        <span className="text-slate-300">{t('backups.includeConfigs')}</span>
-                                        <input
-                                            type="checkbox"
-                                            checked={backupOptions.includeConfigs}
-                                            onChange={(e) => setBackupOptions({ ...backupOptions, includeConfigs: e.target.checked })}
-                                            className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
-                                        />
-                                    </label>
-                                    <label className="flex items-center justify-between cursor-pointer">
-                                        <span className="text-slate-300">{t('backups.includeSaves')}</span>
-                                        <input
-                                            type="checkbox"
-                                            checked={backupOptions.includeSaves}
-                                            onChange={(e) => setBackupOptions({ ...backupOptions, includeSaves: e.target.checked })}
-                                            className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
-                                        />
-                                    </label>
-                                    <label className="flex items-center justify-between cursor-pointer">
-                                        <span className="text-slate-300">{t('backups.includeMods')}</span>
-                                        <input
-                                            type="checkbox"
-                                            checked={backupOptions.includeMods}
-                                            onChange={(e) => setBackupOptions({ ...backupOptions, includeMods: e.target.checked })}
-                                            className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
-                                        />
-                                    </label>
-                                    <label className="flex items-center justify-between cursor-pointer">
-                                        <span className="text-slate-300">{t('backups.compress')}</span>
-                                        <input
-                                            type="checkbox"
-                                            checked={backupOptions.compress}
-                                            onChange={(e) => setBackupOptions({ ...backupOptions, compress: e.target.checked })}
-                                            className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
-                                        />
-                                    </label>
-                                </div>
-                                <div className="p-4 border-t border-slate-800 bg-slate-800/50">
-                                    <button
-                                        onClick={handleCreateBackup}
-                                        disabled={isCreating}
-                                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 text-white rounded-lg transition-colors font-medium"
-                                    >
-                                        {isCreating ? (
-                                            <><Loader2 className="w-4 h-4 animate-spin" /> {t('backups.creating')}</>
-                                        ) : (
-                                            <><Sparkles className="w-4 h-4" /> {t('backups.createNow')}</>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -385,9 +453,9 @@ export default function Backups() {
                 </button>
             </div>
 
-            {activeTab === 'cloud' ? (
-                <CloudBackupDashboard serverId={selectedServerId} />
-            ) : (
+            {activeTab === 'cloud' && <CloudBackupDashboard serverId={selectedServerId} />}
+            {activeTab === 'policies' && <BackupPolicies serverId={selectedServerId} />}
+            {(activeTab === 'dashboard' || activeTab === 'browser') && (
                 <>
                 {/* Backup List */}
                 <div className="space-y-4">

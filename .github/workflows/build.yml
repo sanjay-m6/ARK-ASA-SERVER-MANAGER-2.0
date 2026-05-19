@@ -16,19 +16,21 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
       
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
       
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
       
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@v2.7.5
         with:
           workspaces: 'src-tauri -> target'
       
@@ -36,7 +38,7 @@ jobs:
         run: npm ci
       
       - name: Build Tauri App
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v0.5.15
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -45,23 +47,35 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ASA Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🚀 v2.3.7 — Infinity AI Dashboard & Integrated Wiki
+            ## 🚀 ${{ github.ref_name }} — Complete ASE Support & Automation Engine!
 
-            ### 🤖 Infinity AI Platform
-            - **Multi-Session Conversations**: Chat sidebar supporting multiple isolated chat contexts, history retention, and persistent sessions.
-            - **AI Logic Expansion**: Enhanced Tauri integration for real-time system troubleshooting and log interpretation.
+            This is a pre-release beta version containing major engine upgrades.
 
-            ### 📖 Dynamic Documentation Portal
-            - **Integrated Wiki**: Complete offline documentation viewer powered by local Markdown ingestion and fluid page navigation.
-            - **Liquid Glass Design**: Fully modernized documentation dialogs, icon selectors, and content editors.
+            ### 🦖 Complete ASE (Survival Evolved) Support Engine
+            - Native integration of full server management, configs, scheduler, backup, and RCON consoles for ARK: Survival Evolved, fully parity-aligned with ASA.
+            - Easy Game Switcher inside the sidebar to toggle between ASA and ASE management contexts.
 
-            ### ⚡ Core Enhancements
-            - **Theme Modernization**: Continued migration to Prestige Dark aesthetics across layouts.
-            - **Build Fixes**: Resolved compilation warnings and updated package metadata schemas for stable distributions.
+            ### 💾 Save Management System & Timeline
+            - Automated backup timeline and comparison dashboard tracking player counts, structure counts, file size, and tamed dinos.
+            - Robust one-click interactive restore feature.
+
+            ### ⚡ Server Automation & Sequential Boot Engine
+            - Configurable sequential boot queues for multi-server setups to prevent CPU load spikes.
+            - Global server startup recovery settings.
+
+            ### 💻 Enterprise Organization Dashboard
+            - A modern visual dashboard supporting drag-and-drop server hierarchy organization.
+            - Cluster-aware automation, player notifications, and custom warning timers before server restarts.
+
+            ### 🐕 Realtime Mod Manager & Watchdog
+            - Automated CurseForge mod updates checking, mod status indicators, and clipboard-based bulk import upgrades.
+
+            ### 🤖 Discord Bot Bridge Integration
+            - Deep integration of the Discord Bot bridge for cross-chat relaying, automatic server alerts, and multi-server status reports.
 
             ### Install
             Download the `.msi` installer below.
           releaseDraft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, 'beta') }}
           includeUpdaterJson: true
 

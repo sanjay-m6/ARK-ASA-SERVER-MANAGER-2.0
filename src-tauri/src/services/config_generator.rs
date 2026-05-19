@@ -654,12 +654,18 @@ impl ConfigGenerator {
     }
 
     /// Generate server startup command
-    pub fn generate_startup_command(config: &ServerConfig, install_path: &PathBuf) -> String {
+    pub fn generate_startup_command(config: &ServerConfig, install_path: &PathBuf, server_type: &str) -> String {
+        let exe_name = if server_type == "ASE" {
+            "ShooterGameServer.exe"
+        } else {
+            "ArkAscendedServer.exe"
+        };
+        
         let exe_path = install_path
             .join("ShooterGame")
             .join("Binaries")
             .join("Win64")
-            .join("ArkAscendedServer.exe");
+            .join(exe_name);
 
         let mut cmd = format!(
             "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={}?RCONPort={}?MaxPlayers={}",

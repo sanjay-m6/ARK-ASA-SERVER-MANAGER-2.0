@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS servers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    server_type TEXT NOT NULL DEFAULT 'ASA' CHECK(server_type IN ('ASA')),
+    server_type TEXT NOT NULL DEFAULT 'ASA' CHECK(server_type IN ('ASA', 'ASE')),
     install_path TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'stopped' CHECK(status IN ('stopped', 'starting', 'running', 'online', 'crashed', 'updating', 'restarting', 'stopping', 'startup_timeout')),
     game_port INTEGER NOT NULL,
@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS servers (
     auto_start INTEGER DEFAULT 0,
     auto_stop INTEGER DEFAULT 0,
     intelligent_mode INTEGER DEFAULT 0,
+    startup_delay INTEGER DEFAULT 0,
+    startup_priority INTEGER DEFAULT 100,
+    auto_restart INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_started TIMESTAMP,
     UNIQUE(name)
@@ -42,7 +45,7 @@ CREATE TABLE IF NOT EXISTS mods (
     author TEXT,
     description TEXT,
     workshop_url TEXT,
-    server_type TEXT NOT NULL DEFAULT 'ASA' CHECK(server_type IN ('ASA')),
+    server_type TEXT NOT NULL DEFAULT 'ASA' CHECK(server_type IN ('ASA', 'ASE')),
     enabled BOOLEAN DEFAULT 1,
     load_order INTEGER NOT NULL,
     installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -62,8 +65,29 @@ CREATE TABLE IF NOT EXISTS backups (
     includes_saves BOOLEAN DEFAULT 1,
     includes_cluster BOOLEAN DEFAULT 0,
     verified BOOLEAN DEFAULT 0,
+    label TEXT,
+    notes TEXT,
+    is_protected INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'completed',
+    hash TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE
+);
+
+-- Backup policies table
+CREATE TABLE IF NOT EXISTS backup_policies (
+    server_id INTEGER PRIMARY KEY,
+    enabled BOOLEAN DEFAULT 0,
+    interval_hours INTEGER DEFAULT 24,
+    retention_days INTEGER DEFAULT 7,
+    retention_count INTEGER DEFAULT 10,
+    storage_quota_gb REAL DEFAULT 50.0,
+    backup_before_update BOOLEAN DEFAULT 1,
+    backup_before_restart BOOLEAN DEFAULT 1,
+    compression_enabled BOOLEAN DEFAULT 1,
+    cloud_sync_enabled BOOLEAN DEFAULT 0,
+    discord_webhook TEXT,
+    FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
 );
 
 -- Clusters table
@@ -268,6 +292,13 @@ CREATE TABLE IF NOT EXISTS hardware_allocation (
 
 -- Initial settings
 INSERT OR IGNORE INTO settings (key, value) VALUES ('startup_timeout', '1800');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('global_auto_start_enabled', 'false');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('global_boot_delay', '0');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('start_minimized_to_tray', 'false');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('silent_headless_startup', 'false');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('windows_startup_shortcut', 'false');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('loop_prevention_max_crashes', '3');
+INSERT OR IGNORE INTO settings (key, value) VALUES ('loop_prevention_time_window_mins', '15');
 
 -- Persistent Discord sent messages (echo-prevention across restarts)
 CREATE TABLE IF NOT EXISTS discord_sent_messages (

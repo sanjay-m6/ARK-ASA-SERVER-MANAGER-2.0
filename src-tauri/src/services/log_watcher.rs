@@ -17,6 +17,13 @@ pub struct LogAnomalyEvent {
 pub struct LogWatcherService {
     app_handle: tauri::AppHandle,
     watchers: Arc<Mutex<HashMap<i64, RecommendedWatcher>>>,
+    streaming_servers: Arc<Mutex<std::collections::HashSet<i64>>>,
+}
+
+#[derive(Clone, serde::Serialize)]
+pub struct LogLineEvent {
+    pub server_id: i64,
+    pub line: String,
 }
 
 impl LogWatcherService {
@@ -24,7 +31,25 @@ impl LogWatcherService {
         Self {
             app_handle,
             watchers: Arc::new(Mutex::new(HashMap::new())),
+            streaming_servers: Arc::new(Mutex::new(std::collections::HashSet::new())),
         }
+    }
+
+    pub fn enable_streaming(&self, server_id: i64) {
+        let mut streaming = self.streaming_servers.lock().unwrap_or_else(|p| p.into_inner());
+        streaming.insert(server_id);
+        println!("🤖 AI Automation: Enabled log streaming for server {}", server_id);
+    }
+
+    pub fn disable_streaming(&self, server_id: i64) {
+        let mut streaming = self.streaming_servers.lock().unwrap_or_else(|p| p.into_inner());
+        streaming.remove(&server_id);
+        println!("🤖 AI Automation: Disabled log streaming for server {}", server_id);
+    }
+
+    pub fn is_streaming(&self, server_id: i64) -> bool {
+        let streaming = self.streaming_servers.lock().unwrap_or_else(|p| p.into_inner());
+        streaming.contains(&server_id)
     }
 
     pub fn start_watching(&self, server_id: i64, path: PathBuf) -> Result<(), String> {
@@ -55,6 +80,8 @@ impl LogWatcherService {
             last_pos = metadata.len();
         }
 
+        let streaming_servers_clone = self.streaming_servers.clone();
+
         thread::spawn(move || {
             loop {
                 match rx.recv() {
@@ -82,7 +109,19 @@ impl LogWatcherService {
                                             if let Ok(line_content) = line {
                                                 let lower_line = line_content.to_lowercase();
                                                 
-                                                // Check for specific crash or error keywords
+                                                // 1. Emit live log line to console subscriber if active
+                                                let is_streaming = {
+                                                    let guard = streaming_servers_clone.lock().unwrap_or_else(|p| p.into_inner());
+                                                    guard.contains(&server_id_clone)
+                                                };
+                                                if is_streaming {
+                                                    let _ = app_handle.emit("server_log_line", LogLineEvent {
+                                                        server_id: server_id_clone,
+                                                        line: line_content.clone(),
+                                                    });
+                                                }
+
+                                                // 2. Check for specific crash or error keywords
                                                 if lower_line.contains("fatal error") || lower_line.contains("crash") || lower_line.contains("exception") {
                                                     println!("🤖 AI Automation: Anomaly detected for server {}: {}", server_id_clone, line_content);
                                                     

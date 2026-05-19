@@ -4,6 +4,7 @@ import { updateServerSettings, optimizeMemory, setProcessPriority, toggleEcoMode
 import { Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Leaf, Copy, Flame } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import ServerSelect from '../../components/ui/ServerSelect';
 
 export default function AdvancedPage() {
     const location = useLocation();
@@ -82,15 +83,11 @@ export default function AdvancedPage() {
 
                         <div className="h-6 w-px bg-slate-700 mx-2" />
 
-                        <select
-                            value={selectedServerId || ''}
-                            onChange={(e) => setSelectedServerId(Number(e.target.value))}
-                            className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-red-500"
-                        >
-                            {servers.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                        </select>
+                        <ServerSelect 
+                            value={selectedServerId} 
+                            onChange={setSelectedServerId} 
+                            accentColor="rose" 
+                        />
                     </div>
 
                     <button

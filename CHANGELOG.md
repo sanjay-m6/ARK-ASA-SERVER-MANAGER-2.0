@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.4.0-beta] — 2026-05-19
+
+### Added
+- **🦖 Entire ASE (Survival Evolved) Support Engine** — Native integration of full server management, configs, scheduler, backup, and RCON consoles for ARK: Survival Evolved, fully parity-aligned with ASA.
+- **💾 Save Management System & Timeline** — Automated backup timeline and comparison dashboard tracking player counts, structure counts, file size, and tamed dinos, with a robust one-click interactive restore feature.
+- **⚡ Server Automation & Sequential Boot Engine** — Configurable sequential boot queues for multi-server setups to prevent CPU load spikes, and global server startup recovery settings.
+- **💻 Enterprise Organization Dashboard** — A modern visual dashboard supporting drag-and-drop server hierarchy organization, cluster-aware automation, player notifications, and custom warning timers before server restarts.
+- **🐕 Realtime Mod Manager & Watchdog** — Automated CurseForge mod updates checking, mod status indicators, and clipboard-based bulk import upgrades.
+- **🤖 Discord Bot Bridge Integration** — Deep integration of the Discord Bot bridge for cross-chat relaying, automatic server alerts, and multi-server status reports.
+
+---
+
 ## [2.3.6] — 2026-05-13
 
 ### Added

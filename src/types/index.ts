@@ -1,6 +1,6 @@
 // TypeScript types for the application
 
-export type ServerType = 'ASA';
+export type ServerType = 'ASA' | 'ASE';
 
 export type ServerStatus = 'stopped' | 'starting' | 'running' | 'crashed' | 'updating' | 'restarting' | 'online' | 'repairing' | 'startup_timeout';
 
@@ -25,6 +25,8 @@ export interface Server {
     autoStart?: boolean;
     autoStop?: boolean;
     intelligentMode?: boolean;
+    startupDelay?: number;
+    startupPriority?: number;
 }
 
 export interface ServerPorts {
@@ -93,7 +95,7 @@ export interface ModInfo {
 export interface Backup {
     id: number;
     serverId: number;
-    backupType: 'auto' | 'manual' | 'pre-update';
+    backupType: 'auto' | 'manual' | 'pre-update' | 'pre-restart';
     filePath: string;
     size: number;
     createdAt: string;
@@ -102,7 +104,27 @@ export interface Backup {
     includesSaves: boolean;
     includesCluster: boolean;
     verified?: boolean;
+    label?: string;
+    notes?: string;
+    isProtected?: boolean;
+    status?: string;
+    hash?: string;
 }
+
+export interface BackupPolicy {
+    serverId: number;
+    enabled: boolean;
+    intervalHours: number;
+    retentionDays: number;
+    retentionCount: number;
+    storageQuotaGb: number;
+    backupBeforeUpdate: boolean;
+    backupBeforeRestart: boolean;
+    compressionEnabled: boolean;
+    cloudSyncEnabled: boolean;
+    discordWebhook?: string;
+}
+
 
 export interface Cluster {
     id: number;
@@ -179,5 +201,54 @@ export interface PluginInfo {
     asaVersionCompatible?: string;
     enabled: boolean;
     installPath: string;
+}
+
+export interface AseInstalledMod {
+    id: number;
+    serverId: number;
+    workshopId: string;
+    name: string;
+    version: string;
+    installedAt: string;
+    enabled: boolean;
+    loadOrder: number;
+    description?: string;
+    author?: string;
+    previewUrl?: string;
+    cachedImageUrl?: string;
+    workshopUrl?: string;
+    subscribers?: number;
+    fileSize?: number;
+    timeUpdated?: number;
+    timeCreated?: number;
+    tags?: string[];
+    modStatus?: string;
+    downloadStatus?: string;
+    healthStatus?: string;
+    dependencies?: string[];
+}
+
+export interface WorkshopSearchResult {
+    workshopId: string;
+    title: string;
+    description: string;
+    previewUrl: string;
+    subscriptions: number;
+    fileSize: number;
+    timeUpdated: number;
+    author: string;
+    workshopUrl: string;
+    tags: string[];
+}
+
+export interface ModValidationReport {
+    workshopId: string;
+    isValid: boolean;
+    issues: string[];
+    fileCount: number;
+    totalSize: number;
+    hasUcas: boolean;
+    hasUtoc: boolean;
+    hasModFile: boolean;
 }
 

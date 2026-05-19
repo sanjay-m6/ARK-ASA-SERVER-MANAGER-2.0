@@ -12,6 +12,7 @@ import {
 } from '../../utils/tauri';
 import { Server } from '../../types';
 import toast from 'react-hot-toast';
+import ServerSelect from '../../components/ui/ServerSelect';
 
 export default function UPnPPanel() {
     const { t } = useTranslation();
@@ -154,17 +155,12 @@ export default function UPnPPanel() {
                 </h3>
 
                 <div className="space-y-4">
-                    {/* Server selector */}
-                    <div className="flex items-center gap-3">
-                        <select
-                            value={selectedServerId || ''}
-                            onChange={(e) => setSelectedServerId(Number(e.target.value))}
-                            className="flex-1 bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                        >
-                            {servers.map((s) => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                        </select>
+                    <div className="flex items-center gap-3 w-full">
+                        <ServerSelect 
+                            value={selectedServerId} 
+                            onChange={setSelectedServerId} 
+                            accentColor="cyan" 
+                        />
                     </div>
 
                     {/* Current ports preview */}

@@ -7,10 +7,12 @@ import { supportedLanguages } from '../i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import FirewallSettings from '../components/settings/FirewallSettings';
+import StartupSettings from '../components/settings/StartupSettings';
 import CloudBackupDashboard from '../components/backups/CloudBackupDashboard';
 import { manualCheckForUpdates } from '../components/UpdateChecker';
 import { cn } from '../utils/helpers';
 import { useServerStore } from '../stores/serverStore';
+import ServerSelect from '../components/ui/ServerSelect';
 import {
     getUpdateSettings,
     setUpdateSettings,
@@ -35,7 +37,16 @@ export default function Settings() {
     const [currentVersion, setCurrentVersion] = useState<string>('');
     const [startupTimeout, setStartupTimeout] = useState('1800');
 
-    const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language' | 'cloud'>('api');
+    // Startup & Recovery State variables
+    const [globalAutoStartEnabled, setGlobalAutoStartEnabled] = useState(false);
+    const [globalBootDelay, setGlobalBootDelay] = useState('0');
+    const [startMinimizedToTray, setStartMinimizedToTray] = useState(false);
+    const [loopPreventionMaxCrashes, setLoopPreventionMaxCrashes] = useState('3');
+    const [loopPreventionTimeWindowMins, setLoopPreventionTimeWindowMins] = useState('15');
+    const [windowsStartupShortcut, setWindowsStartupShortcut] = useState(false);
+    const [silentHeadlessStartup, setSilentHeadlessStartup] = useState(false);
+
+    const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language' | 'cloud' | 'startup'>('api');
     const { servers, setServers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const { t, i18n } = useTranslation();
@@ -72,16 +83,34 @@ export default function Settings() {
 
     async function loadSettings() {
         try {
-            const [curseforgeKey, steamKey, timeout, nvidiaKey] = await Promise.all([
+            const [
+                curseforgeKey, steamKey, timeout, nvidiaKey,
+                gasEnabled, gbDelay, minTray, maxCrash, timeWindow, winShortcut, headless
+            ] = await Promise.all([
                 getSetting('curseforge_api_key'),
                 getSetting('steam_api_key'),
                 getSetting('startup_timeout'),
-                getSetting('nvidia_api_key')
+                getSetting('nvidia_api_key'),
+                getSetting('global_auto_start_enabled'),
+                getSetting('global_boot_delay'),
+                getSetting('start_minimized_to_tray'),
+                getSetting('loop_prevention_max_crashes'),
+                getSetting('loop_prevention_time_window_mins'),
+                getSetting('windows_startup_shortcut'),
+                getSetting('silent_headless_startup')
             ]);
             if (curseforgeKey) setCurseforgeApiKey(curseforgeKey);
             if (steamKey) setSteamApiKey(steamKey);
             if (timeout) setStartupTimeout(timeout);
             if (nvidiaKey) setNvidiaApiKey(nvidiaKey);
+            
+            setGlobalAutoStartEnabled(gasEnabled === 'true');
+            setGlobalBootDelay(gbDelay || '0');
+            setStartMinimizedToTray(minTray === 'true');
+            setLoopPreventionMaxCrashes(maxCrash || '3');
+            setLoopPreventionTimeWindowMins(timeWindow || '15');
+            setWindowsStartupShortcut(winShortcut === 'true');
+            setSilentHeadlessStartup(headless === 'true');
 
             // Load update settings
             setUpdateSettingsState(getUpdateSettings());
@@ -185,7 +214,37 @@ export default function Settings() {
                 setSetting('steam_api_key', steamApiKey),
                 setSetting('startup_timeout', startupTimeout),
                 setSetting('nvidia_api_key', nvidiaApiKey),
+                setSetting('global_auto_start_enabled', globalAutoStartEnabled ? 'true' : 'false'),
+                setSetting('global_boot_delay', globalBootDelay),
+                setSetting('start_minimized_to_tray', startMinimizedToTray ? 'true' : 'false'),
+                setSetting('loop_prevention_max_crashes', loopPreventionMaxCrashes),
+                setSetting('loop_prevention_time_window_mins', loopPreventionTimeWindowMins),
+                setSetting('windows_startup_shortcut', windowsStartupShortcut ? 'true' : 'false'),
+                setSetting('silent_headless_startup', silentHeadlessStartup ? 'true' : 'false'),
             ]);
+
+            // Sync OS startup configuration
+            try {
+                if (windowsStartupShortcut) {
+                    if (silentHeadlessStartup) {
+                        // Headless: Disable registry run key, enable elevated Task Scheduler task
+                        await invoke('set_startup_shortcut', { enabled: false, minimized: false });
+                        await invoke('set_startup_task_scheduler', { enabled: true });
+                    } else {
+                        // Standard: Enable registry run key, disable Task Scheduler task
+                        await invoke('set_startup_shortcut', { enabled: true, minimized: startMinimizedToTray });
+                        await invoke('set_startup_task_scheduler', { enabled: false });
+                    }
+                } else {
+                    // Disable all OS boot shortcuts/tasks
+                    await invoke('set_startup_shortcut', { enabled: false, minimized: false });
+                    await invoke('set_startup_task_scheduler', { enabled: false });
+                }
+            } catch (systemErr) {
+                console.error("Failed to synchronize OS boot hooks:", systemErr);
+                toast.error("Failed to sync OS startup tasks. Run as Administrator if creating Scheduler task.");
+            }
+
             toast.success(t('settings.saved'));
         } catch (error) {
             console.error('Failed to save settings:', error);
@@ -206,7 +265,7 @@ export default function Settings() {
                     </h1>
                     <p className="text-slate-400 mt-2 text-lg">{t('settings.subtitle', 'Configure application and view guides')}</p>
                 </div>
-                {(activeTab === 'api') && (
+                {(activeTab === 'api' || activeTab === 'startup') && (
                     <button
                         onClick={handleSave}
                         disabled={isSaving}
@@ -219,7 +278,7 @@ export default function Settings() {
             </div>
 
             {/* Navigation Tabs */}
-            <div className="flex space-x-4 border-b border-slate-700 pb-1">
+            <div className="flex space-x-4 border-b border-slate-700 pb-1 flex-wrap gap-y-2">
                 <button
                     onClick={() => setActiveTab('api')}
                     className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'api'
@@ -246,6 +305,15 @@ export default function Settings() {
                         }`}
                 >
                     🔄 {t('settings.tabs.updates')}
+                </button>
+                <button
+                    onClick={() => setActiveTab('startup')}
+                    className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'startup'
+                        ? 'bg-amber-500/10 text-amber-400 border-b-2 border-amber-400'
+                        : 'text-slate-400 hover:text-white'
+                        }`}
+                >
+                    ⚡ {t('settings.tabs.startup', 'Startup & Recovery')}
                 </button>
                 <button
                     onClick={() => setActiveTab('cloud')}
@@ -780,20 +848,33 @@ export default function Settings() {
                         </button>
                     </div>
                 </div>
+            ) : activeTab === 'startup' ? (
+                <StartupSettings
+                    globalAutoStartEnabled={globalAutoStartEnabled}
+                    setGlobalAutoStartEnabled={setGlobalAutoStartEnabled}
+                    globalBootDelay={globalBootDelay}
+                    setGlobalBootDelay={setGlobalBootDelay}
+                    startMinimizedToTray={startMinimizedToTray}
+                    setStartMinimizedToTray={setStartMinimizedToTray}
+                    loopPreventionMaxCrashes={loopPreventionMaxCrashes}
+                    setLoopPreventionMaxCrashes={setLoopPreventionMaxCrashes}
+                    loopPreventionTimeWindowMins={loopPreventionTimeWindowMins}
+                    setLoopPreventionTimeWindowMins={setLoopPreventionTimeWindowMins}
+                    windowsStartupShortcut={windowsStartupShortcut}
+                    setWindowsStartupShortcut={setWindowsStartupShortcut}
+                    silentHeadlessStartup={silentHeadlessStartup}
+                    setSilentHeadlessStartup={setSilentHeadlessStartup}
+                />
             ) : activeTab === 'cloud' ? (
                 <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
                     {/* Server Selector */}
                     <div className="flex items-center gap-4">
                         <label className="text-sm font-medium text-slate-300">{t('backups.selectServer', 'Select Server')}</label>
-                        <select
-                            value={selectedServerId || ''}
-                            onChange={(e) => setSelectedServerId(Number(e.target.value))}
-                            className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {servers.map(server => (
-                                <option key={server.id} value={server.id}>{server.name}</option>
-                            ))}
-                        </select>
+                        <ServerSelect
+                            value={selectedServerId}
+                            onChange={setSelectedServerId}
+                            accentColor="blue"
+                        />
                     </div>
                     <CloudBackupDashboard serverId={selectedServerId} />
                 </div>

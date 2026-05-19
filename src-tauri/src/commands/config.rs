@@ -560,9 +560,10 @@ pub async fn preview_game_ini(config: ServerConfig) -> Result<String, String> {
 pub async fn generate_startup_command(
     config: ServerConfig,
     install_path: String,
+    server_type: String,
 ) -> Result<String, String> {
     let path = PathBuf::from(install_path);
-    Ok(ConfigGenerator::generate_startup_command(&config, &path))
+    Ok(ConfigGenerator::generate_startup_command(&config, &path, &server_type))
 }
 
 /// Apply map profile to server config and return updated config

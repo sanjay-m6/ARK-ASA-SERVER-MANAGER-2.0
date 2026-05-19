@@ -17,6 +17,7 @@ import {
 import { cn } from '../utils/helpers';
 import { toast } from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
+import ServerSelect from '../components/ui/ServerSelect';
 import {
     getAllServers,
     getSchedulerSettings,
@@ -244,15 +245,11 @@ export default function Scheduler() {
                     <p className="text-slate-400 mt-1">{t('scheduler.subtitle')}</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <select
-                        value={selectedServerId || ''}
-                        onChange={(e) => setSelectedServerId(Number(e.target.value))}
-                        className="bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                        {servers.map(server => (
-                            <option key={server.id} value={server.id}>{server.name}</option>
-                        ))}
-                    </select>
+                    <ServerSelect
+                        value={selectedServerId}
+                        onChange={setSelectedServerId}
+                        accentColor="purple"
+                    />
                 </div>
             </div>
 

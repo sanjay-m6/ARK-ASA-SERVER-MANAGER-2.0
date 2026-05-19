@@ -17,6 +17,7 @@ import { applyPreset, ConfigPreset } from '../data/presets';
 import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
 import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboard';
+import ServerSelect from '../components/ui/ServerSelect';
 
 // Field Render Component
 // Field Render Component - Memoized to prevent re-renders of all fields on single keypress
@@ -673,15 +674,11 @@ export default function ConfigEditor() {
                             <span className="bg-gradient-to-r from-white via-violet-200 to-indigo-200 bg-clip-text text-transparent">{t('configEditor.title')}</span>
                         </h2>
 
-                        <select
-                            value={selectedServerId || ''}
-                            onChange={(e) => setSelectedServerId(Number(e.target.value))}
-                            className="bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] transition-all cursor-pointer hover:border-[#3d3d5c]"
-                        >
-                            {servers.map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                        </select>
+                        <ServerSelect 
+                            value={selectedServerId} 
+                            onChange={setSelectedServerId} 
+                            accentColor="violet" 
+                        />
 
                         <div className="h-8 w-px bg-[#2d2d44] mx-2" />
 

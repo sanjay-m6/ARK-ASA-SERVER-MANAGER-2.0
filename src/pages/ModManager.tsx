@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
 import { AdvancedModInput } from '../components/mods/AdvancedModInput';
 import { ModWatchdogDashboard } from '../components/mods/ModWatchdogDashboard';
+import ServerSelect from '../components/ui/ServerSelect';
 
 interface ServerBasic {
     id: number;
@@ -529,18 +530,11 @@ export default function ModManager() {
 
                 {/* Server Selector & Actions */}
                 <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-3 bg-slate-800/50 p-2 rounded-xl border border-slate-700">
-                        <span className="text-slate-400 text-sm pl-2">{t('modManager.selectServer')}:</span>
-                        <select
-                            value={selectedServerId || ''}
-                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedServerId(Number(e.target.value))}
-                            className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-1.5 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                        >
-                            {servers.map(server => (
-                                <option key={server.id} value={server.id}>{server.name}</option>
-                            ))}
-                        </select>
-                    </div>
+                    <ServerSelect 
+                        value={selectedServerId} 
+                        onChange={setSelectedServerId} 
+                        accentColor="sky" 
+                    />
 
                     {/* Modpack Export */}
                     <button
@@ -635,19 +629,13 @@ export default function ModManager() {
                             <div className="p-6 space-y-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-300">{t('modManager.selectServer')}</label>
-                                    <select
-                                        value={transferTargetId || ''}
-                                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTransferTargetId(Number(e.target.value))}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                                    >
-                                        <option value="">{t('common.select')}...</option>
-                                        {servers
-                                            .filter(s => s.id !== selectedServerId)
-                                            .map(server => (
-                                                <option key={server.id} value={server.id}>{server.name}</option>
-                                            ))
-                                        }
-                                    </select>
+                                    <ServerSelect 
+                                        value={transferTargetId} 
+                                        onChange={(id) => setTransferTargetId(id)} 
+                                        servers={servers.filter(s => s.id !== selectedServerId)}
+                                        accentColor="sky" 
+                                        className="w-full"
+                                    />
                                 </div>
 
                                 <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
@@ -907,46 +895,56 @@ export default function ModManager() {
 
             {/* Filters Section (Available Mods Only) */}
             {activeTab === 'available' && (
-                <div className="mb-6 flex flex-wrap items-center gap-4 bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                    <div className="flex items-center gap-2 text-sm text-slate-400">
-                        <ListChecks className="w-4 h-4" />
-                        <span>{t('modManager.filters')}:</span>
+                <div className="mb-6 flex flex-wrap items-center gap-4 bg-[#0A0F1C]/40 p-4 rounded-2xl border border-white/5 backdrop-blur-xl shadow-2xl">
+                    <div className="flex items-center gap-2 text-sm text-slate-300">
+                        <ListChecks className="w-4 h-4 text-sky-400" />
+                        <span className="font-semibold">{t('modManager.filters')}:</span>
                     </div>
 
                     {/* Category Select */}
-                    <select
-                        value={selectedCategory || ''}
-                        onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
-                        className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block p-2.5 min-w-[150px]"
-                    >
-                        <option value="">{t('modManager.allCategories')}</option>
-                        {categories.map((cat) => (
-                            <option key={cat.id} value={cat.id}>
-                                {cat.name}
-                            </option>
-                        ))}
-                    </select>
+                    <div className="relative">
+                        <select
+                            value={selectedCategory || ''}
+                            onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
+                            className="appearance-none bg-[#0A0F1C]/60 border border-white/10 text-slate-200 text-sm rounded-xl focus:outline-none focus:border-sky-500/50 backdrop-blur-xl transition-all shadow-lg px-4 py-2.5 pr-10 min-w-[180px] cursor-pointer hover:border-white/20"
+                        >
+                            <option value="" className="bg-[#0A0F1C] text-slate-200">{t('modManager.allCategories')}</option>
+                            {categories.map((cat) => (
+                                <option key={cat.id} value={cat.id} className="bg-[#0A0F1C] text-slate-200">
+                                    {cat.name}
+                                </option>
+                            ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                            <ChevronDown className="w-4 h-4" />
+                        </div>
+                    </div>
 
                     {/* Sort Select */}
-                    <select
-                        value={sortField}
-                        onChange={(e) => setSortField(Number(e.target.value))}
-                        className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg focus:ring-sky-500 focus:border-sky-500 block p-2.5"
-                    >
-                        <option value={1}>{t('modManager.sort.featured')}</option>
-                        <option value={2}>{t('modManager.sort.popularity')}</option>
-                        <option value={3}>{t('modManager.sort.lastUpdated')}</option>
-                        <option value={4}>{t('modManager.sort.name')}</option>
-                        <option value={6}>{t('modManager.sort.totalDownloads')}</option>
-                    </select>
+                    <div className="relative">
+                        <select
+                            value={sortField}
+                            onChange={(e) => setSortField(Number(e.target.value))}
+                            className="appearance-none bg-[#0A0F1C]/60 border border-white/10 text-slate-200 text-sm rounded-xl focus:outline-none focus:border-sky-500/50 backdrop-blur-xl transition-all shadow-lg px-4 py-2.5 pr-10 min-w-[160px] cursor-pointer hover:border-white/20"
+                        >
+                            <option value={1} className="bg-[#0A0F1C] text-slate-200">{t('modManager.sort.featured')}</option>
+                            <option value={2} className="bg-[#0A0F1C] text-slate-200">{t('modManager.sort.popularity')}</option>
+                            <option value={3} className="bg-[#0A0F1C] text-slate-200">{t('modManager.sort.lastUpdated')}</option>
+                            <option value={4} className="bg-[#0A0F1C] text-slate-200">{t('modManager.sort.name')}</option>
+                            <option value={6} className="bg-[#0A0F1C] text-slate-200">{t('modManager.sort.totalDownloads')}</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                            <ChevronDown className="w-4 h-4" />
+                        </div>
+                    </div>
 
                     {/* Sort Order */}
                     <button
                         onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                        className="p-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:border-slate-500 transition-all"
+                        className="p-2.5 bg-[#0A0F1C]/60 border border-white/10 rounded-xl text-slate-400 hover:text-white hover:border-sky-500/40 backdrop-blur-xl transition-all shadow-lg hover:scale-[1.03] active:scale-[0.97]"
                         title={sortOrder === 'asc' ? t('common.ascending') : t('common.descending')}
                     >
-                        {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+                        {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4 text-sky-400" /> : <ArrowDown className="w-4 h-4 text-sky-400" />}
                     </button>
 
                     {/* Clear Filters */}
@@ -958,7 +956,7 @@ export default function ModManager() {
                                 setSortOrder('desc');
                                 setSearchQuery('');
                             }}
-                            className="ml-auto text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1"
+                            className="ml-auto text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1.5 font-medium px-3 py-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/20 border border-sky-500/20 transition-all"
                         >
                             <X className="w-3 h-3" /> {t('modManager.clearFilters')}
                         </button>
@@ -1002,27 +1000,62 @@ export default function ModManager() {
             {/* Search and Tabs */}
             <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
                 <div className="relative w-full md:w-96">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                         placeholder={activeTab === 'available' ? t('modManager.searchMods') : t('modManager.searchMods')}
-                        className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                        className="w-full pl-12 pr-4 py-3 bg-[#0A0F1C]/60 border border-white/10 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/10 transition-all backdrop-blur-xl shadow-lg"
                     />
                 </div>
 
                 <div className="flex gap-4 items-center">
                     {activeTab === 'available' && (
-                        <button onClick={handleSelectAll} className="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
-                            <ListChecks className="w-4 h-4" /> <span>{selectedModIds.size === availableMods.length ? t('common.deselectAll') : t('common.selectAll')}</span>
+                        <button 
+                            onClick={handleSelectAll} 
+                            className="flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white bg-[#0A0F1C]/40 border border-white/5 hover:border-white/10 hover:bg-white/5 backdrop-blur-xl transition-all shadow-md active:scale-95"
+                        >
+                            <ListChecks className="w-4 h-4 text-sky-400" /> 
+                            <span>{selectedModIds.size === availableMods.length ? t('common.deselectAll') : t('common.selectAll')}</span>
                         </button>
                     )}
 
-                    <div className="flex p-1 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                        <button onClick={() => setActiveTab('available')} className={cn('px-6 py-2 rounded-lg text-sm font-medium transition-all', activeTab === 'available' ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white')}>{t('modManager.available')}</button>
-                        <button onClick={() => setActiveTab('installed')} className={cn('px-6 py-2 rounded-lg text-sm font-medium transition-all', activeTab === 'installed' ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/20' : 'text-slate-400 hover:text-white')}>{t('modManager.installed')}</button>
-                        <button onClick={() => setActiveTab('watchdog')} className={cn('px-6 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5', activeTab === 'watchdog' ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'text-slate-400 hover:text-white')}><ShieldCheck className="w-4 h-4" />{t('modManager.watchdog', 'Watchdog')}</button>
+                    <div className="flex p-1 bg-[#0A0F1C]/40 rounded-2xl border border-white/5 backdrop-blur-xl shadow-2xl">
+                        <button 
+                            onClick={() => setActiveTab('available')} 
+                            className={cn(
+                                'px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300', 
+                                activeTab === 'available' 
+                                    ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/20 border border-sky-400/20' 
+                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                            )}
+                        >
+                            {t('modManager.available')}
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('installed')} 
+                            className={cn(
+                                'px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300', 
+                                activeTab === 'installed' 
+                                    ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/20 border border-sky-400/20' 
+                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                            )}
+                        >
+                            {t('modManager.installed')}
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('watchdog')} 
+                            className={cn(
+                                'px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-1.5', 
+                                activeTab === 'watchdog' 
+                                    ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-lg shadow-rose-500/20 border border-rose-400/20' 
+                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                            )}
+                        >
+                            <ShieldCheck className="w-4 h-4" />
+                            {t('modManager.watchdog', 'Watchdog')}
+                        </button>
                     </div>
                 </div>
             </div>

@@ -819,7 +819,7 @@ impl ProcessManager {
     pub fn start_server(
         &self,
         server_id: i64,
-        _server_type: &str,
+        server_type: &str,
         install_path: &PathBuf,
         map_name: &str,
         session_name: &str,
@@ -840,15 +840,19 @@ impl ProcessManager {
             .join("Binaries")
             .join("Win64");
 
-        // First check for ASA API Loader
-        let api_loader = win64_dir.join("AsaApiLoader.exe");
-        let api_dir = win64_dir.join("ArkApi");
-
-        // ASA Server API requires AsaApiLoader.exe and the ArkApi folder to be present
-        let executable = if api_loader.exists() && api_dir.exists() {
-            api_loader
+        let executable = if server_type == "ASE" {
+            win64_dir.join("ShooterGameServer.exe")
         } else {
-            win64_dir.join("ArkAscendedServer.exe")
+            // First check for ASA API Loader
+            let api_loader = win64_dir.join("AsaApiLoader.exe");
+            let api_dir = win64_dir.join("ArkApi");
+
+            // ASA Server API requires AsaApiLoader.exe and the ArkApi folder to be present
+            if api_loader.exists() && api_dir.exists() {
+                api_loader
+            } else {
+                win64_dir.join("ArkAscendedServer.exe")
+            }
         };
 
         // Guard: reject duplicate starts — if the process is already tracked, bail immediately.

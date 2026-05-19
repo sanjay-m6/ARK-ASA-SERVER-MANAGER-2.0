@@ -36,6 +36,9 @@ impl Database {
         let schema = include_str!("schema.sql");
         conn.execute_batch(schema)?;
 
+        let migrations = include_str!("migrations.sql");
+        conn.execute_batch(migrations)?;
+
         // Run migrations for existing databases
         Self::run_migrations(conn)?;
 
@@ -63,6 +66,67 @@ impl Database {
 
         Self::run_hardware_allocation_migration(conn)?;
 
+        // ASE Module tables
+        Self::run_ase_migration(conn)?;
+
+        // Backup system migrations
+        Self::run_backup_system_migration(conn)?;
+
+        Ok(())
+    }
+
+    fn run_backup_system_migration(conn: &Connection) -> Result<()> {
+        let mut stmt = conn.prepare("PRAGMA table_info(backups)")?;
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if !columns.contains(&"label".to_string()) {
+            println!("📦 Migration: Adding 'label' to backups");
+            conn.execute("ALTER TABLE backups ADD COLUMN label TEXT", [])?;
+        }
+        if !columns.contains(&"notes".to_string()) {
+            println!("📦 Migration: Adding 'notes' to backups");
+            conn.execute("ALTER TABLE backups ADD COLUMN notes TEXT", [])?;
+        }
+        if !columns.contains(&"is_protected".to_string()) {
+            println!("📦 Migration: Adding 'is_protected' to backups");
+            conn.execute("ALTER TABLE backups ADD COLUMN is_protected INTEGER DEFAULT 0", [])?;
+        }
+        if !columns.contains(&"status".to_string()) {
+            println!("📦 Migration: Adding 'status' to backups");
+            conn.execute("ALTER TABLE backups ADD COLUMN status TEXT DEFAULT 'completed'", [])?;
+        }
+        if !columns.contains(&"hash".to_string()) {
+            println!("📦 Migration: Adding 'hash' to backups");
+            conn.execute("ALTER TABLE backups ADD COLUMN hash TEXT", [])?;
+        }
+
+        let mut stmt_bp = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='backup_policies'")?;
+        let table_exists = stmt_bp.exists([])?;
+        
+        if !table_exists {
+            println!("📦 Migration: Creating backup_policies table");
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS backup_policies (
+                    server_id INTEGER PRIMARY KEY,
+                    enabled BOOLEAN DEFAULT 0,
+                    interval_hours INTEGER DEFAULT 24,
+                    retention_days INTEGER DEFAULT 7,
+                    retention_count INTEGER DEFAULT 10,
+                    storage_quota_gb REAL DEFAULT 50.0,
+                    backup_before_update BOOLEAN DEFAULT 1,
+                    backup_before_restart BOOLEAN DEFAULT 1,
+                    compression_enabled BOOLEAN DEFAULT 1,
+                    cloud_sync_enabled BOOLEAN DEFAULT 0,
+                    discord_webhook TEXT,
+                    FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
+                )",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -72,6 +136,24 @@ impl Database {
             println!("📦 Migration: Setting default 'startup_timeout' to 1800s");
             Self::set_setting_static(conn, "startup_timeout", "1800")?;
         }
+
+        let defaults = [
+            ("global_auto_start_enabled", "false"),
+            ("global_boot_delay", "0"),
+            ("start_minimized_to_tray", "false"),
+            ("silent_headless_startup", "false"),
+            ("windows_startup_shortcut", "false"),
+            ("loop_prevention_max_crashes", "3"),
+            ("loop_prevention_time_window_mins", "15"),
+        ];
+
+        for &(key, val) in &defaults {
+            if Self::get_setting_static(conn, key)?.is_none() {
+                println!("📦 Migration: Setting default '{}' to '{}'", key, val);
+                Self::set_setting_static(conn, key, val)?;
+            }
+        }
+
         Ok(())
     }
 
@@ -212,6 +294,33 @@ impl Database {
             println!("📦 Migration: Adding 'auto_stop' column to servers table");
             conn.execute(
                 "ALTER TABLE servers ADD COLUMN auto_stop INTEGER DEFAULT 0",
+                [],
+            )?;
+        }
+
+        // Add startup_delay column if missing
+        if !columns.contains(&"startup_delay".to_string()) {
+            println!("📦 Migration: Adding 'startup_delay' column to servers table");
+            conn.execute(
+                "ALTER TABLE servers ADD COLUMN startup_delay INTEGER DEFAULT 0",
+                [],
+            )?;
+        }
+
+        // Add startup_priority column if missing
+        if !columns.contains(&"startup_priority".to_string()) {
+            println!("📦 Migration: Adding 'startup_priority' column to servers table");
+            conn.execute(
+                "ALTER TABLE servers ADD COLUMN startup_priority INTEGER DEFAULT 100",
+                [],
+            )?;
+        }
+
+        // Add auto_restart column if missing
+        if !columns.contains(&"auto_restart".to_string()) {
+            println!("📦 Migration: Adding 'auto_restart' column to servers table");
+            conn.execute(
+                "ALTER TABLE servers ADD COLUMN auto_restart INTEGER DEFAULT 0",
                 [],
             )?;
         }
@@ -894,6 +1003,155 @@ impl Database {
              ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = CURRENT_TIMESTAMP",
             [key, value],
         )?;
+        Ok(())
+    }
+
+    fn run_ase_migration(conn: &Connection) -> Result<()> {
+        // Check if ase_servers table already exists
+        let mut stmt = conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='ase_servers'")?;
+        let table_exists = stmt.exists([])?;
+
+        if !table_exists {
+            println!("📦 ASE Migration: Creating ASE module tables");
+
+            conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS ase_servers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    install_path TEXT NOT NULL DEFAULT '',
+                    map_name TEXT NOT NULL DEFAULT 'TheIsland',
+                    port INTEGER NOT NULL DEFAULT 7777,
+                    query_port INTEGER NOT NULL DEFAULT 27015,
+                    rcon_port INTEGER NOT NULL DEFAULT 27020,
+                    rcon_password TEXT NOT NULL DEFAULT '',
+                    max_players INTEGER NOT NULL DEFAULT 70,
+                    server_password TEXT NOT NULL DEFAULT '',
+                    admin_password TEXT NOT NULL DEFAULT '',
+                    session_name TEXT NOT NULL DEFAULT 'ARK Server',
+                    active_mods TEXT NOT NULL DEFAULT '',
+                    cluster_id TEXT NOT NULL DEFAULT '',
+                    battleye INTEGER NOT NULL DEFAULT 1,
+                    extra_args TEXT NOT NULL DEFAULT '',
+                    status TEXT NOT NULL DEFAULT 'stopped',
+                    process_id INTEGER,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    auto_start INTEGER NOT NULL DEFAULT 0,
+                    auto_stop INTEGER NOT NULL DEFAULT 0,
+                    intelligent_mode INTEGER NOT NULL DEFAULT 0,
+                    startup_delay INTEGER NOT NULL DEFAULT 0,
+                    startup_priority INTEGER NOT NULL DEFAULT 100
+                );
+
+                CREATE TABLE IF NOT EXISTS ase_mods (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    server_id INTEGER NOT NULL,
+                    workshop_id TEXT NOT NULL,
+                    name TEXT NOT NULL DEFAULT 'Unknown Mod',
+                    version TEXT NOT NULL DEFAULT '1.0',
+                    installed_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    load_order INTEGER NOT NULL DEFAULT 0,
+                    FOREIGN KEY(server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS ase_backups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    server_id INTEGER NOT NULL,
+                    path TEXT NOT NULL,
+                    size_bytes INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    FOREIGN KEY(server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS ase_scheduled_tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    server_id INTEGER NOT NULL,
+                    task_type TEXT NOT NULL DEFAULT 'restart',
+                    cron_expr TEXT NOT NULL DEFAULT '0 */6 * * *',
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    last_run TEXT,
+                    FOREIGN KEY(server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS ase_clusters (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    cluster_dir TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );"
+            )?;
+
+            println!("✅ ASE Migration: All ASE tables created successfully");
+        } else {
+            conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS ase_clusters (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    cluster_dir TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );"
+            )?;
+        }
+
+        // Migrate existing ase_servers databases if columns are missing
+        let mut stmt_cols = conn.prepare("PRAGMA table_info(ase_servers)")?;
+        let existing_cols: Vec<String> = stmt_cols
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let new_cols = [
+            ("auto_start", "INTEGER NOT NULL DEFAULT 0"),
+            ("auto_stop", "INTEGER NOT NULL DEFAULT 0"),
+            ("intelligent_mode", "INTEGER NOT NULL DEFAULT 0"),
+            ("startup_delay", "INTEGER NOT NULL DEFAULT 0"),
+            ("startup_priority", "INTEGER NOT NULL DEFAULT 100"),
+        ];
+
+        for (col_name, col_type) in new_cols {
+            if !existing_cols.contains(&col_name.to_string()) {
+                println!("📦 ASE Migration: Adding '{}' column to ase_servers", col_name);
+                conn.execute(
+                    &format!("ALTER TABLE ase_servers ADD COLUMN {} {}", col_name, col_type),
+                    [],
+                )?;
+            }
+        }
+
+        Self::run_ase_mods_metadata_migration(conn)?;
+
+        Ok(())
+    }
+
+    fn run_ase_mods_metadata_migration(conn: &Connection) -> Result<()> {
+        let mut stmt = conn.prepare("PRAGMA table_info(ase_mods)")?;
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let metadata_columns = [
+            ("description", "TEXT"),
+            ("author", "TEXT"),
+            ("preview_url", "TEXT"),
+            ("subscribers", "TEXT"),
+            ("file_size", "TEXT"),
+            ("time_updated", "TEXT"),
+            ("time_created", "TEXT"),
+            ("tags", "TEXT"),
+        ];
+
+        for (col_name, col_type) in metadata_columns {
+            if !columns.contains(&col_name.to_string()) {
+                println!("📦 ASE Migration: Adding '{}' column to ase_mods", col_name);
+                conn.execute(
+                    &format!("ALTER TABLE ase_mods ADD COLUMN {} {}", col_name, col_type),
+                    [],
+                )?;
+            }
+        }
+
         Ok(())
     }
 }

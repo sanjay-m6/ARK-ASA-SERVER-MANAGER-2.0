@@ -3,9 +3,10 @@ import {
     X, Folder, Download, CheckCircle, AlertCircle, Loader2,
     Server, MapPin, Settings, Zap, ArrowRight, ArrowLeft,
     HardDrive, Network, Shield, Terminal, ChevronDown, ChevronUp, Globe,
-    Copy, ArrowDownToLine, Clock
+    Copy, ArrowDownToLine, Clock, Minus
 } from 'lucide-react';
 import { useServerStore } from '../../stores/serverStore';
+import { useInstallStore } from '../../stores/installStore';
 import { installServer, InstallServerParams, selectFolder } from '../../utils/tauri';
 import toast from 'react-hot-toast';
 import type { ServerType } from '../../types';
@@ -102,12 +103,30 @@ export default function InstallServerDialog({ onClose }: Props) {
 
     const ALL_MAPS = useMemo(() => [...MAPS_ASA.released, ...MAPS_ASA.dlc, ...MAPS_ASA.premiumMods, ...MAPS_ASA.moddedMaps, ...MAPS_ASA.upcoming], [MAPS_ASA]);
     const [step, setStep] = useState(1);
-    const [isInstalling, setIsInstalling] = useState(false);
-    const [progress, setProgress] = useState<InstallProgress | null>(null);
-    const [consoleLogs, setConsoleLogs] = useState<ConsoleOutput[]>([]);
     const [showConsole, setShowConsole] = useState(true);
     const consoleRef = useRef<HTMLDivElement>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
+
+    // Connect to global concurrent installation store
+    const { activeInstalls, currentlyViewingPath, startInstall, setViewingPath } = useInstallStore();
+    const activeTask = currentlyViewingPath ? activeInstalls[currentlyViewingPath] : null;
+
+    const isInstalling = !!activeTask;
+    const progress = activeTask ? {
+        stage: activeTask.stage,
+        progress: activeTask.progress,
+        message: activeTask.message,
+        isComplete: activeTask.isComplete,
+        isError: activeTask.isError,
+    } : null;
+    const consoleLogs = activeTask ? activeTask.logs : [];
+
+    // Skip to console step if we open the dialog and an install is active/viewing
+    useEffect(() => {
+        if (currentlyViewingPath && activeInstalls[currentlyViewingPath]) {
+            setStep(4);
+        }
+    }, [currentlyViewingPath, activeInstalls]);
 
     // New states for enhanced UX
     const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -150,28 +169,7 @@ export default function InstallServerDialog({ onClose }: Props) {
         [formData.mapName]
     );
 
-    // Listen for install progress events
-    useEffect(() => {
-        if (!isInstalling) return;
-        const unlisten = listen<InstallProgress>('install-progress', (event) => {
-            setProgress(event.payload);
-            if (event.payload.isComplete) {
-                toast.success(t('dialogs.installServer.success'));
-            } else if (event.payload.isError) {
-                toast.error(event.payload.message);
-            }
-        });
-        return () => { unlisten.then(fn => fn()); };
-    }, [isInstalling]);
 
-    // Listen for console output events
-    useEffect(() => {
-        if (!isInstalling) return;
-        const unlisten = listen<ConsoleOutput>('install-console', (event) => {
-            setConsoleLogs(prev => [...prev.slice(-200), event.payload]); // Keep last 200 lines
-        });
-        return () => { unlisten.then(fn => fn()); };
-    }, [isInstalling]);
 
     // Auto-scroll console to bottom (only when auto-scroll is enabled)
     useEffect(() => {
@@ -232,27 +230,15 @@ export default function InstallServerDialog({ onClose }: Props) {
     };
 
     const handleInstall = async () => {
-        setIsInstalling(true);
-        setConsoleLogs([]); // Clear previous logs
-        setProgress({
-            stage: 'preparing',
-            progress: 0,
-            message: `${t('dialogs.installServer.installing')} (${formData.installPath})...`,
-            isComplete: false,
-            isError: false,
-        });
+        startInstall(formData.installPath, formData.name, formData.mapName, formData.serverType);
+        setViewingPath(formData.installPath);
+        setStep(4);
         try {
             const server = await installServer(formData);
             addServer(server);
-            setTimeout(() => onClose(), 2000);
         } catch (error) {
-            setProgress({
-                stage: 'error',
-                progress: 0,
-                message: `${t('dialogs.installServer.installationFailed')}: ${error}`,
-                isComplete: false,
-                isError: true,
-            });
+            console.error('Installation failed:', error);
+            toast.error(`${t('dialogs.installServer.installationFailed')}: ${error}`);
         }
     };
 
@@ -289,16 +275,31 @@ export default function InstallServerDialog({ onClose }: Props) {
             >
                 {/* Header with Steps - Fixed at top */}
                 <div className="relative flex-shrink-0">
-                    {/* Close Button */}
-                    {!isInstalling && (
-                        <button
-                            onClick={onClose}
-                            className="absolute top-4 right-4 z-10 p-2 hover:bg-white/10 rounded-xl transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/20"
-                            aria-label="Close dialog"
-                        >
-                            <X className="w-5 h-5 text-slate-400" />
-                        </button>
-                    )}
+                    {/* Close or Minimize Buttons */}
+                    <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+                        {isInstalling ? (
+                            <button
+                                onClick={() => {
+                                    onClose();
+                                    setViewingPath(null);
+                                }}
+                                className="p-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-sky-500/40 flex items-center gap-1.5"
+                                aria-label="Minimize installation"
+                                title={t('dialogs.installServer.minimize', 'Minimize to Background')}
+                            >
+                                <Minus className="w-4 h-4" />
+                                <span className="text-xs font-semibold pr-0.5">{t('dialogs.installServer.minimizeBtn', 'Minimize')}</span>
+                            </button>
+                        ) : (
+                            <button
+                                onClick={onClose}
+                                className="p-2 hover:bg-white/10 rounded-xl transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/20"
+                                aria-label="Close dialog"
+                            >
+                                <X className="w-5 h-5 text-slate-400" />
+                            </button>
+                        )}
+                    </div>
 
                     {/* Map Preview Banner - Compact on small screens */}
                     <div

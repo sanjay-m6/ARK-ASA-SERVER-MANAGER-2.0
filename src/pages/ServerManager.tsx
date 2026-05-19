@@ -14,7 +14,7 @@ import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import PortConflictModal from '../components/server/PortConflictModal';
 
-import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
 
@@ -108,7 +108,6 @@ export default function ServerManager() {
 
     const handleToggleAutomation = async (serverId: number, type: 'auto_start' | 'auto_stop' | 'intelligent_mode', current: boolean) => {
         try {
-            await toggleServerAutomation(serverId, type, !current);
             await toggleServerAutomation(serverId, type, !current);
             toast.success(current ? t('serverManager.automationDisabled') : t('serverManager.automationEnabled'));
             // Optimistic update
@@ -970,6 +969,56 @@ export default function ServerManager() {
                                     </div>
                                     <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStart')}</span>
                                 </label>
+
+                                {server.autoStart && (
+                                    <div className="flex items-center gap-3 bg-slate-800/40 px-3 py-1 rounded-lg border border-slate-700/50 animate-in fade-in duration-200 text-xs">
+                                        <div className="flex items-center gap-1.5 text-slate-400">
+                                            <span>Delay:</span>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                placeholder="0"
+                                                value={server.startupDelay !== undefined ? server.startupDelay : ''}
+                                                onChange={async (e) => {
+                                                    const delay = parseInt(e.target.value) || 0;
+                                                    try {
+                                                        await setServerStartupConfig(server.id, delay, server.startupPriority || 0);
+                                                        // Update state
+                                                        const updated = servers.map(s => s.id === server.id ? { ...s, startupDelay: delay } : s);
+                                                        setServers(updated);
+                                                    } catch (err) {
+                                                        console.error("Failed to update delay:", err);
+                                                    }
+                                                }}
+                                                className="w-12 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-white font-mono text-center focus:outline-none focus:border-sky-500"
+                                            />
+                                            <span>s</span>
+                                        </div>
+                                        <div className="w-px h-3 bg-slate-700"></div>
+                                        <div className="flex items-center gap-1.5 text-slate-400">
+                                            <span>Priority:</span>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                placeholder="0"
+                                                value={server.startupPriority !== undefined ? server.startupPriority : ''}
+                                                onChange={async (e) => {
+                                                    const priority = parseInt(e.target.value) || 0;
+                                                    try {
+                                                        await setServerStartupConfig(server.id, server.startupDelay || 0, priority);
+                                                        // Update state
+                                                        const updated = servers.map(s => s.id === server.id ? { ...s, startupPriority: priority } : s);
+                                                        setServers(updated);
+                                                    } catch (err) {
+                                                        console.error("Failed to update priority:", err);
+                                                    }
+                                                }}
+                                                className="w-10 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-white font-mono text-center focus:outline-none focus:border-sky-500"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
 
                                 <label className="flex items-center gap-2 cursor-pointer group/toggle">
                                     <div className="relative">

@@ -5,6 +5,7 @@ import { Sunrise, Sun, Moon, Copy, Bell, Loader2, AlertCircle } from 'lucide-rea
 import { toast } from 'react-hot-toast';
 import { cn } from '../../utils/helpers';
 import { useServerStore } from '../../stores/serverStore';
+import { useGameStore } from '../../stores/gameStore';
 import { usePublicIP } from '../../hooks/usePublicIP';
 import { manualCheckForUpdates, UpdateInfo } from '../UpdateChecker';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
@@ -13,6 +14,8 @@ import { Fragment } from 'react';
 
 export default function TopBar() {
     const { servers } = useServerStore();
+    const { activeGame } = useGameStore();
+    const isASE = activeGame === 'ASE';
     const { t } = useTranslation();
     const [appVersion, setAppVersion] = useState<string>('?.?.?');
     const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
@@ -76,7 +79,7 @@ export default function TopBar() {
     };
 
     return (
-        <div className="flex items-center justify-between w-full h-[88px] glass-panel border-b border-white/5 px-8 flex-shrink-0 z-40 relative">
+        <div className="flex items-center justify-between w-full h-[88px] glass-panel static-panel border-b border-white/5 px-8 flex-shrink-0 z-40 relative">
             {/* Background glow similar to Dashboard.tsx */}
             <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-sky-500/5 via-violet-500/5 to-transparent rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"></div>
 
@@ -88,6 +91,14 @@ export default function TopBar() {
                 <div>
                     <h1 className="text-2xl font-bold text-white flex items-center gap-3 tracking-tight">
                         {greeting.text}, {t('dashboard.commander', 'Commander')}
+                        <span className={cn(
+                            "text-[9px] font-black tracking-widest uppercase px-2.5 py-0.5 rounded-full border self-center backdrop-blur-sm shadow-sm transition-all duration-300",
+                            isASE 
+                                ? "bg-amber-500/15 text-amber-400 border-amber-500/25 shadow-amber-500/5 hover:bg-amber-500/25" 
+                                : "bg-cyan-500/15 text-cyan-400 border-cyan-500/25 shadow-cyan-500/5 hover:bg-cyan-500/25"
+                        )}>
+                            {isASE ? 'ASE' : 'ASA'}
+                        </span>
                     </h1>
                     <p className="text-sm text-slate-400 font-medium">
                         {isAnyServerRunning
@@ -130,7 +141,19 @@ export default function TopBar() {
                 {/* Version */}
                 <div className="flex flex-col items-end">
                     <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">{t('common.version', 'VERSION')}</span>
-                    <span className="text-sm font-bold text-slate-300">v{appVersion}</span>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-slate-300">v{appVersion}</span>
+                        {appVersion.includes('beta') && (
+                            <span className={cn(
+                                "px-1.5 py-0.5 text-[8px] font-extrabold tracking-wider rounded border uppercase backdrop-blur-sm leading-none",
+                                isASE
+                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                                    : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
+                            )}>
+                                Beta
+                            </span>
+                        )}
+                    </div>
                 </div>
 
                 {/* Divider */}

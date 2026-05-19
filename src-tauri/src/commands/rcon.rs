@@ -159,3 +159,142 @@ pub async fn rcon_is_connected(
     let service = &state.0;
     Ok(service.is_connected(server_id).await)
 }
+
+#[tauri::command]
+pub async fn start_log_stream(
+    state: State<'_, crate::AppState>,
+    server_id: i64,
+) -> Result<(), String> {
+    state.log_watcher.enable_streaming(server_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn stop_log_stream(
+    state: State<'_, crate::AppState>,
+    server_id: i64,
+) -> Result<(), String> {
+    state.log_watcher.disable_streaming(server_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn rcon_execute_cluster_command(
+    state: State<'_, RconState>,
+    server_ids: Vec<i64>,
+    command: String,
+) -> Result<std::collections::HashMap<i64, RconResponse>, String> {
+    let service = &state.0;
+    let mut futures = Vec::new();
+    for id in server_ids {
+        let cmd = command.clone();
+        futures.push(async move {
+            let res = service.send_command(id, &cmd).await;
+            (id, res)
+        });
+    }
+    let results = futures_util::future::join_all(futures).await;
+    let mut map = std::collections::HashMap::new();
+    for (id, res) in results {
+        match res {
+            Ok(resp) => {
+                map.insert(id, resp);
+            }
+            Err(e) => {
+                map.insert(id, RconResponse {
+                    success: false,
+                    message: format!("Error: {}", e),
+                    data: None,
+                });
+            }
+        }
+    }
+    Ok(map)
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveValidationInfo {
+    pub last_modified: String,
+    pub file_size: u64,
+    pub file_name: String,
+    pub exists: bool,
+}
+
+#[tauri::command]
+pub async fn rcon_validate_save(
+    state: State<'_, crate::AppState>,
+    server_id: i64,
+) -> Result<SaveValidationInfo, String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let conn = db
+        .get_connection()
+        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+
+    // Query server details
+    let (install_path_str, _map_name): (String, String) = conn
+        .query_row(
+            "SELECT install_path, map_name FROM servers WHERE id = ?1",
+            [server_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| format!("Server not found: {}", e))?;
+
+    let install_path = std::path::PathBuf::from(install_path_str);
+    
+    // Construct SavedArks directory
+    let saved_arks = install_path.join("ShooterGame/Saved/SavedArks");
+    
+    if !saved_arks.exists() {
+        return Ok(SaveValidationInfo {
+            last_modified: "".to_string(),
+            file_size: 0,
+            file_name: "".to_string(),
+            exists: false,
+        });
+    }
+
+    // Look for the .ark files in SavedArks directory
+    let mut latest_file: Option<(std::time::SystemTime, u64, String)> = None;
+
+    if let Ok(entries) = std::fs::read_dir(saved_arks) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("ark") {
+                if let Ok(metadata) = std::fs::metadata(&path) {
+                    if let Ok(modified) = metadata.modified() {
+                        let size = metadata.len();
+                        let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string();
+                        if let Some((best_time, _, _)) = latest_file {
+                            if modified > best_time {
+                                latest_file = Some((modified, size, name));
+                            }
+                        } else {
+                            latest_file = Some((modified, size, name));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if let Some((modified, size, name)) = latest_file {
+        let datetime: chrono::DateTime<chrono::Utc> = modified.into();
+        Ok(SaveValidationInfo {
+            last_modified: datetime.to_rfc3339(),
+            file_size: size,
+            file_name: name,
+            exists: true,
+        })
+    } else {
+        Ok(SaveValidationInfo {
+            last_modified: "".to_string(),
+            file_size: 0,
+            file_name: "".to_string(),
+            exists: false,
+        })
+    }
+}

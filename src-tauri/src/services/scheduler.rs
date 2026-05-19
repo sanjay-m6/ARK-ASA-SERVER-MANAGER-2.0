@@ -158,6 +158,147 @@ impl SchedulerService {
         for setting in basic_settings {
             Self::process_basic_mode(app_handle, setting).await;
         }
+
+        // 3. Process ASE Tasks
+        Self::process_ase_tasks(app_handle, time).await;
+    }
+
+    async fn process_ase_tasks(app_handle: &AppHandle, time: DateTime<Local>) {
+        let state = app_handle.state::<AppState>();
+        
+        let ase_tasks = {
+            let db = match state.db.lock() {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+            let conn = match db.get_connection() {
+                Ok(conn) => conn,
+                Err(_) => return,
+            };
+
+            let mut stmt = match conn.prepare(
+                "SELECT id, server_id, task_type, cron_expr, enabled, last_run \
+                 FROM ase_scheduled_tasks WHERE enabled = 1"
+            ) {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+
+            let iter = stmt.query_map([], |row| {
+                Ok(crate::ase::models::AseScheduledTask {
+                    id: row.get(0)?,
+                    server_id: row.get(1)?,
+                    task_type: row.get(2)?,
+                    cron_expr: row.get(3)?,
+                    enabled: row.get::<_, i32>(4)? != 0,
+                    last_run: row.get(5)?,
+                })
+            });
+
+            match iter {
+                Ok(rows) => rows.filter_map(|r| r.ok()).collect::<Vec<_>>(),
+                Err(_) => Vec::new(),
+            }
+        };
+
+        for task in ase_tasks {
+            if Self::is_due(&task.cron_expr, &time) {
+                log::info!("🚀 ASE Scheduler: Executing Task {} ({})", task.id, task.task_type);
+                
+                match task.task_type.as_str() {
+                    "restart" => {
+                        let _ = crate::ase::commands::server::stop_ase_server(task.server_id, state.clone()).await;
+                        sleep(Duration::from_secs(5)).await;
+                        let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), task.server_id, state.clone()).await;
+                    }
+                    "wipe_dinos" => {
+                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "DestroyWildDinos".into(), state.clone()).await;
+                    }
+                    "backup" => {
+                        let _ = crate::ase::commands::backup::create_ase_backup(task.server_id, state.clone()).await;
+                    }
+                    "update" => {
+                        // 1. Stop server first
+                        let _ = crate::ase::commands::server::stop_ase_server(task.server_id, state.clone()).await;
+                        sleep(Duration::from_secs(5)).await;
+
+                        // 2. Set status to updating
+                        if let Ok(db) = state.db.lock() {
+                            if let Ok(conn) = db.get_connection() {
+                                let now = chrono::Utc::now().to_rfc3339();
+                                let _ = conn.execute(
+                                    "UPDATE ase_servers SET status = 'updating', updated_at = ?1 WHERE id = ?2",
+                                    rusqlite::params![now, task.server_id],
+                                );
+                            }
+                        }
+
+                        // 3. Run SteamCMD
+                        let app = (*app_handle).clone();
+                        let server_id = task.server_id;
+                        tauri::async_runtime::spawn(async move {
+                            let state = app.state::<AppState>();
+                            if let Ok(app_dir) = app.path().app_data_dir() {
+                                let steamcmd_exe = app_dir.join("steamcmd").join("steamcmd.exe");
+                                if steamcmd_exe.exists() {
+                                    // Get install path
+                                    let install_path: Option<String> = if let Ok(db) = state.db.lock() {
+                                        if let Ok(conn) = db.get_connection() {
+                                            conn.query_row(
+                                                "SELECT install_path FROM ase_servers WHERE id = ?1",
+                                                [server_id],
+                                                |row| row.get(0),
+                                            ).ok()
+                                        } else { None }
+                                    } else { None };
+
+                                    if let Some(path) = install_path {
+                                        #[cfg(target_os = "windows")]
+                                        const CREATE_NO_WINDOW: u32 = 0x08000000;
+                                        #[cfg(not(target_os = "windows"))]
+                                        const CREATE_NO_WINDOW: u32 = 0;
+
+                                        let _ = tokio::process::Command::new(&steamcmd_exe)
+                                            .args([
+                                                "+force_install_dir", &path,
+                                                "+login", "anonymous",
+                                                "+app_update", "376030", "validate",
+                                                "+quit",
+                                            ])
+                                            .creation_flags(CREATE_NO_WINDOW)
+                                            .output()
+                                            .await;
+                                    }
+                                }
+                            }
+
+                            // 4. Set back to stopped
+                            if let Ok(db) = state.db.lock() {
+                                if let Ok(conn) = db.get_connection() {
+                                    let now = chrono::Utc::now().to_rfc3339();
+                                    let _ = conn.execute(
+                                        "UPDATE ase_servers SET status = 'stopped', updated_at = ?1 WHERE id = ?2",
+                                        rusqlite::params![now, server_id],
+                                    );
+                                }
+                            };
+                        });
+                    }
+                    _ => {
+                        log::warn!("Unsupported ASE task type: {}", task.task_type);
+                    }
+                }
+
+                if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        let _ = conn.execute(
+                            "UPDATE ase_scheduled_tasks SET last_run = CURRENT_TIMESTAMP WHERE id = ?1",
+                            [task.id],
+                        );
+                    }
+                }
+            }
+        }
     }
 
     async fn process_basic_mode(app_handle: &AppHandle, setting: BasicSetting) {
@@ -516,7 +657,7 @@ impl SchedulerService {
             }
             "AutoUpdateMods" => {
                 let server_id = task.server_id;
-                let app = app_handle.clone();
+                let app = (*app_handle).clone();
                 let pre_warning_minutes = if task.pre_warning_minutes > 0 {
                     task.pre_warning_minutes
                 } else {

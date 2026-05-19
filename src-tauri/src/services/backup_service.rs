@@ -1,6 +1,7 @@
 // Backup Service for ASA Server Manager
 // Handles real backup creation, restoration, and management
 
+#![allow(dead_code)]
 use crate::models::{Backup, BackupOptions, BackupType, RestoreOptions};
 use std::fs::{self, File};
 use std::io::{Read, Write};
@@ -96,6 +97,25 @@ impl BackupService {
             .map(|m| m.len() as i64)
             .unwrap_or(total_size as i64);
 
+        // Generate SHA-256 hash
+        let file_hash = {
+            use sha2::{Digest, Sha256};
+            if let Ok(mut file) = File::open(&backup_path) {
+                let mut hasher = Sha256::new();
+                let mut buffer = [0; 8192];
+                loop {
+                    match file.read(&mut buffer) {
+                        Ok(0) => break,
+                        Ok(n) => hasher.update(&buffer[..n]),
+                        Err(_) => break,
+                    }
+                }
+                Some(hex::encode(hasher.finalize()))
+            } else {
+                None
+            }
+        };
+
         let backup = Backup {
             id: 0, // Will be set by database
             server_id,
@@ -106,7 +126,7 @@ impl BackupService {
             includes_mods,
             includes_saves,
             includes_cluster,
-            verified: false,
+            verified: false, label: None, notes: None, is_protected: false, status: "completed".to_string(), hash: file_hash,
             created_at: chrono::Local::now().to_rfc3339(),
         };
 

@@ -177,7 +177,13 @@
         "fileManager": "File Manager",
         "settings": "Settings",
         "systemStatus": "System Status",
-        "commandCenter": "COMMAND CENTER"
+        "commandCenter": "COMMAND CENTER",
+        "autoSaves": "Auto-Saves",
+        "aiAssistant": "AI Assistant",
+        "tribeLogs": "Tribe Logs",
+        "upnp": "UPnP Port Forwarding",
+        "serverOrganization": "Server Organization",
+        "wiki": "Wiki Guide"
     },
     "welcome": {
         "title": "ASA Server Manager",
@@ -240,7 +246,8 @@
         "statusOnline": "ONLINE",
         "statusLoading": "LOADING...",
         "statusPublic": "PUBLIC",
-        "statusLan": "LAN"
+        "statusLan": "LAN",
+        "publicIpAddress": "Public IP Address"
     },
     "serverManager": {
         "title": "Server Manager",
@@ -1124,6 +1131,45 @@
             "title": "Process Management",
             "startupTimeout": "Server Startup Timeout (seconds)",
             "startupTimeoutHint": "Maximum time to wait for server startup before force-stopping. Increase this if you have many mods."
+        },
+        "curseforgeKey": {
+            "label": "API Key",
+            "needKey": "A CurseForge API key is required.",
+            "getKey": "Get your API key here",
+            "instructions": "Create a key in your CurseForge developer account.",
+            "placeholder": "Enter your CurseForge API key",
+            "notSet": "Not set",
+            "verifying": "Verifying...",
+            "verified": "Verified",
+            "invalid": "Invalid key",
+            "verifyKey": "Verify Key"
+        },
+        "keyVerified": "API key verified successfully!",
+        "invalidKey": "Invalid API key. Please check your credentials.",
+        "verificationFailed": "API key verification failed.",
+        "startup": {
+            "engineTitle": "Global Startup & Recovery",
+            "engineDesc": "Configure automated server execution, boot delays, and automatic crash recovery.",
+            "globalToggle": "Enable Global Auto-Start",
+            "globalToggleDesc": "Automatically start enabled server profiles when the application starts.",
+            "bootDelay": "Global Boot Delay Timer",
+            "bootDelayDesc": "Time in seconds to wait before launching servers to allow network and OS resources to stabilize.",
+            "osTitle": "Operating System Integration",
+            "osDesc": "Register the server manager inside the system boot hooks to achieve complete server autonomy.",
+            "windowsBoot": "Run at System Boot",
+            "windowsBootDesc": "Automatically run this application when your computer turns on.",
+            "startMinimized": "Start Minimized to System Tray",
+            "startMinimizedDesc": "Launch silently in the background, keeping the window minimized in your taskbar system tray.",
+            "headlessMode": "Bypass UAC Elevation (Windows Task Scheduler)",
+            "headlessModeDesc": "Runs the server manager with highest privileges via Task Scheduler to auto-elevate without UAC prompts.",
+            "adminAlert": "Administrator Access Required",
+            "adminAlertDesc": "Registering elevated boot tasks via Task Scheduler requires running this application once as Administrator. UAC prompt will occur when saving.",
+            "watchdogTitle": "Watchdog & Crash Loop Prevention",
+            "watchdogDesc": "Prevent corrupt savefiles or bad updates from triggering infinite crash loops.",
+            "maxCrashes": "Max Crash Restarts",
+            "maxCrashesDesc": "Max crash recovery attempts in window.",
+            "observationWindow": "Observation Window",
+            "observationWindowDesc": "Time in minutes to track crash counts."
         }
     },
     "firewallConfig": {
@@ -1425,9 +1471,11 @@
     },
     "errorBoundary": {
         "title": "Something went wrong",
+        "subtitle": "The application encountered a critical error and needs to reload.",
         "description": "An unexpected error occurred. Try refreshing the page.",
         "tryAgain": "Try Again",
-        "details": "Error Details"
+        "details": "Error Details",
+        "reload": "Reload Application"
     },
     "performance": {
         "title": "Performance Monitor",
@@ -1591,166 +1639,152 @@
         "welcome": {
             "title": "Welcome Back",
             "subtitle": "Commander"
+        }
+    },
+    "updateChecker": {
+        "title": "Update Available",
+        "downloading": "Downloading...",
+        "installing": "Installing...",
+        "updateNow": "Update Now",
+        "later": "Later",
+        "skip": "Skip this version",
+        "error": "Failed to download update. Please try again or download manually."
+    },
+    "errorBoundary": {
+        "title": "Something went wrong",
+        "reload": "Reload Application"
+    },
+    "adminBlocker": {
+        "title": "Access Denied",
+        "description": "Full system control is required.",
+        "missing": "Administrator Privileges are missing.",
+        "reason": "This application manages system services, firewalls, and low-level processes.",
+        "prompt": "Would you like to restart with Administrator privileges?",
+        "grant": "Yes, Grant Access",
+        "quit": "No, Quit"
+    },
+    "sponsorBanner": {
+        "title": "Support the Development",
+        "subtitle": "Keep Nexus running with a small contribution."
+    },
+    "help": {
+        "title": "Help & Documentation",
+        "subtitle": "Learn how to use ARK Server Manager",
+        "quickStart": {
+            "title": "New to ARK Server Manager?",
+            "description": "Start with our quick start guide to get your first server running in minutes!",
+            "button": "Start Quick Tour"
         },
-        "updateChecker": {
-            "title": "Update Available",
-            "downloading": "Downloading...",
-            "installing": "Installing...",
-            "updateNow": "Update Now",
-            "later": "Later",
-            "skip": "Skip this version",
-            "error": "Failed to download update. Please try again or download manually."
-        },
-        "errorBoundary": {
-            "title": "Something went wrong",
-            "reload": "Reload Application"
-        },
-        "adminBlocker": {
-            "title": "Access Denied",
-            "description": "Full system control is required.",
-            "missing": "Administrator Privileges are missing.",
-            "reason": "This application manages system services, firewalls, and low-level processes.",
-            "prompt": "Would you like to restart with Administrator privileges?",
-            "grant": "Yes, Grant Access",
-            "quit": "No, Quit"
-        },
-        "sponsorBanner": {
-            "title": "Support the Development",
-            "subtitle": "Keep Nexus running with a small contribution."
-        },
-        "help": {
-            "title": "Help & Documentation",
-            "subtitle": "Learn how to use ARK Server Manager",
-            "quickStart": {
-                "title": "New to ARK Server Manager?",
-                "description": "Start with our quick start guide to get your first server running in minutes!",
-                "button": "Start Quick Tour"
-            },
-            "sections": {
-                "docs": {
-                    "title": "Documentation",
-                    "description": "Complete guide to ARK Server Manager",
-                    "items": {
-                        "install": "Installing your first server",
-                        "mods": "Managing mods and configurations",
-                        "clusters": "Setting up server clusters",
-                        "backup": "Backup and recovery procedures"
-                    }
-                },
-                "video": {
-                    "title": "Video Tutorials",
-                    "description": "Step-by-step video guides",
-                    "items": {
-                        "quickStart": "Quick Start Guide (5 min)",
-                        "advanced": "Advanced Configuration (15 min)",
-                        "troubleshooting": "Troubleshooting Common Issues (10 min)"
-                    }
-                },
-                "community": {
-                    "title": "Community Support",
-                    "description": "Get help from the community",
-                    "items": {
-                        "discord": "Discord Server",
-                        "reddit": "Reddit Community",
-                        "github": "GitHub Discussions",
-                        "bugs": "Bug Reports"
-                    }
+        "sections": {
+            "docs": {
+                "title": "Documentation",
+                "description": "Complete guide to ARK Server Manager",
+                "items": {
+                    "install": "Installing your first server",
+                    "mods": "Managing mods and configurations",
+                    "clusters": "Setting up server clusters",
+                    "backup": "Backup and recovery procedures"
                 }
             },
-            "faq": {
-                "title": "Frequently Asked Questions",
-                "install": {
-                    "q": "How do I install my first ARK server?",
-                    "a": "Click \"Install Server\" in the Server Manager and follow the wizard to set up your ASA server."
-                },
-                "multiple": {
-                    "q": "Can I run multiple servers at once?",
-                    "a": "Yes! You can run as many servers as your hardware can handle."
-                },
-                "mods": {
-                    "q": "How do I install mods?",
-                    "a": "Go to Mod Manager, search for mods, and click Install. They'll be automatically configured."
-                },
-                "crash": {
-                    "q": "What if my server crashes?",
-                    "a": "Enable auto-restart in Settings. The manager will automatically restart crashed servers."
+            "video": {
+                "title": "Video Tutorials",
+                "description": "Step-by-step video guides",
+                "items": {
+                    "quickStart": "Quick Start Guide (5 min)",
+                    "advanced": "Advanced Configuration (15 min)",
+                    "troubleshooting": "Troubleshooting Common Issues (10 min)"
+                }
+            },
+            "community": {
+                "title": "Community Support",
+                "description": "Get help from the community",
+                "items": {
+                    "discord": "Discord Server",
+                    "reddit": "Reddit Community",
+                    "github": "GitHub Discussions",
+                    "bugs": "Bug Reports"
                 }
             }
         },
-        "onboarding": {
-            "step": "Step {{current}} of {{total}}",
-            "skip": "Skip Tour",
-            "back": "Back",
-            "next": "Next",
-            "start": "Get Started",
-            "steps": {
-                "welcome": {
-                    "title": "Welcome to ARK Server Manager!",
-                    "description": "Let's take a quick tour to get you started. This will only take 2 minutes."
-                },
-                "manager": {
-                    "title": "Server Manager",
-                    "description": "Install and manage your ARK: Survival Ascended servers here. Click \"Install Server\" to get started."
-                },
-                "mods": {
-                    "title": "Mod Manager",
-                    "description": "Browse and install mods from Steam Workshop. Drag to reorder mod load priority."
-                },
-                "config": {
-                    "title": "Config Editor",
-                    "description": "Visually edit server settings with sliders and toggles. No INI file editing needed!"
-                },
-                "backups": {
-                    "title": "Backups & Rollback",
-                    "description": "Automatic backups protect your server. Restore any backup with one click."
-                },
-                "ready": {
-                    "title": "You're Ready!",
-                    "description": "You now know the basics. Start by installing your first server!"
-                }
+        "faq": {
+            "title": "Frequently Asked Questions",
+            "install": {
+                "q": "How do I install my first ARK server?",
+                "a": "Click \"Install Server\" in the Server Manager and follow the wizard to set up your ASA server."
+            },
+            "multiple": {
+                "q": "Can I run multiple servers at once?",
+                "a": "Yes! You can run as many servers as your hardware can handle."
+            },
+            "mods": {
+                "q": "How do I install mods?",
+                "a": "Go to Mod Manager, search for mods, and click Install. They'll be automatically configured."
+            },
+            "crash": {
+                "q": "What if my server crashes?",
+                "a": "Enable auto-restart in Settings. The manager will automatically restart crashed servers."
             }
+        }
+    },
+    "onboarding": {
+        "step": "Step {{current}} of {{total}}",
+        "skip": "Skip Tour",
+        "back": "Back",
+        "next": "Next",
+        "start": "Get Started",
+        "steps": {
+            "welcome": {
+                "title": "Welcome to ARK Server Manager!",
+                "description": "Let's take a quick tour to get you started. This will only take 2 minutes."
+            },
+            "manager": {
+                "title": "Server Manager",
+                "description": "Install and manage your ARK: Survival Ascended servers here. Click \"Install Server\" to get started."
+            },
+            "mods": {
+                "title": "Mod Manager",
+                "description": "Browse and install mods from Steam Workshop. Drag to reorder mod load priority."
+            },
+            "config": {
+                "title": "Config Editor",
+                "description": "Visually edit server settings with sliders and toggles. No INI file editing needed!"
+            },
+            "backups": {
+                "title": "Backups & Rollback",
+                "description": "Automatic backups protect your server. Restore any backup with one click."
+            },
+            "ready": {
+                "title": "You're Ready!",
+                "description": "You now know the basics. Start by installing your first server!"
+            }
+        }
+    },
+    "performance": {
+        "title": "Performance Monitor",
+        "subtitle": "Real-time server performance metrics",
+        "cpu": {
+            "label": "Avg CPU Usage",
+            "sub": "Last 100 minutes"
         },
-        "performance": {
-            "title": "Performance Monitor",
-            "subtitle": "Real-time server performance metrics",
-            "cpu": {
-                "label": "Avg CPU Usage",
-                "sub": "Last 100 minutes"
-            },
-            "memory": {
-                "label": "Avg Memory",
-                "sub": "Last 100 minutes"
-            },
-            "players": {
-                "label": "Players Online",
-                "sub": "Current count"
-            },
-            "chart": {
-                "title": "Performance History",
-                "cpu": "CPU %",
-                "memory": "Memory %",
-                "players": "Players"
-            },
-            "tips": {
-                "title": "Performance Tips",
-                "cpu": "CPU usage is within normal range (<80%)",
-                "memory": "Memory usage is stable",
-                "viewDistance": "Consider reducing view distance if CPU usage increases"
-            }
+        "memory": {
+            "label": "Avg Memory",
+            "sub": "Last 100 minutes"
         },
-        "settings": {
-            "curseforgeKey": {
-                "label": "API Key",
-                "needKey": "A CurseForge API key is required.",
-                "getKey": "Get your API key here",
-                "instructions": "Create a key in your CurseForge developer account.",
-                "placeholder": "Enter your CurseForge API key",
-                "notSet": "Not set",
-                "verifying": "Verifying...",
-                "verified": "Verified",
-                "invalid": "Invalid key",
-                "verifyKey": "Verify Key"
-            }
+        "players": {
+            "label": "Players Online",
+            "sub": "Current count"
+        },
+        "chart": {
+            "title": "Performance History",
+            "cpu": "CPU %",
+            "memory": "Memory %",
+            "players": "Players"
+        },
+        "tips": {
+            "title": "Performance Tips",
+            "cpu": "CPU usage is within normal range (<80%)",
+            "memory": "Memory usage is stable",
+            "viewDistance": "Consider reducing view distance if CPU usage increases"
         }
     }
 }

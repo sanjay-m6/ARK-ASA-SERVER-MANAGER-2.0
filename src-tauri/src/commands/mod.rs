@@ -23,3 +23,5 @@ pub mod upnp;
 pub mod cloud_backup;
 pub mod watchdog;
 pub mod hardware;
+pub mod autosave;
+pub mod server_organization;

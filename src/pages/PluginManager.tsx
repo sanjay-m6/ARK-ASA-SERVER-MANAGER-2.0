@@ -14,6 +14,7 @@ import {
 import { PluginInfo, Server as ServerType } from '../types';
 import toast from 'react-hot-toast';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import ServerSelect from '../components/ui/ServerSelect';
 
 // Official ASA Server API Plugin Repository URL
 const PLUGIN_REPOSITORY_URL = 'https://ark-server-api.com/';
@@ -153,21 +154,12 @@ export default function PluginManager() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                    {/* Server Selector */}
                     <div className="flex items-center gap-2">
-                        <Server className="w-5 h-5 text-slate-400" />
-                        <select
-                            value={selectedServerId || ''}
-                            onChange={(e) => setSelectedServerId(Number(e.target.value) || null)}
-                            className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-white focus:border-violet-500 focus:outline-none min-w-[200px]"
-                        >
-                            <option value="">Select a server...</option>
-                            {servers.map(server => (
-                                <option key={server.id} value={server.id}>
-                                    {server.name}
-                                </option>
-                            ))}
-                        </select>
+                        <ServerSelect 
+                            value={selectedServerId} 
+                            onChange={setSelectedServerId} 
+                            accentColor="purple" 
+                        />
                     </div>
 
                     <button

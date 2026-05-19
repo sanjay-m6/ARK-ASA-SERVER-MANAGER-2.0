@@ -360,3 +360,119 @@ pub async fn request_admin_privileges(app: tauri::AppHandle) -> Result<(), Strin
     }
     Ok(())
 }
+
+#[tauri::command]
+pub async fn set_startup_shortcut(enabled: bool, minimized: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        crate::utils::startup_helper::set_windows_registry_run(enabled, minimized)
+            .map_err(|e| format!("Failed to configure Windows registry run: {}", e))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = enabled;
+        let _ = minimized;
+        Err("Registry startup is only supported on Windows".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn set_startup_task_scheduler(enabled: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        crate::utils::startup_helper::set_windows_task_scheduler(enabled)
+            .map_err(|e| format!("Failed to configure Windows Task Scheduler: {}", e))
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = enabled;
+        Err("Task Scheduler startup is only supported on Windows".to_string())
+    }
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoStartConfig {
+    pub global_auto_start_enabled: bool,
+    pub global_boot_delay: u64,
+    pub start_minimized_to_tray: bool,
+    pub silent_headless_startup: bool,
+    pub windows_startup_shortcut: bool,
+    pub loop_prevention_max_crashes: u64,
+    pub loop_prevention_time_window_mins: u64,
+}
+
+#[tauri::command]
+pub async fn get_auto_start_config(state: State<'_, AppState>) -> Result<AutoStartConfig, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let get_val = |key: &str, default: &str| -> String {
+        conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            [key],
+            |row| row.get::<_, String>(0)
+        ).unwrap_or_else(|_| default.to_string())
+    };
+
+    Ok(AutoStartConfig {
+        global_auto_start_enabled: get_val("global_auto_start_enabled", "false") == "true",
+        global_boot_delay: get_val("global_boot_delay", "0").parse::<u64>().unwrap_or(0),
+        start_minimized_to_tray: get_val("start_minimized_to_tray", "false") == "true",
+        silent_headless_startup: get_val("silent_headless_startup", "false") == "true",
+        windows_startup_shortcut: get_val("windows_startup_shortcut", "false") == "true",
+        loop_prevention_max_crashes: get_val("loop_prevention_max_crashes", "3").parse::<u64>().unwrap_or(3),
+        loop_prevention_time_window_mins: get_val("loop_prevention_time_window_mins", "15").parse::<u64>().unwrap_or(15),
+    })
+}
+
+#[tauri::command]
+pub async fn set_auto_start_config(config: AutoStartConfig, state: State<'_, AppState>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let set_val = |key: &str, value: &str| -> Result<(), rusqlite::Error> {
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            [key, value]
+        )?;
+        Ok(())
+    };
+
+    set_val("global_auto_start_enabled", &config.global_auto_start_enabled.to_string()).map_err(|e| e.to_string())?;
+    set_val("global_boot_delay", &config.global_boot_delay.to_string()).map_err(|e| e.to_string())?;
+    set_val("start_minimized_to_tray", &config.start_minimized_to_tray.to_string()).map_err(|e| e.to_string())?;
+    set_val("silent_headless_startup", &config.silent_headless_startup.to_string()).map_err(|e| e.to_string())?;
+    set_val("windows_startup_shortcut", &config.windows_startup_shortcut.to_string()).map_err(|e| e.to_string())?;
+    set_val("loop_prevention_max_crashes", &config.loop_prevention_max_crashes.to_string()).map_err(|e| e.to_string())?;
+    set_val("loop_prevention_time_window_mins", &config.loop_prevention_time_window_mins.to_string()).map_err(|e| e.to_string())?;
+
+    // Apply Registry Startup setting on Windows!
+    #[cfg(windows)]
+    {
+        let _ = crate::utils::startup_helper::set_windows_registry_run(
+            config.windows_startup_shortcut,
+            config.start_minimized_to_tray,
+        );
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_server_startup_config(
+    server_id: i64,
+    delay: i64,
+    priority: i64,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "UPDATE servers SET startup_delay = ?1, startup_priority = ?2 WHERE id = ?3",
+        rusqlite::params![delay, priority, server_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}

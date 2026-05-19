@@ -149,7 +149,7 @@ pub async fn get_backups(
         let mut stmt = conn
             .prepare(
                 "SELECT id, server_id, backup_type, file_path, size, includes_configs, includes_mods, 
-                        includes_saves, includes_cluster, verified, created_at 
+                        includes_saves, includes_cluster, verified, created_at, label, notes, is_protected, status, hash
                  FROM backups WHERE server_id = ?1 ORDER BY created_at DESC",
             )
             .map_err(|e| e.to_string())?;
@@ -177,6 +177,11 @@ pub async fn get_backups(
                     includes_cluster: row.get(8)?,
                     verified: row.get(9)?,
                     created_at: row.get(10)?,
+                    label: row.get(11).ok(),
+                    notes: row.get(12).ok(),
+                    is_protected: row.get(13).unwrap_or(false),
+                    status: row.get(14).unwrap_or_else(|_| "completed".to_string()),
+                    hash: row.get(15).ok(),
                 })
             })
             .map_err(|e| e.to_string())?;
@@ -198,7 +203,7 @@ pub async fn restore_backup(
     println!("🔄 Restoring backup {}", backup_id);
 
     // Get backup and server info from database
-    let (backup_path, install_path) = {
+    let (backup_path, install_path, server_id) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
@@ -218,10 +223,27 @@ pub async fn restore_backup(
             )
             .map_err(|e| format!("Server not found: {}", e))?;
 
-        (PathBuf::from(result.0), install_path)
+        (PathBuf::from(result.0), install_path, result.1)
     };
 
     let restore_options = options.unwrap_or_default();
+
+    // Create a fast pre-restore backup
+    let rollback_opts = BackupOptions {
+        include_configs: restore_options.restore_configs,
+        include_mods: false,
+        include_saves: restore_options.restore_saves,
+        include_cluster: false,
+        compression_level: 1, // fast
+    };
+    
+    // We create the rollback backup. If it fails, we still proceed to restore.
+    println!("  Creating pre-restore rollback...");
+    if let Ok(rollback) = create_backup(state.clone(), server_id, "manual".to_string(), Some(rollback_opts)).await {
+        // Label it
+        let _ = update_backup_label(state.clone(), rollback.id, Some("Pre-Restore Rollback".to_string())).await;
+        let _ = toggle_backup_protection(state.clone(), rollback.id, true).await;
+    }
 
     BackupService::restore_backup(
         &backup_path,
@@ -336,26 +358,195 @@ pub async fn get_backup_contents(
     Ok(contents)
 }
 
-/// Cleanup old backups, keeping only the most recent N
+/// Cleanup old backups, keeping quotas and protection in mind
 #[tauri::command]
 pub async fn cleanup_old_backups(
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
     server_id: i64,
-    keep_count: usize,
 ) -> Result<Vec<String>, String> {
-    println!(
-        "🧹 Cleaning up old backups for server {}, keeping {}",
-        server_id, keep_count
-    );
+    println!("🧹 Running intelligent cleanup for server {}", server_id);
 
-    let backup_dir = BackupService::get_backup_dir(&PathBuf::from("C:/ASA_Backups"), server_id);
-    let deleted = BackupService::cleanup_old_backups(&backup_dir, server_id, keep_count)?;
+    // Get policy
+    let policy = get_backup_policy(state.clone(), server_id).await?;
+    if !policy.enabled {
+        println!("  Cleanup skipped (policy disabled)");
+        return Ok(Vec::new());
+    }
 
-    let deleted_paths: Vec<String> = deleted
-        .iter()
-        .map(|p| p.to_string_lossy().to_string())
-        .collect();
+    let mut deleted_paths = Vec::new();
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    // 1. Get all unprotected backups
+    let mut stmt = conn.prepare("SELECT id, file_path, size, created_at FROM backups WHERE server_id = ?1 AND is_protected = 0 ORDER BY created_at DESC")
+        .map_err(|e| e.to_string())?;
+    
+    struct BackupMeta {
+        id: i64,
+        path: String,
+        size: i64,
+        created_at: String,
+    }
+    
+    let mut unprotected: Vec<BackupMeta> = stmt.query_map([server_id], |row| {
+        Ok(BackupMeta {
+            id: row.get(0)?,
+            path: row.get(1)?,
+            size: row.get(2)?,
+            created_at: row.get(3)?,
+        })
+    }).map_err(|e| e.to_string())?.filter_map(|r| r.ok()).collect();
+
+    // 2. Retention Count
+    if unprotected.len() as i32 > policy.retention_count {
+        let to_delete = unprotected.split_off(policy.retention_count as usize);
+        for b in to_delete {
+            if std::fs::remove_file(&b.path).is_ok() || !std::path::Path::new(&b.path).exists() {
+                conn.execute("DELETE FROM backups WHERE id = ?1", [b.id]).ok();
+                deleted_paths.push(b.path.clone());
+            }
+        }
+    }
+
+    // 3. Retention Days
+    let now = chrono::Local::now();
+    let mut i = 0;
+    while i < unprotected.len() {
+        if let Ok(created) = chrono::DateTime::parse_from_rfc3339(&unprotected[i].created_at) {
+            let age_days = (now.signed_duration_since(created)).num_days();
+            if age_days > policy.retention_days as i64 {
+                let b = unprotected.remove(i);
+                if std::fs::remove_file(&b.path).is_ok() || !std::path::Path::new(&b.path).exists() {
+                    conn.execute("DELETE FROM backups WHERE id = ?1", [b.id]).ok();
+                    deleted_paths.push(b.path);
+                }
+                continue;
+            }
+        }
+        i += 1;
+    }
+
+    // 4. Storage Quota (GB)
+    let quota_bytes = (policy.storage_quota_gb * 1024.0 * 1024.0 * 1024.0) as i64;
+    let total_size: i64 = unprotected.iter().map(|b| b.size).sum();
+    
+    if total_size > quota_bytes {
+        let mut current_size = total_size;
+        // Delete oldest first (unprotected is sorted newest first, so reverse iterate)
+        while current_size > quota_bytes && !unprotected.is_empty() {
+            let b = unprotected.pop().unwrap(); // Remove oldest
+            if std::fs::remove_file(&b.path).is_ok() || !std::path::Path::new(&b.path).exists() {
+                conn.execute("DELETE FROM backups WHERE id = ?1", [b.id]).ok();
+                deleted_paths.push(b.path);
+                current_size -= b.size;
+            }
+        }
+    }
 
     println!("  Deleted {} old backups", deleted_paths.len());
     Ok(deleted_paths)
 }
+
+use crate::models::BackupPolicy;
+
+#[tauri::command]
+pub async fn get_backup_policy(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<BackupPolicy, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let policy = conn.query_row(
+        "SELECT enabled, interval_hours, retention_days, retention_count, storage_quota_gb, 
+                backup_before_update, backup_before_restart, compression_enabled, 
+                cloud_sync_enabled, discord_webhook 
+         FROM backup_policies WHERE server_id = ?1",
+        [server_id],
+        |row| {
+            Ok(BackupPolicy {
+                server_id,
+                enabled: row.get(0)?,
+                interval_hours: row.get(1)?,
+                retention_days: row.get(2)?,
+                retention_count: row.get(3)?,
+                storage_quota_gb: row.get(4)?,
+                backup_before_update: row.get(5)?,
+                backup_before_restart: row.get(6)?,
+                compression_enabled: row.get(7)?,
+                cloud_sync_enabled: row.get(8)?,
+                discord_webhook: row.get(9)?,
+            })
+        },
+    ).unwrap_or_else(|_| BackupPolicy {
+        server_id,
+        enabled: false,
+        interval_hours: 24,
+        retention_days: 7,
+        retention_count: 10,
+        storage_quota_gb: 50.0,
+        backup_before_update: true,
+        backup_before_restart: true,
+        compression_enabled: true,
+        cloud_sync_enabled: false,
+        discord_webhook: None,
+    });
+
+    Ok(policy)
+}
+
+#[tauri::command]
+pub async fn save_backup_policy(
+    state: State<'_, AppState>,
+    policy: BackupPolicy,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT INTO backup_policies (
+            server_id, enabled, interval_hours, retention_days, retention_count, storage_quota_gb,
+            backup_before_update, backup_before_restart, compression_enabled, cloud_sync_enabled, discord_webhook
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+         ON CONFLICT(server_id) DO UPDATE SET
+            enabled=excluded.enabled, interval_hours=excluded.interval_hours, 
+            retention_days=excluded.retention_days, retention_count=excluded.retention_count,
+            storage_quota_gb=excluded.storage_quota_gb, backup_before_update=excluded.backup_before_update,
+            backup_before_restart=excluded.backup_before_restart, compression_enabled=excluded.compression_enabled,
+            cloud_sync_enabled=excluded.cloud_sync_enabled, discord_webhook=excluded.discord_webhook",
+        rusqlite::params![
+            policy.server_id, policy.enabled, policy.interval_hours, policy.retention_days,
+            policy.retention_count, policy.storage_quota_gb, policy.backup_before_update,
+            policy.backup_before_restart, policy.compression_enabled, policy.cloud_sync_enabled,
+            policy.discord_webhook
+        ]
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn update_backup_label(state: State<'_, AppState>, backup_id: i64, label: Option<String>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    conn.execute("UPDATE backups SET label = ?1 WHERE id = ?2", rusqlite::params![label, backup_id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn update_backup_notes(state: State<'_, AppState>, backup_id: i64, notes: Option<String>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    conn.execute("UPDATE backups SET notes = ?1 WHERE id = ?2", rusqlite::params![notes, backup_id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn toggle_backup_protection(state: State<'_, AppState>, backup_id: i64, is_protected: bool) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    conn.execute("UPDATE backups SET is_protected = ?1 WHERE id = ?2", rusqlite::params![is_protected, backup_id]).map_err(|e| e.to_string())?;
+    Ok(())
+}
+

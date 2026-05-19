@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import asaLogo from '../../assets/ASA.png';
+import aseLogo from '../../assets/ASE.png';
 
 export default function WelcomeOverlay({ onComplete }: { onComplete: () => void }) {
     const { t } = useTranslation();
@@ -26,6 +28,63 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                     animate={{ opacity: 0.3 }}
                     className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.2)_0%,black_70%)]"
                 />
+
+                {/* Brand Logos Segment */}
+                <motion.div
+                    className="flex items-center justify-center gap-6 mb-8 z-10"
+                    initial={{ y: -30, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2, duration: 0.8, type: 'spring', stiffness: 50 }}
+                >
+                    {/* ASE Logo */}
+                    <motion.div
+                        className="relative group w-20 h-20 md:w-28 md:h-28 flex items-center justify-center"
+                        animate={{ 
+                            y: [0, -6, 0],
+                        }}
+                        transition={{ 
+                            duration: 4, 
+                            repeat: Infinity, 
+                            ease: "easeInOut"
+                        }}
+                    >
+                        <div className="absolute inset-0 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all duration-500" />
+                        <img 
+                            src={aseLogo} 
+                            alt="ARK Survival Evolved" 
+                            className="w-full h-full object-contain filter drop-shadow-[0_0_12px_rgba(245,158,11,0.3)] pointer-events-none select-none transform hover:scale-105 transition-transform duration-300"
+                        />
+                    </motion.div>
+
+                    {/* Tech linking line */}
+                    <motion.div 
+                        className="w-6 h-[1px] bg-gradient-to-r from-amber-500/40 via-slate-500/40 to-cyan-500/40"
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: 1 }}
+                        transition={{ delay: 0.5, duration: 0.6 }}
+                    />
+
+                    {/* ASA Logo */}
+                    <motion.div
+                        className="relative group w-20 h-20 md:w-28 md:h-28 flex items-center justify-center"
+                        animate={{ 
+                            y: [0, 6, 0],
+                        }}
+                        transition={{ 
+                            duration: 4, 
+                            repeat: Infinity, 
+                            ease: "easeInOut",
+                            delay: 0.5
+                        }}
+                    >
+                        <div className="absolute inset-0 bg-cyan-500/10 rounded-full blur-xl group-hover:bg-cyan-500/20 transition-all duration-500" />
+                        <img 
+                            src={asaLogo} 
+                            alt="ARK Survival Ascended" 
+                            className="w-full h-full object-contain filter drop-shadow-[0_0_12px_rgba(34,211,238,0.3)] pointer-events-none select-none transform hover:scale-105 transition-transform duration-300"
+                        />
+                    </motion.div>
+                </motion.div>
 
                 {/* Main Text Container */}
                 <motion.div

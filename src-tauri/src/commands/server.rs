@@ -20,8 +20,8 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
     let mut stmt = conn
         .prepare(
             "SELECT id, name, install_path, status, game_port, query_port, rcon_port, max_players, 
-         server_password, admin_password, ip_address, created_at, last_started, 
-         auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args FROM servers",
+          server_password, admin_password, ip_address, created_at, last_started, 
+          auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args, server_type FROM servers",
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
 
@@ -48,6 +48,7 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
         servers.push(Server {
             id: row.get(0).map_err(|e| e.to_string())?,
             name: row.get(1).map_err(|e| e.to_string())?,
+            server_type: row.get::<_, String>(19).unwrap_or_else(|_| "ASA".to_string()),
             install_path: PathBuf::from(row.get::<_, String>(2).map_err(|e| e.to_string())?),
             status,
             ports: ServerPorts {
@@ -125,7 +126,7 @@ pub async fn get_server_by_id(
         .prepare(
             "SELECT id, name, install_path, status, game_port, query_port, rcon_port, max_players, 
          server_password, admin_password, ip_address, created_at, last_started, 
-         auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args FROM servers WHERE id = ?1",
+         auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args, server_type FROM servers WHERE id = ?1",
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
 
@@ -151,6 +152,7 @@ pub async fn get_server_by_id(
         let server = Server {
             id: row.get(0).map_err(|e| e.to_string())?,
             name: row.get(1).map_err(|e| e.to_string())?,
+            server_type: row.get::<_, String>(19).unwrap_or_else(|_| "ASA".to_string()),
             install_path: PathBuf::from(row.get::<_, String>(2).map_err(|e| e.to_string())?),
             status,
             ports: ServerPorts {
@@ -204,14 +206,15 @@ pub async fn install_server(
     game_port: u16,
     query_port: u16,
     rcon_port: u16,
+    server_type: String,
 ) -> Result<Server, String> {
     println!("🚀 Installing server: {} at {}", name, install_path);
 
     let path = PathBuf::from(&install_path);
 
     // Create the installer and run the installation
-    let installer = ServerInstaller::new(app_handle);
-    installer.install_asa_server(&path).await?;
+    let installer = ServerInstaller::new(app_handle, path.to_string_lossy().to_string());
+    installer.install_server(&path, &server_type).await?;
 
     // Create database entry (Scoped to drop mutex/lock before await)
     let (id, unique_name) = {
@@ -257,7 +260,7 @@ pub async fn install_server(
                 "admin123",
                 &map_name,
                 &unique_name,
-                "ASA", // Server type - ARK: Survival Ascended
+                &server_type, // Server type - ARK: Survival Ascended or Evolved
             ),
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
@@ -268,6 +271,7 @@ pub async fn install_server(
     let server_obj = Server {
         id,
         name: unique_name.clone(),
+        server_type: server_type.clone(),
 
         install_path: PathBuf::from(install_path),
         status: ServerStatus::Stopped,
@@ -397,6 +401,7 @@ pub async fn clone_server(
         server_password,
         admin_password,
         ip_address,
+        server_type,
     ) = {
         let db = state
             .db
@@ -408,7 +413,7 @@ pub async fn clone_server(
 
         conn.query_row(
             "SELECT name, install_path, map_name, session_name, game_port, query_port, rcon_port,
-             max_players, server_password, admin_password, ip_address FROM servers WHERE id = ?1",
+             max_players, server_password, admin_password, ip_address, server_type FROM servers WHERE id = ?1",
             [source_server_id],
             |row| {
                 Ok((
@@ -423,6 +428,7 @@ pub async fn clone_server(
                     row.get::<_, Option<String>>(8)?,
                     row.get::<_, String>(9)?,
                     row.get::<_, Option<String>>(10)?,
+                    row.get::<_, String>(11).unwrap_or_else(|_| "ASA".to_string()),
                 ))
             },
         )
@@ -504,8 +510,8 @@ pub async fn clone_server(
 
         conn.execute(
             "INSERT INTO servers (name, install_path, status, game_port, query_port, rcon_port,
-             max_players, admin_password, map_name, session_name, server_password, ip_address)
-             VALUES (?1, ?2, 'stopped', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+             max_players, admin_password, map_name, session_name, server_password, ip_address, server_type)
+             VALUES (?1, ?2, 'stopped', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             rusqlite::params![
                 new_name,
                 new_install_path.to_string_lossy(),
@@ -517,7 +523,8 @@ pub async fn clone_server(
                 map_name,
                 new_name.clone(),
                 server_password,
-                ip_address
+                ip_address,
+                server_type.clone()
             ],
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
@@ -533,6 +540,7 @@ pub async fn clone_server(
     Ok(Server {
         id: new_id,
         name: new_name.clone(),
+        server_type: server_type.clone(),
 
         install_path: new_install_path,
         status: ServerStatus::Stopped,
@@ -872,6 +880,7 @@ async fn perform_server_startup(
         cluster_name,
         cluster_path,
         custom_args,
+        server_type,
     ): (
         String,
         String,
@@ -887,6 +896,7 @@ async fn perform_server_startup(
         Option<String>,
         Option<String>,
         Option<String>,
+        String,
     ) = {
         let db = state
             .db
@@ -899,7 +909,7 @@ async fn perform_server_startup(
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address, s.cluster_id,
-             c.name, c.cluster_path, s.custom_args
+             c.name, c.cluster_path, s.custom_args, s.server_type
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
@@ -920,6 +930,7 @@ async fn perform_server_startup(
                     row.get::<usize, Option<String>>(11)?,
                     row.get::<usize, Option<String>>(12)?,
                     row.get::<usize, Option<String>>(13)?,
+                    row.get::<usize, String>(14).unwrap_or_else(|_| "ASA".to_string()),
                 ))
             },
         )
@@ -967,11 +978,19 @@ async fn perform_server_startup(
     }
 
     // Check if server executable exists
-    let executable = install_path_buf
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkAscendedServer.exe");
+    let executable = if server_type == "ASE" {
+        install_path_buf
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64")
+            .join("ShooterGameServer.exe")
+    } else {
+        install_path_buf
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64")
+            .join("ArkAscendedServer.exe")
+    };
 
     if update_on_start {
         println!("  🔄 Update requested before start. Initiating SteamCMD update...");
@@ -993,8 +1012,8 @@ async fn perform_server_startup(
         }
 
         // Run update via SteamCMD
-        let installer = ServerInstaller::new(app_handle.clone());
-        installer.update_server(&install_path_buf).await?;
+        let installer = ServerInstaller::new(app_handle.clone(), install_path_buf.to_string_lossy().to_string());
+        installer.update_server(&install_path_buf, &server_type).await?;
         println!("  ✅ Server update complete.");
     } else if !executable.exists() {
         // Server executable not found, trigger installation
@@ -1017,8 +1036,8 @@ async fn perform_server_startup(
         }
 
         // Run the installation via SteamCMD
-        let installer = ServerInstaller::new(app_handle.clone());
-        installer.install_asa_server(&install_path_buf).await?;
+        let installer = ServerInstaller::new(app_handle.clone(), install_path_buf.to_string_lossy().to_string());
+        installer.install_server(&install_path_buf, &server_type).await?;
 
         println!("  ✅ Server download complete, now starting...");
     }
@@ -1081,7 +1100,7 @@ async fn perform_server_startup(
         .process_manager
         .start_server(
             server_id,
-            "ASA",
+            &server_type,
             &install_path_buf,
             &map_name,
             &session_name,
@@ -1151,6 +1170,7 @@ pub async fn start_server_no_mods(
         cluster_name,
         cluster_path,
         custom_args,
+        server_type,
     ): (
         String,
         String,
@@ -1165,6 +1185,7 @@ pub async fn start_server_no_mods(
         Option<String>,
         Option<String>,
         Option<String>,
+        String,
     ) = {
         let db = state
             .db
@@ -1178,7 +1199,7 @@ pub async fn start_server_no_mods(
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address,
-             c.name, c.cluster_path, s.custom_args
+             c.name, c.cluster_path, s.custom_args, s.server_type
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
@@ -1198,6 +1219,7 @@ pub async fn start_server_no_mods(
                     row.get::<usize, Option<String>>(10)?,
                     row.get::<usize, Option<String>>(11)?,
                     row.get::<usize, Option<String>>(12)?,
+                    row.get::<usize, String>(13).unwrap_or_else(|_| "ASA".to_string()),
                 ))
             },
         )
@@ -1207,11 +1229,19 @@ pub async fn start_server_no_mods(
     let install_path_buf = PathBuf::from(&install_path);
 
     // Check if server executable exists
-    let executable = install_path_buf
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkAscendedServer.exe");
+    let executable = if server_type == "ASE" {
+        install_path_buf
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64")
+            .join("ShooterGameServer.exe")
+    } else {
+        install_path_buf
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64")
+            .join("ArkAscendedServer.exe")
+    };
 
     if !executable.exists() {
         println!("  📥 Server executable not found, starting automatic download...");
@@ -1232,8 +1262,8 @@ pub async fn start_server_no_mods(
         }
 
         // Run the installation via SteamCMD
-        let installer = ServerInstaller::new(app_handle.clone());
-        installer.install_asa_server(&install_path_buf).await?;
+        let installer = ServerInstaller::new(app_handle.clone(), install_path_buf.to_string_lossy().to_string());
+        installer.install_server(&install_path_buf, &server_type).await?;
 
         println!("  ✅ Server download complete, now starting...");
     }
@@ -1243,7 +1273,7 @@ pub async fn start_server_no_mods(
         .process_manager
         .start_server(
             server_id,
-            "ASA",
+            &server_type,
             &install_path_buf,
             &map_name,
             &session_name,
@@ -1656,7 +1686,7 @@ pub async fn update_server(
     println!("📥 Updating server {}", server_id);
 
     // Get server install path
-    let install_path = {
+    let (install_path, server_type) = {
         let db = state
             .db
             .lock()
@@ -1666,9 +1696,14 @@ pub async fn update_server(
             .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
         conn.query_row(
-            "SELECT install_path FROM servers WHERE id = ?1",
+            "SELECT install_path, server_type FROM servers WHERE id = ?1",
             [server_id],
-            |row| row.get::<_, String>(0),
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string())
+                ))
+            },
         )
         .map_err(|e| format!("Server not found: {}", e))?
     };
@@ -1690,9 +1725,9 @@ pub async fn update_server(
     }
 
     // Run the update
-    let installer = ServerInstaller::new(app_handle);
+    let installer = ServerInstaller::new(app_handle, install_path.clone());
     installer
-        .update_server(&PathBuf::from(&install_path))
+        .update_server(&PathBuf::from(install_path), &server_type)
         .await?;
 
     // Update status back to stopped
@@ -1987,7 +2022,7 @@ pub async fn import_server(
     Ok(Server {
         id,
         name: unique_name.clone(),
-
+        server_type: "ASA".to_string(),
         install_path: PathBuf::from(install_path),
         status: ServerStatus::Stopped,
         ports: ServerPorts {

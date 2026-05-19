@@ -4,6 +4,7 @@ import type { Server } from '../../types';
 import { importNonDedicatedSave, selectFolder, selectFile } from '../../utils/tauri';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import ServerSelect from '../ui/ServerSelect';
 
 interface Props {
     onClose: () => void;
@@ -124,19 +125,13 @@ export default function ImportNonDedicatedDialog({ onClose, servers }: Props) {
                         <label className="text-sm font-medium text-slate-300 mb-2 block">
                             {t('dialogs.importSave.targetLabel')}
                         </label>
-                        <select
-                            value={selectedServerId}
-                            onChange={(e) => setSelectedServerId(e.target.value)}
-                            disabled={isImporting || servers.length === 0}
-                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/30"
-                        >
-                            <option value="">{t('dialogs.importSave.selectServer')}</option>
-                            {servers.map(server => (
-                                <option key={server.id} value={server.id}>
-                                    {server.name} ({server.config.mapName})
-                                </option>
-                            ))}
-                        </select>
+                        <ServerSelect
+                            value={selectedServerId ? Number(selectedServerId) : null}
+                            onChange={(id) => setSelectedServerId(id === null ? '' : id)}
+                            servers={servers}
+                            accentColor="amber"
+                            className="w-full"
+                        />
                         {servers.length === 0 && (
                             <p className="text-xs text-red-400 mt-2">{t('dialogs.importSave.noServers')}</p>
                         )}

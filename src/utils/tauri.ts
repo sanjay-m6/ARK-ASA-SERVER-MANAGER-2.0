@@ -835,3 +835,20 @@ export async function toggleScheduledTask(taskId: number, enabled: boolean): Pro
 export async function deleteScheduledTask(taskId: number): Promise<void> {
     return await invoke('delete_scheduled_task', { taskId });
 }
+
+// ============================================================================
+// Auto-Start System Commands
+// ============================================================================
+
+export async function getAutoStartConfig(): Promise<any> {
+    return await invoke('get_auto_start_config');
+}
+
+export async function setAutoStartConfig(config: any): Promise<void> {
+    return await invoke('set_auto_start_config', { config });
+}
+
+export async function setServerStartupConfig(serverId: number, delay: number, priority: number): Promise<void> {
+    return await invoke('set_server_startup_config', { serverId, delay, priority });
+}
+

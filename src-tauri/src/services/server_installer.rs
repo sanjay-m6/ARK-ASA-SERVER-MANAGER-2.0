@@ -11,6 +11,7 @@ use tokio::process::Command;
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallProgress {
+    pub install_path: String,
     pub stage: String,
     pub progress: f32,
     pub message: String,
@@ -22,6 +23,7 @@ pub struct InstallProgress {
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConsoleOutput {
+    pub install_path: String,
     pub line: String,
     pub line_type: String, // "info", "progress", "warning", "error", "success"
     pub timestamp: String,
@@ -29,17 +31,19 @@ pub struct ConsoleOutput {
 
 pub struct ServerInstaller {
     app_handle: AppHandle,
+    install_path: String,
 }
 
 impl ServerInstaller {
-    pub fn new(app_handle: AppHandle) -> Self {
-        Self { app_handle }
+    pub fn new(app_handle: AppHandle, install_path: String) -> Self {
+        Self { app_handle, install_path }
     }
 
     fn emit_progress(&self, stage: &str, progress: f32, message: &str) {
         let _ = self.app_handle.emit(
             "install-progress",
             InstallProgress {
+                install_path: self.install_path.clone(),
                 stage: stage.to_string(),
                 progress,
                 message: message.to_string(),
@@ -54,6 +58,7 @@ impl ServerInstaller {
         let _ = self.app_handle.emit(
             "install-console",
             ConsoleOutput {
+                install_path: self.install_path.clone(),
                 line: line.to_string(),
                 line_type: line_type.to_string(),
                 timestamp,
@@ -65,6 +70,7 @@ impl ServerInstaller {
         let _ = self.app_handle.emit(
             "install-progress",
             InstallProgress {
+                install_path: self.install_path.clone(),
                 stage: "complete".to_string(),
                 progress: 100.0,
                 message: message.to_string(),
@@ -79,6 +85,7 @@ impl ServerInstaller {
         let _ = self.app_handle.emit(
             "install-progress",
             InstallProgress {
+                install_path: self.install_path.clone(),
                 stage: "error".to_string(),
                 progress: 0.0,
                 message: message.to_string(),
@@ -89,11 +96,11 @@ impl ServerInstaller {
         self.emit_console(&format!("✗ Error: {}", message), "error");
     }
 
-    /// Install ARK: Survival Ascended server via SteamCMD
-    pub async fn install_asa_server(&self, install_path: &PathBuf) -> Result<(), String> {
+    /// Install ARK server via SteamCMD (ASA or ASE)
+    pub async fn install_server(&self, install_path: &PathBuf, server_type: &str) -> Result<(), String> {
         self.emit_progress("preparing", 5.0, "Preparing installation...");
         self.emit_console(
-            "Starting ARK: Survival Ascended server installation...",
+            &format!("Starting ARK: Survival {} server installation...", if server_type == "ASE" { "Evolved" } else { "Ascended" }),
             "info",
         );
 
@@ -107,15 +114,21 @@ impl ServerInstaller {
                 .map_err(|e| format!("Failed to create directory: {}", e))?;
         }
 
+        let (server_exe_name, app_id) = if server_type == "ASE" {
+            ("ShooterGameServer.exe", "376030")
+        } else {
+            ("ArkAscendedServer.exe", "2430930")
+        };
+
         // Check if server is already installed
         let server_exe = install_path
             .join("ShooterGame")
             .join("Binaries")
             .join("Win64")
-            .join("ArkAscendedServer.exe");
+            .join(server_exe_name);
         let manifest_file = install_path
             .join("steamapps")
-            .join("appmanifest_2430930.acf");
+            .join(format!("appmanifest_{}.acf", app_id));
 
         if server_exe.exists() && manifest_file.exists() {
             self.emit_console("", "info");
@@ -177,19 +190,16 @@ impl ServerInstaller {
         );
         self.emit_progress("downloading", 15.0, "Starting SteamCMD...");
 
-        // ASA app ID is 2430930
-        let asa_app_id = "2430930";
-
         self.emit_console("", "info");
         self.emit_console(
             "═══════════════════════════════════════════════════════════",
             "info",
         );
         self.emit_console(
-            "  SteamCMD - ARK: Survival Ascended Dedicated Server",
+            &format!("  SteamCMD - ARK: Survival {} Dedicated Server", if server_type == "ASE" { "Evolved" } else { "Ascended" }),
             "info",
         );
-        self.emit_console(&format!("  App ID: {}", asa_app_id), "info");
+        self.emit_console(&format!("  App ID: {}", app_id), "info");
         self.emit_console(&format!("  Target: {}", install_path.display()), "info");
         self.emit_console(
             "═══════════════════════════════════════════════════════════",
@@ -205,7 +215,7 @@ impl ServerInstaller {
                 "+login",
                 "anonymous",
                 "+app_update",
-                asa_app_id,
+                app_id,
                 "validate",
                 "+quit",
             ])
@@ -350,11 +360,11 @@ impl ServerInstaller {
     }
 
     /// Update an existing server
-    pub async fn update_server(&self, install_path: &PathBuf) -> Result<(), String> {
+    pub async fn update_server(&self, install_path: &PathBuf, server_type: &str) -> Result<(), String> {
         self.emit_progress("updating", 5.0, "Starting server update...");
         self.emit_console("Starting server update process...", "info");
 
         // Use the same installation logic - SteamCMD handles updates
-        self.install_asa_server(install_path).await
+        self.install_server(install_path, server_type).await
     }
 }

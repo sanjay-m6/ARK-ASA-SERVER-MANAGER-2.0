@@ -35,12 +35,12 @@ struct CurseForgeMod {
     #[serde(rename = "gameId")]
     game_id: i32,
     name: String,
-    summary: String,
-    authors: Vec<CurseForgeAuthor>,
+    summary: Option<String>,
+    authors: Option<Vec<CurseForgeAuthor>>,
     logo: Option<CurseForgeImage>,
-    links: CurseForgeLinks,
+    links: Option<CurseForgeLinks>,
     #[serde(rename = "downloadCount")]
-    download_count: f64,
+    download_count: Option<f64>,
     #[serde(rename = "dateModified")]
     date_modified: Option<String>,
 }
@@ -169,12 +169,12 @@ pub async fn search_curseforge(
                                         id: cf_mod.id.to_string(),
                                         curseforge_id: Some(cf_mod.id as i64),
                                         name: cf_mod.name,
-                                        author: cf_mod.authors.first().map(|a| a.name.clone()),
+                                        author: cf_mod.authors.as_ref().and_then(|a| a.first()).map(|a| a.name.clone()),
                                         version: None,
-                                        downloads: Some(cf_mod.download_count as i64),
-                                        description: Some(cf_mod.summary),
+                                        downloads: cf_mod.download_count.map(|d| d as i64),
+                                        description: cf_mod.summary,
                                         thumbnail_url: cf_mod.logo.map(|l| l.thumbnail_url),
-                                        curseforge_url: Some(cf_mod.links.website_url),
+                                        curseforge_url: cf_mod.links.map(|l| l.website_url),
                                         enabled: false,
                                         load_order: 0,
                                         last_updated: cf_mod.date_modified,
@@ -287,13 +287,14 @@ pub async fn search_curseforge(
                                                 name: cf_mod.name,
                                                 author: cf_mod
                                                     .authors
-                                                    .first()
+                                                    .as_ref()
+                                                    .and_then(|a| a.first())
                                                     .map(|a| a.name.clone()),
                                                 version: None,
-                                                downloads: Some(cf_mod.download_count as i64),
-                                                description: Some(cf_mod.summary),
+                                                downloads: cf_mod.download_count.map(|d| d as i64),
+                                                description: cf_mod.summary,
                                                 thumbnail_url: cf_mod.logo.map(|l| l.thumbnail_url),
-                                                curseforge_url: Some(cf_mod.links.website_url),
+                                                curseforge_url: cf_mod.links.map(|l| l.website_url),
                                                 enabled: false,
                                                 load_order: 0,
                                                 last_updated: cf_mod.date_modified,
@@ -473,12 +474,12 @@ pub async fn check_mod_updates(
                 id: cf_mod.id.to_string(),
                 curseforge_id: Some(cf_mod.id as i64),
                 name: cf_mod.name,
-                author: cf_mod.authors.first().map(|a| a.name.clone()),
+                author: cf_mod.authors.as_ref().and_then(|a| a.first()).map(|a| a.name.clone()),
                 version: None, // We could fetch latest file version here if needed
-                downloads: Some(cf_mod.download_count as i64),
-                description: Some(cf_mod.summary),
+                downloads: cf_mod.download_count.map(|d| d as i64),
+                description: cf_mod.summary,
                 thumbnail_url: cf_mod.logo.map(|l| l.thumbnail_url),
-                curseforge_url: Some(cf_mod.links.website_url),
+                curseforge_url: cf_mod.links.map(|l| l.website_url),
                 enabled: true,
                 load_order: 0,
                 last_updated: cf_mod.date_modified,

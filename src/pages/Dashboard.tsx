@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Server, Activity, Cpu, HardDrive, Zap, Terminal, Copy, Puzzle,
   Play, Square, RotateCw, Clock, Database, FileEdit,
-  TrendingUp
+  TrendingUp, Folder, FolderOpen, Heart, Bookmark, Search
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -41,6 +41,46 @@ export default function Dashboard() {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  // Organization States
+  const [snapshot, setSnapshot] = useState<any>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const fetchOrgSnapshot = async () => {
+    try {
+      const snap = await import('../utils/serverOrganization').then(m => m.getOrganizationSnapshot());
+      setSnapshot(snap);
+    } catch (e) {
+      console.error('Failed to load organization snapshot:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrgSnapshot();
+  }, [servers]);
+
+  const filteredServers = servers.filter(server => {
+    // Exclude archived servers
+    const isArchived = snapshot?.servers?.find((s: any) => s.id === server.id)?.archive_info;
+    if (isArchived) return false;
+
+    // Search query
+    const cust = snapshot?.servers?.find((s: any) => s.id === server.id)?.customization;
+    const displayName = cust?.display_name || server.name;
+    const matchesSearch = displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (server.config.mapName || '').toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+
+    // Folder category
+    if (selectedFolderId !== null) {
+      const serverFolderIds = snapshot?.servers?.find((s: any) => s.id === server.id)?.folder_ids || [];
+      if (!serverFolderIds.includes(selectedFolderId)) return false;
+    }
+
+    return true;
+  });
 
   // ... (rest of hook logic remains same until return)
 
@@ -356,21 +396,77 @@ export default function Dashboard() {
 
       {/* Server Control Hub */}
       <div className="glass-panel rounded-2xl p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
           <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
             <span className="text-sky-400 font-mono font-black leading-none mt-0.5">{'>_'}</span>
             <span className="tracking-wide">{t('dashboard.serverControlHub', 'Server Control Hub')}</span>
           </h2>
-          <button
-            onClick={() => navigate('/servers')}
-            className="text-sm font-medium text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 focus:outline-none"
-          >
-            {t('dashboard.manageAll', 'Manage All →')}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search Box */}
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search server..."
+                className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500/30 w-48"
+              />
+            </div>
+            <button
+              onClick={() => navigate('/tools/organization')}
+              className="text-xs font-semibold px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all"
+            >
+              Organize Nodes
+            </button>
+            <button
+              onClick={() => navigate('/servers')}
+              className="text-xs font-medium text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 focus:outline-none"
+            >
+              {t('dashboard.manageAll', 'Manage All →')}
+            </button>
+          </div>
         </div>
 
+        {/* Folders category filters */}
+        {snapshot?.folders && snapshot.folders.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-6 p-2 bg-white/[0.01] border border-white/5 rounded-2xl">
+            <button
+              onClick={() => setSelectedFolderId(null)}
+              className={cn(
+                'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none',
+                selectedFolderId === null
+                  ? 'bg-sky-500 text-slate-900'
+                  : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
+              )}
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              <span>All Nodes</span>
+            </button>
+            {snapshot.folders.map((folder: any) => {
+              const isActive = selectedFolderId === folder.id;
+              return (
+                <button
+                  key={folder.id}
+                  onClick={() => setSelectedFolderId(folder.id)}
+                  className={cn(
+                    'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none border border-transparent',
+                    isActive
+                      ? 'text-slate-900'
+                      : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                  )}
+                  style={isActive ? { backgroundColor: folder.color } : { borderLeft: `3px solid ${folder.color}` }}
+                >
+                  <Folder className="w-3.5 h-3.5" />
+                  <span>{folder.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {
-          servers.length === 0 ? (
+          filteredServers.length === 0 ? (
             <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-xl">
               <Server className="w-12 h-12 text-slate-600 mx-auto mb-3" />
               <h3 className="text-lg font-semibold text-slate-300 mb-2">{t('dashboard.noServers')}</h3>
@@ -384,109 +480,134 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              {servers.slice(0, 4).map((server) => (
-                <div
-                  key={server.id}
-                  className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all group gap-4 lg:gap-0"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div className={cn(
-                        'w-2.5 h-2.5 rounded-full',
-                        server.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
-                        server.status === 'running' && 'bg-amber-500 animate-pulse',
-                        server.status === 'stopped' && 'bg-slate-500',
-                        server.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
-                        server.status === 'starting' && 'bg-amber-500 animate-pulse',
-                        server.status === 'updating' && 'bg-sky-500 animate-pulse',
-                        server.status === 'repairing' && 'bg-orange-500 animate-pulse'
-                      )} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-slate-200">{server.name}</h3>
-                      <p className="text-xs text-slate-400 mt-0.5">{server.config.mapName} • {t('common.port', 'Port')} {server.ports.gamePort}</p>
-                    </div>
-                  </div>
+              {filteredServers.map((server) => {
+                const cust = snapshot?.servers?.find((s: any) => s.id === server.id)?.customization;
+                const displayName = cust?.display_name || server.name;
+                const hasColor = !!cust?.color_tag;
 
-                  <div className="flex items-center gap-2.5">
-                    {/* IP Display + Copy */}
-                    <div className="hidden md:flex items-center h-[34px] bg-[#1a202c] rounded px-3 border border-white/5">
-                      <span className="text-xs font-mono text-slate-300 mr-2">
-                        {server.ipAddress || '127.0.0.1'}:{server.ports.gamePort}
-                      </span>
-                      <button
-                        onClick={() => handleCopyIp(server.ipAddress, server.ports.gamePort)}
-                        className="text-slate-500 hover:text-sky-400 transition-colors focus:outline-none"
-                        title={t('dashboard.copyIp')}
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
+                return (
+                  <div
+                    key={server.id}
+                    className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all group gap-4 lg:gap-0 relative overflow-hidden"
+                  >
+                    {/* Custom Brand line indicator */}
+                    {hasColor && (
+                      <div
+                        className="absolute left-0 top-0 bottom-0 w-1"
+                        style={{ backgroundColor: cust.color_tag }}
+                      />
+                    )}
+
+                    <div className="flex items-center gap-4 pl-2">
+                      <div className="relative">
+                        <div className={cn(
+                          'w-2.5 h-2.5 rounded-full',
+                          server.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
+                          server.status === 'running' && 'bg-amber-500 animate-pulse',
+                          server.status === 'stopped' && 'bg-slate-500',
+                          server.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
+                          server.status === 'starting' && 'bg-amber-500 animate-pulse',
+                          server.status === 'updating' && 'bg-sky-500 animate-pulse',
+                          server.status === 'repairing' && 'bg-orange-500 animate-pulse'
+                        )} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-slate-200">{displayName}</h3>
+                          {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
+                          {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-400 fill-sky-400" />}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                          <p className="text-xs text-slate-400">{server.config.mapName} • {t('common.port', 'Port')} {server.ports.gamePort}</p>
+                          {cust?.tags && cust.tags.map((tg: string) => (
+                            <span key={tg} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] text-slate-400 font-medium">
+                              {tg}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Server Controls */}
                     <div className="flex items-center gap-2.5">
-                      {/* Start/Stop/Restart Buttons */}
-                      {(server.status === 'stopped' || server.status === 'crashed') ? (
-                        <button
-                          onClick={() => handleStartServer(server.id)}
-                          className="w-[34px] h-[34px] flex items-center justify-center bg-[#17302b] hover:bg-[#1f423b] text-emerald-400 border border-[#234c44] rounded shadow-sm transition-all focus:outline-none"
-                          title={t('common.start')}
-                        >
-                          <Play className="w-4 h-4 fill-current ml-0.5 mt-0.5" />
-                        </button>
-                      ) : (server.status === 'running' || server.status === 'online') ? (
-                        <>
-                          <button
-                            onClick={() => handleRestartServer(server.id)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-[#332514] hover:bg-[#4a361d] text-amber-400 border border-[#5c4324] rounded shadow-sm transition-all focus:outline-none"
-                            title={t('common.restart')}
-                          >
-                            <RotateCw className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleStopServer(server.id)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-[#311719] hover:bg-[#472224] text-rose-400 border border-[#5a2a2d] rounded shadow-sm transition-all focus:outline-none"
-                            title={t('common.stop')}
-                          >
-                            <Square className="w-4 h-4 fill-current" />
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          disabled
-                          className="w-[34px] h-[34px] flex items-center justify-center bg-slate-500/10 text-slate-400 border border-slate-500/20 rounded opacity-50 cursor-not-allowed focus:outline-none"
-                        >
-                          <RotateCw className="w-4 h-4 animate-spin" />
-                        </button>
-                      )}
-
-                      {/* Status Badge */}
-                      <div className={cn(
-                        "w-[85px] h-[34px] rounded text-[10px] font-bold tracking-[0.05em] border uppercase flex items-center justify-center",
-                        server.status === 'online' ? 'bg-[#17302b] text-emerald-400 border-[#234c44]' :
-                          server.status === 'running' ? 'bg-[#332514] text-amber-400 border-[#5c4324]' :
-                            server.status === 'crashed' ? 'bg-[#311719] text-rose-400 border-[#5a2a2d]' :
-                              'bg-[#1a202c] text-slate-400 border-white/5'
-                      )}>
-                        <span>
-                          {server.status === 'online' ? t('dashboard.statusOnline', 'ONLINE') :
-                            server.status === 'running' ? t('dashboard.statusLoading', 'STARTING') :
-                              t(`serverManager.serverStatus.${server.status}`, server.status.toUpperCase() || 'UNKNOWN')}
+                      {/* IP Display + Copy */}
+                      <div className="hidden md:flex items-center h-[34px] bg-[#1a202c] rounded px-3 border border-white/5">
+                        <span className="text-xs font-mono text-slate-300 mr-2">
+                          {server.ipAddress || '127.0.0.1'}:{server.ports.gamePort}
                         </span>
+                        <button
+                          onClick={() => handleCopyIp(server.ipAddress, server.ports.gamePort)}
+                          className="text-slate-500 hover:text-sky-400 transition-colors focus:outline-none"
+                          title={t('dashboard.copyIp')}
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
                       </div>
 
-                      {/* Clone Button */}
-                      <button
-                        onClick={() => openCloneModal(server)}
-                        className="w-[34px] h-[34px] flex items-center justify-center bg-[#172738] hover:bg-[#1a3147] text-sky-400 border border-[#20405c] rounded shadow-sm transition-all focus:outline-none"
-                        title={t('dashboard.cloneTransferExtract', 'Clone / Extract')}
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
+                      {/* Server Controls */}
+                      <div className="flex items-center gap-2.5">
+                        {/* Start/Stop/Restart Buttons */}
+                        {(server.status === 'stopped' || server.status === 'crashed') ? (
+                          <button
+                            onClick={() => handleStartServer(server.id)}
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-[#17302b] hover:bg-[#1f423b] text-emerald-400 border border-[#234c44] rounded shadow-sm transition-all focus:outline-none"
+                            title={t('common.start')}
+                          >
+                            <Play className="w-4 h-4 fill-current ml-0.5 mt-0.5" />
+                          </button>
+                        ) : (server.status === 'running' || server.status === 'online') ? (
+                          <>
+                            <button
+                              onClick={() => handleRestartServer(server.id)}
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-[#332514] hover:bg-[#4a361d] text-amber-400 border border-[#5c4324] rounded shadow-sm transition-all focus:outline-none"
+                              title={t('common.restart')}
+                            >
+                              <RotateCw className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleStopServer(server.id)}
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-[#311719] hover:bg-[#472224] text-rose-400 border border-[#5a2a2d] rounded shadow-sm transition-all focus:outline-none"
+                              title={t('common.stop')}
+                            >
+                              <Square className="w-4 h-4 fill-current" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            disabled
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-slate-500/10 text-slate-400 border border-slate-500/20 rounded opacity-50 cursor-not-allowed focus:outline-none"
+                          >
+                            <RotateCw className="w-4 h-4 animate-spin" />
+                          </button>
+                        )}
+
+                        {/* Status Badge */}
+                        <div className={cn(
+                          "w-[85px] h-[34px] rounded text-[10px] font-bold tracking-[0.05em] border uppercase flex items-center justify-center",
+                          server.status === 'online' ? 'bg-[#17302b] text-emerald-400 border-[#234c44]' :
+                            server.status === 'running' ? 'bg-[#332514] text-amber-400 border-[#5c4324]' :
+                              server.status === 'crashed' ? 'bg-[#311719] text-rose-400 border-[#5a2a2d]' :
+                                'bg-[#1a202c] text-slate-400 border-white/5'
+                        )}>
+                          <span>
+                            {server.status === 'online' ? t('dashboard.statusOnline', 'ONLINE') :
+                              server.status === 'running' ? t('dashboard.statusLoading', 'STARTING') :
+                                t(`serverManager.serverStatus.${server.status}`, server.status.toUpperCase() || 'UNKNOWN')}
+                          </span>
+                        </div>
+
+                        {/* Clone Button */}
+                        <button
+                          onClick={() => openCloneModal(server)}
+                          className="w-[34px] h-[34px] flex items-center justify-center bg-[#172738] hover:bg-[#1a3147] text-sky-400 border border-[#20405c] rounded shadow-sm transition-all focus:outline-none"
+                          title={t('dashboard.cloneTransferExtract', 'Clone / Extract')}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )
         }
