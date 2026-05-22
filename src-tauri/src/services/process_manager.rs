@@ -216,6 +216,7 @@ impl ProcessManager {
                                     let mut reasons = monitor_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
                                     reasons.remove(id)
                                 };
+                                let is_authorized = stop_reason.is_some();
                                 let reason_str = stop_reason
                                     .as_ref()
                                     .map(|r| format!("{}", r))
@@ -231,7 +232,7 @@ impl ProcessManager {
                                     "server-lifecycle-event",
                                     ServerLifecycleEvent {
                                         server_id: *id,
-                                        event: if exit_code == 0 { "STOP".to_string() } else { "CRASH".to_string() },
+                                        event: if exit_code == 0 || is_authorized { "STOP".to_string() } else { "CRASH".to_string() },
                                         reason: Some(reason_str),
                                         exit_code: Some(exit_code),
                                         uptime_seconds: Some(uptime),

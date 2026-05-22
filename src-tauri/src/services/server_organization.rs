@@ -88,12 +88,26 @@ impl ServerOrganizationService {
             [],
         )?;
 
+        // Ensure members table exists
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS server_folder_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_id INTEGER NOT NULL,
+                folder_id INTEGER NOT NULL,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+                FOREIGN KEY (folder_id) REFERENCES server_folders(id) ON DELETE CASCADE,
+                UNIQUE(server_id, folder_id)
+            )",
+            [],
+        )?;
+
         let mut stmt = conn.prepare(
             "SELECT id, name, description, color, icon, parent_folder_id, sort_order, created_at, updated_at
              FROM server_folders ORDER BY sort_order ASC, name ASC"
         )?;
 
-        let folders = stmt.query_map([], |row| {
+        let mut folders = stmt.query_map([], |row| {
             Ok(ServerFolder {
                 id: row.get(0)?,
                 name: row.get(1)?,
@@ -109,6 +123,18 @@ impl ServerOrganizationService {
             })
         })?
         .collect::<Result<Vec<_>, rusqlite::Error>>()?;
+
+        // Populate server_ids for each folder from the membership table
+        for folder in &mut folders {
+            if let Ok(mut member_stmt) = conn.prepare(
+                "SELECT server_id FROM server_folder_members WHERE folder_id = ?1"
+            ) {
+                folder.server_ids = member_stmt
+                    .query_map([folder.id], |r| r.get::<_, i64>(0))
+                    .map(|rows| rows.flatten().collect::<Vec<i64>>())
+                    .unwrap_or_default();
+            }
+        }
 
         Ok(folders)
     }

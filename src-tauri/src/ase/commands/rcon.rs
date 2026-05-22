@@ -157,6 +157,7 @@ pub async fn send_ase_rcon(server_id: i64, command: String, state: State<'_, App
             let guard = guardian.0.lock().await;
             guard.mark_as_stopping(server_id).await;
         }
+        state.process_manager.set_pending_stop_reason(server_id, crate::services::process_manager::StopReason::UserAction);
     }
 
     let db = state.db.lock().map_err(|e| e.to_string())?;

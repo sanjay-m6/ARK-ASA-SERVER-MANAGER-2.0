@@ -94,7 +94,20 @@ export const useCopilotStore = create<CopilotStore>((set) => ({
         // Avoid duplicate alerts within 5 minutes
         const fiveMinAgo = Date.now() - 300000;
         const currentAlerts = s.alerts || [];
-        const isDuplicate = currentAlerts.some(a => a.type === alert.type && a.timestamp > fiveMinAgo);
+        
+        // For crashes, ensure we check the specific server, not just 'crash' type
+        const isDuplicate = currentAlerts.some(a => {
+            if (a.type === alert.type && (a.timestamp || 0) > fiveMinAgo) {
+                // If it's a crash, only consider duplicate if it's the SAME server
+                if (alert.type === 'crash' && a.id && alert.id) {
+                    const aServerId = a.id.split('_')[1];
+                    const alertServerId = alert.id.split('_')[1];
+                    return aServerId === alertServerId;
+                }
+                return true;
+            }
+            return false;
+        });
         
         if (isDuplicate) return s;
         
@@ -110,6 +123,11 @@ export const useCopilotStore = create<CopilotStore>((set) => ({
         };
         
         const currentMessages = s.messages || [];
+        // Ensure we don't accidentally add the exact same message ID
+        if (currentMessages.some(m => m.id === msg.id)) {
+            return { alerts: updated };
+        }
+
         const updatedMessages = [...currentMessages, msg].slice(-MAX_COPILOT_MESSAGES);
         saveHistory(updatedMessages);
 

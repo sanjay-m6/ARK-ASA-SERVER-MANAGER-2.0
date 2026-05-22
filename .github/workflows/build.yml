@@ -49,12 +49,13 @@ jobs:
           releaseBody: |
             ## 🚀 ${{ github.ref_name }} — Pre-Release Build
 
-            This is a pre-release beta version for v2.4.1 containing stability fixes and UI enhancements.
+            This is a pre-release beta version for v2.4.1 containing stability fixes, UI enhancements, and organization layout fixes.
 
             ### ✨ What's New
-            - **ASE Modern Config Editor**: Redesigned UI configuration editor for ASE servers with a tabbed interface.
-            - **Database Migrations Fixed**: Fixed a critical crash during database migration and foreign key repair that prevented the app from starting up properly.
-            - **UI Refinements**: Migrated native browser confirm popups to beautifully styled custom dialog components.
+            - **ASE Modern Config Editor**: Redesigned UI configuration editor for ASE servers with a tabbed interface (GameUserSettings.ini & Game.ini).
+            - **DoExit Graceful Shutdown**: Fixed an issue in both ASA and ASE where shutting down the server via the RCON `DoExit` command was incorrectly detected as a server crash instead of a normal shutdown.
+            - **AI Copilot Notifications**: Fixed a bug where the AI Copilot would show unread notification counts (1, 2, 3...) but display no new messages when opened.
+            - **Server Organization**: Fixed a display bug where assigned servers were not showing up inside their organizational folders due to missing data in the backend pipeline.
 
             ### Install
             Download the `.msi` installer below.

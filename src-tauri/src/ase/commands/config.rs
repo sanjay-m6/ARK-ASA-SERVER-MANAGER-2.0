@@ -103,6 +103,7 @@ fn ini_get_str(
 }
 
 /// Build the GameUserSettings.ini and Game.ini content from AseGameConfig
+#[allow(dead_code)]
 fn build_game_user_settings(config: &AseGameConfig) -> String {
     let mut out = String::with_capacity(4096);
 
@@ -662,6 +663,7 @@ fn build_game_user_settings(config: &AseGameConfig) -> String {
     out
 }
 
+#[allow(dead_code)]
 fn build_game_ini(config: &AseGameConfig) -> String {
     let mut out = String::with_capacity(1024);
 

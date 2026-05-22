@@ -21,9 +21,9 @@ pub struct ServerFolder {
     pub sort_order: i32,
     pub created_at: String,
     pub updated_at: String,
-    #[serde(skip)]
+    #[serde(default)]
     pub children: Vec<ServerFolder>,
-    #[serde(skip)]
+    #[serde(default)]
     pub server_ids: Vec<i64>,
 }
 
