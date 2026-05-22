@@ -189,17 +189,21 @@ impl ConfigGenerator {
     ///
     /// The ARK server engine appends the server password to the admin password line at runtime.
     /// This method cleans that corruption from raw INI text.
-    fn sanitize_admin_password(content: &str) -> String {
+    fn sanitize_ini_content(content: &str) -> String {
         content
             .lines()
-            .map(|line| {
+            .filter_map(|line| {
                 let trimmed = line.trim();
+                // BUG FIX: Prevent "Ticking loop" on Club Ark/Mod Maps by stripping ActiveMapMods=0
+                if trimmed == "ActiveMapMods=0" || trimmed == "ActiveModMap=0" {
+                    return None;
+                }
                 if let Some(rest) = trimmed.strip_prefix("ServerAdminPassword=") {
                     if let Some(idx) = rest.find("?ServerPassword=") {
-                        return format!("ServerAdminPassword={}", &rest[..idx]);
+                        return Some(format!("ServerAdminPassword={}", &rest[..idx]));
                     }
                 }
-                line.to_string()
+                Some(line.to_string())
             })
             .collect::<Vec<_>>()
             .join("\r\n")
@@ -549,6 +553,12 @@ impl ConfigGenerator {
 
         content.push_str("\r\n");
 
+        // URL section - Port and QueryPort for network binding
+        content.push_str("[URL]\r\n");
+        content.push_str(&format!("Port={}\r\n", config.game_port));
+        content.push_str(&format!("QueryPort={}\r\n", config.query_port));
+        content.push_str("\r\n");
+
         // MessageOfTheDay section
         content.push_str("[MessageOfTheDay]\r\n");
         content.push_str("Message=Welcome to the server!\r\n");
@@ -701,13 +711,54 @@ impl ConfigGenerator {
         cmd
     }
 
+    /// Get target configuration subdirectory dynamically based on platform or directory structure.
+    pub fn get_config_subdirectory(install_path: &PathBuf, server_type: Option<&str>) -> &'static str {
+        #[cfg(target_os = "linux")]
+        {
+            if server_type == Some("ASA") {
+                return "Linux";
+            }
+            "LinuxServer"
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            if server_type == Some("ASA") {
+                return "Windows";
+            }
+            if install_path.join("ShooterGame").join("Binaries").join("Linux").exists()
+                || install_path.join("ShooterGame").join("Saved").join("Config").join("LinuxServer").exists()
+            {
+                "LinuxServer"
+            } else {
+                "WindowsServer"
+            }
+        }
+    }
+
+    /// Generate Engine.ini content with default netcode optimizations
+    pub fn generate_engine_ini(_config: &ServerConfig) -> String {
+        let mut content = String::new();
+
+        content.push_str("[/Script/OnlineSubsystemUtils.IpNetDriver]\r\n");
+        content.push_str("MaxInternetClientRate=1048576\r\n");
+        content.push_str("MaxClientRate=1048576\r\n");
+        content.push_str("\r\n");
+
+        content.push_str("[/Script/Engine.Engine]\r\n");
+        content.push_str("TickRate=30\r\n");
+        content.push_str("\r\n");
+
+        content
+    }
+
     /// Backup existing config files
-    pub fn backup_configs(install_path: &PathBuf) -> Result<PathBuf, String> {
+    pub fn backup_configs(install_path: &PathBuf, server_type: &str) -> Result<PathBuf, String> {
+        let sub_dir = Self::get_config_subdirectory(install_path, Some(server_type));
         let config_dir = install_path
             .join("ShooterGame")
             .join("Saved")
             .join("Config")
-            .join("WindowsServer");
+            .join(sub_dir);
 
         if !config_dir.exists() {
             return Err("Config directory does not exist".to_string());
@@ -733,6 +784,13 @@ impl ConfigGenerator {
                 .map_err(|e| format!("Failed to backup Game.ini: {}", e))?;
         }
 
+        // Backup Engine.ini
+        let engine_path = config_dir.join("Engine.ini");
+        if engine_path.exists() {
+            fs::copy(&engine_path, backup_dir.join("Engine.ini"))
+                .map_err(|e| format!("Failed to backup Engine.ini: {}", e))?;
+        }
+
         Ok(backup_dir)
     }
 
@@ -741,12 +799,14 @@ impl ConfigGenerator {
         install_path: &PathBuf,
         config: &ServerConfig,
         backup: bool,
+        server_type: &str,
     ) -> Result<(), String> {
+        let sub_dir = Self::get_config_subdirectory(install_path, Some(server_type));
         let config_dir = install_path
             .join("ShooterGame")
             .join("Saved")
             .join("Config")
-            .join("WindowsServer");
+            .join(sub_dir);
 
         // Create config directory if needed
         fs::create_dir_all(&config_dir)
@@ -754,7 +814,7 @@ impl ConfigGenerator {
 
         // Backup existing configs
         if backup {
-            let _ = Self::backup_configs(install_path);
+            let _ = Self::backup_configs(install_path, server_type);
         }
 
         // Write GameUserSettings.ini — use merge strategy to preserve custom keys
@@ -766,7 +826,7 @@ impl ConfigGenerator {
             if !raw_existing.is_empty() {
                 // BUG FIX: Strip ?ServerPassword= corruption from existing file before merge
                 // ARK engine may have appended it at runtime
-                let existing = Self::sanitize_admin_password(&raw_existing);
+                let existing = Self::sanitize_ini_content(&raw_existing);
                 let merged =
                     crate::services::ini_parser::IniParser::merge(&existing, &gus_content);
                 println!("  📝 Merging GameUserSettings.ini (preserving custom keys, updating known values)");
@@ -798,6 +858,22 @@ impl ConfigGenerator {
             println!("  📝 Creating initial Game.ini at: {:?}", game_path);
             fs::write(&game_path, new_game_content)
                 .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
+        }
+
+        // Write Engine.ini — use merge strategy if exists or create new
+        let engine_path = config_dir.join("Engine.ini");
+        let new_engine_content = Self::generate_engine_ini(config);
+        if engine_path.exists() {
+            let existing = fs::read_to_string(&engine_path).unwrap_or_default();
+            let merged =
+                crate::services::ini_parser::IniParser::merge(&existing, &new_engine_content);
+            println!("  📝 Merging Engine.ini (preserving custom optimizations, updating netcode defaults)");
+            fs::write(&engine_path, merged)
+                .map_err(|e| format!("Failed to write Engine.ini: {}", e))?;
+        } else {
+            println!("  📝 Creating initial Engine.ini at: {:?}", engine_path);
+            fs::write(&engine_path, new_engine_content)
+                .map_err(|e| format!("Failed to write Engine.ini: {}", e))?;
         }
 
         Ok(())
@@ -862,17 +938,18 @@ impl ConfigGenerator {
         server_id: i64,
     ) -> Result<(), String> {
         // 1. Get install path
-        let install_path_str: String = {
+        let (install_path_str, server_type): (String, String) = {
             db_conn
                 .query_row(
-                    "SELECT install_path FROM servers WHERE id = ?1",
+                    "SELECT install_path, server_type FROM servers WHERE id = ?1",
                     [server_id],
-                    |row| row.get(0),
+                    |row| Ok((row.get(0)?, row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string()))),
                 )
                 .map_err(|e| e.to_string())?
         };
         let install_path = PathBuf::from(install_path_str);
-        let config_dir = install_path.join("ShooterGame/Saved/Config/WindowsServer");
+        let sub_dir = Self::get_config_subdirectory(&install_path, Some(&server_type));
+        let config_dir = install_path.join("ShooterGame").join("Saved").join("Config").join(sub_dir);
 
         // 2. Read existing Configs (as Base)
         let gus_path = config_dir.join("GameUserSettings.ini");

@@ -11,45 +11,51 @@ use tauri::State;
 /// The ARK server engine modifies GameUserSettings.ini at runtime and appends the server
 /// password onto the admin password value (e.g. `ServerAdminPassword=Admin123?ServerPassword=Ark123`).
 /// This function scans the full INI text and repairs any such lines in-place.
-fn sanitize_admin_password_in_ini(content: &str) -> String {
+fn sanitize_ini_content(content: &str) -> String {
     content
         .lines()
-        .map(|line| {
+        .filter_map(|line| {
             let trimmed = line.trim();
+            // BUG FIX: Prevent "Ticking loop" on Club Ark/Mod Maps by stripping ActiveMapMods=0
+            if trimmed == "ActiveMapMods=0" || trimmed == "ActiveModMap=0" {
+                return None;
+            }
             if let Some(rest) = trimmed.strip_prefix("ServerAdminPassword=") {
                 if let Some(idx) = rest.find("?ServerPassword=") {
                     // Reconstruct with only the admin password portion
-                    return format!("ServerAdminPassword={}", &rest[..idx]);
+                    return Some(format!("ServerAdminPassword={}", &rest[..idx]));
                 }
             }
-            line.to_string()
+            Some(line.to_string())
         })
         .collect::<Vec<_>>()
         .join("\r\n")
 }
 
-/// Helper to get server install path from database
-fn get_server_install_path(state: &State<'_, AppState>, server_id: i64) -> Result<String, String> {
+/// Helper to get server install path and type from database
+fn get_server_info(state: &State<'_, AppState>, server_id: i64) -> Result<(String, String), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
     conn.query_row(
-        "SELECT install_path FROM servers WHERE id = ?1",
+        "SELECT install_path, server_type FROM servers WHERE id = ?1",
         [server_id],
-        |row| row.get(0),
+        |row| Ok((row.get(0)?, row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string()))),
     )
     .map_err(|e| e.to_string())
 }
 
 /// Get config file path
-fn get_config_path(install_path: &str, config_type: &str) -> PathBuf {
+fn get_config_path(install_path: &str, config_type: &str, server_type: &str) -> PathBuf {
+    let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(install_path), Some(server_type));
     PathBuf::from(install_path)
-        .join("ShooterGame/Saved/Config/WindowsServer")
+        .join(format!("ShooterGame/Saved/Config/{}", sub_dir))
         .join(format!("{}.ini", config_type))
 }
 
 /// Get backup directory path
-fn get_backup_dir(install_path: &str) -> PathBuf {
-    PathBuf::from(install_path).join("ShooterGame/Saved/Config/WindowsServer/Backups")
+fn get_backup_dir(install_path: &str, server_type: &str) -> PathBuf {
+    let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(install_path), Some(server_type));
+    PathBuf::from(install_path).join(format!("ShooterGame/Saved/Config/{}/Backups", sub_dir))
 }
 
 #[tauri::command]
@@ -58,8 +64,8 @@ pub async fn read_config(
     server_id: i64,
     config_type: String,
 ) -> Result<String, String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-    let path = get_config_path(&install_path, &config_type);
+    let (install_path, server_type) = get_server_info(&state, server_id)?;
+    let path = get_config_path(&install_path, &config_type, &server_type);
 
     if path.exists() {
         println!("📖 Reading config from: {:?}", path);
@@ -69,7 +75,7 @@ pub async fn read_config(
         // ServerAdminPassword line in GameUserSettings.ini at runtime. Strip it on
         // read so the frontend never sees (or re-saves) the corrupted value.
         if config_type == "GameUserSettings" {
-            let sanitized = sanitize_admin_password_in_ini(&content);
+            let sanitized = sanitize_ini_content(&content);
             if sanitized != content {
                 println!("  🔧 Sanitized ?ServerPassword= corruption from ServerAdminPassword");
                 // Also fix the on-disk file so the corruption doesn't persist
@@ -92,9 +98,9 @@ pub async fn save_config(
     config_type: String,
     content: String,
 ) -> Result<(), String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-
-    let dir_path = PathBuf::from(&install_path).join("ShooterGame/Saved/Config/WindowsServer");
+    let (install_path, server_type) = get_server_info(&state, server_id)?;
+    let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(&install_path), Some(&server_type));
+    let dir_path = PathBuf::from(&install_path).join(format!("ShooterGame/Saved/Config/{}", sub_dir));
 
     fs::create_dir_all(&dir_path).map_err(|e| e.to_string())?;
 
@@ -103,7 +109,7 @@ pub async fn save_config(
     // BUG FIX: Sanitize incoming content AND existing file to strip ARK engine's
     // ?ServerPassword= corruption from ServerAdminPassword before merge/write.
     let clean_content = if config_type == "GameUserSettings" {
-        sanitize_admin_password_in_ini(&content)
+        sanitize_ini_content(&content)
     } else {
         content.clone()
     };
@@ -114,7 +120,7 @@ pub async fn save_config(
         if !existing_raw.is_empty() {
             // Sanitize the existing file too — ARK may have corrupted it at runtime
             let existing_content = if config_type == "GameUserSettings" {
-                sanitize_admin_password_in_ini(&existing_raw)
+                sanitize_ini_content(&existing_raw)
             } else {
                 existing_raw
             };
@@ -145,73 +151,46 @@ pub async fn save_config(
     // If we're saving GameUserSettings.ini, we need to sync critical values to the database
     // because the start_server command reads from the DB, not the INI files
     if config_type == "GameUserSettings" {
-        let mut session_name: Option<String> = None;
-        let mut map_name: Option<String> = None;
-        let mut max_players: Option<i32> = None;
-        let mut server_password: Option<String> = None;
-        let mut admin_password: Option<String> = None;
-        let mut rcon_enabled: Option<bool> = None;
-        let mut rcon_port: Option<u16> = None;
-        let mut game_port: Option<u16> = None;
-        let mut query_port: Option<u16> = None;
-        let mut ip_address: Option<String> = None;
+        let session_name = IniParser::get_value(&content, "ServerSettings", "SessionName")
+            .or_else(|| IniParser::get_value(&content, "ServerSettings", "ServerName"))
+            .map(|s| s.trim_matches('"').trim_matches('\'').to_string());
+        
+        let map_name = IniParser::get_value(&content, "ServerSettings", "MapName")
+            .map(|s| s.trim_matches('"').trim_matches('\'').to_string());
 
-        let mut current_section = String::new();
+        let max_players: Option<i32> = IniParser::get_value(&content, "ServerSettings", "MaxPlayers")
+            .or_else(|| IniParser::get_value(&content, "/Script/Engine.GameSession", "MaxPlayers"))
+            .and_then(|v| v.trim_matches('"').trim_matches('\'').parse().ok());
 
-        for line in content.lines() {
-            let line = line.trim();
+        let server_password = IniParser::get_value(&content, "ServerSettings", "ServerPassword")
+            .map(|s| s.trim_matches('"').trim_matches('\'').to_string());
 
-            // Section header
-            if line.starts_with('[') && line.ends_with(']') {
-                current_section = line[1..line.len() - 1].to_string();
-                continue;
-            }
+        let admin_password = IniParser::get_value(&content, "ServerSettings", "ServerAdminPassword")
+            .map(|v| {
+                let v = v.trim_matches('"').trim_matches('\'');
+                let clean = v.split("?ServerPassword=").next().unwrap_or(v).to_string();
+                clean
+            });
 
-            // Key=Value pair
-            if let Some((key, value)) = line.split_once('=') {
-                let key = key.trim();
-                let raw_value = value.trim();
+        let rcon_enabled = IniParser::get_value(&content, "ServerSettings", "RCONEnabled")
+            .map(|v| {
+                let vl = v.trim_matches('"').trim_matches('\'').to_lowercase();
+                vl == "true" || vl == "1"
+            });
 
-                // Remove surrounding quotes if present
-                let value = if raw_value.starts_with('"')
-                    && raw_value.ends_with('"')
-                    && raw_value.len() >= 2
-                {
-                    &raw_value[1..raw_value.len() - 1]
-                } else {
-                    raw_value
-                };
+        let rcon_port: Option<u16> = IniParser::get_value(&content, "ServerSettings", "RCONPort")
+            .and_then(|v| v.trim_matches('"').trim_matches('\'').parse().ok());
 
-                if current_section == "ServerSettings"
-                    || current_section == "/Script/ShooterGame.ShooterGameMode"
-                {
-                    match key {
-                        "SessionName" | "ServerName" => session_name = Some(value.to_string()),
-                        "MapName" => map_name = Some(value.to_string()),
-                        "MaxPlayers" => max_players = value.parse().ok(),
-                        "ServerPassword" => server_password = Some(value.to_string()),
-                        "ServerAdminPassword" => {
-                            let clean_pwd = value.split("?ServerPassword=").next().unwrap_or(value);
-                            admin_password = Some(clean_pwd.to_string());
-                        }
-                        "RCONEnabled" => rcon_enabled = Some(value.to_uppercase() == "TRUE"),
-                        "RCONPort" => rcon_port = value.parse().ok(),
-                        "Match" => {} // Ignore Match key if present
-                        "MultiHome" | "IPAddress" => ip_address = Some(value.to_string()),
-                        _ => {}
-                    }
-                }
+        let game_port: Option<u16> = IniParser::get_value(&content, "URL", "Port")
+            .and_then(|v| v.trim_matches('"').trim_matches('\'').parse().ok());
 
-                if current_section == "URL" || current_section == "/Script/Engine.GameSession" {
-                    match key {
-                        "Port" => game_port = value.parse().ok(),
-                        "QueryPort" => query_port = value.parse().ok(),
-                        "MultiHome" => ip_address = Some(value.to_string()),
-                        _ => {}
-                    }
-                }
-            }
-        }
+        let query_port: Option<u16> = IniParser::get_value(&content, "URL", "QueryPort")
+            .and_then(|v| v.trim_matches('"').trim_matches('\'').parse().ok());
+
+        let ip_address = IniParser::get_value(&content, "URL", "MultiHome")
+            .or_else(|| IniParser::get_value(&content, "ServerSettings", "MultiHome"))
+            .or_else(|| IniParser::get_value(&content, "ServerSettings", "IPAddress"))
+            .map(|s| s.trim_matches('"').trim_matches('\'').to_string());
 
         // Perform the update
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -300,8 +279,9 @@ pub async fn load_server_config(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<ServerConfig, String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-    let config_dir = PathBuf::from(&install_path).join("ShooterGame/Saved/Config/WindowsServer");
+    let (install_path, server_type) = get_server_info(&state, server_id)?;
+    let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(&install_path), Some(&server_type));
+    let config_dir = PathBuf::from(&install_path).join(format!("ShooterGame/Saved/Config/{}", sub_dir));
 
     // Start with DB values for identity/network fields
     let mut config = {
@@ -449,14 +429,14 @@ pub async fn backup_config(
     server_id: i64,
     config_type: String,
 ) -> Result<String, String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-    let config_path = get_config_path(&install_path, &config_type);
+    let (install_path, server_type) = get_server_info(&state, server_id)?;
+    let config_path = get_config_path(&install_path, &config_type, &server_type);
 
     if !config_path.exists() {
         return Ok("No config file to backup".to_string());
     }
 
-    let backup_dir = get_backup_dir(&install_path);
+    let backup_dir = get_backup_dir(&install_path, &server_type);
     fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
 
     // Create timestamped backup filename
@@ -477,15 +457,15 @@ pub async fn restore_config(
     config_type: String,
     backup_filename: String,
 ) -> Result<(), String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-    let backup_dir = get_backup_dir(&install_path);
+    let (install_path, server_type) = get_server_info(&state, server_id)?;
+    let backup_dir = get_backup_dir(&install_path, &server_type);
     let backup_path = backup_dir.join(&backup_filename);
 
     if !backup_path.exists() {
         return Err(format!("Backup file not found: {}", backup_filename));
     }
 
-    let config_path = get_config_path(&install_path, &config_type);
+    let config_path = get_config_path(&install_path, &config_type, &server_type);
 
     fs::copy(&backup_path, &config_path).map_err(|e| e.to_string())?;
 
@@ -499,8 +479,8 @@ pub async fn list_config_backups(
     server_id: i64,
     config_type: String,
 ) -> Result<Vec<String>, String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-    let backup_dir = get_backup_dir(&install_path);
+    let (install_path, server_type) = get_server_info(&state, server_id)?;
+    let backup_dir = get_backup_dir(&install_path, &server_type);
 
     if !backup_dir.exists() {
         return Ok(vec![]);
@@ -588,8 +568,9 @@ pub async fn write_server_configs(
     config: ServerConfig,
     backup: bool,
 ) -> Result<(), String> {
-    let path = PathBuf::from(install_path);
-    ConfigGenerator::write_configs(&path, &config, backup)?;
+    let (_install_path_db, server_type) = get_server_info(&state, server_id)?;
+    let path = PathBuf::from(install_path); // Note: still using provided install_path, not from DB
+    ConfigGenerator::write_configs(&path, &config, backup, &server_type)?;
 
     // Sync config values to database so UI reflects the changes
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -636,7 +617,8 @@ pub async fn backup_all_configs(
     install_path: String,
 ) -> Result<String, String> {
     let path = PathBuf::from(install_path);
-    let backup_path = ConfigGenerator::backup_configs(&path)?;
+    // Use fallback for backup_all_configs as it doesn't take server_type
+    let backup_path = ConfigGenerator::backup_configs(&path, "ASA")?;
     Ok(backup_path.to_string_lossy().to_string())
 }
 

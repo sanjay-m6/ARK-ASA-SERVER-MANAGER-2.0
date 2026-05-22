@@ -56,6 +56,7 @@ const ASEAdvancedPage = lazy(() => import('./ase/pages/ASEAdvancedPage'));
 const ASEPluginManager = lazy(() => import('./ase/pages/ASEPluginManager'));
 const ASETribeLogViewer = lazy(() => import('./ase/pages/ASETribeLogViewer'));
 const ASEUPnPPanel = lazy(() => import('./ase/pages/ASEUPnPPanel'));
+const ASEServerOrganization = lazy(() => import('./ase/pages/tools/ASEServerOrganization'));
 
 function App() {
     const [appState, setAppState] = useState<'welcome' | 'app'>('welcome');
@@ -146,7 +147,7 @@ function App() {
                                  <Route path="ase/tools/plugins" element={<ASEPluginManager />} />
                                  <Route path="ase/tools/tribe-logs" element={<ASETribeLogViewer />} />
                                  <Route path="ase/tools/upnp" element={<ASEUPnPPanel />} />
-                                 <Route path="ase/tools/organization" element={<ServerOrganization />} />
+                                 <Route path="ase/tools/organization" element={<ASEServerOrganization />} />
                             </Route>
                         </Routes>
                     </Suspense>

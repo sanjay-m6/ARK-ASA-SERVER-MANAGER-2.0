@@ -1467,7 +1467,12 @@
         "downloading": "Downloading...",
         "installing": "Installing update...",
         "downloadFailed": "Download failed: {{error}}",
-        "installFailed": "Installation failed: {{error}}"
+        "installFailed": "Installation failed: {{error}}",
+        "title": "Update Available",
+        "updateNow": "Update Now",
+        "later": "Later",
+        "skip": "Skip this version",
+        "error": "Failed to download update. Please try again or download manually."
     },
     "errorBoundary": {
         "title": "Something went wrong",
@@ -1483,7 +1488,32 @@
         "memoryUsage": "Memory Usage",
         "playerCount": "Player Count",
         "realtime": "Real-time",
-        "history": "History"
+        "history": "History",
+        "subtitle": "Real-time server performance metrics",
+        "cpu": {
+            "label": "Avg CPU Usage",
+            "sub": "Last 100 minutes"
+        },
+        "memory": {
+            "label": "Avg Memory",
+            "sub": "Last 100 minutes"
+        },
+        "players": {
+            "label": "Players Online",
+            "sub": "Current count"
+        },
+        "chart": {
+            "title": "Performance History",
+            "cpu": "CPU %",
+            "memory": "Memory %",
+            "players": "Players"
+        },
+        "tips": {
+            "title": "Performance Tips",
+            "cpu": "CPU usage is within normal range (<80%)",
+            "memory": "Memory usage is stable",
+            "viewDistance": "Consider reducing view distance if CPU usage increases"
+        }
     },
     "firewall": {
         "title": "Firewall Settings",
@@ -1641,19 +1671,6 @@
             "subtitle": "Commander"
         }
     },
-    "updateChecker": {
-        "title": "Update Available",
-        "downloading": "Downloading...",
-        "installing": "Installing...",
-        "updateNow": "Update Now",
-        "later": "Later",
-        "skip": "Skip this version",
-        "error": "Failed to download update. Please try again or download manually."
-    },
-    "errorBoundary": {
-        "title": "Something went wrong",
-        "reload": "Reload Application"
-    },
     "adminBlocker": {
         "title": "Access Denied",
         "description": "Full system control is required.",
@@ -1757,34 +1774,6 @@
                 "title": "You're Ready!",
                 "description": "You now know the basics. Start by installing your first server!"
             }
-        }
-    },
-    "performance": {
-        "title": "Performance Monitor",
-        "subtitle": "Real-time server performance metrics",
-        "cpu": {
-            "label": "Avg CPU Usage",
-            "sub": "Last 100 minutes"
-        },
-        "memory": {
-            "label": "Avg Memory",
-            "sub": "Last 100 minutes"
-        },
-        "players": {
-            "label": "Players Online",
-            "sub": "Current count"
-        },
-        "chart": {
-            "title": "Performance History",
-            "cpu": "CPU %",
-            "memory": "Memory %",
-            "players": "Players"
-        },
-        "tips": {
-            "title": "Performance Tips",
-            "cpu": "CPU usage is within normal range (<80%)",
-            "memory": "Memory usage is stable",
-            "viewDistance": "Consider reducing view distance if CPU usage increases"
         }
     }
 }

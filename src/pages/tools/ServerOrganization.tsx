@@ -8,7 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { useServerStore } from '../../stores/serverStore';
-import { useGameStore } from '../../stores/gameStore';
+// import { useGameStore } from '../../stores/gameStore';
 import { cn } from '../../utils/helpers';
 import {
   createServerFolder,
@@ -36,8 +36,8 @@ import type {
 export default function ServerOrganization() {
   const { t } = useTranslation();
   const { servers } = useServerStore();
-  const { activeGame } = useGameStore();
-  const isASE = activeGame === 'ASE';
+  // activeGame removed as it's hardcoded
+  const isASE = false;
 
   // Branding constants matching existing design tokens
   const accentText = isASE ? 'text-amber-400' : 'text-cyan-400';
@@ -376,8 +376,8 @@ export default function ServerOrganization() {
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-white/5 gap-2 overflow-x-auto pb-px">
+      {/* Modern Glassmorphic Tabs */}
+      <div className="flex p-1.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md w-max shadow-inner gap-1 mb-6 flex-wrap">
         {[
           { id: 'folders', label: 'Folders & Placement', icon: FolderOpen },
           { id: 'customizations', label: 'Branding & Details', icon: Sparkles },
@@ -391,14 +391,14 @@ export default function ServerOrganization() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
-                'flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all focus:outline-none whitespace-nowrap',
+                "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                 isActive
-                  ? `border-b-${isASE ? 'amber-500' : 'cyan-500'} ${accentText}`
-                  : 'border-b-transparent text-slate-400 hover:text-white hover:border-white/10'
+                  ? `${accentText} bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50`
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
               )}
             >
               <tab.icon className="w-4 h-4" />
-              <span>{tab.label}</span>
+              <span className="relative z-10">{tab.label}</span>
             </button>
           );
         })}

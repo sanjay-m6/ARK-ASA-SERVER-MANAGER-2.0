@@ -476,3 +476,8 @@ pub async fn set_server_startup_config(
 
     Ok(())
 }
+
+#[tauri::command]
+pub async fn get_player_counts(state: State<'_, AppState>) -> Result<std::collections::HashMap<i64, i32>, String> {
+    Ok(state.player_intelligence.get_player_counts().await)
+}

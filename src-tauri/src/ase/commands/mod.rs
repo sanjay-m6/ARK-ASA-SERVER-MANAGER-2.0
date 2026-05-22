@@ -9,6 +9,7 @@ pub mod discord;
 pub mod profile_sync;
 pub mod config_advanced;
 pub mod tools;
+pub mod import;
 
 /// Collect all ASE command handler names for registration in lib.rs
 pub fn get_all_handlers() -> Vec<&'static str> {
@@ -24,6 +25,8 @@ pub fn get_all_handlers() -> Vec<&'static str> {
         "stop_ase_server",
         "get_ase_server_status",
         "reset_ase_server",
+        "import_ase_server",
+        "import_ase_save",
         // Mods
         "search_ase_workshop",
         "get_ase_workshop_details",

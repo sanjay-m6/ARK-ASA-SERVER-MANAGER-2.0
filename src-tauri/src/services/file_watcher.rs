@@ -34,7 +34,13 @@ impl FileWatcherService {
         // ONLY watch the config directory for admin-initiated changes.
         // DO NOT watch SavedArks/ — ARK auto-saves every 15-30 minutes
         // which would trigger auto-stop and kill the running server.
-        let config_path = path.join("ShooterGame/Saved/Config/WindowsServer");
+        let mut config_path = path.join("ShooterGame/Saved/Config/WindowsServer");
+        if !config_path.exists() {
+            let asa_config = path.join("ShooterGame/Saved/Config/Windows");
+            if asa_config.exists() {
+                config_path = asa_config;
+            }
+        }
 
         if config_path.exists() {
             let _ = watcher.watch(&config_path, RecursiveMode::NonRecursive);

@@ -13,6 +13,8 @@ import { CodeEditor } from '../components/ui/CodeEditor';
 import { PresetSelector } from '../components/config/PresetSelector';
 import { ConfigTooltip } from '../components/config/ConfigTooltip';
 import { ArrayEditor } from '../components/config/ArrayEditor';
+import { CraftingCostEditor } from '../components/config/CraftingCostEditor';
+import { EngramOverridesEditor } from '../components/config/EngramOverridesEditor';
 import { applyPreset, ConfigPreset } from '../data/presets';
 import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
@@ -198,6 +200,34 @@ const ConfigInput = memo(({
                         value={value}
                         onChange={handleChange}
                         template={field.template || {}}
+                    />
+                    {field.description && (
+                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                            {field.description}
+                        </div>
+                    )}
+                </div>
+            );
+        case 'crafting_costs':
+            return (
+                <div className="col-span-1 md:col-span-2 lg:col-span-2">
+                    <CraftingCostEditor
+                        value={value}
+                        onChange={(val: string) => handleChange(val)}
+                    />
+                    {field.description && (
+                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                            {field.description}
+                        </div>
+                    )}
+                </div>
+            );
+        case 'engram_entries':
+            return (
+                <div className="col-span-1 md:col-span-2 lg:col-span-2">
+                    <EngramOverridesEditor
+                        value={value}
+                        onChange={(val: string) => handleChange(val)}
                     />
                     {field.description && (
                         <div className="mt-2 text-xs text-slate-500 px-1 italic">

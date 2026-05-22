@@ -277,61 +277,73 @@ export default function Settings() {
                 )}
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex space-x-4 border-b border-slate-700 pb-1 flex-wrap gap-y-2">
+            {/* Modern Glassmorphic Navigation Tabs */}
+            <div className="flex p-1.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md w-max shadow-inner gap-1 mb-6 flex-wrap">
                 <button
                     onClick={() => setActiveTab('api')}
-                    className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'api'
-                        ? 'bg-sky-500/10 text-sky-400 border-b-2 border-sky-400'
-                        : 'text-slate-400 hover:text-white'
-                        }`}
+                    className={cn(
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
+                        activeTab === 'api'
+                            ? "text-sky-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                    )}
                 >
-                    🔑 {t('settings.tabs.apiKeys')}
+                    <span className="relative z-10 flex items-center gap-2">🔑 {t('settings.tabs.apiKeys')}</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('firewall')}
-                    className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'firewall'
-                        ? 'bg-red-500/10 text-red-400 border-b-2 border-red-400'
-                        : 'text-slate-400 hover:text-white'
-                        }`}
+                    className={cn(
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
+                        activeTab === 'firewall'
+                            ? "text-red-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                    )}
                 >
-                    🛡️ {t('settings.tabs.firewall')}
+                    <span className="relative z-10 flex items-center gap-2">🛡️ {t('settings.tabs.firewall')}</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('updates')}
-                    className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'updates'
-                        ? 'bg-emerald-500/10 text-emerald-400 border-b-2 border-emerald-400'
-                        : 'text-slate-400 hover:text-white'
-                        }`}
+                    className={cn(
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
+                        activeTab === 'updates'
+                            ? "text-emerald-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                    )}
                 >
-                    🔄 {t('settings.tabs.updates')}
+                    <span className="relative z-10 flex items-center gap-2">🔄 {t('settings.tabs.updates')}</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('startup')}
-                    className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'startup'
-                        ? 'bg-amber-500/10 text-amber-400 border-b-2 border-amber-400'
-                        : 'text-slate-400 hover:text-white'
-                        }`}
+                    className={cn(
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
+                        activeTab === 'startup'
+                            ? "text-amber-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                    )}
                 >
-                    ⚡ {t('settings.tabs.startup', 'Startup & Recovery')}
+                    <span className="relative z-10 flex items-center gap-2">⚡ {t('settings.tabs.startup', 'Startup & Recovery')}</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('cloud')}
-                    className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'cloud'
-                        ? 'bg-blue-500/10 text-blue-400 border-b-2 border-blue-400'
-                        : 'text-slate-400 hover:text-white'
-                        }`}
+                    className={cn(
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
+                        activeTab === 'cloud'
+                            ? "text-blue-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                    )}
                 >
-                    <span className="flex items-center gap-2"><Cloud className="w-4 h-4" /> {t('settings.tabs.cloudBackup', 'Cloud Backup')}</span>
+                    <span className="relative z-10 flex items-center gap-2"><Cloud className="w-4 h-4" /> {t('settings.tabs.cloudBackup', 'Cloud Backup')}</span>
                 </button>
                 <button
                     onClick={() => setActiveTab('language')}
-                    className={`px-6 py-3 rounded-t-xl font-medium transition-colors ${activeTab === 'language'
-                        ? 'bg-cyan-500/10 text-cyan-400 border-b-2 border-cyan-400'
-                        : 'text-slate-400 hover:text-white'
-                        }`}
+                    className={cn(
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
+                        activeTab === 'language'
+                            ? "text-cyan-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                    )}
                 >
-                    🌐 {t('settings.tabs.language')}
+                    <span className="relative z-10 flex items-center gap-2">🌐 {t('settings.tabs.language')}</span>
                 </button>
             </div>
 

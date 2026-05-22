@@ -53,8 +53,9 @@ impl ServerInstaller {
         );
     }
 
-    fn emit_console(&self, line: &str, line_type: &str) {
+    pub fn emit_console(&self, line: &str, line_type: &str) {
         let timestamp = chrono::Local::now().format("%H:%M:%S").to_string();
+
         let _ = self.app_handle.emit(
             "install-console",
             ConsoleOutput {
@@ -66,7 +67,7 @@ impl ServerInstaller {
         );
     }
 
-    fn emit_complete(&self, message: &str) {
+    pub fn emit_complete(&self, message: &str) {
         let _ = self.app_handle.emit(
             "install-progress",
             InstallProgress {
@@ -233,6 +234,27 @@ impl ServerInstaller {
         self.emit_console("SteamCMD process started", "success");
         self.emit_console("Connecting to Steam servers...", "info");
 
+        // Spawn stderr reader concurrently to prevent pipe buffer deadlock.
+        // If SteamCMD fills the stderr pipe buffer while we block on stdout,
+        // the process hangs forever. Reading both streams concurrently avoids this.
+        let stderr_handle = if let Some(stderr) = child.stderr.take() {
+            Some(tokio::spawn(async move {
+                let reader = BufReader::new(stderr);
+                let mut lines = reader.lines();
+                let mut stderr_lines: Vec<String> = Vec::new();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    let trimmed = line.trim().to_string();
+                    if !trimmed.is_empty() {
+                        println!("[SteamCMD ERROR] {}", trimmed);
+                        stderr_lines.push(trimmed);
+                    }
+                }
+                stderr_lines
+            }))
+        } else {
+            None
+        };
+
         // Read stdout and parse progress
         if let Some(stdout) = child.stdout.take() {
             let reader = BufReader::new(stdout);
@@ -296,15 +318,11 @@ impl ServerInstaller {
             }
         }
 
-        // Also read stderr for any errors
-        if let Some(stderr) = child.stderr.take() {
-            let reader = BufReader::new(stderr);
-            let mut lines = reader.lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                let trimmed = line.trim();
-                if !trimmed.is_empty() {
-                    self.emit_console(trimmed, "error");
-                    println!("[SteamCMD ERROR] {}", line);
+        // Collect stderr lines from the background task and emit them
+        if let Some(handle) = stderr_handle {
+            if let Ok(stderr_lines) = handle.await {
+                for line in &stderr_lines {
+                    self.emit_console(line, "error");
                 }
             }
         }

@@ -151,6 +151,14 @@ pub async fn connect_ase_rcon(server_id: i64, state: State<'_, AppState>) -> Res
 
 #[tauri::command]
 pub async fn send_ase_rcon(server_id: i64, command: String, state: State<'_, AppState>) -> Result<String, String> {
+    if command.trim().eq_ignore_ascii_case("DoExit") {
+        use tauri::Manager;
+        if let Some(guardian) = state.app_handle.try_state::<crate::services::guardian::GuardianState>() {
+            let guard = guardian.0.lock().await;
+            guard.mark_as_stopping(server_id).await;
+        }
+    }
+
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 

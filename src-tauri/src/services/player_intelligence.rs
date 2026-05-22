@@ -94,6 +94,44 @@ impl PlayerIntelligenceService {
         counts
     }
 
+    /// Synchronize players for a server using an authoritative list (e.g. from RCON ListPlayers)
+    pub async fn sync_players(&self, server_id: i64, players: Vec<crate::models::RconPlayer>) {
+        let mut sessions = self.active_sessions.lock().await;
+        let now = chrono::Local::now();
+        
+        let current_steam_ids: Vec<String> = players.iter().map(|p| p.steam_id.clone()).collect();
+        
+        // Find players who left
+        let to_remove: Vec<String> = sessions
+            .iter()
+            .filter(|(steam_id, (sid, _, _))| *sid == server_id && !current_steam_ids.contains(steam_id))
+            .map(|(steam_id, _)| steam_id.clone())
+            .collect();
+            
+        for steam_id in to_remove {
+            if let Some((_, player_name, join_time)) = sessions.remove(&steam_id) {
+                let duration = now.signed_duration_since(join_time);
+                println!(
+                    "📤 Player left (sync): {} ({}) after {} minutes",
+                    player_name,
+                    steam_id,
+                    duration.num_minutes()
+                );
+            }
+        }
+        
+        // Add new players
+        for p in players {
+            if !sessions.contains_key(&p.steam_id) {
+                println!(
+                    "📥 Player joined (sync): {} ({}) on server {}",
+                    p.name, p.steam_id, server_id
+                );
+                sessions.insert(p.steam_id, (server_id, p.name, now));
+            }
+        }
+    }
+
     /// Clear all sessions for a server (e.g., when server stops)
     pub async fn clear_server_sessions(&self, server_id: i64) -> Vec<PlayerSession> {
         let mut sessions = self.active_sessions.lock().await;

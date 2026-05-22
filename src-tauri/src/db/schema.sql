@@ -326,3 +326,60 @@ CREATE TABLE IF NOT EXISTS discord_rate_limits (
 
 CREATE INDEX IF NOT EXISTS idx_discord_rate_limits_cluster ON discord_rate_limits(cluster_id);
 
+
+-- ASE Discord bridge configuration per cluster
+CREATE TABLE IF NOT EXISTS ase_discord_bridge_config (
+    cluster_id INTEGER PRIMARY KEY,
+    enabled INTEGER DEFAULT 0,
+    bot_token TEXT,
+    guild_id TEXT,
+    channel_id TEXT,
+    game_to_discord INTEGER DEFAULT 1,
+    discord_to_game INTEGER DEFAULT 1,
+    server_list_enabled INTEGER DEFAULT 0,
+    server_list_channel_id TEXT,
+    server_list_message_id TEXT,
+    player_list_enabled INTEGER DEFAULT 0,
+    player_list_channel_id TEXT,
+    player_list_message_id TEXT,
+    show_tribe_names INTEGER DEFAULT 1,
+    show_playtime INTEGER DEFAULT 1,
+    admin_channel_id TEXT DEFAULT '',
+    notifications_channel_id TEXT DEFAULT '',
+    notify_player_join_leave INTEGER DEFAULT 1,
+    notify_server_crashes INTEGER DEFAULT 1,
+    notify_server_recovery INTEGER DEFAULT 1,
+    notify_scheduled_restarts INTEGER DEFAULT 1,
+    notify_backup_completion INTEGER DEFAULT 1,
+    notify_performance_alerts INTEGER DEFAULT 1,
+    notify_mod_watchdog INTEGER DEFAULT 1,
+    notify_anti_cheat INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cluster_id) REFERENCES ase_clusters(id) ON DELETE CASCADE
+);
+
+-- ASE Discord rate limit configuration per cluster
+CREATE TABLE IF NOT EXISTS ase_discord_rate_limits (
+    cluster_id INTEGER PRIMARY KEY,
+    max_messages_per_window INTEGER DEFAULT 5,
+    window_seconds INTEGER DEFAULT 10,
+    enabled INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cluster_id) REFERENCES ase_clusters(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_ase_discord_rate_limits_cluster ON ase_discord_rate_limits(cluster_id);
+
+CREATE TABLE IF NOT EXISTS ase_discord_sent_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cluster_id INTEGER NOT NULL,
+    message_hash TEXT NOT NULL,
+    excerpt TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cluster_id) REFERENCES ase_clusters(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_ase_discord_sent_messages_hash ON ase_discord_sent_messages(message_hash);
+CREATE INDEX IF NOT EXISTS idx_ase_discord_sent_messages_created_at ON ase_discord_sent_messages(created_at);

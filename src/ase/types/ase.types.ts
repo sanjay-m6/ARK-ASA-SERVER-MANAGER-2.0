@@ -120,6 +120,7 @@ export interface AseGameConfig {
   // ── Difficulty ──
   difficultyOffset: number;
   overrideOfficialDifficulty: number;
+  MaxDifficulty: boolean;
 
   // ── Core Rates ──
   xpMultiplier: number;
@@ -182,6 +183,7 @@ export interface AseGameConfig {
   allowIntegratedSpinetAttachment: boolean;
   ignoreLimitMaxStructuresInRangeTypeFlag: boolean;
   ignoreStructuresPreventionVolumes: boolean;
+  bDisableStructurePlacementCollision: boolean;
 
   // ── PvP Rules ──
   serverPve: boolean;
@@ -191,6 +193,8 @@ export interface AseGameConfig {
   pvpStructureDecay: boolean;
   pvpDinoDecay: boolean;
   globalPoweredBatteryDurabilityDecreasePerSecond: number;
+  PreventOfflinePvP: boolean;
+  PreventOfflinePvPInterval: number;
 
   // ── Player Rules ──
   allowThirdPersonPlayer: boolean;
@@ -203,6 +207,9 @@ export interface AseGameConfig {
   enableExtraStructurePreventionVolumes: boolean;
   showFloatingDamageText: boolean;
   forceFlyerexplosives: boolean;
+  bUseCorpseLocator: boolean;
+  bShowStatusTypes: boolean;
+  bAllowUnlimitedRespecs: boolean;
 
   // ── Tribe Settings ──
   preventTribeAlliances: boolean;
@@ -256,6 +263,8 @@ export interface AseGameConfig {
   // ── Engrams ──
   autoUnlockAllEngrams: boolean;
   onlyAllowSpecifiedEngrams: boolean;
+  overrideNamedEngramEntries: string;
+  configOverrideItemCraftingCosts: string;
 
   // ── Network / Admin ──
   rconEnabled: boolean;
@@ -265,6 +274,7 @@ export interface AseGameConfig {
   serverForceNoHud: boolean;
   kickIdlePlayerPeriod: number;
   destroyTamesOverLevelClamp: number;
+  SpectatorPassword: string;
 
   // ── Mods ──
   activeMods: string;
@@ -307,6 +317,40 @@ export interface AseGameConfig {
 
   // ── Adjustable Spawner ──
   adjustableMutagenSpawnDelayMultiplier: number;
+
+  // ── Chat & Voice ──
+  globalVoiceChat: boolean;
+  proximityVoiceChat: boolean;
+  alwaysNotifyPlayerJoined: boolean;
+  alwaysNotifyPlayerLeft: boolean;
+  serverAdminCommandLogging: boolean;
+
+  // ── PvP & PvE Advanced ──
+  bDisableFriendlyFire: boolean;
+  nonPermanentDiseases: boolean;
+  preventDiseases: boolean;
+  allowCryoCooldownOnPvE: boolean;
+  disableCryopodEnemyCheck: boolean;
+  pvpZoneStructureDamageMultiplier: number;
+  structureDamageRepairCooldown: number;
+
+  // ── Harvesting & Core Rates ──
+  clampResourceHarvestDamage: boolean;
+  optimizedHarvestingHealth: boolean;
+  tamedDinoHarvestingDamageMultiplier: number;
+  dinoTurretDamageMultiplier: number;
+  tamedDinoCharacterFoodDrainMultiplier: number;
+  wildDinoCharacterFoodDrainMultiplier: number;
+
+  // ── Decay & Platforms ──
+  structureDecayPeriodMultiplier: number;
+  pveDinoDecayPeriodMultiplier: number;
+  fastDecayUnsnappedCoreStructures: boolean;
+  bAllowPlatformSaddleMultiFloors: boolean;
+
+  // ── Advanced Environment/Flyers ──
+  allowFlyingStaminaRecovery: boolean;
+  flyerPlatformMaxStructuresMultiplier: number;
 }
 
 export interface AseBackup {

@@ -616,17 +616,38 @@ export default function ASEInstallWizard({ onClose }: Props) {
                   </div>
                 )}
 
-                {/* Step 6: Confirm & Deploy */}
-                {step === 'confirm' && (
-                  <div className="space-y-5">
+                {/* Step 6: Confirm & Deploy — Pre-flight Review */}
+                {step === 'confirm' && (() => {
+                  const resolvedPath = installPath || `C:\\ARKServerManager\\ase\\${name.replace(/\s+/g, '_')}`;
+                  const hasDuplicatePorts = gamePort === queryPort || gamePort === rconPort || queryPort === rconPort;
+                  const hasPrivilegedPorts = gamePort < 1024 || queryPort < 1024 || rconPort < 1024;
+                  const weakPassword = adminPassword.length < 6;
+                  const hasWarnings = hasDuplicatePorts || hasPrivilegedPorts || weakPassword;
+
+                  return (
+                  <div className="space-y-4">
                     <div>
-                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Rocket className="w-4 h-4 text-amber-400" />Review & Deploy</h3>
-                      <p className="text-xs text-slate-500">Confirm your settings before installation begins</p>
+                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Rocket className="w-4 h-4 text-amber-400" />Pre-flight Review</h3>
+                      <p className="text-xs text-slate-500">Verify every detail before the installation begins</p>
                     </div>
 
-                    {/* Map preview card */}
+                    {/* Global Status Banner */}
+                    <div className={cn(
+                      'flex items-center gap-3 p-3 rounded-xl border text-xs font-medium',
+                      hasWarnings
+                        ? 'bg-amber-500/5 border-amber-500/15 text-amber-300/90'
+                        : 'bg-emerald-500/5 border-emerald-500/15 text-emerald-300/90'
+                    )}>
+                      {hasWarnings ? (
+                        <><AlertTriangle className="w-4 h-4 flex-shrink-0" />Some settings need attention — review the warnings below</>
+                      ) : (
+                        <><CheckCircle className="w-4 h-4 flex-shrink-0" />All settings look good — ready to deploy</>
+                      )}
+                    </div>
+
+                    {/* Map Preview Card */}
                     {mapInfo && (
-                      <div className="relative h-28 rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                      <div className="relative h-24 rounded-xl overflow-hidden border border-white/10 shadow-lg">
                         {mapInfo.image ? (
                           <img src={mapInfo.image} alt={mapInfo.name} className="w-full h-full object-cover opacity-60" />
                         ) : (
@@ -634,8 +655,8 @@ export default function ASEInstallWizard({ onClose }: Props) {
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
                         <div className="absolute bottom-3 left-4">
-                          <p className="text-base font-bold text-white">{mapInfo.name}</p>
-                          <p className="text-[11px] text-slate-300 leading-normal">{mapInfo.description}</p>
+                          <p className="text-sm font-bold text-white">{mapInfo.name}</p>
+                          <p className="text-[10px] text-slate-300 leading-normal">{mapInfo.description}</p>
                         </div>
                         <div className="absolute top-3 right-3">
                           <span className={cn('text-[9px] font-bold px-2 py-0.5 rounded-md border backdrop-blur-sm', dlcColor(mapInfo.dlcType))}>{mapInfo.dlcType}</span>
@@ -643,39 +664,138 @@ export default function ASEInstallWizard({ onClose }: Props) {
                       </div>
                     )}
 
-                    {/* Summary grid */}
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        ['Server Name', name],
-                        ['Session', sessionName || name],
-                        ['Map', mapInfo?.name || mapName],
-                        ['Branch', branchInfo?.name || 'Default'],
-                        ['Game Port', String(gamePort)],
-                        ['Query Port', String(queryPort)],
-                        ['RCON Port', String(rconPort)],
-                        ['Max Players', String(maxPlayers)],
-                      ].map(([l, v]) => (
-                        <div key={l} className="flex items-center justify-between p-2.5 bg-slate-800/30 border border-white/5 rounded-lg">
-                          <span className="text-[11px] text-slate-500">{l}</span>
-                          <span className="text-xs font-semibold text-white font-mono truncate max-w-[120px]" title={v}>{v}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="p-2.5 bg-slate-800/30 border border-white/5 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-slate-500">Install Path</span>
-                        <span className="text-[11px] font-semibold text-white font-mono truncate ml-4" title={installPath || `C:\\ARKServerManager\\ase\\${name.replace(/\s+/g, '_')}`}>
-                          {installPath || `C:\\ARKServerManager\\ase\\${name.replace(/\s+/g, '_')}`}
-                        </span>
+                    {/* ── Section 1: Server Identity ── */}
+                    <div className="rounded-xl border border-white/5 overflow-hidden">
+                      <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
+                        <Server className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Identity</span>
+                        <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                      </div>
+                      <div className="divide-y divide-white/5">
+                        {[
+                          { label: 'Server Name', value: name },
+                          { label: 'Session Name', value: sessionName || name, sub: 'Shown in server browser' },
+                          { label: 'Max Players', value: String(maxPlayers) },
+                        ].map(row => (
+                          <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
+                            <div>
+                              <span className="text-[11px] text-slate-500">{row.label}</span>
+                              {row.sub && <span className="text-[9px] text-slate-600 ml-1.5">({row.sub})</span>}
+                            </div>
+                            <span className="text-xs font-semibold text-white font-mono truncate max-w-[180px]" title={row.value}>{row.value}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
+                    {/* ── Section 2: Version ── */}
+                    <div className="rounded-xl border border-white/5 overflow-hidden">
+                      <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
+                        <GitBranch className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Version</span>
+                        <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                      </div>
+                      <div className="flex items-center justify-between px-3.5 py-2.5">
+                        <span className="text-[11px] text-slate-500">Branch</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-white">{branchInfo?.name || 'Default'}</span>
+                          {branchInfo?.betaFlag && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-700/60 text-slate-500">-beta {branchInfo.betaFlag}</span>}
+                          {branch === 'default' && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">STABLE</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Section 3: Network ── */}
+                    <div className="rounded-xl border border-white/5 overflow-hidden">
+                      <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
+                        <Wifi className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Network</span>
+                        {(hasDuplicatePorts || hasPrivilegedPorts) ? (
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 ml-auto" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                        )}
+                      </div>
+                      <div className="divide-y divide-white/5">
+                        {[
+                          { label: 'Game Port', value: gamePort, protocol: 'UDP' },
+                          { label: 'Raw UDP Port', value: gamePort + 1, protocol: 'UDP', sub: 'auto-assigned' },
+                          { label: 'Query Port', value: queryPort, protocol: 'UDP/TCP' },
+                          { label: 'RCON Port', value: rconPort, protocol: 'TCP' },
+                        ].map(row => (
+                          <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-slate-500">{row.label}</span>
+                              {row.sub && <span className="text-[9px] text-slate-600">({row.sub})</span>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-mono text-slate-600">{row.protocol}</span>
+                              <span className="text-xs font-bold text-white font-mono">{row.value}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Port warnings */}
+                      {hasDuplicatePorts && (
+                        <div className="flex items-start gap-2 px-3.5 py-2 bg-red-500/5 border-t border-red-500/10">
+                          <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                          <span className="text-[10px] text-red-300/80">Port collision detected — game, query, and RCON ports must all be different</span>
+                        </div>
+                      )}
+                      {hasPrivilegedPorts && (
+                        <div className="flex items-start gap-2 px-3.5 py-2 bg-amber-500/5 border-t border-amber-500/10">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                          <span className="text-[10px] text-amber-300/80">Ports below 1024 are privileged and may require administrator access</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Section 4: Security ── */}
+                    <div className="rounded-xl border border-white/5 overflow-hidden">
+                      <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
+                        <Shield className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Security</span>
+                        {weakPassword ? (
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 ml-auto" />
+                        ) : (
+                          <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between px-3.5 py-2.5">
+                        <span className="text-[11px] text-slate-500">Admin Password</span>
+                        <span className="text-xs font-mono text-white tracking-widest">{'•'.repeat(Math.min(adminPassword.length, 12))}</span>
+                      </div>
+                      {weakPassword && (
+                        <div className="flex items-start gap-2 px-3.5 py-2 bg-amber-500/5 border-t border-amber-500/10">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                          <span className="text-[10px] text-amber-300/80">Password is short — consider using 6+ characters for better security</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Section 5: Install Path ── */}
+                    <div className="rounded-xl border border-white/5 overflow-hidden">
+                      <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
+                        <HardDrive className="w-3.5 h-3.5 text-amber-400" />
+                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Storage</span>
+                        <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                      </div>
+                      <div className="px-3.5 py-2.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] text-slate-500">Install Path</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-white/80 break-all leading-relaxed" title={resolvedPath}>{resolvedPath}</span>
+                      </div>
+                    </div>
+
+                    {/* Download Warning */}
                     <div className="flex items-center gap-2 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
                       <HardDrive className="w-4 h-4 text-amber-400 flex-shrink-0" />
                       <span className="text-xs text-amber-300/80 font-medium">SteamCMD will download ~18 GB (AppID 376030){branchInfo?.betaFlag ? ` on branch "${branchInfo.betaFlag}"` : ''}</span>
                     </div>
                   </div>
-                )}
+                  );
+                })()}
 
               </motion.div>
             )}

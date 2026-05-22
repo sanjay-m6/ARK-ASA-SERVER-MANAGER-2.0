@@ -2,6 +2,7 @@
 // Complete state management for auto-save browsing, restoration, and organization
 
 import { create } from 'zustand';
+import { useMemo } from 'react';
 import {
   AutoSave,
   SaveFolder,
@@ -16,6 +17,15 @@ import {
   TimelineEvent,
   AutoSaveStore,
 } from '@/types/autosave';
+import {
+  syncAutoSaveState,
+  restoreSave as restoreSaveApi,
+  deleteSave as deleteSaveApi,
+  toggleSaveProtection as toggleSaveProtectionApi,
+  toggleFavorite as toggleFavoriteApi,
+  updateSaveLabel as updateSaveLabelApi,
+  updateSaveNotes as updateSaveNotesApi,
+} from '@/utils/autoSaveApi';
 
 const defaultViewMode: SaveBrowserViewMode = {
   type: 'grid',
@@ -218,101 +228,110 @@ export const selectCorruptedSaves = () => {
   });
 };
 
+export const getFilteredAndSortedSaves = (
+  saves: Map<number, AutoSave>,
+  serverId: number,
+  filters: SaveSearchFilter,
+  sortOptions: SaveSortOptions
+): AutoSave[] => {
+  let filtered = Array.from(saves.values()).filter(
+    (save) => save.serverId === serverId
+  );
+
+  // Apply search filter
+  if (filters.searchQuery) {
+    const query = filters.searchQuery.toLowerCase();
+    filtered = filtered.filter(
+      (save) =>
+        save.fileName.toLowerCase().includes(query) ||
+        save.customLabel?.toLowerCase().includes(query) ||
+        save.notes?.toLowerCase().includes(query)
+    );
+  }
+
+  // Apply status filters
+  if (filters.status && filters.status.length > 0) {
+    filtered = filtered.filter((save) => {
+      return filters.status!.some((status) => {
+        switch (status) {
+          case 'corrupted':
+            return save.isCorrupted;
+          case 'protected':
+            return save.isProtected;
+          case 'favorite':
+            return save.isFavorite;
+          case 'valid':
+            return save.isValid && !save.isCorrupted;
+          default:
+            return true;
+        }
+      });
+    });
+  }
+
+  // Apply map filter
+  if (filters.mapNames && filters.mapNames.length > 0) {
+    filtered = filtered.filter(
+      (save) => save.mapName && filters.mapNames!.includes(save.mapName)
+    );
+  }
+
+  // Apply size filter
+  if (filters.minSize !== undefined) {
+    filtered = filtered.filter((save) => save.fileSize >= filters.minSize!);
+  }
+  if (filters.maxSize !== undefined) {
+    filtered = filtered.filter((save) => save.fileSize <= filters.maxSize!);
+  }
+
+  // Apply player count filter
+  if (filters.playerCountRange) {
+    const [min, max] = filters.playerCountRange;
+    filtered = filtered.filter((save) => {
+      const count = save.playerCount || 0;
+      return count >= min && count <= max;
+    });
+  }
+
+  // Sort
+  filtered.sort((a, b) => {
+    let comparison = 0;
+
+    switch (sortOptions.sortBy) {
+      case 'date':
+        comparison = new Date(a.createdAt).getTime() -
+          new Date(b.createdAt).getTime();
+        break;
+      case 'size':
+        comparison = a.fileSize - b.fileSize;
+        break;
+      case 'players':
+        comparison = (a.playerCount || 0) - (b.playerCount || 0);
+        break;
+      case 'uptime':
+        comparison = (a.uptimeSeconds || 0) - (b.uptimeSeconds || 0);
+        break;
+      case 'name':
+        comparison = a.fileName.localeCompare(b.fileName);
+        break;
+      default:
+        comparison = 0;
+    }
+
+    return sortOptions.sortOrder === 'asc' ? comparison : -comparison;
+  });
+
+  return filtered;
+};
+
 export const selectFilteredAndSortedSaves = (
   serverId: number,
   filters: SaveSearchFilter,
   sortOptions: SaveSortOptions
 ) => {
-  return useAutoSaveStore((state) => {
-    let filtered = Array.from(state.saves.values()).filter(
-      (save) => save.serverId === serverId
-    );
-
-    // Apply search filter
-    if (filters.searchQuery) {
-      const query = filters.searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (save) =>
-          save.fileName.toLowerCase().includes(query) ||
-          save.customLabel?.toLowerCase().includes(query) ||
-          save.notes?.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply status filters
-    if (filters.status && filters.status.length > 0) {
-      filtered = filtered.filter((save) => {
-        return filters.status!.some((status) => {
-          switch (status) {
-            case 'corrupted':
-              return save.isCorrupted;
-            case 'protected':
-              return save.isProtected;
-            case 'favorite':
-              return save.isFavorite;
-            case 'valid':
-              return save.isValid && !save.isCorrupted;
-            default:
-              return true;
-          }
-        });
-      });
-    }
-
-    // Apply map filter
-    if (filters.mapNames && filters.mapNames.length > 0) {
-      filtered = filtered.filter(
-        (save) => save.mapName && filters.mapNames!.includes(save.mapName)
-      );
-    }
-
-    // Apply size filter
-    if (filters.minSize !== undefined) {
-      filtered = filtered.filter((save) => save.fileSize >= filters.minSize!);
-    }
-    if (filters.maxSize !== undefined) {
-      filtered = filtered.filter((save) => save.fileSize <= filters.maxSize!);
-    }
-
-    // Apply player count filter
-    if (filters.playerCountRange) {
-      const [min, max] = filters.playerCountRange;
-      filtered = filtered.filter((save) => {
-        const count = save.playerCount || 0;
-        return count >= min && count <= max;
-      });
-    }
-
-    // Sort
-    filtered.sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortOptions.sortBy) {
-        case 'date':
-          comparison = new Date(a.createdAt).getTime() -
-            new Date(b.createdAt).getTime();
-          break;
-        case 'size':
-          comparison = a.fileSize - b.fileSize;
-          break;
-        case 'players':
-          comparison = (a.playerCount || 0) - (b.playerCount || 0);
-          break;
-        case 'uptime':
-          comparison = (a.uptimeSeconds || 0) - (b.uptimeSeconds || 0);
-          break;
-        case 'name':
-          comparison = a.fileName.localeCompare(b.fileName);
-          break;
-        default:
-          comparison = 0;
-      }
-
-      return sortOptions.sortOrder === 'asc' ? comparison : -comparison;
-    });
-
-    return filtered;
-  });
+  return useAutoSaveStore((state) =>
+    getFilteredAndSortedSaves(state.saves, serverId, filters, sortOptions)
+  );
 };
 
 export const selectSaveById = (saveId: number) => {
@@ -360,38 +379,101 @@ export const selectTimelineEvents = () => {
 // ============================================================================
 
 export const useAutoSaveActions = () => {
-  const store = useAutoSaveStore();
-
-  return {
-    loadSaves: async (_serverId: number) => {
-      // Implementation in API utilities
+  return useMemo(() => ({
+    loadSaves: async (serverId: number) => {
+      const store = useAutoSaveStore.getState();
+      store.setLoading(true);
+      store.setError(undefined);
+      store.setCurrentServerId(serverId);
+      try {
+        await syncAutoSaveState(store, serverId);
+      } catch (error) {
+        store.setError(error instanceof Error ? error.message : String(error));
+        throw error;
+      } finally {
+        store.setLoading(false);
+      }
     },
-    refreshStatistics: async (_serverId: number) => {
-      // Implementation in API utilities
+    refreshStatistics: async (serverId: number) => {
+      const store = useAutoSaveStore.getState();
+      try {
+        await syncAutoSaveState(store, serverId);
+      } catch (error) {
+        console.error('Failed to refresh statistics:', error);
+      }
     },
     restoreSave: async (
-      _serverId: number,
-      _saveId: number,
-      _createBackup: boolean
+      serverId: number,
+      saveId: number,
+      createBackup: boolean
     ) => {
-      // Implementation in API utilities
+      useAutoSaveStore.setState({ restoreInProgress: true, error: undefined });
+      try {
+        await restoreSaveApi({
+          serverId,
+          saveId,
+          createBackup,
+          restoreMethod: 'manual',
+        });
+        await syncAutoSaveState(useAutoSaveStore.getState(), serverId);
+      } catch (error) {
+        useAutoSaveStore.setState({ error: error instanceof Error ? error.message : String(error) });
+        throw error;
+      } finally {
+        useAutoSaveStore.setState({ restoreInProgress: false });
+      }
     },
     deleteSave: async (saveId: number) => {
-      store.removeSave(saveId);
+      const store = useAutoSaveStore.getState();
+      try {
+        await deleteSaveApi(saveId);
+        store.removeSave(saveId);
+      } catch (error) {
+        console.error('Failed to delete save:', error);
+        throw error;
+      }
     },
     toggleProtection: async (saveId: number, isProtected: boolean) => {
-      store.updateSave(saveId, { isProtected });
+      const store = useAutoSaveStore.getState();
+      try {
+        await toggleSaveProtectionApi(saveId, isProtected);
+        store.updateSave(saveId, { isProtected });
+      } catch (error) {
+        console.error('Failed to toggle protection:', error);
+        throw error;
+      }
     },
     toggleFavorite: async (saveId: number, isFavorite: boolean) => {
-      store.updateSave(saveId, { isFavorite });
+      const store = useAutoSaveStore.getState();
+      try {
+        await toggleFavoriteApi(saveId, isFavorite);
+        store.updateSave(saveId, { isFavorite });
+      } catch (error) {
+        console.error('Failed to toggle favorite:', error);
+        throw error;
+      }
     },
     updateLabel: async (saveId: number, label: string) => {
-      store.updateSave(saveId, { customLabel: label });
+      const store = useAutoSaveStore.getState();
+      try {
+        await updateSaveLabelApi(saveId, label);
+        store.updateSave(saveId, { customLabel: label });
+      } catch (error) {
+        console.error('Failed to update label:', error);
+        throw error;
+      }
     },
     updateNotes: async (saveId: number, notes: string) => {
-      store.updateSave(saveId, { notes });
+      const store = useAutoSaveStore.getState();
+      try {
+        await updateSaveNotesApi(saveId, notes);
+        store.updateSave(saveId, { notes });
+      } catch (error) {
+        console.error('Failed to update notes:', error);
+        throw error;
+      }
     },
-  };
+  }), []);
 };
 
 // ============================================================================

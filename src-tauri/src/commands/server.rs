@@ -202,22 +202,113 @@ pub async fn install_server(
     state: State<'_, AppState>,
     install_path: String,
     name: String,
+    session_name: String,
     map_name: String,
     game_port: u16,
     query_port: u16,
     rcon_port: u16,
+    pve_mode: bool,
+    crossplay: bool,
     server_type: String,
+    max_players: i32,
+    admin_password: Option<String>,
+    server_password: Option<String>,
 ) -> Result<Server, String> {
     println!("🚀 Installing server: {} at {}", name, install_path);
 
     let path = PathBuf::from(&install_path);
 
-    // Create the installer and run the installation
+    // Create the installer early so we can emit console logs during pre-flight
     let installer = ServerInstaller::new(app_handle, path.to_string_lossy().to_string());
+
+    // ---------------------------------------------------------
+    // PRE-FLIGHT: System specs analysis and validation
+    // Runs BEFORE the heavy SteamCMD download to avoid wasting
+    // bandwidth/disk if validation will fail.
+    // ---------------------------------------------------------
+    installer.emit_console("", "info");
+    installer.emit_console("═══════════════════════════════════════════════════════════", "info");
+    installer.emit_console("  PRE-FLIGHT SYSTEM CHECK", "info");
+    installer.emit_console("═══════════════════════════════════════════════════════════", "info");
+    installer.emit_console("", "info");
+
+    let specs = crate::services::system_analyzer::get_system_specs(&path);
+
+    installer.emit_console("═══════════════════════════════════════════════════════════", "info");
+    installer.emit_console("  SYSTEM SPECIFICATIONS & HARDWARE ANALYSIS", "info");
+    installer.emit_console("═══════════════════════════════════════════════════════════", "info");
+    installer.emit_console(&format!("  Operating System : {} (Version: {})", specs.os_name, specs.os_version), "info");
+    installer.emit_console(&format!("  CPU Model        : {} ({} Cores)", specs.cpu_brand, specs.cpu_cores), "info");
+    installer.emit_console(&format!("  System Memory    : {:.2} GB Total ({:.2} GB Free)", specs.ram_total_gb, specs.ram_free_gb), "info");
+    installer.emit_console(&format!("  Active Interface : {} (MAC: {})", specs.active_adapter, specs.mac_address), "info");
+    installer.emit_console(&format!("  Local IP Address : {}", specs.local_ip), "info");
+    installer.emit_console(&format!("  Install Drive    : Total: {:.2} GB | Free: {:.2} GB", specs.destination_total_gb, specs.destination_free_gb), "info");
+    installer.emit_console("═══════════════════════════════════════════════════════════", "info");
+    installer.emit_console("", "info");
+
+    let final_admin_pwd = if admin_password.as_deref().unwrap_or("").trim().is_empty() {
+        "admin123".to_string()
+    } else {
+        admin_password.clone().unwrap()
+    };
+
+    let validation = crate::services::system_analyzer::validate_server_details(
+        &name,
+        &map_name,
+        game_port,
+        query_port,
+        rcon_port,
+        &final_admin_pwd,
+        &specs,
+    );
+
+    installer.emit_console("═══════════════════════════════════════════════════════════", "info");
+    installer.emit_console("  ARK SERVER DETAILS VALIDATION PIPELINE", "info");
+    installer.emit_console("═══════════════════════════════════════════════════════════", "info");
+    installer.emit_console(&format!("  Server Name      : {}", name), "info");
+    installer.emit_console(&format!("  Map Name         : {}", map_name), "info");
+    installer.emit_console(&format!("  Game Port        : {} (UDP)", game_port), "info");
+    installer.emit_console(&format!("  Query Port       : {} (UDP)", query_port), "info");
+    installer.emit_console(&format!("  RCON Port        : {} (TCP)", rcon_port), "info");
+    installer.emit_console(&format!("  Max Players      : {}", max_players), "info");
+    installer.emit_console(&format!("  Game Mode        : {}", if pve_mode { "PvE" } else { "PvP" }), "info");
+    installer.emit_console(&format!("  Crossplay        : {}", if crossplay { "Enabled" } else { "Disabled" }), "info");
+    installer.emit_console("═══════════════════════════════════════════════════════════", "info");
+    installer.emit_console("", "info");
+
+    if validation.is_valid {
+        installer.emit_console("✓ All configuration values validated successfully!", "success");
+    } else {
+        installer.emit_console("✗ Validation failed with the following errors:", "error");
+        for err in &validation.errors {
+            installer.emit_console(&format!("  - {}", err), "error");
+        }
+        // Abort before downloading — critical validation failures
+        let error_summary = validation.errors.join("; ");
+        return Err(format!("Pre-flight validation failed: {}", error_summary));
+    }
+
+    if !validation.warnings.is_empty() {
+        installer.emit_console("⚠ Configuration Warnings:", "warning");
+        for warn in &validation.warnings {
+            installer.emit_console(&format!("  - {}", warn), "warning");
+        }
+    }
+    installer.emit_console("", "info");
+    installer.emit_console("Pre-flight checks passed. Starting server download...", "success");
+    installer.emit_console("", "info");
+
+    // ---------------------------------------------------------
+    // INSTALL: Run SteamCMD to download/validate server files
+    // ---------------------------------------------------------
     installer.install_server(&path, &server_type).await?;
 
+    // ---------------------------------------------------------
+    // POST-INSTALL: Create database entry and write configs
+    // ---------------------------------------------------------
+
     // Create database entry (Scoped to drop mutex/lock before await)
-    let (id, unique_name) = {
+    let (id, unique_name, effective_session_name, custom_args) = {
         let db = state
             .db
             .lock()
@@ -245,10 +336,24 @@ pub async fn install_server(
             unique_name = format!("{} ({})", name, counter);
         }
 
+        // Use the provided session_name; fall back to the unique server name if empty
+        let effective_session_name = if session_name.trim().is_empty() {
+            unique_name.clone()
+        } else {
+            session_name.clone()
+        };
+
+        // Build custom_args with crossplay flag if enabled
+        let custom_args: Option<String> = if crossplay {
+            Some("-crossplay".to_string())
+        } else {
+            None
+        };
+
         conn.execute(
             "INSERT INTO servers (name, install_path, status, game_port, query_port, rcon_port, 
-             max_players, admin_password, map_name, session_name, server_type) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+             max_players, admin_password, server_password, map_name, session_name, server_type, custom_args) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             (
                 &unique_name,
                 &install_path,
@@ -256,16 +361,18 @@ pub async fn install_server(
                 game_port,
                 query_port,
                 rcon_port,
-                70,
-                "admin123",
+                max_players,
+                &final_admin_pwd,
+                server_password.as_deref().unwrap_or(""),
                 &map_name,
-                &unique_name,
+                &effective_session_name,
                 &server_type, // Server type - ARK: Survival Ascended or Evolved
+                &custom_args,
             ),
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
 
-        (conn.last_insert_rowid(), unique_name)
+        (conn.last_insert_rowid(), unique_name, effective_session_name, custom_args)
     };
 
     let server_obj = Server {
@@ -281,14 +388,18 @@ pub async fn install_server(
             rcon_port,
         },
         config: ServerConfig {
-            max_players: 70,
-            server_password: None,
-            admin_password: "".to_string(),
+            max_players,
+            server_password: if server_password.as_deref().unwrap_or("").is_empty() {
+                None
+            } else {
+                server_password.clone()
+            },
+            admin_password: final_admin_pwd.clone(),
             map_name: map_name.clone(),
-            session_name: unique_name,
+            session_name: effective_session_name.clone(),
             motd: None,
             mods: vec![],
-            custom_args: None,
+            custom_args: custom_args.clone(),
         },
         rcon_config: RconConfig {
             enabled: true,
@@ -311,41 +422,46 @@ pub async fn install_server(
     let _ = crate::commands::firewall::create_firewall_rules(state, id).await;
 
     // ---------------------------------------------------------
-    // CRITICAL FIX: Write initial config files to disk
+    // Write configuration files (GameUserSettings.ini, Game.ini, Engine.ini)
     // ---------------------------------------------------------
-    println!("📝 Generating initial server configuration files...");
-
-    // Map models::ServerConfig to config_generator::ServerConfig
     let mut initial_config = crate::services::config_generator::ServerConfig::default();
-
-    // Identity & Ports
     initial_config.session_name = server_obj.config.session_name.clone();
     initial_config.map_name = server_obj.config.map_name.clone();
     initial_config.max_players = server_obj.config.max_players;
-    initial_config.admin_password = server_obj.config.admin_password.clone();
+    initial_config.admin_password = final_admin_pwd;
     initial_config.server_password = server_obj.config.server_password.clone();
     initial_config.game_port = server_obj.ports.game_port;
     initial_config.query_port = server_obj.ports.query_port;
     initial_config.rcon_port = server_obj.ports.rcon_port;
     initial_config.rcon_enabled = server_obj.rcon_config.enabled;
-
-    // Mods
+    initial_config.pve_mode = pve_mode;
     initial_config.active_mods = server_obj.config.mods.clone();
+
+    installer.emit_console("Writing server configuration files to disk...", "info");
 
     let config_write_result = crate::services::config_generator::ConfigGenerator::write_configs(
         &server_obj.install_path,
         &initial_config,
         false, // No backup needed for fresh install
+        &server_type,
     );
 
     if let Err(e) = config_write_result {
-        println!("❌ Failed to write initial config files: {}", e);
-        // We don't fail the whole install, but we log the error.
-        // The server might start with defaults, but at least the DB is correct.
+        let err_msg = format!("✗ Failed to write configuration files: {}", e);
+        installer.emit_console(&err_msg, "error");
+        println!("{}", err_msg);
     } else {
-        println!("✅ Initial config files created successfully.");
+        let sub_dir = crate::services::config_generator::ConfigGenerator::get_config_subdirectory(&server_obj.install_path, Some(&server_type));
+        installer.emit_console("✓ Server configuration files successfully generated and saved:", "success");
+        installer.emit_console(&format!("  - Path: ShooterGame/Saved/Config/{}/", sub_dir), "success");
+        installer.emit_console("  - GameUserSettings.ini [Saved]", "success");
+        installer.emit_console("  - Game.ini [Saved]", "success");
+        installer.emit_console("  - Engine.ini [Saved]", "success");
+        installer.emit_console("═══════════════════════════════════════════════════════════", "success");
     }
 
+    installer.emit_complete("Installation completed successfully!");
+    
     Ok(server_obj)
 }
 
@@ -483,8 +599,9 @@ pub async fn clone_server(
         .map_err(|e| format!("Failed to create directory: {}", e))?;
 
     // Copy config files if they exist
-    let source_config_dir = source_path.join("ShooterGame/Saved/Config/WindowsServer");
-    let dest_config_dir = new_install_path.join("ShooterGame/Saved/Config/WindowsServer");
+    let sub_dir = crate::services::config_generator::ConfigGenerator::get_config_subdirectory(&source_path, Some(&server_type));
+    let source_config_dir = source_path.join(format!("ShooterGame/Saved/Config/{}", sub_dir));
+    let dest_config_dir = new_install_path.join(format!("ShooterGame/Saved/Config/{}", sub_dir));
     if source_config_dir.exists() {
         std::fs::create_dir_all(&dest_config_dir)
             .map_err(|e| format!("Failed to create config dir: {}", e))?;
@@ -585,7 +702,7 @@ pub async fn transfer_settings(
     );
 
     // Get both server paths
-    let (source_path, target_path) = {
+    let (source_path, target_path, server_type) = {
         let db = state
             .db
             .lock()
@@ -610,12 +727,21 @@ pub async fn transfer_settings(
             )
             .map_err(|e| format!("Target server not found: {}", e))?;
 
-        (PathBuf::from(source), PathBuf::from(target))
+        let server_type: String = conn
+            .query_row(
+                "SELECT server_type FROM servers WHERE id = ?1",
+                [source_server_id],
+                |row| row.get(0),
+            )
+            .unwrap_or_else(|_| "ASA".to_string());
+
+        (PathBuf::from(source), PathBuf::from(target), server_type)
     };
 
     // Copy config files
-    let source_config = source_path.join("ShooterGame/Saved/Config/WindowsServer");
-    let target_config = target_path.join("ShooterGame/Saved/Config/WindowsServer");
+    let sub_dir = crate::services::config_generator::ConfigGenerator::get_config_subdirectory(&source_path, Some(&server_type));
+    let source_config = source_path.join(format!("ShooterGame/Saved/Config/{}", sub_dir));
+    let target_config = target_path.join(format!("ShooterGame/Saved/Config/{}", sub_dir));
 
     if !source_config.exists() {
         return Err("Source server has no config files".to_string());
@@ -1374,6 +1500,11 @@ async fn graceful_stop(state: &State<'_, AppState>, server_id: i64) -> Result<()
 
             // Step 3: DoExit
             println!("  🚪 Sending DoExit command...");
+            use tauri::Manager;
+            if let Some(guardian) = state.app_handle.try_state::<crate::services::guardian::GuardianState>() {
+                let guard = guardian.0.lock().await;
+                guard.mark_as_stopping(server_id).await;
+            }
             let _ = rcon.send_command(server_id, "DoExit").await;
 
             // Step 4: Wait up to 10 seconds for natural exit
@@ -1843,25 +1974,492 @@ pub async fn get_server_logs(
     Ok(logs)
 }
 
-/// Import an existing server installation
-/// Reads settings from GameUserSettings.ini and creates a database entry
+struct CmdSettings {
+    map_name: Option<String>,
+    game_port: Option<u16>,
+    query_port: Option<u16>,
+    rcon_port: Option<u16>,
+    rcon_enabled: Option<bool>,
+    max_players: Option<u32>,
+    session_name: Option<String>,
+    server_password: Option<String>,
+    admin_password: Option<String>,
+    ip_address: Option<String>,
+    cluster_id: Option<String>,
+    active_mods: Option<String>,
+    custom_args: Vec<String>,
+}
+
+fn split_cmd_line(line: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+    let mut quote_char = ' ';
+
+    for c in line.chars() {
+        if (c == '"' || c == '\'') && !in_quotes {
+            in_quotes = true;
+            quote_char = c;
+        } else if in_quotes && c == quote_char {
+            in_quotes = false;
+        } else if c.is_whitespace() && !in_quotes {
+            if !current.is_empty() {
+                tokens.push(current.clone());
+                current.clear();
+            }
+        } else {
+            current.push(c);
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    tokens
+}
+
+fn parse_travel_url(token: &str) -> Option<(String, Vec<(String, String)>)> {
+    if !token.contains('?') {
+        return None;
+    }
+    let token = token.trim_matches('"').trim_matches('\'');
+    let parts: Vec<&str> = token.split('?').collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let map_part = parts[0];
+    let map_name = map_part
+        .split('/')
+        .last()
+        .unwrap_or("")
+        .split('\\')
+        .last()
+        .unwrap_or("")
+        .to_string();
+
+    let mut options = Vec::new();
+    for part in &parts[1..] {
+        if let Some((k, v)) = part.split_once('=') {
+            options.push((k.to_lowercase(), v.trim_matches('"').trim_matches('\'').to_string()));
+        } else {
+            options.push((part.to_lowercase(), String::new()));
+        }
+    }
+    Some((map_name, options))
+}
+
+fn parse_cmd_line(line: &str) -> Option<CmdSettings> {
+    let line_lower = line.to_lowercase();
+    if !line_lower.contains("arkascendedserver") 
+        && !line_lower.contains("shootergameserver") 
+        && !line_lower.contains("?listen") {
+        return None;
+    }
+
+    let tokens = split_cmd_line(line);
+    let mut settings = CmdSettings {
+        map_name: None,
+        game_port: None,
+        query_port: None,
+        rcon_port: None,
+        rcon_enabled: None,
+        max_players: None,
+        session_name: None,
+        server_password: None,
+        admin_password: None,
+        ip_address: None,
+        cluster_id: None,
+        active_mods: None,
+        custom_args: Vec::new(),
+    };
+
+    let mut found_launch = false;
+
+    for token in tokens {
+        if token.contains('?') && !token.starts_with('-') {
+            if let Some((map, options)) = parse_travel_url(&token) {
+                if !map.is_empty() {
+                    settings.map_name = Some(map);
+                    found_launch = true;
+                }
+                for (k, v) in options {
+                    match k.as_str() {
+                        "port" => settings.game_port = v.parse().ok(),
+                        "queryport" => settings.query_port = v.parse().ok(),
+                        "rconport" => settings.rcon_port = v.parse().ok(),
+                        "rconenabled" => settings.rcon_enabled = Some(v.to_lowercase() == "true" || v == "1"),
+                        "maxplayers" => settings.max_players = v.parse().ok(),
+                        "sessionname" => settings.session_name = Some(v),
+                        "serverpassword" => settings.server_password = Some(v),
+                        "serveradminpassword" => settings.admin_password = Some(v),
+                        "multihome" | "ipaddress" => settings.ip_address = Some(v),
+                        _ => {}
+                    }
+                }
+            }
+        } else if let Some(arg) = token.strip_prefix('-') {
+            if let Some((k, v)) = arg.split_once('=') {
+                let key_lower = k.to_lowercase();
+                let val = v.trim_matches('"').trim_matches('\'').to_string();
+                match key_lower.as_str() {
+                    "multihome" | "ipaddress" => settings.ip_address = Some(val),
+                    "clusterid" => settings.cluster_id = Some(val),
+                    "rconport" => settings.rcon_port = val.parse().ok(),
+                    "rconenabled" => settings.rcon_enabled = Some(val.to_lowercase() == "true" || val == "1"),
+                    "modids" | "activemods" => settings.active_mods = Some(val),
+                    _ => {
+                        settings.custom_args.push(token.clone());
+                    }
+                }
+            } else {
+                settings.custom_args.push(token.clone());
+            }
+        }
+    }
+
+    if found_launch || settings.game_port.is_some() || settings.query_port.is_some() {
+        Some(settings)
+    } else {
+        None
+    }
+}
+
+fn detect_batch_settings(install_path: &std::path::Path, _server_type: &str) -> Option<CmdSettings> {
+    use std::fs;
+    
+    let search_dirs = vec![
+        install_path.to_path_buf(),
+        install_path.join("ShooterGame").join("Binaries").join("Win64"),
+    ];
+
+    for dir in search_dirs {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(ext) = path.extension() {
+                    let ext_lower = ext.to_string_lossy().to_lowercase();
+                    if ext_lower == "bat" || ext_lower == "cmd" {
+                        if let Ok(content) = fs::read_to_string(&path) {
+                            for line in content.lines() {
+                                let line = line.trim();
+                                if line.is_empty() {
+                                    continue;
+                                }
+                                let line_lower = line.to_lowercase();
+                                if line_lower.starts_with("rem") 
+                                    || line_lower.starts_with("::") 
+                                    || line_lower.starts_with("@rem") 
+                                    || line_lower.starts_with("@::") {
+                                    continue;
+                                }
+                                if let Some(settings) = parse_cmd_line(line) {
+                                    println!("   ✅ Parsed launch settings from batch file: {:?}", path.file_name().unwrap_or_default());
+                                    return Some(settings);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Detect the map name from an ARK server installation path.
+/// Checks GameUserSettings.ini for ServerMap/MapName, then scans .bat/.cmd files
+/// for the travel URL pattern, and falls back to a default.
+fn detect_map_name(install_path: &std::path::Path, server_type: &str) -> String {
+    use std::fs;
+
+    let default_map = if server_type == "ASE" { "TheIsland" } else { "TheIsland_WP" };
+
+    // 1. Check batch files first because command line arguments override INI settings
+    if let Some(batch) = detect_batch_settings(install_path, server_type) {
+        if let Some(map) = batch.map_name {
+            println!("   📍 Detected map from batch file: {}", map);
+            return map;
+        }
+    }
+
+    // 2. Check GameUserSettings.ini for ServerMap= or MapName= under [ServerSettings]
+    let gus_path = install_path
+        .join("ShooterGame")
+        .join("Saved")
+        .join("Config")
+        .join("WindowsServer")
+        .join("GameUserSettings.ini");
+
+    if gus_path.exists() {
+        if let Ok(content) = fs::read_to_string(&gus_path) {
+            let mut in_server_settings = false;
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                    in_server_settings = &trimmed[1..trimmed.len() - 1] == "ServerSettings";
+                    continue;
+                }
+                if in_server_settings {
+                    if let Some((key, value)) = trimmed.split_once('=') {
+                        let key = key.trim();
+                        let value = value.trim();
+                        if (key == "ServerMap" || key == "MapName") && !value.is_empty() {
+                            println!("   📍 Detected map from INI: {}", value);
+                            return value.to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    println!("   ⚠️  No map name detected, using default: {}", default_map);
+    default_map.to_string()
+}
+
+/// Parse an IP address from INI content (MultiHome= key) or startup scripts.
+fn detect_ip_address(install_path: &std::path::Path) -> Option<String> {
+    use std::fs;
+
+    // 1. Check batch files first
+    if let Some(batch) = detect_batch_settings(install_path, "") {
+        if let Some(ip) = batch.ip_address {
+            println!("   📍 Detected IP address from batch file: {}", ip);
+            return Some(ip);
+        }
+    }
+
+    // 2. Check GameUserSettings.ini for MultiHome=
+    let gus_path = install_path
+        .join("ShooterGame")
+        .join("Saved")
+        .join("Config")
+        .join("WindowsServer")
+        .join("GameUserSettings.ini");
+
+    if gus_path.exists() {
+        if let Ok(content) = fs::read_to_string(&gus_path) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if let Some((key, value)) = trimmed.split_once('=') {
+                    if key.trim() == "MultiHome" && !value.trim().is_empty() {
+                        return Some(value.trim().to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Import preview result returned to the frontend before committing.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportPreview {
+    pub map_name: String,
+    pub session_name: String,
+    pub max_players: u32,
+    pub game_port: u16,
+    pub query_port: u16,
+    pub rcon_port: u16,
+    pub rcon_enabled: bool,
+    pub admin_password: String,
+    pub server_password: String,
+    pub ip_address: Option<String>,
+    pub active_mods: String,
+    pub custom_args: String,
+    pub cluster_id: String,
+    pub warnings: Vec<String>,
+}
+
+/// Parse all importable settings from an ARK installation path (works for both ASA and ASE).
+pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) -> ImportPreview {
+    use std::fs;
+
+    let mut warnings: Vec<String> = Vec::new();
+
+    let config_dir = install_path
+        .join("ShooterGame")
+        .join("Saved")
+        .join("Config")
+        .join("WindowsServer");
+
+    let gus_path = config_dir.join("GameUserSettings.ini");
+
+    let mut max_players: u32 = 70;
+    let mut session_name = String::new();
+    let mut server_password = String::new();
+    let mut admin_password = String::new();
+    let mut game_port: u16 = 7777;
+    let mut query_port: u16 = 27015;
+    let mut rcon_port: u16 = 27020;
+    let mut rcon_enabled = true;
+    let mut active_mods = String::new();
+    let mut custom_args = String::new();
+    let mut cluster_id = String::new();
+
+    if gus_path.exists() {
+        if let Ok(content) = fs::read_to_string(&gus_path) {
+            let mut current_section = String::new();
+
+            for line in content.lines() {
+                let trimmed = line.trim();
+
+                if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                    current_section = trimmed[1..trimmed.len() - 1].to_string();
+                    continue;
+                }
+
+                if let Some((key, value)) = trimmed.split_once('=') {
+                    let key = key.trim();
+                    let value = value.trim();
+
+                    if current_section == "ServerSettings"
+                        || current_section == "/Script/ShooterGame.ShooterGameMode"
+                    {
+                        match key {
+                            "MaxPlayers" => max_players = value.parse().unwrap_or(70),
+                            "ServerPassword" if !value.is_empty() => {
+                                server_password = value.to_string();
+                            }
+                            "ServerAdminPassword" if !value.is_empty() => {
+                                let clean = value.split("?ServerPassword=").next().unwrap_or(value);
+                                admin_password = clean.to_string();
+                            }
+                            "SessionName" if !value.is_empty() => {
+                                session_name = value.to_string();
+                            }
+                            "RCONEnabled" => {
+                                rcon_enabled = value.to_lowercase() == "true" || value == "1";
+                            }
+                            "RCONPort" => rcon_port = value.parse().unwrap_or(27020),
+                            "ActiveMods" if !value.is_empty() => {
+                                active_mods = value.to_string();
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    if current_section == "URL" || current_section == "/Script/Engine.GameSession" {
+                        match key {
+                            "Port" => game_port = value.parse().unwrap_or(7777),
+                            "QueryPort" => query_port = value.parse().unwrap_or(27015),
+                            "MaxPlayers" => {
+                                if let Ok(v) = value.parse::<u32>() {
+                                    max_players = v;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    if current_section == "ASM2" {
+                        if key == "LauncherArgs" && !value.is_empty() {
+                            custom_args = value.to_string();
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        warnings.push("GameUserSettings.ini not found — using defaults for most settings.".into());
+    }
+
+    // Detect map name via helper
+    let map_name = detect_map_name(install_path, server_type);
+
+    // Detect IP address
+    let mut ip_address = detect_ip_address(install_path);
+
+    // Override / merge launch parameters from batch/cmd files if found
+    if let Some(batch) = detect_batch_settings(install_path, server_type) {
+        if let Some(port) = batch.game_port {
+            game_port = port;
+        }
+        if let Some(port) = batch.query_port {
+            query_port = port;
+        }
+        if let Some(port) = batch.rcon_port {
+            rcon_port = port;
+        }
+        if let Some(enabled) = batch.rcon_enabled {
+            rcon_enabled = enabled;
+        }
+        if let Some(players) = batch.max_players {
+            max_players = players;
+        }
+        if let Some(name) = batch.session_name {
+            session_name = name;
+        }
+        if let Some(pwd) = batch.server_password {
+            server_password = pwd;
+        }
+        if let Some(pwd) = batch.admin_password {
+            admin_password = pwd;
+        }
+        if let Some(ip) = batch.ip_address {
+            ip_address = Some(ip);
+        }
+        if let Some(mods) = batch.active_mods {
+            active_mods = mods;
+        }
+        if !batch.custom_args.is_empty() {
+            custom_args = batch.custom_args.join(" ");
+        }
+        if let Some(cid) = batch.cluster_id {
+            cluster_id = cid;
+        }
+    }
+
+    if session_name.is_empty() {
+        warnings.push("No SessionName found in INI or batch files — will use folder name.".into());
+    }
+    if admin_password.is_empty() {
+        warnings.push("No ServerAdminPassword found — you should set one after import.".into());
+    }
+
+    ImportPreview {
+        map_name,
+        session_name,
+        max_players,
+        game_port,
+        query_port,
+        rcon_port,
+        rcon_enabled,
+        admin_password,
+        server_password,
+        ip_address,
+        active_mods,
+        custom_args,
+        cluster_id,
+        warnings,
+    }
+}
+
+#[tauri::command]
+pub async fn preview_import_settings(
+    install_path: String,
+    server_type: String,
+) -> Result<ImportPreview, String> {
+    let path = PathBuf::from(&install_path);
+    if !path.exists() {
+        return Err("Installation path does not exist.".to_string());
+    }
+    Ok(parse_import_settings(&path, &server_type))
+}
+
 #[tauri::command]
 pub async fn import_server(
     state: State<'_, AppState>,
     install_path: String,
     name: String,
 ) -> Result<Server, String> {
-    use std::fs;
 
     println!("📥 Importing server from: {}", install_path);
 
     let path = PathBuf::from(&install_path);
 
     // Validate that this looks like an ARK server installation
-    // We check for either:
-    // 1. The server executable (fully installed)
-    // 2. OR the ShooterGame folder (partially installed)
-    // 3. OR we just accept any folder (will auto-download on first start)
     let exe_path = path
         .join("ShooterGame")
         .join("Binaries")
@@ -1880,77 +2478,26 @@ pub async fn import_server(
         println!("   ⚠️  Empty folder - server will be downloaded on first start");
     }
 
-    // Read GameUserSettings.ini to extract settings
-    let config_path = path
-        .join("ShooterGame")
-        .join("Saved")
-        .join("Config")
-        .join("WindowsServer")
-        .join("GameUserSettings.ini");
+    // Parse all settings from INI files
+    let preview = parse_import_settings(&path, "ASA");
 
-    let mut max_players = 70;
-    let map_name = "TheIsland_WP".to_string();
-    let mut session_name = name.clone();
-    let mut server_password: Option<String> = None;
-    let mut admin_password = "".to_string();
-    let mut game_port: u16 = 7777;
-    let mut query_port: u16 = 27015;
-    let mut rcon_port: u16 = 27020;
-    let mut rcon_enabled = true;
-
-    if config_path.exists() {
-        if let Ok(content) = fs::read_to_string(&config_path) {
-            let mut current_section = String::new();
-
-            for line in content.lines() {
-                let line = line.trim();
-
-                // Section header
-                if line.starts_with('[') && line.ends_with(']') {
-                    current_section = line[1..line.len() - 1].to_string();
-                    continue;
-                }
-
-                // Key=Value pair
-                if let Some((key, value)) = line.split_once('=') {
-                    let key = key.trim();
-                    let value = value.trim();
-
-                    if current_section == "ServerSettings"
-                        || current_section == "/Script/ShooterGame.ShooterGameMode"
-                    {
-                        match key {
-                            "MaxPlayers" => max_players = value.parse().unwrap_or(70),
-                            "ServerPassword" if !value.is_empty() => {
-                                server_password = Some(value.to_string())
-                            }
-                            "ServerAdminPassword" if !value.is_empty() => {
-                                let clean_password =
-                                    value.split("?ServerPassword=").next().unwrap_or(value);
-                                admin_password = clean_password.to_string();
-                            }
-                            "SessionName" if !value.is_empty() => session_name = value.to_string(),
-                            "RCONEnabled" => rcon_enabled = value.to_lowercase() == "true",
-                            "RCONPort" => rcon_port = value.parse().unwrap_or(27020),
-                            _ => {}
-                        }
-                    }
-
-                    if current_section == "URL" || current_section == "/Script/Engine.GameSession" {
-                        match key {
-                            "Port" => game_port = value.parse().unwrap_or(7777),
-                            "QueryPort" => query_port = value.parse().unwrap_or(27015),
-                            _ => {}
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let map_name = preview.map_name;
+    let session_name = if preview.session_name.is_empty() { name.clone() } else { preview.session_name };
+    let server_password: Option<String> = if preview.server_password.is_empty() { None } else { Some(preview.server_password) };
+    let admin_password = preview.admin_password;
+    let game_port = preview.game_port;
+    let query_port = preview.query_port;
+    let rcon_port = preview.rcon_port;
+    let rcon_enabled = preview.rcon_enabled;
+    let max_players = preview.max_players;
+    let ip_address = preview.ip_address;
+    let mods_str = preview.active_mods;
+    let custom_args = preview.custom_args;
 
     println!(
-        "   Detected settings: Session={}, Map={}, MaxPlayers={}",
-        session_name, map_name, max_players
+        "   Detected settings: Session={}, Map={}, MaxPlayers={}, Ports={}/{}/{}, Mods={}",
+        session_name, map_name, max_players, game_port, query_port, rcon_port,
+        if mods_str.is_empty() { "none" } else { &mods_str }
     );
 
     // Create database entry
@@ -1996,8 +2543,8 @@ pub async fn import_server(
 
     conn.execute(
         "INSERT INTO servers (name, install_path, status, game_port, query_port, rcon_port, 
-         max_players, admin_password, server_password, map_name, session_name, rcon_enabled) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+         max_players, admin_password, server_password, map_name, session_name, rcon_enabled, ip_address, custom_args) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         rusqlite::params![
             &unique_name,
             &install_path,
@@ -2011,13 +2558,22 @@ pub async fn import_server(
             &map_name,
             &session_name,
             rcon_enabled,
+            &ip_address,
+            if custom_args.is_empty() { None } else { Some(&custom_args) },
         ],
     )
     .map_err(|e| e.to_string())?;
 
     let id = conn.last_insert_rowid();
 
-    println!("✅ Server imported with ID: {}", id);
+    // Parse mods list from comma-separated string
+    let mods_vec: Vec<String> = if mods_str.is_empty() {
+        vec![]
+    } else {
+        mods_str.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+    };
+
+    println!("✅ Server imported with ID: {} (map: {}, mods: {})", id, map_name, mods_vec.len());
 
     Ok(Server {
         id,
@@ -2031,20 +2587,20 @@ pub async fn import_server(
             rcon_port,
         },
         config: ServerConfig {
-            max_players,
+            max_players: max_players as i32,
             server_password,
             admin_password: admin_password.clone(),
             map_name,
             session_name,
             motd: None,
-            mods: vec![],
-            custom_args: None,
+            mods: mods_vec,
+            custom_args: if custom_args.is_empty() { None } else { Some(custom_args) },
         },
         rcon_config: RconConfig {
             enabled: rcon_enabled,
             password: admin_password,
         },
-        ip_address: None,
+        ip_address,
         created_at: chrono::Utc::now().to_rfc3339(),
         last_started: None,
         auto_start: false,

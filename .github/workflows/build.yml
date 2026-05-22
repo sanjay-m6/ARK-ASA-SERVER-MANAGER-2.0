@@ -47,31 +47,14 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ARK Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🚀 ${{ github.ref_name }} — Complete ASE Support & Automation Engine!
+            ## 🚀 ${{ github.ref_name }} — Pre-Release Build
 
-            This is a pre-release beta version containing major engine upgrades.
+            This is a pre-release beta version for v2.4.1 containing stability fixes and UI enhancements.
 
-            ### 🦖 Complete ASE (Survival Evolved) Support Engine
-            - Native integration of full server management, configs, scheduler, backup, and RCON consoles for ARK: Survival Evolved, fully parity-aligned with ASA.
-            - Easy Game Switcher inside the sidebar to toggle between ASA and ASE management contexts.
-
-            ### 💾 Save Management System & Timeline
-            - Automated backup timeline and comparison dashboard tracking player counts, structure counts, file size, and tamed dinos.
-            - Robust one-click interactive restore feature.
-
-            ### ⚡ Server Automation & Sequential Boot Engine
-            - Configurable sequential boot queues for multi-server setups to prevent CPU load spikes.
-            - Global server startup recovery settings.
-
-            ### 💻 Enterprise Organization Dashboard
-            - A modern visual dashboard supporting drag-and-drop server hierarchy organization.
-            - Cluster-aware automation, player notifications, and custom warning timers before server restarts.
-
-            ### 🐕 Realtime Mod Manager & Watchdog
-            - Automated CurseForge mod updates checking, mod status indicators, and clipboard-based bulk import upgrades.
-
-            ### 🤖 Discord Bot Bridge Integration
-            - Deep integration of the Discord Bot bridge for cross-chat relaying, automatic server alerts, and multi-server status reports.
+            ### ✨ What's New
+            - **ASE Modern Config Editor**: Redesigned UI configuration editor for ASE servers with a tabbed interface.
+            - **Database Migrations Fixed**: Fixed a critical crash during database migration and foreign key repair that prevented the app from starting up properly.
+            - **UI Refinements**: Migrated native browser confirm popups to beautifully styled custom dialog components.
 
             ### Install
             Download the `.msi` installer below.

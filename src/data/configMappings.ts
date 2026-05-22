@@ -1,7 +1,7 @@
 // Configuration schema types and mappings for ARK Server settings
 // Enhanced with sliders, dropdowns, and categories for Visual Settings Manager
 
-export type FieldType = 'text' | 'number' | 'boolean' | 'slider' | 'dropdown' | 'array' | 'textarea';
+export type FieldType = 'text' | 'number' | 'boolean' | 'slider' | 'dropdown' | 'array' | 'textarea' | 'crafting_costs' | 'engram_entries';
 
 export interface ConfigField {
     section: string;
@@ -24,7 +24,7 @@ export interface ConfigField {
 export interface ConfigGroup {
     title: string;
     description?: string;
-    category: 'server' | 'gameplay' | 'player' | 'dino' | 'breeding' | 'structure' | 'pvp' | 'rules' | 'chat' | 'transfers' | 'advanced';
+    category: 'server' | 'gameplay' | 'player' | 'dino' | 'breeding' | 'structure' | 'pvp' | 'rules' | 'chat' | 'transfers' | 'advanced' | 'engrams';
     icon?: string;
     source?: 'GameUserSettings' | 'Game';
     fields: ConfigField[];
@@ -49,6 +49,7 @@ export const CATEGORY_INFO: Record<string, { label: string; icon: string; color:
     structure: { label: 'Structures', icon: '🏠', color: 'from-slate-500 to-gray-500' },
     pvp: { label: 'PvP/PvE', icon: '⚔️', color: 'from-red-600 to-orange-600' },
     advanced: { label: 'Advanced', icon: '⚙️', color: 'from-slate-600 to-gray-600' },
+    engrams: { label: 'Engrams & Crafting', icon: '🔨', color: 'from-yellow-500 to-amber-600' },
 };
 
 // GameUserSettings.ini schema - Enhanced with sliders and categories
@@ -1071,6 +1072,29 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
 
 // Game.ini schema - Enhanced with sliders and categories
 export const GAME_INI_SCHEMA: ConfigGroup[] = [
+    {
+        title: 'Engrams & Crafting',
+        description: 'Modify engram requirements and item crafting costs',
+        category: 'engrams',
+        fields: [
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'OverrideNamedEngramEntries',
+                label: 'Engram Overrides',
+                type: 'engram_entries',
+                defaultValue: '',
+                description: 'Override engram level requirements, point costs, or hide them entirely.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'ConfigOverrideItemCraftingCosts',
+                label: 'Crafting Cost Overrides',
+                type: 'crafting_costs',
+                defaultValue: '',
+                description: 'Override the resource costs to craft specific items.'
+            }
+        ]
+    },
     {
         title: 'XP & Progression',
         description: 'Experience and leveling multipliers',

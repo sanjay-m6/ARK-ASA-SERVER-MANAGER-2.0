@@ -117,6 +117,9 @@ export interface InstallServerParams {
     rconPort: number;
     pveMode?: boolean; // true = PvE, false = PvP
     crossplay?: boolean; // true = Enable crossplay for PC/Console players
+    maxPlayers?: number;
+    adminPassword?: string;
+    serverPassword?: string;
 }
 
 export async function installServer(params: InstallServerParams): Promise<Server> {
@@ -124,10 +127,16 @@ export async function installServer(params: InstallServerParams): Promise<Server
         serverType: params.serverType,
         installPath: params.installPath,
         name: params.name,
+        sessionName: params.sessionName ?? '',
         mapName: params.mapName,
         gamePort: params.gamePort,
         queryPort: params.queryPort,
         rconPort: params.rconPort,
+        pveMode: params.pveMode ?? true,
+        crossplay: params.crossplay ?? false,
+        maxPlayers: params.maxPlayers ?? 70,
+        adminPassword: params.adminPassword ?? '',
+        serverPassword: params.serverPassword ?? '',
     });
 }
 
@@ -161,6 +170,31 @@ export async function cloneServer(serverId: number): Promise<Server> {
 
 export async function importServer(installPath: string, name: string): Promise<Server> {
     return await invoke('import_server', { installPath, name });
+}
+
+export interface ImportPreview {
+    mapName: string;
+    sessionName: string;
+    maxPlayers: number;
+    gamePort: number;
+    queryPort: number;
+    rconPort: number;
+    rconEnabled: boolean;
+    adminPassword: string;
+    serverPassword: string;
+    ipAddress: string | null;
+    activeMods: string;
+    customArgs: string;
+    clusterId: string;
+    warnings: string[];
+}
+
+export async function previewImportSettings(installPath: string, serverType: 'ASA' | 'ASE'): Promise<ImportPreview> {
+    return await invoke('preview_import_settings', { installPath, serverType });
+}
+
+export async function importAseServer(installPath: string, name: string): Promise<any> {
+    return await invoke('import_ase_server', { installPath, name });
 }
 
 export async function toggleServerAutomation(serverId: number, toggleType: 'auto_start' | 'auto_stop' | 'intelligent_mode', enabled: boolean): Promise<void> {
@@ -852,3 +886,87 @@ export async function setServerStartupConfig(serverId: number, delay: number, pr
     return await invoke('set_server_startup_config', { serverId, delay, priority });
 }
 
+// --- ASE Cluster Commands ---
+
+export async function createAseCluster(name: string, serverIds: number[], clusterDir?: string): Promise<Cluster> {
+    return await invoke('create_ase_cluster', { name, serverIds, clusterDir: clusterDir || null });
+}
+
+export async function getAseClusters(): Promise<Cluster[]> {
+    return await invoke('get_ase_clusters');
+}
+
+export async function deleteAseCluster(clusterId: number): Promise<void> {
+    return await invoke('delete_ase_cluster', { clusterId });
+}
+
+export async function updateAseCluster(clusterId: number, name?: string, newPath?: string, moveData?: boolean): Promise<void> {
+    return await invoke('update_ase_cluster', { clusterId, name: name || null, newPath: newPath || null, moveData: moveData || false });
+}
+
+export async function addServerToAseCluster(clusterId: number, serverId: number): Promise<void> {
+    return await invoke('add_ase_server_to_cluster', { clusterId, serverId });
+}
+
+export async function removeServerFromAseCluster(clusterId: number, serverId: number): Promise<void> {
+    return await invoke('remove_ase_server_from_cluster', { clusterId, serverId });
+}
+
+export async function getAseClusterStatus(clusterId: number): Promise<ClusterStatus> {
+    return await invoke('get_ase_cluster_status', { clusterId });
+}
+
+export async function startAseCluster(clusterId: number): Promise<void> {
+    return await invoke('start_ase_cluster', { clusterId });
+}
+
+export async function stopAseCluster(clusterId: number): Promise<void> {
+    return await invoke('stop_ase_cluster', { clusterId });
+}
+
+export async function restartAseCluster(clusterId: number): Promise<void> {
+    return await invoke('restart_ase_cluster', { clusterId });
+}
+
+export async function toggleAseClusterCrossChat(clusterId: number, enabled: boolean): Promise<void> {
+    return await invoke('toggle_ase_cluster_cross_chat', { clusterId, enabled });
+}
+
+export async function getAseClusterCrossChatStatus(clusterId: number): Promise<boolean> {
+    return await invoke('get_ase_cluster_cross_chat_status', { clusterId });
+}
+
+export async function validateAseClusterConfiguration(clusterId: number): Promise<ClusterValidationResult> {
+    return await invoke('validate_ase_cluster_configuration', { clusterId });
+}
+
+
+
+// --- ASE Discord Bridge ---
+export async function saveAseDiscordBridgeConfig(config: DiscordBridgeConfig): Promise<void> {
+    return await invoke('save_ase_discord_bridge_config', { config });
+}
+
+export async function getAseDiscordBridgeConfig(clusterId: number): Promise<DiscordBridgeConfig | null> {
+    return await invoke('get_ase_discord_bridge_config', { clusterId });
+}
+
+export async function testAseDiscordBridgeConnection(botToken: string, channelId: string): Promise<boolean> {
+    return await invoke('test_ase_discord_bridge_connection', { botToken, channelId });
+}
+
+export async function startAseDiscordBridge(): Promise<void> {
+    return await invoke('start_ase_discord_bridge');
+}
+
+export async function stopAseDiscordBridge(): Promise<void> {
+    return await invoke('stop_ase_discord_bridge');
+}
+
+export async function getAseDiscordRateLimitConfig(clusterId: number): Promise<{ max_messages: number; window_seconds: number }> {
+    return await invoke('get_ase_discord_rate_limit_config', { clusterId });
+}
+
+export async function setAseDiscordRateLimitConfig(clusterId: number, maxMessages: number, windowSeconds: number): Promise<void> {
+    return await invoke('set_ase_discord_rate_limit_config', { clusterId, maxMessages, windowSeconds });
+}

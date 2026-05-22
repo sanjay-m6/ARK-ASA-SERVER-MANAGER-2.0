@@ -10,6 +10,7 @@ use crate::models::{RconPlayer, RconResponse};
 use crate::services::ark_rcon::ArkRconClient;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tauri::Manager;
 use tokio::sync::Mutex;
 use tokio::time::Duration;
 
@@ -366,7 +367,7 @@ impl RconService {
         sessions.contains_key(&server_id)
     }
 
-    pub fn spawn_heartbeat(&self) {
+    pub fn spawn_heartbeat(&self, app_handle: tauri::AppHandle) {
         let service = self.clone();
         tauri::async_runtime::spawn(async move {
             log::info!("[RCON] Starting background keep-alive heartbeat task...");
@@ -387,7 +388,13 @@ impl RconService {
                 for server_id in server_ids {
                     // We use send_command here because it already has auto-reconnect logic!
                     // Sending a simple 'ListPlayers' acts as a perfect keep-alive.
-                    let _ = service.send_command(server_id, "ListPlayers").await;
+                    if let Ok(response) = service.send_command(server_id, "ListPlayers").await {
+                        if let Some(data) = response.data {
+                            let players = parse_player_list(&data);
+                            let player_intel = app_handle.state::<Arc<crate::services::player_intelligence::PlayerIntelligenceService>>();
+                            player_intel.inner().sync_players(server_id, players).await;
+                        }
+                    }
                 }
             }
         });

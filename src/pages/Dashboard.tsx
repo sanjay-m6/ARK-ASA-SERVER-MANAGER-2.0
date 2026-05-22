@@ -13,7 +13,9 @@ import { useUIStore } from '../stores/uiStore';
 import { cn } from '../utils/helpers';
 import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../components/performance/PerformanceMonitor';
+// import { useRconStore } from '../stores/rconStore';
 import InstallServerDialog from '../components/server/InstallServerDialog';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import SponsorBanner from '../components/ui/SponsorBanner';
@@ -61,8 +63,7 @@ export default function Dashboard() {
   }, [servers]);
 
   const filteredServers = servers.filter(server => {
-    // Exclude archived servers
-    const isArchived = snapshot?.servers?.find((s: any) => s.id === server.id)?.archive_info;
+    const isArchived = snapshot?.servers?.find((s: any) => s.id === server.id)?.archiveInfo;
     if (isArchived) return false;
 
     // Search query
@@ -75,7 +76,7 @@ export default function Dashboard() {
 
     // Folder category
     if (selectedFolderId !== null) {
-      const serverFolderIds = snapshot?.servers?.find((s: any) => s.id === server.id)?.folder_ids || [];
+      const serverFolderIds = snapshot?.servers?.find((s: any) => s.id === server.id)?.folderIds || [];
       if (!serverFolderIds.includes(selectedFolderId)) return false;
     }
 
@@ -172,6 +173,15 @@ export default function Dashboard() {
         const info = await getSystemInfo();
         setSystemInfo(info);
 
+        // Compute total player count from backend player intelligence service
+        let totalPlayers = 0;
+        try {
+          const counts = await invoke<Record<string, number>>('get_player_counts');
+          totalPlayers = Object.values(counts).reduce((sum: number, count: number) => sum + count, 0);
+        } catch (e) {
+          console.error("Failed to fetch player counts", e);
+        }
+
         setPerformanceHistory(prev => {
           const now = new Date();
           const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
@@ -180,7 +190,7 @@ export default function Dashboard() {
             time: timeStr,
             cpu: Math.round(info.cpuUsage * 10) / 10,
             memory: Math.round((info.ramUsage / info.ramTotal) * 1000) / 10,
-            players: 0
+            players: totalPlayers
           };
 
           const newHistory = [...prev, newPoint];

@@ -491,3 +491,218 @@ pub async fn reset_ase_server(
     Ok(())
 }
 
+/// Import an existing ASE server installation.
+/// Reads GameUserSettings.ini and Game.ini to extract all settings,
+/// then creates a fully populated ase_servers database row.
+#[tauri::command]
+pub async fn import_ase_server(
+    install_path: String,
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<AseServer, String> {
+    use std::path::PathBuf;
+
+    println!("📥 [ASE] Importing server from: {}", install_path);
+
+    let path = PathBuf::from(&install_path);
+
+    // Validate: check for ShooterGameServer.exe (ASE executable)
+    let exe_path = path
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64")
+        .join("ShooterGameServer.exe");
+
+    let shooter_game_path = path.join("ShooterGame");
+
+    if exe_path.exists() {
+        println!("   ✅ Found ASE server executable");
+    } else if shooter_game_path.exists() {
+        println!("   ⚠️  ShooterGame folder found but no executable — will need SteamCMD install");
+    } else {
+        println!("   ⚠️  Empty folder — server will be downloaded on first start");
+    }
+
+    // Use the unified parse_import_settings helper
+    let preview = crate::commands::server::parse_import_settings(&path, "ASE");
+
+    let map_name = if preview.map_name.is_empty() { "TheIsland".to_string() } else { preview.map_name };
+    let session_name = if preview.session_name.is_empty() { name.clone() } else { preview.session_name };
+    let server_password = preview.server_password;
+    let admin_password = preview.admin_password;
+    let port = preview.game_port;
+    let query_port = preview.query_port;
+    let rcon_port = preview.rcon_port;
+    let max_players = preview.max_players;
+    let active_mods = preview.active_mods;
+    let cluster_id = preview.cluster_id;
+    let extra_args = preview.custom_args;
+
+    // Detect BattlEye configuration
+    let mut battleye = true;
+    let gus_path = path
+        .join("ShooterGame")
+        .join("Saved")
+        .join("Config")
+        .join("WindowsServer")
+        .join("GameUserSettings.ini");
+
+    if gus_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&gus_path) {
+            let mut current_section = String::new();
+            let mut no_be = false;
+            let mut be_enforcer = true;
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                    current_section = trimmed[1..trimmed.len() - 1].to_string();
+                    continue;
+                }
+                if let Some((key, value)) = trimmed.split_once('=') {
+                    let key = key.trim();
+                    let value = value.trim();
+                    if current_section == "ASM2" && key == "NoBattlEye" {
+                        no_be = value.to_lowercase() == "true" || value == "1";
+                    }
+                    if current_section == "ServerSettings" && key == "BattlEyeEnforcer" {
+                        be_enforcer = value.to_lowercase() == "true" || value == "1";
+                    }
+                }
+            }
+            battleye = !no_be && be_enforcer;
+        }
+    }
+
+    println!(
+        "   [ASE] Detected: Session={}, Map={}, MaxPlayers={}, Ports={}/{}/{}, Mods={}",
+        session_name, map_name, max_players, port, query_port, rcon_port,
+        if active_mods.is_empty() { "none".to_string() } else { active_mods.clone() }
+    );
+
+    // Database insert
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    // Check path uniqueness
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM ase_servers WHERE install_path = ?1)",
+            [&install_path],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
+    if exists {
+        return Err("An ASE server with this installation path already exists.".to_string());
+    }
+
+    // Ensure unique name
+    let mut unique_name = name.clone();
+    let mut counter = 1;
+    loop {
+        let name_exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM ase_servers WHERE name = ?1)",
+                [&unique_name],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        if !name_exists { break; }
+        counter += 1;
+        unique_name = format!("{} ({})", name, counter);
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+
+    conn.execute(
+        "INSERT INTO ase_servers (name, install_path, map_name, port, query_port, rcon_port, \
+         rcon_password, max_players, server_password, admin_password, session_name, active_mods, \
+         cluster_id, battleye, extra_args, status, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'stopped', ?15, ?15)",
+        rusqlite::params![
+            unique_name, install_path, map_name, port, query_port, rcon_port,
+            max_players, server_password, admin_password, session_name,
+            active_mods, cluster_id, battleye as i32, extra_args, now
+        ],
+    ).map_err(|e| e.to_string())?;
+
+    let id = conn.last_insert_rowid();
+    println!("✅ [ASE] Server imported with ID: {} (map: {})", id, map_name);
+
+    // Create pre-import backup for safety (only if Saved/SavedArks folder exists)
+    let saved_dir = path.join("ShooterGame").join("Saved");
+    let saved_arks = saved_dir.join("SavedArks");
+    let config_dir = saved_dir.join("Config").join("WindowsServer");
+    if saved_arks.exists() {
+        let backup_base = path.join("Backups");
+        if !backup_base.exists() {
+            let _ = std::fs::create_dir_all(&backup_base);
+        }
+        let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+        let backup_name = format!("ase_backup_pre_import_{}", timestamp);
+        let backup_path = backup_base.join(&backup_name);
+        if std::fs::create_dir_all(&backup_path).is_ok() {
+            // Helper recursive copy
+            fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+                std::fs::create_dir_all(dst)?;
+                for entry in std::fs::read_dir(src)? {
+                    let entry = entry?;
+                    let ty = entry.file_type()?;
+                    if ty.is_dir() {
+                        copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
+                    } else {
+                        std::fs::copy(entry.path(), &dst.join(entry.file_name()))?;
+                    }
+                }
+                Ok(())
+            }
+
+            fn get_dir_size(src: &std::path::Path) -> u64 {
+                let mut size = 0;
+                if let Ok(entries) = std::fs::read_dir(src) {
+                    for entry in entries.flatten() {
+                        if let Ok(ty) = entry.file_type() {
+                            if ty.is_dir() {
+                                size += get_dir_size(&entry.path());
+                            } else if let Ok(meta) = entry.metadata() {
+                                size += meta.len();
+                            }
+                        }
+                    }
+                }
+                size
+            }
+
+            if copy_dir_all(&saved_arks, &backup_path.join("SavedArks")).is_ok() {
+                if config_dir.exists() {
+                    let dest_config = backup_path.join("Config");
+                    if std::fs::create_dir_all(&dest_config).is_ok() {
+                        if let Ok(entries) = std::fs::read_dir(&config_dir) {
+                            for entry in entries.flatten() {
+                                if entry.path().extension().map_or(false, |e| e == "ini") {
+                                    let _ = std::fs::copy(entry.path(), dest_config.join(entry.file_name()));
+                                }
+                            }
+                        }
+                    }
+                }
+                // Save database record for this backup
+                let size_bytes = get_dir_size(&backup_path);
+                let backup_path_str = backup_path.to_string_lossy().to_string();
+                let backup_time = chrono::Utc::now().to_rfc3339();
+                let _ = conn.execute(
+                    "INSERT INTO ase_backups (server_id, path, size_bytes, created_at) VALUES (?1, ?2, ?3, ?4)",
+                    rusqlite::params![id, backup_path_str, size_bytes as i64, backup_time],
+                );
+            }
+        }
+    }
+
+    // Return the full server struct
+    conn.query_row(
+        &format!("SELECT {} FROM ase_servers WHERE id = ?1", SELECT_COLS),
+        [id],
+        |row| read_server_row(row),
+    ).map_err(|e| e.to_string())
+}
+

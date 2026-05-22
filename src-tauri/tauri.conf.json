@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ASA Server Manager",
-  "version": "2.4.0-0",
-  "identifier": "com.asa-server-manager",
+  "version": "2.4.1-beta",
+  "identifier": "com.ark.asaservermanager",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -19,7 +19,7 @@
         "minWidth": 1200,
         "minHeight": 700,
         "center": true,
-        "additionalBrowserArgs": "--disable-features=AudioServiceOutOfProcess,HardwareMediaKeyHandling,MediaSessionService --disable-speech-api --renderer-process-limit=1 --js-flags=\"--max-old-space-size=128\""
+        "additionalBrowserArgs": "--disable-features=AudioServiceOutOfProcess,HardwareMediaKeyHandling,MediaSessionService --disable-speech-api --renderer-process-limit=1"
       }
     ],
     "security": {

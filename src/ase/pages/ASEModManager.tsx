@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { 
@@ -121,9 +122,7 @@ export default function ASEModManager() {
   const [isValidating, setIsValidating] = useState(false);
   const [validationReport, setValidationReport] = useState<any | null>(null);
 
-  // Drag and Drop reordering states
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  // Drag and Drop reordering states (managed by @hello-pangea/dnd)
 
   // Undo/Redo stacks for load order
   const [undoHistory, setUndoHistory] = useState<string[][]>([]);
@@ -465,47 +464,20 @@ export default function ASEModManager() {
     }
   };
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index.toString());
-  };
+  const onDragEnd = async (result: any) => {
+    if (!result.destination || !selectedServer) return;
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedIndex !== null && draggedIndex !== index) {
-      setDragOverIndex(index);
-    }
+    const sourceIndex = result.source.index;
+    const destinationIndex = result.destination.index;
 
-    // Auto-scroll scrollable list container if dragging near top or bottom boundaries
-    const container = e.currentTarget.parentElement;
-    if (container) {
-      const rect = container.getBoundingClientRect();
-      const threshold = 55; // distance from boundary in px to trigger scroll
-      const scrollSpeed = 10; // scroll speed amount in px
-
-      if (e.clientY < rect.top + threshold) {
-        container.scrollTop -= scrollSpeed;
-      } else if (e.clientY > rect.bottom - threshold) {
-        container.scrollTop += scrollSpeed;
-      }
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === targetIndex || !selectedServer) {
-      setDraggedIndex(null);
-      setDragOverIndex(null);
-      return;
-    }
+    if (sourceIndex === destinationIndex) return;
 
     const currentIds = installedMods.map(m => m.workshopId);
     pushToUndoHistory(currentIds);
 
     const newMods = [...installedMods];
-    const [removed] = newMods.splice(draggedIndex, 1);
-    newMods.splice(targetIndex, 0, removed);
+    const [removed] = newMods.splice(sourceIndex, 1);
+    newMods.splice(destinationIndex, 0, removed);
 
     const orderedIds = newMods.map(m => m.workshopId);
 
@@ -515,15 +487,7 @@ export default function ASEModManager() {
       refreshInstalledMods(selectedServer);
     } catch (e) {
       toast.error(`Failed to update order: ${e}`);
-    } finally {
-      setDraggedIndex(null);
-      setDragOverIndex(null);
     }
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
   };
 
   const handleMoveMod = async (index: number, direction: 'up' | 'down') => {
@@ -1236,14 +1200,16 @@ export default function ASEModManager() {
                 </div>
               )}
 
-              <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin">
-                <AnimatePresence mode="popLayout">
-                  {filteredInstalledMods.length === 0 ? (
-                    <motion.div 
-                      initial={{ opacity: 0 }} 
-                      animate={{ opacity: 1 }} 
-                      className="flex flex-col items-center justify-center py-20 text-slate-500 text-center"
+              <DragDropContext onDragEnd={onDragEnd}>
+                <Droppable droppableId="ase-mod-list" isDropDisabled={sortOrder !== 'load_order'}>
+                  {(provided) => (
+                    <div 
+                      className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin"
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
                     >
+                      {filteredInstalledMods.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-slate-500 text-center">
                       <div className="p-3 bg-slate-900 border border-white/5 rounded-2xl mb-3 shrink-0">
                         <Puzzle className="w-8 h-8 text-slate-700" />
                       </div>
@@ -1255,52 +1221,41 @@ export default function ASEModManager() {
                           ? 'Go to the Discover tab to search and download Steam workshop mods.' 
                           : 'Try clearing your filter keyword.'}
                       </p>
-                    </motion.div>
+                    </div>
                   ) : (
                     filteredInstalledMods.map((mod, i) => {
                       const isExpanded = expandedModId === mod.workshopId;
                       const resolved = resolveModDetails(mod);
                       return (
-                        <motion.div 
-                          layout
-                          key={mod.id} 
-                          initial={{ opacity: 0, scale: 0.98 }} 
-                          animate={{ opacity: 1, scale: 1 }} 
-                          exit={{ opacity: 0, scale: 0.98 }}
-                          onDragOver={(e) => handleDragOver(e, i)}
-                          onDrop={(e) => handleDrop(e, i)}
-                          className={`mb-3 bg-slate-800/10 border rounded-2xl overflow-hidden transition-all shadow-sm relative group ${
-                            !mod.enabled ? 'opacity-70 hover:opacity-100' : ''
-                          } ${
-                            draggedIndex === i 
-                              ? 'opacity-40 border-dashed border-amber-500/40 bg-slate-900/40' 
-                              : 'border-white/5 hover:border-amber-500/20'
-                          } ${
-                            dragOverIndex === i 
-                              ? 'border-amber-500/50 shadow-lg shadow-amber-500/5 bg-slate-900/50 scale-[1.01]' 
-                              : ''
-                          }`}
-                        >
-                          {/* Card Header (Summary Row) */}
-                          <div 
-                            onClick={() => setExpandedModId(isExpanded ? null : mod.workshopId)}
-                            className="flex items-center justify-between p-3.5 cursor-pointer select-none hover:bg-slate-800/30 transition-colors"
-                          >
-                            <div className="flex items-center gap-4 min-w-0">
-                              {sortOrder === 'load_order' && (
-                                <div 
-                                  draggable={true}
-                                  onDragStart={(e) => {
-                                    e.stopPropagation();
-                                    handleDragStart(e, i);
-                                  }}
-                                  onDragEnd={handleDragEnd}
-                                  className="cursor-grab active:cursor-grabbing p-1.5 text-slate-500 hover:text-amber-500 hover:bg-slate-800/40 rounded shrink-0 transition-all"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <GripVertical className="w-4 h-4" />
-                                </div>
-                              )}
+                        <Draggable key={mod.workshopId} draggableId={mod.workshopId} index={i} isDragDisabled={sortOrder !== 'load_order'}>
+                          {(provided, snapshot) => (
+                            <div 
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              style={{ ...provided.draggableProps.style, zIndex: snapshot.isDragging ? 50 : 'auto' }}
+                              className={`mb-3 bg-slate-800/10 border rounded-2xl overflow-hidden transition-all shadow-sm relative group ${
+                                !mod.enabled ? 'opacity-70 hover:opacity-100' : ''
+                              } ${
+                                snapshot.isDragging 
+                                  ? 'border-amber-500/50 shadow-2xl shadow-amber-500/10 bg-slate-900/60 scale-[1.02] opacity-90' 
+                                  : 'border-white/5 hover:border-amber-500/20 hover:-translate-y-[1px]'
+                              }`}
+                            >
+                              {/* Card Header (Summary Row) */}
+                              <div 
+                                onClick={() => setExpandedModId(isExpanded ? null : mod.workshopId)}
+                                className="flex items-center justify-between p-3.5 cursor-pointer select-none hover:bg-slate-800/30 transition-colors"
+                              >
+                                <div className="flex items-center gap-4 min-w-0">
+                                  {sortOrder === 'load_order' && (
+                                    <div 
+                                      {...provided.dragHandleProps}
+                                      className="cursor-grab active:cursor-grabbing p-1.5 text-slate-500 hover:text-amber-500 hover:bg-slate-800/40 rounded shrink-0 transition-all"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <GripVertical className="w-4 h-4" />
+                                    </div>
+                                  )}
                               <div className="w-8 h-8 flex items-center justify-center bg-slate-950 rounded-xl border border-white/5 text-xs text-amber-500 font-mono font-bold shrink-0">
                                 {i + 1}
                               </div>
@@ -1560,12 +1515,17 @@ export default function ASEModManager() {
                               </motion.div>
                             )}
                           </AnimatePresence>
-                        </motion.div>
+                            </div>
+                          )}
+                        </Draggable>
                       );
                     })
                   )}
-                </AnimatePresence>
-              </div>
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
               
               {installedMods.length > 0 && (
                 <div className="pt-4 border-t border-white/5 text-xs text-slate-500 flex items-center gap-2">

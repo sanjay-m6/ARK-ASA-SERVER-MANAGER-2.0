@@ -664,32 +664,32 @@ export default function RconConsole() {
                 </div>
             </div>
 
-            {/* Custom Premium Tabs Navigation Bar */}
-            <div className="flex border-b border-slate-800/80 bg-slate-950/50 p-1.5 rounded-xl gap-1 max-w-fit">
+            {/* Modern Glassmorphic Tabs Navigation */}
+            <div className="flex p-1.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md w-max shadow-inner gap-1 mb-2">
                 <button
                     onClick={() => setActiveTab('terminal')}
                     className={cn(
-                        "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300",
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'terminal' 
-                            ? "bg-slate-800/80 text-cyan-400 shadow-sm border border-slate-700/50" 
-                            : "text-slate-400 hover:text-slate-200"
+                            ? "text-cyan-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                     )}
                 >
                     <TerminalIcon className="w-4 h-4" />
-                    <span>{t('rcon.tabs.terminal', 'Interactive Terminal')}</span>
+                    <span className="relative z-10">{t('rcon.tabs.terminal', 'Interactive Terminal')}</span>
                 </button>
 
                 <button
                     onClick={() => setActiveTab('log_stream')}
                     className={cn(
-                        "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 relative",
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'log_stream' 
-                            ? "bg-slate-800/80 text-cyan-400 shadow-sm border border-slate-700/50" 
-                            : "text-slate-400 hover:text-slate-200"
+                            ? "text-blue-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                     )}
                 >
                     <Eye className="w-4 h-4" />
-                    <span>{t('rcon.tabs.logStream', 'Live Log Feed')}</span>
+                    <span className="relative z-10">{t('rcon.tabs.logStream', 'Live Log Feed')}</span>
                     {isStreamingLogs && (
                         <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />
                     )}
@@ -698,27 +698,27 @@ export default function RconConsole() {
                 <button
                     onClick={() => setActiveTab('cluster')}
                     className={cn(
-                        "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300",
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'cluster' 
-                            ? "bg-slate-800/80 text-cyan-400 shadow-sm border border-slate-700/50" 
-                            : "text-slate-400 hover:text-slate-200"
+                            ? "text-purple-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                     )}
                 >
                     <Layers className="w-4 h-4" />
-                    <span>{t('rcon.tabs.cluster', 'Cluster Deck')}</span>
+                    <span className="relative z-10">{t('rcon.tabs.cluster', 'Cluster Deck')}</span>
                 </button>
 
                 <button
                     onClick={() => setActiveTab('save_manager')}
                     className={cn(
-                        "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300",
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'save_manager' 
-                            ? "bg-slate-800/80 text-cyan-400 shadow-sm border border-slate-700/50" 
-                            : "text-slate-400 hover:text-slate-200"
+                            ? "text-emerald-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                     )}
                 >
                     <Save className="w-4 h-4" />
-                    <span>{t('rcon.tabs.saveManager', 'Verified Saves')}</span>
+                    <span className="relative z-10">{t('rcon.tabs.saveManager', 'Verified Saves')}</span>
                 </button>
             </div>
 

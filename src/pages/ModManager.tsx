@@ -1021,40 +1021,41 @@ export default function ModManager() {
                         </button>
                     )}
 
-                    <div className="flex p-1 bg-[#0A0F1C]/40 rounded-2xl border border-white/5 backdrop-blur-xl shadow-2xl">
+                    {/* Modern Glassmorphic Tabs */}
+                    <div className="flex p-1.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md w-max shadow-inner gap-1 flex-wrap">
                         <button 
                             onClick={() => setActiveTab('available')} 
                             className={cn(
-                                'px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300', 
+                                "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                                 activeTab === 'available' 
-                                    ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/20 border border-sky-400/20' 
-                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                    ? "text-sky-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                             )}
                         >
-                            {t('modManager.available')}
+                            <span className="relative z-10">{t('modManager.available')}</span>
                         </button>
                         <button 
                             onClick={() => setActiveTab('installed')} 
                             className={cn(
-                                'px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300', 
+                                "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                                 activeTab === 'installed' 
-                                    ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-lg shadow-sky-500/20 border border-sky-400/20' 
-                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                    ? "text-sky-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                             )}
                         >
-                            {t('modManager.installed')}
+                            <span className="relative z-10">{t('modManager.installed')}</span>
                         </button>
                         <button 
                             onClick={() => setActiveTab('watchdog')} 
                             className={cn(
-                                'px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-1.5', 
+                                "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                                 activeTab === 'watchdog' 
-                                    ? 'bg-gradient-to-r from-rose-500 to-red-600 text-white shadow-lg shadow-rose-500/20 border border-rose-400/20' 
-                                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                    ? "text-rose-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                             )}
                         >
                             <ShieldCheck className="w-4 h-4" />
-                            {t('modManager.watchdog', 'Watchdog')}
+                            <span className="relative z-10">{t('modManager.watchdog', 'Watchdog')}</span>
                         </button>
                     </div>
                 </div>

@@ -25,3 +25,6 @@ pub mod mod_watchdog;
 pub mod workshop_metadata;
 pub mod autosave;
 pub mod server_organization;
+pub mod system_analyzer;
+
+pub mod ase_discord_bridge;

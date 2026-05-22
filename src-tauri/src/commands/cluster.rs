@@ -552,8 +552,13 @@ fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> Result<(), String> {
 
 /// Update GameUserSettings.ini with ClusterDirOverride
 fn update_cluster_config(install_path: &str, cluster_path: &str) {
-    let config_path = PathBuf::from(install_path)
+    let mut config_path = PathBuf::from(install_path)
         .join("ShooterGame/Saved/Config/WindowsServer/GameUserSettings.ini");
+        
+    if !config_path.exists() {
+        config_path = PathBuf::from(install_path)
+            .join("ShooterGame/Saved/Config/Windows/GameUserSettings.ini");
+    }
 
     if let Ok(content) = std::fs::read_to_string(&config_path) {
         let cluster_line = format!("ClusterDirOverride={}", cluster_path);

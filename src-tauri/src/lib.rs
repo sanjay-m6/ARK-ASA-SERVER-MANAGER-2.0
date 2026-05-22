@@ -8,6 +8,7 @@ pub mod ase;
 use commands::rcon::RconState;
 use db::Database;
 use services::discord_bridge::DiscordBridgeService;
+use services::ase_discord_bridge::AseDiscordBridgeService;
 use services::advanced_config::AdvancedConfigService;
 use services::anti_cheat::AntiCheatService;
 use services::file_watcher::FileWatcherService;
@@ -33,6 +34,7 @@ pub struct AppState {
     pub file_watcher: FileWatcherService,
     pub log_watcher: LogWatcherService,
     pub discord_bridge: Arc<DiscordBridgeService>,
+    pub ase_discord_bridge: Arc<AseDiscordBridgeService>,
     pub player_intelligence: Arc<PlayerIntelligenceService>,
     pub plugin_manager: Arc<PluginManagerService>,
     pub anti_cheat: Arc<AntiCheatService>,
@@ -235,6 +237,10 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 app_handle.clone(),
                 player_intelligence.clone(),
             ));
+            let ase_discord_bridge = Arc::new(AseDiscordBridgeService::new(
+                app_handle.clone(),
+                player_intelligence.clone(),
+            ));
             let rcon_service = RconService::new();
             let scheduler = Arc::new(SchedulerService::new(app_handle.clone()));
             let anti_cheat = Arc::new(AntiCheatService::new(app_handle.clone()));
@@ -252,6 +258,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 file_watcher,
                 log_watcher,
                 discord_bridge: discord_bridge.clone(),
+                ase_discord_bridge: ase_discord_bridge.clone(),
                 player_intelligence: player_intelligence.clone(),
                 plugin_manager: plugin_manager.clone(),
                 anti_cheat: anti_cheat.clone(),
@@ -273,7 +280,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 scheduler.start();
                 anti_cheat.start();
                 discord_bridge.start();
-                rcon_service.spawn_heartbeat();
+                ase_discord_bridge.start();
+                rcon_service.spawn_heartbeat(app_handle.clone());
                 mod_watchdog.start_worker();
 
                 // Start Guardian Watchdog!
@@ -463,6 +471,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::system::get_auto_start_config,
              commands::system::set_auto_start_config,
              commands::system::set_server_startup_config,
+            commands::system::get_player_counts,
             // Server commands
             commands::server::get_all_servers,
             commands::server::update_server_status_in_db,
@@ -481,6 +490,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::check_server_reachability,
             commands::server::get_server_logs,
             commands::server::import_server,
+            commands::server::preview_import_settings,
             commands::server::show_server_console,
             commands::server::toggle_automation,
             commands::server::debug_database_check, // <-- New Command
@@ -529,6 +539,19 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::config::backup_all_configs,
             commands::config::get_default_config,
             // Cluster commands
+            commands::cluster::create_cluster,
+            commands::cluster::update_cluster,
+            commands::cluster::get_clusters,
+            commands::cluster::delete_cluster,
+            commands::cluster::add_server_to_cluster,
+            commands::cluster::remove_server_from_cluster,
+            commands::cluster::validate_cluster_path,
+            commands::cluster::get_cluster_status,
+            commands::cluster::start_cluster,
+            commands::cluster::stop_cluster,
+            commands::cluster::toggle_cluster_cross_chat,
+            commands::cluster::get_cluster_cross_chat_status,
+            commands::cluster::validate_cluster_configuration,
             commands::rcon::rcon_connect,
             commands::rcon::rcon_disconnect,
             commands::rcon::rcon_send_command,
@@ -741,6 +764,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              ase::commands::server::stop_ase_server,
              ase::commands::server::get_ase_server_status,
              ase::commands::server::reset_ase_server,
+             ase::commands::server::import_ase_server,
+             ase::commands::import::import_ase_save,
               // ASE Mod commands
               ase::commands::mods::search_ase_workshop,
               ase::commands::mods::get_ase_workshop_details,
@@ -773,7 +798,16 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              // ASE Cluster commands
              ase::commands::cluster::create_ase_cluster,
              ase::commands::cluster::get_ase_clusters,
-             ase::commands::cluster::add_server_to_ase_cluster,
+             ase::commands::cluster::update_ase_cluster,
+             ase::commands::cluster::delete_ase_cluster,
+             ase::commands::cluster::add_ase_server_to_cluster,
+             ase::commands::cluster::remove_ase_server_from_cluster,
+             ase::commands::cluster::get_ase_cluster_status,
+             ase::commands::cluster::start_ase_cluster,
+             ase::commands::cluster::stop_ase_cluster,
+             ase::commands::cluster::toggle_ase_cluster_cross_chat,
+             ase::commands::cluster::get_ase_cluster_cross_chat_status,
+             ase::commands::cluster::validate_ase_cluster_configuration,
              // ASE RCON commands
              ase::commands::rcon::connect_ase_rcon,
              ase::commands::rcon::send_ase_rcon,
@@ -786,6 +820,14 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               ase::commands::discord::save_ase_discord_config,
               ase::commands::discord::get_ase_discord_config,
               ase::commands::discord::test_ase_discord_webhook,
+             ase::commands::discord::save_ase_discord_bridge_config,
+             ase::commands::discord::get_ase_discord_bridge_config,
+             ase::commands::discord::start_ase_discord_bridge,
+             ase::commands::discord::stop_ase_discord_bridge,
+             ase::commands::discord::test_ase_discord_bridge_connection,
+             ase::commands::discord::send_ase_discord_status_update,
+             ase::commands::discord::get_ase_discord_rate_limit_config,
+             ase::commands::discord::set_ase_discord_rate_limit_config,
               ase::commands::discord::generate_ase_bot_invite_url,
               // ASE Profile Sync commands
               ase::commands::profile_sync::list_ase_profiles,
@@ -801,3 +843,6 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
         ])
         .run(tauri::generate_context!())
 }
+
+
+

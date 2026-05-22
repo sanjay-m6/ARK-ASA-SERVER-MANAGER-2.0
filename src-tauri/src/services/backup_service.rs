@@ -63,7 +63,13 @@ impl BackupService {
 
         // Backup configs
         if options.include_configs {
-            let config_dir = server_path.join("ShooterGame/Saved/Config/WindowsServer");
+            let mut config_dir = server_path.join("ShooterGame/Saved/Config/WindowsServer");
+            if !config_dir.exists() {
+                let asa_config = server_path.join("ShooterGame/Saved/Config/Windows");
+                if asa_config.exists() {
+                    config_dir = asa_config;
+                }
+            }
             if config_dir.exists() {
                 total_size += Self::add_dir_to_zip(&mut zip, &config_dir, "Config", &file_options)?;
                 includes_configs = true;
@@ -240,9 +246,11 @@ impl BackupService {
                     Ok(p) => p,
                     Err(_) => continue,
                 };
-                server_path
-                    .join("ShooterGame/Saved/Config/WindowsServer")
-                    .join(relative)
+                let mut target_config_dir = server_path.join("ShooterGame/Saved/Config/WindowsServer");
+                if !target_config_dir.exists() && server_path.join("ShooterGame/Saved/Config/Windows").exists() {
+                    target_config_dir = server_path.join("ShooterGame/Saved/Config/Windows");
+                }
+                target_config_dir.join(relative)
             } else {
                 continue;
             };

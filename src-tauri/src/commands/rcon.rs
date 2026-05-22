@@ -41,10 +41,21 @@ pub async fn rcon_disconnect(
 /// Send a raw RCON command
 #[tauri::command]
 pub async fn rcon_send_command(
+    app: tauri::AppHandle,
     state: State<'_, RconState>,
     server_id: i64,
     command: String,
 ) -> Result<RconResponse, String> {
+    if command.trim().eq_ignore_ascii_case("DoExit") {
+        use tauri::Manager;
+        if let Some(guardian) = app.try_state::<crate::services::guardian::GuardianState>() {
+            let guard = guardian.0.lock().await;
+            guard.mark_as_stopping(server_id).await;
+        }
+        if let Some(state) = app.try_state::<crate::AppState>() {
+            state.process_manager.set_pending_stop_reason(server_id, crate::services::process_manager::StopReason::UserAction);
+        }
+    }
     let service = &state.0;
     service.send_command(server_id, &command).await
 }

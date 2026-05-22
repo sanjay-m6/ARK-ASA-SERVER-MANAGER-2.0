@@ -1429,6 +1429,12 @@ impl ProcessManager {
         processes.contains_key(&server_id)
     }
 
+    /// Explicitly record a stop reason (useful for RCON DoExit)
+    pub fn set_pending_stop_reason(&self, server_id: i64, reason: StopReason) {
+        let mut reasons = self.pending_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
+        reasons.insert(server_id, reason);
+    }
+
     /// Stop ARK server with a reason (authorized stop)
     pub fn stop_server_with_reason(&self, server_id: i64, reason: StopReason) -> Result<()> {
         println!("  [LIFECYCLE] Server {} stop requested | reason: {}", server_id, reason);
@@ -1526,6 +1532,11 @@ impl ProcessManager {
                 std::thread::sleep(std::time::Duration::from_secs(2));
 
                 println!("  📡 Sending DoExit/Quit...");
+                use tauri::Manager;
+                if let Some(guardian) = self.app_handle.try_state::<crate::services::guardian::GuardianState>() {
+                    let guard = guardian.0.lock().await;
+                    guard.mark_as_stopping(server_id).await;
+                }
                 let _ = rcon.send_command(server_id, "DoExit").await;
 
                 // Wait for process to exit naturally

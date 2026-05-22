@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Network, Trash2, Loader2, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, toggleClusterCrossChat, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
+import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, toggleClusterCrossChat, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, addServerToCluster, removeServerFromCluster, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
+import { startServer, stopServer } from '../utils/tauri';
 import { Cluster, Server } from '../types';
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
@@ -426,6 +427,46 @@ export default function ClusterManager() {
                                     cluster={cluster}
                                     servers={servers}
                                     allServers={servers}
+                                    onAddServer={async (serverId) => {
+                                        try {
+                                            await addServerToCluster(cluster.id, serverId);
+                                            toast.success(t('clusterManager.serverAdded', 'Server added to cluster'));
+                                            fetchClusters();
+                                        } catch (error) {
+                                            console.error('Failed to add server:', error);
+                                            toast.error(t('clusterManager.addFailed', 'Failed to add server'));
+                                        }
+                                    }}
+                                    onRemoveServer={async (serverId) => {
+                                        try {
+                                            await removeServerFromCluster(cluster.id, serverId);
+                                            toast.success(t('clusterManager.serverRemoved', 'Server removed from cluster'));
+                                            fetchClusters();
+                                        } catch (error) {
+                                            console.error('Failed to remove server:', error);
+                                            toast.error(t('clusterManager.removeFailed', 'Failed to remove server'));
+                                        }
+                                    }}
+                                    onStartServer={async (serverId) => {
+                                        try {
+                                            await startServer(serverId);
+                                            toast.success(t('clusterManager.serverStarted', 'Server started'));
+                                            refreshServers();
+                                        } catch (error) {
+                                            console.error('Failed to start server:', error);
+                                            toast.error(t('clusterManager.serverStartFailed', 'Failed to start server'));
+                                        }
+                                    }}
+                                    onStopServer={async (serverId) => {
+                                        try {
+                                            await stopServer(serverId);
+                                            toast.success(t('clusterManager.serverStopped', 'Server stopped'));
+                                            refreshServers();
+                                        } catch (error) {
+                                            console.error('Failed to stop server:', error);
+                                            toast.error(t('clusterManager.serverStopFailed', 'Failed to stop server'));
+                                        }
+                                    }}
                                 />
                             </div>
 

@@ -3,6 +3,11 @@ import { listen } from '@tauri-apps/api/event';
 import type { ServerType } from '../types';
 import { toast } from 'react-hot-toast';
 
+const normalizePath = (path: string): string => {
+    if (!path) return '';
+    return path.replace(/\\/g, '/').toLowerCase();
+};
+
 export interface InstallProgressData {
     installPath: string;
     stage: string;
@@ -47,26 +52,30 @@ export const useInstallStore = create<InstallStore>((set) => ({
     activeInstalls: {},
     currentlyViewingPath: null,
 
-    startInstall: (installPath, name, mapName, serverType) => set((state) => ({
-        activeInstalls: {
-            ...state.activeInstalls,
-            [installPath]: {
-                installPath,
-                name,
-                mapName,
-                serverType,
-                progress: 0,
-                stage: 'preparing',
-                message: 'Preparing installation...',
-                isComplete: false,
-                isError: false,
-                logs: [],
+    startInstall: (installPath, name, mapName, serverType) => set((state) => {
+        const normalized = normalizePath(installPath);
+        return {
+            activeInstalls: {
+                ...state.activeInstalls,
+                [normalized]: {
+                    installPath,
+                    name,
+                    mapName,
+                    serverType,
+                    progress: 0,
+                    stage: 'preparing',
+                    message: 'Preparing installation...',
+                    isComplete: false,
+                    isError: false,
+                    logs: [],
+                }
             }
-        }
-    })),
+        };
+    }),
 
     updateProgress: (installPath, progressData) => set((state) => {
-        const task = state.activeInstalls[installPath];
+        const normalized = normalizePath(installPath);
+        const task = state.activeInstalls[normalized];
         if (!task) return {};
 
         // Trigger toast on status changes
@@ -79,7 +88,7 @@ export const useInstallStore = create<InstallStore>((set) => ({
         return {
             activeInstalls: {
                 ...state.activeInstalls,
-                [installPath]: {
+                [normalized]: {
                     ...task,
                     progress: progressData.progress,
                     stage: progressData.stage,
@@ -92,12 +101,13 @@ export const useInstallStore = create<InstallStore>((set) => ({
     }),
 
     addLog: (installPath, logData) => set((state) => {
-        const task = state.activeInstalls[installPath];
+        const normalized = normalizePath(installPath);
+        const task = state.activeInstalls[normalized];
         if (!task) return {};
         return {
             activeInstalls: {
                 ...state.activeInstalls,
-                [installPath]: {
+                [normalized]: {
                     ...task,
                     logs: [...task.logs.slice(-500), logData], // Limit to last 500 logs
                 }
@@ -106,11 +116,12 @@ export const useInstallStore = create<InstallStore>((set) => ({
     }),
 
     removeInstall: (installPath) => set((state) => {
+        const normalized = normalizePath(installPath);
         const activeInstalls = { ...state.activeInstalls };
-        delete activeInstalls[installPath];
+        delete activeInstalls[normalized];
         return {
             activeInstalls,
-            currentlyViewingPath: state.currentlyViewingPath === installPath ? null : state.currentlyViewingPath,
+            currentlyViewingPath: state.currentlyViewingPath && normalizePath(state.currentlyViewingPath) === normalized ? null : state.currentlyViewingPath,
         };
     }),
 
@@ -124,7 +135,7 @@ export const useInstallStore = create<InstallStore>((set) => ({
         return { activeInstalls };
     }),
 
-    setViewingPath: (installPath) => set({ currentlyViewingPath: installPath }),
+    setViewingPath: (installPath) => set({ currentlyViewingPath: installPath ? normalizePath(installPath) : null }),
 }));
 
 // Listeners helper for Tauri events

@@ -115,7 +115,7 @@ dependencies = [
 
 [[package]]
 name = "asa-server-manager"
-version = "2.4.0-beta"
+version = "2.4.1-beta"
 dependencies = [
  "aes-gcm",
  "anyhow",

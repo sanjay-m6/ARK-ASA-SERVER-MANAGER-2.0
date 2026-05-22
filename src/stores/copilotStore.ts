@@ -51,7 +51,7 @@ function loadHistoryFromStorage(): AiMessage[] {
 
 export const useCopilotStore = create<CopilotStore>((set) => ({
     isOpen: false,
-    messages: [],
+    messages: loadHistoryFromStorage(),
     isStreaming: false,
     streamingContent: '',
     pendingToolCall: null,
@@ -93,10 +93,30 @@ export const useCopilotStore = create<CopilotStore>((set) => ({
     addAlertMessage: (alert) => set((s) => {
         // Avoid duplicate alerts within 5 minutes
         const fiveMinAgo = Date.now() - 300000;
-        const isDuplicate = s.alerts.some(a => a.type === alert.type && a.timestamp > fiveMinAgo);
-        if (isDuplicate) return {};
-        const updated = [...s.alerts, alert].slice(-MAX_ALERTS);
-        return { alerts: updated, alertCount: s.alertCount + 1 };
+        const currentAlerts = s.alerts || [];
+        const isDuplicate = currentAlerts.some(a => a.type === alert.type && a.timestamp > fiveMinAgo);
+        
+        if (isDuplicate) return s;
+        
+        const updated = [...currentAlerts, alert].slice(-MAX_ALERTS);
+        
+        // Convert the alert to an AI message so it appears in the chat window
+        const severityIcon = alert.severity === 'critical' ? '🚨' : alert.severity === 'warning' ? '⚠️' : 'ℹ️';
+        const msg: AiMessage = {
+            id: alert.id || crypto.randomUUID(),
+            role: 'assistant',
+            content: `${severityIcon} **${alert.title}**\n\n${alert.message}`,
+            timestamp: alert.timestamp || Date.now(),
+        };
+        
+        const currentMessages = s.messages || [];
+        const updatedMessages = [...currentMessages, msg].slice(-MAX_COPILOT_MESSAGES);
+        saveHistory(updatedMessages);
+
+        // Auto-increment alertCount only if the panel is currently closed
+        const newAlertCount = s.isOpen ? 0 : (s.alertCount || 0) + 1;
+
+        return { alerts: updated, alertCount: newAlertCount, messages: updatedMessages };
     }),
 
     dismissAlert: (id) => set((s) => ({
@@ -104,7 +124,11 @@ export const useCopilotStore = create<CopilotStore>((set) => ({
     })),
 
     loadHistory: () => {
-        const messages = loadHistoryFromStorage();
-        set({ messages });
+        // Only load if messages are empty to prevent overwriting new alerts
+        set((s) => {
+            if (s.messages && s.messages.length > 0) return s;
+            const messages = loadHistoryFromStorage();
+            return { messages };
+        });
     },
 }));

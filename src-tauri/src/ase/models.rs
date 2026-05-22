@@ -249,6 +249,8 @@ pub struct AseGameConfig {
     // ── Engrams ──
     pub auto_unlock_all_engrams: bool,
     pub only_allow_specified_engrams: bool,
+    pub override_named_engram_entries: String,
+    pub config_override_item_crafting_costs: String,
 
     // ── Network / Admin ──
     pub rcon_enabled: bool,
@@ -300,6 +302,40 @@ pub struct AseGameConfig {
 
     // ── Adjustable Spawner ──
     pub adjustable_mutagen_spawn_delay_multiplier: f64,
+
+    // ── Chat & Voice ──
+    pub global_voice_chat: bool,
+    pub proximity_voice_chat: bool,
+    pub always_notify_player_joined: bool,
+    pub always_notify_player_left: bool,
+    pub server_admin_command_logging: bool,
+
+    // ── PvP & PvE Advanced ──
+    pub b_disable_friendly_fire: bool,
+    pub non_permanent_diseases: bool,
+    pub prevent_diseases: bool,
+    pub allow_cryo_cooldown_on_pve: bool,
+    pub disable_cryopod_enemy_check: bool,
+    pub pvp_zone_structure_damage_multiplier: f64,
+    pub structure_damage_repair_cooldown: f64,
+
+    // ── Harvesting & Core Rates ──
+    pub clamp_resource_harvest_damage: bool,
+    pub optimized_harvesting_health: bool,
+    pub tamed_dino_harvesting_damage_multiplier: f64,
+    pub dino_turret_damage_multiplier: f64,
+    pub tamed_dino_character_food_drain_multiplier: f64,
+    pub wild_dino_character_food_drain_multiplier: f64,
+
+    // ── Decay & Platforms ──
+    pub structure_decay_period_multiplier: f64,
+    pub pve_dino_decay_period_multiplier: f64,
+    pub fast_decay_unsnapped_core_structures: bool,
+    pub b_allow_platform_saddle_multi_floors: bool,
+
+    // ── Advanced Environment/Flyers ──
+    pub allow_flying_stamina_recovery: bool,
+    pub flyer_platform_max_structures_multiplier: f64,
 }
 
 impl Default for AseGameConfig {
@@ -423,6 +459,8 @@ impl Default for AseGameConfig {
             hexagon_reward_multiplier: 1.0,
             auto_unlock_all_engrams: false,
             only_allow_specified_engrams: false,
+            override_named_engram_entries: String::new(),
+            config_override_item_crafting_costs: String::new(),
             rcon_enabled: true,
             rcon_port: 27020,
             battle_eye_enforcer: true,
@@ -454,6 +492,30 @@ impl Default for AseGameConfig {
             use_fjordur_traversal_buff: true,
             enable_fjordur_settings: false,
             adjustable_mutagen_spawn_delay_multiplier: 1.0,
+            global_voice_chat: false,
+            proximity_voice_chat: false,
+            always_notify_player_joined: false,
+            always_notify_player_left: false,
+            server_admin_command_logging: false,
+            b_disable_friendly_fire: false,
+            non_permanent_diseases: false,
+            prevent_diseases: false,
+            allow_cryo_cooldown_on_pve: false,
+            disable_cryopod_enemy_check: false,
+            pvp_zone_structure_damage_multiplier: 6.0,
+            structure_damage_repair_cooldown: 180.0,
+            clamp_resource_harvest_damage: false,
+            optimized_harvesting_health: false,
+            tamed_dino_harvesting_damage_multiplier: 1.0,
+            dino_turret_damage_multiplier: 1.0,
+            tamed_dino_character_food_drain_multiplier: 1.0,
+            wild_dino_character_food_drain_multiplier: 1.0,
+            structure_decay_period_multiplier: 1.0,
+            pve_dino_decay_period_multiplier: 1.0,
+            fast_decay_unsnapped_core_structures: false,
+            b_allow_platform_saddle_multi_floors: false,
+            allow_flying_stamina_recovery: false,
+            flyer_platform_max_structures_multiplier: 1.0,
         }
     }
 }

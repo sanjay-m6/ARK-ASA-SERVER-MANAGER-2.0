@@ -2,7 +2,7 @@
 //! Monitors server health, detects crashes, and auto-restarts failed servers with loop prevention
 
 #![allow(dead_code)]
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use sysinfo::{Pid, System};
 use tokio::sync::Mutex;
@@ -45,6 +45,8 @@ pub struct GuardianService {
     crash_log: Arc<Mutex<Vec<CrashEvent>>>,
     /// Crash timestamps history for loop prevention
     crash_history: Arc<Mutex<HashMap<i64, Vec<chrono::DateTime<chrono::Utc>>>>>,
+    /// Track servers that are intentionally stopping (e.g. DoExit)
+    pub stopping_servers: Arc<Mutex<HashSet<i64>>>,
     /// Is the watchdog actively running
     is_running: Arc<Mutex<bool>>,
 }
@@ -57,6 +59,7 @@ impl GuardianService {
             crash_counts: Arc::new(Mutex::new(HashMap::new())),
             crash_log: Arc::new(Mutex::new(Vec::new())),
             crash_history: Arc::new(Mutex::new(HashMap::new())),
+            stopping_servers: Arc::new(Mutex::new(HashSet::new())),
             is_running: Arc::new(Mutex::new(false)),
         }
     }
@@ -97,6 +100,13 @@ impl GuardianService {
         let mut pids = self.server_pids.lock().await;
         pids.remove(&server_id);
         println!("🛡️ Guardian: Unregistered server {}", server_id);
+    }
+
+    /// Mark a server as intentionally stopping
+    pub async fn mark_as_stopping(&self, server_id: i64) {
+        let mut stopping = self.stopping_servers.lock().await;
+        stopping.insert(server_id);
+        println!("🛡️ Guardian: Marked server {} as intentionally stopping", server_id);
     }
 
     /// Enable/disable auto-restart for a server
@@ -215,6 +225,7 @@ impl GuardianService {
         let server_pids = self.server_pids.clone();
         let auto_restart_enabled = self.auto_restart_enabled.clone();
         let crash_history = self.crash_history.clone();
+        let stopping_servers = self.stopping_servers.clone();
         let self_service = Arc::new(Mutex::new(self.clone_ref()));
 
         tauri::async_runtime::spawn(async move {
@@ -256,9 +267,9 @@ impl GuardianService {
                             pids.remove(&server_id);
                         }
 
-                        let auto_restart = {
-                            let enabled = auto_restart_enabled.lock().await;
-                            *enabled.get(&server_id).unwrap_or(&false)
+                        let is_intentionally_stopping = {
+                            let mut stopping = stopping_servers.lock().await;
+                            stopping.remove(&server_id)
                         };
 
                         let server_name = {
@@ -271,6 +282,36 @@ impl GuardianService {
                                     ).unwrap_or_else(|_| format!("Server {}", server_id))
                                 } else { format!("Server {}", server_id) }
                             } else { format!("Server {}", server_id) }
+                        };
+
+                        if is_intentionally_stopping {
+                            println!("🛡️ Guardian Watchdog: Server '{}' ({}) shut down gracefully.", server_name, server_id);
+                            
+                            // Update status to stopped
+                            if let Ok(db_guard) = state.db.lock() {
+                                if let Ok(conn) = db_guard.get_connection() {
+                                    let _ = conn.execute(
+                                        "UPDATE servers SET status = 'stopped' WHERE id = ?",
+                                        [server_id]
+                                    );
+                                    let _ = conn.execute(
+                                        "UPDATE ase_servers SET status = 'stopped' WHERE id = ?",
+                                        [server_id]
+                                    );
+                                }
+                            }
+                            
+                            let _ = app_handle.emit("server-status-change", serde_json::json!({
+                                "serverId": server_id,
+                                "status": "stopped"
+                            }));
+                            
+                            continue; // Skip crash logic
+                        }
+
+                        let auto_restart = {
+                            let enabled = auto_restart_enabled.lock().await;
+                            *enabled.get(&server_id).unwrap_or(&false)
                         };
 
                         if auto_restart {
@@ -395,6 +436,7 @@ impl GuardianService {
             crash_counts: self.crash_counts.clone(),
             crash_log: self.crash_log.clone(),
             crash_history: self.crash_history.clone(),
+            stopping_servers: self.stopping_servers.clone(),
             is_running: self.is_running.clone(),
         }
     }

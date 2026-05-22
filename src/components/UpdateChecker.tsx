@@ -81,11 +81,26 @@ export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
             };
         }
     } catch (err) {
-        console.error('Update check failed:', err);
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        const isReleaseJsonError = errorMsg.includes('Could not fetch a valid release JSON');
+        const isDev = (import.meta as any).env?.DEV;
+        
+        if (isDev) {
+            if (isReleaseJsonError) {
+                console.warn('Update check: Remote release JSON not configured or reachable (expected in development).');
+            } else {
+                console.warn('Update check failed in dev mode:', err);
+            }
+        } else {
+            console.error('Update check failed:', err);
+        }
+
         lastCheckResult = {
             available: false,
             update: null,
-            error: err instanceof Error ? err.message : 'Failed to check for updates',
+            error: isReleaseJsonError 
+                ? 'Update server is unreachable (local development / offline)'
+                : errorMsg,
         };
         await emit('update-error', lastCheckResult.error);
     } finally {
@@ -209,7 +224,19 @@ export default function UpdateChecker() {
                 }
             }
         } catch (err) {
-            console.error('Update check failed:', err);
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            const isReleaseJsonError = errorMsg.includes('Could not fetch a valid release JSON');
+            const isDev = (import.meta as any).env?.DEV;
+            
+            if (isDev) {
+                if (isReleaseJsonError) {
+                    console.warn('Update check: Remote release JSON not configured or reachable (expected in development).');
+                } else {
+                    console.warn('Update check failed in dev mode:', err);
+                }
+            } else {
+                console.error('Update check failed:', err);
+            }
         } finally {
             if (!isManual) releaseCheckLock();
         }

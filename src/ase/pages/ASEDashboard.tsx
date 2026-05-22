@@ -13,6 +13,7 @@ import { cn } from '../../utils/helpers';
 import { getSystemInfo } from '../../utils/tauri';
 import { startAseServer, stopAseServer } from '../utils/aseCommands';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../../components/performance/PerformanceMonitor';
 import SponsorBanner from '../../components/ui/SponsorBanner';
 import { getAseMapDisplayName } from '../data/aseMaps';
@@ -47,8 +48,7 @@ export default function ASEDashboard() {
   }, [servers]);
 
   const filteredServers = servers.filter(server => {
-    // Exclude archived servers
-    const isArchived = snapshot?.servers?.find((s: any) => s.id === server.id)?.archive_info;
+    const isArchived = snapshot?.servers?.find((s: any) => s.id === server.id)?.archiveInfo;
     if (isArchived) return false;
 
     // Search query
@@ -61,7 +61,7 @@ export default function ASEDashboard() {
 
     // Folder category
     if (selectedFolderId !== null) {
-      const serverFolderIds = snapshot?.servers?.find((s: any) => s.id === server.id)?.folder_ids || [];
+      const serverFolderIds = snapshot?.servers?.find((s: any) => s.id === server.id)?.folderIds || [];
       if (!serverFolderIds.includes(selectedFolderId)) return false;
     }
 
@@ -83,10 +83,19 @@ export default function ASEDashboard() {
       try {
         const info = await getSystemInfo();
         setSystemInfo(info);
+        // Compute total player count from backend player intelligence service
+        let totalPlayers = 0;
+        try {
+          const counts = await invoke<Record<string, number>>('get_player_counts');
+          totalPlayers = Object.values(counts).reduce((sum: number, count: number) => sum + count, 0);
+        } catch (e) {
+          console.error("Failed to fetch player counts", e);
+        }
+
         setPerformanceHistory(prev => {
           const now = new Date();
           const t = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-          const pt = { time: t, cpu: Math.round(info.cpuUsage*10)/10, memory: Math.round((info.ramUsage/info.ramTotal)*1000)/10, players: 0 };
+          const pt = { time: t, cpu: Math.round(info.cpuUsage*10)/10, memory: Math.round((info.ramUsage/info.ramTotal)*1000)/10, players: totalPlayers };
           const h = [...prev, pt]; if (h.length > 60) h.shift(); return h;
         });
       } catch {}

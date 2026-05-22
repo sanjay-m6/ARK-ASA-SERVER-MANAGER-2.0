@@ -819,7 +819,7 @@ impl Database {
                         author TEXT,
                         description TEXT,
                         workshop_url TEXT,
-                        server_type TEXT NOT NULL DEFAULT 'ASA' CHECK(server_type IN ('ASA')),
+                        server_type TEXT NOT NULL DEFAULT 'ASA' CHECK(server_type IN ('ASA', 'ASE')),
                         enabled BOOLEAN DEFAULT 1,
                         load_order INTEGER NOT NULL,
                         installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -837,6 +837,11 @@ impl Database {
                         includes_saves BOOLEAN DEFAULT 1,
                         includes_cluster BOOLEAN DEFAULT 0,
                         verified BOOLEAN DEFAULT 0,
+                        label TEXT,
+                        notes TEXT,
+                        is_protected INTEGER DEFAULT 0,
+                        status TEXT DEFAULT 'completed',
+                        hash TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE
                     )",
@@ -861,7 +866,8 @@ impl Database {
                     "scheduled_tasks" => "CREATE TABLE scheduled_tasks (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         server_id INTEGER NOT NULL,
-                        task_type TEXT NOT NULL CHECK(task_type IN ('restart', 'backup', 'rcon-command', 'announcement', 'save-world', 'destroy-wild-dinos')),
+                        task_name TEXT,
+                        task_type TEXT NOT NULL CHECK(task_type IN ('restart', 'backup', 'rcon-command', 'announcement', 'save-world', 'destroy-wild-dinos', 'AutoUpdateMods')),
                         cron_expression TEXT NOT NULL,
                         command TEXT,
                         message TEXT,
@@ -925,21 +931,31 @@ impl Database {
 
                 tx.execute(create_sql, [])?;
 
-                // Copy data back
-                // We just select * because we are reusing the schema mostly
-                // Note: For anti_cheat_config we added columns in migrations, ensure CREATE matches current state
-                // The CREATE statements above include the NEW columns.
-                // data copy: INSERT INTO X SELECT * FROM X_broken
-                // If columns match, this works.
-                // If columns don't match exactly (order or count), we might have issues.
-                // But here we are renaming the EXISTING table (which has all current columns) to _broken.
-                // And creating a NEW table with the FULL current schema.
-                // So columns should match.
+                // Copy data back using explicit column names
+                // This ensures column order or missing columns do not break the insert
+                let columns_list = {
+                    let mut stmt_old = tx.prepare(&format!("PRAGMA table_info({})", temp_name))?;
+                    let old_columns: Vec<String> = stmt_old
+                        .query_map([], |row| row.get::<_, String>(1))?
+                        .filter_map(|r| r.ok())
+                        .collect();
 
-                tx.execute(
-                    &format!("INSERT INTO {} SELECT * FROM {}", table, temp_name),
-                    [],
-                )?;
+                    let mut stmt_new = tx.prepare(&format!("PRAGMA table_info({})", table))?;
+                    let new_columns: Vec<String> = stmt_new
+                        .query_map([], |row| row.get::<_, String>(1))?
+                        .filter_map(|r| r.ok())
+                        .collect();
+
+                    let common_columns: Vec<String> = old_columns.into_iter().filter(|c| new_columns.contains(c)).collect();
+                    common_columns.join(", ")
+                };
+
+                if !columns_list.is_empty() {
+                    tx.execute(
+                        &format!("INSERT INTO {} ({}) SELECT {} FROM {}", table, columns_list, columns_list, temp_name),
+                        [],
+                    )?;
+                }
 
                 // Drop broken table
                 tx.execute(&format!("DROP TABLE {}", temp_name), [])?;

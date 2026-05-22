@@ -13,7 +13,7 @@ import AutoSavePreferencesPanel from '../../components/autosave/AutoSavePreferen
 import { History, LayoutGrid, GitCompare, Settings } from 'lucide-react';
 
 export default function ASEAutoSaves() {
-    const { servers } = useAseServerStore();
+    const { servers, refreshServers } = useAseServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const { loadSaves, restoreSave } = useAutoSaveActions();
     
@@ -31,6 +31,10 @@ export default function ASEAutoSaves() {
     const selectedSaveIds = useAutoSaveStore(state => state.selectedSaveIds);
     const timelineEvents = useAutoSaveStore(state => state.timelineEvents);
     const preferences = useAutoSaveStore(state => state.preferences);
+
+    useEffect(() => {
+        refreshServers().catch(console.error);
+    }, [refreshServers]);
 
     useEffect(() => {
         if (servers.length > 0 && !selectedServerId) {
@@ -106,18 +110,27 @@ export default function ASEAutoSaves() {
                         className={`flex items-center gap-2 px-6 py-3 font-semibold transition-all duration-250 ${activeTab === 'browser' ? 'border-b-2 border-amber-500 text-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
                     >
                         <LayoutGrid className="w-4 h-4" /> Browser
+                        {activeTab === 'browser' && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse" />
+                        )}
                     </button>
                     <button
                         onClick={() => setActiveTab('timeline')}
                         className={`flex items-center gap-2 px-6 py-3 font-semibold transition-all duration-250 ${activeTab === 'timeline' ? 'border-b-2 border-amber-500 text-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
                     >
                         <History className="w-4 h-4" /> Timeline
+                        {activeTab === 'timeline' && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse" />
+                        )}
                     </button>
                     <button
                         onClick={() => setActiveTab('preferences')}
                         className={`flex items-center gap-2 px-6 py-3 font-semibold transition-all duration-250 ${activeTab === 'preferences' ? 'border-b-2 border-amber-500 text-amber-400' : 'text-slate-400 hover:text-slate-200'}`}
                     >
                         <Settings className="w-4 h-4" /> Preferences
+                        {activeTab === 'preferences' && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)] animate-pulse" />
+                        )}
                     </button>
 
                     {selectedSaveIds.size === 2 && (
@@ -134,7 +147,7 @@ export default function ASEAutoSaves() {
             )}
 
             {/* Main Content Area */}
-            <div className="flex-1 min-h-[500px] bg-slate-900/10 backdrop-blur-xl border border-slate-850/80 rounded-3xl overflow-hidden relative flex flex-col">
+            <div className="flex-1 min-h-[500px] bg-slate-900/30 border border-slate-850/80 rounded-3xl overflow-hidden relative flex flex-col">
                 {selectedServerId ? (
                     <>
                         {activeTab === 'browser' && (
