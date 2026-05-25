@@ -9,6 +9,7 @@ import {
     togglePlugin,
     getPluginDirectory,
     checkAsaApiInstalled,
+    installAsaApi,
     getAllServers
 } from '../utils/tauri';
 import { PluginInfo } from '../types';
@@ -27,6 +28,7 @@ export default function PluginManager() {
     const [pluginDirectory, setPluginDirectory] = useState<string>('');
     const [selectedPlugin, setSelectedPlugin] = useState<PluginInfo | null>(null);
     const [asaApiInstalled, setAsaApiInstalled] = useState<boolean | null>(null);
+    const [isInstallingApi, setIsInstallingApi] = useState(false);
 
     // Load servers on mount
     useEffect(() => {
@@ -83,6 +85,22 @@ export default function PluginManager() {
         } catch (error) {
             console.error('Failed to check ASA API:', error);
             setAsaApiInstalled(false);
+        }
+    };
+
+    const handleInstallAsaApi = async () => {
+        if (!selectedServerId) return;
+        setIsInstallingApi(true);
+        const toastId = toast.loading('Downloading and installing ASA Server API from GitHub...');
+        try {
+            const result = await installAsaApi(selectedServerId);
+            toast.success(result, { id: toastId });
+            await checkApiInstallation();
+        } catch (error) {
+            console.error('Failed to install ASA API:', error);
+            toast.error(`Installation failed: ${error}`, { id: toastId });
+        } finally {
+            setIsInstallingApi(false);
         }
     };
 
@@ -184,14 +202,14 @@ export default function PluginManager() {
                 <>
                     {/* ASA Server API Status */}
                     <div className={cn(
-                        "glass-panel rounded-2xl p-4 flex items-center gap-4 border",
+                        "glass-panel rounded-2xl p-5 flex items-start md:items-center gap-4 border",
                         asaApiInstalled === true && "border-green-500/20 bg-green-500/5",
                         asaApiInstalled === false && "border-amber-500/20 bg-amber-500/5",
                         asaApiInstalled === null && "border-slate-700"
                     )}>
                         {asaApiInstalled === true ? (
                             <>
-                                <CheckCircle2 className="w-6 h-6 text-green-400" />
+                                <CheckCircle2 className="w-6 h-6 text-green-400 shrink-0 mt-0.5 md:mt-0" />
                                 <div>
                                     <p className="text-white font-medium">ASA Server API Detected</p>
                                     <p className="text-slate-400 text-sm">Plugins are ready to use on this server</p>
@@ -199,27 +217,62 @@ export default function PluginManager() {
                             </>
                         ) : asaApiInstalled === false ? (
                             <>
-                                <XCircle className="w-6 h-6 text-amber-400" />
-                                <div className="flex-1">
-                                    <p className="text-white font-medium">ASA Server API Not Installed</p>
-                                    <p className="text-slate-400 text-sm">
-                                        Install ASA Server API first to use plugins.
+                                <XCircle className="w-6 h-6 text-amber-400 shrink-0 mt-0.5 md:mt-0" />
+                                <div className="flex-1 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <p className="text-white font-medium">ASA Server API Not Installed or Incomplete</p>
+                                        <p className="text-slate-400 text-sm">
+                                            The API files (AsaApiLoader.exe and ArkApi/) are missing.
+                                            You can install them automatically or download manually.
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0">
+                                        <button
+                                            onClick={handleInstallAsaApi}
+                                            disabled={isInstallingApi}
+                                            className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl transition-all shadow-lg shadow-violet-500/20 disabled:opacity-50 font-bold text-sm cursor-pointer shrink-0"
+                                        >
+                                            {isInstallingApi ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    <span>Installing...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Download className="w-4 h-4" />
+                                                    <span>Auto Install API</span>
+                                                </>
+                                            )}
+                                        </button>
                                         <button
                                             onClick={() => openUrl(`${PLUGIN_REPOSITORY_URL}resources/asa-server-api.31/`)}
-                                            className="text-violet-400 hover:underline ml-1 cursor-pointer"
+                                            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 hover:border-slate-600 rounded-xl transition-all text-sm font-bold cursor-pointer shrink-0"
                                         >
-                                            Download here
+                                            Manual Download
                                         </button>
-                                    </p>
+                                    </div>
                                 </div>
                             </>
                         ) : (
                             <>
-                                <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+                                <Loader2 className="w-6 h-6 text-slate-400 animate-spin shrink-0" />
                                 <p className="text-slate-400">Checking ASA Server API status...</p>
                             </>
                         )}
                     </div>
+
+                    {/* Antivirus Warning when API is missing */}
+                    {asaApiInstalled === false && (
+                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                            <AlertTriangle className="w-6 h-6 text-amber-400 shrink-0 mt-0.5" />
+                            <div className="text-sm">
+                                <p className="text-amber-200/90 font-bold mb-1">Antivirus / Windows Defender Notice</p>
+                                <p className="text-slate-400 leading-relaxed">
+                                    Server Hook APIs are frequently flagged by security software due to the way they inject code into the server process. If the API is missing or fails to load, ensure your antivirus has not quarantined <code className="text-amber-300 font-mono text-xs">AsaApiLoader.exe</code> or files inside <code className="text-amber-300 font-mono text-xs">ArkApi</code>. We highly recommend adding an exclusion/whitelist rule for your server's installation directory in Windows Defender.
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* External Plugin Source Section */}
                     <div className="glass-panel rounded-2xl p-6 border border-violet-500/20 bg-gradient-to-br from-violet-500/5 to-fuchsia-500/5">

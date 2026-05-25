@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Settings, FolderOpen, Save, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Settings, FolderOpen, Save, ExternalLink, Shield } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 
 export default function ASESettings() {
+  const navigate = useNavigate();
   const [defaultInstallPath, setDefaultInstallPath] = useState('');
   const [steamcmdPath, setSteamcmdPath] = useState('');
   const [autoUpdate, setAutoUpdate] = useState(true);
-  const [steamApiKey, setSteamApiKey] = useState('');
   const [discordToken, setDiscordToken] = useState('');
   const [discordClientId, setDiscordClientId] = useState('');
 
@@ -18,7 +19,6 @@ export default function ASESettings() {
       try {
         const installPath = await invoke<string | null>('get_setting', { key: 'ase_install_path' });
         const steamCmd = await invoke<string | null>('get_setting', { key: 'ase_steamcmd_path' });
-        const apiKey = await invoke<string | null>('get_setting', { key: 'ase_steam_api_key' });
         const autoUpd = await invoke<string | null>('get_setting', { key: 'ase_auto_update' });
         const dToken = await invoke<string | null>('get_setting', { key: 'ase_discord_bot_token' });
         const dClient = await invoke<string | null>('get_setting', { key: 'ase_discord_client_id' });
@@ -29,7 +29,6 @@ export default function ASESettings() {
         if (steamCmd) setSteamcmdPath(steamCmd);
         else setSteamcmdPath('C:\\ARKServerManager\\steamcmd');
 
-        if (apiKey) setSteamApiKey(apiKey);
         if (autoUpd) setAutoUpdate(autoUpd === 'true');
         if (dToken) setDiscordToken(dToken);
         if (dClient) setDiscordClientId(dClient);
@@ -44,7 +43,6 @@ export default function ASESettings() {
     try {
       await invoke('set_setting', { key: 'ase_install_path', value: defaultInstallPath });
       await invoke('set_setting', { key: 'ase_steamcmd_path', value: steamcmdPath });
-      await invoke('set_setting', { key: 'ase_steam_api_key', value: steamApiKey });
       await invoke('set_setting', { key: 'ase_auto_update', value: autoUpdate ? 'true' : 'false' });
       await invoke('set_setting', { key: 'ase_discord_bot_token', value: discordToken });
       await invoke('set_setting', { key: 'ase_discord_client_id', value: discordClientId });
@@ -91,28 +89,32 @@ export default function ASESettings() {
 
         <div className="border-t border-white/5 pt-6">
           <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4">API Integrations</h3>
-          <label className="block mb-4">
-            <span className="text-sm text-slate-300 mb-1 block">Steam Web API Key</span>
-            <div className="flex gap-2">
-              <input 
-                type="password" 
-                value={steamApiKey} 
-                onChange={e => setSteamApiKey(e.target.value)} 
-                placeholder="Enter your Steam Web API Key..."
-                className="flex-1 px-4 py-3 bg-slate-800/50 border border-white/10 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500/30" 
-              />
+          
+          {/* Steam Web API Key Navigation Link */}
+          <div 
+            onClick={() => navigate('/settings')}
+            className="group bg-slate-800/20 hover:bg-amber-500/[0.02] border border-white/5 hover:border-amber-500/30 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-300 cursor-pointer"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="p-2.5 bg-amber-500/10 rounded-xl text-amber-400 border border-amber-500/20 group-hover:bg-amber-500/20 group-hover:border-amber-500/30 transition-all duration-300 flex-shrink-0 flex items-center justify-center">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-sm font-bold text-slate-200 block mb-0.5 group-hover:text-amber-400 transition-colors duration-300">
+                  Steam Web API Key
+                </span>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  The Steam Web API Key is managed globally. Click here to configure it in the main <span className="text-amber-400/90 font-semibold group-hover:underline">Global Settings</span> page.
+                </p>
+              </div>
             </div>
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-xs text-slate-500">Required to resolve Steam Workshop items, retrieve mod metadata, and correctly link server downloads.</p>
-              <button 
-                type="button"
-                onClick={() => openUrl('https://steamcommunity.com/dev/apikey')}
-                className="flex items-center gap-1.5 text-xs font-medium text-amber-500 hover:text-amber-400 transition-colors focus:outline-none"
-              >
-                Get API Key <ExternalLink className="w-3 h-3" />
-              </button>
-            </div>
-          </label>
+            <button
+              type="button"
+              className="px-4 py-2.5 bg-amber-500/10 group-hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 group-hover:border-amber-500/30 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all self-start sm:self-center hover:scale-[1.03] active:scale-[0.98] shadow-md focus:outline-none flex-shrink-0"
+            >
+              Configure API Key <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <label className="block mt-4 mb-4">
             <span className="text-sm text-slate-300 mb-1 block">Discord Bot Token (ASE)</span>
             <input 

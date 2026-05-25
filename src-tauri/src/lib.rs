@@ -588,14 +588,15 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::player::set_player_ban,
             commands::player::record_player_session,
             commands::player::search_players,
-            // Plugin commands
-            commands::plugin::check_plugin_status, // <-- New Command
-            commands::plugin::check_asa_api_installed,
-            commands::plugin::get_plugin_directory,
-            commands::plugin::import_plugin_archive,
-            commands::plugin::get_installed_plugins,
-            commands::plugin::uninstall_plugin,
-            commands::plugin::toggle_plugin,
+             // Plugin commands
+             commands::plugin::check_plugin_status, // <-- New Command
+             commands::plugin::check_asa_api_installed,
+             commands::plugin::install_asa_api,
+             commands::plugin::get_plugin_directory,
+             commands::plugin::import_plugin_archive,
+             commands::plugin::get_installed_plugins,
+             commands::plugin::uninstall_plugin,
+             commands::plugin::toggle_plugin,
             // File Manager commands
             commands::file_manager::read_directory,
             commands::file_manager::read_file_content,
@@ -777,6 +778,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               ase::commands::mods::force_download_ase_mod,
               ase::commands::mods::force_reinstall_ase_mod,
               ase::commands::mods::validate_ase_mod,
+              ase::commands::mods::repair_ase_mod,
               ase::commands::mods::clear_ase_workshop_cache,
               ase::commands::mods::get_ase_workshop_details_batch,
               ase::commands::mods::batch_download_ase_mods,

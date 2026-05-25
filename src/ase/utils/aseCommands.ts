@@ -292,6 +292,10 @@ export async function validateAseMod(serverId: number, workshopId: string): Prom
     return invoke('validate_ase_mod', { serverId, workshopId });
 }
 
+export async function repairAseMod(serverId: number, workshopId: string): Promise<ModValidationReport> {
+    return invoke('repair_ase_mod', { serverId, workshopId });
+}
+
 export async function forceReinstallAseMod(serverId: number, workshopId: string): Promise<AseInstalledMod> {
     return invoke('force_reinstall_ase_mod', { serverId, workshopId });
 }

@@ -57,13 +57,16 @@ pub async fn check_asa_api_installed(
 ) -> Result<bool, String> {
     let install_path = get_server_install_path(&state, server_id)?;
 
-    let arkapi_path = install_path
+    let win64_dir = install_path
         .join("ShooterGame")
         .join("Binaries")
-        .join("Win64")
-        .join("ArkApi");
+        .join("Win64");
 
-    Ok(arkapi_path.exists())
+    let api_loader = win64_dir.join("AsaApiLoader.exe");
+    let arkapi_path = win64_dir.join("ArkApi");
+
+    // Consider installed ONLY if both the loader executable AND the ArkApi directory exist
+    Ok(api_loader.exists() && arkapi_path.exists())
 }
 
 /// Get the plugin directory for a specific server
@@ -432,4 +435,99 @@ pub async fn toggle_plugin(
     }
 
     Ok(())
+}
+
+/// Install or update ASA Server API by downloading it from the official GitHub repository releases page.
+#[tauri::command]
+pub async fn install_asa_api(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<String, String> {
+    let install_path = get_server_install_path(&state, server_id)?;
+    let win64_dir = install_path
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64");
+
+    if !win64_dir.exists() {
+        return Err("Server binaries directory not found. Please install the server first.".to_string());
+    }
+
+    println!("[ASA-API] Fetching latest AsaApi release from GitHub...");
+    
+    // Build HTTP client with custom User-Agent
+    let client = reqwest::Client::builder()
+        .user_agent("asa-server-manager")
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    let release_url = "https://api.github.com/repos/ArkServerApi/AsaApi/releases/latest";
+    
+    let response = client.get(release_url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to connect to GitHub releases API: {}", e))?;
+
+    let download_url = if response.status().is_success() {
+        let release_data: serde_json::Value = response.json()
+            .await
+            .map_err(|e| format!("Failed to parse GitHub release JSON: {}", e))?;
+
+        // Find the zip asset URL
+        let assets = release_data.get("assets")
+            .and_then(|a| a.as_array())
+            .ok_or_else(|| "No assets found in the latest release".to_string())?;
+
+        let mut found_url = None;
+        for asset in assets {
+            if let Some(name) = asset.get("name").and_then(|n| n.as_str()) {
+                if name.to_lowercase().ends_with(".zip") {
+                    if let Some(url) = asset.get("browser_download_url").and_then(|u| u.as_str()) {
+                        found_url = Some(url.to_string());
+                        break;
+                    }
+                }
+            }
+        }
+        
+        found_url.ok_or_else(|| "Could not find a .zip asset in the latest release".to_string())?
+    } else {
+        println!("[ASA-API] GitHub API failed (status: {}). Falling back to direct latest download URL...", response.status());
+        // Fallback to standard direct download url if GitHub API rate-limited
+        "https://github.com/ArkServerApi/AsaApi/releases/latest/download/AsaApi.zip".to_string()
+    };
+
+    println!("[ASA-API] Downloading from: {}", download_url);
+
+    // Download zip package
+    let download_resp = client.get(&download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download AsaApi zip: {}", e))?;
+
+    if !download_resp.status().is_success() {
+        return Err(format!("Failed to download AsaApi zip, status code: {}", download_resp.status()));
+    }
+
+    let bytes = download_resp.bytes()
+        .await
+        .map_err(|e| format!("Failed to get zip bytes: {}", e))?;
+
+    println!("[ASA-API] Extracting zip directly to Win64 directory: {:?}", win64_dir);
+    
+    // Extract zip contents
+    let target_dir = win64_dir.clone();
+    tokio::task::spawn_blocking(move || -> Result<(), String> {
+        let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))
+            .map_err(|e| format!("Failed to read zip archive: {}", e))?;
+        
+        archive.extract(&target_dir)
+            .map_err(|e| format!("Failed to extract zip archive: {}", e))?;
+        
+        Ok(())
+    }).await
+    .map_err(|e| format!("Join error during extraction: {}", e))??;
+
+    println!("[ASA-API] ASA Server API installed successfully!");
+    Ok("ASA Server API installed successfully!".to_string())
 }

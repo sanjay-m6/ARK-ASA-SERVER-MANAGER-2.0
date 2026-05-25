@@ -179,17 +179,26 @@ export default function ASEModManager() {
     if (!selectedServer) return;
     setIsRepairing(true);
     try {
-      const { forceReinstallAseMod, forceDownloadAseMod } = await import('../utils/aseCommands');
-      toast(forceRedownload ? 'Force redownloading and extracting mod files...' : 'Repairing mod structures...');
       if (forceRedownload) {
+        const { forceDownloadAseMod } = await import('../utils/aseCommands');
+        toast('Force redownloading and extracting mod files...');
         await forceDownloadAseMod(selectedServer, workshopId);
+        toast.success('Mod successfully redownloaded and reinstalled!');
+        setValidationReport(null);
+        setSelectedModDetail(null);
+        refreshInstalledMods(selectedServer);
       } else {
-        await forceReinstallAseMod(selectedServer, workshopId);
+        const { repairAseMod } = await import('../utils/aseCommands');
+        toast('Running rapid structural repair locally...');
+        const report = await repairAseMod(selectedServer, workshopId);
+        setValidationReport(report);
+        if (report.isValid) {
+          toast.success('Mod successfully repaired and re-validated!');
+        } else {
+          toast.error('Local repair completed, but some validation issues remain.');
+        }
+        refreshInstalledMods(selectedServer);
       }
-      toast.success('Mod successfully repaired and reinstalled!');
-      setValidationReport(null);
-      setSelectedModDetail(null);
-      refreshInstalledMods(selectedServer);
     } catch (error) {
       console.error('Failed to repair mod:', error);
       toast.error('Failed to repair/reinstall mod.');
@@ -1470,27 +1479,49 @@ export default function ASEModManager() {
                                       Mod Diagnostic Integrity Status: {validationReport.isValid ? 'Healthy & Fully Intact' : 'Structure Corrupted!'}
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 text-[10px] font-mono text-slate-400">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-4 mt-2 text-[10px] font-mono text-slate-400 bg-black/25 p-2.5 rounded-lg border border-white/5">
                                       <div>
                                         <span className="text-slate-500 mr-1">Files count:</span>
-                                        <span className="font-bold">{validationReport.fileCount}</span>
+                                        <span className="font-bold text-white">{validationReport.fileCount}</span>
                                       </div>
                                       <div>
                                         <span className="text-slate-500 mr-1">Total size:</span>
-                                        <span className="font-bold">{(validationReport.totalSize / (1024 * 1024)).toFixed(1)} MB</span>
+                                        <span className="font-bold text-white">{(validationReport.totalSize / (1024 * 1024)).toFixed(1)} MB</span>
                                       </div>
-                                      <div>
-                                        <span className="text-slate-500 mr-1">Mod file:</span>
-                                        <span className={validationReport.hasModFile ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className={validationReport.hasModFile ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>●</span>
+                                        <span className="text-slate-500">Parent .mod:</span>
+                                        <span className={validationReport.hasModFile ? 'text-emerald-400' : 'text-rose-400'}>
                                           {validationReport.hasModFile ? 'Found' : 'Missing'}
                                         </span>
                                       </div>
-                                      <div>
-                                        <span className="text-slate-500 mr-1">Asset cache:</span>
-                                        <span className={validationReport.hasUcas ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                                          {validationReport.hasUcas ? 'Found' : 'Missing'}
+                                      <div className="flex items-center gap-1.5">
+                                        <span className={validationReport.hasModInfo ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>●</span>
+                                        <span className="text-slate-500">mod.info:</span>
+                                        <span className={validationReport.hasModInfo ? 'text-emerald-400' : 'text-rose-400'}>
+                                          {validationReport.hasModInfo ? 'Found' : 'Missing'}
                                         </span>
                                       </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className={validationReport.hasAssets ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>●</span>
+                                        <span className="text-slate-500">Assets (.uasset):</span>
+                                        <span className={validationReport.hasAssets ? 'text-emerald-400' : 'text-rose-400'}>
+                                          {validationReport.hasAssets ? 'Found' : 'Missing'}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <span className={validationReport.hasActiveModsEntry ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>●</span>
+                                        <span className="text-slate-500">ActiveMods INI:</span>
+                                        <span className={validationReport.hasActiveModsEntry ? 'text-emerald-400' : 'text-rose-400'}>
+                                          {validationReport.hasActiveModsEntry ? 'Synced' : 'Not Sync'}
+                                        </span>
+                                      </div>
+                                      {validationReport.hasUnextractedZ && (
+                                        <div className="col-span-2 md:col-span-3 text-amber-400 flex items-center gap-1 text-[9px] mt-1 font-bold">
+                                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                          Leftover .z compressed files detected! Extraction is incomplete.
+                                        </div>
+                                      )}
                                     </div>
 
                                     {!validationReport.isValid && validationReport.issues.length > 0 && (
@@ -1501,15 +1532,34 @@ export default function ASEModManager() {
                                             <li key={idx}>{issue}</li>
                                           ))}
                                         </ul>
-                                        <button 
-                                          onClick={() => handleRepairMod(resolved.workshopId, false)}
-                                          disabled={isRepairing}
-                                          className="mt-2.5 px-2.5 py-1 bg-rose-500 hover:bg-rose-600 text-slate-950 rounded-lg text-[10px] font-bold transition-all disabled:opacity-50"
-                                        >
-                                          Run Structural Repair
-                                        </button>
                                       </div>
                                     )}
+
+                                    {/* Action buttons for inline diagnostic */}
+                                    <div className="flex gap-2 mt-3">
+                                      <button 
+                                        onClick={() => handleRepairMod(resolved.workshopId, false)}
+                                        disabled={isRepairing}
+                                        className="flex-1 py-1 bg-amber-500/10 hover:bg-amber-500 hover:text-slate-950 border border-amber-500/20 text-amber-400 rounded-lg text-[10px] font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-1"
+                                      >
+                                        {isRepairing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                                        Run Structural Repair
+                                      </button>
+                                      <button 
+                                        onClick={async () => {
+                                          try {
+                                            const { invoke } = await import('@tauri-apps/api/core');
+                                            await invoke('open_in_explorer', { path: validationReport.modDir });
+                                          } catch (err) {
+                                            toast.error('Failed to open folder: ' + err);
+                                          }
+                                        }}
+                                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 border border-white/5"
+                                      >
+                                        <ExternalLink className="w-3 h-3" />
+                                        Open Folder
+                                      </button>
+                                    </div>
                                   </motion.div>
                                 )}
                               </motion.div>
@@ -1842,17 +1892,32 @@ export default function ASEModManager() {
                         </div>
 
                         {/* File metrics */}
-                        <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-400 bg-slate-950/60 p-2 rounded-lg border border-white/5">
+                        <div className="grid grid-cols-2 gap-2.5 text-[10px] font-mono text-slate-400 bg-slate-950/60 p-3 rounded-lg border border-white/5">
                           <div>Files Count: <span className="text-white font-bold">{validationReport.fileCount}</span></div>
                           <div>Total Size: <span className="text-white font-bold">{(validationReport.totalSize / (1024 * 1024)).toFixed(2)} MB</span></div>
-                          <div className="flex items-center gap-1">
+                          
+                          <div className="flex items-center gap-1.5">
                             <span className={validationReport.hasModFile ? 'text-emerald-400' : 'text-rose-400'}>●</span>
-                            .mod File: {validationReport.hasModFile ? 'Found' : 'Missing'}
+                            .mod File: <span className={validationReport.hasModFile ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{validationReport.hasModFile ? 'Found' : 'Missing'}</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <span className={validationReport.hasUcas ? 'text-emerald-400' : 'text-rose-400'}>●</span>
-                            .ucas File: {validationReport.hasUcas ? 'Found' : 'Missing'}
+                          <div className="flex items-center gap-1.5">
+                            <span className={validationReport.hasModInfo ? 'text-emerald-400' : 'text-rose-400'}>●</span>
+                            mod.info: <span className={validationReport.hasModInfo ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{validationReport.hasModInfo ? 'Found' : 'Missing'}</span>
                           </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={validationReport.hasAssets ? 'text-emerald-400' : 'text-rose-400'}>●</span>
+                            Assets (.uasset): <span className={validationReport.hasAssets ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{validationReport.hasAssets ? 'Found' : 'Missing'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={validationReport.hasActiveModsEntry ? 'text-emerald-400' : 'text-rose-400'}>●</span>
+                            ActiveMods INI: <span className={validationReport.hasActiveModsEntry ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{validationReport.hasActiveModsEntry ? 'Synced' : 'Not Sync'}</span>
+                          </div>
+                          {validationReport.hasUnextractedZ && (
+                            <div className="col-span-2 text-amber-400 flex items-center gap-1 text-[9px] mt-0.5 font-bold">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              Leftover .z files found: extraction is incomplete.
+                            </div>
+                          )}
                         </div>
 
                         {/* Issues List */}
@@ -1875,7 +1940,7 @@ export default function ASEModManager() {
                             className="flex-1 py-1.5 bg-amber-500/10 hover:bg-amber-500 hover:text-slate-950 border border-amber-500/20 text-amber-400 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1"
                           >
                             {isRepairing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                            Quick Repair Structure
+                            Quick Repair
                           </button>
                           <button
                             onClick={() => handleRepairMod(selectedModDetail.workshopId, true)}
@@ -1883,13 +1948,28 @@ export default function ASEModManager() {
                             className="flex-1 py-1.5 bg-rose-500/10 hover:bg-rose-500 hover:text-white border border-rose-500/20 text-rose-400 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1"
                           >
                             {isRepairing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3 h-3" />}
-                            Force Full Redownload
+                            Force Redownload
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                const { invoke } = await import('@tauri-apps/api/core');
+                                await invoke('open_in_explorer', { path: validationReport.modDir });
+                              } catch (err) {
+                                toast.error('Failed to open folder: ' + err);
+                              }
+                            }}
+                            className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-350 border border-white/5 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1"
+                            title="Open Mod Folder"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Open Folder
                           </button>
                         </div>
                       </div>
                     ) : (
                       <p className="text-[10px] text-slate-500 italic mt-1 leading-normal">
-                        Click 'Verify Integrity' to scan the mod's local files, checking for missing .mod, .ucas, and .utoc assets.
+                        Click 'Verify Integrity' to scan the mod's local files, checking for missing .mod, mod.info, and compiled assets.
                       </p>
                     )}
                   </div>

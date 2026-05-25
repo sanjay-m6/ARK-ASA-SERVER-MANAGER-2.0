@@ -88,14 +88,14 @@ export default function InstallServerDialog({ onClose }: Props) {
     }), [t]);
 
     const ALL_MAPS = useMemo(() => [...MAPS_ASA.released, ...MAPS_ASA.dlc, ...MAPS_ASA.premiumMods, ...MAPS_ASA.moddedMaps, ...MAPS_ASA.upcoming], [MAPS_ASA]);
-    const [step, setStep] = useState(1);
+    // Connect to global concurrent installation store
+    const { activeInstalls, currentlyViewingPath, startInstall, setViewingPath, removeInstall, draftSetup, setDraftSetup } = useInstallStore();
+    const activeTask = currentlyViewingPath ? activeInstalls[currentlyViewingPath] : null;
+
+    const [step, setStep] = useState(draftSetup?.step || 1);
     const [showConsole, setShowConsole] = useState(true);
     const consoleRef = useRef<HTMLDivElement>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
-
-    // Connect to global concurrent installation store
-    const { activeInstalls, currentlyViewingPath, startInstall, setViewingPath, removeInstall } = useInstallStore();
-    const activeTask = currentlyViewingPath ? activeInstalls[currentlyViewingPath] : null;
 
     const isInstalling = !!activeTask && !activeTask.isComplete && !activeTask.isError;
     const progress = activeTask ? {
@@ -114,13 +114,13 @@ export default function InstallServerDialog({ onClose }: Props) {
         }
     }, [currentlyViewingPath, activeInstalls]);
 
-    // New states for enhanced UX
+    // Auto-scroll console to bottom (only when auto-scroll is enabled)
     const [showScrollToBottom, setShowScrollToBottom] = useState(false);
     const [showTimestamps, setShowTimestamps] = useState(true);
     const [stepDirection, setStepDirection] = useState<'forward' | 'backward'>('forward');
     const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
 
-    const [formData, setFormData] = useState<InstallServerParams>({
+    const [formData, setFormData] = useState<InstallServerParams>(draftSetup?.formData || {
         serverType: 'ASA' as ServerType,
         installPath: '', // Will be calculated
         name: 'My ASA Server',
@@ -134,7 +134,7 @@ export default function InstallServerDialog({ onClose }: Props) {
     });
 
     // Base directory state (default to C:\ARKServers if empty)
-    const [baseDir, setBaseDir] = useState('C:\\ARKServers');
+    const [baseDir, setBaseDir] = useState(draftSetup?.baseDir || 'C:\\ARKServers');
 
     const sanitizeFolderName = (name: string) => {
         return name.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -219,6 +219,7 @@ export default function InstallServerDialog({ onClose }: Props) {
     };
 
     const handleInstall = async () => {
+        setDraftSetup(null); // Clear draft since we're installing
         startInstall(formData.installPath, formData.name, formData.mapName, formData.serverType);
         setViewingPath(formData.installPath);
         setStep(4);
@@ -229,6 +230,23 @@ export default function InstallServerDialog({ onClose }: Props) {
             console.error('Installation failed:', error);
             toast.error(`${t('dialogs.installServer.installationFailed')}: ${error}`);
         }
+    };
+
+    const handleMinimize = () => {
+        if (!isInstalling) {
+            // Save state as draft
+            setDraftSetup({ step, formData, baseDir });
+        }
+        onClose();
+        setViewingPath(null);
+    };
+
+    const handleClose = () => {
+        if (!isInstalling) {
+            setDraftSetup(null); // Clear draft
+        }
+        onClose();
+        setViewingPath(null);
     };
 
     const canProceed = () => {
@@ -247,7 +265,7 @@ export default function InstallServerDialog({ onClose }: Props) {
     const prevStep = () => {
         setStepDirection('backward');
         if (step > 1) setStep(step - 1);
-        else onClose();
+        else handleClose();
     };
 
     return (
@@ -263,31 +281,29 @@ export default function InstallServerDialog({ onClose }: Props) {
                 className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-slate-700/50 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl"
             >
                 {/* Header with Steps - Fixed at top */}
-                <div className="relative flex-shrink-0">
-                    {/* Close or Minimize Buttons */}
-                    <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
-                        {isInstalling ? (
+                <div className="relative flex-shrink-0 flex flex-col">
+                    {/* Top Actions Bar */}
+                    <div className="flex justify-end items-center px-4 pt-4 pb-2 z-20">
+                        <div className="flex items-center gap-2">
                             <button
-                                onClick={() => {
-                                    onClose();
-                                    setViewingPath(null);
-                                }}
-                                className="p-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-sky-500/40 flex items-center gap-1.5"
+                                onClick={handleMinimize}
+                                className="p-1.5 sm:p-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-sky-500/40 flex items-center gap-1.5 shadow-sm"
                                 aria-label="Minimize installation"
                                 title={t('dialogs.installServer.minimize', 'Minimize to Background')}
                             >
                                 <Minus className="w-4 h-4" />
                                 <span className="text-xs font-semibold pr-0.5">{t('dialogs.installServer.minimizeBtn', 'Minimize')}</span>
                             </button>
-                        ) : (
-                            <button
-                                onClick={onClose}
-                                className="p-2 hover:bg-white/10 rounded-xl transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/20"
-                                aria-label="Close dialog"
-                            >
-                                <X className="w-5 h-5 text-slate-400" />
-                            </button>
-                        )}
+                            {!isInstalling && (
+                                <button
+                                    onClick={handleClose}
+                                    className="p-1.5 sm:p-2 bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700/50 hover:border-red-500/30 rounded-xl transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-500/40 shadow-sm"
+                                    aria-label="Close dialog"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Map Preview Banner - Compact on small screens */}

@@ -14,7 +14,7 @@ import { cn } from '../../utils/helpers';
 const InfinityCopilot = lazy(() => import('../ai/InfinityCopilot'));
 
 export default function AppLayout() {
-    const { activeInstalls, currentlyViewingPath, setViewingPath } = useInstallStore();
+    const { activeInstalls, currentlyViewingPath, setViewingPath, isDraftOpen, setDraftOpen } = useInstallStore();
     const hasViewingTask = currentlyViewingPath && activeInstalls[currentlyViewingPath];
     const { activeGame } = useGameStore();
     const isASE = activeGame === 'ASE';
@@ -53,9 +53,12 @@ export default function AppLayout() {
             {/* Floating concurrent server installation center */}
             <FloatingInstallCenter />
 
-            {/* Global restore dialog when clicking 'View Logs' from background tasks */}
-            {hasViewingTask && (
-                <InstallServerDialog onClose={() => setViewingPath(null)} />
+            {/* Global restore dialog when clicking 'View Logs' from background tasks OR setup drafts */}
+            {(hasViewingTask || isDraftOpen) && (
+                <InstallServerDialog onClose={() => {
+                    setViewingPath(null);
+                    setDraftOpen(false);
+                }} />
             )}
         </div>
     );

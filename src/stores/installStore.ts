@@ -37,6 +37,12 @@ export interface InstallTask {
     logs: ConsoleOutputData[];
 }
 
+export interface DraftSetup {
+    step: number;
+    formData: any; // We'll cast this to InstallServerParams in the component to avoid circular types if needed, or import InstallServerParams
+    baseDir: string;
+}
+
 interface InstallStore {
     activeInstalls: Record<string, InstallTask>;
     currentlyViewingPath: string | null;
@@ -46,11 +52,20 @@ interface InstallStore {
     removeInstall: (installPath: string) => void;
     clearCompleted: () => void;
     setViewingPath: (installPath: string | null) => void;
+    draftSetup: DraftSetup | null;
+    setDraftSetup: (draft: DraftSetup | null) => void;
+    isDraftOpen: boolean;
+    setDraftOpen: (open: boolean) => void;
 }
 
 export const useInstallStore = create<InstallStore>((set) => ({
     activeInstalls: {},
     currentlyViewingPath: null,
+    draftSetup: null,
+    isDraftOpen: false,
+
+    setDraftSetup: (draftSetup) => set({ draftSetup }),
+    setDraftOpen: (isDraftOpen) => set({ isDraftOpen }),
 
     startInstall: (installPath, name, mapName, serverType) => set((state) => {
         const normalized = normalizePath(installPath);

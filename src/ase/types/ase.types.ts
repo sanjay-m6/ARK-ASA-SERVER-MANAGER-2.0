@@ -94,9 +94,15 @@ export interface ModValidationReport {
   issues: string[];
   fileCount: number;
   totalSize: number;
+  modDir: string;
   hasUcas: boolean;
   hasUtoc: boolean;
   hasModFile: boolean;
+  hasModInfo: boolean;
+  hasModmetaInfo: boolean;
+  hasAssets: boolean;
+  hasActiveModsEntry: boolean;
+  hasUnextractedZ: boolean;
 }
 
 export interface AseCluster {

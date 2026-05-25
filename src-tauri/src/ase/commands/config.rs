@@ -35,13 +35,39 @@ fn parse_ini(content: &str) -> HashMap<String, HashMap<String, String>> {
     sections
 }
 
-/// Get a value from parsed INI sections
+/// Get a value from parsed INI sections (case-insensitive and resilient to /Script/ prefixing)
 fn ini_get<'a>(
     sections: &'a HashMap<String, HashMap<String, String>>,
     section: &str,
     key: &str,
 ) -> Option<&'a String> {
-    sections.get(section).and_then(|s| s.get(key))
+    let section_lower = section.to_lowercase();
+    let key_lower = key.to_lowercase();
+
+    let clean_sec = |s: &str| -> String {
+        s.to_lowercase()
+            .trim_start_matches('/')
+            .split('.')
+            .last()
+            .unwrap_or("")
+            .to_string()
+    };
+
+    let target_clean = clean_sec(&section_lower);
+
+    for (sec_name, keys_map) in sections {
+        let sec_name_lower = sec_name.to_lowercase();
+        let sec_name_clean = clean_sec(&sec_name_lower);
+
+        if sec_name_lower == section_lower || sec_name_clean == target_clean {
+            for (k, v) in keys_map {
+                if k.to_lowercase() == key_lower {
+                    return Some(v);
+                }
+            }
+        }
+    }
+    None
 }
 
 fn ini_get_f64(

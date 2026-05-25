@@ -49,17 +49,17 @@ jobs:
           releaseBody: |
             ## 🚀 ${{ github.ref_name }} — Pre-Release Build
 
-            This is a pre-release beta version for v2.4.1 containing stability fixes, UI enhancements, and organization layout fixes.
+            This is a pre-release beta version for v2.4.2 containing stability fixes, UI enhancements, and organization layout fixes.
 
             ### ✨ What's New
-            - **ASE Modern Config Editor**: Redesigned UI configuration editor for ASE servers with a tabbed interface (GameUserSettings.ini & Game.ini).
-            - **DoExit Graceful Shutdown**: Fixed an issue in both ASA and ASE where shutting down the server via the RCON `DoExit` command was incorrectly detected as a server crash instead of a normal shutdown.
-            - **AI Copilot Notifications**: Fixed a bug where the AI Copilot would show unread notification counts (1, 2, 3...) but display no new messages when opened.
-            - **Server Organization**: Fixed a display bug where assigned servers were not showing up inside their organizational folders due to missing data in the backend pipeline.
+            - **Concurrent Background Downloader**: Implemented Tauri background tasks for downloading and installing servers in parallel with automated state draft saving on minimize.
+            - **Floating Install Center**: Added an interactive bottom-right widget to track concurrent installations, view details, and resume minimized setups.
+            - **Unified "Engrams & Crafting" Tab**: Reorganized configurations so that global settings like Auto-Unlock, Unlimited Respecs, Item Stack Sizes, and Custom Recipes are editable directly in the main Engrams tab.
+            - **Glassmorphic API Key Card**: Redesigned the global Steam Web API Key redirection card to be vertically centered, fully interactive/clickable, and responsive.
+            - **AI Copilot Repositioning**: Moved the global AI Copilot FAB and Panel to the top-right to prevent UI overlapping with bottom-right panels.
 
             ### Install
             Download the `.msi` installer below.
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, 'beta') }}
           includeUpdaterJson: true
-

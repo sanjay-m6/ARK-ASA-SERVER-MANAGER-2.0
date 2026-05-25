@@ -1988,6 +1988,8 @@ struct CmdSettings {
     cluster_id: Option<String>,
     active_mods: Option<String>,
     custom_args: Vec<String>,
+    source_script: Option<String>,
+    detected_command: Option<String>,
 }
 
 fn split_cmd_line(line: &str) -> Vec<String> {
@@ -2047,6 +2049,22 @@ fn parse_travel_url(token: &str) -> Option<(String, Vec<(String, String)>)> {
     Some((map_name, options))
 }
 
+fn replace_case_insensitive(source: &str, target: &str, replacement: &str) -> String {
+    let mut result = String::new();
+    let mut last_end = 0;
+    let source_lower = source.to_lowercase();
+    let target_lower = target.to_lowercase();
+    
+    while let Some(start) = source_lower[last_end..].find(&target_lower) {
+        let absolute_start = last_end + start;
+        result.push_str(&source[last_end..absolute_start]);
+        result.push_str(replacement);
+        last_end = absolute_start + target.len();
+    }
+    result.push_str(&source[last_end..]);
+    result
+}
+
 fn parse_cmd_line(line: &str) -> Option<CmdSettings> {
     let line_lower = line.to_lowercase();
     if !line_lower.contains("arkascendedserver") 
@@ -2070,16 +2088,36 @@ fn parse_cmd_line(line: &str) -> Option<CmdSettings> {
         cluster_id: None,
         active_mods: None,
         custom_args: Vec::new(),
+        source_script: None,
+        detected_command: None,
     };
 
-    let mut found_launch = false;
+    let mut exe_index = None;
+    for (i, token) in tokens.iter().enumerate() {
+        let t_lower = token.to_lowercase();
+        if t_lower.contains("shootergameserver") || t_lower.contains("arkascendedserver") {
+            exe_index = Some(i);
+            break;
+        }
+    }
 
-    for token in tokens {
-        if token.contains('?') && !token.starts_with('-') {
-            if let Some((map, options)) = parse_travel_url(&token) {
+    // Find the map token (first positional non-option token after the executable)
+    let mut map_token_index = None;
+    let start_search = exe_index.map(|i| i + 1).unwrap_or(0);
+    for i in start_search..tokens.len() {
+        let tok = &tokens[i];
+        if tok.contains('?') || (!tok.starts_with('-') && !tok.contains('=') && !tok.is_empty()) {
+            map_token_index = Some(i);
+            break;
+        }
+    }
+
+    if let Some(idx) = map_token_index {
+        let tok = &tokens[idx];
+        if tok.contains('?') {
+            if let Some((map, options)) = parse_travel_url(tok) {
                 if !map.is_empty() {
                     settings.map_name = Some(map);
-                    found_launch = true;
                 }
                 for (k, v) in options {
                     match k.as_str() {
@@ -2096,27 +2134,63 @@ fn parse_cmd_line(line: &str) -> Option<CmdSettings> {
                     }
                 }
             }
-        } else if let Some(arg) = token.strip_prefix('-') {
+        } else {
+            let map_name = tok
+                .split('/')
+                .last()
+                .unwrap_or("")
+                .split('\\')
+                .last()
+                .unwrap_or("")
+                .trim_matches('"')
+                .trim_matches('\'')
+                .to_string();
+            if !map_name.is_empty() {
+                settings.map_name = Some(map_name);
+            }
+        }
+    }
+
+    // Process other tokens
+    for (i, token) in tokens.iter().enumerate() {
+        if Some(i) == exe_index || Some(i) == map_token_index {
+            continue;
+        }
+
+        if let Some(arg) = token.strip_prefix('-') {
             if let Some((k, v)) = arg.split_once('=') {
                 let key_lower = k.to_lowercase();
                 let val = v.trim_matches('"').trim_matches('\'').to_string();
                 match key_lower.as_str() {
-                    "multihome" | "ipaddress" => settings.ip_address = Some(val),
-                    "clusterid" => settings.cluster_id = Some(val),
+                    "port" => settings.game_port = val.parse().ok(),
+                    "queryport" => settings.query_port = val.parse().ok(),
                     "rconport" => settings.rcon_port = val.parse().ok(),
                     "rconenabled" => settings.rcon_enabled = Some(val.to_lowercase() == "true" || val == "1"),
+                    "maxplayers" => settings.max_players = val.parse().ok(),
+                    "sessionname" => settings.session_name = Some(val),
+                    "serverpassword" => settings.server_password = Some(val),
+                    "serveradminpassword" => settings.admin_password = Some(val),
+                    "multihome" | "ipaddress" => settings.ip_address = Some(val),
+                    "clusterid" => settings.cluster_id = Some(val),
                     "modids" | "activemods" => settings.active_mods = Some(val),
                     _ => {
                         settings.custom_args.push(token.clone());
                     }
                 }
             } else {
-                settings.custom_args.push(token.clone());
+                let key_lower = arg.to_lowercase();
+                match key_lower.as_str() {
+                    "rconenabled" => settings.rcon_enabled = Some(true),
+                    _ => {
+                        settings.custom_args.push(token.clone());
+                    }
+                }
             }
         }
     }
 
-    if found_launch || settings.game_port.is_some() || settings.query_port.is_some() {
+    // Consider parsed if map was found or if we found key ports
+    if settings.map_name.is_some() || settings.game_port.is_some() || settings.query_port.is_some() {
         Some(settings)
     } else {
         None
@@ -2125,10 +2199,12 @@ fn parse_cmd_line(line: &str) -> Option<CmdSettings> {
 
 fn detect_batch_settings(install_path: &std::path::Path, _server_type: &str) -> Option<CmdSettings> {
     use std::fs;
+    use std::collections::HashMap;
     
     let search_dirs = vec![
         install_path.to_path_buf(),
         install_path.join("ShooterGame").join("Binaries").join("Win64"),
+        install_path.join("ShooterGame").join("Binaries").join("Linux"),
     ];
 
     for dir in search_dirs {
@@ -2137,8 +2213,55 @@ fn detect_batch_settings(install_path: &std::path::Path, _server_type: &str) -> 
                 let path = entry.path();
                 if let Some(ext) = path.extension() {
                     let ext_lower = ext.to_string_lossy().to_lowercase();
-                    if ext_lower == "bat" || ext_lower == "cmd" {
+                    if ext_lower == "bat" || ext_lower == "cmd" || ext_lower == "ps1" || ext_lower == "sh" {
                         if let Ok(content) = fs::read_to_string(&path) {
+                            // 1. Gather variables first
+                            let mut variables = HashMap::new();
+                            for line in content.lines() {
+                                let trimmed = line.trim();
+                                if trimmed.is_empty() {
+                                    continue;
+                                }
+
+                                if ext_lower == "bat" || ext_lower == "cmd" {
+                                    if trimmed.to_lowercase().starts_with("set ") {
+                                        let var_part = trimmed[4..].trim();
+                                        let clean_part = if var_part.starts_with('"') && var_part.ends_with('"') {
+                                            &var_part[1..var_part.len()-1]
+                                        } else {
+                                            var_part
+                                        };
+                                        if let Some((k, v)) = clean_part.split_once('=') {
+                                            let key = k.trim().to_lowercase();
+                                            let val = v.trim().trim_matches('"').trim_matches('\'').to_string();
+                                            variables.insert(key, val);
+                                        }
+                                    }
+                                } else if ext_lower == "ps1" {
+                                    if trimmed.starts_with('$') {
+                                        if let Some((k, v)) = trimmed.split_once('=') {
+                                            let key = k.trim().trim_start_matches('$').trim().to_lowercase();
+                                            let val = v.trim().trim_matches('"').trim_matches('\'').to_string();
+                                            variables.insert(key, val);
+                                        }
+                                    }
+                                } else if ext_lower == "sh" {
+                                    let clean = if trimmed.starts_with("export ") {
+                                        trimmed[7..].trim()
+                                    } else {
+                                        trimmed
+                                    };
+                                    if let Some((k, v)) = clean.split_once('=') {
+                                        let key = k.trim();
+                                        if !key.contains(' ') && !key.starts_with('$') {
+                                            let val = v.trim().trim_matches('"').trim_matches('\'').to_string();
+                                            variables.insert(key.to_lowercase(), val);
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. Process command line lines with variable replacements
                             for line in content.lines() {
                                 let line = line.trim();
                                 if line.is_empty() {
@@ -2147,12 +2270,31 @@ fn detect_batch_settings(install_path: &std::path::Path, _server_type: &str) -> 
                                 let line_lower = line.to_lowercase();
                                 if line_lower.starts_with("rem") 
                                     || line_lower.starts_with("::") 
+                                    || line_lower.starts_with("#") 
                                     || line_lower.starts_with("@rem") 
                                     || line_lower.starts_with("@::") {
                                     continue;
                                 }
-                                if let Some(settings) = parse_cmd_line(line) {
-                                    println!("   ✅ Parsed launch settings from batch file: {:?}", path.file_name().unwrap_or_default());
+
+                                // Resolve variables in the line
+                                let mut resolved_line = line.to_string();
+                                for (k, v) in &variables {
+                                    if ext_lower == "bat" || ext_lower == "cmd" {
+                                        let target = format!("%{}%", k);
+                                        resolved_line = replace_case_insensitive(&resolved_line, &target, v);
+                                    } else {
+                                        let target_braced = format!("${{{}}}", k);
+                                        resolved_line = replace_case_insensitive(&resolved_line, &target_braced, v);
+                                        let target_simple = format!("${}", k);
+                                        resolved_line = replace_case_insensitive(&resolved_line, &target_simple, v);
+                                    }
+                                }
+
+                                if let Some(mut settings) = parse_cmd_line(&resolved_line) {
+                                    let file_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                                    println!("   ✅ Parsed launch settings from script file: {:?}", file_name);
+                                    settings.source_script = Some(file_name);
+                                    settings.detected_command = Some(resolved_line);
                                     return Some(settings);
                                 }
                             }
@@ -2252,6 +2394,67 @@ fn detect_ip_address(install_path: &std::path::Path) -> Option<String> {
     None
 }
 
+/// Helper to parse UE4-style INI files in a case-insensitive manner
+pub fn parse_ini(content: &str) -> std::collections::HashMap<String, std::collections::HashMap<String, String>> {
+    let mut sections: std::collections::HashMap<String, std::collections::HashMap<String, String>> = std::collections::HashMap::new();
+    let mut current_section = String::from("__root__");
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with(';') || trimmed.starts_with('#') {
+            continue;
+        }
+
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            current_section = trimmed[1..trimmed.len() - 1].to_string();
+            sections.entry(current_section.clone()).or_default();
+        } else if let Some(eq_pos) = trimmed.find('=') {
+            let key = trimmed[..eq_pos].trim().to_string();
+            let value = trimmed[eq_pos + 1..].trim().to_string();
+            let section_map = sections.entry(current_section.clone()).or_default();
+            section_map.insert(key, value);
+        }
+    }
+    sections
+}
+
+/// Helper to perform case-insensitive key and section header matching
+pub fn ini_get<'a>(
+    sections: &'a std::collections::HashMap<String, std::collections::HashMap<String, String>>,
+    possible_sections: &[&str],
+    key: &str,
+) -> Option<&'a String> {
+    let key_lower = key.to_lowercase();
+    let clean_sec = |s: &str| -> String {
+        s.to_lowercase()
+            .trim_start_matches('/')
+            .split('.')
+            .last()
+            .unwrap_or("")
+            .to_string()
+    };
+
+    let target_cleans: Vec<String> = possible_sections.iter().map(|s| clean_sec(s)).collect();
+    let possible_lowers: Vec<String> = possible_sections.iter().map(|s| s.to_lowercase()).collect();
+
+    for (sec_name, keys_map) in sections {
+        let sec_name_lower = sec_name.to_lowercase();
+        let sec_name_clean = clean_sec(&sec_name_lower);
+
+        let matches = possible_lowers.contains(&sec_name_lower) 
+            || target_cleans.contains(&sec_name_clean);
+
+        if matches {
+            for (k, v) in keys_map {
+                if k.to_lowercase() == key_lower {
+                    return Some(v);
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Import preview result returned to the frontend before committing.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -2270,13 +2473,27 @@ pub struct ImportPreview {
     pub custom_args: String,
     pub cluster_id: String,
     pub warnings: Vec<String>,
+    // New diagnostic fields
+    pub detected_command: Option<String>,
+    pub source_files: std::collections::HashMap<String, String>,
+    pub confidence_levels: std::collections::HashMap<String, String>,
+    pub raw_ini_gus: Option<String>,
+    pub raw_ini_game: Option<String>,
+    // Phase 3 Save Metadata
+    pub player_count: u32,
+    pub tribe_count: u32,
+    pub save_file_size: u64,
+    pub save_last_modified: Option<String>,
 }
 
 /// Parse all importable settings from an ARK installation path (works for both ASA and ASE).
 pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) -> ImportPreview {
     use std::fs;
+    use std::collections::HashMap;
 
     let mut warnings: Vec<String> = Vec::new();
+    let mut source_files = HashMap::new();
+    let mut confidence_levels = HashMap::new();
 
     let config_dir = install_path
         .join("ShooterGame")
@@ -2285,6 +2502,7 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
         .join("WindowsServer");
 
     let gus_path = config_dir.join("GameUserSettings.ini");
+    let game_ini_path = config_dir.join("Game.ini");
 
     let mut max_players: u32 = 70;
     let mut session_name = String::new();
@@ -2298,68 +2516,105 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
     let mut custom_args = String::new();
     let mut cluster_id = String::new();
 
-    if gus_path.exists() {
-        if let Ok(content) = fs::read_to_string(&gus_path) {
-            let mut current_section = String::new();
+    // Default confidence and source setup
+    let set_def = |sources: &mut HashMap<String, String>, conf: &mut HashMap<String, String>, key: &str| {
+        sources.insert(key.to_string(), "Default Fallback".to_string());
+        conf.insert(key.to_string(), "Low (Default Fallback)".to_string());
+    };
 
-            for line in content.lines() {
-                let trimmed = line.trim();
+    set_def(&mut source_files, &mut confidence_levels, "mapName");
+    set_def(&mut source_files, &mut confidence_levels, "sessionName");
+    set_def(&mut source_files, &mut confidence_levels, "maxPlayers");
+    set_def(&mut source_files, &mut confidence_levels, "gamePort");
+    set_def(&mut source_files, &mut confidence_levels, "queryPort");
+    set_def(&mut source_files, &mut confidence_levels, "rconPort");
+    set_def(&mut source_files, &mut confidence_levels, "rconEnabled");
+    set_def(&mut source_files, &mut confidence_levels, "adminPassword");
+    set_def(&mut source_files, &mut confidence_levels, "serverPassword");
+    set_def(&mut source_files, &mut confidence_levels, "activeMods");
+    set_def(&mut source_files, &mut confidence_levels, "clusterId");
 
-                if trimmed.starts_with('[') && trimmed.ends_with(']') {
-                    current_section = trimmed[1..trimmed.len() - 1].to_string();
-                    continue;
-                }
+    let raw_ini_gus = fs::read_to_string(&gus_path).ok();
+    let raw_ini_game = fs::read_to_string(&game_ini_path).ok();
 
-                if let Some((key, value)) = trimmed.split_once('=') {
-                    let key = key.trim();
-                    let value = value.trim();
+    if let Some(ref content) = raw_ini_gus {
+        let sections = parse_ini(content);
 
-                    if current_section == "ServerSettings"
-                        || current_section == "/Script/ShooterGame.ShooterGameMode"
-                    {
-                        match key {
-                            "MaxPlayers" => max_players = value.parse().unwrap_or(70),
-                            "ServerPassword" if !value.is_empty() => {
-                                server_password = value.to_string();
-                            }
-                            "ServerAdminPassword" if !value.is_empty() => {
-                                let clean = value.split("?ServerPassword=").next().unwrap_or(value);
-                                admin_password = clean.to_string();
-                            }
-                            "SessionName" if !value.is_empty() => {
-                                session_name = value.to_string();
-                            }
-                            "RCONEnabled" => {
-                                rcon_enabled = value.to_lowercase() == "true" || value == "1";
-                            }
-                            "RCONPort" => rcon_port = value.parse().unwrap_or(27020),
-                            "ActiveMods" if !value.is_empty() => {
-                                active_mods = value.to_string();
-                            }
-                            _ => {}
-                        }
-                    }
-
-                    if current_section == "URL" || current_section == "/Script/Engine.GameSession" {
-                        match key {
-                            "Port" => game_port = value.parse().unwrap_or(7777),
-                            "QueryPort" => query_port = value.parse().unwrap_or(27015),
-                            "MaxPlayers" => {
-                                if let Ok(v) = value.parse::<u32>() {
-                                    max_players = v;
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-
-                    if current_section == "ASM2" {
-                        if key == "LauncherArgs" && !value.is_empty() {
-                            custom_args = value.to_string();
-                        }
-                    }
-                }
+        // Parse individual settings inlined to avoid mutable borrow conflicts
+        if let Some(v) = ini_get(&sections, &["ServerSettings", "/Script/ShooterGame.ShooterGameMode", "SessionSettings"], "SessionName") {
+            if !v.is_empty() {
+                session_name = v.clone();
+                source_files.insert("sessionName".to_string(), "GameUserSettings.ini".to_string());
+                confidence_levels.insert("sessionName".to_string(), "High (Config INI)".to_string());
             }
+        }
+
+        if let Some(v) = ini_get(&sections, &["ServerSettings", "/Script/ShooterGame.ShooterGameMode"], "ServerPassword") {
+            if !v.is_empty() {
+                server_password = v.clone();
+                source_files.insert("serverPassword".to_string(), "GameUserSettings.ini".to_string());
+                confidence_levels.insert("serverPassword".to_string(), "High (Config INI)".to_string());
+            }
+        }
+        
+        if let Some(v) = ini_get(&sections, &["ServerSettings", "/Script/ShooterGame.ShooterGameMode"], "ServerAdminPassword") {
+            if !v.is_empty() {
+                let clean = v.split("?ServerPassword=").next().unwrap_or(v);
+                admin_password = clean.to_string();
+                source_files.insert("adminPassword".to_string(), "GameUserSettings.ini".to_string());
+                confidence_levels.insert("adminPassword".to_string(), "High (Config INI)".to_string());
+            }
+        }
+
+        if let Some(v) = ini_get(&sections, &["ServerSettings", "/Script/ShooterGame.ShooterGameMode", "SessionSettings", "URL", "/Script/Engine.GameSession"], "MaxPlayers") {
+            if let Ok(parsed) = v.parse::<u32>() {
+                max_players = parsed;
+                source_files.insert("maxPlayers".to_string(), "GameUserSettings.ini".to_string());
+                confidence_levels.insert("maxPlayers".to_string(), "High (Config INI)".to_string());
+            }
+        }
+
+        if let Some(v) = ini_get(&sections, &["URL", "/Script/Engine.GameSession", "ServerSettings"], "Port") {
+            if let Ok(parsed) = v.parse::<u16>() {
+                game_port = parsed;
+                source_files.insert("gamePort".to_string(), "GameUserSettings.ini".to_string());
+                confidence_levels.insert("gamePort".to_string(), "High (Config INI)".to_string());
+            }
+        }
+
+        if let Some(v) = ini_get(&sections, &["URL", "/Script/Engine.GameSession", "ServerSettings"], "QueryPort") {
+            if let Ok(parsed) = v.parse::<u16>() {
+                query_port = parsed;
+                source_files.insert("queryPort".to_string(), "GameUserSettings.ini".to_string());
+                confidence_levels.insert("queryPort".to_string(), "High (Config INI)".to_string());
+            }
+        }
+
+        if let Some(v) = ini_get(&sections, &["ServerSettings", "/Script/ShooterGame.ShooterGameMode"], "RCONPort") {
+            if let Ok(parsed) = v.parse::<u16>() {
+                rcon_port = parsed;
+                source_files.insert("rconPort".to_string(), "GameUserSettings.ini".to_string());
+                confidence_levels.insert("rconPort".to_string(), "High (Config INI)".to_string());
+            }
+        }
+
+        if let Some(v) = ini_get(&sections, &["ServerSettings", "/Script/ShooterGame.ShooterGameMode"], "RCONEnabled") {
+            let lower = v.to_lowercase();
+            rcon_enabled = lower == "true" || lower == "1";
+            source_files.insert("rconEnabled".to_string(), "GameUserSettings.ini".to_string());
+            confidence_levels.insert("rconEnabled".to_string(), "High (Config INI)".to_string());
+        }
+
+        if let Some(v) = ini_get(&sections, &["ServerSettings", "/Script/ShooterGame.ShooterGameMode"], "ActiveMods") {
+            if !v.is_empty() {
+                active_mods = v.clone();
+                source_files.insert("activeMods".to_string(), "GameUserSettings.ini".to_string());
+                confidence_levels.insert("activeMods".to_string(), "High (Config INI)".to_string());
+            }
+        }
+
+        if let Some(v) = ini_get(&sections, &["ASM2"], "LauncherArgs") {
+            custom_args = v.clone();
         }
     } else {
         warnings.push("GameUserSettings.ini not found — using defaults for most settings.".into());
@@ -2367,49 +2622,86 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
 
     // Detect map name via helper
     let map_name = detect_map_name(install_path, server_type);
+    if map_name != "TheIsland" && map_name != "TheIsland_WP" {
+        source_files.insert("mapName".to_string(), "Detected from Directory/Scripts".to_string());
+        confidence_levels.insert("mapName".to_string(), "High (Automatic Detection)".to_string());
+    }
 
     // Detect IP address
     let mut ip_address = detect_ip_address(install_path);
 
-    // Override / merge launch parameters from batch/cmd files if found
+    // Override / merge launch parameters from batch/cmd/ps1/sh files if found
+    let mut detected_command = None;
     if let Some(batch) = detect_batch_settings(install_path, server_type) {
+        let src_script = batch.source_script.unwrap_or_else(|| "Startup Script".to_string());
+        detected_command = batch.detected_command;
+
+        if batch.map_name.is_some() {
+            source_files.insert("mapName".to_string(), src_script.clone());
+            confidence_levels.insert("mapName".to_string(), "High (Startup Script)".to_string());
+        }
+
         if let Some(port) = batch.game_port {
             game_port = port;
+            source_files.insert("gamePort".to_string(), src_script.clone());
+            confidence_levels.insert("gamePort".to_string(), "High (Startup Script)".to_string());
         }
         if let Some(port) = batch.query_port {
             query_port = port;
+            source_files.insert("queryPort".to_string(), src_script.clone());
+            confidence_levels.insert("queryPort".to_string(), "High (Startup Script)".to_string());
         }
         if let Some(port) = batch.rcon_port {
             rcon_port = port;
+            source_files.insert("rconPort".to_string(), src_script.clone());
+            confidence_levels.insert("rconPort".to_string(), "High (Startup Script)".to_string());
         }
         if let Some(enabled) = batch.rcon_enabled {
             rcon_enabled = enabled;
+            source_files.insert("rconEnabled".to_string(), src_script.clone());
+            confidence_levels.insert("rconEnabled".to_string(), "High (Startup Script)".to_string());
         }
         if let Some(players) = batch.max_players {
             max_players = players;
+            source_files.insert("maxPlayers".to_string(), src_script.clone());
+            confidence_levels.insert("maxPlayers".to_string(), "High (Startup Script)".to_string());
         }
-        if let Some(name) = batch.session_name {
-            session_name = name;
+        
+        if let Some(v) = batch.session_name {
+            session_name = v;
+            source_files.insert("sessionName".to_string(), src_script.clone());
+            confidence_levels.insert("sessionName".to_string(), "High (Startup Script)".to_string());
         }
-        if let Some(pwd) = batch.server_password {
-            server_password = pwd;
+        if let Some(v) = batch.server_password {
+            server_password = v;
+            source_files.insert("serverPassword".to_string(), src_script.clone());
+            confidence_levels.insert("serverPassword".to_string(), "High (Startup Script)".to_string());
         }
-        if let Some(pwd) = batch.admin_password {
-            admin_password = pwd;
+        if let Some(v) = batch.admin_password {
+            admin_password = v;
+            source_files.insert("adminPassword".to_string(), src_script.clone());
+            confidence_levels.insert("adminPassword".to_string(), "High (Startup Script)".to_string());
         }
+        if let Some(v) = batch.active_mods {
+            active_mods = v;
+            source_files.insert("activeMods".to_string(), src_script.clone());
+            confidence_levels.insert("activeMods".to_string(), "High (Startup Script)".to_string());
+        }
+        if let Some(v) = batch.cluster_id {
+            cluster_id = v;
+            source_files.insert("clusterId".to_string(), src_script.clone());
+            confidence_levels.insert("clusterId".to_string(), "High (Startup Script)".to_string());
+        }
+
         if let Some(ip) = batch.ip_address {
             ip_address = Some(ip);
-        }
-        if let Some(mods) = batch.active_mods {
-            active_mods = mods;
         }
         if !batch.custom_args.is_empty() {
             custom_args = batch.custom_args.join(" ");
         }
-        if let Some(cid) = batch.cluster_id {
-            cluster_id = cid;
-        }
     }
+
+    let detected_map = detect_map_name(install_path, server_type);
 
     if session_name.is_empty() {
         warnings.push("No SessionName found in INI or batch files — will use folder name.".into());
@@ -2418,8 +2710,45 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
         warnings.push("No ServerAdminPassword found — you should set one after import.".into());
     }
 
+    // Scan local world save profiles & tribes (.arkprofile, .arktribe, .ark size/time)
+    let mut player_count = 0;
+    let mut tribe_count = 0;
+    let mut save_file_size = 0;
+    let mut save_last_modified = None;
+
+    let saved_arks_dir = install_path
+        .join("ShooterGame")
+        .join("Saved")
+        .join("SavedArks");
+
+    if saved_arks_dir.exists() {
+        if let Ok(entries) = fs::read_dir(&saved_arks_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(ext) = path.extension() {
+                    let ext_str = ext.to_string_lossy().to_lowercase();
+                    if ext_str == "arkprofile" {
+                        player_count += 1;
+                    } else if ext_str == "arktribe" {
+                        tribe_count += 1;
+                    } else if ext_str == "ark" {
+                        if let Ok(meta) = entry.metadata() {
+                            if meta.len() > save_file_size {
+                                save_file_size = meta.len();
+                                if let Ok(modified) = meta.modified() {
+                                    let dt: chrono::DateTime<chrono::Utc> = modified.into();
+                                    save_last_modified = Some(dt.to_rfc3339());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     ImportPreview {
-        map_name,
+        map_name: detected_map,
         session_name,
         max_players,
         game_port,
@@ -2433,6 +2762,15 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
         custom_args,
         cluster_id,
         warnings,
+        detected_command,
+        source_files,
+        confidence_levels,
+        raw_ini_gus,
+        raw_ini_game,
+        player_count,
+        tribe_count,
+        save_file_size,
+        save_last_modified,
     }
 }
 
@@ -2453,6 +2791,7 @@ pub async fn import_server(
     state: State<'_, AppState>,
     install_path: String,
     name: String,
+    overrides: Option<ImportPreview>,
 ) -> Result<Server, String> {
 
     println!("📥 Importing server from: {}", install_path);
@@ -2478,8 +2817,12 @@ pub async fn import_server(
         println!("   ⚠️  Empty folder - server will be downloaded on first start");
     }
 
-    // Parse all settings from INI files
-    let preview = parse_import_settings(&path, "ASA");
+    // Parse all settings from INI files or use overrides
+    let preview = if let Some(ov) = overrides {
+        ov
+    } else {
+        parse_import_settings(&path, "ASA")
+    };
 
     let map_name = preview.map_name;
     let session_name = if preview.session_name.is_empty() { name.clone() } else { preview.session_name };

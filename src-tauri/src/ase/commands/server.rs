@@ -498,6 +498,7 @@ pub async fn reset_ase_server(
 pub async fn import_ase_server(
     install_path: String,
     name: String,
+    overrides: Option<crate::commands::server::ImportPreview>,
     state: State<'_, AppState>,
 ) -> Result<AseServer, String> {
     use std::path::PathBuf;
@@ -523,8 +524,12 @@ pub async fn import_ase_server(
         println!("   ⚠️  Empty folder — server will be downloaded on first start");
     }
 
-    // Use the unified parse_import_settings helper
-    let preview = crate::commands::server::parse_import_settings(&path, "ASE");
+    // Use the unified parse_import_settings helper or overrides
+    let preview = if let Some(ov) = overrides {
+        ov
+    } else {
+        crate::commands::server::parse_import_settings(&path, "ASE")
+    };
 
     let map_name = if preview.map_name.is_empty() { "TheIsland".to_string() } else { preview.map_name };
     let session_name = if preview.session_name.is_empty() { name.clone() } else { preview.session_name };
@@ -538,7 +543,7 @@ pub async fn import_ase_server(
     let cluster_id = preview.cluster_id;
     let extra_args = preview.custom_args;
 
-    // Detect BattlEye configuration
+    // Detect BattlEye configuration using case-insensitive INI parser helpers
     let mut battleye = true;
     let gus_path = path
         .join("ShooterGame")
@@ -549,25 +554,14 @@ pub async fn import_ase_server(
 
     if gus_path.exists() {
         if let Ok(content) = std::fs::read_to_string(&gus_path) {
-            let mut current_section = String::new();
+            let sections = crate::commands::server::parse_ini(&content);
             let mut no_be = false;
             let mut be_enforcer = true;
-            for line in content.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with('[') && trimmed.ends_with(']') {
-                    current_section = trimmed[1..trimmed.len() - 1].to_string();
-                    continue;
-                }
-                if let Some((key, value)) = trimmed.split_once('=') {
-                    let key = key.trim();
-                    let value = value.trim();
-                    if current_section == "ASM2" && key == "NoBattlEye" {
-                        no_be = value.to_lowercase() == "true" || value == "1";
-                    }
-                    if current_section == "ServerSettings" && key == "BattlEyeEnforcer" {
-                        be_enforcer = value.to_lowercase() == "true" || value == "1";
-                    }
-                }
+            if let Some(v) = crate::commands::server::ini_get(&sections, &["ASM2"], "NoBattlEye") {
+                no_be = v.to_lowercase() == "true" || v == "1";
+            }
+            if let Some(v) = crate::commands::server::ini_get(&sections, &["ServerSettings"], "BattlEyeEnforcer") {
+                be_enforcer = v.to_lowercase() == "true" || v == "1";
             }
             battleye = !no_be && be_enforcer;
         }
@@ -618,7 +612,7 @@ pub async fn import_ase_server(
         "INSERT INTO ase_servers (name, install_path, map_name, port, query_port, rcon_port, \
          rcon_password, max_players, server_password, admin_password, session_name, active_mods, \
          cluster_id, battleye, extra_args, status, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'stopped', ?15, ?15)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?9, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'stopped', ?15, ?15)",
         rusqlite::params![
             unique_name, install_path, map_name, port, query_port, rcon_port,
             max_players, server_password, admin_password, session_name,

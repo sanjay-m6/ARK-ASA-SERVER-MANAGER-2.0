@@ -168,8 +168,8 @@ export async function cloneServer(serverId: number): Promise<Server> {
     return await invoke('clone_server', { sourceServerId: serverId });
 }
 
-export async function importServer(installPath: string, name: string): Promise<Server> {
-    return await invoke('import_server', { installPath, name });
+export async function importServer(installPath: string, name: string, overrides?: Partial<ImportPreview>): Promise<Server> {
+    return await invoke('import_server', { installPath, name, overrides: overrides || null });
 }
 
 export interface ImportPreview {
@@ -187,14 +187,25 @@ export interface ImportPreview {
     customArgs: string;
     clusterId: string;
     warnings: string[];
+    // Diagnostic & Preview additions
+    detectedCommand: string | null;
+    sourceFiles: Record<string, string>;
+    confidenceLevels: Record<string, string>;
+    rawIniGus: string | null;
+    rawIniGame: string | null;
+    // Phase 3 Save Metadata
+    playerCount: number;
+    tribeCount: number;
+    saveFileSize: number;
+    saveLastModified: string | null;
 }
 
 export async function previewImportSettings(installPath: string, serverType: 'ASA' | 'ASE'): Promise<ImportPreview> {
     return await invoke('preview_import_settings', { installPath, serverType });
 }
 
-export async function importAseServer(installPath: string, name: string): Promise<any> {
-    return await invoke('import_ase_server', { installPath, name });
+export async function importAseServer(installPath: string, name: string, overrides?: Partial<ImportPreview>): Promise<any> {
+    return await invoke('import_ase_server', { installPath, name, overrides: overrides || null });
 }
 
 export async function toggleServerAutomation(serverId: number, toggleType: 'auto_start' | 'auto_stop' | 'intelligent_mode', enabled: boolean): Promise<void> {
@@ -706,6 +717,10 @@ export async function checkPluginStatus(serverId: number, pluginName: string): P
 
 export async function checkAsaApiInstalled(serverId: number): Promise<boolean> {
     return await invoke('check_asa_api_installed', { serverId });
+}
+
+export async function installAsaApi(serverId: number): Promise<string> {
+    return await invoke('install_asa_api', { serverId });
 }
 
 export async function getPluginDirectory(serverId: number): Promise<string> {

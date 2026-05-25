@@ -6,8 +6,8 @@ import {
     Check, XCircle, GripVertical, Network, FolderOpen, Users, PenLine, Cpu
 } from 'lucide-react';
 import { useServerStore } from '../stores/serverStore';
+import { useInstallStore } from '../stores/installStore';
 import { cn } from '../utils/helpers';
-import InstallServerDialog from '../components/server/InstallServerDialog';
 import ImportServerDialog from '../components/server/ImportServerDialog';
 import ImportNonDedicatedDialog from '../components/server/ImportNonDedicatedDialog';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
@@ -34,7 +34,7 @@ export default function ServerManager() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const { servers, setServers, removeServer, updateServerStatus, refreshServers } = useServerStore();
-    const [showInstallDialog, setShowInstallDialog] = useState(false);
+    const { setDraftOpen } = useInstallStore();
     const [serverLogs, setServerLogs] = useState<Record<number, string[]>>({});
     const [expandedConsoles, setExpandedConsoles] = useState<Record<number, boolean>>({});
     const consoleRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -175,7 +175,7 @@ export default function ServerManager() {
 
 
     const handleDialogClose = async () => {
-        setShowInstallDialog(false);
+        setDraftOpen(false);
         setShowImportDialog(false);
         setShowNonDedicatedImport(false);
         await refreshServers();
@@ -688,7 +688,7 @@ export default function ServerManager() {
                         <span>{t('serverManager.buttons.importSave')}</span>
                     </button>
                     <button
-                        onClick={() => setShowInstallDialog(true)}
+                        onClick={() => setDraftOpen(true)}
                         className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl transition-all shadow-lg shadow-sky-500/20 font-medium group"
                     >
                         <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
@@ -772,7 +772,7 @@ export default function ServerManager() {
                     </p>
                     <div className="flex flex-col gap-4 items-center relative z-10">
                         <button
-                            onClick={() => setShowInstallDialog(true)}
+                            onClick={() => setDraftOpen(true)}
                             className="px-8 py-4 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-sky-500/20 hover:scale-105"
                         >
                             {t('serverManager.buttons.installFirst', 'Deploy Server')}
@@ -1369,11 +1369,6 @@ export default function ServerManager() {
                         </Droppable>
                     </DragDropContext>
                 </div>
-            )}
-
-            {/* Install Server Dialog */}
-            {showInstallDialog && (
-                <InstallServerDialog onClose={handleDialogClose} />
             )}
 
             {/* Import Server Dialog */}

@@ -38,9 +38,15 @@ pub struct ModValidationReport {
     pub issues: Vec<String>,
     pub file_count: usize,
     pub total_size: u64,
-    pub has_ucas: bool,
-    pub has_utoc: bool,
-    pub has_mod_file: bool,
+    pub mod_dir: String,
+    pub has_ucas: bool,            // Backward compatibility (mod.info)
+    pub has_utoc: bool,            // Backward compatibility (assets)
+    pub has_mod_file: bool,        // Parent <ModID>.mod file exists
+    pub has_mod_info: bool,        // mod.info inside directory
+    pub has_modmeta_info: bool,    // modmeta.info inside directory (optional)
+    pub has_assets: bool,          // Compiled assets (.uasset, .umap) exist
+    pub has_active_mods_entry: bool, // Present in GameUserSettings.ini ActiveMods
+    pub has_unextracted_z: bool,   // Leftover compressed .z files detected
 }
 
 #[tauri::command]
@@ -963,6 +969,7 @@ pub async fn validate_ase_mod(
     let mods_dir = PathBuf::from(&install_path)
         .join("ShooterGame").join("Content").join("Mods").join(&workshop_id);
 
+    let mod_dir_str = mods_dir.to_string_lossy().replace("\\", "/");
     let mut issues = Vec::new();
 
     if !mods_dir.exists() {
@@ -973,56 +980,68 @@ pub async fn validate_ase_mod(
             issues,
             file_count: 0,
             total_size: 0,
+            mod_dir: mod_dir_str,
             has_ucas: false,
             has_utoc: false,
             has_mod_file: false,
+            has_mod_info: false,
+            has_modmeta_info: false,
+            has_assets: false,
+            has_active_mods_entry: false,
+            has_unextracted_z: false,
         });
     }
 
     struct FileScanResult {
         file_count: usize,
         total_size: u64,
-        has_ucas: bool,
-        has_utoc: bool,
-        has_mod_file: bool,
+        has_mod_info: bool,
+        has_modmeta_info: bool,
+        has_assets: bool,
+        has_unextracted_z: bool,
     }
 
-    fn scan_mod_directory(dir: &PathBuf) -> Result<FileScanResult, String> {
+    fn scan_mod_directory(dir: &std::path::Path) -> Result<FileScanResult, String> {
         let mut result = FileScanResult {
             file_count: 0,
             total_size: 0,
-            has_ucas: false,
-            has_utoc: false,
-            has_mod_file: false,
+            has_mod_info: false,
+            has_modmeta_info: false,
+            has_assets: false,
+            has_unextracted_z: false,
         };
 
         for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
             let path = entry.path();
-            if path.is_dir() {
-                let sub = scan_mod_directory(&path)?;
-                result.file_count += sub.file_count;
-                result.total_size += sub.total_size;
-                result.has_ucas |= sub.has_ucas;
-                result.has_utoc |= sub.has_utoc;
-                result.has_mod_file |= sub.has_mod_file;
-            } else {
-                result.file_count += 1;
-                if let Ok(metadata) = std::fs::metadata(&path) {
-                    result.total_size += metadata.len();
-                }
-                if let Some(ext) = path.extension() {
-                    let ext_lower = ext.to_string_lossy().to_lowercase();
-                    if ext_lower == "ucas" {
-                        result.has_ucas = true;
-                    } else if ext_lower == "utoc" {
-                        result.has_utoc = true;
+            
+            // Resolve metadata (following symbolic links if any)
+            if let Ok(metadata) = std::fs::metadata(&path) {
+                if metadata.is_dir() {
+                    let sub = scan_mod_directory(&path)?;
+                    result.file_count += sub.file_count;
+                    result.total_size += sub.total_size;
+                    result.has_mod_info |= sub.has_mod_info;
+                    result.has_modmeta_info |= sub.has_modmeta_info;
+                    result.has_assets |= sub.has_assets;
+                    result.has_unextracted_z |= sub.has_unextracted_z;
+                } else {
+                    let file_size = metadata.len();
+                    if file_size > 0 {
+                        result.file_count += 1;
+                        result.total_size += file_size;
                     }
-                }
-                if let Some(name) = path.file_name() {
-                    let name_str = name.to_string_lossy();
-                    if name_str.ends_with(".mod") {
-                        result.has_mod_file = true;
+                    if let Some(name) = path.file_name() {
+                        let name_str = name.to_string_lossy().to_lowercase();
+                        if name_str == "mod.info" {
+                            result.has_mod_info = true;
+                        } else if name_str == "modmeta.info" {
+                            result.has_modmeta_info = true;
+                        } else if name_str.ends_with(".uasset") || name_str.ends_with(".umap") {
+                            result.has_assets = true;
+                        } else if name_str.ends_with(".z") {
+                            result.has_unextracted_z = true;
+                        }
                     }
                 }
             }
@@ -1033,27 +1052,59 @@ pub async fn validate_ase_mod(
     let scan = scan_mod_directory(&mods_dir)?;
     let file_count = scan.file_count;
     let total_size = scan.total_size;
-    let has_ucas = scan.has_ucas;
-    let has_utoc = scan.has_utoc;
-    let has_mod_file = scan.has_mod_file;
+    let has_mod_info = scan.has_mod_info;
+    let has_modmeta_info = scan.has_modmeta_info;
+    let has_assets = scan.has_assets;
+    let has_unextracted_z = scan.has_unextracted_z;
 
-    if !has_ucas {
-        issues.push("Missing .ucas file".to_string());
+    // Check parent .mod file in ShooterGame/Content/Mods/
+    let parent_mod_file = PathBuf::from(&install_path)
+        .join("ShooterGame").join("Content").join("Mods").join(format!("{}.mod", &workshop_id));
+    let has_mod_file = parent_mod_file.exists();
+
+    // GameUserSettings.ini ActiveMods check
+    let mut has_active_mods_entry = false;
+    let config_dir = PathBuf::from(&install_path)
+        .join("ShooterGame").join("Saved").join("Config");
+    
+    for platform in &["WindowsServer", "LinuxServer"] {
+        let ini_path = config_dir.join(platform).join("GameUserSettings.ini");
+        if ini_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&ini_path) {
+                for line in content.lines() {
+                    if line.trim().starts_with("ActiveMods=") {
+                        let mods_part = line.trim_start_matches("ActiveMods=");
+                        let active_ids: Vec<&str> = mods_part.split(',').map(|s| s.trim()).collect();
+                        if active_ids.contains(&workshop_id.as_str()) {
+                            has_active_mods_entry = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if has_active_mods_entry {
+            break;
+        }
     }
-    if !has_utoc {
-        issues.push("Missing .utoc file".to_string());
+
+    if !has_mod_info {
+        issues.push("Missing mod.info metadata file inside folder".to_string());
+    }
+    if !has_assets {
+        issues.push("Missing compiled assets (.uasset or .umap)".to_string());
     }
     if !has_mod_file {
-        issues.push("Missing .mod file".to_string());
+        issues.push("Missing parent .mod file in ShooterGame/Content/Mods/".to_string());
+    }
+    if !has_active_mods_entry {
+        issues.push("Mod ID missing in ActiveMods line of GameUserSettings.ini".to_string());
+    }
+    if has_unextracted_z {
+        issues.push("Leftover compressed (.z) files found: extraction is incomplete or failed".to_string());
     }
     if file_count == 0 {
         issues.push("Mod directory is empty".to_string());
-    }
-
-    let parent_mod_file = PathBuf::from(&install_path)
-        .join("ShooterGame").join("Content").join("Mods").join(format!("{}.mod", &workshop_id));
-    if !parent_mod_file.exists() {
-        issues.push("Parent .mod file missing in Mods directory".to_string());
     }
 
     let is_valid = issues.is_empty();
@@ -1064,10 +1115,102 @@ pub async fn validate_ase_mod(
         issues,
         file_count,
         total_size,
-        has_ucas,
-        has_utoc,
+        mod_dir: mod_dir_str,
+        has_ucas: has_mod_info,      // Map to mod.info for backward compatibility
+        has_utoc: has_assets,        // Map to assets for backward compatibility
         has_mod_file,
+        has_mod_info,
+        has_modmeta_info,
+        has_assets,
+        has_active_mods_entry,
+        has_unextracted_z,
     })
+}
+
+#[tauri::command]
+pub async fn repair_ase_mod(
+    app_handle: AppHandle,
+    server_id: i64,
+    workshop_id: String,
+    state: State<'_, AppState>,
+) -> Result<ModValidationReport, String> {
+    println!("[ASE Mod Loader] Repairing mod {}", workshop_id);
+
+    let install_path: String = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT install_path FROM ase_servers WHERE id = ?1",
+            [server_id], |row| row.get(0),
+        ).map_err(|e| format!("Server not found: {}", e))?
+    };
+
+    let app_dir = app_handle.path().app_data_dir()
+        .map_err(|e| format!("Failed to get app dir: {}", e))?;
+    
+    let steamcmd_cache = app_dir
+        .join("steamcmd").join("steamapps").join("workshop")
+        .join("content").join("346110").join(&workshop_id);
+
+    let mods_parent_dir = PathBuf::from(&install_path)
+        .join("ShooterGame").join("Content").join("Mods");
+    
+    let mods_dir = mods_parent_dir.join(&workshop_id);
+
+    let mut used_local_cache = false;
+
+    // 1. Try local rapid repair if cache exists and has files
+    if steamcmd_cache.exists() {
+        if let Ok(entries) = std::fs::read_dir(&steamcmd_cache) {
+            let files: Vec<_> = entries.filter_map(|e| e.ok()).collect();
+            if !files.is_empty() {
+                println!("[ASE Mod Loader] Found local cache for mod {} with {} files. Repairing locally...", workshop_id, files.len());
+                
+                // Clear existing target directory to ensure clean re-extraction
+                if mods_dir.exists() {
+                    let _ = std::fs::remove_dir_all(&mods_dir);
+                }
+                let _ = std::fs::create_dir_all(&mods_dir);
+
+                // Copy and extract files from local cache
+                if let Ok(_) = copy_and_extract_mod(&steamcmd_cache, &mods_dir) {
+                    let mod_file_in_subdir = mods_dir.join(format!("{}.mod", &workshop_id));
+                    if mod_file_in_subdir.exists() {
+                        let target_mod_file = mods_parent_dir.join(format!("{}.mod", &workshop_id));
+                        let _ = std::fs::copy(&mod_file_in_subdir, &target_mod_file);
+                    }
+                    used_local_cache = true;
+                    println!("[ASE Mod Loader] Local rapid repair completed for mod {}", workshop_id);
+                }
+            }
+        }
+    }
+
+    // 2. If local cache could not be used, fall back to steamcmd download
+    if !used_local_cache {
+        println!("[ASE Mod Loader] Local cache missing or corrupted for mod {}. Falling back to full download...", workshop_id);
+        
+        if mods_dir.exists() {
+            let _ = std::fs::remove_dir_all(&mods_dir);
+        }
+        let _ = std::fs::create_dir_all(&mods_dir);
+
+        let parent_mod_file = mods_parent_dir.join(format!("{}.mod", &workshop_id));
+        if parent_mod_file.exists() {
+            let _ = std::fs::remove_file(&parent_mod_file);
+        }
+
+        let _ = clean_failed_download(&app_handle, &workshop_id, &state).await;
+        
+        let mod_name = format!("Workshop Mod {}", workshop_id);
+        let _ = download_ase_workshop_mod_with_retry(&app_handle, server_id, &workshop_id, &mod_name, &state, 5).await?;
+    }
+
+    // 3. Ensure ActiveMods entry is synchronized in GameUserSettings.ini
+    let _ = update_active_mods(&install_path, &workshop_id, true);
+
+    // 4. Validate again and return the updated report
+    validate_ase_mod(server_id, workshop_id, state).await
 }
 
 #[tauri::command]

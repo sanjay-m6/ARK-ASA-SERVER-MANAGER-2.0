@@ -10,13 +10,13 @@ import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
 import { useServerStore } from '../stores/serverStore';
 import { useUIStore } from '../stores/uiStore';
+import { useInstallStore } from '../stores/installStore';
 import { cn } from '../utils/helpers';
 import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../components/performance/PerformanceMonitor';
 // import { useRconStore } from '../stores/rconStore';
-import InstallServerDialog from '../components/server/InstallServerDialog';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import SponsorBanner from '../components/ui/SponsorBanner';
 import { Server as ServerType } from '../types';
@@ -40,7 +40,7 @@ export default function Dashboard() {
   const { servers, setServers, updateServerStatus, refreshServers } = useServerStore();
   const { systemInfo, setSystemInfo } = useUIStore();
   const [performanceHistory, setPerformanceHistory] = useState<any[]>([]);
-  const [showInstallDialog, setShowInstallDialog] = useState(false);
+  const { setDraftOpen } = useInstallStore();
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -303,7 +303,7 @@ export default function Dashboard() {
 
   // Quick actions config
   const quickActions = [
-    { name: t('dashboard.deployServer'), icon: Zap, path: null, action: () => setShowInstallDialog(true), color: 'sky', shortcut: 'D' },
+    { name: t('dashboard.deployServer'), icon: Zap, path: null, action: () => setDraftOpen(true), color: 'sky', shortcut: 'D' },
     { name: t('dashboard.serverManager'), icon: Server, path: '/servers', action: null, color: 'emerald', shortcut: 'S' },
     { name: t('dashboard.configEditor'), icon: FileEdit, path: '/config', action: null, color: 'violet', shortcut: 'C' },
     { name: t('dashboard.rconConsole'), icon: Terminal, path: '/rcon', action: null, color: 'cyan', shortcut: 'R' },
@@ -482,7 +482,7 @@ export default function Dashboard() {
               <h3 className="text-lg font-semibold text-slate-300 mb-2">{t('dashboard.noServers')}</h3>
               <p className="text-slate-500 text-sm mb-4">{t('dashboard.deployFirst')}</p>
               <button
-                onClick={() => setShowInstallDialog(true)}
+                onClick={() => setDraftOpen(true)}
                 className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg transition-all text-sm font-medium focus:outline-none"
               >
                 {t('dashboard.deployServer')}
@@ -675,13 +675,6 @@ export default function Dashboard() {
 
       {/* Performance Monitor */}
       <PerformanceMonitor data={performanceHistory} />
-
-      {/* Install Server Dialog */}
-      {
-        showInstallDialog && (
-          <InstallServerDialog onClose={() => setShowInstallDialog(false)} />
-        )
-      }
 
       {/* Clone Options Modal */}
       {

@@ -10,7 +10,7 @@ export default function CopilotFAB() {
             id="copilot-fab"
             onClick={toggle}
             className={cn(
-                "fixed bottom-6 right-6 z-[90] w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 group shadow-lg",
+                "fixed top-28 right-6 z-[90] w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 group shadow-lg",
                 isOpen
                     ? "bg-slate-800 border border-slate-600 shadow-black/40 scale-90"
                     : "bg-gradient-to-br from-cyan-500/90 to-blue-600/90 border border-cyan-400/30 shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-105"

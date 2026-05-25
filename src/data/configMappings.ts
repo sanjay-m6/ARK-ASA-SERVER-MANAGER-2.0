@@ -1079,6 +1079,41 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
         fields: [
             {
                 section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bAutoUnlockAllEngrams',
+                label: 'Auto-Unlock All Engrams',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Automatically unlock all engrams for players as they level up.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bAllowUnlimitedRespecs',
+                label: 'Unlimited Respecs',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Removes the cooldown timer for the Mindwipe Tonic, allowing unlimited resets.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bAllowCustomRecipes',
+                label: 'Allow Custom Recipes',
+                type: 'boolean',
+                defaultValue: 'True',
+                description: 'Allow players to create custom consumable recipes.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'CraftingSkillBonusMultiplier',
+                label: 'Crafting Skill Bonus Multiplier',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Multiplier for crafting skill effects on custom recipe stats.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
                 key: 'OverrideNamedEngramEntries',
                 label: 'Engram Overrides',
                 type: 'engram_entries',

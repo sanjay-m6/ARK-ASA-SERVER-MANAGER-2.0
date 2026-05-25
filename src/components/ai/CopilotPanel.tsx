@@ -170,7 +170,7 @@ export default function CopilotPanel() {
     if (!isOpen) return null;
 
     return (
-        <div className="copilot-panel fixed bottom-6 right-20 z-[89] w-[340px] h-[520px] flex flex-col rounded-2xl bg-[#141b2d] border border-slate-700/60 shadow-2xl shadow-black/60 overflow-hidden">
+        <div className="copilot-panel fixed top-28 right-20 z-[89] w-[340px] h-[520px] flex flex-col rounded-2xl bg-[#141b2d] border border-slate-700/60 shadow-2xl shadow-black/60 overflow-hidden">
 
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-white/[0.02]">

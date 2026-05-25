@@ -474,8 +474,12 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'craftXpMultiplier', label: 'Craft XP Multiplier', step: 0.1 },
 
     // ENGRAMS & CRAFTING
-    { file: 'GameUserSettings.ini', tab: 'engrams', type: 'toggle', key: 'autoUnlockAllEngrams', label: 'Auto Unlock All Engrams' },
-    { file: 'GameUserSettings.ini', tab: 'engrams', type: 'toggle', key: 'onlyAllowSpecifiedEngrams', label: 'Only Allow Specified Engrams' },
+    { file: 'GameUserSettings.ini', tab: 'engrams', type: 'toggle', key: 'autoUnlockAllEngrams', label: 'Auto Unlock All Engrams', desc: 'Automatically unlocks all engrams as players level up.' },
+    { file: 'GameUserSettings.ini', tab: 'engrams', type: 'toggle', key: 'onlyAllowSpecifiedEngrams', label: 'Only Allow Specified Engrams', desc: 'If enabled, locks all engrams except those specifically allowed.' },
+    { file: 'GameUserSettings.ini', tab: 'engrams', type: 'toggle', key: 'bAllowUnlimitedRespecs', label: 'Allow Unlimited Respecs', desc: 'Allows consuming Mindwipe Tonic without cooldown.' },
+    { file: 'GameUserSettings.ini', tab: 'engrams', type: 'number', key: 'itemStackSizeMultiplier', label: 'Item Stack Size Multiplier', desc: 'Global multiplier for all item stack sizes.', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'engrams', type: 'number', key: 'customRecipeEffectivenessMultiplier', label: 'Custom Recipe Effectiveness', desc: 'Multiplier for the effectiveness of custom crafted food/drink recipes.', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'engrams', type: 'number', key: 'customRecipeSkillMultiplier', label: 'Custom Recipe Crafting Skill Effect', desc: 'Multiplier for the impact of crafting skill on custom recipe stats.', step: 0.1 },
     { file: 'Game.ini', tab: 'engrams', type: 'engram_entries', key: 'overrideNamedEngramEntries', label: 'Engram Overrides' },
     { file: 'Game.ini', tab: 'engrams', type: 'crafting_costs', key: 'configOverrideItemCraftingCosts', label: 'Crafting Cost Overrides' },
 

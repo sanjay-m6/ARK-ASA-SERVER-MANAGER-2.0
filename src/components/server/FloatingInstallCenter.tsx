@@ -1,22 +1,23 @@
 import { useState } from 'react';
 import { useInstallStore } from '../../stores/installStore';
-import { Terminal, Trash2, Layers, CheckCircle, AlertCircle, Loader2, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { Terminal, Trash2, Layers, CheckCircle, AlertCircle, Loader2, Sparkles, ChevronDown, ChevronUp, Maximize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function FloatingInstallCenter() {
     const { t } = useTranslation();
-    const { activeInstalls, setViewingPath, removeInstall, clearCompleted } = useInstallStore();
+    const { activeInstalls, setViewingPath, removeInstall, clearCompleted, draftSetup, setDraftSetup, setDraftOpen } = useInstallStore();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     const tasks = Object.values(activeInstalls);
     const activeCount = tasks.filter(t => !t.isComplete && !t.isError).length;
     const completedCount = tasks.filter(t => t.isComplete).length;
     const failedCount = tasks.filter(t => t.isError).length;
+    const hasDraft = !!draftSetup;
 
     return (
         <AnimatePresence>
-            {tasks.length > 0 && (
+            {(tasks.length > 0 || hasDraft) && (
                 <motion.div
                     initial={{ opacity: 0, scale: 0.92, y: 30 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -32,9 +33,9 @@ export default function FloatingInstallCenter() {
                                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
                                         <Layers className="w-5 h-5 text-white" />
                                     </div>
-                                    {activeCount > 0 && (
+                                    {(activeCount > 0 || hasDraft) && (
                                         <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-[10px] font-bold text-white ring-2 ring-slate-900 animate-pulse">
-                                            {activeCount}
+                                            {activeCount + (hasDraft ? 1 : 0)}
                                         </span>
                                     )}
                                 </div>
@@ -46,7 +47,9 @@ export default function FloatingInstallCenter() {
                                     <p className="text-[11px] text-slate-400 font-medium">
                                         {activeCount > 0 
                                             ? t('installCenter.activeJobs', { count: activeCount, defaultValue: `${activeCount} installs running` })
-                                            : t('installCenter.allDone', 'All installations complete')
+                                            : hasDraft
+                                                ? t('installCenter.setupDraftActive', '1 setup draft minimized')
+                                                : t('installCenter.allDone', 'All installations complete')
                                         }
                                     </p>
                                 </div>
@@ -82,6 +85,70 @@ export default function FloatingInstallCenter() {
                                     className="overflow-hidden"
                                 >
                                     <div className="flex flex-col gap-3 max-h-72 overflow-y-auto pr-1">
+                                        {/* Minimized Draft Card */}
+                                        {hasDraft && (
+                                            <div 
+                                                onClick={() => setDraftOpen(true)}
+                                                className="bg-slate-950/60 border border-slate-800/80 hover:border-sky-500/30 rounded-xl p-3 flex flex-col gap-2.5 transition-all duration-300 hover:bg-slate-900/20 cursor-pointer group/draft"
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="relative flex items-center justify-center p-1.5 bg-sky-500/10 text-sky-400 rounded-lg group-hover/draft:bg-sky-500/20 transition-colors">
+                                                            <Sparkles className="w-4 h-4 animate-pulse" />
+                                                        </div>
+                                                        <div className="leading-tight">
+                                                            <div className="text-xs font-bold text-white truncate max-w-[160px] sm:max-w-[200px] group-hover/draft:text-sky-400 transition-colors">
+                                                                {draftSetup.formData.name || "Unnamed Server Setup"}
+                                                            </div>
+                                                            <div className="text-[10px] text-slate-400 font-medium">
+                                                                {t('installCenter.setupDraft', 'Setup Draft')} • {draftSetup.formData.serverType || "ASA"}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1.5">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setDraftOpen(true);
+                                                            }}
+                                                            className="p-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-lg transition-all duration-200 hover:scale-105 shadow-sm"
+                                                            title={t('installCenter.resume', 'Resume Server Setup')}
+                                                        >
+                                                            <Maximize2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setDraftSetup(null);
+                                                            }}
+                                                            className="p-1.5 bg-slate-850 hover:bg-rose-500/15 text-slate-400 hover:text-rose-400 border border-slate-700/50 hover:border-rose-500/20 rounded-lg transition-all duration-200 hover:scale-105 shadow-sm"
+                                                            title={t('installCenter.discard', 'Discard Draft')}
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Mini progress representation */}
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center justify-between text-[10px]">
+                                                        <span className="text-slate-400 font-medium">
+                                                            Minimized at Step {draftSetup.step} / 3
+                                                        </span>
+                                                        <span className="text-sky-400 font-bold group-hover/draft:text-sky-300 transition-colors">
+                                                            {Math.round((draftSetup.step / 3) * 100)}% Setup
+                                                        </span>
+                                                    </div>
+                                                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                        <div 
+                                                            className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 animate-pulse"
+                                                            style={{ width: `${(draftSetup.step / 3) * 100}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                         {tasks.map((task) => {
                                             const isRunning = !task.isComplete && !task.isError;
                                             
