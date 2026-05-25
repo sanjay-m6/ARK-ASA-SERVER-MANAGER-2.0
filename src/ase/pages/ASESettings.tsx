@@ -63,14 +63,6 @@ export default function ASESettings() {
     }
   };
 
-  const openUrl = async (url: string) => {
-    try {
-      await invoke('plugin:opener|open_url', { url });
-    } catch (error) {
-      window.open(url, '_blank');
-    }
-  };
-
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <div><h1 className="text-2xl font-bold text-white flex items-center gap-3"><div className="p-2.5 bg-amber-500/10 rounded-xl"><Settings className="w-6 h-6 text-amber-400" /></div>ASE Settings</h1><p className="text-sm text-slate-400 mt-1">ARK: Survival Evolved module configuration</p></div>
