@@ -17,8 +17,10 @@ export default function ASEAdvancedPage() {
 
     // Initialize from navigation or default
     useEffect(() => {
-        if (location.state?.serverId) setSelectedServerId(location.state.serverId);
-        else if (servers.length > 0 && !selectedServerId) setSelectedServerId(servers[0].id);
+        if (selectedServerId === null) {
+            if (location.state?.serverId) setSelectedServerId(location.state.serverId);
+            else if (servers.length > 0) setSelectedServerId(servers[0].id);
+        }
     }, [servers, selectedServerId, location.state]);
 
     // Load custom args

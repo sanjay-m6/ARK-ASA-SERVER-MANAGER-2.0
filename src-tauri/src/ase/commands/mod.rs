@@ -24,6 +24,7 @@ pub fn get_all_handlers() -> Vec<&'static str> {
         "start_ase_server",
         "stop_ase_server",
         "get_ase_server_status",
+        "get_ase_launch_arguments",
         "reset_ase_server",
         "import_ase_server",
         "import_ase_save",
@@ -53,6 +54,8 @@ pub fn get_all_handlers() -> Vec<&'static str> {
         "create_ase_scheduled_task",
         "toggle_ase_scheduled_task",
         "delete_ase_scheduled_task",
+        "get_ase_scheduler_settings",
+        "save_ase_scheduler_settings",
         // Discord
         "save_ase_discord_config",
         "get_ase_discord_config",

@@ -104,9 +104,9 @@ export default function PerformanceMonitor({ data }: PerformanceMonitorProps) {
                                 formatter={(value: number) => `${value.toFixed(1)}`}
                             />
                             <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} iconType="circle" />
-                            <Area type="monotone" dataKey="cpu" stroke="#38bdf8" name={t('performance.chart.cpu', 'CPU Usage (%)')} strokeWidth={2} fillOpacity={1} fill="url(#colorCpu)" />
-                            <Area type="monotone" dataKey="memory" stroke="#fbbf24" name={t('performance.chart.memory', 'Memory Usage (%)')} strokeWidth={2} fillOpacity={1} fill="url(#colorMemory)" />
-                            <Line type="monotone" dataKey="players" stroke="#10b981" name={t('performance.chart.players', 'Players')} strokeWidth={2} dot={false} />
+                            <Area type="monotone" dataKey="cpu" stroke="#38bdf8" name={t('performance.chart.cpu', 'CPU Usage (%)')} strokeWidth={2} fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
+                            <Area type="monotone" dataKey="memory" stroke="#fbbf24" name={t('performance.chart.memory', 'Memory Usage (%)')} strokeWidth={2} fillOpacity={1} fill="url(#colorMemory)" isAnimationActive={false} />
+                            <Line type="monotone" dataKey="players" stroke="#10b981" name={t('performance.chart.players', 'Players')} strokeWidth={2} dot={false} isAnimationActive={false} />
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>

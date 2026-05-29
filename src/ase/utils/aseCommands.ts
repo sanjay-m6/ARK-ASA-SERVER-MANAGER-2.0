@@ -8,6 +8,7 @@ import type {
     AseGameConfig,
     AseScheduledTask,
     ModValidationReport,
+    AseSchedulerSettings,
 } from '../types/ase.types';
 
 // ─── Server Commands ────────────────────────────────────────────────
@@ -216,6 +217,14 @@ export async function deleteAseScheduledTask(taskId: number): Promise<void> {
     return invoke('delete_ase_scheduled_task', { taskId });
 }
 
+export async function getAseSchedulerSettings(serverId: number): Promise<AseSchedulerSettings> {
+    return invoke('get_ase_scheduler_settings', { serverId });
+}
+
+export async function saveAseSchedulerSettings(settings: AseSchedulerSettings): Promise<void> {
+    return invoke('save_ase_scheduler_settings', { settings });
+}
+
 // ─── Tools / Parity Commands and Types ───────────────────────────────
 
 export interface AsePluginInfo {
@@ -302,5 +311,9 @@ export async function forceReinstallAseMod(serverId: number, workshopId: string)
 
 export async function forceDownloadAseMod(serverId: number, workshopId: string): Promise<AseInstalledMod> {
     return invoke('force_download_ase_mod', { serverId, workshopId });
+}
+
+export async function getAseLaunchArguments(serverId: number): Promise<string[]> {
+    return invoke('get_ase_launch_arguments', { serverId });
 }
 

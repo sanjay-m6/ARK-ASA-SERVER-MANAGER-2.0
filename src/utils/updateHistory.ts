@@ -14,6 +14,7 @@ export interface UpdateSettings {
     lastCheck: string | null;
     skippedVersions: string[];
     updateChannel?: 'release' | 'beta' | 'nightly';
+    lastError?: string | null;
 }
 
 const HISTORY_KEY = 'update_history';
@@ -25,6 +26,7 @@ const DEFAULT_SETTINGS: UpdateSettings = {
     lastCheck: null,
     skippedVersions: [],
     updateChannel: 'release',
+    lastError: null,
 };
 
 // Get update history

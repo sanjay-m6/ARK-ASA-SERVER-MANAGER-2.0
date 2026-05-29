@@ -797,14 +797,17 @@ export default function ServerManager() {
                                                     {...provided.draggableProps}
                                                     style={{ ...provided.draggableProps.style, zIndex: snapshot.isDragging ? 50 : 'auto' }}
                                                     className={cn(
-                                                        "glass-panel rounded-2xl p-6 transition-all duration-300 group relative overflow-hidden",
+                                                        "glass-panel rounded-2xl p-6 transition-all duration-300 group relative",
                                                         snapshot.isDragging 
                                                             ? "shadow-2xl shadow-sky-500/20 ring-2 ring-sky-500/50 cursor-grabbing scale-[1.02]" 
                                                             : "hover:border-sky-500/50 hover:shadow-[0_8px_30px_rgba(14,165,233,0.15)] hover:-translate-y-1 cursor-pointer"
                                                     )}
                                                     onClick={(e) => toggleCollapse(server.id, e)}
                                                 >
-                                                    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-sky-500/5 to-transparent rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+                                                    {/* Decorative background gradient clipped inside the card */}
+                                                    <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                                                        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-sky-500/5 to-transparent rounded-full blur-3xl -mr-32 -mt-32"></div>
+                                                    </div>
 
                                                     <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                                                         {/* Server Info */}

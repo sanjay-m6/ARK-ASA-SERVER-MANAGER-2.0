@@ -24,7 +24,8 @@ import {
   Bot,
   Wifi,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Globe
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
@@ -80,6 +81,7 @@ export default function Sidebar() {
     { name: 'Scheduler', path: '/ase/scheduler', icon: Clock },
     { name: 'Mod Manager', path: '/ase/mods', icon: Puzzle },
     { name: 'Config Editor', path: '/ase/config', icon: FileEdit },
+    { name: 'Environment', path: '/ase/environment', icon: Globe },
     { name: 'Cluster Manager', path: '/ase/clusters', icon: Network },
     { name: 'Backups', path: '/ase/backups', icon: Database },
     { name: 'Auto-Saves', path: '/ase/autosaves', icon: History },

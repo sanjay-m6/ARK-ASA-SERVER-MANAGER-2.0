@@ -1108,6 +1108,58 @@ pub async fn read_ase_config(
                 config.max_players = v;
             }
         }
+
+        // ── Classic ASM Full Server Options Feature Integration ──
+        config.bad_word_list_url = ini_get_str(&sections, ss, "BadWordListURL", "");
+        config.bad_word_white_list_url = ini_get_str(&sections, ss, "BadWordWhiteListURL", "");
+        config.b_filter_tribe_names = ini_get_bool(&sections, ss, "bFilterTribeNames", false);
+        config.b_filter_character_names = ini_get_bool(&sections, ss, "bFilterCharacterNames", false);
+        config.b_filter_chat = ini_get_bool(&sections, ss, "bFilterChat", false);
+        config.ban_list_url = ini_get_str(&sections, ss, "BanListURL", "");
+        config.use_ban_list_url = ini_get_bool(&sections, ss, "UseBanListURL", false) || !config.ban_list_url.is_empty();
+        config.allow_shared_connections = ini_get_bool(&sections, ss, "AllowSharedConnections", false);
+        config.creature_upload_issue_protection = ini_get_bool(&sections, ss, "SecureSendARKPayload", false);
+        config.enable_auto_force_respawn_dinos = ini_get_bool(&sections, ss, "AutoForceRespawnDinos", false);
+        config.auto_force_respawn_dinos_interval = ini_get_f64(&sections, ss, "AutoForceRespawnDinosInterval", 24.0);
+        
+        let kick_period = ini_get_f64(&sections, ss, "KickIdlePlayersPeriod", -1.0);
+        if kick_period >= 0.0 {
+            config.kick_idle_players_period = kick_period;
+        } else {
+            config.kick_idle_players_period = ini_get_f64(&sections, ss, "KickIdlePlayerPeriod", 3600.0);
+        }
+        config.enable_idle_timeout = ini_get_bool(&sections, "ASM2", "EnableIdleTimeout", false) || config.kick_idle_players_period > 0.0;
+        config.secure_item_dino_spawning_rules = ini_get_bool(&sections, ss, "UseSecureSpawnRules", false);
+        config.additional_dupe_protection = ini_get_bool(&sections, ss, "UseItemDupeCheck", false);
+
+        config.use_dynamic_config_url = ini_get_bool(&sections, "ASM2", "UseDynamicConfigUrl", false) || !config.custom_dynamic_config_url.is_empty();
+        config.use_custom_live_tuning_url = ini_get_bool(&sections, "ASM2", "UseCustomLiveTuningUrl", false) || !config.custom_live_tuning_url.is_empty();
+        config.no_playervac = ini_get_bool(&sections, "ASM2", "NoPlayerVAC", false);
+        config.no_anti_speed_hack = ini_get_bool(&sections, "ASM2", "NoAntiSpeedHack", false);
+        config.speed_hack_cpu_bias = ini_get_f64(&sections, "ASM2", "SpeedHackCpuBias", 1.0);
+        config.disable_movement_validation = ini_get_bool(&sections, "ASM2", "DisableMovementValidation", false);
+        config.output_server_log_to_console = ini_get_bool(&sections, ss, "OutputServerLogToConsole", false) || ini_get_bool(&sections, "ASM2", "OutputServerLogToConsole", false);
+        config.no_hang_det = ini_get_bool(&sections, "ASM2", "NoHangDet", false);
+        config.no_dinos = ini_get_bool(&sections, "ASM2", "NoDinos", false);
+        config.no_under_mesh_checking = ini_get_bool(&sections, "ASM2", "NoUnderMeshChecking", false);
+        config.no_under_mesh_killing = ini_get_bool(&sections, "ASM2", "NoUnderMeshKilling", false);
+        config.enable_vivox = ini_get_bool(&sections, "ASM2", "EnableVivox", false);
+        config.force_respawn_dinos_on_startup = ini_get_bool(&sections, "ASM2", "ForceRespawnDinosOnStartup", false);
+        config.force_direct_x10 = ini_get_bool(&sections, "ASM2", "ForceDirectX10", false);
+        config.force_shader_model4 = ini_get_bool(&sections, "ASM2", "ForceShaderModel4", false);
+        config.force_low_memory = ini_get_bool(&sections, "ASM2", "ForceLowMemory", false);
+        config.force_no_man_sky = ini_get_bool(&sections, "ASM2", "ForceNoManSky", false);
+        config.use_no_memory_bias = ini_get_bool(&sections, "ASM2", "UseNoMemoryBias", false);
+        config.stasis_keep_controllers = ini_get_bool(&sections, "ASM2", "StasisKeepControllers", false);
+        config.server_allow_ansel = ini_get_bool(&sections, "ASM2", "ServerAllowAnsel", false);
+        config.structure_memory_optimizations = ini_get_bool(&sections, "ASM2", "StructureMemoryOptimizations", false);
+        config.structure_stasis_grid = ini_get_bool(&sections, "ASM2", "StructureStasisGrid", false);
+        config.enable_crossplay = ini_get_bool(&sections, "ASM2", "EnableCrossplay", false);
+        config.enable_public_ip_for_epic = ini_get_bool(&sections, "ASM2", "EnablePublicIpForEpic", false);
+        config.epic_store_players_only = ini_get_bool(&sections, "ASM2", "EpicStorePlayersOnly", false);
+        config.alternate_save_directory_name = ini_get_str(&sections, "ASM2", "AlternateSaveDirectoryName", "");
+        config.cluster_directory_override = ini_get_str(&sections, "ASM2", "ClusterDirectoryOverride", "");
+        config.use_cluster_directory_override = ini_get_bool(&sections, "ASM2", "UseClusterDirectoryOverride", false);
     }
 
     // Parse Game.ini for breeding settings
@@ -1148,6 +1200,17 @@ pub async fn read_ase_config(
         config.max_imprint_limit = ini_get_f64(&sections, sgm, "MaxImprintLimit", 1.0);
         config.b_disable_friendly_fire =
             ini_get_bool(&sections, sgm, "bDisableFriendlyFire", false);
+
+        // HarvestResourceItemAmountClassMultipliers — parse_ini joins duplicate keys with '\n'
+        let raw_multipliers = ini_get_str(&sections, sgm, "HarvestResourceItemAmountClassMultipliers", "");
+        if !raw_multipliers.is_empty() {
+            config.harvest_resource_item_amount_class_multipliers = raw_multipliers
+                .split('\n')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<&str>>()
+                .join(";");
+        }
     }
 
     Ok(config)
@@ -1968,6 +2031,31 @@ pub async fn write_ase_config(
         format!("{:.6}", config.flyer_platform_max_structures_multiplier),
     );
 
+    // ── Classic ASM Full Server Options Feature Integration - GUS ServerSettings ──
+    ini_set_opt(ss, "BadWordListURL", config.bad_word_list_url.clone());
+    ini_set_opt(ss, "BadWordWhiteListURL", config.bad_word_white_list_url.clone());
+    ini_set(ss, "bFilterTribeNames", config.b_filter_tribe_names.to_string());
+    ini_set(ss, "bFilterCharacterNames", config.b_filter_character_names.to_string());
+    ini_set(ss, "bFilterChat", config.b_filter_chat.to_string());
+    ini_set_opt(ss, "BanListURL", config.ban_list_url.clone());
+    ini_set(ss, "UseBanListURL", config.use_ban_list_url.to_string());
+    ini_set(ss, "AllowSharedConnections", config.allow_shared_connections.to_string());
+    ini_set(ss, "SecureSendARKPayload", config.creature_upload_issue_protection.to_string());
+    ini_set(ss, "AutoForceRespawnDinos", config.enable_auto_force_respawn_dinos.to_string());
+    ini_set(ss, "AutoForceRespawnDinosInterval", format!("{:.6}", config.auto_force_respawn_dinos_interval));
+    
+    if config.enable_idle_timeout {
+        ini_set(ss, "KickIdlePlayersPeriod", format!("{:.6}", config.kick_idle_players_period));
+        ini_set(ss, "KickIdlePlayerPeriod", format!("{:.6}", config.kick_idle_players_period));
+    } else {
+        ini_set(ss, "KickIdlePlayersPeriod", "0.000000".to_string());
+        ini_set(ss, "KickIdlePlayerPeriod", "0.000000".to_string());
+    }
+    
+    ini_set(ss, "UseSecureSpawnRules", config.secure_item_dino_spawning_rules.to_string());
+    ini_set(ss, "UseItemDupeCheck", config.additional_dupe_protection.to_string());
+    ini_set(ss, "OutputServerLogToConsole", config.output_server_log_to_console.to_string());
+
     // Session settings
     ini_set(
         "SessionSettings",
@@ -2006,6 +2094,36 @@ pub async fn write_ase_config(
     );
     ini_set("ASM2", "UseLowMemory", config.use_low_memory.to_string());
     ini_set("ASM2", "NoBattlEye", config.no_battle_eye.to_string());
+
+    // ── Classic ASM Full Server Options Feature Integration - GUS ASM2 ──
+    ini_set("ASM2", "UseDynamicConfigUrl", config.use_dynamic_config_url.to_string());
+    ini_set("ASM2", "UseCustomLiveTuningUrl", config.use_custom_live_tuning_url.to_string());
+    ini_set("ASM2", "EnableIdleTimeout", config.enable_idle_timeout.to_string());
+    ini_set("ASM2", "NoPlayerVAC", config.no_playervac.to_string());
+    ini_set("ASM2", "NoAntiSpeedHack", config.no_anti_speed_hack.to_string());
+    ini_set("ASM2", "SpeedHackCpuBias", format!("{:.6}", config.speed_hack_cpu_bias));
+    ini_set("ASM2", "DisableMovementValidation", config.disable_movement_validation.to_string());
+    ini_set("ASM2", "NoHangDet", config.no_hang_det.to_string());
+    ini_set("ASM2", "NoDinos", config.no_dinos.to_string());
+    ini_set("ASM2", "NoUnderMeshChecking", config.no_under_mesh_checking.to_string());
+    ini_set("ASM2", "NoUnderMeshKilling", config.no_under_mesh_killing.to_string());
+    ini_set("ASM2", "EnableVivox", config.enable_vivox.to_string());
+    ini_set("ASM2", "ForceRespawnDinosOnStartup", config.force_respawn_dinos_on_startup.to_string());
+    ini_set("ASM2", "ForceDirectX10", config.force_direct_x10.to_string());
+    ini_set("ASM2", "ForceShaderModel4", config.force_shader_model4.to_string());
+    ini_set("ASM2", "ForceLowMemory", config.force_low_memory.to_string());
+    ini_set("ASM2", "ForceNoManSky", config.force_no_man_sky.to_string());
+    ini_set("ASM2", "UseNoMemoryBias", config.use_no_memory_bias.to_string());
+    ini_set("ASM2", "StasisKeepControllers", config.stasis_keep_controllers.to_string());
+    ini_set("ASM2", "ServerAllowAnsel", config.server_allow_ansel.to_string());
+    ini_set("ASM2", "StructureMemoryOptimizations", config.structure_memory_optimizations.to_string());
+    ini_set("ASM2", "StructureStasisGrid", config.structure_stasis_grid.to_string());
+    ini_set("ASM2", "EnableCrossplay", config.enable_crossplay.to_string());
+    ini_set("ASM2", "EnablePublicIpForEpic", config.enable_public_ip_for_epic.to_string());
+    ini_set("ASM2", "EpicStorePlayersOnly", config.epic_store_players_only.to_string());
+    ini_set_opt("ASM2", "AlternateSaveDirectoryName", config.alternate_save_directory_name.clone());
+    ini_set_opt("ASM2", "ClusterDirectoryOverride", config.cluster_directory_override.clone());
+    ini_set("ASM2", "UseClusterDirectoryOverride", config.use_cluster_directory_override.to_string());
 
     // Save GameUserSettings.ini
     let gus_content = gus_cell.into_inner().serialize();
@@ -2089,6 +2207,26 @@ pub async fn write_ase_config(
         config.b_disable_friendly_fire.to_string(),
     );
 
+    // Clear existing HarvestResourceItemAmountClassMultipliers entries
+    if let Some(section) = game_data.get_section_mut(gm) {
+        section.entries.retain(|e| e.key != "HarvestResourceItemAmountClassMultipliers");
+    }
+
+    // Write new multipliers
+    if !config.harvest_resource_item_amount_class_multipliers.is_empty() {
+        let section = game_data.ensure_section(gm);
+        for mult in config.harvest_resource_item_amount_class_multipliers.split(';') {
+            let trimmed = mult.trim();
+            if !trimmed.is_empty() {
+                section.entries.push(IniEntry {
+                    key: "HarvestResourceItemAmountClassMultipliers".to_string(),
+                    value: trimmed.to_string(),
+                    comment: None,
+                });
+            }
+        }
+    }
+
     // Save Game.ini
     let game_content = game_data.serialize();
     std::fs::write(&game_ini_path, game_content)
@@ -2098,6 +2236,7 @@ pub async fn write_ase_config(
     conn.execute(
         "UPDATE ase_servers SET 
             session_name = ?1,
+            name = ?1,
             max_players = ?2,
             server_password = ?3,
             admin_password = ?4,

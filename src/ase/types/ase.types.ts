@@ -347,6 +347,7 @@ export interface AseGameConfig {
   dinoTurretDamageMultiplier: number;
   tamedDinoCharacterFoodDrainMultiplier: number;
   wildDinoCharacterFoodDrainMultiplier: number;
+  harvestResourceItemAmountClassMultipliers: string;
 
   // ── Decay & Platforms ──
   structureDecayPeriodMultiplier: number;
@@ -357,6 +358,51 @@ export interface AseGameConfig {
   // ── Advanced Environment/Flyers ──
   allowFlyingStaminaRecovery: boolean;
   flyerPlatformMaxStructuresMultiplier: number;
+
+  // ── Classic ASM Full Server Options Feature Integration ──
+  badWordListUrl: string;
+  badWordWhiteListUrl: string;
+  bFilterTribeNames: boolean;
+  bFilterCharacterNames: boolean;
+  bFilterChat: boolean;
+  banListUrl: string;
+  useBanListUrl: boolean;
+  useDynamicConfigUrl: boolean;
+  useCustomLiveTuningUrl: boolean;
+  kickIdlePlayersPeriod: number;
+  enableIdleTimeout: boolean;
+  noPlayervac: boolean;
+  noAntiSpeedHack: boolean;
+  speedHackCpuBias: number;
+  disableMovementValidation: boolean;
+  outputServerLogToConsole: boolean;
+  noHangDet: boolean;
+  noDinos: boolean;
+  noUnderMeshChecking: boolean;
+  noUnderMeshKilling: boolean;
+  enableVivox: boolean;
+  allowSharedConnections: boolean;
+  creatureUploadIssueProtection: boolean;
+  additionalDupeProtection: boolean;
+  secureItemDinoSpawningRules: boolean;
+  forceRespawnDinosOnStartup: boolean;
+  enableAutoForceRespawnDinos: boolean;
+  autoForceRespawnDinosInterval: number;
+  forceDirectX10: boolean;
+  forceShaderModel4: boolean;
+  forceLowMemory: boolean;
+  forceNoManSky: boolean;
+  useNoMemoryBias: boolean;
+  stasisKeepControllers: boolean;
+  serverAllowAnsel: boolean;
+  structureMemoryOptimizations: boolean;
+  structureStasisGrid: boolean;
+  enableCrossplay: boolean;
+  enablePublicIpForEpic: boolean;
+  epicStorePlayersOnly: boolean;
+  alternateSaveDirectoryName: string;
+  clusterDirectoryOverride: string;
+  useClusterDirectoryOverride: boolean;
 }
 
 export interface AseBackup {
@@ -381,4 +427,23 @@ export interface AseServerPorts {
   rawPort: number;     // auto = gamePort + 1
   queryPort: number;
   rconPort: number;
+}
+
+export interface AseSchedulerSettings {
+  serverId: number;
+  mode: 'disabled' | 'basic' | 'advanced';
+  basicIntervalHours: number;
+  basicWarningMinutes: string;
+  nextRunBasic?: string;
+  advancedTime?: string;
+  advancedDays?: string;
+  advancedWarningMinutes?: string;
+  advancedShutdown: boolean;
+  advancedUpdate: boolean;
+  advancedRestart: boolean;
+  advancedDinoWipe: boolean;
+  watchdogEnabled: boolean;
+  backupOnRestart: boolean;
+  backupOnUpdate: boolean;
+  includeClusterBackup: boolean;
 }

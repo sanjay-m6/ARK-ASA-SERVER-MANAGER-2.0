@@ -155,7 +155,7 @@ pub async fn send_ase_rcon(server_id: i64, command: String, state: State<'_, App
         use tauri::Manager;
         if let Some(guardian) = state.app_handle.try_state::<crate::services::guardian::GuardianState>() {
             let guard = guardian.0.lock().await;
-            guard.mark_as_stopping(server_id).await;
+            guard.mark_as_stopping(-server_id).await;
         }
         state.process_manager.set_pending_stop_reason(server_id, crate::services::process_manager::StopReason::UserAction);
     }

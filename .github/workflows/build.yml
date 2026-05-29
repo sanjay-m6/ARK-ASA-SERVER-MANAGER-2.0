@@ -47,16 +47,17 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'ARK Server Manager ${{ github.ref_name }}'
           releaseBody: |
-            ## 🚀 ${{ github.ref_name }} — Pre-Release Build
+            ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This is a pre-release beta version for v2.4.2 containing stability fixes, UI enhancements, and organization layout fixes.
+            This release brings support for ARK: Survival Ascended (ASA) and ARK: Survival Evolved (ASE) along with crucial bug fixes, preset selector sharing, and performance updates.
 
             ### ✨ What's New
-            - **Concurrent Background Downloader**: Implemented Tauri background tasks for downloading and installing servers in parallel with automated state draft saving on minimize.
-            - **Floating Install Center**: Added an interactive bottom-right widget to track concurrent installations, view details, and resume minimized setups.
-            - **Unified "Engrams & Crafting" Tab**: Reorganized configurations so that global settings like Auto-Unlock, Unlimited Respecs, Item Stack Sizes, and Custom Recipes are editable directly in the main Engrams tab.
-            - **Glassmorphic API Key Card**: Redesigned the global Steam Web API Key redirection card to be vertically centered, fully interactive/clickable, and responsive.
-            - **AI Copilot Repositioning**: Moved the global AI Copilot FAB and Panel to the top-right to prevent UI overlapping with bottom-right panels.
+            - **Critical Bugfix: ASA Config Directory**: Fixed a path resolution bug where ASA configurations (admin password, RCON configuration, max players) were written to the wrong folder, rendering RCON and in-game admin cheats/GCM unusable.
+            - **Traditional Chinese (zh-TW)**: Full localization with Traditional Chinese support.
+            - **CurseForge Mod URL Parser**: Added automatic parsing and extraction of numeric Mod IDs directly from CurseForge URLs.
+            - **Custom Presets Export/Import**: Export and import custom server configs as JSON files.
+            - **SteamCMD Error Recovery**: Diagnostic tips and repair/retry recovery buttons when encountering SteamCMD errors.
+            - **Tribe Log native viewer panel & UPnP controls**.
 
             ### Install
             Download the `.msi` installer below.

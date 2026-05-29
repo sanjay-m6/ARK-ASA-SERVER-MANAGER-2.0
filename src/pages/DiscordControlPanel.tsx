@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getClusters } from '../utils/tauri';
+import { toast } from 'react-hot-toast';
 
 interface ServerHealth {
   id: number;
@@ -159,7 +160,7 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
     try {
       await invoke('start_server', { id: serverId });
     } catch (err) {
-      alert(`Failed to start server: ${err}`);
+      toast.error(`Failed to start server: ${err}`);
     }
   };
 
@@ -167,7 +168,7 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
     try {
       await invoke('stop_server', { id: serverId });
     } catch (err) {
-      alert(`Failed to stop server: ${err}`);
+      toast.error(`Failed to stop server: ${err}`);
     }
   };
 
@@ -175,16 +176,16 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
     try {
       await invoke('restart_server', { id: serverId });
     } catch (err) {
-      alert(`Failed to restart server: ${err}`);
+      toast.error(`Failed to restart server: ${err}`);
     }
   };
 
   const handleUpdateServer = async (serverId: number) => {
     try {
       await invoke('update_server', { serverId });
-      alert(`Update command sent for server #${serverId}.`);
+      toast.success(`Update command sent for server #${serverId}.`);
     } catch (err) {
-      alert(`Failed to update server: ${err}`);
+      toast.error(`Failed to update server: ${err}`);
     }
   };
 
@@ -195,10 +196,10 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
         steamId,
         reason: 'Kicked from Discord Control Panel',
       });
-      alert(`Successfully kicked player ${steamId}.`);
+      toast.success(`Successfully kicked player ${steamId}.`);
       await fetchPlayers(selectedServer ?? undefined);
     } catch (err) {
-      alert(`Failed to kick player: ${err}`);
+      toast.error(`Failed to kick player: ${err}`);
     }
   };
 
@@ -208,10 +209,10 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
         serverId,
         steamId,
       });
-      alert(`Successfully banned player ${steamId}.`);
+      toast.success(`Successfully banned player ${steamId}.`);
       await fetchPlayers(selectedServer ?? undefined);
     } catch (err) {
-      alert(`Failed to ban player: ${err}`);
+      toast.error(`Failed to ban player: ${err}`);
     }
   };
 
@@ -225,7 +226,7 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
   //   try {
   //     await invoke('teleport_player', { serverId, steamId, x, y, z });
   //   } catch (err) {
-  //     alert(`Failed to teleport player: ${err}`);
+  //     toast.error(`Failed to teleport player: ${err}`);
   //   }
   // };
 

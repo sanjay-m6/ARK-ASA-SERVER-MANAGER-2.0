@@ -161,6 +161,9 @@ impl SchedulerService {
 
         // 3. Process ASE Tasks
         Self::process_ase_tasks(app_handle, time).await;
+
+        // 4. Process ASE Scheduler Settings
+        Self::process_ase_scheduler_settings(app_handle, time).await;
     }
 
     async fn process_ase_tasks(app_handle: &AppHandle, time: DateTime<Local>) {
@@ -296,6 +299,259 @@ impl SchedulerService {
                             [task.id],
                         );
                     }
+                }
+            }
+        }
+    }
+
+    async fn process_ase_scheduler_settings(app_handle: &AppHandle, time: DateTime<Local>) {
+        let state = app_handle.state::<AppState>();
+        
+        let settings_list = {
+            let db = match state.db.lock() {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+            let conn = match db.get_connection() {
+                Ok(conn) => conn,
+                Err(_) => return,
+            };
+
+            let mut stmt = match conn.prepare(
+                "SELECT server_id, mode, basic_interval_hours, basic_warning_minutes, next_run_basic, \
+                 advanced_time, advanced_days, advanced_warning_minutes, advanced_shutdown, advanced_update, \
+                 advanced_restart, advanced_dino_wipe \
+                 FROM ase_scheduler_settings WHERE mode != 'disabled'"
+            ) {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+
+            let iter = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i32>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                    row.get::<_, Option<String>>(6)?,
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, i32>(8)? != 0,
+                    row.get::<_, i32>(9)? != 0,
+                    row.get::<_, i32>(10)? != 0,
+                    row.get::<_, i32>(11)? != 0,
+                ))
+            });
+
+            match iter {
+                Ok(rows) => rows.filter_map(|r| r.ok()).collect::<Vec<_>>(),
+                Err(_) => Vec::new(),
+            }
+        };
+
+        for s in settings_list {
+            let server_id = s.0;
+            let mode = s.1;
+            if mode == "basic" {
+                let interval = s.2;
+                let warnings = s.3;
+                let next_run = s.4;
+                Self::process_ase_basic_mode(app_handle, server_id, interval, &warnings, next_run).await;
+            } else if mode == "advanced" {
+                if let (Some(time_str), Some(days_str)) = (s.5, s.6) {
+                    let warnings_opt = s.7;
+                    let shutdown = s.8;
+                    let update = s.9;
+                    let restart = s.10;
+                    let dino_wipe = s.11;
+                    Self::process_ase_advanced_mode(
+                        app_handle,
+                        server_id,
+                        &time_str,
+                        &days_str,
+                        warnings_opt,
+                        shutdown,
+                        update,
+                        restart,
+                        dino_wipe,
+                        time,
+                    ).await;
+                }
+            }
+        }
+    }
+
+    async fn process_ase_basic_mode(app_handle: &AppHandle, server_id: i64, interval: i32, warnings: &str, next_run: Option<String>) {
+        let now = Local::now();
+
+        let next_run_dt = if let Some(nr_str) = next_run {
+            match DateTime::parse_from_rfc3339(&nr_str) {
+                Ok(dt) => dt.with_timezone(&Local),
+                Err(_) => {
+                    Self::update_ase_next_run(app_handle, server_id, interval, now).await
+                }
+            }
+        } else {
+            Self::update_ase_next_run(app_handle, server_id, interval, now).await
+        };
+
+        let diff = next_run_dt.signed_duration_since(now);
+        let seconds_left = diff.num_seconds();
+
+        if seconds_left <= 5 {
+            log::info!("🚀 Basic ASE Scheduler: Restarting ASE Server {}", server_id);
+
+            let state = app_handle.state::<AppState>();
+            let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
+            sleep(Duration::from_secs(5)).await;
+            let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
+
+            Self::update_ase_next_run(app_handle, server_id, interval, next_run_dt).await;
+            return;
+        }
+
+        let warning_minutes: Vec<i64> = warnings
+            .split(',')
+            .filter_map(|s| s.trim().parse::<i64>().ok())
+            .collect();
+
+        let minutes_left = diff.num_minutes();
+
+        if warning_minutes.contains(&minutes_left) {
+            log::warn!("⚠️ Basic ASE Scheduler: Warning Server {} - {} mins left", server_id, minutes_left);
+            let state = app_handle.state::<AppState>();
+            let msg = format!("SERVER RESTARTING IN {} MINUTES", minutes_left);
+            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat {}", msg), state.clone()).await;
+            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast {}", msg), state.clone()).await;
+        }
+    }
+
+    async fn update_ase_next_run(
+        app_handle: &AppHandle,
+        server_id: i64,
+        interval: i32,
+        from_time: DateTime<Local>,
+    ) -> DateTime<Local> {
+        let midnight = match from_time.date_naive().and_hms_opt(0, 0, 0) {
+            Some(naive) => match naive.and_local_timezone(Local) {
+                chrono::LocalResult::Single(t) => t,
+                _ => from_time,
+            },
+            None => from_time,
+        };
+
+        let mut target = midnight;
+        let p_interval = chrono::Duration::hours(interval as i64);
+        let p_interval = if interval <= 0 { chrono::Duration::hours(24) } else { p_interval };
+
+        let future_threshold = from_time + chrono::Duration::minutes(1);
+        while target <= future_threshold {
+            target += p_interval;
+        }
+
+        let state = app_handle.state::<AppState>();
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                let _ = conn.execute(
+                    "UPDATE ase_scheduler_settings SET next_run_basic = ?1 WHERE server_id = ?2",
+                    [target.to_rfc3339(), server_id.to_string()],
+                );
+            }
+        }
+        target
+    }
+
+    async fn process_ase_advanced_mode(
+        app_handle: &AppHandle,
+        server_id: i64,
+        time_str: &str,
+        days_str: &str,
+        warning_str: Option<String>,
+        shutdown: bool,
+        update: bool,
+        restart: bool,
+        dino_wipe: bool,
+        time: DateTime<Local>,
+    ) {
+        let [hour, minute] = match time_str.split(':').map(|s| s.parse::<u32>().ok()).collect::<Vec<_>>().as_slice() {
+            [Some(h), Some(m)] => [*h, *m],
+            _ => return,
+        };
+
+        let enabled_days: Vec<u32> = days_str.split(',').filter_map(|s| s.trim().parse::<u32>().ok()).collect();
+        let current_day = time.weekday().num_days_from_sunday();
+
+        if !enabled_days.contains(&current_day) {
+            return;
+        }
+
+        if time.hour() == hour && time.minute() == minute {
+            log::info!("🚀 Advanced ASE Scheduler: Running execution chain for server {}", server_id);
+
+            let state = app_handle.state::<AppState>();
+            
+            if let Some(_) = warning_str {
+                let msg = "⚠️ SERVER MAINTENANCE CHAIN STARTING NOW!";
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat {}", msg), state.clone()).await;
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast {}", msg), state.clone()).await;
+            }
+
+            if shutdown {
+                log::info!("  [Advanced ASE] Step 1/4: Graceful Shutdown");
+                let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
+                sleep(Duration::from_secs(5)).await;
+            }
+
+            if update {
+                log::info!("  [Advanced ASE] Step 2/4: SteamCMD mod/server update");
+                let install_path: Option<String> = if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        conn.query_row(
+                            "SELECT install_path FROM ase_servers WHERE id = ?1",
+                            [server_id],
+                            |row| row.get(0),
+                        ).ok()
+                    } else { None }
+                } else { None };
+
+                if let Some(path) = install_path {
+                    #[cfg(target_os = "windows")]
+                    const CREATE_NO_WINDOW: u32 = 0x08000000;
+                    #[cfg(not(target_os = "windows"))]
+                    const CREATE_NO_WINDOW: u32 = 0;
+
+                    if let Ok(app_dir) = app_handle.path().app_data_dir() {
+                        let steamcmd_exe = app_dir.join("steamcmd").join("steamcmd.exe");
+                        if steamcmd_exe.exists() {
+                            let _ = tokio::process::Command::new(&steamcmd_exe)
+                                .args([
+                                    "+force_install_dir", &path,
+                                    "+login", "anonymous",
+                                    "+app_update", "376030", "validate",
+                                    "+quit",
+                                ])
+                                .creation_flags(CREATE_NO_WINDOW)
+                                .output()
+                                .await;
+                        }
+                    }
+                }
+            }
+
+            if restart {
+                log::info!("  [Advanced ASE] Step 3/4: Starting server up");
+                let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
+                
+                if dino_wipe {
+                    log::info!("  [Advanced ASE] Step 4/4: Queuing DestroyWildDinos command");
+                    let app = (*app_handle).clone();
+                    tauri::async_runtime::spawn(async move {
+                        sleep(Duration::from_secs(180)).await;
+                        if let Some(state) = app.try_state::<AppState>() {
+                            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "DestroyWildDinos".into(), state.clone()).await;
+                        }
+                    });
                 }
             }
         }

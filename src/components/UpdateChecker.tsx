@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { check } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getVersion } from '@tauri-apps/api/app';
-import { Download, X, RefreshCw, AlertCircle, Clock, Rocket } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
+import { Download, X, RefreshCw, AlertCircle, Clock, Rocket, ExternalLink } from 'lucide-react';
 import { cn } from '../utils/helpers';
+import toast from 'react-hot-toast';
 import {
     addUpdateHistory,
     updateLastCheck,
@@ -14,7 +16,9 @@ import {
     isVersionSkipped,
     skipVersion,
     pruneSkippedVersions,
-    getUpdateSettings
+    getUpdateSettings,
+    getReleasesUrl,
+    setUpdateSettings as saveUpdateSettings
 } from '../utils/updateHistory';
 
 // Export types for use in Settings
@@ -50,6 +54,65 @@ const releaseCheckLock = () => {
     checkInProgress = false;
 };
 
+// Detect signature mismatch errors
+function isSignatureError(errorMsg: string): boolean {
+    return errorMsg.includes('different key') ||
+           errorMsg.includes('signature') ||
+           errorMsg.includes('Signature verification failed');
+}
+
+// Detect transient/network errors worth retrying
+function isTransientError(errorMsg: string): boolean {
+    return errorMsg.includes('network') ||
+           errorMsg.includes('timeout') ||
+           errorMsg.includes('ETIMEDOUT') ||
+           errorMsg.includes('ECONNRESET') ||
+           errorMsg.includes('fetch') ||
+           errorMsg.includes('Could not fetch a valid release JSON');
+}
+
+// Retry helper with exponential backoff
+async function withRetry<T>(
+    fn: () => Promise<T>,
+    maxAttempts: number = 3,
+    baseDelayMs: number = 5000
+): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+            return await fn();
+        } catch (err) {
+            lastError = err;
+            const errorMsg = err instanceof Error ? err.message : String(err);
+
+            // Don't retry signature errors — they'll never self-resolve
+            if (isSignatureError(errorMsg)) {
+                throw err;
+            }
+
+            // Only retry transient errors
+            if (!isTransientError(errorMsg) || attempt === maxAttempts - 1) {
+                throw err;
+            }
+
+            const delay = baseDelayMs * Math.pow(2, attempt);
+            console.log(`Update check attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    throw lastError;
+}
+
+// Open the releases page for manual download
+async function openReleasesPage() {
+    try {
+        await invoke('plugin:opener|open_url', { url: getReleasesUrl() });
+    } catch {
+        // Fallback: try window.open
+        window.open(getReleasesUrl(), '_blank');
+    }
+}
+
 // Export function for manual trigger from Settings
 export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
     if (!acquireCheckLock()) {
@@ -59,15 +122,17 @@ export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
     try {
         const settings = getUpdateSettings();
         const target = settings.updateChannel || 'release';
-        const update = await check({ target });
+
+        const update = await withRetry(() => check({ target }));
         updateLastCheck();
+        saveUpdateSettings({ lastError: null });
 
         if (update) {
             lastCheckResult = {
                 available: true,
                 update: {
                     version: update.version,
-                    body: update.body || 'New version available!', // Keep hardcoded fallback for manual check logic or pass t func
+                    body: update.body || 'New version available!',
                 },
                 error: null,
             };
@@ -95,13 +160,18 @@ export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
             console.error('Update check failed:', err);
         }
 
+        const friendlyError = isSignatureError(errorMsg)
+            ? 'Update signature mismatch. Please download the latest version manually from GitHub.'
+            : isReleaseJsonError
+                ? 'Update server is unreachable (local development / offline)'
+                : errorMsg;
+
         lastCheckResult = {
             available: false,
             update: null,
-            error: isReleaseJsonError 
-                ? 'Update server is unreachable (local development / offline)'
-                : errorMsg,
+            error: friendlyError,
         };
+        saveUpdateSettings({ lastError: friendlyError });
         await emit('update-error', lastCheckResult.error);
     } finally {
         releaseCheckLock();
@@ -119,26 +189,42 @@ export default function UpdateChecker() {
     const [uiState, setUiState] = useState<'hidden' | 'prompt' | 'downloading' | 'ready'>('hidden');
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
+    const [isSignatureMismatch, setIsSignatureMismatch] = useState(false);
     
     const [settingsRevision, setSettingsRevision] = useState(0); // Used to trigger interval restart
     const [currentAppVersion, setCurrentAppVersion] = useState<string>('');
-    const downloadAndInstall = async (
-        updater: Awaited<ReturnType<typeof check>> | null = updateObj, 
-        info: {version: string} | null = updateAvailable, 
+
+    // Refs to avoid stale closures — the core fix for "nothing happens"
+    const updateObjRef = useRef(updateObj);
+    const updateAvailableRef = useRef(updateAvailable);
+    const currentAppVersionRef = useRef(currentAppVersion);
+
+    useEffect(() => { updateObjRef.current = updateObj; }, [updateObj]);
+    useEffect(() => { updateAvailableRef.current = updateAvailable; }, [updateAvailable]);
+    useEffect(() => { currentAppVersionRef.current = currentAppVersion; }, [currentAppVersion]);
+
+    const downloadAndInstall = useCallback(async (
+        updater?: Awaited<ReturnType<typeof check>> | null, 
+        info?: {version: string} | null, 
         silent: boolean = false
     ) => {
-        if (!updater || !info) return;
+        // Use refs as fallback to prevent stale closure reads
+        const resolvedUpdater = updater ?? updateObjRef.current;
+        const resolvedInfo = info ?? updateAvailableRef.current;
+
+        if (!resolvedUpdater || !resolvedInfo) return;
 
         if (!silent) {
             setUiState('downloading');
         }
         setError(null);
+        setIsSignatureMismatch(false);
 
         try {
             let downloaded = 0;
             let totalSize = 0;
 
-            await updater.downloadAndInstall((event) => {
+            await resolvedUpdater.downloadAndInstall((event) => {
                 if (event.event === 'Started') {
                     totalSize = event.data.contentLength || 0;
                 }
@@ -153,27 +239,48 @@ export default function UpdateChecker() {
 
             // Log successful update
             addUpdateHistory({
-                version: info.version,
+                version: resolvedInfo.version,
                 action: 'installed',
-                previousVersion: currentAppVersion,
+                previousVersion: currentAppVersionRef.current,
             });
 
+            saveUpdateSettings({ lastError: null });
             setUiState('ready'); // Prompt user to restart
         } catch (err) {
             console.error('Update failed:', err);
             const errorMsg = err instanceof Error ? err.message : String(err);
-            setError(`${t('updateChecker.error', 'Update failed')}: ${errorMsg}`);
+            const sigError = isSignatureError(errorMsg);
+            
+            setIsSignatureMismatch(sigError);
+
+            const friendlyMsg = sigError
+                ? t('updateChecker.signatureError', 'The update signature does not match. This usually means the update was signed with a different key. Please download the latest version manually from GitHub Releases.')
+                : `${t('updateChecker.error', 'Update failed')}: ${errorMsg}`;
+
+            setError(friendlyMsg);
 
             // Log failed update
             addUpdateHistory({
-                version: info.version,
+                version: resolvedInfo.version,
                 action: 'failed',
-                previousVersion: currentAppVersion,
+                previousVersion: currentAppVersionRef.current,
             });
 
-            setUiState('prompt'); // Revert to prompt to show error
+            saveUpdateSettings({ lastError: friendlyMsg });
+
+            if (!silent) {
+                setUiState('prompt'); // Revert to prompt to show error
+            } else {
+                // For silent failures, show a toast so user knows something went wrong
+                if (sigError) {
+                    toast.error(
+                        t('updateChecker.signatureToast', 'Update failed: signature mismatch. Check Settings → Updates for details.'),
+                        { duration: 8000, icon: '⚠️' }
+                    );
+                }
+            }
         }
-    };
+    }, [t]);
 
     // Load current version on mount
     useEffect(() => {
@@ -191,8 +298,10 @@ export default function UpdateChecker() {
         try {
             const settings = getUpdateSettings();
             const target = settings.updateChannel || 'release';
-            const update = await check({ target });
+
+            const update = await withRetry(() => check({ target }));
             updateLastCheck();
+            saveUpdateSettings({ lastError: null });
 
             if (update) {
                 // Check if user skipped this version
@@ -215,8 +324,8 @@ export default function UpdateChecker() {
                     error: null,
                 };
 
-                const settings = getUpdateSettings();
-                if (settings.autoUpdate && !isManual) {
+                const currentSettings = getUpdateSettings();
+                if (currentSettings.autoUpdate && !isManual) {
                     // Silently download and install in the background
                     downloadAndInstall(update, info, true);
                 } else {
@@ -236,6 +345,14 @@ export default function UpdateChecker() {
                 }
             } else {
                 console.error('Update check failed:', err);
+
+                // Show toast for production errors (non-silent feedback)
+                if (!isReleaseJsonError) {
+                    const friendly = isSignatureError(errorMsg)
+                        ? 'Update check failed: signature verification error.'
+                        : `Update check failed: ${errorMsg}`;
+                    saveUpdateSettings({ lastError: friendly });
+                }
             }
         } finally {
             if (!isManual) releaseCheckLock();
@@ -260,6 +377,10 @@ export default function UpdateChecker() {
         } catch (err) {
             console.error("Failed to relaunch:", err);
         }
+    };
+
+    const handleManualDownload = async () => {
+        await openReleasesPage();
     };
 
     // Listen for settings changes to restart interval
@@ -391,8 +512,19 @@ export default function UpdateChecker() {
                     {/* Error State */}
                     {error && (
                         <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm mb-6">
-                            <AlertCircle className="w-5 h-5 shrink-0" />
-                            <span className="leading-relaxed">{error}</span>
+                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <span className="leading-relaxed">{error}</span>
+                                {isSignatureMismatch && (
+                                    <button
+                                        onClick={handleManualDownload}
+                                        className="flex items-center gap-1.5 mt-3 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-red-300 hover:text-white transition-all text-xs font-semibold"
+                                    >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                        {t('updateChecker.downloadManually', 'Download from GitHub Releases')}
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
 
@@ -432,6 +564,19 @@ export default function UpdateChecker() {
                                 <RefreshCw className="w-5 h-5" />
                                 {t('updateChecker.relaunch', 'Restart Now')}
                             </button>
+                        ) : isSignatureMismatch ? (
+                            <button
+                                onClick={handleManualDownload}
+                                className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl",
+                                    "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500",
+                                    "text-white font-bold tracking-wider uppercase",
+                                    "transition-all duration-300 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 border border-amber-400/20"
+                                )}
+                            >
+                                <ExternalLink className="w-5 h-5" />
+                                {t('updateChecker.openGitHub', 'Download from GitHub')}
+                            </button>
                         ) : (
                             <button
                                 onClick={() => downloadAndInstall()}
@@ -467,7 +612,7 @@ export default function UpdateChecker() {
                             </button>
                         )}
                         
-                        {uiState === 'prompt' && (
+                        {uiState === 'prompt' && !isSignatureMismatch && (
                             <button
                                 onClick={handleSkipVersion}
                                 title={t('updateChecker.skip', 'Skip this version')}

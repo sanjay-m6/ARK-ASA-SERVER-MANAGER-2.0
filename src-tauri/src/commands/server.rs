@@ -1770,6 +1770,8 @@ pub async fn update_server_settings(
     }
     if let Some(v) = session_name {
         updates.push("session_name = ?");
+        params.push(Box::new(v.clone()));
+        updates.push("name = ?");
         params.push(Box::new(v));
     }
     if let Some(v) = game_port {

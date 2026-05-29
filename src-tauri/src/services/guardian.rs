@@ -95,6 +95,38 @@ impl GuardianService {
         );
     }
 
+    /// Register an ASE server PID for monitoring and sync watchdog_enabled from database
+    pub async fn register_ase_server(&self, app_handle: AppHandle, server_id: i64, pid: u32) {
+        let mut pids = self.server_pids.lock().await;
+        let watchdog_key = -server_id;
+        pids.insert(watchdog_key, pid);
+        println!(
+            "🛡️ Guardian: Registered ASE server {} with watchdog key {} and PID {}",
+            server_id, watchdog_key, pid
+        );
+
+        // Populate in-memory auto-restart settings cache from SQLite
+        let mut auto_restart = false;
+        if let Some(state) = app_handle.try_state::<crate::AppState>() {
+            if let Ok(db_guard) = state.db.lock() {
+                if let Ok(conn) = db_guard.get_connection() {
+                    auto_restart = conn.query_row(
+                        "SELECT watchdog_enabled FROM ase_scheduler_settings WHERE server_id = ?",
+                        [server_id],
+                        |row| row.get::<_, i32>(0)
+                    ).map(|v| v == 1).unwrap_or(false);
+                }
+            }
+        }
+
+        let mut settings = self.auto_restart_enabled.lock().await;
+        settings.insert(watchdog_key, auto_restart);
+        println!(
+            "🛡️ Guardian: Synced watchdog_enabled setting for ASE server {} as {}",
+            server_id, auto_restart
+        );
+    }
+
     /// Unregister a server from monitoring
     pub async fn unregister_server(&self, server_id: i64) {
         let mut pids = self.server_pids.lock().await;
@@ -275,11 +307,19 @@ impl GuardianService {
                         let server_name = {
                             if let Ok(db_guard) = state.db.lock() {
                                 if let Ok(conn) = db_guard.get_connection() {
-                                    conn.query_row(
-                                        "SELECT name FROM servers WHERE id = ?",
-                                        [server_id],
-                                        |row| row.get::<_, String>(0)
-                                    ).unwrap_or_else(|_| format!("Server {}", server_id))
+                                    if server_id < 0 {
+                                        conn.query_row(
+                                            "SELECT name FROM ase_servers WHERE id = ?",
+                                            [-server_id],
+                                            |row| row.get::<_, String>(0)
+                                        ).unwrap_or_else(|_| format!("ASE Server {}", -server_id))
+                                    } else {
+                                        conn.query_row(
+                                            "SELECT name FROM servers WHERE id = ?",
+                                            [server_id],
+                                            |row| row.get::<_, String>(0)
+                                        ).unwrap_or_else(|_| format!("Server {}", server_id))
+                                    }
                                 } else { format!("Server {}", server_id) }
                             } else { format!("Server {}", server_id) }
                         };
@@ -290,19 +330,22 @@ impl GuardianService {
                             // Update status to stopped
                             if let Ok(db_guard) = state.db.lock() {
                                 if let Ok(conn) = db_guard.get_connection() {
-                                    let _ = conn.execute(
-                                        "UPDATE servers SET status = 'stopped' WHERE id = ?",
-                                        [server_id]
-                                    );
-                                    let _ = conn.execute(
-                                        "UPDATE ase_servers SET status = 'stopped' WHERE id = ?",
-                                        [server_id]
-                                    );
+                                    if server_id < 0 {
+                                        let _ = conn.execute(
+                                            "UPDATE ase_servers SET status = 'stopped', process_id = NULL WHERE id = ?",
+                                            [-server_id]
+                                        );
+                                    } else {
+                                        let _ = conn.execute(
+                                            "UPDATE servers SET status = 'stopped' WHERE id = ?",
+                                            [server_id]
+                                        );
+                                    }
                                 }
                             }
                             
                             let _ = app_handle.emit("server-status-change", serde_json::json!({
-                                "serverId": server_id,
+                                "serverId": if server_id < 0 { -server_id } else { server_id },
                                 "status": "stopped"
                             }));
                             
@@ -357,10 +400,21 @@ impl GuardianService {
                                 // Disable in DB & update status
                                 if let Ok(db_guard) = state.db.lock() {
                                     if let Ok(conn) = db_guard.get_connection() {
-                                        let _ = conn.execute(
-                                            "UPDATE servers SET auto_restart = 0, status = 'crashed' WHERE id = ?",
-                                            [server_id]
-                                        );
+                                        if server_id < 0 {
+                                            let _ = conn.execute(
+                                                "UPDATE ase_servers SET status = 'crashed', process_id = NULL WHERE id = ?",
+                                                [-server_id]
+                                            );
+                                            let _ = conn.execute(
+                                                "UPDATE ase_scheduler_settings SET watchdog_enabled = 0 WHERE server_id = ?",
+                                                [-server_id]
+                                            );
+                                        } else {
+                                            let _ = conn.execute(
+                                                "UPDATE servers SET auto_restart = 0, status = 'crashed' WHERE id = ?",
+                                                [server_id]
+                                            );
+                                        }
                                     }
                                 }
 
@@ -372,7 +426,7 @@ impl GuardianService {
 
                                 // Emit alert event to frontend
                                 let _ = app_handle.emit("server-health-alert", serde_json::json!({
-                                    "serverId": server_id,
+                                    "serverId": if server_id < 0 { -server_id } else { server_id },
                                     "serverName": server_name,
                                     "type": "crash_loop_prevented",
                                     "message": format!("Crash loop detected! Auto-restart disabled for '{}' to prevent system degradation.", server_name)
@@ -390,18 +444,34 @@ impl GuardianService {
                                 // Update status to restarting in DB
                                 if let Ok(db_guard) = state.db.lock() {
                                     if let Ok(conn) = db_guard.get_connection() {
-                                        let _ = conn.execute(
-                                            "UPDATE servers SET status = 'restarting' WHERE id = ?",
-                                            [server_id]
-                                        );
+                                        if server_id < 0 {
+                                            let _ = conn.execute(
+                                                "UPDATE ase_servers SET status = 'restarting' WHERE id = ?",
+                                                [-server_id]
+                                            );
+                                        } else {
+                                            let _ = conn.execute(
+                                                "UPDATE servers SET status = 'restarting' WHERE id = ?",
+                                                [server_id]
+                                            );
+                                        }
                                     }
                                 }
 
                                 // Trigger start_server asynchronously
                                 let h = app_handle.clone();
-                                tauri::async_runtime::spawn(async move {
-                                    let _ = crate::commands::server::start_server(h, server_id, false).await;
-                                });
+                                if server_id < 0 {
+                                    let real_id = -server_id;
+                                    tauri::async_runtime::spawn(async move {
+                                        if let Some(state) = h.try_state::<crate::AppState>() {
+                                            let _ = crate::ase::commands::server::start_ase_server(h.clone(), real_id, state).await;
+                                        }
+                                    });
+                                } else {
+                                    tauri::async_runtime::spawn(async move {
+                                        let _ = crate::commands::server::start_server(h, server_id, false).await;
+                                    });
+                                }
                             }
                         } else {
                             // Auto restart is off, transition to crashed
@@ -409,10 +479,17 @@ impl GuardianService {
                             
                             if let Ok(db_guard) = state.db.lock() {
                                 if let Ok(conn) = db_guard.get_connection() {
-                                    let _ = conn.execute(
-                                        "UPDATE servers SET status = 'crashed' WHERE id = ?",
-                                        [server_id]
-                                    );
+                                    if server_id < 0 {
+                                        let _ = conn.execute(
+                                            "UPDATE ase_servers SET status = 'crashed', process_id = NULL WHERE id = ?",
+                                            [-server_id]
+                                        );
+                                    } else {
+                                        let _ = conn.execute(
+                                            "UPDATE servers SET status = 'crashed' WHERE id = ?",
+                                            [server_id]
+                                        );
+                                    }
                                 }
                             }
 

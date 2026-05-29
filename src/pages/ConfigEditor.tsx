@@ -1,7 +1,7 @@
 
-import { useState, useEffect, useMemo, memo, useCallback } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3, Shield, X } from 'lucide-react';
+import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3, Shield, X, ChevronDown, ChevronUp, MapPin, Compass, Clock, Sparkles, Globe } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { readConfig, saveConfig, updateServerSettings } from '../utils/tauri';
 import toast from 'react-hot-toast';
@@ -20,6 +20,240 @@ import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
 import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboard';
 import ServerSelect from '../components/ui/ServerSelect';
+
+// Map images
+import mapTheIsland from '../assets/maps/the_island.png';
+import mapScorchedEarth from '../assets/maps/scorched_earth.png';
+import mapTheCenter from '../assets/maps/the_center.png';
+import mapAberration from '../assets/maps/aberration.png';
+import mapExtinction from '../assets/maps/extinction.png';
+import mapRagnarok from '../assets/maps/ragnarok.png';
+import mapValguero from '../assets/maps/valguero.png';
+import mapLostColony from '../assets/maps/lost_colony.png';
+import mapAstraeos from '../assets/maps/astraeos.png';
+import mapForglar from '../assets/maps/forglar.png';
+import mapSvartalfheim from '../assets/maps/svartalfheim.png';
+import mapAmissa from '../assets/maps/amissa.png';
+import mapInsaluna from '../assets/maps/insaluna.png';
+import mapTemptressLagoon from '../assets/maps/temptress_lagoon.png';
+import mapReverence from '../assets/maps/reverence.png';
+import mapGenesis from '../assets/maps/genesis.png';
+import mapGenesis2 from '../assets/maps/genesis2.png';
+import mapFjordur from '../assets/maps/fjordur.png';
+import mapCrystalIsles from '../assets/maps/crystal_isles.png';
+import mapLostIsland from '../assets/maps/lost_island.png';
+import mapArkClub from '../assets/maps/ark_club.png';
+
+interface MapInfo {
+    name: string;
+    description: string;
+    color: string;
+    icon: string;
+    size: string;
+    image: string;
+    dlcType: string;
+}
+
+const MAP_METADATA: Record<string, MapInfo> = {
+    'TheIsland_WP': {
+        name: 'The Island',
+        description: 'The original ARK experience — tropical island with diverse biomes.',
+        color: '#22c55e',
+        icon: '🏝️',
+        size: 'Large (~8 GB)',
+        image: mapTheIsland,
+        dlcType: 'Official Release'
+    },
+    'ScorchedEarth_WP': {
+        name: 'Scorched Earth',
+        description: 'Harsh desert survival. Find water, shield from heat, and tame the desert beasts.',
+        color: '#f59e0b',
+        icon: '🏜️',
+        size: 'Medium (~5 GB)',
+        image: mapScorchedEarth,
+        dlcType: 'Official Release'
+    },
+    'TheCenter_WP': {
+        name: 'The Center',
+        description: 'Massive open-world map with floating islands, lava biomes, and deep oceans.',
+        color: '#3b82f6',
+        icon: '🌊',
+        size: 'Large (~9 GB)',
+        image: mapTheCenter,
+        dlcType: 'Official Release'
+    },
+    'Aberration_WP': {
+        name: 'Aberration',
+        description: 'Bioluminescent underground cave system. Watch out for radiation and hazardous creatures.',
+        color: '#a855f7',
+        icon: '🍄',
+        size: 'Medium (~6 GB)',
+        image: mapAberration,
+        dlcType: 'Official Release'
+    },
+    'Extinction_WP': {
+        name: 'Extinction',
+        description: 'Post-apocalyptic Earth overrun by element-corrupted creatures. Discover proto-ARKs.',
+        color: '#64748b',
+        icon: '🏚️',
+        size: 'Large (~10 GB)',
+        image: mapExtinction,
+        dlcType: 'Official Release'
+    },
+    'Ragnarok_WP': {
+        name: 'Ragnarok',
+        description: 'Viking-themed mega map featuring active volcanoes, hot springs, and high-altitude biomes.',
+        color: '#ef4444',
+        icon: '⚔️',
+        size: 'Large (~11 GB)',
+        image: mapRagnarok,
+        dlcType: 'Official Release'
+    },
+    'Valguero_WP': {
+        name: 'Valguero',
+        description: 'Dramatically diverse terrain featuring valleys, gorges, and a massive underground ocean.',
+        color: '#10b981',
+        icon: '🦖',
+        size: 'Large (~9 GB)',
+        image: mapValguero,
+        dlcType: 'Official Release'
+    },
+    'ClubARK_WP': {
+        name: 'Club ARK',
+        description: 'Social hub featuring mini-games, arenas, and dinosaur racing.',
+        color: '#e11d48',
+        icon: '🌴',
+        size: 'Large (~2 GB)',
+        image: mapArkClub,
+        dlcType: 'Official Release'
+    },
+    'LostColony_WP': {
+        name: 'Lost Colony',
+        description: 'Paid DLC expansion. Explore forgotten celestial outposts and sci-fi hazards.',
+        color: '#8b5cf6',
+        icon: '🚀',
+        size: 'Large (~8 GB)',
+        image: mapLostColony,
+        dlcType: 'Paid DLC'
+    },
+    'Astraeos_WP': {
+        name: 'Astraeos',
+        description: 'Premium community mod map. Dynamic stargates and custom ruins.',
+        color: '#ec4899',
+        icon: '✨',
+        size: 'Large (~7 GB)',
+        image: mapAstraeos,
+        dlcType: 'Premium Mod'
+    },
+    'Forglar_WP': {
+        name: 'Forglar',
+        description: 'Premium community mod map featuring dense fantasy forests and mythical caves.',
+        color: '#06b6d4',
+        icon: '🌿',
+        size: 'Medium (~6 GB)',
+        image: mapForglar,
+        dlcType: 'Premium Mod'
+    },
+    'Svartalfheim_WP': {
+        name: 'Svartalfheim',
+        description: 'Premium dwarf-themed community mod map. Resource rich, no flyers allowed.',
+        color: '#0284c7',
+        icon: '⛰️',
+        size: 'Medium (~5 GB)',
+        image: mapSvartalfheim,
+        dlcType: 'Premium Mod'
+    },
+    'Amissa_WP': {
+        name: 'Amissa',
+        description: 'Premium community mod map. Bounded by majestic floating shrines.',
+        color: '#16a34a',
+        icon: '🍃',
+        size: 'Large (~8 GB)',
+        image: mapAmissa,
+        dlcType: 'Premium Mod'
+    },
+    'Insaluna_WP': {
+        name: 'Insaluna',
+        description: 'Premium community mod map. Deep craters and celestial bioluminescence.',
+        color: '#818cf8',
+        icon: '🌙',
+        size: 'Large (~7 GB)',
+        image: mapInsaluna,
+        dlcType: 'Premium Mod'
+    },
+    'TemptressLagoon_WP': {
+        name: 'Temptress Lagoon',
+        description: 'Premium community mod map. Tropical paradise with volcanic sand beaches.',
+        color: '#0ea5e9',
+        icon: '🏝️',
+        size: 'Medium (~5 GB)',
+        image: mapTemptressLagoon,
+        dlcType: 'Premium Mod'
+    },
+    'Reverence_WP': {
+        name: 'Reverence',
+        description: 'Premium community mod map featuring ancient coliseums and massive arches.',
+        color: '#d97706',
+        icon: '🏛️',
+        size: 'Large (~9 GB)',
+        image: mapReverence,
+        dlcType: 'Premium Mod'
+    },
+    'ScorchedEarthRM_WP': {
+        name: 'Scorched Earth Reborn',
+        description: 'Modded expansion of the Scorched Earth desert with custom biomes and expansions.',
+        color: '#f97316',
+        icon: '🔥',
+        size: 'Large (~6 GB)',
+        image: mapScorchedEarth,
+        dlcType: 'Modded Expansion'
+    },
+    'Genesis_WP': {
+        name: 'Genesis Part 1',
+        description: 'Virtual simulation with extreme environments. Coming June 2026.',
+        color: '#14b8a6',
+        icon: '🧬',
+        size: 'Medium (~7 GB)',
+        image: mapGenesis,
+        dlcType: 'Upcoming (2026)'
+    },
+    'Genesis2_WP': {
+        name: 'Genesis Part 2',
+        description: 'Massive colony spaceship with distinct rings. Coming 2026.',
+        color: '#6366f1',
+        icon: '🛸',
+        size: 'Large (~12 GB)',
+        image: mapGenesis2,
+        dlcType: 'Upcoming (2026)'
+    },
+    'Fjordur_WP': {
+        name: 'Fjordur',
+        description: 'Cold Norse realms with multiple dimensions. Coming 2026.',
+        color: '#0ea5e9',
+        icon: '❄️',
+        size: 'Large (~10 GB)',
+        image: mapFjordur,
+        dlcType: 'Upcoming (2026)'
+    },
+    'CrystalIsles_WP': {
+        name: 'Crystal Isles',
+        description: 'Crystal-infused peaks and colorful floating islands. Coming 2026-2027.',
+        color: '#c084fc',
+        icon: '💎',
+        size: 'Large (~9 GB)',
+        image: mapCrystalIsles,
+        dlcType: 'Upcoming (2026-2027)'
+    },
+    'LostIsland_WP': {
+        name: 'Lost Island',
+        description: 'Massive map featuring diverse biomes and ruins. Coming 2026-2027.',
+        color: '#fb923c',
+        icon: '🌋',
+        size: 'Large (~10 GB)',
+        image: mapLostIsland,
+        dlcType: 'Upcoming (2026-2027)'
+    }
+};
 
 // Field Render Component
 // Field Render Component - Memoized to prevent re-renders of all fields on single keypress
@@ -154,6 +388,356 @@ const ConfigInput = memo(({
             const isCustomValue = value !== '' && !knownValues.includes(value);
             const dropdownValue = isCustomValue ? '__CUSTOM__' : value;
 
+            if (field.key === 'MapName') {
+                const [isOpen, setIsOpen] = useState(false);
+                const dropdownRef = useRef<HTMLDivElement>(null);
+
+                // Close dropdown on click outside
+                useEffect(() => {
+                    const handleClickOutside = (event: MouseEvent) => {
+                        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                            setIsOpen(false);
+                        }
+                    };
+                    if (isOpen) {
+                        document.addEventListener('mousedown', handleClickOutside);
+                    }
+                    return () => {
+                        document.removeEventListener('mousedown', handleClickOutside);
+                    };
+                }, [isOpen]);
+
+                // Find currently selected map metadata
+                const selectedMapMeta = MAP_METADATA[value];
+                const selectedOption = field.options?.find(o => o.value === dropdownValue);
+
+                // Group options by their group property for premium organization
+                // Groups: released, premium, modded, upcoming, custom
+                const groupedOptions = useMemo(() => {
+                    const groups: Record<string, typeof field.options> = {
+                        released: [],
+                        premium: [],
+                        modded: [],
+                        upcoming: [],
+                        custom: []
+                    };
+                    field.options?.forEach(opt => {
+                        const g = opt.group || 'released';
+                        if (groups[g]) {
+                            groups[g].push(opt);
+                        } else {
+                            groups[g] = [opt];
+                        }
+                    });
+                    return groups;
+                }, [field.options]);
+
+                return (
+                    <div 
+                        className={cn(
+                            containerClassName.replace('overflow-hidden', 'overflow-visible'),
+                            isOpen ? "z-30" : "z-10"
+                        )}
+                    >
+                        {labelContent}
+                        
+                        {/* Custom Select Button */}
+                        <div ref={dropdownRef} className="relative z-20">
+                            <button
+                                type="button"
+                                onClick={() => setIsOpen(!isOpen)}
+                                className="w-full flex items-center justify-between bg-[#1a1a2e] border-2 border-[#2d2d44] hover:border-violet-500/50 rounded-xl px-4 py-3 text-white transition-all focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] text-left cursor-pointer"
+                            >
+                                <div className="flex items-center gap-2.5">
+                                    <span className="text-xl">
+                                        {selectedMapMeta ? selectedMapMeta.icon : (dropdownValue === '__CUSTOM__' ? '✏️' : '🗺️')}
+                                    </span>
+                                    <div>
+                                        <div className="font-semibold text-slate-100 leading-tight">
+                                            {selectedMapMeta ? selectedMapMeta.name : (selectedOption ? selectedOption.label.replace(/^[^\s]+\s+/, '') : value || 'Custom Map')}
+                                        </div>
+                                        <div className="text-[10px] text-violet-400 font-medium tracking-wider uppercase mt-0.5">
+                                            {selectedMapMeta ? selectedMapMeta.dlcType : (dropdownValue === '__CUSTOM__' ? 'Custom ID' : 'Custom Mod Map')}
+                                        </div>
+                                    </div>
+                                </div>
+                                {isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+                            </button>
+
+                            {/* Grouped Dropdown Options List */}
+                            {isOpen && (
+                                <div className="absolute left-0 right-0 mt-2 bg-[#121225]/95 border-2 border-[#2d2d44] rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200">
+                                    
+                                    {/* Released/Official Maps */}
+                                    {groupedOptions.released && groupedOptions.released.length > 0 && (
+                                        <div>
+                                            <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border-b border-[#2d2d44]/50 flex items-center gap-1.5">
+                                                <Globe className="w-3 h-3 text-emerald-400" /> Official Release Maps
+                                            </div>
+                                            <div className="p-1.5 space-y-0.5">
+                                                {groupedOptions.released.map(opt => {
+                                                    const isSelected = dropdownValue === opt.value;
+                                                    const meta = MAP_METADATA[opt.value];
+                                                    return (
+                                                        <button
+                                                            key={opt.value}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                handleChange(opt.value);
+                                                                setIsOpen(false);
+                                                            }}
+                                                            className={cn(
+                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
+                                                                isSelected 
+                                                                    ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
+                                                                    : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-base">{meta?.icon || '🏝️'}</span>
+                                                                <span>{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
+                                                            </div>
+                                                            {isSelected && <Check className="w-4 h-4 text-violet-400" />}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Premium Mod Maps */}
+                                    {groupedOptions.premium && groupedOptions.premium.length > 0 && (
+                                        <div className="border-t border-[#2d2d44]/50">
+                                            <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border-b border-[#2d2d44]/50 flex items-center gap-1.5">
+                                                <Sparkles className="w-3 h-3 text-pink-400" /> Premium Mod Maps
+                                            </div>
+                                            <div className="p-1.5 space-y-0.5">
+                                                {groupedOptions.premium.map(opt => {
+                                                    const isSelected = dropdownValue === opt.value;
+                                                    const meta = MAP_METADATA[opt.value];
+                                                    return (
+                                                        <button
+                                                            key={opt.value}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                handleChange(opt.value);
+                                                                setIsOpen(false);
+                                                            }}
+                                                            className={cn(
+                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
+                                                                isSelected 
+                                                                    ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
+                                                                    : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-base">{meta?.icon || '✨'}</span>
+                                                                <span>{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
+                                                            </div>
+                                                            {isSelected && <Check className="w-4 h-4 text-violet-400" />}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Modded Expansion Maps */}
+                                    {groupedOptions.modded && groupedOptions.modded.length > 0 && (
+                                        <div className="border-t border-[#2d2d44]/50">
+                                            <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border-b border-[#2d2d44]/50 flex items-center gap-1.5">
+                                                <Compass className="w-3 h-3 text-orange-400" /> Modded Expansion Maps
+                                            </div>
+                                            <div className="p-1.5 space-y-0.5">
+                                                {groupedOptions.modded.map(opt => {
+                                                    const isSelected = dropdownValue === opt.value;
+                                                    const meta = MAP_METADATA[opt.value];
+                                                    return (
+                                                        <button
+                                                            key={opt.value}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                handleChange(opt.value);
+                                                                setIsOpen(false);
+                                                            }}
+                                                            className={cn(
+                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
+                                                                isSelected 
+                                                                    ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
+                                                                    : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-base">{meta?.icon || '🔥'}</span>
+                                                                <span>{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
+                                                            </div>
+                                                            {isSelected && <Check className="w-4 h-4 text-violet-400" />}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Upcoming Maps */}
+                                    {groupedOptions.upcoming && groupedOptions.upcoming.length > 0 && (
+                                        <div className="border-t border-[#2d2d44]/50">
+                                            <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border-b border-[#2d2d44]/50 flex items-center gap-1.5">
+                                                <Clock className="w-3 h-3 text-amber-400 animate-pulse" /> Upcoming Maps (Soon)
+                                            </div>
+                                            <div className="p-1.5 space-y-0.5">
+                                                {groupedOptions.upcoming.map(opt => {
+                                                    const isSelected = dropdownValue === opt.value;
+                                                    const meta = MAP_METADATA[opt.value];
+                                                    return (
+                                                        <button
+                                                            key={opt.value}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                handleChange(opt.value);
+                                                                setIsOpen(false);
+                                                            }}
+                                                            className={cn(
+                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
+                                                                isSelected 
+                                                                    ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
+                                                                    : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-base">{meta?.icon || '🧬'}</span>
+                                                                <span>{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
+                                                            </div>
+                                                            {isSelected && <Check className="w-4 h-4 text-violet-400" />}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Custom option */}
+                                    {groupedOptions.custom && groupedOptions.custom.length > 0 && (
+                                        <div className="border-t border-[#2d2d44]/50">
+                                            <div className="p-1.5">
+                                                {groupedOptions.custom.map(opt => {
+                                                    const isSelected = dropdownValue === opt.value;
+                                                    return (
+                                                        <button
+                                                            key={opt.value}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                handleChange(isCustomValue ? value : '');
+                                                                setIsOpen(false);
+                                                            }}
+                                                            className={cn(
+                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
+                                                                isSelected 
+                                                                    ? "bg-amber-600/30 border border-amber-500/50 text-white font-medium"
+                                                                    : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
+                                                            )}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-base">✏️</span>
+                                                                <span>{opt.label}</span>
+                                                            </div>
+                                                            {isSelected && <Check className="w-4 h-4 text-amber-500" />}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Custom Map Text Input when custom selection or non-predefined map name */}
+                        {(dropdownValue === '__CUSTOM__') && (
+                            <div className="mt-3.5 space-y-2 relative z-10 animate-fadeIn">
+                                <label className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">Custom Map Name / Server Argument</label>
+                                <input
+                                    type="text"
+                                    value={value}
+                                    onChange={(e) => handleChange(e.target.value)}
+                                    placeholder="e.g. ScorchedEarthRM_WP"
+                                    className="w-full bg-[#1a1a2e] border-2 border-amber-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.2)] font-mono text-sm transition-all placeholder-slate-500"
+                                />
+                                <p className="text-[11px] text-slate-500">Enter the exact map identifier from the mod (e.g. <code className="text-amber-400/80">ScorchedEarthRM_WP</code>)</p>
+                            </div>
+                        )}
+
+                        {/* Real-time Premium Map Preview Card */}
+                        <div className="mt-4 relative rounded-xl overflow-hidden border-2 border-[#2d2d44] bg-slate-900 group/card min-h-[190px] flex flex-col justify-end transition-all duration-300 hover:border-violet-500/50 hover:shadow-[0_0_20px_rgba(139,92,246,0.15)] select-none">
+                            {selectedMapMeta ? (
+                                <>
+                                    {/* Image background with zoom and transition */}
+                                    <img 
+                                        src={selectedMapMeta.image} 
+                                        alt={selectedMapMeta.name} 
+                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105" 
+                                    />
+                                    {/* Glassmorphic/gradient overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/10" />
+                                    
+                                    {/* Header badges */}
+                                    <div className="absolute top-3 right-3 flex gap-1.5 items-center z-10">
+                                        <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-black/60 border border-white/10 text-slate-300 backdrop-blur-md">
+                                            {selectedMapMeta.size}
+                                        </span>
+                                        <span 
+                                            className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider text-white backdrop-blur-md"
+                                            style={{ backgroundColor: `${selectedMapMeta.color}70`, border: `1px solid ${selectedMapMeta.color}` }}
+                                        >
+                                            {selectedMapMeta.dlcType}
+                                        </span>
+                                    </div>
+
+                                    {/* Details content */}
+                                    <div className="relative p-4 z-10">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-lg">{selectedMapMeta.icon}</span>
+                                            <h4 className="font-bold text-white text-base leading-tight drop-shadow-md">{selectedMapMeta.name}</h4>
+                                        </div>
+                                        <p className="text-xs text-slate-300/90 leading-normal drop-shadow-sm line-clamp-2">{selectedMapMeta.description}</p>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* Custom/Fallback Map Card design */}
+                                    <div className="absolute inset-0 bg-[#121225] flex items-center justify-center">
+                                        <div className="absolute inset-0 opacity-10 bg-radial-gradient from-amber-500 to-transparent" />
+                                        <MapPin className="w-12 h-12 text-amber-500/20" />
+                                    </div>
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
+                                    
+                                    {/* Header badge */}
+                                    <div className="absolute top-3 right-3 z-10">
+                                        <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-amber-500/20 border border-amber-500/50 text-amber-300 backdrop-blur-md">
+                                            Custom Map
+                                        </span>
+                                    </div>
+
+                                    {/* Details content */}
+                                    <div className="relative p-4 z-10">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-lg">✏️</span>
+                                            <h4 className="font-bold text-white text-base leading-tight font-mono">{value || 'Custom Map'}</h4>
+                                        </div>
+                                        <p className="text-xs text-slate-400 leading-normal">
+                                            {value ? 'Custom mod or unofficial map loaded via launch argument.' : 'Please select a map or specify a custom map identifier.'}
+                                        </p>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {field.description && <div className="mt-2.5 text-xs text-slate-400">{field.description}</div>}
+                    </div>
+                );
+            }
+
+            // Normal dropdown rendering for other dropdown fields
             return (
                 <div className={containerClassName}>
                     {labelContent}
@@ -162,7 +746,6 @@ const ConfigInput = memo(({
                         onChange={(e) => {
                             const selected = e.target.value;
                             if (selected === '__CUSTOM__') {
-                                // Switch to custom mode — keep current value if already custom, else clear
                                 handleChange(isCustomValue ? value : '');
                             } else {
                                 handleChange(selected);
@@ -174,18 +757,15 @@ const ConfigInput = memo(({
                             <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
                     </select>
-                    {/* Custom map name text input — shown when __CUSTOM__ is active */}
                     {(dropdownValue === '__CUSTOM__') && (
                         <div className="mt-3 space-y-2">
-                            <label className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">Custom Map Name</label>
+                            <label className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">Custom Value</label>
                             <input
                                 type="text"
                                 value={value}
                                 onChange={(e) => handleChange(e.target.value)}
-                                placeholder="e.g. ScorchedEarthRM_WP"
                                 className="w-full bg-[#1a1a2e] border-2 border-amber-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.2)] font-mono text-sm transition-all placeholder-slate-500"
                             />
-                            <p className="text-xs text-slate-500">Enter the exact map identifier from the mod (e.g. <code className="text-amber-400/80">ScorchedEarthRM_WP</code>)</p>
                         </div>
                     )}
                     {field.description && <div className="mt-2 text-sm text-slate-400">{field.description}</div>}
@@ -300,8 +880,10 @@ export default function ConfigEditor() {
 
     // Initialize from navigation or default
     useEffect(() => {
-        if (location.state?.serverId) setSelectedServerId(location.state.serverId);
-        else if (servers.length > 0 && !selectedServerId) setSelectedServerId(servers[0].id);
+        if (selectedServerId === null) {
+            if (location.state?.serverId) setSelectedServerId(location.state.serverId);
+            else if (servers.length > 0) setSelectedServerId(servers[0].id);
+        }
     }, [servers, selectedServerId, location.state]);
 
     // Load configs
@@ -309,6 +891,10 @@ export default function ConfigEditor() {
         if (!selectedServerId) return;
         const load = async () => {
             setIsLoading(true);
+            setConfigs({
+                GameUserSettings: new Map(),
+                Game: new Map()
+            });
             try {
                 const [gusContent, gameContent] = await Promise.all([
                     readConfig(selectedServerId, 'GameUserSettings'),

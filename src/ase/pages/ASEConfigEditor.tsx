@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
-import { FileEdit, Save, RotateCcw, ChevronDown, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { FileEdit, Save, RotateCcw, ChevronDown, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import ServerSelect from '../../components/ui/ServerSelect';
-import { readAseConfig, writeAseConfig } from '../utils/aseCommands';
+import { readAseConfig, writeAseConfig, getAseLaunchArguments } from '../utils/aseCommands';
 import { AseGameConfig } from '../types/ase.types';
 import { EngramOverridesEditor } from '../../components/config/EngramOverridesEditor';
 import { CraftingCostEditor } from '../../components/config/CraftingCostEditor';
@@ -89,11 +90,25 @@ const defaultConfig: AseGameConfig = {
   // Core Rates
   clampResourceHarvestDamage: false, optimizedHarvestingHealth: false, tamedDinoHarvestingDamageMultiplier: 1.0, dinoTurretDamageMultiplier: 1.0,
   // Structures & Decay
-  structureDecayPeriodMultiplier: 1.0, pveDinoDecayPeriodMultiplier: 1.0, fastDecayUnsnappedCoreStructures: false, bAllowPlatformSaddleMultiFloors: false, flyerPlatformMaxStructuresMultiplier: 1.0
+  structureDecayPeriodMultiplier: 1.0, pveDinoDecayPeriodMultiplier: 1.0, fastDecayUnsnappedCoreStructures: false, bAllowPlatformSaddleMultiFloors: false, flyerPlatformMaxStructuresMultiplier: 1.0,
+
+  // Classic ASM Full Options Integration
+  badWordListUrl: '', badWordWhiteListUrl: '', bFilterTribeNames: false, bFilterCharacterNames: false, bFilterChat: false,
+  banListUrl: '', useBanListUrl: false, useDynamicConfigUrl: false, useCustomLiveTuningUrl: false,
+  kickIdlePlayersPeriod: 3600.0, enableIdleTimeout: false, noPlayervac: false, noAntiSpeedHack: false,
+  speedHackCpuBias: 1.0, disableMovementValidation: false, outputServerLogToConsole: false, noHangDet: false,
+  noDinos: false, noUnderMeshChecking: false, noUnderMeshKilling: false, enableVivox: false,
+  allowSharedConnections: false, creatureUploadIssueProtection: false, additionalDupeProtection: false,
+  secureItemDinoSpawningRules: false, forceRespawnDinosOnStartup: false, enableAutoForceRespawnDinos: false,
+  autoForceRespawnDinosInterval: 24.0, forceDirectX10: false, forceShaderModel4: false, forceLowMemory: false,
+  forceNoManSky: false, useNoMemoryBias: false, stasisKeepControllers: false, serverAllowAnsel: false,
+  structureMemoryOptimizations: false, structureStasisGrid: false, enableCrossplay: false,
+  enablePublicIpForEpic: false, epicStorePlayersOnly: false, alternateSaveDirectoryName: '',
+  clusterDirectoryOverride: '', useClusterDirectoryOverride: false, harvestResourceItemAmountClassMultipliers: '',
 };
 
 type ConfigFile = 'GameUserSettings.ini' | 'Game.ini';
-type TabType = 'general' | 'rates' | 'player' | 'breeding' | 'structures' | 'pvp' | 'tribe' | 'transfer' | 'environment' | 'engrams' | 'admin' | 'advanced' | 'search';
+type TabType = 'general' | 'rates' | 'player' | 'breeding' | 'structures' | 'pvp' | 'tribe' | 'transfer' | 'environment' | 'engrams' | 'admin' | 'advanced' | 'server_options' | 'search';
 
 const FieldWrapper = memo(({ label, description, children, file }: { label: string; description?: string; children: React.ReactNode; file?: string }) => {
   return (
@@ -217,6 +232,7 @@ const SelectInput = memo(({ label, value, onChange, desc, options, file }: { lab
 SelectInput.displayName = 'SelectInput';
 
 export default function ASEConfigEditor() {
+  const { t } = useTranslation();
   const { servers } = useAseServerStore();
   const [selectedServer, setSelectedServer] = useState<number | null>(servers[0]?.id || null);
   const [config, setConfig] = useState<AseGameConfig>(defaultConfig);
@@ -224,18 +240,42 @@ export default function ASEConfigEditor() {
   const [activeTab, setActiveTab] = useState<TabType>('general');
   const [isDirty, setIsDirty] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [launchArgs, setLaunchArgs] = useState<string[]>([]);
+
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (selectedServer) loadConfig(selectedServer);
+    if (selectedServer) {
+      loadConfig(selectedServer);
+      loadLaunchArgs(selectedServer);
+    }
   }, [selectedServer]);
 
+  useEffect(() => {
+    if (selectedServer) {
+      loadLaunchArgs(selectedServer);
+    }
+  }, [config]);
+
+  const loadLaunchArgs = async (id: number) => {
+    try {
+      const args = await getAseLaunchArguments(id);
+      setLaunchArgs(args);
+    } catch {
+      setLaunchArgs([]);
+    }
+  };
+
   const loadConfig = async (id: number) => {
+    setIsLoading(true);
     try {
       const c = await readAseConfig(id);
       setConfig({ ...defaultConfig, ...c });
       setIsDirty(false);
     } catch {
       setConfig(defaultConfig);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -244,6 +284,8 @@ export default function ASEConfigEditor() {
     try {
       await writeAseConfig(selectedServer, config);
       setIsDirty(false);
+      // Refresh servers list to reflect updates in UI
+      await useAseServerStore.getState().refreshServers();
       toast.success('Configuration saved successfully', {
         style: { background: '#10b981', color: '#fff', borderRadius: '12px' }
       });
@@ -318,6 +360,7 @@ export default function ASEConfigEditor() {
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: 'General', icon: <Settings2 className="w-4 h-4" /> },
+    { id: 'server_options', label: 'Server Options', icon: <Cpu className="w-4 h-4" /> },
     { id: 'rates', label: 'Rates & Multipliers', icon: <Flame className="w-4 h-4" /> },
     { id: 'player', label: 'Player & Dino', icon: <Users className="w-4 h-4" /> },
     { id: 'breeding', label: 'Breeding', icon: <CheckSquare className="w-4 h-4" /> },
@@ -519,6 +562,53 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useLowMemory', label: 'Low Memory Mode' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'noBattleEye', label: 'Disable BattlEye (Launcher Arg)' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'text', key: 'activeMods', label: 'Active Mods', desc: 'Comma-separated Workshop IDs' },
+
+    // SERVER OPTIONS - GameUserSettings.ini (Classic ASM features)
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useBanListUrl', label: 'Use Ban List URL', desc: 'Download server bans from a remote URL on startup' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'banListUrl', label: 'Ban List URL', desc: 'Remote URL pointing to banlist.txt' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useDynamicConfigUrl', label: 'Use Dynamic Config URL', desc: 'Sync configuration dynamically from a remote URL' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'customDynamicConfigUrl', label: 'Dynamic Config URL', desc: 'Remote URL pointing to dynamic config file' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useCustomLiveTuningUrl', label: 'Use Custom Live Tuning URL', desc: 'Download custom live tuning params on boot' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'customLiveTuningUrl', label: 'Custom Live Tuning URL', desc: 'Remote URL pointing to live tuning file' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'badWordListUrl', label: 'Bad Word List URL', desc: 'Remote URL pointing to a list of censored words' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'badWordWhiteListUrl', label: 'Bad Word Whitelist URL', desc: 'Remote URL pointing to a list of allowed words' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'bFilterTribeNames', label: 'Filter Tribe Names', desc: 'Apply bad word filter to tribe names' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'bFilterCharacterNames', label: 'Filter Character Names', desc: 'Apply bad word filter to survivor names' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'bFilterChat', label: 'Filter Chat', desc: 'Apply bad word filter to chat messages' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'enableIdleTimeout', label: 'Enable Idle Timeout', desc: 'Kick players who remain idle' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'number', key: 'kickIdlePlayersPeriod', label: 'Idle Timeout Duration (Secs)', desc: 'Seconds before an idle player is kicked', step: 10.0 },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noPlayervac', label: 'Disable Valve Anti-Cheat (VAC)', desc: 'Spawns server in insecure mode' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noAntiSpeedHack', label: 'Disable Anti-Speed Hack Detection', desc: 'Turns off built-in player speed-hack checks' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'number', key: 'speedHackCpuBias', label: 'Anti-Speed Hack Bias', desc: 'Built-in anti-speed hack threshold scale', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'disableMovementValidation', label: 'Disable Player Move Physics Optimization', desc: 'Disables movement correction checks' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'outputServerLogToConsole', label: 'Output Server Log to Server Console', desc: 'Streams logging directly into terminal output' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noHangDet', label: 'Disable Hang Detection', desc: 'Prevent server from restarting if it stops responding briefly' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noDinos', label: 'No Dinos Mode', desc: 'Prevents any wild or tamed creatures from spawning' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noUnderMeshChecking', label: 'Disable Under Mesh Checking', desc: 'Disables mesh exploitation prevention checks' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noUnderMeshKilling', label: 'Disable Under Mesh Killing', desc: 'Prevents server from killing players who clip under mesh' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'enableVivox', label: 'Enable Vivox (In-Game Voice)', desc: 'Uses Vivox spatial sound engine instead of default' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'allowSharedConnections', label: 'Allow Shared Connections', desc: 'Allow multiple clients on the same IP' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'creatureUploadIssueProtection', label: 'Creature Upload Issue Protection', desc: 'Validates payloads when uploading characters' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'additionalDupeProtection', label: 'Additional Dupe Protection', desc: 'Enables deep item duping checking rules' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'secureItemDinoSpawningRules', label: 'Secure Item/Dino Spawning Rules', desc: 'Protects console commands from duplicate spawns' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'forceRespawnDinosOnStartup', label: 'Force Respawn Dinos on Startup', desc: 'Performs a wild dino wipe every boot' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'enableAutoForceRespawnDinos', label: 'Enable Auto Force Respawn Dinos', desc: 'Periodically wipes wild dinos to keep populations fresh' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'number', key: 'autoForceRespawnDinosInterval', label: 'Auto Force Respawn Interval (Hours)', desc: 'Interval between periodic dino wipes', step: 1.0 },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'forceDirectX10', label: 'Force DirectX 10', desc: 'Uses d3d10 instructions' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'forceShaderModel4', label: 'Force Shader Model 4', desc: 'Forces Shader Model 4 rendering limit' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'forceLowMemory', label: 'Force Low Memory Mode', desc: 'Reduces memory usage' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'forceNoManSky', label: 'Force No Man\'s Sky (Low Quality Sky)', desc: 'Disables advanced trueSky clouds' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useNoMemoryBias', desc: 'Prevents caching in page pools', label: 'Use No Memory Bias' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'stasisKeepControllers', label: 'Stasis Keep Controllers', desc: 'Keeps AI controller structures cached in stasis grid' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'serverAllowAnsel', label: 'Server Allow Ansel', desc: 'Allows connected clients to capture high-fidelity 3D pictures' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'structureMemoryOptimizations', label: 'Structure Memory Optimizations', desc: 'Compacts structure assets memory footprint' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'structureStasisGrid', label: 'Structure Stasis Grid', desc: 'Optimizes stasis grid handling for faster loading' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'enableCrossplay', label: 'Enable Crossplay', desc: 'Allows Epic Games Store and Steam players to join together' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'enablePublicIpForEpic', label: 'Enable Public IP for Epic', desc: 'Resolves server\'s public IP automatically to prevent EGS time-outs' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'epicStorePlayersOnly', label: 'Epic Store Players Only', desc: 'Blocks Steam connections completely' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'alternateSaveDirectoryName', label: 'Alternate Save Directory Name', desc: 'Alternate folder name for server savegames' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'clusterDirectoryOverride', label: 'Cluster Directory Override', desc: 'Absolute custom path for cluster data files' },
+    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useClusterDirectoryOverride', label: 'Enable Cluster Directory Override', desc: 'Uses ClusterDirectoryOverride instead of default Save directory' },
   ], []);
 
   const searchResults = useMemo(() => {
@@ -696,15 +786,32 @@ export default function ASEConfigEditor() {
         {/* Content Area */}
         <div className="flex-1 bg-slate-900/40 backdrop-blur-sm border border-white/5 rounded-3xl p-6 lg:p-8 h-[65vh] overflow-y-auto custom-scrollbar relative shadow-xl">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab + activeFile + searchQuery}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-6"
-            >
-              {searchQuery ? (
+            {isLoading ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center justify-center h-full min-h-[300px]"
+              >
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30 animate-pulse">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  </div>
+                  <span className="text-slate-400 text-sm font-medium">{t('configEditor.loading', 'Loading Settings...')}</span>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={activeTab + activeFile + searchQuery}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-6"
+              >
+                {searchQuery ? (
                 searchResults.length > 0 ? (
                   searchResults.map(field => renderField(field))
                 ) : (
@@ -715,9 +822,32 @@ export default function ASEConfigEditor() {
                   </div>
                 )
               ) : (
-                schema.filter(f => f.file === activeFile && f.tab === activeTab).map(field => renderField(field))
+                <>
+                  {schema.filter(f => f.file === activeFile && f.tab === activeTab).map(field => renderField(field))}
+                  {activeTab === 'server_options' && (
+                    <div className="mt-8 p-6 bg-slate-950/70 border border-amber-500/20 rounded-3xl relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+                      <div className="flex items-center gap-2 mb-3 text-amber-400 font-bold text-sm uppercase tracking-wider">
+                        <Cpu className="w-4 h-4" /> Real-time Launch Preview
+                      </div>
+                      <p className="text-xs text-slate-400 mb-4 leading-relaxed font-medium">
+                        This live command line is automatically compiled on server boot based on your settings:
+                      </p>
+                      <div className="bg-slate-900 border border-white/5 rounded-2xl p-4 font-mono text-xs text-slate-300 break-all select-all leading-normal relative">
+                        <span className="text-amber-500 select-none mr-2">ShooterGameServer.exe</span>
+                        {launchArgs.join(' ')}
+                      </div>
+                      {config.enablePublicIpForEpic && (
+                        <div className="mt-3 inline-flex items-center gap-2 text-[10px] bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl text-amber-400 font-semibold">
+                          <Globe className="w-3.5 h-3.5" /> Note: EGS Crossplay is enabled. Public IP will resolve dynamically on boot to prevent server time-outs.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </motion.div>
+          )}
           </AnimatePresence>
         </div>
       </div>

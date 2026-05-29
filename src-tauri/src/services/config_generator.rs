@@ -716,14 +716,14 @@ impl ConfigGenerator {
         #[cfg(target_os = "linux")]
         {
             if server_type == Some("ASA") {
-                return "Linux";
+                return "WindowsServer";
             }
             "LinuxServer"
         }
         #[cfg(not(target_os = "linux"))]
         {
             if server_type == Some("ASA") {
-                return "Windows";
+                return "WindowsServer";
             }
             if install_path.join("ShooterGame").join("Binaries").join("Linux").exists()
                 || install_path.join("ShooterGame").join("Saved").join("Config").join("LinuxServer").exists()

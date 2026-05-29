@@ -324,14 +324,17 @@ export default function ASEServerManager() {
                         {...provided.draggableProps}
                         style={{ ...provided.draggableProps.style, zIndex: snapshot.isDragging ? 50 : 'auto' }}
                         className={cn(
-                          "glass-panel rounded-2xl p-6 transition-all duration-300 group relative overflow-hidden cursor-pointer",
+                          "glass-panel rounded-2xl p-6 transition-all duration-300 group relative cursor-pointer",
                           snapshot.isDragging
                             ? "shadow-2xl shadow-amber-500/20 ring-2 ring-amber-500/50 cursor-grabbing scale-[1.02]"
                             : "hover:border-amber-500/50 hover:shadow-[0_8px_30px_rgba(245,158,11,0.15)] hover:-translate-y-1"
                         )}
                         onClick={(e) => toggleCollapse(srv.id, e)}
                       >
-              <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-500/5 to-transparent rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none"></div>
+                        {/* Decorative background gradient clipped inside the card */}
+                        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-500/5 to-transparent rounded-full blur-3xl -mr-32 -mt-32"></div>
+                        </div>
               
                 <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex items-start space-x-4">

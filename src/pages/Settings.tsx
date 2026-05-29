@@ -667,6 +667,34 @@ export default function Settings() {
                             )}
                         </div>
 
+                        {/* Persistent Last Error Banner */}
+                        {updateSettings?.lastError && (
+                            <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm mt-4 animate-in slide-in-from-top-2">
+                                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <p className="font-semibold text-red-300 mb-1">{t('settings.updatesTab.lastError', 'Last Update Error')}</p>
+                                    <p className="leading-relaxed">{updateSettings.lastError}</p>
+                                    {updateSettings.lastError.includes('signature') && (
+                                        <button
+                                            onClick={() => openUrl(getReleasesUrl())}
+                                            className="flex items-center gap-1.5 mt-3 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-red-300 hover:text-white transition-all text-xs font-semibold"
+                                        >
+                                            <ExternalLink className="w-3.5 h-3.5" />
+                                            {t('settings.updatesTab.downloadManually', 'Download from GitHub Releases')}
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            setUpdateSettings({ lastError: null });
+                                            setUpdateSettingsState(prev => prev ? { ...prev, lastError: null } : getUpdateSettings());
+                                        }}
+                                        className="text-xs text-red-500/60 hover:text-red-400 mt-2 underline transition-colors"
+                                    >
+                                        {t('settings.updatesTab.dismissError', 'Dismiss')}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         {/* Update Settings */}
                         <div className="border-t border-slate-700/50 pt-6">
                             <div className="flex items-center justify-between">

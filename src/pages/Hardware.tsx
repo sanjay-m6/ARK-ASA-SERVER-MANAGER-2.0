@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useHardwareStore } from '../stores/hardwareStore';
 import { useServerStore } from '../stores/serverStore';
 import { Cpu, Server, Save, AlertTriangle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 const Hardware: React.FC = () => {
   const { servers, refreshServers } = useServerStore();
@@ -55,7 +56,7 @@ const Hardware: React.FC = () => {
     if (!selectedServerId) return;
     
     if (!localAllocation.use_all_cores && localAllocation.cpu_affinity.length === 0) {
-      alert("You must select at least one core if not using all cores.");
+      toast.error("You must select at least one core if not using all cores.");
       return;
     }
 
@@ -65,7 +66,7 @@ const Hardware: React.FC = () => {
       cpuAffinity: JSON.stringify(localAllocation.cpu_affinity),
       processPriority: localAllocation.process_priority,
     });
-    alert("Hardware allocation saved. Requires server restart to apply.");
+    toast.success("Hardware allocation saved. Requires server restart to apply.");
   };
 
   const priorities = [

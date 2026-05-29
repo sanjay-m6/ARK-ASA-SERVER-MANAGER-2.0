@@ -386,20 +386,10 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                             let h = app_handle_clone.clone();
                             if server_type == "ASE" {
                                 tauri::async_runtime::spawn(async move {
-                                    // ASE start: get state from app handle and call start_ase_server
-                                    // start_ase_server is a Tauri command needing State; invoke it via the Tauri IPC system is not possible here.
-                                    // Instead, replicate the minimal DB update so the server appears as "starting"
                                     if let Some(state) = h.try_state::<crate::AppState>() {
-                                        if let Ok(db) = state.db.lock() {
-                                            if let Ok(conn) = db.get_connection() {
-                                                let _ = conn.execute(
-                                                    "UPDATE ase_servers SET status = 'stopped' WHERE id = ?1 AND status != 'online'",
-                                                    rusqlite::params![id],
-                                                );
-                                            }
-                                        }
+                                        println!("🚀 Auto-starting ASE server '{}' (ID: {})...", name, id);
+                                        let _ = crate::ase::commands::server::start_ase_server(h.clone(), id, state).await;
                                     }
-                                    println!("⚠️ ASE auto-start for server {} skipped (requires manual start)", id);
                                 });
                             } else {
                                 tauri::async_runtime::spawn(async move {
@@ -764,6 +754,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              ase::commands::server::start_ase_server,
              ase::commands::server::stop_ase_server,
              ase::commands::server::get_ase_server_status,
+             ase::commands::server::get_ase_launch_arguments,
              ase::commands::server::reset_ase_server,
              ase::commands::server::import_ase_server,
              ase::commands::import::import_ase_save,
@@ -813,11 +804,13 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              // ASE RCON commands
              ase::commands::rcon::connect_ase_rcon,
              ase::commands::rcon::send_ase_rcon,
-             // ASE Scheduler commands
-             ase::commands::scheduler::get_ase_scheduled_tasks,
-             ase::commands::scheduler::create_ase_scheduled_task,
-             ase::commands::scheduler::toggle_ase_scheduled_task,
-             ase::commands::scheduler::delete_ase_scheduled_task,
+              // ASE Scheduler commands
+              ase::commands::scheduler::get_ase_scheduled_tasks,
+              ase::commands::scheduler::create_ase_scheduled_task,
+              ase::commands::scheduler::toggle_ase_scheduled_task,
+              ase::commands::scheduler::delete_ase_scheduled_task,
+              ase::commands::scheduler::get_ase_scheduler_settings,
+              ase::commands::scheduler::save_ase_scheduler_settings,
               // ASE Discord commands
               ase::commands::discord::save_ase_discord_config,
               ase::commands::discord::get_ase_discord_config,

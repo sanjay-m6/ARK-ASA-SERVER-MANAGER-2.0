@@ -31,6 +31,17 @@
 
 ## 🔥 v2.4.0 Preview Fixes
 
+### ASA Config Directory Mismatch — Admin Password & RCON Broken
+
+**Problem:** For ASA servers, configurations were saved in `ShooterGame/Saved/Config/Windows/` (on Windows) or `Linux/` (on Linux), whereas the dedicated server executable always expects configs in `ShooterGame/Saved/Config/WindowsServer/`. This caused the server to ignore user-configured values, resulting in disabled RCON and broken in-game admin cheats/commands (such as `gcm`).
+
+**Fix:** Updated the target configuration directory logic to correctly return `WindowsServer` for all ASA servers on both Windows and Linux target hosts.
+
+**Files Changed:**
+- `src-tauri/src/services/config_generator.rs`
+
+---
+
 ### SteamCMD Error (7) — Dead-End Installation Failure
 
 **Problem:** Users encountering SteamCMD Error 7 during installation were shown a static error message with no way to recover — no retry button, no repair option, no diagnostics.

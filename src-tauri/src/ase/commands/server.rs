@@ -121,7 +121,12 @@ pub async fn create_ase_server(
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', 70, '', ?7, ?8, '', '', 1, '', 'stopped', ?9, ?9)",
         rusqlite::params![name, install_path, map_name, game_port, query_port, rcon_port, admin_password, session_name, now],
     ).map_err(|e| e.to_string())?;
-    Ok(conn.last_insert_rowid())
+    let server_id = conn.last_insert_rowid();
+    let _ = conn.execute(
+        "INSERT OR IGNORE INTO ase_scheduler_settings (server_id) VALUES (?1)",
+        [server_id],
+    );
+    Ok(server_id)
 }
 
 #[tauri::command]
@@ -201,24 +206,19 @@ pub async fn install_ase_server(
     Ok(server_id)
 }
 
-#[tauri::command]
-pub async fn start_ase_server(app: tauri::AppHandle, server_id: i64, state: State<'_, AppState>) -> Result<(), String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
-
-    let server: AseServer = conn.query_row(
-        &format!("SELECT {} FROM ase_servers WHERE id = ?1", SELECT_COLS),
-        [server_id], |row| read_server_row(row),
-    ).map_err(|e| e.to_string())?;
-
-    let exe_path = PathBuf::from(&server.install_path)
-        .join("ShooterGame").join("Binaries").join("Win64").join("ShooterGameServer.exe");
-
-    if !exe_path.exists() {
-        return Err(format!("ShooterGameServer.exe not found at {}", exe_path.display()));
+async fn resolve_public_ip() -> Option<String> {
+    if let Ok(resp) = reqwest::get("https://api.ipify.org").await {
+        if let Ok(ip) = resp.text().await {
+            let trimmed = ip.trim().to_string();
+            if !trimmed.is_empty() {
+                return Some(trimmed);
+            }
+        }
     }
+    None
+}
 
-    // Build ASE travel URL: MapName?listen?Option=Value?...
+fn build_ase_launch_arguments(server: &AseServer, config: &crate::ase::models::AseGameConfig, public_ip: Option<String>) -> Vec<String> {
     let mut travel = format!(
         "{}?listen?SessionName={}?Port={}?QueryPort={}?MaxPlayers={}?ServerAdminPassword={}?RCONEnabled={}?RCONPort={}",
         server.map_name, server.session_name, server.port, server.query_port,
@@ -229,10 +229,13 @@ pub async fn start_ase_server(app: tauri::AppHandle, server_id: i64, state: Stat
         travel.push_str(&format!("?ServerPassword={}", server.server_password));
     }
 
-    // Build CLI args
+    if !config.alternate_save_directory_name.is_empty() {
+        travel.push_str(&format!("?AltSaveDirectoryName={}", config.alternate_save_directory_name));
+    }
+
     let mut args: Vec<String> = vec![travel];
 
-    if !server.battleye {
+    if !server.battleye || config.no_battle_eye {
         args.push("-NoBattlEye".into());
     }
 
@@ -246,43 +249,186 @@ pub async fn start_ase_server(app: tauri::AppHandle, server_id: i64, state: Stat
         }
     }
 
-    // Parse GameUserSettings.ini directly for custom ASM2 args and ActiveEvent
-    let gus_path = PathBuf::from(&server.install_path)
-        .join("ShooterGame").join("Saved").join("Config").join("WindowsServer").join("GameUserSettings.ini");
+    if !config.active_event.is_empty() {
+        args.push(format!("-ActiveEvent={}", config.active_event));
+    }
+
+    if config.use_all_available_cores {
+        args.push("-USEALLAVAILABLECORES".into());
+    }
     
-    if let Ok(content) = std::fs::read_to_string(&gus_path) {
-        for line in content.lines() {
-            let line = line.trim();
-            if line.starts_with("ActiveEvent=") {
-                let event = line.trim_start_matches("ActiveEvent=");
-                if !event.is_empty() {
-                    args.push(format!("-ActiveEvent={}", event));
-                }
-            } else if line.starts_with("NoBattlEye=") {
-                if line.to_lowercase().ends_with("true") || line.ends_with("1") {
-                    if server.battleye {
-                        args.push("-NoBattlEye".into());
-                    }
-                }
-            } else if line.starts_with("UseAllAvailableCores=") {
-                if line.to_lowercase().ends_with("true") || line.ends_with("1") {
-                    args.push("-USEALLAVAILABLECORES".into());
-                }
-            } else if line.starts_with("UseLowMemory=") {
-                if line.to_lowercase().ends_with("true") || line.ends_with("1") {
-                    args.push("-nomansky".into());
-                    args.push("-lowmemory".into());
-                }
-            } else if line.starts_with("LauncherArgs=") {
-                let launcher_args = line.trim_start_matches("LauncherArgs=");
-                if !launcher_args.is_empty() {
-                    for arg in launcher_args.split_whitespace() {
-                        args.push(arg.to_string());
-                    }
-                }
-            }
+    if config.use_low_memory || config.force_low_memory {
+        args.push("-lowmemory".into());
+    }
+    
+    if config.force_no_man_sky {
+        args.push("-nomansky".into());
+    }
+
+    if config.no_playervac {
+        args.push("-insecure".into());
+    }
+
+    if config.no_anti_speed_hack {
+        args.push("-NoAntiSpeedHack".into());
+    } else {
+        args.push(format!("-speedhackbias={}", config.speed_hack_cpu_bias));
+    }
+
+    if config.disable_movement_validation {
+        args.push("-DisableMovementValidation".into());
+    }
+
+    if config.output_server_log_to_console {
+        args.push("-log".into());
+    }
+
+    if config.no_hang_det {
+        args.push("-NoHangDet".into());
+    }
+
+    if config.no_dinos {
+        args.push("-NoDinos".into());
+    }
+
+    if config.no_under_mesh_checking {
+        args.push("-NoUnderMeshChecking".into());
+    }
+
+    if config.no_under_mesh_killing {
+        args.push("-NoUnderMeshKilling".into());
+    }
+
+    if config.enable_vivox {
+        args.push("-UseVivox".into());
+    }
+
+    if config.secure_item_dino_spawning_rules {
+        args.push("-UseSecureSpawnRules".into());
+    }
+
+    if config.additional_dupe_protection {
+        args.push("-UseItemDupeCheck".into());
+    }
+
+    if config.force_respawn_dinos_on_startup {
+        args.push("-ForceRespawnDinos".into());
+    }
+
+    if config.force_direct_x10 {
+        args.push("-d3d10".into());
+    }
+
+    if config.force_shader_model4 {
+        args.push("-sm4".into());
+    }
+
+    if config.use_no_memory_bias {
+        args.push("-nomemorybias".into());
+    }
+
+    if config.stasis_keep_controllers {
+        args.push("-StasisKeepControllers".into());
+    }
+
+    if config.server_allow_ansel {
+        args.push("-ServerAllowAnsel".into());
+    }
+
+    if config.structure_memory_optimizations {
+        args.push("-structurememopts".into());
+    }
+
+    if config.structure_stasis_grid {
+        args.push("-structurestasisgrid".into());
+    }
+
+    if config.enable_crossplay {
+        args.push("-crossplay".into());
+    }
+
+    if config.enable_public_ip_for_epic {
+        if let Some(ip) = public_ip {
+            args.push(format!("-PublicIPForEpic={}", ip));
+        } else {
+            args.push("-PublicIPForEpic=DETECTING_IP".into());
         }
     }
+
+    if config.epic_store_players_only {
+        args.push("-epiconly".into());
+    }
+
+    if config.use_cluster_directory_override && !config.cluster_directory_override.is_empty() {
+        args.push(format!("-ClusterDirOverride=\"{}\"", config.cluster_directory_override));
+    }
+
+    if !config.launcher_args.is_empty() {
+        for arg in config.launcher_args.split_whitespace() {
+            args.push(arg.to_string());
+        }
+    }
+
+    args
+}
+
+#[tauri::command]
+pub async fn get_ase_launch_arguments(server_id: i64, state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let server: AseServer = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        conn.query_row(
+            &format!("SELECT {} FROM ase_servers WHERE id = ?1", SELECT_COLS),
+            [server_id], |row| read_server_row(row),
+        ).map_err(|e| e.to_string())?
+    };
+
+    let config = match crate::ase::commands::config::read_ase_config(server_id, state.clone()).await {
+        Ok(c) => c,
+        Err(_) => crate::ase::models::AseGameConfig::default(),
+    };
+
+    let public_ip = if config.enable_public_ip_for_epic {
+        resolve_public_ip().await
+    } else {
+        None
+    };
+
+    Ok(build_ase_launch_arguments(&server, &config, public_ip))
+}
+
+#[tauri::command]
+pub async fn start_ase_server(app: tauri::AppHandle, server_id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    let server: AseServer = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        conn.query_row(
+            &format!("SELECT {} FROM ase_servers WHERE id = ?1", SELECT_COLS),
+            [server_id], |row| read_server_row(row),
+        ).map_err(|e| e.to_string())?
+    };
+
+    let exe_path = PathBuf::from(&server.install_path)
+        .join("ShooterGame").join("Binaries").join("Win64").join("ShooterGameServer.exe");
+
+    if !exe_path.exists() {
+        return Err(format!("ShooterGameServer.exe not found at {}", exe_path.display()));
+    }
+
+    let config = match crate::ase::commands::config::read_ase_config(server_id, state.clone()).await {
+        Ok(c) => c,
+        Err(_) => crate::ase::models::AseGameConfig::default(),
+    };
+
+    let public_ip = if config.enable_public_ip_for_epic {
+        resolve_public_ip().await
+    } else {
+        None
+    };
+
+    let args = build_ase_launch_arguments(&server, &config, public_ip);
 
     // Spawn process
     let child = std::process::Command::new(&exe_path)
@@ -295,14 +441,24 @@ pub async fn start_ase_server(app: tauri::AppHandle, server_id: i64, state: Stat
     let pid = child.id();
     let now = chrono::Utc::now().to_rfc3339();
 
-    conn.execute(
-        "UPDATE ase_servers SET status = 'starting', process_id = ?1, updated_at = ?2 WHERE id = ?3",
-        rusqlite::params![pid, now, server_id],
-    ).map_err(|e| e.to_string())?;
+    // Re-acquire db connection to update status
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-    // Drop DB lock before awaiting or sleeping
-    drop(conn);
-    drop(db);
+        conn.execute(
+            "UPDATE ase_servers SET status = 'starting', process_id = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![pid, now, server_id],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    // Register with Guardian Watchdog Service
+    if let Some(guardian) = app.try_state::<crate::services::guardian::GuardianState>() {
+        let service = guardian.0.lock().await;
+        service.register_ase_server(app.clone(), server_id, pid).await;
+    }
+
+
 
     let query_port = server.query_port;
     let rcon_port = server.rcon_port;

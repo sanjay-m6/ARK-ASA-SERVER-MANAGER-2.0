@@ -960,6 +960,39 @@ impl ProcessManager {
             }
         }
 
+        // Automatically check GameUserSettings.ini for Culture setting and append -culture arg
+        let sub_dir = if server_type == "ASE" { "WindowsServer" } else { "WindowsServer" };
+        let gus_path = install_path
+            .join("ShooterGame")
+            .join("Saved")
+            .join("Config")
+            .join(sub_dir)
+            .join("GameUserSettings.ini");
+
+        if gus_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&gus_path) {
+                let mut in_server_settings = false;
+                for line in content.lines() {
+                    let trimmed = line.trim();
+                    if trimmed.starts_with('[') && trimmed.ends_with(']') {
+                        in_server_settings = &trimmed[1..trimmed.len() - 1] == "ServerSettings";
+                        continue;
+                    }
+                    if in_server_settings {
+                        if let Some((key, value)) = trimmed.split_once('=') {
+                            let key = key.trim();
+                            let value = value.trim();
+                            if key == "Culture" && !value.is_empty() {
+                                println!("  🌐 Auto-detected Culture from GameUserSettings.ini: {}", value);
+                                args.push(format!("-culture={}", value));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Add custom launch arguments
         if let Some(custom) = custom_args {
             if !custom.is_empty() {

@@ -199,6 +199,30 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 defaultValue: 'False',
                 description: 'Allow Xbox, PlayStation, and PC (Epic/Steam) players to join together. Requires the server to use Epic/Xbox crossplay binaries.',
                 wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#ServerSettings'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'Culture',
+                label: 'Server Language (Culture)',
+                type: 'dropdown',
+                defaultValue: '',
+                options: [
+                    { value: '', label: 'Default (English)' },
+                    { value: 'en', label: 'English' },
+                    { value: 'zh-Hant', label: 'Traditional Chinese (繁體中文)' },
+                    { value: 'zh-Hans', label: 'Simplified Chinese (简体中文)' },
+                    { value: 'fr', label: 'French (Français)' },
+                    { value: 'de', label: 'German (Deutsch)' },
+                    { value: 'es', label: 'Spanish (Español)' },
+                    { value: 'it', label: 'Italian (Italiano)' },
+                    { value: 'ja', label: 'Japanese (日本語)' },
+                    { value: 'ko', label: 'Korean (한국어)' },
+                    { value: 'pt-BR', label: 'Portuguese-Brazil (Português-Brasil)' },
+                    { value: 'ru', label: 'Russian (Русский)' },
+                    { value: 'tr', label: 'Turkish (Türkçe)' }
+                ],
+                description: 'Sets the in-game language/culture for the server logs, messages, and elements (appends -culture launch argument)',
+                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#ServerSettings'
             }
         ]
     },
