@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X, Pencil, FolderOpen, Plus, Minus, AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '../../../utils/helpers';
 import { Cluster, Server } from '../../../types';
@@ -34,13 +34,15 @@ export default function ASEEditClusterDialog({
     const serversInCluster = servers.filter(s => clusterServerIds.has(s.id));
     const serversAvailable = servers.filter(s => !clusterServerIds.has(s.id));
 
-    useEffect(() => {
+    const [prevCluster, setPrevCluster] = useState(cluster);
+    if (cluster !== prevCluster) {
+        setPrevCluster(cluster);
         setClusterName(cluster.name);
         setClusterPath(cluster.clusterPath);
         setMoveData(false);
         setPathError('');
         setConfirmRemoveServer(null);
-    }, [cluster]);
+    }
 
     if (!isOpen) return null;
 
@@ -122,7 +124,7 @@ export default function ASEEditClusterDialog({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
             <div className="bg-slate-900 border border-pink-500/20 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b border-slate-700/50 shrink-0">

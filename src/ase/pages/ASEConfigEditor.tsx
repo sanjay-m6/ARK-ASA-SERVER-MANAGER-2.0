@@ -1,15 +1,20 @@
 import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileEdit, Save, RotateCcw, ChevronDown, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database, Loader2 } from 'lucide-react';
+import { Save, RotateCcw, ChevronDown, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database, Loader2, Sliders } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import ServerSelect from '../../components/ui/ServerSelect';
-import { readAseConfig, writeAseConfig, getAseLaunchArguments } from '../utils/aseCommands';
-import { AseGameConfig } from '../types/ase.types';
+import { readAseConfig, writeAseConfig, getAseLaunchArguments, syncAseServerFromIni, getAseConfigDiagnostics, readAseIniRaw, writeAseIniRaw } from '../utils/aseCommands';
+import { AseGameConfig, AseDiagnostics } from '../types/ase.types';
 import { EngramOverridesEditor } from '../../components/config/EngramOverridesEditor';
 import { CraftingCostEditor } from '../../components/config/CraftingCostEditor';
+import { AseStatMultiplierEditor } from '../components/config/AseStatMultiplierEditor';
+import { AseLevelGenerator } from '../components/config/AseLevelGenerator';
+import ASEEnvironmentManager from './ASEEnvironmentManager';
+import { CodeEditor } from '../../components/ui/CodeEditor';
 import { cn } from '../../utils/helpers';
+import aseLogo from '../../assets/ASE.png';
 
 const defaultConfig: AseGameConfig = {
   // Identity
@@ -71,6 +76,14 @@ const defaultConfig: AseGameConfig = {
   kickIdlePlayerPeriod: 3600.0, destroyTamesOverLevelClamp: 0, SpectatorPassword: '',
   // Mods & MOTD & Auto-save
   activeMods: '', motd: '', motdDuration: 20, autoSavePeriodMinutes: 15.0,
+  backupQuantity: 20,
+  newSaveGameFormat: false,
+  useStore: false,
+  backupTransferPlayerDatas: false,
+  motdIntervalEnabled: false,
+  motdInterval: 60,
+  enableExtinctionEvent: false,
+  extinctionEventTimeInterval: 30,
   // Events
   activeEvent: '', eventColorsChanceOverride: 0.0,
   // Administration
@@ -105,25 +118,37 @@ const defaultConfig: AseGameConfig = {
   structureMemoryOptimizations: false, structureStasisGrid: false, enableCrossplay: false,
   enablePublicIpForEpic: false, epicStorePlayersOnly: false, alternateSaveDirectoryName: '',
   clusterDirectoryOverride: '', useClusterDirectoryOverride: false, harvestResourceItemAmountClassMultipliers: '',
+  levelExperienceRampOverrides: '', overrideMaxExperiencePointsPlayer: '', overrideMaxExperiencePointsDino: '',
+
+  playerHarvestingDamageMultiplier: 1.0,
+  craftingSkillBonusMultiplier: 1.0,
+  maxFallSpeedMultiplier: 1.0,
+  playerBaseStatMultipliers: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+  perLevelStatsMultiplierPlayer: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+  perLevelStatsMultiplierDinoWild: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+  perLevelStatsMultiplierDinoTamed: [0.2, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.17, 1.0, 1.0, 1.0],
+  perLevelStatsMultiplierDinoTamedAdd: [0.14, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.14, 1.0, 1.0, 1.0],
+  perLevelStatsMultiplierDinoTamedAffinity: [0.44, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.44, 1.0, 1.0, 1.0],
+  mutagenLevelBoostArray: [5, 5, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0],
+  mutagenLevelBoostBredArray: [1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
 };
 
 type ConfigFile = 'GameUserSettings.ini' | 'Game.ini';
-type TabType = 'general' | 'rates' | 'player' | 'breeding' | 'structures' | 'pvp' | 'tribe' | 'transfer' | 'environment' | 'engrams' | 'admin' | 'advanced' | 'server_options' | 'search';
+type TabType = 'general' | 'rates' | 'player' | 'breeding' | 'structures' | 'pvp' | 'tribe' | 'transfer' | 'environment' | 'engrams' | 'admin' | 'advanced' | 'server_options' | 'search' | 'diagnostics' | 'stats' | 'levels';
 
 const FieldWrapper = memo(({ label, description, children, file }: { label: string; description?: string; children: React.ReactNode; file?: string }) => {
   return (
-    <div className="bg-slate-900/40 backdrop-blur-md p-5 rounded-2xl border border-white/5 transition-all duration-300 hover:scale-[1.01] hover:border-amber-500/30 hover:shadow-[0_8px_30px_rgba(245,158,11,0.1)] group relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-      <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+    <div className="py-5 border-b border-white/5 last:border-0 group relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 hover:bg-white/[0.02] px-4 -mx-4 rounded-xl transition-colors">
       <div className="flex-1 min-w-0 z-10">
-        <div className="text-white font-semibold tracking-wide flex items-center gap-2 mb-1.5">{label}</div>
-        {description && <div className="text-xs text-slate-400 leading-relaxed font-medium">{description}</div>}
+        <div className="text-slate-200 font-semibold tracking-wide flex items-center gap-2 mb-1 text-sm">{label}</div>
+        {description && <div className="text-[13px] text-slate-400 leading-relaxed">{description}</div>}
         {file && (
-          <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] uppercase font-bold text-amber-500/80">
+          <div className="mt-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800 text-[9px] uppercase font-bold text-slate-400 border border-slate-700">
             {file}
           </div>
         )}
       </div>
-      <div className="w-full sm:w-64 shrink-0 z-10">{children}</div>
+      <div className="w-full sm:w-64 shrink-0 z-10 flex justify-end">{children}</div>
     </div>
   );
 });
@@ -132,18 +157,19 @@ FieldWrapper.displayName = 'FieldWrapper';
 const Toggle = memo(({ label, value, onChange, desc, file }: { label: string; value: boolean; onChange: (v: boolean) => void; desc?: string; file?: string }) => (
   <FieldWrapper label={label} description={desc} file={file}>
     <button
-      onClick={() => onChange(!value)}
+      type="button"
+      onClick={(e) => { e.preventDefault(); onChange(!value); }}
       className={cn(
-        "relative w-16 h-8 rounded-full transition-all duration-300 focus:outline-none flex-shrink-0 ml-auto block",
+        "relative w-11 h-6 rounded-full transition-colors duration-300 focus:outline-none flex-shrink-0 ml-auto block",
         value
-          ? "bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
-          : "bg-slate-800 border border-white/10"
+          ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
+          : "bg-slate-700"
       )}
     >
       <span
         className={cn(
-          "block w-6 h-6 rounded-full bg-white shadow-lg transform transition-all duration-300",
-          value ? "translate-x-9" : "translate-x-1"
+          "block w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform duration-300 mt-0.5 ml-0.5",
+          value ? "translate-x-5" : "translate-x-0"
         )}
       />
     </button>
@@ -179,7 +205,7 @@ const NumberInput = memo(({ label, value, onChange, desc, step = 1, file }: { la
         onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 font-mono transition-all text-sm placeholder-slate-600"
+        className="w-full bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 font-mono transition-all text-sm placeholder-slate-600 shadow-sm"
       />
     </FieldWrapper>
   );
@@ -208,12 +234,184 @@ const TextInput = memo(({ label, value, onChange, desc, placeholder, file }: { l
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 font-mono transition-all text-sm placeholder-slate-600"
+        className="w-full bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 font-mono transition-all text-sm placeholder-slate-600 shadow-sm"
       />
     </FieldWrapper>
   );
 });
 TextInput.displayName = 'TextInput';
+
+const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, idKey }: { label: string; value: string; onChange: (v: string) => void; desc?: string; placeholder?: string; file?: string; idKey: string }) => {
+  const [localValue, setLocalValue] = useState<string>(value || '');
+
+  useEffect(() => {
+    setLocalValue(value || '');
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalValue(e.target.value);
+    onChange(e.target.value);
+  };
+
+  const handleBlur = () => onChange(localValue);
+
+  const insertColorTag = (colorStr: string) => {
+    const textarea = document.getElementById(`textarea-${idKey}`) as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = localValue;
+    const selectedText = currentText.substring(start, end);
+
+    const replacement = `<RichColor Color="${colorStr}">${selectedText || 'Text'}</>`;
+    const newText = currentText.substring(0, start) + replacement + currentText.substring(end);
+    
+    setLocalValue(newText);
+    onChange(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = start + `<RichColor Color="${colorStr}">`.length + (selectedText ? selectedText.length : 4);
+      textarea.setSelectionRange(
+        selectedText ? newCursorPos : start + `<RichColor Color="${colorStr}">`.length,
+        selectedText ? newCursorPos : start + `<RichColor Color="${colorStr}">`.length + 4
+      );
+    }, 50);
+  };
+
+  const insertNewline = () => {
+    const textarea = document.getElementById(`textarea-${idKey}`) as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = localValue;
+
+    const newText = currentText.substring(0, start) + '\\n' + currentText.substring(end);
+    setLocalValue(newText);
+    onChange(newText);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + 2, start + 2);
+    }, 50);
+  };
+
+  const renderMotdPreview = (text: string) => {
+    if (!text) return <span className="text-slate-500 italic text-xs">No message entered yet.</span>;
+
+    const lines = text.split('\\n');
+
+    return lines.map((line, lineIdx) => {
+      const elements: React.ReactNode[] = [];
+      const regex = /<RichColor\s+Color="([^"]+)">([\s\S]*?)<\/>/gi;
+      let lastIndex = 0;
+      let match;
+
+      while ((match = regex.exec(line)) !== null) {
+        const matchIndex = match.index;
+        if (matchIndex > lastIndex) {
+          elements.push(<span key={lastIndex}>{line.substring(lastIndex, matchIndex)}</span>);
+        }
+
+        const colorParts = match[1].split(',').map(c => parseFloat(c.trim()));
+        const textVal = match[2];
+
+        if (colorParts.length >= 3) {
+          const r = Math.round((colorParts[0] || 0) * 255);
+          const g = Math.round((colorParts[1] || 0) * 255);
+          const b = Math.round((colorParts[2] || 0) * 255);
+          const a = colorParts[3] !== undefined ? colorParts[3] : 1;
+          const style = { color: `rgba(${r}, ${g}, ${b}, ${a})` };
+
+          elements.push(
+            <span key={matchIndex} style={style} className="font-bold">
+              {textVal}
+            </span>
+          );
+        } else {
+          elements.push(<span key={matchIndex}>{match[0]}</span>);
+        }
+
+        lastIndex = regex.lastIndex;
+      }
+
+      if (lastIndex < line.length) {
+        elements.push(<span key={lastIndex}>{line.substring(lastIndex)}</span>);
+      }
+
+      return (
+        <div key={lineIdx} className="min-h-[1.2em]">
+          {elements.length > 0 ? elements : <span className="opacity-0">.</span>}
+        </div>
+      );
+    });
+  };
+
+  return (
+    <FieldWrapper label={label} description={desc} file={file}>
+      <div className="w-full flex flex-col gap-2">
+        {/* Toolbar */}
+        <div className="flex flex-wrap items-center gap-2 bg-slate-950/60 p-2 rounded-t-xl border border-slate-800 border-b-0">
+          <span className="text-[10px] uppercase font-bold text-slate-500 select-none mr-1">MOTD Colors:</span>
+          {[
+            { name: 'Red', color: '1,0,0,1', bg: 'bg-red-500' },
+            { name: 'Green', color: '0,1,0,1', bg: 'bg-emerald-500' },
+            { name: 'Blue', color: '0,0.5,1,1', bg: 'bg-blue-500' },
+            { name: 'Yellow', color: '1,1,0,1', bg: 'bg-amber-400' },
+            { name: 'Orange', color: '1,0.65,0,1', bg: 'bg-orange-500' },
+            { name: 'Cyan', color: '0,1,1,1', bg: 'bg-cyan-400' },
+            { name: 'White', color: '1,1,1,1', bg: 'bg-white' },
+          ].map(c => (
+            <button
+              key={c.name}
+              type="button"
+              onClick={() => insertColorTag(c.color)}
+              className={cn(
+                "w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm",
+                c.bg
+              )}
+              title={`Format selection to ${c.name}`}
+            />
+          ))}
+          <div className="h-4 w-px bg-slate-800 mx-1" />
+          <button
+            type="button"
+            onClick={insertNewline}
+            className="px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-750 text-[10px] font-bold transition-colors"
+            title="Insert literal newline \n tag"
+          >
+            + New Line (\n)
+          </button>
+        </div>
+
+        {/* Text Area */}
+        <textarea
+          id={`textarea-${idKey}`}
+          value={localValue}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          placeholder={placeholder || 'Enter server welcome message... Use \\n for line breaks, or color presets above.'}
+          rows={4}
+          className="w-full bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 rounded-b-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 font-mono transition-all text-sm placeholder-slate-650 shadow-sm resize-y min-h-[90px]"
+        />
+
+        {/* Real-time Game Preview */}
+        <div className="mt-1 flex flex-col gap-1.5 bg-slate-950/40 border border-white/5 rounded-2xl p-4">
+          <div className="text-[10px] uppercase font-black text-slate-500 tracking-wider flex items-center justify-between">
+            <span>In-Game Broadcast Preview</span>
+            <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">Real-Time</span>
+          </div>
+          <div className="text-sm font-semibold tracking-wide leading-relaxed p-2.5 rounded-xl bg-black/30 border border-slate-900/60 font-sans break-words select-none max-h-[150px] overflow-y-auto custom-scrollbar text-left">
+            {renderMotdPreview(localValue)}
+          </div>
+        </div>
+      </div>
+    </FieldWrapper>
+  );
+});
+TextAreaInput.displayName = 'TextAreaInput';
 
 const SelectInput = memo(({ label, value, onChange, desc, options, file }: { label: string; value: string; onChange: (v: string) => void; desc?: string; options: { label: string; value: string }[]; file?: string }) => (
   <FieldWrapper label={label} description={desc} file={file}>
@@ -221,7 +419,7 @@ const SelectInput = memo(({ label, value, onChange, desc, options, file }: { lab
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full appearance-none bg-slate-950/50 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 transition-all cursor-pointer text-sm font-medium"
+        className="w-full appearance-none bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all cursor-pointer text-sm font-medium shadow-sm"
       >
         {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
       </select>
@@ -241,6 +439,9 @@ export default function ASEConfigEditor() {
   const [isDirty, setIsDirty] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [launchArgs, setLaunchArgs] = useState<string[]>([]);
+  const [diagnostics, setDiagnostics] = useState<AseDiagnostics | null>(null);
+  const [editorMode, setEditorMode] = useState<'visual' | 'raw'>('visual');
+  const [rawIniContent, setRawIniContent] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -248,14 +449,43 @@ export default function ASEConfigEditor() {
     if (selectedServer) {
       loadConfig(selectedServer);
       loadLaunchArgs(selectedServer);
+      loadDiagnostics(selectedServer);
     }
   }, [selectedServer]);
+
+  useEffect(() => {
+    const fetchRawIni = async () => {
+      if (!selectedServer || editorMode !== 'raw') return;
+      setIsLoading(true);
+      try {
+        const raw = await readAseIniRaw(selectedServer, activeFile);
+        setRawIniContent(raw);
+      } catch (e) {
+        toast.error(`Failed to load raw INI: ${e}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRawIni();
+  }, [selectedServer, activeFile, editorMode]);
+
+  useEffect(() => {
+    if (editorMode === 'visual' && selectedServer) {
+      loadConfig(selectedServer);
+    }
+  }, [editorMode, selectedServer]);
 
   useEffect(() => {
     if (selectedServer) {
       loadLaunchArgs(selectedServer);
     }
   }, [config]);
+
+  useEffect(() => {
+    if (selectedServer && activeTab === 'diagnostics') {
+      loadDiagnostics(selectedServer);
+    }
+  }, [activeTab]);
 
   const loadLaunchArgs = async (id: number) => {
     try {
@@ -266,13 +496,25 @@ export default function ASEConfigEditor() {
     }
   };
 
+  const loadDiagnostics = async (id: number) => {
+    try {
+      const diag = await getAseConfigDiagnostics(id);
+      setDiagnostics(diag);
+    } catch (e) {
+      console.error('Failed to load diagnostics:', e);
+      setDiagnostics(null);
+    }
+  };
+
   const loadConfig = async (id: number) => {
     setIsLoading(true);
     try {
+      await syncAseServerFromIni(id);
       const c = await readAseConfig(id);
       setConfig({ ...defaultConfig, ...c });
       setIsDirty(false);
-    } catch {
+    } catch (e) {
+      console.error('Failed to load config:', e);
       setConfig(defaultConfig);
     } finally {
       setIsLoading(false);
@@ -281,8 +523,18 @@ export default function ASEConfigEditor() {
 
   const handleSave = async () => {
     if (!selectedServer) return;
+    setIsLoading(true);
     try {
-      await writeAseConfig(selectedServer, config);
+      if (editorMode === 'visual') {
+        await writeAseConfig(selectedServer, config);
+      } else {
+        await writeAseIniRaw(selectedServer, activeFile, rawIniContent);
+        // Force sync SQLite DB cache with the newly updated raw INI
+        await syncAseServerFromIni(selectedServer);
+        // Reload configuration state so visual editor is updated
+        const c = await readAseConfig(selectedServer);
+        setConfig({ ...defaultConfig, ...c });
+      }
       setIsDirty(false);
       // Refresh servers list to reflect updates in UI
       await useAseServerStore.getState().refreshServers();
@@ -291,11 +543,18 @@ export default function ASEConfigEditor() {
       });
     } catch (e) {
       toast.error(`Failed to save config: ${e}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const update = (key: keyof AseGameConfig, val: any) => {
     setConfig(prev => ({ ...prev, [key]: val }));
+    setIsDirty(true);
+  };
+
+  const handleRawChange = (val: string) => {
+    setRawIniContent(val);
     setIsDirty(true);
   };
 
@@ -322,19 +581,19 @@ export default function ASEConfigEditor() {
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('[') || trimmed.startsWith(';')) continue;
-      
+
       const equalsIdx = trimmed.indexOf('=');
       if (equalsIdx === -1) continue;
-      
+
       const key = trimmed.substring(0, equalsIdx).trim();
       let valStr = trimmed.substring(equalsIdx + 1).trim();
-      
+
       const field = schema.find(f => f.key === key);
       if (field) {
         let parsedVal: any = valStr;
-        
+
         if (typeof parsedVal === 'string' && parsedVal.startsWith('"') && parsedVal.endsWith('"')) {
-           parsedVal = parsedVal.substring(1, parsedVal.length - 1);
+          parsedVal = parsedVal.substring(1, parsedVal.length - 1);
         }
 
         if (field.type === 'number') {
@@ -343,16 +602,31 @@ export default function ASEConfigEditor() {
         } else if (field.type === 'toggle') {
           parsedVal = valStr.toLowerCase() === 'true' || valStr === '1';
         }
-        
+
         (newConfig as any)[key] = parsedVal;
         importedCount++;
       }
     }
-    
+
     if (importedCount > 0) {
       setConfig(newConfig as AseGameConfig);
       setIsDirty(true);
-      toast.success(`Imported ${importedCount} settings from INI`, { style: { background: '#10b981', color: '#fff' }});
+      toast.success(`Imported ${importedCount} settings from INI`, { style: { background: '#10b981', color: '#fff' } });
+      
+      // Warn user to check the map setting
+      setTimeout(() => {
+        toast('Please verify your Map setting. It may not sync perfectly from INI imports and might need to be set manually.', {
+          icon: '⚠️',
+          duration: 6000,
+          style: {
+            background: '#0f172a', // slate-900
+            color: '#fbbf24', // amber-400
+            border: '1px solid rgba(245,158,11,0.3)',
+            fontSize: '14px',
+            maxWidth: '500px'
+          }
+        });
+      }, 500);
     } else {
       toast.error('No matching settings found in the file');
     }
@@ -362,6 +636,8 @@ export default function ASEConfigEditor() {
     { id: 'general', label: 'General', icon: <Settings2 className="w-4 h-4" /> },
     { id: 'server_options', label: 'Server Options', icon: <Cpu className="w-4 h-4" /> },
     { id: 'rates', label: 'Rates & Multipliers', icon: <Flame className="w-4 h-4" /> },
+    { id: 'stats', label: 'Stat Multipliers', icon: <Sliders className="w-4 h-4" /> },
+    { id: 'levels', label: 'Level Generator', icon: <Flame className="w-4 h-4" /> },
     { id: 'player', label: 'Player & Dino', icon: <Users className="w-4 h-4" /> },
     { id: 'breeding', label: 'Breeding', icon: <CheckSquare className="w-4 h-4" /> },
     { id: 'structures', label: 'Structures', icon: <Hammer className="w-4 h-4" /> },
@@ -384,6 +660,8 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'rconEnabled', label: 'Enable RCON' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'rconPort', label: 'RCON Port' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'battleEyeEnforcer', label: 'BattlEye Anti-Cheat', desc: 'Requires client restart if changed' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'textarea', key: 'motd', label: 'Message of the Day (MOTD)', desc: 'The message shown to players when they join the server' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'motdDuration', label: 'MOTD Duration (Secs)', desc: 'How long the message stays on screen' },
 
     // RATES - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'xpMultiplier', label: 'XP Multiplier', desc: 'Global experience gain rate', step: 0.1 },
@@ -410,6 +688,8 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'playerCharacterHealthRecoveryMultiplier', label: 'Player Health Recovery', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'playerResistanceMultiplier', label: 'Player Resistance', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'playerDamageMultiplier', label: 'Player Damage', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'playerHarvestingDamageMultiplier', label: 'Player Harvesting Damage Multiplier', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'craftingSkillBonusMultiplier', label: 'Crafting Skill Bonus Multiplier', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'nonPermanentDiseases', label: 'Non-Permanent Diseases', desc: 'Diseases will be cured upon respawning' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'preventDiseases', label: 'Prevent Diseases', desc: 'Completely disables sickness and swamp fever' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bUseCorpseLocator', label: 'Use Corpse Locator', desc: 'Shows a green beam of light indicating where you died' },
@@ -432,6 +712,7 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'allowUnclaimDinos', label: 'Allow Unclaim Dinos' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'disableDinoBreeding', label: 'Disable Dino Breeding' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'useDinoLevelUpAnimations', label: 'Use Dino Level-Up Animations' },
+    { file: 'Game.ini', tab: 'player', type: 'number', key: 'maxFallSpeedMultiplier', label: 'Max Fall Speed Multiplier', desc: 'Global limit for fall acceleration speed', step: 0.1 },
 
     // BREEDING - Game.ini
     { file: 'Game.ini', tab: 'breeding', type: 'number', key: 'matingIntervalMultiplier', label: 'Mating Interval', desc: 'Lower means dinos can mate sooner', step: 0.1 },
@@ -545,18 +826,18 @@ export default function ASEConfigEditor() {
     // ADVANCED - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'disableWeatherFog', label: 'Disable Fog' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'autoSavePeriodMinutes', label: 'Auto-Save Period (Mins)', step: 1.0 },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'text', key: 'motd', label: 'Message of the Day', desc: 'Shown to players when they join' },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'motdDuration', label: 'MOTD Duration (Secs)' },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'select', key: 'activeEvent', label: 'Active Event', desc: 'Predefined holiday events', options: [
-      { label: 'None', value: '' },
-      { label: 'Easter', value: 'Easter' },
-      { label: 'Summer', value: 'Summer' },
-      { label: 'Winter Wonderland', value: 'WinterWonderland' },
-      { label: 'Fear Evolved (Halloween)', value: 'FearEvolved' },
-      { label: 'Turkey Trial (Thanksgiving)', value: 'TurkeyTrial' },
-      { label: 'Valentine', value: 'Valentine' },
-      { label: 'Anniversary', value: 'Anniversary' }
-    ]},
+    {
+      file: 'GameUserSettings.ini', tab: 'advanced', type: 'select', key: 'activeEvent', label: 'Active Event', desc: 'Predefined holiday events', options: [
+        { label: 'None', value: '' },
+        { label: 'Easter', value: 'Easter' },
+        { label: 'Summer', value: 'Summer' },
+        { label: 'Winter Wonderland', value: 'WinterWonderland' },
+        { label: 'Fear Evolved (Halloween)', value: 'FearEvolved' },
+        { label: 'Turkey Trial (Thanksgiving)', value: 'TurkeyTrial' },
+        { label: 'Valentine', value: 'Valentine' },
+        { label: 'Anniversary', value: 'Anniversary' }
+      ]
+    },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'text', key: 'launcherArgs', label: 'Custom Launcher Args', desc: 'Additional command line arguments' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useAllAvailableCores', label: 'Use All Cores' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useLowMemory', label: 'Low Memory Mode' },
@@ -609,32 +890,67 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'alternateSaveDirectoryName', label: 'Alternate Save Directory Name', desc: 'Alternate folder name for server savegames' },
     { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'clusterDirectoryOverride', label: 'Cluster Directory Override', desc: 'Absolute custom path for cluster data files' },
     { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useClusterDirectoryOverride', label: 'Enable Cluster Directory Override', desc: 'Uses ClusterDirectoryOverride instead of default Save directory' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'backupQuantity', label: 'Backup Quantity', desc: 'Number of backup archives to keep (excess/oldest will be automatically pruned)' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'newSaveGameFormat', label: 'New Save Game Format', desc: 'Enable Version 11 faster/smaller save game format (-newsaveformat)' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useStore', label: 'Use Store', desc: 'Integrate player data directly into map save file (-usestore)' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'backupTransferPlayerDatas', label: 'Backup Transfer Player Datas', desc: 'Backup character profile during cluster transfers (-BackupTransferPlayerDatas)' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'motdIntervalEnabled', label: 'Enable Periodic MOTD', desc: 'Broadcast MOTD periodically to active players' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'motdInterval', label: 'MOTD Broadcast Interval (Mins)', desc: 'Interval in minutes between periodic broadcasts', step: 1.0 },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'enableExtinctionEvent', label: 'Enable Extinction Event', desc: 'Enable the extinction countdown/wipe event' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'extinctionEventTimeInterval', label: 'Extinction Interval (Days)', desc: 'Number of days for the countdown', step: 1.0 },
   ], []);
 
   const searchResults = useMemo(() => {
     if (!searchQuery) return [];
     const query = searchQuery.toLowerCase();
-    return schema.filter(f => 
-      f.file === activeFile && 
+    return schema.filter(f =>
+      f.file === activeFile &&
       (f.label.toLowerCase().includes(query) || f.key.toLowerCase().includes(query) || f.desc?.toLowerCase().includes(query))
     );
   }, [searchQuery, schema, activeFile]);
 
-  useEffect(() => {
-    if (searchQuery) setActiveTab('search');
-    else if (activeTab === 'search') setActiveTab('general');
-  }, [searchQuery]);
+  const tabMatchCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    if (!searchQuery) return counts;
+    const query = searchQuery.toLowerCase();
+    schema.forEach(field => {
+      if (field.file === activeFile) {
+        const matchLabel = field.label?.toLowerCase().includes(query);
+        const matchKey = field.key.toLowerCase().includes(query);
+        const matchDesc = field.desc?.toLowerCase().includes(query);
+        if (matchLabel || matchKey || matchDesc) {
+          counts[field.tab] = (counts[field.tab] || 0) + 1;
+        }
+      }
+    });
+    return counts;
+  }, [searchQuery, schema, activeFile]);
 
   // If a tab has no fields for the active file, it shouldn't be rendered.
   const activeFileTabs = useMemo(() => {
     const validTabIds = new Set(schema.filter(f => f.file === activeFile).map(f => f.tab));
-    return tabs.filter(t => validTabIds.has(t.id));
+    if (activeFile === 'Game.ini') {
+      validTabIds.add('environment');
+    }
+    const list = tabs.filter(t => 
+      validTabIds.has(t.id) || 
+      t.id === 'stats' ||
+      t.id === 'levels'
+    );
+    list.push({ id: 'diagnostics', label: 'Diagnostics', icon: <Database className="w-4 h-4" /> });
+    return list;
   }, [schema, activeFile, tabs]);
 
   useEffect(() => {
-    // If the current tab isn't valid for the new activeFile, switch to the first valid one
-    if (activeTab !== 'search' && !activeFileTabs.some(t => t.id === activeTab)) {
-      if (activeFileTabs.length > 0) setActiveTab(activeFileTabs[0].id);
+    // If the current tab isn't valid for the new activeFile, or if we switched to GameUserSettings.ini while on levels/stats, switch to the first valid one
+    const isInvalidTab = !activeFileTabs.some(t => t.id === activeTab);
+    const isGameIniSpecificTab = (activeTab === 'levels' || activeTab === 'stats') && activeFile === 'GameUserSettings.ini';
+
+    if (isInvalidTab || isGameIniSpecificTab) {
+      if (activeFileTabs.length > 0) {
+        const fallbackTab = activeFileTabs.find(t => t.id !== 'levels' && t.id !== 'stats') || activeFileTabs[0];
+        setActiveTab(fallbackTab.id);
+      }
     }
   }, [activeFile, activeFileTabs, activeTab]);
 
@@ -642,6 +958,9 @@ export default function ASEConfigEditor() {
   const renderField = (field: any) => {
     if (field.type === 'text') {
       return <TextInput key={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as string} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} />;
+    }
+    if (field.type === 'textarea') {
+      return <TextAreaInput key={field.key} idKey={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as string} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} />;
     }
     if (field.type === 'number') {
       return <NumberInput key={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as number} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} step={field.step} />;
@@ -676,56 +995,72 @@ export default function ASEConfigEditor() {
       {/* Premium Header */}
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 p-6 rounded-3xl bg-slate-900/60 border border-white/5 backdrop-blur-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
-        
+
         <div className="relative z-10 flex flex-col gap-5">
           <div>
             <h1 className="text-3xl font-black text-white flex items-center gap-3 tracking-tight">
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl shadow-lg shadow-amber-500/10">
-                <FileEdit className="w-7 h-7 text-amber-400" />
+              <div className="w-[52px] h-[52px] rounded-2xl overflow-hidden border-2 border-amber-500/30 shadow-lg shadow-amber-500/10 flex items-center justify-center bg-slate-950">
+                <img src={aseLogo} alt="ARK Survival Evolved" className="w-full h-full object-cover scale-110" />
               </div>
               ASE Configuration
             </h1>
             <p className="text-sm text-slate-400 mt-2 font-medium">Fine-tune your server settings effortlessly</p>
           </div>
 
-          <div className="flex bg-slate-950/50 p-1.5 rounded-2xl border border-white/5 w-fit">
-            <button
-              onClick={() => { setActiveFile('GameUserSettings.ini'); setSearchQuery(''); }}
-              className={cn(
-                "px-5 py-2 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 flex items-center gap-2",
-                activeFile === 'GameUserSettings.ini' 
-                  ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20" 
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              )}
-            >
-              <FileText className="w-4 h-4" /> GameUserSettings.ini
-            </button>
-            <button
-              onClick={() => { setActiveFile('Game.ini'); setSearchQuery(''); }}
-              className={cn(
-                "px-5 py-2 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 flex items-center gap-2",
-                activeFile === 'Game.ini' 
-                  ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20" 
-                  : "text-slate-400 hover:text-white hover:bg-white/5"
-              )}
-            >
-              <Database className="w-4 h-4" /> Game.ini
-            </button>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex bg-slate-950/50 p-1.5 rounded-2xl border border-white/5 w-fit">
+              <button
+                onClick={() => { setActiveFile('GameUserSettings.ini'); setSearchQuery(''); }}
+                className={cn(
+                  "px-5 py-2 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 flex items-center gap-2",
+                  activeFile === 'GameUserSettings.ini'
+                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <FileText className="w-4 h-4" /> GameUserSettings.ini
+              </button>
+              <button
+                onClick={() => { setActiveFile('Game.ini'); setSearchQuery(''); }}
+                className={cn(
+                  "px-5 py-2 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 flex items-center gap-2",
+                  activeFile === 'Game.ini'
+                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <Database className="w-4 h-4" /> Game.ini
+              </button>
+            </div>
+
+            <div className="flex bg-slate-950/50 p-1.5 rounded-2xl border border-white/5 w-fit">
+              <button
+                onClick={() => setEditorMode('visual')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 flex items-center gap-1.5",
+                  editorMode === 'visual'
+                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <Sliders className="w-3.5 h-3.5" /> Visual Editor
+              </button>
+              <button
+                onClick={() => setEditorMode('raw')}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 flex items-center gap-1.5",
+                  editorMode === 'raw'
+                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <FileText className="w-3.5 h-3.5" /> Raw INI
+              </button>
+            </div>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-4 relative z-10">
-          <div className="relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
-            <input 
-              type="text" 
-              placeholder={`Search ${activeFile}...`}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-11 pr-4 py-3 bg-slate-950/80 border border-white/10 rounded-2xl text-sm font-semibold text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 w-72 transition-all duration-300 shadow-inner"
-            />
-          </div>
-
           {servers.length > 0 && (
             <ServerSelect
               value={selectedServer}
@@ -736,20 +1071,26 @@ export default function ASEConfigEditor() {
           )}
 
           <input type="file" accept=".ini" className="hidden" ref={fileInputRef} onChange={handleImportIni} />
-          
-          <div className="flex bg-slate-950/50 p-1.5 rounded-2xl border border-white/5">
+
+          <div className="flex items-center bg-slate-950/50 p-1.5 rounded-2xl border border-white/5">
             <button onClick={() => fileInputRef.current?.click()} className="p-3 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-xl transition-all" title="Import INI">
               <Download className="w-5 h-5" />
             </button>
             <button onClick={() => setConfig(defaultConfig)} className="p-3 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-xl transition-all" title="Reset Default">
               <RotateCcw className="w-5 h-5" />
             </button>
-            <button 
-              onClick={handleSave} 
-              disabled={!isDirty} 
-              className="px-5 py-2.5 ml-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:hover:bg-amber-500 text-slate-950 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-amber-500/20"
+            <button
+              onClick={handleSave}
+              disabled={!isDirty}
+              className="relative px-6 py-2.5 ml-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:hover:bg-slate-800 disabled:text-slate-500 text-slate-950 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-amber-500/20"
             >
-              <Save className="w-4 h-4" /> Save
+              <Save className="w-4 h-4" /> Save Changes
+              {isDirty && (
+                <>
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full animate-ping" />
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-slate-900" title="Unsaved changes" />
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -758,33 +1099,80 @@ export default function ASEConfigEditor() {
       {/* Main Layout */}
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Modern Sidebar Navigation */}
-        <div className="lg:w-64 shrink-0 flex flex-col gap-2 h-[65vh] overflow-y-auto pr-3 custom-scrollbar">
-          {activeFileTabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }}
-              className={cn(
-                "flex items-center gap-3 px-5 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 border",
-                activeTab === tab.id
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[inset_4px_0_0_0_#fbbf24]"
-                  : "bg-slate-900/30 border-transparent text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
-              )}
-            >
-              {React.cloneElement(tab.icon as React.ReactElement<any>, { 
-                className: cn("w-5 h-5 transition-transform duration-300", activeTab === tab.id ? "scale-110" : "")
-              })}
-              {tab.label}
-            </button>
-          ))}
-          {searchQuery && (
-            <button className="flex items-center gap-3 px-5 py-3.5 rounded-2xl text-sm font-bold transition-all bg-amber-500/10 border border-amber-500/30 text-amber-400 shadow-[inset_4px_0_0_0_#fbbf24]">
-              <Search className="w-5 h-5" /> Search Results
-            </button>
-          )}
-        </div>
+        {editorMode === 'visual' && (
+          <div className="lg:w-72 shrink-0 flex flex-col gap-6 h-[65vh] overflow-y-auto pr-4 custom-scrollbar pb-10">
+            
+            {/* New Search Input inside Sidebar */}
+            <div className="relative group px-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
+              <input
+                type="text"
+                placeholder="Search settings..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-white/10 rounded-2xl text-xs font-semibold text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 transition-all duration-300 shadow-inner"
+              />
+            </div>
+
+            {[
+              { title: 'Overview', ids: ['general', 'server_options'] },
+              { title: 'Game Rules', ids: ['rates', 'pvp', 'environment'] },
+              { title: 'Entities', ids: ['stats', 'levels', 'player', 'breeding'] },
+              { title: 'World & Tech', ids: ['structures', 'engrams', 'transfer'] },
+              { title: 'System', ids: ['tribe', 'admin', 'advanced', 'diagnostics'] }
+            ].map(group => {
+              const groupTabs = activeFileTabs.filter(t => group.ids.includes(t.id as string));
+              if (groupTabs.length === 0) return null;
+              return (
+                <div key={group.title} className="flex flex-col gap-1.5">
+                  <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest px-3 mb-1.5">{group.title}</h3>
+                  {groupTabs.map(tab => {
+                    const matchCount = tabMatchCounts[tab.id] || 0;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => {
+                          if (tab.id === 'levels' || tab.id === 'stats') {
+                            setActiveFile('Game.ini');
+                          }
+                          setActiveTab(tab.id);
+                        }}
+                        className={cn(
+                          "flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 border group",
+                          isActive
+                            ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[inset_3px_0_0_0_#fbbf24]"
+                            : "bg-transparent border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
+                        )}
+                      >
+                        <span className="flex items-center gap-3">
+                          {React.cloneElement(tab.icon as React.ReactElement<any>, {
+                            className: cn("w-5 h-5 transition-transform duration-300", isActive ? "scale-110" : "group-hover:scale-110 opacity-70")
+                          })}
+                          {tab.label}
+                        </span>
+                        {searchQuery && matchCount > 0 && (
+                          <span className={cn(
+                            "px-2 py-0.5 text-xs font-black rounded-lg transition-colors",
+                            isActive ? "bg-amber-500/25 text-amber-400" : "bg-slate-800 text-slate-450 group-hover:text-slate-350"
+                          )}>
+                            {matchCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Content Area */}
-        <div className="flex-1 bg-slate-900/40 backdrop-blur-sm border border-white/5 rounded-3xl p-6 lg:p-8 h-[65vh] overflow-y-auto custom-scrollbar relative shadow-xl">
+        <div className={cn(
+          "bg-slate-900/40 backdrop-blur-sm border border-white/5 rounded-3xl p-6 lg:p-8 h-[65vh] overflow-y-auto custom-scrollbar relative shadow-xl",
+          editorMode === 'raw' ? "w-full" : "flex-1"
+        )}>
           <AnimatePresence mode="wait">
             {isLoading ? (
               <motion.div
@@ -804,50 +1192,307 @@ export default function ASEConfigEditor() {
               </motion.div>
             ) : (
               <motion.div
-                key={activeTab + activeFile + searchQuery}
+                key={activeTab + activeFile + searchQuery + editorMode}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-6"
+                className="space-y-6 h-full"
               >
-                {searchQuery ? (
-                searchResults.length > 0 ? (
-                  searchResults.map(field => renderField(field))
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-                    <Search className="w-12 h-12 mb-4 opacity-50" />
-                    <p className="text-lg font-medium">No matching settings found in {activeFile}</p>
-                    <p className="text-sm mt-1">Try a different search term or check the other file tab.</p>
-                  </div>
-                )
-              ) : (
-                <>
-                  {schema.filter(f => f.file === activeFile && f.tab === activeTab).map(field => renderField(field))}
-                  {activeTab === 'server_options' && (
-                    <div className="mt-8 p-6 bg-slate-950/70 border border-amber-500/20 rounded-3xl relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-                      <div className="flex items-center gap-2 mb-3 text-amber-400 font-bold text-sm uppercase tracking-wider">
-                        <Cpu className="w-4 h-4" /> Real-time Launch Preview
+                {editorMode === 'raw' ? (
+                  <div className="flex flex-col h-full gap-4 min-h-[450px]">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                          <FileText className="w-4 h-4 text-amber-500" />
+                          Raw {activeFile} Editor
+                        </h3>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Directly edit the raw INI configuration lines. Make sure to follow correct INI key=value syntax.
+                        </p>
                       </div>
-                      <p className="text-xs text-slate-400 mb-4 leading-relaxed font-medium">
-                        This live command line is automatically compiled on server boot based on your settings:
-                      </p>
-                      <div className="bg-slate-900 border border-white/5 rounded-2xl p-4 font-mono text-xs text-slate-300 break-all select-all leading-normal relative">
-                        <span className="text-amber-500 select-none mr-2">ShooterGameServer.exe</span>
-                        {launchArgs.join(' ')}
-                      </div>
-                      {config.enablePublicIpForEpic && (
-                        <div className="mt-3 inline-flex items-center gap-2 text-[10px] bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl text-amber-400 font-semibold">
-                          <Globe className="w-3.5 h-3.5" /> Note: EGS Crossplay is enabled. Public IP will resolve dynamically on boot to prevent server time-outs.
-                        </div>
-                      )}
                     </div>
-                  )}
-                </>
-              )}
-            </motion.div>
-          )}
+                    <div className="flex-1 h-full min-h-[350px]">
+                      <CodeEditor
+                        value={rawIniContent}
+                        onChange={handleRawChange}
+                        className="h-full border-white/5 bg-slate-950/60 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                ) : searchQuery && searchResults.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+                    <Search className="w-12 h-12 mb-4 opacity-50 text-slate-600" />
+                    <p className="text-lg font-medium text-slate-350">No matching settings found in {activeFile}</p>
+                    <p className="text-sm mt-1">Try a different search term or check spelling.</p>
+                  </div>
+                ) : (
+                  <>
+                    {activeTab === 'diagnostics' && (
+                      <div className="space-y-6 animate-fadeIn">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/40 pb-4">
+                          <div>
+                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                              <Database className="w-5 h-5 text-amber-500" />
+                              Configuration Diagnostics & Cache
+                            </h2>
+                            <p className="text-xs text-slate-450 mt-1">Verify profile integrity, parse status, and sync state parameters.</p>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={async () => {
+                                if (!selectedServer) return;
+                                setIsLoading(true);
+                                try {
+                                  await syncAseServerFromIni(selectedServer);
+                                  await loadConfig(selectedServer);
+                                  await loadDiagnostics(selectedServer);
+                                  toast.success('Configuration successfully reloaded from disk!', {
+                                    style: { background: '#10b981', color: '#fff', borderRadius: '12px' }
+                                  });
+                                } catch (e) {
+                                  toast.error(`Reload failed: ${e}`);
+                                } finally {
+                                  setIsLoading(false);
+                                }
+                              }}
+                              className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow transition-all duration-300"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              Reload Configuration
+                            </button>
+
+                            <button
+                              onClick={async () => {
+                                if (!selectedServer) return;
+                                setIsLoading(true);
+                                try {
+                                  await syncAseServerFromIni(selectedServer);
+                                  await loadConfig(selectedServer);
+                                  await loadDiagnostics(selectedServer);
+                                  toast.success('Server profile completely rebuilt from raw configuration!', {
+                                    style: { background: '#10b981', color: '#fff', borderRadius: '12px' }
+                                  });
+                                } catch (e) {
+                                  toast.error(`Rebuild failed: ${e}`);
+                                } finally {
+                                  setIsLoading(false);
+                                }
+                              }}
+                              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/10 transition-all duration-300"
+                            >
+                              <Cpu className="w-3.5 h-3.5" />
+                              Force Rebuild Profile
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Info grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
+                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Cache Status</span>
+                            <div className="mt-2 flex items-center gap-2">
+                              {diagnostics?.cacheStatus.toLowerCase().includes('fresh') ? (
+                                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  Fresh (Synced)
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                  Stale (External edits)
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-500 mt-2 font-medium">Compares files vs active SQLite db records</span>
+                          </div>
+
+                          <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
+                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Configuration Hash</span>
+                            <div className="mt-2 text-xs font-mono font-bold text-slate-200 truncate" title={diagnostics?.configHash || 'N/A'}>
+                              {diagnostics?.configHash ? diagnostics.configHash.substring(0, 16) + '...' : 'Unknown'}
+                            </div>
+                            <span className="text-[10px] text-slate-500 mt-2 font-medium">Combined SHA-256 profile integrity check</span>
+                          </div>
+
+                          <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
+                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Last Sync Execution</span>
+                            <div className="mt-2 text-xs font-mono font-bold text-slate-200">
+                              {diagnostics?.lastParsed ? new Date(diagnostics.lastParsed).toLocaleString() : 'Never'}
+                            </div>
+                            <span className="text-[10px] text-slate-500 mt-2 font-medium">Timestamp of database parity parse</span>
+                          </div>
+                        </div>
+
+                        {/* File details panel */}
+                        <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-4">
+                          <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2">
+                            Tracked Source Configuration Files
+                          </h3>
+                          <div className="space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                              <div>
+                                <div className="font-semibold text-slate-200 flex items-center gap-1.5">
+                                  {diagnostics?.gusExists ? (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  ) : (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                  )}
+                                  GameUserSettings.ini
+                                </div>
+                                <span className="text-[10px] text-slate-500 mt-0.5 block">Stores general identity, rates, administration, and launcher parameters</span>
+                              </div>
+                              <div className="text-right sm:text-right flex flex-row sm:flex-col justify-between sm:justify-start gap-4 sm:gap-1 text-[11px] font-mono">
+                                <span className="text-slate-400">Size: <b className="text-slate-200">{diagnostics?.gusSize ? (diagnostics.gusSize / 1024).toFixed(2) : '0.00'} KB</b></span>
+                                <span className="text-slate-400">Modified: <b className="text-slate-200">{diagnostics?.gusModified ? new Date(diagnostics.gusModified).toLocaleString() : 'N/A'}</b></span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                              <div>
+                                <div className="font-semibold text-slate-200 flex items-center gap-1.5">
+                                  {diagnostics?.gameIniExists ? (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  ) : (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                                  )}
+                                  Game.ini
+                                </div>
+                                <span className="text-[10px] text-slate-500 mt-0.5 block">Stores gameplay multipliers, breeding settings, engrams, and crafting overrides</span>
+                              </div>
+                              <div className="text-right sm:text-right flex flex-row sm:flex-col justify-between sm:justify-start gap-4 sm:gap-1 text-[11px] font-mono">
+                                <span className="text-slate-400">Size: <b className="text-slate-200">{diagnostics?.gameIniSize ? (diagnostics.gameIniSize / 1024).toFixed(2) : '0.00'} KB</b></span>
+                                <span className="text-slate-400">Modified: <b className="text-slate-200">{diagnostics?.gameIniModified ? new Date(diagnostics.gameIniModified).toLocaleString() : 'N/A'}</b></span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Live launch preview */}
+                        <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-3">
+                          <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5">
+                            <Cpu className="w-4 h-4" /> Live Boot Launch Parameters
+                          </h3>
+                          <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                            These command line arguments are generated on startup by mapping custom settings variables:
+                          </p>
+                          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-350 break-all select-all leading-normal relative">
+                            <span className="text-amber-500 select-none mr-2">ShooterGameServer.exe</span>
+                            {diagnostics?.activeLaunchArgs && diagnostics.activeLaunchArgs.length > 0
+                              ? diagnostics.activeLaunchArgs.join(' ')
+                              : 'No arguments detected. Verify directory settings.'}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {activeTab === 'stats' && (
+                      <AseStatMultiplierEditor
+                        config={config}
+                        onChange={(updated) => {
+                          setConfig(updated);
+                          setIsDirty(true);
+                        }}
+                      />
+                    )}
+                    
+                    {activeTab === 'levels' && (
+                      <AseLevelGenerator
+                        config={config}
+                        onChange={(updated) => {
+                          setConfig(updated);
+                          setIsDirty(true);
+                        }}
+                      />
+                    )}
+
+                    {activeTab === 'environment' && activeFile === 'Game.ini' && (
+                      <ASEEnvironmentManager
+                        embedded={true}
+                        config={config}
+                        onChange={(updated) => {
+                          setConfig(updated);
+                          setIsDirty(true);
+                        }}
+                      />
+                    )}
+
+                    {(() => {
+                      // Custom tabs don't render schema fields directly here
+                      if (['diagnostics', 'stats', 'levels', 'environment'].includes(activeTab)) return null;
+
+                      const tabFields = schema.filter(f => f.file === activeFile && f.tab === activeTab);
+                      if (tabFields.length === 0) return null;
+
+                      const filteredFields = tabFields.filter(f => {
+                        if (!searchQuery) return true;
+                        const q = searchQuery.toLowerCase();
+                        return f.label?.toLowerCase().includes(q) ||
+                               f.key.toLowerCase().includes(q) ||
+                               f.desc?.toLowerCase().includes(q);
+                      });
+
+                      if (searchQuery && filteredFields.length === 0) {
+                        // Show helpful suggestions pointing to other tabs with matches
+                        return (
+                          <div className="flex flex-col items-center justify-center py-16 px-6 bg-slate-900/20 border border-white/5 rounded-3xl text-center">
+                            <Search className="w-10 h-10 text-amber-500/30 mb-3" />
+                            <h3 className="text-base font-bold text-white">No matches in "{tabs.find(t => t.id === activeTab)?.label}"</h3>
+                            <p className="text-xs text-slate-400 mt-1 max-w-sm">No settings match your search in this category. However, matches were found in these sections:</p>
+                            <div className="flex flex-wrap justify-center gap-2 mt-4">
+                              {Object.entries(tabMatchCounts).map(([tabId, count]) => {
+                                const targetTab = tabs.find(t => t.id === tabId);
+                                if (!targetTab || count === 0) return null;
+                                return (
+                                  <button
+                                    key={tabId}
+                                    type="button"
+                                    onClick={() => setActiveTab(tabId as any)}
+                                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
+                                  >
+                                    {targetTab.label}
+                                    <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] font-black rounded">
+                                      {count}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-6">
+                          {filteredFields.map(field => renderField(field))}
+                        </div>
+                      );
+                    })()}
+                    {activeTab === 'server_options' && (
+                      <div className="mt-8 p-6 bg-slate-950/70 border border-amber-500/20 rounded-3xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+                        <div className="flex items-center gap-2 mb-3 text-amber-400 font-bold text-sm uppercase tracking-wider">
+                          <Cpu className="w-4 h-4" /> Real-time Launch Preview
+                        </div>
+                        <p className="text-xs text-slate-400 mb-4 leading-relaxed font-medium">
+                          This live command line is automatically compiled on server boot based on your settings:
+                        </p>
+                        <div className="bg-slate-900 border border-white/5 rounded-2xl p-4 font-mono text-xs text-slate-300 break-all select-all leading-normal relative">
+                          <span className="text-amber-500 select-none mr-2">ShooterGameServer.exe</span>
+                          {launchArgs.join(' ')}
+                        </div>
+                        {config.enablePublicIpForEpic && (
+                          <div className="mt-3 inline-flex items-center gap-2 text-[10px] bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl text-amber-400 font-semibold">
+                            <Globe className="w-3.5 h-3.5" /> Note: EGS Crossplay is enabled. Public IP will resolve dynamically on boot to prevent server time-outs.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </div>

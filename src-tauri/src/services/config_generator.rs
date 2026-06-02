@@ -677,16 +677,33 @@ impl ConfigGenerator {
             .join("Win64")
             .join(exe_name);
 
-        let mut cmd = format!(
-            "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={}?RCONPort={}?MaxPlayers={}",
-            exe_path.display(),
-            config.map_name,
-            config.session_name,
-            config.game_port,
-            config.query_port,
-            config.rcon_port,
-            config.max_players
-        );
+        let mut cmd = if server_type == "ASE" {
+            let mut base = format!(
+                "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={}?RCONPort={}?MaxPlayers={}",
+                exe_path.display(),
+                config.map_name,
+                config.session_name,
+                config.game_port,
+                config.query_port,
+                config.rcon_port,
+                config.max_players
+            );
+            if !config.active_mods.is_empty() {
+                base.push_str(&format!("?ActiveMods={}", config.active_mods.join(",")));
+            }
+            base
+        } else {
+            format!(
+                "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={}?RCONPort={}?MaxPlayers={}",
+                exe_path.display(),
+                config.map_name,
+                config.session_name,
+                config.game_port,
+                config.query_port,
+                config.rcon_port,
+                config.max_players
+            )
+        };
 
         // Note: ServerPassword and ServerAdminPassword are intentionally NOT passed
         // on the command line. They are already written to GameUserSettings.ini.
@@ -703,8 +720,8 @@ impl ConfigGenerator {
             }
         }
 
-        // Add mods
-        if !config.active_mods.is_empty() {
+        // Add mods (ASA only, ASE is handled in travel/query URL)
+        if server_type != "ASE" && !config.active_mods.is_empty() {
             cmd.push_str(&format!(" -mods=\"{}\"", config.active_mods.join(",")));
         }
 

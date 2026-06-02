@@ -301,7 +301,7 @@ pub async fn install_server(
     // ---------------------------------------------------------
     // INSTALL: Run SteamCMD to download/validate server files
     // ---------------------------------------------------------
-    installer.install_server(&path, &server_type).await?;
+    installer.install_server(&path, &server_type, None).await?;
 
     // ---------------------------------------------------------
     // POST-INSTALL: Create database entry and write configs
@@ -1163,7 +1163,7 @@ async fn perform_server_startup(
 
         // Run the installation via SteamCMD
         let installer = ServerInstaller::new(app_handle.clone(), install_path_buf.to_string_lossy().to_string());
-        installer.install_server(&install_path_buf, &server_type).await?;
+        installer.install_server(&install_path_buf, &server_type, None).await?;
 
         println!("  ✅ Server download complete, now starting...");
     }
@@ -1389,7 +1389,7 @@ pub async fn start_server_no_mods(
 
         // Run the installation via SteamCMD
         let installer = ServerInstaller::new(app_handle.clone(), install_path_buf.to_string_lossy().to_string());
-        installer.install_server(&install_path_buf, &server_type).await?;
+        installer.install_server(&install_path_buf, &server_type, None).await?;
 
         println!("  ✅ Server download complete, now starting...");
     }
@@ -2309,19 +2309,47 @@ fn detect_batch_settings(install_path: &std::path::Path, _server_type: &str) -> 
     None
 }
 
+/// Helper to read UE4 config files that might be UTF-16 with BOM
+fn read_ue4_string(path: &std::path::Path) -> std::io::Result<String> {
+    use std::fs::File;
+    use std::io::Read;
+    let mut file = File::open(path)?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+
+    if bytes.len() >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE {
+        let u16_data: Vec<u16> = bytes[2..]
+            .chunks_exact(2)
+            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .collect();
+        if let Ok(s) = String::from_utf16(&u16_data) {
+            return Ok(s);
+        }
+    }
+    if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
+        let u16_data: Vec<u16> = bytes[2..]
+            .chunks_exact(2)
+            .map(|c| u16::from_be_bytes([c[0], c[1]]))
+            .collect();
+        if let Ok(s) = String::from_utf16(&u16_data) {
+            return Ok(s);
+        }
+    }
+
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
 /// Detect the map name from an ARK server installation path.
 /// Checks GameUserSettings.ini for ServerMap/MapName, then scans .bat/.cmd files
 /// for the travel URL pattern, and falls back to a default.
-fn detect_map_name(install_path: &std::path::Path, server_type: &str) -> String {
-    use std::fs;
-
-    let default_map = if server_type == "ASE" { "TheIsland" } else { "TheIsland_WP" };
+fn detect_map_name(install_path: &std::path::Path, server_type: &str) -> Option<(String, String, String)> {
 
     // 1. Check batch files first because command line arguments override INI settings
     if let Some(batch) = detect_batch_settings(install_path, server_type) {
         if let Some(map) = batch.map_name {
             println!("   📍 Detected map from batch file: {}", map);
-            return map;
+            let src_script = batch.source_script.unwrap_or_else(|| "Startup Script".to_string());
+            return Some((map, src_script, "High (Startup Script)".to_string()));
         }
     }
 
@@ -2334,7 +2362,7 @@ fn detect_map_name(install_path: &std::path::Path, server_type: &str) -> String 
         .join("GameUserSettings.ini");
 
     if gus_path.exists() {
-        if let Ok(content) = fs::read_to_string(&gus_path) {
+        if let Ok(content) = read_ue4_string(&gus_path) {
             let mut in_server_settings = false;
             for line in content.lines() {
                 let trimmed = line.trim();
@@ -2348,7 +2376,7 @@ fn detect_map_name(install_path: &std::path::Path, server_type: &str) -> String 
                         let value = value.trim();
                         if (key == "ServerMap" || key == "MapName") && !value.is_empty() {
                             println!("   📍 Detected map from INI: {}", value);
-                            return value.to_string();
+                            return Some((value.to_string(), "GameUserSettings.ini".to_string(), "High (Config INI)".to_string()));
                         }
                     }
                 }
@@ -2356,13 +2384,12 @@ fn detect_map_name(install_path: &std::path::Path, server_type: &str) -> String 
         }
     }
 
-    println!("   ⚠️  No map name detected, using default: {}", default_map);
-    default_map.to_string()
+    println!("   ⚠️  No map name detected in config or scripts");
+    None
 }
 
 /// Parse an IP address from INI content (MultiHome= key) or startup scripts.
 fn detect_ip_address(install_path: &std::path::Path) -> Option<String> {
-    use std::fs;
 
     // 1. Check batch files first
     if let Some(batch) = detect_batch_settings(install_path, "") {
@@ -2381,12 +2408,15 @@ fn detect_ip_address(install_path: &std::path::Path) -> Option<String> {
         .join("GameUserSettings.ini");
 
     if gus_path.exists() {
-        if let Ok(content) = fs::read_to_string(&gus_path) {
+        if let Ok(content) = read_ue4_string(&gus_path) {
             for line in content.lines() {
                 let trimmed = line.trim();
                 if let Some((key, value)) = trimmed.split_once('=') {
                     if key.trim() == "MultiHome" && !value.trim().is_empty() {
-                        return Some(value.trim().to_string());
+                        let ip = value.trim();
+                        if ip.to_lowercase() != "true" && ip.to_lowercase() != "false" {
+                            return Some(ip.to_string());
+                        }
                     }
                 }
             }
@@ -2458,33 +2488,62 @@ pub fn ini_get<'a>(
 }
 
 /// Import preview result returned to the frontend before committing.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct ImportPreview {
+    #[serde(default)]
     pub map_name: String,
+    #[serde(default)]
     pub session_name: String,
+    #[serde(default)]
     pub max_players: u32,
+    #[serde(default)]
     pub game_port: u16,
+    #[serde(default)]
     pub query_port: u16,
+    #[serde(default)]
     pub rcon_port: u16,
+    #[serde(default)]
     pub rcon_enabled: bool,
+    #[serde(default)]
     pub admin_password: String,
+    #[serde(default)]
     pub server_password: String,
+    #[serde(default)]
     pub ip_address: Option<String>,
+    #[serde(default)]
     pub active_mods: String,
+    #[serde(default)]
     pub custom_args: String,
+    #[serde(default)]
     pub cluster_id: String,
+    #[serde(default)]
     pub warnings: Vec<String>,
     // New diagnostic fields
+    #[serde(default)]
     pub detected_command: Option<String>,
+    #[serde(default)]
     pub source_files: std::collections::HashMap<String, String>,
+    #[serde(default)]
     pub confidence_levels: std::collections::HashMap<String, String>,
+    #[serde(default)]
     pub raw_ini_gus: Option<String>,
+    #[serde(default)]
     pub raw_ini_game: Option<String>,
+    // New validation fields
+    #[serde(default)]
+    pub imported_values: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub missing_settings: Vec<String>,
     // Phase 3 Save Metadata
+    #[serde(default)]
     pub player_count: u32,
+    #[serde(default)]
     pub tribe_count: u32,
+    #[serde(default)]
     pub save_file_size: u64,
+    #[serde(default)]
     pub save_last_modified: Option<String>,
 }
 
@@ -2496,6 +2555,8 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
     let mut warnings: Vec<String> = Vec::new();
     let mut source_files = HashMap::new();
     let mut confidence_levels = HashMap::new();
+    let mut imported_values = HashMap::new();
+    let mut missing_settings = Vec::new();
 
     let config_dir = install_path
         .join("ShooterGame")
@@ -2536,8 +2597,8 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
     set_def(&mut source_files, &mut confidence_levels, "activeMods");
     set_def(&mut source_files, &mut confidence_levels, "clusterId");
 
-    let raw_ini_gus = fs::read_to_string(&gus_path).ok();
-    let raw_ini_game = fs::read_to_string(&game_ini_path).ok();
+    let raw_ini_gus = read_ue4_string(&gus_path).ok();
+    let raw_ini_game = read_ue4_string(&game_ini_path).ok();
 
     if let Some(ref content) = raw_ini_gus {
         let sections = parse_ini(content);
@@ -2548,6 +2609,7 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
                 session_name = v.clone();
                 source_files.insert("sessionName".to_string(), "GameUserSettings.ini".to_string());
                 confidence_levels.insert("sessionName".to_string(), "High (Config INI)".to_string());
+                imported_values.insert("sessionName".to_string(), v.clone());
             }
         }
 
@@ -2556,6 +2618,7 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
                 server_password = v.clone();
                 source_files.insert("serverPassword".to_string(), "GameUserSettings.ini".to_string());
                 confidence_levels.insert("serverPassword".to_string(), "High (Config INI)".to_string());
+                imported_values.insert("serverPassword".to_string(), v.clone());
             }
         }
         
@@ -2565,6 +2628,7 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
                 admin_password = clean.to_string();
                 source_files.insert("adminPassword".to_string(), "GameUserSettings.ini".to_string());
                 confidence_levels.insert("adminPassword".to_string(), "High (Config INI)".to_string());
+                imported_values.insert("adminPassword".to_string(), clean.to_string());
             }
         }
 
@@ -2573,22 +2637,25 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
                 max_players = parsed;
                 source_files.insert("maxPlayers".to_string(), "GameUserSettings.ini".to_string());
                 confidence_levels.insert("maxPlayers".to_string(), "High (Config INI)".to_string());
+                imported_values.insert("maxPlayers".to_string(), v.clone());
             }
         }
 
-        if let Some(v) = ini_get(&sections, &["URL", "/Script/Engine.GameSession", "ServerSettings"], "Port") {
+        if let Some(v) = ini_get(&sections, &["URL", "/Script/Engine.GameSession", "ServerSettings", "SessionSettings"], "Port") {
             if let Ok(parsed) = v.parse::<u16>() {
                 game_port = parsed;
                 source_files.insert("gamePort".to_string(), "GameUserSettings.ini".to_string());
                 confidence_levels.insert("gamePort".to_string(), "High (Config INI)".to_string());
+                imported_values.insert("gamePort".to_string(), v.clone());
             }
         }
 
-        if let Some(v) = ini_get(&sections, &["URL", "/Script/Engine.GameSession", "ServerSettings"], "QueryPort") {
+        if let Some(v) = ini_get(&sections, &["URL", "/Script/Engine.GameSession", "ServerSettings", "SessionSettings"], "QueryPort") {
             if let Ok(parsed) = v.parse::<u16>() {
                 query_port = parsed;
                 source_files.insert("queryPort".to_string(), "GameUserSettings.ini".to_string());
                 confidence_levels.insert("queryPort".to_string(), "High (Config INI)".to_string());
+                imported_values.insert("queryPort".to_string(), v.clone());
             }
         }
 
@@ -2597,6 +2664,7 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
                 rcon_port = parsed;
                 source_files.insert("rconPort".to_string(), "GameUserSettings.ini".to_string());
                 confidence_levels.insert("rconPort".to_string(), "High (Config INI)".to_string());
+                imported_values.insert("rconPort".to_string(), v.clone());
             }
         }
 
@@ -2605,6 +2673,7 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
             rcon_enabled = lower == "true" || lower == "1";
             source_files.insert("rconEnabled".to_string(), "GameUserSettings.ini".to_string());
             confidence_levels.insert("rconEnabled".to_string(), "High (Config INI)".to_string());
+            imported_values.insert("rconEnabled".to_string(), v.clone());
         }
 
         if let Some(v) = ini_get(&sections, &["ServerSettings", "/Script/ShooterGame.ShooterGameMode"], "ActiveMods") {
@@ -2612,22 +2681,78 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
                 active_mods = v.clone();
                 source_files.insert("activeMods".to_string(), "GameUserSettings.ini".to_string());
                 confidence_levels.insert("activeMods".to_string(), "High (Config INI)".to_string());
+                imported_values.insert("activeMods".to_string(), v.clone());
+            }
+        }
+
+        if let Some(v) = ini_get(&sections, &["ServerSettings", "SessionSettings", "MultiHome"], "clusterid") {
+            if !v.is_empty() {
+                cluster_id = v.clone();
+                source_files.insert("clusterId".to_string(), "GameUserSettings.ini".to_string());
+                confidence_levels.insert("clusterId".to_string(), "High (Config INI)".to_string());
+                imported_values.insert("clusterId".to_string(), v.clone());
             }
         }
 
         if let Some(v) = ini_get(&sections, &["ASM2"], "LauncherArgs") {
             custom_args = v.clone();
+            imported_values.insert("launcherArgs".to_string(), v.clone());
+        }
+
+        // Parse environment, engrams, dino overrides, xp multipliers
+        let gus_keys = [
+            ("XPMultiplier", "XP Settings"),
+            ("TamingSpeedMultiplier", "Taming Rates"),
+            ("HarvestAmountMultiplier", "Harvest Rates"),
+            ("HarvestHealthMultiplier", "Harvest Rates"),
+            ("DayCycleSpeedScale", "Environment Settings"),
+            ("DayTimeSpeedScale", "Environment Settings"),
+            ("NightTimeSpeedScale", "Environment Settings"),
+            ("SpoilingTimeMultiplier", "Environment Settings"),
+            ("ItemDecompositionTimeMultiplier", "Environment Settings"),
+            ("CorpseDecompositionTimeMultiplier", "Environment Settings"),
+            ("CropGrowthSpeedMultiplier", "Environment Settings"),
+            ("CropDecaySpeedMultiplier", "Environment Settings"),
+            ("LayEggIntervalMultiplier", "Environment Settings"),
+            ("PoopIntervalMultiplier", "Environment Settings"),
+            ("KillXPMultiplier", "XP Settings"),
+            ("HarvestXPMultiplier", "XP Settings"),
+            ("CraftXPMultiplier", "XP Settings"),
+            ("GenericXPMultiplier", "XP Settings"),
+            ("SpecialXPMultiplier", "XP Settings"),
+        ];
+
+        for &(key, category) in &gus_keys {
+            if let Some(v) = ini_get(&sections, &["ServerSettings"], key) {
+                imported_values.insert(key.to_string(), v.clone());
+                source_files.insert(key.to_string(), "GameUserSettings.ini".to_string());
+                confidence_levels.insert(key.to_string(), "High (Config INI)".to_string());
+            } else {
+                missing_settings.push(format!("{} (Category: {})", key, category));
+            }
         }
     } else {
         warnings.push("GameUserSettings.ini not found — using defaults for most settings.".into());
+        let gus_keys = [
+            ("XPMultiplier", "XP Settings"),
+            ("TamingSpeedMultiplier", "Taming Rates"),
+            ("HarvestAmountMultiplier", "Harvest Rates"),
+            ("DayCycleSpeedScale", "Environment Settings"),
+        ];
+        for &(key, category) in &gus_keys {
+            missing_settings.push(format!("{} (Category: {})", key, category));
+        }
     }
 
     // Detect map name via helper
-    let map_name = detect_map_name(install_path, server_type);
-    if map_name != "TheIsland" && map_name != "TheIsland_WP" {
-        source_files.insert("mapName".to_string(), "Detected from Directory/Scripts".to_string());
-        confidence_levels.insert("mapName".to_string(), "High (Automatic Detection)".to_string());
-    }
+    let default_map = if server_type == "ASE" { "TheIsland" } else { "TheIsland_WP" };
+    let map_name = if let Some((map, source, confidence)) = detect_map_name(install_path, server_type) {
+        source_files.insert("mapName".to_string(), source);
+        confidence_levels.insert("mapName".to_string(), confidence);
+        map
+    } else {
+        default_map.to_string()
+    };
 
     // Detect IP address
     let mut ip_address = detect_ip_address(install_path);
@@ -2647,63 +2772,138 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
             game_port = port;
             source_files.insert("gamePort".to_string(), src_script.clone());
             confidence_levels.insert("gamePort".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("gamePort".to_string(), port.to_string());
         }
         if let Some(port) = batch.query_port {
             query_port = port;
             source_files.insert("queryPort".to_string(), src_script.clone());
             confidence_levels.insert("queryPort".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("queryPort".to_string(), port.to_string());
         }
         if let Some(port) = batch.rcon_port {
             rcon_port = port;
             source_files.insert("rconPort".to_string(), src_script.clone());
             confidence_levels.insert("rconPort".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("rconPort".to_string(), port.to_string());
         }
         if let Some(enabled) = batch.rcon_enabled {
             rcon_enabled = enabled;
             source_files.insert("rconEnabled".to_string(), src_script.clone());
             confidence_levels.insert("rconEnabled".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("rconEnabled".to_string(), enabled.to_string());
         }
         if let Some(players) = batch.max_players {
             max_players = players;
             source_files.insert("maxPlayers".to_string(), src_script.clone());
             confidence_levels.insert("maxPlayers".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("maxPlayers".to_string(), players.to_string());
         }
         
         if let Some(v) = batch.session_name {
-            session_name = v;
+            session_name = v.clone();
             source_files.insert("sessionName".to_string(), src_script.clone());
             confidence_levels.insert("sessionName".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("sessionName".to_string(), v);
         }
         if let Some(v) = batch.server_password {
-            server_password = v;
+            server_password = v.clone();
             source_files.insert("serverPassword".to_string(), src_script.clone());
             confidence_levels.insert("serverPassword".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("serverPassword".to_string(), v);
         }
         if let Some(v) = batch.admin_password {
-            admin_password = v;
+            admin_password = v.clone();
             source_files.insert("adminPassword".to_string(), src_script.clone());
             confidence_levels.insert("adminPassword".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("adminPassword".to_string(), v);
         }
         if let Some(v) = batch.active_mods {
-            active_mods = v;
+            active_mods = v.clone();
             source_files.insert("activeMods".to_string(), src_script.clone());
             confidence_levels.insert("activeMods".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("activeMods".to_string(), v);
         }
         if let Some(v) = batch.cluster_id {
-            cluster_id = v;
+            cluster_id = v.clone();
             source_files.insert("clusterId".to_string(), src_script.clone());
             confidence_levels.insert("clusterId".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("clusterId".to_string(), v);
         }
 
         if let Some(ip) = batch.ip_address {
-            ip_address = Some(ip);
+            ip_address = Some(ip.clone());
+            imported_values.insert("ipAddress".to_string(), ip);
         }
         if !batch.custom_args.is_empty() {
             custom_args = batch.custom_args.join(" ");
+            imported_values.insert("customArgs".to_string(), custom_args.clone());
         }
     }
 
-    let detected_map = detect_map_name(install_path, server_type);
+    if let Some(ref content) = raw_ini_game {
+        let sections = parse_ini(content);
+        let sgm = "/Script/ShooterGame.ShooterGameMode";
+
+        let game_keys = [
+            ("EggHatchSpeedMultiplier", "Breeding Settings"),
+            ("BabyMatureSpeedMultiplier", "Breeding Settings"),
+            ("BabyCuddleIntervalMultiplier", "Breeding Settings"),
+            ("BabyImprintAmountMultiplier", "Breeding Settings"),
+            ("MatingIntervalMultiplier", "Breeding Settings"),
+            ("BabyFoodConsumptionSpeedMultiplier", "Breeding Settings"),
+            ("BabyCuddleGracePeriodMultiplier", "Breeding Settings"),
+            ("BabyCuddleLoseImprintQualitySpeedMultiplier", "Breeding Settings"),
+            ("MutagenLevelBoost", "Dino Overrides"),
+            ("MutagenLevelBoost_Bred", "Dino Overrides"),
+            ("MaxImprintLimit", "Breeding Settings"),
+            ("bDisableFriendlyFire", "PvP/PvE Rules"),
+        ];
+
+        for &(key, category) in &game_keys {
+            let actual_key = if key == "MutagenLevelBoost_Bred" {
+                ini_get(&sections, &[sgm], "MutagenLevelBoost_Bred")
+                    .map(|_| "MutagenLevelBoost_Bred")
+                    .unwrap_or("MutagenLevelBoostBred")
+            } else {
+                key
+            };
+            if let Some(v) = ini_get(&sections, &[sgm], actual_key) {
+                imported_values.insert(key.to_string(), v.clone());
+                source_files.insert(key.to_string(), "Game.ini".to_string());
+                confidence_levels.insert(key.to_string(), "High (Config INI)".to_string());
+            } else {
+                missing_settings.push(format!("{} (Category: {})", key, category));
+            }
+        }
+
+        // Custom engram and crafting cost overrides
+        if let Some(v) = ini_get(&sections, &[sgm], "OverrideNamedEngramEntries") {
+            imported_values.insert("OverrideNamedEngramEntries".to_string(), v.clone());
+            source_files.insert("OverrideNamedEngramEntries".to_string(), "Game.ini".to_string());
+            confidence_levels.insert("OverrideNamedEngramEntries".to_string(), "High (Config INI)".to_string());
+        } else {
+            missing_settings.push("OverrideNamedEngramEntries (Category: Engram Overrides)".to_string());
+        }
+
+        if let Some(v) = ini_get(&sections, &[sgm], "ConfigOverrideItemCraftingCosts") {
+            imported_values.insert("ConfigOverrideItemCraftingCosts".to_string(), v.clone());
+            source_files.insert("ConfigOverrideItemCraftingCosts".to_string(), "Game.ini".to_string());
+            confidence_levels.insert("ConfigOverrideItemCraftingCosts".to_string(), "High (Config INI)".to_string());
+        } else {
+            missing_settings.push("ConfigOverrideItemCraftingCosts (Category: Crafting Overrides)".to_string());
+        }
+    } else {
+        let game_keys = [
+            ("EggHatchSpeedMultiplier", "Breeding Settings"),
+            ("BabyMatureSpeedMultiplier", "Breeding Settings"),
+            ("MatingIntervalMultiplier", "Breeding Settings"),
+        ];
+        for &(key, category) in &game_keys {
+            missing_settings.push(format!("{} (Category: {})", key, category));
+        }
+    }
+
+    let detected_map = map_name;
 
     if session_name.is_empty() {
         warnings.push("No SessionName found in INI or batch files — will use folder name.".into());
@@ -2769,6 +2969,8 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
         confidence_levels,
         raw_ini_gus,
         raw_ini_game,
+        imported_values,
+        missing_settings,
         player_count,
         tribe_count,
         save_file_size,

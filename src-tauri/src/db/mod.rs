@@ -1056,7 +1056,8 @@ impl Database {
                     auto_stop INTEGER NOT NULL DEFAULT 0,
                     intelligent_mode INTEGER NOT NULL DEFAULT 0,
                     startup_delay INTEGER NOT NULL DEFAULT 0,
-                    startup_priority INTEGER NOT NULL DEFAULT 100
+                    startup_priority INTEGER NOT NULL DEFAULT 100,
+                    branch TEXT NOT NULL DEFAULT 'default'
                 );
 
                 CREATE TABLE IF NOT EXISTS ase_mods (
@@ -1123,6 +1124,7 @@ impl Database {
             ("intelligent_mode", "INTEGER NOT NULL DEFAULT 0"),
             ("startup_delay", "INTEGER NOT NULL DEFAULT 0"),
             ("startup_priority", "INTEGER NOT NULL DEFAULT 100"),
+            ("branch", "TEXT NOT NULL DEFAULT 'default'"),
         ];
 
         for (col_name, col_type) in new_cols {

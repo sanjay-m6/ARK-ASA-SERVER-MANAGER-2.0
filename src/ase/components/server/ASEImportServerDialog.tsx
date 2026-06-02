@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, FolderOpen, Server, Loader2, CheckCircle, AlertCircle, Eye, Wifi, Shield, Package, Terminal, Settings, AlertTriangle, Layers, MapPin } from 'lucide-react';
 import { useAseServerStore } from '../../stores/aseServerStore';
 import { importAseServer, previewImportSettings, selectFolder } from '../../../utils/tauri';
 import type { ImportPreview } from '../../../utils/tauri';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { ASE_MAPS } from '../../data/aseMaps';
 
 interface Props {
     onClose: () => void;
@@ -111,8 +113,8 @@ export default function ASEImportServerDialog({ onClose }: Props) {
         setIsImporting(true);
         setError(null);
 
-        // Gather all manual UI overrides to send to database
-        const overrides: Partial<ImportPreview> = {
+        // Gather all manual UI overrides to send to database, merging with the original preview to prevent missing field errors on the backend
+        const overrides: ImportPreview = {
             mapName: editableMapName,
             sessionName: editableSessionName,
             maxPlayers: Number(editableMaxPlayers),
@@ -122,8 +124,22 @@ export default function ASEImportServerDialog({ onClose }: Props) {
             rconEnabled: editableRconEnabled,
             adminPassword: editableAdminPassword,
             serverPassword: editableServerPassword,
-            clusterId: editableClusterId,
+            ipAddress: preview?.ipAddress ?? null,
             activeMods: editableActiveMods,
+            customArgs: preview?.customArgs ?? '',
+            clusterId: editableClusterId,
+            warnings: preview?.warnings ?? [],
+            detectedCommand: preview?.detectedCommand ?? null,
+            sourceFiles: preview?.sourceFiles ?? {},
+            confidenceLevels: preview?.confidenceLevels ?? {},
+            rawIniGus: preview?.rawIniGus ?? null,
+            rawIniGame: preview?.rawIniGame ?? null,
+            importedValues: preview?.importedValues ?? {},
+            missingSettings: preview?.missingSettings ?? [],
+            playerCount: preview?.playerCount ?? 0,
+            tribeCount: preview?.tribeCount ?? 0,
+            saveFileSize: preview?.saveFileSize ?? 0,
+            saveLastModified: preview?.saveLastModified ?? null,
         };
 
         try {
@@ -187,14 +203,14 @@ export default function ASEImportServerDialog({ onClose }: Props) {
         }
 
         return (
-            <div className="flex items-center gap-1 mt-0.5">
+            <div className="flex flex-wrap justify-end items-center gap-1 mt-0.5">
                 {source && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-slate-900 border border-slate-800/80 text-slate-400">
+                    <span className="whitespace-nowrap text-[10px] px-1.5 py-0.5 rounded font-mono bg-slate-900 border border-slate-800/80 text-slate-400">
                         {source}
                     </span>
                 )}
                 {confidence && (
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-medium border ${badgeBg}`}>
+                    <span className={`whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded border ${badgeBg}`}>
                         {confidence}
                     </span>
                 )}
@@ -202,9 +218,9 @@ export default function ASEImportServerDialog({ onClose }: Props) {
         );
     };
 
-    return (
+    return createPortal(
         <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4"
             onClick={(e) => e.target === e.currentTarget && !isImporting && onClose()}
         >
             <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-slate-700/50 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl max-h-[92vh] flex flex-col">
@@ -231,44 +247,46 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                 </div>
 
                 {/* Main Tabs Navigation */}
-                <div className="px-6 bg-slate-900/50 border-b border-slate-800/80 flex gap-2">
-                    <button
-                        onClick={() => setActiveTab('overview')}
-                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
-                            activeTab === 'overview'
-                                ? 'border-amber-500 text-amber-400'
-                                : 'border-transparent text-slate-400 hover:text-slate-200'
-                        }`}
-                    >
-                        <Settings className="w-4 h-4" />
-                        Interactive Settings
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('diagnostics')}
-                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 relative ${
-                            activeTab === 'diagnostics'
-                                ? 'border-amber-500 text-amber-400'
-                                : 'border-transparent text-slate-400 hover:text-slate-200'
-                        }`}
-                    >
-                        <AlertTriangle className="w-4 h-4" />
-                        Pre-Import Diagnostics
-                        {hasAnyConflict && (
-                            <span className="w-2 h-2 rounded-full bg-rose-500 absolute top-2.5 right-1.5 animate-pulse" />
-                        )}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('raw')}
-                        className={`px-4 py-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
-                            activeTab === 'raw'
-                                ? 'border-amber-500 text-amber-400'
-                                : 'border-transparent text-slate-400 hover:text-slate-200'
-                        }`}
-                    >
-                        <Terminal className="w-4 h-4" />
-                        Raw Config Inspector
-                    </button>
-                </div>
+                {preview && !isPreviewing && (
+                    <div className="px-6 bg-slate-900/50 border-b border-slate-800/80 flex gap-2">
+                        <button
+                            onClick={() => setActiveTab('overview')}
+                            className={`px-4 py-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
+                                activeTab === 'overview'
+                                    ? 'border-amber-500 text-amber-400'
+                                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <Settings className="w-4 h-4" />
+                            Interactive Settings
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('diagnostics')}
+                            className={`px-4 py-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 relative ${
+                                activeTab === 'diagnostics'
+                                    ? 'border-amber-500 text-amber-400'
+                                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <AlertTriangle className="w-4 h-4" />
+                            Pre-Import Diagnostics
+                            {hasAnyConflict && (
+                                <span className="w-2 h-2 rounded-full bg-rose-500 absolute top-2.5 right-1.5 animate-pulse" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('raw')}
+                            className={`px-4 py-3 text-sm font-medium border-b-2 transition-all flex items-center gap-2 ${
+                                activeTab === 'raw'
+                                    ? 'border-amber-500 text-amber-400'
+                                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                            }`}
+                        >
+                            <Terminal className="w-4 h-4" />
+                            Raw Config Inspector
+                        </button>
+                    </div>
+                )}
 
                 {/* Content Workspace */}
                 <div className="p-6 overflow-y-auto flex-1 space-y-6">
@@ -347,20 +365,32 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                             </h3>
 
                                             <div>
-                                                <div className="flex justify-between items-center mb-1">
+                                                <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
                                                     <label className="text-xs font-medium text-slate-300">Map Name</label>
                                                     {renderConfidenceBadge('mapName')}
                                                 </div>
                                                 <input
                                                     type="text"
+                                                    list="ase-maps"
                                                     value={editableMapName}
                                                     onChange={(e) => setEditableMapName(e.target.value)}
                                                     className="w-full px-3 py-2 bg-slate-950/40 border border-slate-800 rounded-lg text-white font-mono text-sm focus:ring-1 focus:ring-amber-500/50"
                                                 />
+                                                <datalist id="ase-maps">
+                                                    {ASE_MAPS.map(map => (
+                                                        <option key={map.serverArg} value={map.serverArg}>{map.name}</option>
+                                                    ))}
+                                                </datalist>
+                                                <div className="mt-1.5 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-1.5 text-[11px] text-amber-300">
+                                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                                    <span>
+                                                        Map name may not sync perfectly from imports. Please verify the detected map and select/type the correct name manually if needed.
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             <div>
-                                                <div className="flex justify-between items-center mb-1">
+                                                <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
                                                     <label className="text-xs font-medium text-slate-300">In-Game Server Session Name</label>
                                                     {renderConfidenceBadge('sessionName')}
                                                 </div>
@@ -373,7 +403,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                             </div>
 
                                             <div>
-                                                <div className="flex justify-between items-center mb-1">
+                                                <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
                                                     <label className="text-xs font-medium text-slate-300">Max Player Limit</label>
                                                     {renderConfidenceBadge('maxPlayers')}
                                                 </div>
@@ -395,7 +425,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
 
                                             <div className="grid grid-cols-2 gap-3">
                                                 <div>
-                                                    <div className="flex justify-between items-center mb-1">
+                                                    <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
                                                         <label className="text-xs font-medium text-slate-300">Game Port</label>
                                                         {renderConfidenceBadge('gamePort')}
                                                     </div>
@@ -409,7 +439,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <div className="flex justify-between items-center mb-1">
+                                                    <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
                                                         <label className="text-xs font-medium text-slate-300">Query Port</label>
                                                         {renderConfidenceBadge('queryPort')}
                                                     </div>
@@ -425,7 +455,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                             </div>
 
                                             <div>
-                                                <div className="flex justify-between items-center mb-1">
+                                                <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
                                                     <label className="text-xs font-medium text-slate-300">RCON Console Port</label>
                                                     {renderConfidenceBadge('rconPort')}
                                                 </div>
@@ -461,7 +491,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                             </h3>
 
                                             <div>
-                                                <div className="flex justify-between items-center mb-1">
+                                                <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
                                                     <label className="text-xs font-medium text-slate-300">Admin Console Password</label>
                                                     {renderConfidenceBadge('adminPassword')}
                                                 </div>
@@ -475,7 +505,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                             </div>
 
                                             <div>
-                                                <div className="flex justify-between items-center mb-1">
+                                                <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
                                                     <label className="text-xs font-medium text-slate-300">Server Password (Join key)</label>
                                                     {renderConfidenceBadge('serverPassword')}
                                                 </div>
@@ -497,7 +527,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                             </h3>
 
                                             <div>
-                                                <div className="flex justify-between items-center mb-1">
+                                                <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
                                                     <label className="text-xs font-medium text-slate-300">Cluster ID</label>
                                                     {renderConfidenceBadge('clusterId')}
                                                 </div>
@@ -511,7 +541,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                             </div>
 
                                             <div>
-                                                <div className="flex justify-between items-center mb-1">
+                                                <div className="flex flex-wrap justify-between items-center gap-x-2 gap-y-1 mb-1">
                                                     <label className="text-xs font-medium text-slate-300">Active Mod IDs (Comma-separated)</label>
                                                     {renderConfidenceBadge('activeMods')}
                                                 </div>
@@ -666,6 +696,145 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                                                     No other registered servers are currently assigned to Cluster ID <b className="text-slate-400 font-mono">'{editableClusterId}'</b>. This server will act as the cluster origin mapping node.
                                                 </p>
                                             )}
+                                        </div>
+                                    )}
+
+                                    {/* Import Validation Summary Checklist */}
+                                    {(() => {
+                                        const importedKeys = Object.keys(preview.importedValues || {}).map(k => k.toLowerCase());
+                                        const categories = [
+                                            {
+                                                name: 'General Configuration',
+                                                keys: ['sessionname', 'maxplayers', 'serverpassword', 'serveradminpassword'],
+                                                icon: Server
+                                            },
+                                            {
+                                                name: 'Breeding & Maturation',
+                                                keys: ['egghatchspeedmultiplier', 'babymaturespeedmultiplier', 'babycuddleintervalmultiplier', 'babyimprintamountmultiplier', 'matingintervalmultiplier'],
+                                                icon: Layers
+                                            },
+                                            {
+                                                name: 'XP & Leveling Multipliers',
+                                                keys: ['xpmultiplier', 'killxpmultiplier', 'harvestxpmultiplier', 'craftxpmultiplier'],
+                                                icon: Package
+                                            },
+                                            {
+                                                name: 'Environment & Spoiling',
+                                                keys: ['daycyclespeedscale', 'spoilingtimemultiplier', 'cropgrowthespeedmultiplier', 'layeggintervalmultiplier'],
+                                                icon: MapPin
+                                            },
+                                            {
+                                                name: 'Engram & Crafting Overrides',
+                                                keys: ['overridenamedengramentries', 'configoverrideitemcraftingcosts'],
+                                                icon: Terminal
+                                            }
+                                        ];
+
+                                        return (
+                                            <div className="bg-slate-900/30 border border-slate-800/80 rounded-xl p-5 space-y-4 animate-fadeIn">
+                                                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-slate-800">
+                                                    Import Validation Checklist
+                                                </h3>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                                    {categories.map((cat) => {
+                                                        const matchedCount = cat.keys.filter(k => importedKeys.includes(k)).length;
+                                                        const Icon = cat.icon;
+                                                        const hasAny = matchedCount > 0;
+                                                        return (
+                                                            <div key={cat.name} className={`p-3 rounded-xl border flex items-center gap-3 transition-colors ${
+                                                                hasAny
+                                                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                                                                    : 'bg-slate-950/40 border-slate-800/80 text-slate-500'
+                                                            }`}>
+                                                                <div className={`p-2 rounded-lg ${hasAny ? 'bg-emerald-500/20' : 'bg-slate-900'}`}>
+                                                                    <Icon className="w-4 h-4" />
+                                                                </div>
+                                                                <div className="min-w-0 flex-1">
+                                                                    <span className={`text-xs font-semibold block truncate ${hasAny ? 'text-slate-200' : 'text-slate-500'}`}>
+                                                                        {cat.name}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-slate-450">
+                                                                        {hasAny ? `✓ ${matchedCount} settings found` : 'Not configured'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Missing Settings Warning Panel */}
+                                    {preview.missingSettings && preview.missingSettings.length > 0 && (
+                                        <div className="p-5 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-3 animate-fadeIn">
+                                            <div className="flex items-center gap-2 text-sm font-bold text-amber-400">
+                                                <AlertTriangle className="w-4.5 h-4.5" />
+                                                Missing Configurations Report (Falling Back to Defaults)
+                                            </div>
+                                            <p className="text-xs text-slate-400 leading-relaxed">
+                                                The following settings were not detected in the imported configuration files. The server will initialize these parameters using standard game defaults:
+                                            </p>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[150px] overflow-y-auto pr-2 scrollbar-thin">
+                                                {preview.missingSettings.map((key) => (
+                                                    <div key={key} className="px-2.5 py-1.5 rounded-lg bg-slate-950/45 border border-slate-900/60 text-[11px] text-slate-350 font-mono flex items-center justify-between">
+                                                        <span className="truncate pr-1">{key}</span>
+                                                        <span className="text-[9px] text-slate-500 font-sans uppercase font-bold shrink-0">default</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Source vs Value Comparison Table */}
+                                    {preview.importedValues && Object.keys(preview.importedValues).length > 0 && (
+                                        <div className="bg-slate-900/30 border border-slate-800/80 rounded-xl p-5 space-y-3 animate-fadeIn">
+                                            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider pb-2 border-b border-slate-800 flex items-center justify-between">
+                                                <span>Source vs Value Mapping</span>
+                                                <span className="text-[10px] text-slate-400 normal-case font-normal">
+                                                    Showing {Object.keys(preview.importedValues).length} imported parameters
+                                                </span>
+                                            </h3>
+                                            <div className="border border-slate-800 rounded-xl overflow-hidden max-h-[300px] overflow-y-auto scrollbar-thin">
+                                                <table className="w-full text-left text-xs border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-slate-950/60 text-slate-400 border-b border-slate-800 font-semibold sticky top-0 backdrop-blur-md">
+                                                            <th className="py-2.5 px-4">Parameter Key</th>
+                                                            <th className="py-2.5 px-4">Imported Value</th>
+                                                            <th className="py-2.5 px-4">Origin File</th>
+                                                            <th className="py-2.5 px-4 text-right">Confidence</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-800/40 text-slate-300 font-mono">
+                                                        {Object.entries(preview.importedValues).map(([key, val]) => {
+                                                            const source = preview.sourceFiles?.[key] || 'Unknown';
+                                                            const confidence = preview.confidenceLevels?.[key] || 'Medium';
+                                                            
+                                                            let confidenceBadgeBg = 'bg-slate-800 text-slate-350 border-slate-700/50';
+                                                            if (confidence.toLowerCase().includes('high')) {
+                                                                confidenceBadgeBg = confidence.toLowerCase().includes('script')
+                                                                    ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                                                                    : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
+                                                            } else if (confidence.toLowerCase().includes('low') || confidence.toLowerCase().includes('fallback')) {
+                                                                confidenceBadgeBg = 'bg-rose-500/10 text-rose-300 border-rose-500/30';
+                                                            }
+
+                                                            return (
+                                                                <tr key={key} className="hover:bg-slate-800/25 transition-colors">
+                                                                    <td className="py-2 px-4 text-slate-200 font-semibold text-[11px] truncate max-w-[180px]">{key}</td>
+                                                                    <td className="py-2 px-4 text-[11px] truncate max-w-[200px]" title={val}>{val || <em className="text-slate-500 font-sans">empty</em>}</td>
+                                                                    <td className="py-2 px-4 text-[11px] text-slate-450 truncate max-w-[150px]">{source}</td>
+                                                                    <td className="py-2 px-4 text-right">
+                                                                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold font-sans border ${confidenceBadgeBg}`}>
+                                                                            {confidence}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     )}
 
@@ -849,6 +1018,7 @@ export default function ASEImportServerDialog({ onClose }: Props) {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

@@ -202,7 +202,7 @@ impl ProcessManager {
                 // 1. Check process status (Fast, holds lock)
                 let crashed_servers = {
                     let mut p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
-                    let mut to_remove: Vec<(i64, i32, u16, Option<String>, bool)> = Vec::new();
+                    let mut to_remove: Vec<(i64, i32, u16, Option<String>, bool, bool)> = Vec::new();
 
                     for (id, proc) in p_lock.iter_mut() {
                         match proc.child.try_wait() {
@@ -240,7 +240,7 @@ impl ProcessManager {
                                     },
                                 );
 
-                                to_remove.push((*id, exit_code, proc.query_port, proc.ip_address.clone(), proc.has_been_online));
+                                to_remove.push((*id, exit_code, proc.query_port, proc.ip_address.clone(), proc.has_been_online, is_authorized));
 
                                 // Signal log watcher to stop
                                 proc.stop_flag.store(true, Ordering::SeqCst);
@@ -257,7 +257,7 @@ impl ProcessManager {
                     }
 
                     // Remove exited servers from the process list
-                    for (id, _, _, _, _) in &to_remove {
+                    for (id, _, _, _, _, _) in &to_remove {
                         p_lock.remove(id);
                     }
                     to_remove
@@ -480,13 +480,14 @@ impl ProcessManager {
                 }
 
                 // Now process crashed servers without holding the lock
-                for (id, exit_code, query_port, ip_address, _has_been_online) in crashed_servers {
-                    // Determine status based on exit code
+                for (id, exit_code, query_port, ip_address, _has_been_online, is_authorized) in crashed_servers {
+                    // Determine status based on exit code and authorization
                     // Exit code 0 = normal stop, anything else = crash/error
-                    // CRITICAL FIX: UE5 (ARK ASA) often exits the parent/launcher process with code 1
-                    // while the actual game server continues running under a child process.
-                    // Before marking as crashed, check if the server is still alive.
-                    let status = if exit_code == 0 {
+                    // CRITICAL UE5 (ARK ASA) process handoff check:
+                    // If the parent/launcher process exited (even with code 0 or 1), but the actual
+                    // game server is still active (reachable on query port or port is still bound),
+                    // this is an authorized process handoff, NOT a crash/stop.
+                    let status = if is_authorized {
                         "stopped"
                     } else {
                         // Check if the server is still reachable (child process took over)
@@ -499,16 +500,18 @@ impl ProcessManager {
 
                         if still_reachable {
                             println!(
-                                "  ✅ [UE5-FIX] Server {} parent exited (code {}) but server is STILL REACHABLE on port {}. Not a crash — UE5 process handoff. Keeping ONLINE.",
+                                "  ✅ [UE5-FIX] Server {} exited (code {}) but server is STILL REACHABLE on port {}. Not a crash/stop — UE5 process handoff. Keeping ONLINE.",
                                 id, exit_code, query_port
                             );
                             "online" // Server is alive and responding, keep it online
                         } else if port_still_bound {
                             println!(
-                                "  ⚠️ [UE5-FIX] Server {} parent exited (code {}) but port {} is still bound. Server still running — keeping ONLINE.",
+                                "  ⚠️ [UE5-FIX] Server {} exited (code {}) but port {} is still bound. Server still running — keeping ONLINE.",
                                 id, exit_code, query_port
                             );
                             "online" // Port is in use, server process still alive
+                        } else if exit_code == 0 {
+                            "stopped" // Clean exit without being authorized and not running
                         } else {
                             println!(
                                 "  💥 Server {} genuinely crashed (code {}, port {} free, not reachable).",

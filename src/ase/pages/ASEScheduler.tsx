@@ -780,7 +780,7 @@ export default function ASEScheduler() {
             animate={{ y: 0, opacity: 1, scale: 1 }} 
             exit={{ y: 80, opacity: 0, scale: 0.95 }}
             transition={{ type: 'spring', damping: 20, stiffness: 120 }}
-            className="fixed bottom-6 left-6 right-6 md:left-76 z-40 bg-slate-900/90 backdrop-blur-xl p-4.5 rounded-2xl border border-amber-500/30 shadow-[0_12px_40px_rgba(245,158,11,0.3)] flex items-center justify-between gap-4 max-w-4xl mx-auto"
+            className="fixed bottom-6 left-6 right-6 md:left-[20rem] z-50 bg-slate-900/95 backdrop-blur-xl p-4 sm:p-5 rounded-2xl border border-amber-500/30 shadow-[0_12px_40px_rgba(245,158,11,0.3)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 max-w-4xl mx-auto"
           >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-400 shrink-0">
@@ -791,7 +791,7 @@ export default function ASEScheduler() {
                 <p className="text-xs text-slate-400 font-medium mt-0.5">Synchronize these parameters to activate server boot and watchdog rules.</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-end">
               <button 
                 onClick={() => selectedServer && loadSettings(selectedServer)}
                 className="px-4 py-2 border border-white/10 text-slate-300 hover:text-white rounded-xl text-xs font-extrabold uppercase tracking-wider transition-colors focus:outline-none"

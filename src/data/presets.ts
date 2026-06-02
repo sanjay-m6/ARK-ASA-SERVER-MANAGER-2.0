@@ -1,3 +1,5 @@
+import { GAME_USER_SETTINGS_SCHEMA, GAME_INI_SCHEMA, ConfigGroup } from './configMappings';
+
 // Preset configurations for quick server setup
 export interface ConfigPreset {
     id: string;
@@ -201,6 +203,17 @@ export const PRESETS: ConfigPreset[] = [
     }
 ];
 
+function findSectionByKey(key: string, schema: ConfigGroup[]): string | null {
+    for (const group of schema) {
+        for (const field of group.fields) {
+            if (field.key === key) {
+                return field.section;
+            }
+        }
+    }
+    return null;
+}
+
 // Helper to apply preset to current config
 export function applyPreset(
     preset: ConfigPreset,
@@ -219,7 +232,7 @@ export function applyPreset(
 
     // Apply GameUserSettings changes
     Object.entries(preset.settings.GameUserSettings).forEach(([key, value]) => {
-        const section = 'ServerSettings';
+        const section = findSectionByKey(key, GAME_USER_SETTINGS_SCHEMA) || 'ServerSettings';
         const sectionMap = new Map(newConfigs.GameUserSettings.get(section) || []);
         sectionMap.set(key, value);
         newConfigs.GameUserSettings.set(section, sectionMap);
@@ -227,7 +240,7 @@ export function applyPreset(
 
     // Apply Game.ini changes
     Object.entries(preset.settings.Game).forEach(([key, value]) => {
-        const section = '/Script/ShooterGame.ShooterGameMode';
+        const section = findSectionByKey(key, GAME_INI_SCHEMA) || '/Script/ShooterGame.ShooterGameMode';
         const sectionMap = new Map(newConfigs.Game.get(section) || []);
         sectionMap.set(key, value);
         newConfigs.Game.set(section, sectionMap);
@@ -337,21 +350,19 @@ export function createPresetFromConfig(
     const gusSettings: Record<string, string> = {};
     const gameSettings: Record<string, string> = {};
 
-    // Extract ServerSettings from GUS
-    const serverSettings = configs.GameUserSettings.get('ServerSettings');
-    if (serverSettings) {
-        serverSettings.forEach((value, key) => {
+    // Extract all sections from GameUserSettings
+    configs.GameUserSettings.forEach((sectionMap) => {
+        sectionMap.forEach((value, key) => {
             gusSettings[key] = value;
         });
-    }
+    });
 
-    // Extract ShooterGameMode from Game
-    const gameMode = configs.Game.get('/Script/ShooterGame.ShooterGameMode');
-    if (gameMode) {
-        gameMode.forEach((value, key) => {
+    // Extract all sections from Game.ini
+    configs.Game.forEach((sectionMap) => {
+        sectionMap.forEach((value, key) => {
             gameSettings[key] = value;
         });
-    }
+    });
 
     return {
         id: `custom_${Date.now()}`,

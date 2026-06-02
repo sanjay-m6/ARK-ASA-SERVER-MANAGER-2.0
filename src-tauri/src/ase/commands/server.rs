@@ -54,6 +54,41 @@ fn is_pid_running(pid: u32) -> bool {
         .unwrap_or(false)
 }
 
+/// Helper to find and cleanly terminate any orphaned server or SteamCMD processes under the server install directory
+fn kill_orphaned_processes(install_path: &str) {
+    let mut sys = sysinfo::System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    let normalized_install_path = install_path.replace("\\", "/").to_lowercase();
+    println!("[ASE Process Watchdog] Checking for orphaned processes in install path: {}", normalized_install_path);
+
+    for (pid, process) in sys.processes() {
+        let name = process.name().to_string_lossy().to_lowercase();
+        if name == "shootergameserver.exe" || name == "steamcmd.exe" {
+            if let Some(exe_path) = process.exe() {
+                let exe_path_str = exe_path.to_string_lossy().replace("\\", "/").to_lowercase();
+                if exe_path_str.contains(&normalized_install_path) {
+                    println!("[ASE Process Watchdog] Found orphaned process '{}' (PID {}) in our path. Terminating...", name, pid);
+                    
+                    #[cfg(target_os = "windows")]
+                    {
+                        let _ = std::process::Command::new("taskkill")
+                            .args(["/F", "/T", "/PID", &pid.to_string()])
+                            .creation_flags(CREATE_NO_WINDOW)
+                            .output();
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        let _ = std::process::Command::new("kill")
+                            .args(["-9", &pid.to_string()])
+                            .output();
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 /// Helper: read all ASE servers from DB
 fn read_server_row(row: &rusqlite::Row) -> Result<AseServer, rusqlite::Error> {
@@ -72,13 +107,14 @@ fn read_server_row(row: &rusqlite::Row) -> Result<AseServer, rusqlite::Error> {
         intelligent_mode: row.get::<_, i32>(22)? != 0,
         startup_delay: row.get(23)?,
         startup_priority: row.get(24)?,
+        branch: row.get(25)?,
     })
 }
 
 const SELECT_COLS: &str = "id, name, install_path, map_name, port, query_port, rcon_port, \
     rcon_password, max_players, server_password, admin_password, session_name, active_mods, \
     cluster_id, battleye, extra_args, status, process_id, created_at, updated_at, \
-    auto_start, auto_stop, intelligent_mode, startup_delay, startup_priority";
+    auto_start, auto_stop, intelligent_mode, startup_delay, startup_priority, branch";
 
 #[tauri::command]
 pub async fn get_ase_servers(state: State<'_, AppState>) -> Result<Vec<AseServer>, String> {
@@ -109,6 +145,7 @@ pub async fn create_ase_server(
     name: String, install_path: String, map_name: String,
     game_port: u16, query_port: u16, rcon_port: u16,
     admin_password: String, session_name: String,
+    branch: String,
     state: State<'_, AppState>,
 ) -> Result<i64, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -117,9 +154,9 @@ pub async fn create_ase_server(
     conn.execute(
         "INSERT INTO ase_servers (name, install_path, map_name, port, query_port, rcon_port, \
          rcon_password, max_players, server_password, admin_password, session_name, active_mods, \
-         cluster_id, battleye, extra_args, status, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', 70, '', ?7, ?8, '', '', 1, '', 'stopped', ?9, ?9)",
-        rusqlite::params![name, install_path, map_name, game_port, query_port, rcon_port, admin_password, session_name, now],
+         cluster_id, battleye, extra_args, status, created_at, updated_at, branch) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', 70, '', ?7, ?8, '', '', 1, '', 'stopped', ?9, ?9, ?10)",
+        rusqlite::params![name, install_path, map_name, game_port, query_port, rcon_port, admin_password, session_name, now, branch],
     ).map_err(|e| e.to_string())?;
     let server_id = conn.last_insert_rowid();
     let _ = conn.execute(
@@ -147,7 +184,7 @@ pub async fn update_ase_server(server_id: i64, updates: serde_json::Value, state
     let allowed = ["name","install_path","map_name","port","query_port","rcon_port",
         "rcon_password","max_players","server_password","admin_password","session_name",
         "active_mods","cluster_id","battleye","extra_args",
-        "auto_start","auto_stop","intelligent_mode","startup_delay","startup_priority"];
+        "auto_start","auto_stop","intelligent_mode","startup_delay","startup_priority","branch"];
 
     for (key, val) in obj {
         let key_snake = match key.as_str() {
@@ -185,12 +222,13 @@ pub async fn install_ase_server(
     name: String, install_path: String, map_name: String,
     game_port: u16, query_port: u16, rcon_port: u16,
     admin_password: String, session_name: String,
+    branch: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<i64, String> {
     // Create server record first
     let server_id = create_ase_server(
         name, install_path.clone(), map_name, game_port, query_port,
-        rcon_port, admin_password, session_name, state,
+        rcon_port, admin_password, session_name, branch.clone().unwrap_or_else(|| "default".to_string()), state,
     ).await?;
 
     let install_dir = PathBuf::from(&install_path);
@@ -201,9 +239,95 @@ pub async fn install_ase_server(
 
     // Run ServerInstaller for ASE (streams "install-progress" and "install-console" events)
     let installer = crate::services::server_installer::ServerInstaller::new(app_handle.clone(), install_dir.to_string_lossy().to_string());
-    installer.install_server(&install_dir, "ASE").await?;
+    installer.install_server(&install_dir, "ASE", branch).await?;
 
     Ok(server_id)
+}
+
+#[tauri::command]
+pub async fn update_ase_server_install(
+    app_handle: AppHandle,
+    server_id: i64,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    // 1. Get the server details from the DB
+    let srv = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            &format!("SELECT {} FROM ase_servers WHERE id = ?1", SELECT_COLS),
+            [server_id], |row| read_server_row(row),
+        ).map_err(|e| e.to_string())?
+    };
+
+    // 2. Set status to 'updating' in the DB
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE ase_servers SET status = 'updating' WHERE id = ?1",
+            [server_id],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    // Emit event to update UI status
+    let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "updating" }));
+
+    // 3. Run installation via SteamCMD
+    let install_dir = PathBuf::from(&srv.install_path);
+    let installer = crate::services::server_installer::ServerInstaller::new(app_handle.clone(), srv.install_path.clone());
+    
+    // Pass the branch saved in the DB
+    let branch_opt = if srv.branch.is_empty() || srv.branch == "default" {
+        None
+    } else {
+        Some(srv.branch.clone())
+    };
+
+    match installer.install_server(&install_dir, "ASE", branch_opt).await {
+        Ok(_) => {
+            // Set status to 'stopped' when done
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE ase_servers SET status = 'stopped' WHERE id = ?1",
+                [server_id],
+            ).map_err(|e| e.to_string())?;
+            let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "stopped" }));
+            
+            // Send completed event to frontend
+            let _ = app_handle.emit("install-progress", crate::services::server_installer::InstallProgress {
+                install_path: srv.install_path.clone(),
+                stage: "complete".to_string(),
+                progress: 100.0,
+                message: "Server files updated successfully!".to_string(),
+                is_complete: true,
+                is_error: false,
+            });
+            Ok(())
+        }
+        Err(e) => {
+            // Restore status to stopped
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE ase_servers SET status = 'stopped' WHERE id = ?1",
+                [server_id],
+            ).map_err(|e| e.to_string())?;
+            let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "stopped" }));
+            
+            // Send error event
+            let _ = app_handle.emit("install-progress", crate::services::server_installer::InstallProgress {
+                install_path: srv.install_path.clone(),
+                stage: "error".to_string(),
+                progress: 0.0,
+                message: e.clone(),
+                is_complete: false,
+                is_error: true,
+            });
+            Err(e)
+        }
+    }
 }
 
 async fn resolve_public_ip() -> Option<String> {
@@ -218,7 +342,46 @@ async fn resolve_public_ip() -> Option<String> {
     None
 }
 
-fn build_ase_launch_arguments(server: &AseServer, config: &crate::ase::models::AseGameConfig, public_ip: Option<String>) -> Vec<String> {
+fn fetch_active_mod_ids(
+    conn: &rusqlite::Connection,
+    server_id: i64,
+    server_active_mods: &str,
+) -> Result<Vec<String>, String> {
+    let mut stmt = conn.prepare(
+        "SELECT workshop_id FROM ase_mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC"
+    ).map_err(|e| e.to_string())?;
+    let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+    let mut ids = Vec::new();
+    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        ids.push(row.get::<_, String>(0).map_err(|e| e.to_string())?);
+    }
+    
+    if ids.is_empty() && !server_active_mods.is_empty() {
+        let fallback_ids: Vec<String> = server_active_mods.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        let now = chrono::Utc::now().to_rfc3339();
+        
+        for (idx, id) in fallback_ids.iter().enumerate() {
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO ase_mods (server_id, workshop_id, name, version, installed_at, enabled, load_order) \
+                 VALUES (?1, ?2, ?3, '1.0', ?4, 1, ?5)",
+                rusqlite::params![server_id, id, format!("Workshop Mod {}", id), now, idx as i32],
+            );
+        }
+        Ok(fallback_ids)
+    } else {
+        Ok(ids)
+    }
+}
+
+fn build_ase_launch_arguments(
+    server: &AseServer,
+    config: &crate::ase::models::AseGameConfig,
+    public_ip: Option<String>,
+    active_mod_ids: &[String],
+) -> Vec<String> {
     let mut travel = format!(
         "{}?listen?SessionName={}?Port={}?QueryPort={}?MaxPlayers={}?ServerAdminPassword={}?RCONEnabled={}?RCONPort={}",
         server.map_name, server.session_name, server.port, server.query_port,
@@ -231,6 +394,18 @@ fn build_ase_launch_arguments(server: &AseServer, config: &crate::ase::models::A
 
     if !config.alternate_save_directory_name.is_empty() {
         travel.push_str(&format!("?AltSaveDirectoryName={}", config.alternate_save_directory_name));
+    }
+
+    if !active_mod_ids.is_empty() {
+        travel.push_str(&format!("?ActiveMods={}", active_mod_ids.join(",")));
+    }
+
+    if config.enable_extinction_event {
+        travel.push_str("?EnableExtinctionEvent=true");
+        if config.extinction_event_time_interval > 0 {
+            let seconds = config.extinction_event_time_interval * 86400;
+            travel.push_str(&format!("?ExtinctionEventTimeInterval={}", seconds));
+        }
     }
 
     let mut args: Vec<String> = vec![travel];
@@ -369,6 +544,16 @@ fn build_ase_launch_arguments(server: &AseServer, config: &crate::ase::models::A
         }
     }
 
+    if config.new_save_game_format {
+        args.push("-newsaveformat".into());
+    }
+    if config.use_store {
+        args.push("-usestore".into());
+    }
+    if config.backup_transfer_player_datas {
+        args.push("-BackupTransferPlayerDatas".into());
+    }
+
     args
 }
 
@@ -395,7 +580,13 @@ pub async fn get_ase_launch_arguments(server_id: i64, state: State<'_, AppState>
         None
     };
 
-    Ok(build_ase_launch_arguments(&server, &config, public_ip))
+    let active_mod_ids = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        fetch_active_mod_ids(&conn, server_id, &server.active_mods)?
+    };
+
+    Ok(build_ase_launch_arguments(&server, &config, public_ip, &active_mod_ids))
 }
 
 #[tauri::command]
@@ -409,6 +600,102 @@ pub async fn start_ase_server(app: tauri::AppHandle, server_id: i64, state: Stat
             [server_id], |row| read_server_row(row),
         ).map_err(|e| e.to_string())?
     };
+
+    // 1. Terminate orphaned processes in our install directory to release port/file locks
+    kill_orphaned_processes(&server.install_path);
+
+    // 2. Cleanly terminate previous process ID if it was left running
+    if let Some(pid) = server.process_id {
+        if is_pid_running(pid) {
+            println!("[ASE Startup] Previous server process PID {} is still active. Terminating to prevent port conflicts...", pid);
+            #[cfg(target_os = "windows")]
+            {
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/F", "/PID", &pid.to_string()])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .output();
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let _ = std::process::Command::new("kill")
+                    .args(["-9", &pid.to_string()])
+                    .output();
+            }
+        }
+    }
+
+    // 3. Resolve active mod list from DB
+    let active_mod_ids: Vec<String> = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        fetch_active_mod_ids(&conn, server_id, &server.active_mods)?
+    };
+
+    // 4. Mod Pre-launch Validation and Download Loop
+    if !active_mod_ids.is_empty() {
+        println!("[ASE Mod Loader] Validating {} active mods before launch...", active_mod_ids.len());
+        
+        for id in &active_mod_ids {
+            let report = crate::ase::commands::mods::validate_ase_mod(server_id, id.clone(), state.clone()).await
+                .map_err(|e| format!("Mod validation failed for {}: {}", id, e))?;
+            
+            if !report.is_valid {
+                println!("[ASE Mod Loader] Mod {} is invalid/missing (Issues: {:?}). Triggering auto-repair...", id, report.issues);
+                
+                // Set server status to 'updating' while downloads are active so frontend reflects the process
+                {
+                    let db = state.db.lock().map_err(|e| e.to_string())?;
+                    let conn = db.get_connection().map_err(|e| e.to_string())?;
+                    let _ = conn.execute(
+                        "UPDATE ase_servers SET status = 'updating' WHERE id = ?1",
+                        rusqlite::params![server_id],
+                    );
+                    let _ = app.emit("server-status-change", serde_json::json!({
+                        "server_id": server_id,
+                        "status": "updating"
+                    }));
+                }
+
+                match crate::ase::commands::mods::repair_ase_mod(app.clone(), server_id, id.clone(), state.clone()).await {
+                    Ok(repair_report) => {
+                        if !repair_report.is_valid {
+                            // Reset status to stopped in DB on failure
+                            let db = state.db.lock().map_err(|e| e.to_string())?;
+                            let conn = db.get_connection().map_err(|e| e.to_string())?;
+                            let _ = conn.execute(
+                                "UPDATE ase_servers SET status = 'stopped' WHERE id = ?1",
+                                rusqlite::params![server_id],
+                            );
+                            let _ = app.emit("server-status-change", serde_json::json!({
+                                "server_id": server_id,
+                                "status": "stopped"
+                            }));
+                            return Err(format!("Critical Mod Failure: Mod {} auto-repair succeeded but validation still failed. Issues: {:?}", id, repair_report.issues));
+                        }
+                        println!("[ASE Mod Loader] Mod {} successfully repaired and verified.", id);
+                    }
+                    Err(err) => {
+                        // Reset status to stopped in DB on failure
+                        let db = state.db.lock().map_err(|e| e.to_string())?;
+                        let conn = db.get_connection().map_err(|e| e.to_string())?;
+                        let _ = conn.execute(
+                            "UPDATE ase_servers SET status = 'stopped' WHERE id = ?1",
+                            rusqlite::params![server_id],
+                        );
+                        let _ = app.emit("server-status-change", serde_json::json!({
+                            "server_id": server_id,
+                            "status": "stopped"
+                        }));
+                        return Err(format!("Critical Mod Failure: Mod {} download or extraction failed: {}", id, err));
+                    }
+                }
+            }
+        }
+
+        // Sync mod order to GameUserSettings.ini before launch
+        crate::ase::commands::mods::sync_ase_mods_to_ini(&server.install_path, &active_mod_ids)
+            .map_err(|e| format!("Failed to synchronize mods to GameUserSettings.ini: {}", e))?;
+    }
 
     let exe_path = PathBuf::from(&server.install_path)
         .join("ShooterGame").join("Binaries").join("Win64").join("ShooterGameServer.exe");
@@ -428,13 +715,21 @@ pub async fn start_ase_server(app: tauri::AppHandle, server_id: i64, state: Stat
         None
     };
 
-    let args = build_ase_launch_arguments(&server, &config, public_ip);
+    let args = build_ase_launch_arguments(&server, &config, public_ip, &active_mod_ids);
 
-    // Spawn process
+    // Spawn process windowless
+    #[cfg(target_os = "windows")]
     let child = std::process::Command::new(&exe_path)
         .args(&args)
         .current_dir(exe_path.parent().unwrap())
-        .creation_flags(CREATE_NEW_PROCESS_GROUP)
+        .creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP)
+        .spawn()
+        .map_err(|e| format!("Failed to start server: {}", e))?;
+
+    #[cfg(not(target_os = "windows"))]
+    let child = std::process::Command::new(&exe_path)
+        .args(&args)
+        .current_dir(exe_path.parent().unwrap())
         .spawn()
         .map_err(|e| format!("Failed to start server: {}", e))?;
 
@@ -767,17 +1062,33 @@ pub async fn import_ase_server(
     conn.execute(
         "INSERT INTO ase_servers (name, install_path, map_name, port, query_port, rcon_port, \
          rcon_password, max_players, server_password, admin_password, session_name, active_mods, \
-         cluster_id, battleye, extra_args, status, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?9, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'stopped', ?15, ?15)",
+         cluster_id, battleye, extra_args, status, created_at, updated_at, branch) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?9, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, 'stopped', ?15, ?15, 'default')",
         rusqlite::params![
             unique_name, install_path, map_name, port, query_port, rcon_port,
             max_players, server_password, admin_password, session_name,
-            active_mods, cluster_id, battleye as i32, extra_args, now
+            active_mods.clone(), cluster_id, battleye as i32, extra_args, now
         ],
     ).map_err(|e| e.to_string())?;
 
     let id = conn.last_insert_rowid();
     println!("✅ [ASE] Server imported with ID: {} (map: {})", id, map_name);
+
+    // Populate ase_mods table from imported active_mods list
+    if !active_mods.is_empty() {
+        let mod_ids: Vec<&str> = active_mods.split(',')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+        for (index, mod_id) in mod_ids.iter().enumerate() {
+            println!("   📥 [ASE Import] Pre-populating mod {} with load order {}", mod_id, index);
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO ase_mods (server_id, workshop_id, name, version, installed_at, enabled, load_order) \
+                 VALUES (?1, ?2, ?3, '1.0', ?4, 1, ?5)",
+                rusqlite::params![id, mod_id, format!("Workshop Mod {}", mod_id), now, index as i32],
+            );
+        }
+    }
 
     // Create pre-import backup for safety (only if Saved/SavedArks folder exists)
     let saved_dir = path.join("ShooterGame").join("Saved");

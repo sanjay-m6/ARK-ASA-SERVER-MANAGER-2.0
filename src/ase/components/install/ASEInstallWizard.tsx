@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, ChevronRight, ChevronLeft, MapPin, Wifi, Shield, Rocket, 
   AlertTriangle, HardDrive, GitBranch, Server, Check, FolderOpen, 
@@ -115,7 +116,8 @@ export default function ASEInstallWizard({ onClose }: Props) {
         queryPort,
         rconPort,
         adminPassword,
-        sessionName || name
+        sessionName || name,
+        branch
       );
       
       // Complete!
@@ -204,8 +206,8 @@ export default function ASEInstallWizard({ onClose }: Props) {
 
   const dlcColor = (t: string) => t === 'Free' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : t === 'Paid DLC' ? 'bg-amber-500/15 text-amber-400 border-amber-500/20' : 'bg-sky-500/15 text-sky-400 border-sky-500/20';
 
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.25 }}
         className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl shadow-black/50" onClick={e => e.stopPropagation()}>
 
@@ -864,6 +866,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
           )}
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }

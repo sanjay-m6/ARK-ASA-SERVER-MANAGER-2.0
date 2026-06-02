@@ -155,10 +155,10 @@ export default function ASEDashboard() {
             <p className="text-xs text-slate-500 mt-1">{s.sub}</p>
           </div>
         ))}
-        <div className="glass-panel rounded-xl p-4 group hover:border-violet-500/30 transition-all">
-          <div className="flex items-center gap-3 mb-3"><div className="p-2 bg-violet-500/10 rounded-lg"><Cpu className="w-4 h-4 text-violet-400" /></div><span className="text-xs text-slate-400 uppercase tracking-wider">CPU</span></div>
+        <div className="glass-panel rounded-xl p-4 group hover:border-cyan-500/30 transition-all">
+          <div className="flex items-center gap-3 mb-3"><div className="p-2 bg-cyan-500/10 rounded-lg"><Cpu className="w-4 h-4 text-cyan-400" /></div><span className="text-xs text-slate-400 uppercase tracking-wider">CPU</span></div>
           <p className="text-2xl font-bold text-white">{systemInfo?.cpuUsage.toFixed(0) || 0}%</p>
-          <div className="w-full bg-slate-700/50 rounded-full h-1 mt-2"><div className="bg-violet-500 h-1 rounded-full transition-all" style={{width:`${systemInfo?.cpuUsage||0}%`}}></div></div>
+          <div className="w-full bg-slate-700/50 rounded-full h-1 mt-2"><div className="bg-cyan-500 h-1 rounded-full transition-all" style={{width:`${systemInfo?.cpuUsage||0}%`}}></div></div>
         </div>
         <div className="glass-panel rounded-xl p-4 group hover:border-pink-500/30 transition-all">
           <div className="flex items-center gap-3 mb-3"><div className="p-2 bg-pink-500/10 rounded-lg"><TrendingUp className="w-4 h-4 text-pink-400" /></div><span className="text-xs text-slate-400 uppercase tracking-wider">RAM</span></div>

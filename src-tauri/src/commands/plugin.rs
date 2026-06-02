@@ -158,36 +158,26 @@ pub async fn import_plugin_archive(
         return Err(e);
     }
 
-    // Check extraction - find root content
-    // If archive contains a single folder, use that as plugin folder
-    let entries: Vec<_> = fs::read_dir(&temp_dir)
-        .map_err(|e| e.to_string())?
-        .filter_map(|e| e.ok())
-        .collect();
+    // Find the DLL recursively inside extraction directory to locate the actual plugin root.
+    // This allows robust importing of plugins with varying zip nesting structures (e.g. ArkShopUI).
+    let dll_info = find_plugin_dll_and_dir(&temp_dir);
 
-    let source_dir = if entries.len() == 1 && entries[0].path().is_dir() {
-        // Single folder inside - this is the plugin folder
-        entries[0].path()
-    } else {
-        // Files are directly in temp_dir
-        temp_dir.clone()
-    };
-
-    // Find DLL to get actual plugin name
-    let mut dll_name: Option<String> = None;
-    if let Ok(files) = fs::read_dir(&source_dir) {
-        for entry in files.flatten() {
-            if let Some(ext) = entry.path().extension() {
-                if ext.to_string_lossy().to_lowercase() == "dll" {
-                    dll_name = entry
-                        .path()
-                        .file_stem()
-                        .map(|s| s.to_string_lossy().to_string());
-                    break;
-                }
-            }
+    let (source_dir, dll_name) = match dll_info {
+        Some((dir, name)) => (dir, Some(name)),
+        None => {
+            // Fallback to checking entries at extraction root if no DLL is found
+            let entries: Vec<_> = fs::read_dir(&temp_dir)
+                .map_err(|e| e.to_string())?
+                .filter_map(|e| e.ok())
+                .collect();
+            let dir = if entries.len() == 1 && entries[0].path().is_dir() {
+                entries[0].path()
+            } else {
+                temp_dir.clone()
+            };
+            (dir, None)
         }
-    }
+    };
 
     // Plugin folder name MUST match DLL name (ASA Server API requirement)
     let final_plugin_name = dll_name.clone().unwrap_or(plugin_id.clone());
@@ -530,4 +520,51 @@ pub async fn install_asa_api(
 
     println!("[ASA-API] ASA Server API installed successfully!");
     Ok("ASA Server API installed successfully!".to_string())
+}
+
+/// Helper function to recursively search for the main plugin DLL and its containing directory.
+fn find_plugin_dll_and_dir(dir: &std::path::Path) -> Option<(std::path::PathBuf, String)> {
+    if !dir.is_dir() {
+        return None;
+    }
+
+    // 1. Search for a .dll file in the current directory
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension() {
+                    if ext.to_string_lossy().to_lowercase() == "dll" {
+                        if let Some(dll_name) = path.file_stem().map(|s| s.to_string_lossy().to_string()) {
+                            return Some((dir.to_path_buf(), dll_name));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. If not found, recursively search subdirectories
+    if let Ok(entries) = fs::read_dir(dir) {
+        let mut subdirs: Vec<_> = entries
+            .flatten()
+            .filter(|e| e.path().is_dir())
+            .collect();
+            
+        // Sort subdirectories to ensure deterministic behavior
+        subdirs.sort_by_key(|e| e.path());
+
+        for entry in subdirs {
+            let path = entry.path();
+            // Ignore hidden directories (e.g. starting with .)
+            if path.file_name().map(|n| n.to_string_lossy().starts_with(".")).unwrap_or(false) {
+                continue;
+            }
+            if let Some(res) = find_plugin_dll_and_dir(&path) {
+                return Some(res);
+            }
+        }
+    }
+
+    None
 }

@@ -193,6 +193,9 @@ export interface ImportPreview {
     confidenceLevels: Record<string, string>;
     rawIniGus: string | null;
     rawIniGame: string | null;
+    // New validation fields
+    importedValues: Record<string, string>;
+    missingSettings: string[];
     // Phase 3 Save Metadata
     playerCount: number;
     tribeCount: number;

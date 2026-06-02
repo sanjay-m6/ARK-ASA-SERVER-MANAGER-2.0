@@ -5,6 +5,11 @@ use tauri::State;
 
 #[tauri::command]
 pub async fn create_ase_backup(server_id: i64, state: State<'_, AppState>) -> Result<AseBackup, String> {
+    let backup_qty = match crate::ase::commands::config::read_ase_config(server_id, state.clone()).await {
+        Ok(c) => c.backup_quantity,
+        Err(_) => 20,
+    };
+
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
@@ -59,6 +64,33 @@ pub async fn create_ase_backup(server_id: i64, state: State<'_, AppState>) -> Re
         "INSERT INTO ase_backups (server_id, path, size_bytes, created_at) VALUES (?1, ?2, ?3, ?4)",
         rusqlite::params![server_id, backup_path_str, size_bytes as i64, now],
     ).map_err(|e| e.to_string())?;
+
+    // Prune old backups if count exceeds backup_quantity
+    if backup_qty > 0 {
+        let mut stmt = conn.prepare(
+            "SELECT id, path FROM ase_backups WHERE server_id = ?1 ORDER BY created_at DESC"
+        ).map_err(|e| e.to_string())?;
+
+        let mut existing_backups = Vec::new();
+        let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            existing_backups.push((
+                row.get::<_, i64>(0).map_err(|e| e.to_string())?,
+                row.get::<_, String>(1).map_err(|e| e.to_string())?,
+            ));
+        }
+
+        if existing_backups.len() > backup_qty as usize {
+            let to_delete = &existing_backups[backup_qty as usize..];
+            for (id, path) in to_delete {
+                let backup_dir = PathBuf::from(path);
+                if backup_dir.exists() {
+                    let _ = std::fs::remove_dir_all(&backup_dir);
+                }
+                let _ = conn.execute("DELETE FROM ase_backups WHERE id = ?1", [*id]);
+            }
+        }
+    }
 
     Ok(AseBackup {
         id: conn.last_insert_rowid(),

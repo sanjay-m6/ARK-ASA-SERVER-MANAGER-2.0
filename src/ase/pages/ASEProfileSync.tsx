@@ -409,7 +409,7 @@ export default function ASEProfileSync() {
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                                 p.file_type === 'profile'
                                   ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                  : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                  : 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
                               }`}>
                                 {p.file_type === 'profile' ? 'Player Profile' : 'Tribe Save'}
                               </span>

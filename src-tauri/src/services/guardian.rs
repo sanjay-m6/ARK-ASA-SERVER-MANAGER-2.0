@@ -49,6 +49,8 @@ pub struct GuardianService {
     pub stopping_servers: Arc<Mutex<HashSet<i64>>>,
     /// Is the watchdog actively running
     is_running: Arc<Mutex<bool>>,
+    /// Track last MOTD broadcast time per server
+    last_motd_broadcast: Arc<Mutex<HashMap<i64, chrono::DateTime<chrono::Utc>>>>,
 }
 
 impl GuardianService {
@@ -61,6 +63,7 @@ impl GuardianService {
             crash_history: Arc::new(Mutex::new(HashMap::new())),
             stopping_servers: Arc::new(Mutex::new(HashSet::new())),
             is_running: Arc::new(Mutex::new(false)),
+            last_motd_broadcast: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -258,6 +261,7 @@ impl GuardianService {
         let auto_restart_enabled = self.auto_restart_enabled.clone();
         let crash_history = self.crash_history.clone();
         let stopping_servers = self.stopping_servers.clone();
+        let last_motd_broadcast = self.last_motd_broadcast.clone();
         let self_service = Arc::new(Mutex::new(self.clone_ref()));
 
         tauri::async_runtime::spawn(async move {
@@ -290,7 +294,43 @@ impl GuardianService {
                     let process = sys.process(Pid::from_u32(pid));
                     let is_alive = process.is_some();
 
-                    if !is_alive {
+                    if is_alive {
+                        // Periodic MOTD broadcast for online ASE servers
+                        if server_id < 0 {
+                            let real_server_id = -server_id;
+                            let app_handle_clone = app_handle.clone();
+                            let last_motd_broadcast_clone = last_motd_broadcast.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Some(state) = app_handle_clone.try_state::<crate::AppState>() {
+                                    if let Ok(config) = crate::ase::commands::config::read_ase_config(real_server_id, state.clone()).await {
+                                        if config.motd_interval_enabled && !config.motd.is_empty() {
+                                            let now = chrono::Utc::now();
+                                            let mut broadcasts = last_motd_broadcast_clone.lock().await;
+                                            let last_sent = broadcasts.get(&real_server_id).cloned();
+                                            let should_send = match last_sent {
+                                                None => true,
+                                                Some(t) => {
+                                                    let diff = now.signed_duration_since(t);
+                                                    diff.num_minutes() >= config.motd_interval as i64
+                                                }
+                                            };
+                                            if should_send {
+                                                broadcasts.insert(real_server_id, now);
+                                                let message = config.motd.clone();
+                                                let app_handle_inner = app_handle_clone.clone();
+                                                tauri::async_runtime::spawn(async move {
+                                                    if let Some(inner_state) = app_handle_inner.try_state::<crate::AppState>() {
+                                                        let rcon_command = format!("broadcast {}", message);
+                                                        let _ = crate::ase::commands::rcon::send_ase_rcon(real_server_id, rcon_command, inner_state).await;
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    } else {
                         println!("🛡️ Guardian Watchdog: Server {} (PID {}) crashed or terminated!", server_id, pid);
 
                         // Stop tracking crashed PID to prevent duplicate restarts
@@ -515,6 +555,7 @@ impl GuardianService {
             crash_history: self.crash_history.clone(),
             stopping_servers: self.stopping_servers.clone(),
             is_running: self.is_running.clone(),
+            last_motd_broadcast: self.last_motd_broadcast.clone(),
         }
     }
 }

@@ -406,7 +406,7 @@ export default function ClusterManager() {
                                         className={cn(
                                             "flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors text-sm relative",
                                             crossChatStatus[cluster.id]
-                                                ? "bg-violet-600/20 hover:bg-violet-600/30 text-violet-400"
+                                                ? "bg-pink-600/20 hover:bg-pink-600/30 text-pink-400"
                                                 : "bg-slate-700/50 hover:bg-slate-600/50 text-slate-400"
                                         )}
                                         title="Cross-Server Chat (Experimental)"
@@ -476,7 +476,7 @@ export default function ClusterManager() {
                                 className="w-full mt-4 p-3 flex items-center justify-between text-left hover:bg-white/5 rounded-lg transition-colors border border-slate-700/50"
                             >
                                 <div className="flex items-center gap-2">
-                                    <MessageCircle className="w-4 h-4 text-violet-400" />
+                                    <MessageCircle className="w-4 h-4 text-pink-400" />
                                     <span className="text-sm text-slate-300">{t('clusterManager.discordSettings')}</span>
                                 </div>
                                 {expandedDiscord === cluster.id ? (

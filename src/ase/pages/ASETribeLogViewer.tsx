@@ -22,7 +22,7 @@ const EVENT_CONFIG: Record<string, { icon: any; color: string; label: string }> 
     claimed: { icon: Star, color: 'text-emerald-400', label: 'Claimed' },
     member_added: { icon: UserPlus, color: 'text-cyan-400', label: 'Member Joined' },
     member_removed: { icon: UserMinus, color: 'text-slate-400', label: 'Member Left' },
-    tribe_renamed: { icon: Tag, color: 'text-indigo-400', label: 'Renamed' },
+    tribe_renamed: { icon: Tag, color: 'text-sky-400', label: 'Renamed' },
     transfer: { icon: ArrowUpDown, color: 'text-blue-400', label: 'Transfer' },
     other: { icon: ScrollText, color: 'text-slate-500', label: 'Event' },
 };

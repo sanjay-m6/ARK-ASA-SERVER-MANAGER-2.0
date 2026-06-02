@@ -21,6 +21,7 @@ pub fn get_all_handlers() -> Vec<&'static str> {
         "delete_ase_server",
         "update_ase_server",
         "install_ase_server",
+        "update_ase_server_install",
         "start_ase_server",
         "stop_ase_server",
         "get_ase_server_status",

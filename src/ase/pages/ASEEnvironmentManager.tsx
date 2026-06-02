@@ -95,7 +95,7 @@ const PRESETS: RatePreset[] = [
   { label: 'Official Rates', tag: '1x', color: 'amber', harvestAmount: 1, tamingSpeed: 1, dinoCount: 1, resourceRespawn: 1, harvestHealth: 1, xp: 1 },
   { label: 'Boosted', tag: '3x', color: 'emerald', harvestAmount: 3, tamingSpeed: 3, dinoCount: 1, resourceRespawn: 0.5, harvestHealth: 1, xp: 2 },
   { label: 'High Rates', tag: '5x', color: 'cyan', harvestAmount: 5, tamingSpeed: 5, dinoCount: 1, resourceRespawn: 0.3, harvestHealth: 1, xp: 3 },
-  { label: 'PvE Balanced', tag: 'PvE', color: 'violet', harvestAmount: 2, tamingSpeed: 4, dinoCount: 1, resourceRespawn: 0.5, harvestHealth: 1, xp: 2 },
+  { label: 'PvE Balanced', tag: 'PvE', color: 'sky', harvestAmount: 2, tamingSpeed: 4, dinoCount: 1, resourceRespawn: 0.5, harvestHealth: 1, xp: 2 },
   { label: 'PvP Harvester', tag: 'PvP', color: 'rose', harvestAmount: 5, tamingSpeed: 10, dinoCount: 1.5, resourceRespawn: 0.2, harvestHealth: 1, xp: 5 },
   { label: 'Hardcore Survival', tag: 'HC', color: 'orange', harvestAmount: 0.5, tamingSpeed: 0.5, dinoCount: 1.5, resourceRespawn: 2, harvestHealth: 2, xp: 0.5 },
   { label: 'Primitive Economy', tag: 'PRIM', color: 'stone', harvestAmount: 0.25, tamingSpeed: 0.25, dinoCount: 2, resourceRespawn: 3, harvestHealth: 3, xp: 0.25 },
@@ -147,15 +147,23 @@ function serializeMultiplierMap(map: Map<string, number>): string {
   return entries.join(';');
 }
 
+import { cn } from '../../utils/helpers';
+
+interface ASEEnvironmentManagerProps {
+  embedded?: boolean;
+  config?: AseGameConfig;
+  onChange?: (config: AseGameConfig) => void;
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────────
-export default function ASEEnvironmentManager() {
+export default function ASEEnvironmentManager({ embedded = false, config: propConfig, onChange }: ASEEnvironmentManagerProps = {}) {
   const { servers } = useAseServerStore();
   const selectedServer = servers[0];
 
   // Config state
   const [config, setConfig] = useState<AseGameConfig | null>(null);
   const [originalConfig, setOriginalConfig] = useState<AseGameConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!embedded);
   const [saving, setSaving] = useState(false);
 
   // Resource multiplier map
@@ -180,8 +188,22 @@ export default function ASEEnvironmentManager() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Sync propConfig and parse overrides when embedded
+  useEffect(() => {
+    if (embedded && propConfig) {
+      if (propConfig !== config) {
+        setConfig(propConfig);
+      }
+      if (propConfig.harvestResourceItemAmountClassMultipliers !== config?.harvestResourceItemAmountClassMultipliers) {
+        const parsed = parseMultiplierString(propConfig.harvestResourceItemAmountClassMultipliers);
+        setResourceMultipliers(parsed);
+      }
+    }
+  }, [embedded, propConfig, config]);
+
   // Load config
   useEffect(() => {
+    if (embedded) return;
     if (!selectedServer) { setLoading(false); return; }
     (async () => {
       try {
@@ -197,7 +219,7 @@ export default function ASEEnvironmentManager() {
         setLoading(false);
       }
     })();
-  }, [selectedServer?.id]);
+  }, [selectedServer?.id, embedded]);
 
   // Modded resource detection
   const moddedResources = useMemo<ResourceEntry[]>(() => {
@@ -274,8 +296,12 @@ export default function ASEEnvironmentManager() {
 
   // Setters
   const updateGlobal = useCallback((key: keyof AseGameConfig, val: number | boolean) => {
-    setConfig(prev => prev ? { ...prev, [key]: val } : prev);
-  }, []);
+    if (embedded && propConfig && onChange) {
+      onChange({ ...propConfig, [key]: val });
+    } else {
+      setConfig(prev => prev ? { ...prev, [key]: val } : prev);
+    }
+  }, [embedded, propConfig, onChange]);
 
   const updateResourceMultiplier = useCallback((className: string, multiplier: number) => {
     setResourceMultipliers(prev => {
@@ -285,35 +311,59 @@ export default function ASEEnvironmentManager() {
       } else {
         next.set(className, multiplier);
       }
+      if (embedded && propConfig && onChange) {
+        onChange({
+          ...propConfig,
+          harvestResourceItemAmountClassMultipliers: serializeMultiplierMap(next)
+        });
+      }
       return next;
     });
-  }, []);
+  }, [embedded, propConfig, onChange]);
 
   const removeResourceMultiplier = useCallback((className: string) => {
     setResourceMultipliers(prev => {
       const next = new Map(prev);
       next.delete(className);
+      if (embedded && propConfig && onChange) {
+        onChange({
+          ...propConfig,
+          harvestResourceItemAmountClassMultipliers: serializeMultiplierMap(next)
+        });
+      }
       return next;
     });
-  }, []);
+  }, [embedded, propConfig, onChange]);
 
   // Apply preset
   const applyPreset = useCallback((preset: RatePreset) => {
-    setConfig(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
+    if (embedded && propConfig && onChange) {
+      onChange({
+        ...propConfig,
         harvestAmountMultiplier: preset.harvestAmount,
         tamingSpeedMultiplier: preset.tamingSpeed,
         dinoCountMultiplier: preset.dinoCount,
         resourcesRespawnPeriodMultiplier: preset.resourceRespawn,
         harvestHealthMultiplier: preset.harvestHealth,
         xpMultiplier: preset.xp,
-      };
-    });
+      });
+    } else {
+      setConfig(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          harvestAmountMultiplier: preset.harvestAmount,
+          tamingSpeedMultiplier: preset.tamingSpeed,
+          dinoCountMultiplier: preset.dinoCount,
+          resourcesRespawnPeriodMultiplier: preset.resourceRespawn,
+          harvestHealthMultiplier: preset.harvestHealth,
+          xpMultiplier: preset.xp,
+        };
+      });
+    }
     setPresetDropdownOpen(false);
     toast.success(`Applied ${preset.label} preset`);
-  }, []);
+  }, [embedded, propConfig, onChange]);
 
   // Save
   const handleSave = async () => {
@@ -372,37 +422,39 @@ export default function ASEEnvironmentManager() {
 
   return (
     <motion.div
-      className="space-y-6 pb-24"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      className={cn("space-y-6", !embedded && "pb-24")}
+      initial={embedded ? undefined : { opacity: 0, y: 12 }}
+      animate={embedded ? undefined : { opacity: 1, y: 0 }}
+      transition={embedded ? undefined : { duration: 0.3 }}
     >
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-lime-500/10 border border-lime-500/20 rounded-xl">
-            <Globe className="w-5 h-5 text-lime-400" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Environment & Harvest</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {selectedServer.name} — Manage rates, resources, and taming economy
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
-            <span className="text-[10px] font-bold text-amber-400 tracking-wider uppercase">ASE Engine</span>
-          </div>
-          {resourceMultipliers.size > 0 && (
-            <div className="px-3 py-1 bg-lime-500/10 border border-lime-500/20 rounded-full">
-              <span className="text-[10px] font-bold text-lime-400 tracking-wider uppercase">
-                {resourceMultipliers.size} Override{resourceMultipliers.size !== 1 ? 's' : ''}
-              </span>
+      {!embedded && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-lime-500/10 border border-lime-500/20 rounded-xl">
+              <Globe className="w-5 h-5 text-lime-400" />
             </div>
-          )}
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">Environment & Harvest</h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {selectedServer?.name} — Manage rates, resources, and taming economy
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full">
+              <span className="text-[10px] font-bold text-amber-400 tracking-wider uppercase">ASE Engine</span>
+            </div>
+            {resourceMultipliers.size > 0 && (
+              <div className="px-3 py-1 bg-lime-500/10 border border-lime-500/20 rounded-full">
+                <span className="text-[10px] font-bold text-lime-400 tracking-wider uppercase">
+                  {resourceMultipliers.size} Override{resourceMultipliers.size !== 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Global Rates & Preset Panel */}
       <div className="glass-panel rounded-2xl p-6">
@@ -412,7 +464,7 @@ export default function ASEEnvironmentManager() {
             Global Rate Multipliers
           </h2>
           {/* Preset Dropdown */}
-          <div className="relative" ref={presetRef}>
+          <div className="relative z-20" ref={presetRef}>
             <button
               onClick={() => setPresetDropdownOpen(!presetDropdownOpen)}
               className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:border-amber-500/30 transition-all focus:outline-none"
@@ -612,7 +664,7 @@ export default function ASEEnvironmentManager() {
                   <div className="col-span-1">
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
                       resource.category === 'Modded'
-                        ? 'bg-violet-500/10 text-violet-400'
+                        ? 'bg-sky-500/10 text-sky-400'
                         : 'bg-slate-500/10 text-slate-500'
                     }`}>
                       {resource.category === 'Modded' ? 'MOD' : 'BASE'}
@@ -718,35 +770,37 @@ export default function ASEEnvironmentManager() {
       </div>
 
       {/* Floating Save/Revert Bar */}
-      <AnimatePresence>
-        {isDirty && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
-          >
-            <div className="flex items-center gap-3 px-5 py-3 bg-[#0f1729]/95 backdrop-blur-xl border border-amber-500/30 rounded-2xl shadow-2xl shadow-amber-900/20">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <span className="text-xs text-slate-300 font-medium">Unsaved environment changes</span>
-              <button
-                onClick={handleRevert}
-                className="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition-all focus:outline-none"
-              >
-                Revert
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-4 py-1.5 text-xs font-bold text-slate-900 bg-amber-500 hover:bg-amber-400 rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5 focus:outline-none"
-              >
-                <Save className="w-3.5 h-3.5" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {!embedded && (
+        <AnimatePresence>
+          {isDirty && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+            >
+              <div className="flex items-center gap-3 px-5 py-3 bg-[#0f1729]/95 backdrop-blur-xl border border-amber-500/30 rounded-2xl shadow-2xl shadow-amber-900/20">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                <span className="text-xs text-slate-300 font-medium">Unsaved environment changes</span>
+                <button
+                  onClick={handleRevert}
+                  className="px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition-all focus:outline-none"
+                >
+                  Revert
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-4 py-1.5 text-xs font-bold text-slate-900 bg-amber-500 hover:bg-amber-400 rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5 focus:outline-none"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
     </motion.div>
   );
 }

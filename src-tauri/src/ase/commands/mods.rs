@@ -799,7 +799,7 @@ pub async fn toggle_ase_mod(
     Ok(())
 }
 
-fn sync_ase_mods_to_ini(install_path: &str, mod_ids: &[String]) -> Result<(), String> {
+pub(crate) fn sync_ase_mods_to_ini(install_path: &str, mod_ids: &[String]) -> Result<(), String> {
     let config_path = PathBuf::from(install_path)
         .join("ShooterGame").join("Saved").join("Config")
         .join("WindowsServer").join("GameUserSettings.ini");

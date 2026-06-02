@@ -50,6 +50,7 @@ export interface AseServer {
   intelligentMode?: boolean;
   startupDelay?: number;
   startupPriority?: number;
+  branch: string;
 }
 
 export interface AseWorkshopMod {
@@ -266,6 +267,11 @@ export interface AseGameConfig {
   maxHexagonsPerCharacter: number;
   hexagonRewardMultiplier: number;
 
+  // ── Levels ──
+  levelExperienceRampOverrides: string;
+  overrideMaxExperiencePointsPlayer: string;
+  overrideMaxExperiencePointsDino: string;
+
   // ── Engrams ──
   autoUnlockAllEngrams: boolean;
   onlyAllowSpecifiedEngrams: boolean;
@@ -288,9 +294,19 @@ export interface AseGameConfig {
   // ── MOTD ──
   motd: string;
   motdDuration: number;
+  motdIntervalEnabled: boolean;
+  motdInterval: number;
 
-  // ── Auto-save ──
+  // ── Auto-save & Backups ──
   autoSavePeriodMinutes: number;
+  backupQuantity: number;
+  newSaveGameFormat: boolean;
+  useStore: boolean;
+  backupTransferPlayerDatas: boolean;
+
+  // ── Extinction Event ──
+  enableExtinctionEvent: boolean;
+  extinctionEventTimeInterval: number;
 
   // ── Events ──
   activeEvent: string;
@@ -403,6 +419,17 @@ export interface AseGameConfig {
   alternateSaveDirectoryName: string;
   clusterDirectoryOverride: string;
   useClusterDirectoryOverride: boolean;
+  playerHarvestingDamageMultiplier: number;
+  craftingSkillBonusMultiplier: number;
+  maxFallSpeedMultiplier: number;
+  playerBaseStatMultipliers: number[];
+  perLevelStatsMultiplierPlayer: number[];
+  perLevelStatsMultiplierDinoWild: number[];
+  perLevelStatsMultiplierDinoTamed: number[];
+  perLevelStatsMultiplierDinoTamedAdd: number[];
+  perLevelStatsMultiplierDinoTamedAffinity: number[];
+  mutagenLevelBoostArray: number[];
+  mutagenLevelBoostBredArray: number[];
 }
 
 export interface AseBackup {
@@ -446,4 +473,17 @@ export interface AseSchedulerSettings {
   backupOnRestart: boolean;
   backupOnUpdate: boolean;
   includeClusterBackup: boolean;
+}
+
+export interface AseDiagnostics {
+    gusExists: boolean;
+    gusSize: number;
+    gusModified: string;
+    gameIniExists: boolean;
+    gameIniSize: number;
+    gameIniModified: string;
+    lastParsed: string;
+    cacheStatus: string;
+    configHash: string;
+    activeLaunchArgs: string[];
 }

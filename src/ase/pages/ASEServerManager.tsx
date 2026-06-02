@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical } from 'lucide-react';
+import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import { cn } from '../../utils/helpers';
-import { startAseServer, stopAseServer, deleteAseServer, updateAseServer } from '../utils/aseCommands';
-import { getAseMapDisplayName } from '../data/aseMaps';
+import { startAseServer, stopAseServer, deleteAseServer, updateAseServer, updateAseServerInstall } from '../utils/aseCommands';
+import { getAseMapDisplayName, ASE_BRANCHES } from '../data/aseMaps';
 import ASEInstallWizard from '../components/install/ASEInstallWizard';
 import ASEResetDialog from '../components/server/ASEResetDialog';
 import ASEImportServerDialog from '../components/server/ASEImportServerDialog';
@@ -28,6 +28,11 @@ export default function ASEServerManager() {
   const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  // Active SteamCMD update states
+  const [activeUpdates, setActiveUpdates] = useState<Record<number, { stage: string; progress: number; message: string; isComplete: boolean; isError: boolean }>>({});
+  const [updateConsoleLogs, setUpdateConsoleLogs] = useState<Record<number, Array<{ timestamp: string; line: string; lineType: string }>>>({});
+  const [showUpdateConsole, setShowUpdateConsole] = useState<Record<number, boolean>>({});
 
   // Drag-and-drop order persistence
   const [serverOrder, setServerOrder] = useState<number[]>(() => {
@@ -79,11 +84,64 @@ export default function ASEServerManager() {
     // Listen for backend status change events
     const setupListener = async () => {
       const { listen } = await import('@tauri-apps/api/event');
-      const unlisten = await listen('server-status-change', (event) => {
+      
+      const unlistenStatus = await listen('server-status-change', (event) => {
         const { server_id, status } = event.payload as { server_id: number; status: string };
         updateServerStatus(server_id, status as any);
       });
-      return unlisten;
+
+      const unlistenProgress = await listen<any>('install-progress', (event) => {
+        const payload = event.payload;
+        const currentServers = useAseServerStore.getState().servers;
+        const server = currentServers.find(s => s.installPath === payload.installPath);
+        if (server) {
+          setActiveUpdates(prev => ({
+            ...prev,
+            [server.id]: {
+              stage: payload.stage,
+              progress: payload.progress,
+              message: payload.message,
+              isComplete: payload.isComplete,
+              isError: payload.isError
+            }
+          }));
+          if (payload.isComplete) {
+            // Clear progress state after a small delay on completion
+            setTimeout(() => {
+              setActiveUpdates(prev => {
+                const next = { ...prev };
+                delete next[server.id];
+                return next;
+              });
+            }, 3000);
+          }
+        }
+      });
+
+      const unlistenConsole = await listen<any>('install-console', (event) => {
+        const payload = event.payload;
+        const currentServers = useAseServerStore.getState().servers;
+        const server = currentServers.find(s => s.installPath === payload.installPath);
+        if (server) {
+          setUpdateConsoleLogs(prev => {
+            const logs = prev[server.id] || [];
+            return {
+              ...prev,
+              [server.id]: [...logs, {
+                timestamp: payload.timestamp,
+                line: payload.line,
+                lineType: payload.lineType
+              }]
+            };
+          });
+        }
+      });
+
+      return () => {
+        unlistenStatus();
+        unlistenProgress();
+        unlistenConsole();
+      };
     };
     let unlistenPromise = setupListener();
 
@@ -413,7 +471,11 @@ export default function ASEServerManager() {
 
                 {/* Action Buttons + Collapse Toggle */}
                 <div className="flex items-center gap-2 no-collapse">
-                  {srv.status === 'stopped' || srv.status === 'crashed' ? (
+                  {srv.status === 'updating' ? (
+                    <button disabled className="p-2.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl cursor-not-allowed opacity-60" title="Updating Files...">
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                    </button>
+                  ) : srv.status === 'stopped' || srv.status === 'crashed' ? (
                     <button onClick={()=>handleStart(srv.id)} className="p-2.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner" title="Start Server">
                       <Play className="w-5 h-5 fill-current" />
                     </button>
@@ -425,7 +487,8 @@ export default function ASEServerManager() {
 
                   <button
                       onClick={() => navigate('/ase/config', { state: { serverId: srv.id } })}
-                      className="p-2.5 bg-slate-700/30 hover:bg-slate-700/50 text-slate-300 border border-slate-600/30 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner"
+                      disabled={srv.status === 'updating'}
+                      className="p-2.5 bg-slate-700/30 hover:bg-slate-700/50 text-slate-300 border border-slate-600/30 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Server Settings"
                   >
                       <Settings className="w-5 h-5" />
@@ -433,7 +496,8 @@ export default function ASEServerManager() {
 
                   <button
                       onClick={() => navigate('/ase/rcon', { state: { serverId: srv.id } })}
-                      className="p-2.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border border-violet-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner"
+                      disabled={srv.status === 'updating'}
+                      className="p-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
                       title="RCON Console"
                   >
                       <Terminal className="w-5 h-5" />
@@ -443,7 +507,8 @@ export default function ASEServerManager() {
 
                   <button
                       onClick={() => setResetServer({id: srv.id, name: srv.name})}
-                      className="p-2.5 bg-slate-700/30 hover:bg-orange-500/20 text-slate-300 hover:text-orange-400 border border-slate-600/30 hover:border-orange-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner"
+                      disabled={srv.status === 'updating'}
+                      className="p-2.5 bg-slate-700/30 hover:bg-orange-500/20 text-slate-300 hover:text-orange-400 border border-slate-600/30 hover:border-orange-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Reset Server Data"
                   >
                       <RotateCw className="w-5 h-5" />
@@ -451,7 +516,8 @@ export default function ASEServerManager() {
 
                   <button
                       onClick={() => handleDelete(srv.id, srv.name)}
-                      className="p-2.5 bg-slate-700/30 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-slate-600/30 hover:border-red-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner"
+                      disabled={srv.status === 'updating'}
+                      className="p-2.5 bg-slate-700/30 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-slate-600/30 hover:border-red-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Delete Server"
                   >
                       <Trash2 className="w-5 h-5" />
@@ -477,7 +543,7 @@ export default function ASEServerManager() {
                   {/* Server Details Grid - Glassmorphic */}
                   <div className="mt-5 pt-4 border-t border-slate-700/30">
                     <div className="bg-slate-900/40 backdrop-blur-sm rounded-xl border border-slate-700/30 p-4 shadow-inner">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6 text-sm">
                         <div>
                             <div className="flex items-center gap-1.5 mb-1.5">
                                 <FolderOpen className="w-3.5 h-3.5 text-amber-500/60" />
@@ -508,9 +574,132 @@ export default function ASEServerManager() {
                                 {srv.port} (Game) / {srv.queryPort} (Query)
                             </p>
                         </div>
+                        <div className="no-collapse">
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                                <GitBranch className="w-3.5 h-3.5 text-amber-500/60" />
+                                <p className="text-slate-500 text-xs uppercase tracking-wider font-bold">{t('serverManager.serverDetails.branch', 'Server Version')}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <select
+                                    value={srv.branch || 'default'}
+                                    onChange={async (e) => {
+                                        const newBranch = e.target.value;
+                                        try {
+                                            await updateAseServer(srv.id, { branch: newBranch });
+                                            setServers(servers.map(s => s.id === srv.id ? { ...s, branch: newBranch } : s));
+                                            toast.success(t('serverManager.branchUpdated', 'Server version updated. Click the download icon to validate/apply.'));
+                                        } catch (err) {
+                                            console.error('Failed to update branch:', err);
+                                            toast.error(t('serverManager.branchUpdateFailed', 'Failed to update version/branch'));
+                                        }
+                                    }}
+                                    disabled={srv.status === 'starting' || srv.status === 'running' || srv.status === 'online' || srv.status === 'updating'}
+                                    className="bg-slate-950/60 border border-slate-700/50 rounded-xl px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 font-medium transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed w-full min-w-[130px] max-w-[180px]"
+                                >
+                                    {ASE_BRANCHES.map(b => (
+                                        <option key={b.id} value={b.id} className="bg-slate-950 text-slate-200">{b.name}</option>
+                                    ))}
+                                </select>
+                                
+                                <button
+                                    onClick={async () => {
+                                        if (srv.status === 'running' || srv.status === 'online') {
+                                            toast.error(t('serverManager.stopServerFirst', 'Please stop the server before updating files.'));
+                                            return;
+                                        }
+                                        const proceed = window.confirm(t('serverManager.updateConfirm', 'This will run SteamCMD to validate or change the server version. Continue?'));
+                                        if (!proceed) return;
+
+                                        try {
+                                            toast.success(t('serverManager.updateStarted', 'Updating server files in the background...'));
+                                            setServers(servers.map(s => s.id === srv.id ? { ...s, status: 'updating' } : s));
+                                            await updateAseServerInstall(srv.id);
+                                            toast.success(t('serverManager.updateSuccess', 'Server updated successfully!'));
+                                            refreshServers();
+                                        } catch (err) {
+                                            console.error('Failed to update server:', err);
+                                            toast.error(t('serverManager.updateFailed', `Update failed: ${err}`));
+                                            refreshServers();
+                                        }
+                                    }}
+                                    disabled={srv.status === 'starting' || srv.status === 'running' || srv.status === 'online' || srv.status === 'updating'}
+                                    className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shrink-0"
+                                    title={t('serverManager.updateFilesTooltip', 'Update / Verify Server Files via SteamCMD')}
+                                >
+                                    <Download className={cn("w-4 h-4", srv.status === 'updating' && "animate-bounce")} />
+                                </button>
+                            </div>
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  {/* Real-time Update Progress Panel */}
+                  {(srv.status === 'updating' || activeUpdates[srv.id]) && (
+                    <div className="mt-4 bg-slate-900/60 backdrop-blur-sm rounded-xl border border-blue-500/20 p-4 shadow-inner animate-in slide-in-from-top-2 duration-300">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                          <span className="text-sm font-bold text-white uppercase tracking-wider">
+                            SteamCMD Update Mode: {activeUpdates[srv.id]?.stage || 'Connecting'}
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono font-bold text-blue-400">
+                          {activeUpdates[srv.id] ? `${Math.round(activeUpdates[srv.id].progress)}%` : '0%'}
+                        </span>
+                      </div>
+                      
+                      {/* Premium animated progress bar */}
+                      <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800 shadow-inner">
+                        <div 
+                          className="bg-gradient-to-r from-blue-500 to-cyan-500 h-full transition-all duration-300 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                          style={{ width: `${activeUpdates[srv.id]?.progress || 0}%` }}
+                        />
+                      </div>
+
+                      <p className="text-xs text-slate-400 mt-2 italic">
+                        {activeUpdates[srv.id]?.message || 'Starting SteamCMD wrapper process...'}
+                      </p>
+
+                      {/* Collapsible Console View */}
+                      <div className="mt-3 border-t border-slate-800 pt-3">
+                        <button
+                          onClick={() => setShowUpdateConsole(prev => ({ ...prev, [srv.id]: !prev[srv.id] }))}
+                          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors select-none font-semibold uppercase tracking-wider"
+                        >
+                          <Terminal className="w-3.5 h-3.5" />
+                          <span>{showUpdateConsole[srv.id] ? 'Hide Console Logs' : 'Show Console Logs'}</span>
+                          <span className="text-[10px] bg-slate-850 border border-slate-800/80 px-1.5 py-0.5 rounded text-slate-400 font-mono">
+                            {updateConsoleLogs[srv.id]?.length || 0} lines
+                          </span>
+                        </button>
+
+                        {showUpdateConsole[srv.id] && (
+                          <div className="mt-2.5 bg-black/85 rounded-lg p-3 font-mono text-[11px] h-48 overflow-y-auto border border-slate-800/80 shadow-inner space-y-1 scrollbar-thin select-text">
+                            {(updateConsoleLogs[srv.id] || []).length === 0 ? (
+                              <div className="text-slate-600 italic">Waiting for SteamCMD stream output...</div>
+                            ) : (
+                              (updateConsoleLogs[srv.id] || []).map((log, i) => (
+                                <div key={i} className="flex gap-2.5 items-start leading-relaxed">
+                                  <span className="text-slate-600 select-none shrink-0">{log.timestamp}</span>
+                                  <span className={cn(
+                                    "break-all",
+                                    log.lineType === 'error' && 'text-red-400 font-bold',
+                                    log.lineType === 'success' && 'text-green-400 font-bold',
+                                    log.lineType === 'warning' && 'text-amber-400',
+                                    log.lineType === 'progress' && 'text-blue-400',
+                                    log.lineType === 'info' && 'text-slate-300'
+                                  )}>
+                                    {log.line}
+                                  </span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Automation Controls - Glassmorphic */}
                   <div className="mt-3">

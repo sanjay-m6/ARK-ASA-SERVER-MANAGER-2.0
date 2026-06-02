@@ -85,12 +85,12 @@ export default function TopBar() {
             <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-sky-500/5 via-violet-500/5 to-transparent rounded-full blur-3xl -mr-48 -mt-48 pointer-events-none"></div>
 
             {/* LEFT: Greeting */}
-            <div className="flex items-center gap-4 z-10">
+            <div className="flex items-center gap-4 z-10 flex-shrink-0">
                 <div className={cn("p-3.5 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/5 shadow-lg", greeting.color)}>
                     <GreetingIcon className="w-7 h-7" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-bold text-white flex items-center gap-3 tracking-tight">
+                    <h1 className="text-2xl font-bold text-white flex items-center gap-3 tracking-tight whitespace-nowrap">
                         {greeting.text}, {t('dashboard.commander', 'Commander')}
                         <span className={cn(
                             "text-[9px] font-black tracking-widest uppercase px-2.5 py-0.5 rounded-full border self-center backdrop-blur-sm shadow-sm transition-all duration-300",

@@ -15,7 +15,7 @@ import { ConfigTooltip } from '../components/config/ConfigTooltip';
 import { ArrayEditor } from '../components/config/ArrayEditor';
 import { CraftingCostEditor } from '../components/config/CraftingCostEditor';
 import { EngramOverridesEditor } from '../components/config/EngramOverridesEditor';
-import { applyPreset, ConfigPreset } from '../data/presets';
+import { applyPreset, ConfigPreset, createPresetFromConfig, saveCustomPreset } from '../data/presets';
 import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
 import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboard';
@@ -253,6 +253,432 @@ const MAP_METADATA: Record<string, MapInfo> = {
         image: mapLostIsland,
         dlcType: 'Upcoming (2026-2027)'
     }
+};
+
+const TextAreaFieldInput = ({
+    field,
+    value,
+    onChange,
+    containerClassName,
+    labelContent,
+    t
+}: {
+    field: ConfigField,
+    value: string,
+    onChange: (val: string) => void,
+    containerClassName: string,
+    labelContent: React.ReactNode,
+    t: any
+}) => {
+    const [customColor, setCustomColor] = useState('#e2a85c');
+    const [showGradientBuilder, setShowGradientBuilder] = useState(false);
+    const [gradientText, setGradientText] = useState('');
+    const [gradColor1, setGradColor1] = useState('#f59e0b');
+    const [gradColor2, setGradColor2] = useState('#3b82f6');
+    const [gradMode, setGradMode] = useState<'char' | 'word'>('char');
+
+    const hexToArkColor = (hex: string): string => {
+        const cleanHex = hex.replace(/^#/, '');
+        if (cleanHex.length !== 6) return '1,1,1,1';
+        const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+        const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+        const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+        return `${r.toFixed(3)},${g.toFixed(3)},${b.toFixed(3)},1`;
+    };
+
+    const interpolateHex = (color1: string, color2: string, ratio: number): string => {
+        const c1 = color1.replace('#', '');
+        const c2 = color2.replace('#', '');
+        const r1 = parseInt(c1.substring(0, 2), 16);
+        const g1 = parseInt(c1.substring(2, 4), 16);
+        const b1 = parseInt(c1.substring(4, 6), 16);
+        const r2 = parseInt(c2.substring(0, 2), 16);
+        const g2 = parseInt(c2.substring(2, 4), 16);
+        const b2 = parseInt(c2.substring(4, 6), 16);
+
+        const r = Math.round(r1 + (r2 - r1) * ratio);
+        const g = Math.round(g1 + (g2 - g1) * ratio);
+        const b = Math.round(b1 + (b2 - b1) * ratio);
+
+        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    };
+
+    const interpolateColors = (color1: string, color2: string, steps: number): string[] => {
+        const c1 = color1.replace('#', '');
+        const c2 = color2.replace('#', '');
+        const r1 = parseInt(c1.substring(0, 2), 16);
+        const g1 = parseInt(c1.substring(2, 4), 16);
+        const b1 = parseInt(c1.substring(4, 6), 16);
+        const r2 = parseInt(c2.substring(0, 2), 16);
+        const g2 = parseInt(c2.substring(2, 4), 16);
+        const b2 = parseInt(c2.substring(4, 6), 16);
+
+        const colors = [];
+        for (let i = 0; i < steps; i++) {
+            const ratio = steps > 1 ? i / (steps - 1) : 0.5;
+            const r = (r1 + (r2 - r1) * ratio) / 255;
+            const g = (g1 + (g2 - g1) * ratio) / 255;
+            const b = (b1 + (b2 - b1) * ratio) / 255;
+            colors.push(`${r.toFixed(3)},${g.toFixed(3)},${b.toFixed(3)},1`);
+        }
+        return colors;
+    };
+
+    const insertColorTag = (colorStr: string) => {
+        const textarea = document.getElementById(`textarea-asa-${field.key}`) as HTMLTextAreaElement;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentText = String(value);
+        const selectedText = currentText.substring(start, end);
+
+        const replacement = `<RichColor Color="${colorStr}">${selectedText || 'Text'}</>`;
+        const newText = currentText.substring(0, start) + replacement + currentText.substring(end);
+        
+        onChange(newText);
+
+        setTimeout(() => {
+            textarea.focus();
+            const newCursorPos = start + `<RichColor Color="${colorStr}">`.length + (selectedText ? selectedText.length : 4);
+            textarea.setSelectionRange(
+                selectedText ? newCursorPos : start + `<RichColor Color="${colorStr}">`.length,
+                selectedText ? newCursorPos : start + `<RichColor Color="${colorStr}">`.length + 4
+            );
+        }, 50);
+    };
+
+    const insertNewline = () => {
+        const textarea = document.getElementById(`textarea-asa-${field.key}`) as HTMLTextAreaElement;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentText = String(value);
+
+        const newText = currentText.substring(0, start) + '\\n' + currentText.substring(end);
+        onChange(newText);
+
+        setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(start + 2, start + 2);
+        }, 50);
+    };
+
+    const generateGradientTags = (): string => {
+        if (!gradientText) return '';
+        
+        if (gradMode === 'char') {
+            const chars = Array.from(gradientText);
+            const colors = interpolateColors(gradColor1, gradColor2, chars.length);
+            return chars.map((char, i) => {
+                if (char === ' ') return ' ';
+                return `<RichColor Color="${colors[i]}">${char}</>`;
+            }).join('');
+        } else {
+            const words = gradientText.split(' ');
+            const colors = interpolateColors(gradColor1, gradColor2, words.length);
+            return words.map((word, i) => {
+                return `<RichColor Color="${colors[i]}">${word}</>`;
+            }).join(' ');
+        }
+    };
+
+    const insertGradientTag = () => {
+        const generated = generateGradientTags();
+        if (!generated) return;
+
+        const textarea = document.getElementById(`textarea-asa-${field.key}`) as HTMLTextAreaElement;
+        if (!textarea) {
+            onChange(String(value) + generated);
+            return;
+        }
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentText = String(value);
+
+        const newText = currentText.substring(0, start) + generated + currentText.substring(end);
+        onChange(newText);
+        setShowGradientBuilder(false);
+
+        setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(start + generated.length, start + generated.length);
+        }, 50);
+    };
+
+    const renderGradPreview = () => {
+        if (!gradientText) return null;
+        if (gradMode === 'char') {
+            const chars = Array.from(gradientText);
+            return chars.map((char, i) => {
+                const ratio = chars.length > 1 ? i / (chars.length - 1) : 0.5;
+                const style = { color: interpolateHex(gradColor1, gradColor2, ratio) };
+                return (
+                    <span key={i} style={style}>
+                        {char}
+                    </span>
+                );
+            });
+        } else {
+            const words = gradientText.split(' ');
+            return words.map((word, i) => {
+                const ratio = words.length > 1 ? i / (words.length - 1) : 0.5;
+                const style = { color: interpolateHex(gradColor1, gradColor2, ratio) };
+                return (
+                    <span key={i} style={style} className="mr-1">
+                        {word}
+                    </span>
+                );
+            });
+        }
+    };
+
+    const renderMotdPreview = (text: string) => {
+        if (!text) return <span className="text-slate-500 italic text-xs">No message entered yet.</span>;
+
+        const lines = text.split('\\n');
+
+        return lines.map((line, lineIdx) => {
+            const elements: React.ReactNode[] = [];
+            const regex = /<RichColor\s+Color="([^"]+)">([\s\S]*?)<\/>/gi;
+            let lastIndex = 0;
+            let match;
+
+            while ((match = regex.exec(line)) !== null) {
+                const matchIndex = match.index;
+                if (matchIndex > lastIndex) {
+                    elements.push(<span key={lastIndex}>{line.substring(lastIndex, matchIndex)}</span>);
+                }
+
+                const colorParts = match[1].split(',').map(c => parseFloat(c.trim()));
+                const textVal = match[2];
+
+                if (colorParts.length >= 3) {
+                    const r = Math.round((colorParts[0] || 0) * 255);
+                    const g = Math.round((colorParts[1] || 0) * 255);
+                    const b = Math.round((colorParts[2] || 0) * 255);
+                    const a = colorParts[3] !== undefined ? colorParts[3] : 1;
+                    const style = { color: `rgba(${r}, ${g}, ${b}, ${a})` };
+
+                    elements.push(
+                        <span key={matchIndex} style={style} className="font-bold">
+                            {textVal}
+                        </span>
+                    );
+                } else {
+                    elements.push(<span key={matchIndex}>{match[0]}</span>);
+                }
+
+                lastIndex = regex.lastIndex;
+            }
+
+            if (lastIndex < line.length) {
+                elements.push(<span key={lastIndex}>{line.substring(lastIndex)}</span>);
+            }
+
+            return (
+                <div key={lineIdx} className="min-h-[1.2em]">
+                    {elements.length > 0 ? elements : <span className="opacity-0">.</span>}
+                </div>
+            );
+        });
+    };
+
+    return (
+        <div className="col-span-1 md:col-span-2 lg:col-span-2 animate-fadeIn">
+            <div className={containerClassName}>
+                {labelContent}
+                <div className="w-full flex flex-col gap-2 mt-2">
+                    {/* Toolbar */}
+                    <div className="flex flex-wrap items-center gap-2 bg-[#0e0e1a]/80 p-2.5 rounded-t-xl border-2 border-b-0 border-[#2d2d44]">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 select-none mr-1">Colors:</span>
+                        {[
+                            { name: 'Red', color: '1,0,0,1', bg: 'bg-red-500' },
+                            { name: 'Green', color: '0,1,0,1', bg: 'bg-emerald-500' },
+                            { name: 'Blue', color: '0,0.5,1,1', bg: 'bg-blue-500' },
+                            { name: 'Yellow', color: '1,1,0,1', bg: 'bg-amber-400' },
+                            { name: 'Orange', color: '1,0.65,0,1', bg: 'bg-orange-500' },
+                            { name: 'Cyan', color: '0,1,1,1', bg: 'bg-cyan-400' },
+                            { name: 'White', color: '1,1,1,1', bg: 'bg-white' },
+                        ].map(c => (
+                            <button
+                                key={c.name}
+                                type="button"
+                                onClick={() => insertColorTag(c.color)}
+                                className={`w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm ${c.bg}`}
+                                title={`Format selection to ${c.name}`}
+                            />
+                        ))}
+
+                        {/* Custom Color Picker */}
+                        <label
+                            className="w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm cursor-pointer flex items-center justify-center relative"
+                            style={{ background: 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)' }}
+                            title="Choose custom color"
+                        >
+                            <input
+                                type="color"
+                                value={customColor}
+                                onChange={(e) => {
+                                    const arkColor = hexToArkColor(e.target.value);
+                                    insertColorTag(arkColor);
+                                    setCustomColor(e.target.value);
+                                }}
+                                className="sr-only opacity-0 absolute w-0 h-0 cursor-pointer"
+                            />
+                        </label>
+
+                        <div className="h-4 w-px bg-slate-800 mx-1" />
+
+                        <button
+                            type="button"
+                            onClick={insertNewline}
+                            className="px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-white/5 text-[10px] font-bold transition-colors"
+                            title="Insert literal newline \n tag"
+                        >
+                            + New Line (\n)
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const textarea = document.getElementById(`textarea-asa-${field.key}`) as HTMLTextAreaElement;
+                                if (textarea) {
+                                    const selected = String(value).substring(textarea.selectionStart, textarea.selectionEnd);
+                                    if (selected) {
+                                        setGradientText(selected);
+                                    }
+                                }
+                                setShowGradientBuilder(!showGradientBuilder);
+                            }}
+                            className={`px-2.5 py-0.5 rounded text-[10px] font-bold border transition-colors ${showGradientBuilder ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-white/5'}`}
+                            title="Create beautiful multi-color gradient text"
+                        >
+                            🎨 Gradient Builder
+                        </button>
+                    </div>
+
+                    {/* Gradient Builder Panel */}
+                    {showGradientBuilder && (
+                        <div className="flex flex-col gap-3 bg-[#0f0f20]/90 p-3.5 rounded-lg border-2 border-[#2d2d44] mb-2 text-left animate-fadeIn">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-orange-400">Multi-Color Gradient Builder</span>
+                                <span className="text-[10px] text-slate-500">Generates ArkML color codes dynamically</span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {/* Input Text */}
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Text to Colorize</label>
+                                    <input
+                                        type="text"
+                                        value={gradientText}
+                                        onChange={e => setGradientText(e.target.value)}
+                                        placeholder="Enter text to make gradient..."
+                                        className="px-3 py-1.5 bg-[#080812] border border-[#2d2d44] rounded-lg text-xs text-white focus:outline-none focus:border-orange-500/50"
+                                    />
+                                </div>
+
+                                {/* Mode & Colors */}
+                                <div className="flex items-end gap-3">
+                                    {/* Colors */}
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Colors (Start → End)</label>
+                                        <div className="flex items-center gap-2">
+                                            <div className="relative">
+                                                <label className="w-8 h-8 rounded-lg border border-[#2d2d44] hover:border-slate-650 transition-all shadow-sm cursor-pointer flex items-center justify-center border-dashed" style={{ backgroundColor: gradColor1 }}>
+                                                    <input type="color" value={gradColor1} onChange={e => setGradColor1(e.target.value)} className="sr-only opacity-0 absolute w-0 h-0" />
+                                                </label>
+                                            </div>
+                                            <span className="text-slate-500 text-xs">→</span>
+                                            <div className="relative">
+                                                <label className="w-8 h-8 rounded-lg border border-[#2d2d44] hover:border-slate-650 transition-all shadow-sm cursor-pointer flex items-center justify-center border-dashed" style={{ backgroundColor: gradColor2 }}>
+                                                    <input type="color" value={gradColor2} onChange={e => setGradColor2(e.target.value)} className="sr-only opacity-0 absolute w-0 h-0" />
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Mode Toggle */}
+                                    <div className="flex flex-col gap-1 flex-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Spread Mode</label>
+                                        <div className="flex rounded-lg overflow-hidden border border-[#2d2d44] bg-[#080812] p-0.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => setGradMode('char')}
+                                                className={`flex-1 py-1 text-[10px] font-bold rounded transition-all ${gradMode === 'char' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'text-slate-400 hover:text-white'}`}
+                                            >
+                                                Smooth (Letter)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setGradMode('word')}
+                                                className={`flex-1 py-1 text-[10px] font-bold rounded transition-all ${gradMode === 'word' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'text-slate-400 hover:text-white'}`}
+                                            >
+                                                Bold (Word)
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Dynamic Preview */}
+                            {gradientText && (
+                                <div className="flex flex-col gap-1 bg-[#080812] p-2.5 rounded-lg border border-[#2d2d44]">
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase">Live Builder Preview</span>
+                                    <div className="text-sm font-semibold tracking-wide flex flex-wrap select-none">
+                                        {renderGradPreview()}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex justify-end gap-2 mt-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowGradientBuilder(false)}
+                                    className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-350 text-xs font-medium transition-colors border border-white/5"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={!gradientText}
+                                    onClick={insertGradientTag}
+                                    className="px-3 py-1 rounded bg-orange-500 hover:bg-orange-400 text-slate-950 text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-orange-500/20"
+                                >
+                                    Insert Gradient
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Text Area */}
+                    <textarea
+                        id={`textarea-asa-${field.key}`}
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        placeholder={t('configEditor.placeholders.enterValues')}
+                        rows={5}
+                        className="w-full bg-[#1a1a2e] border-2 border-t-0 border-[#2d2d44] rounded-b-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 focus:shadow-[0_0_15px_rgba(249,115,22,0.2)] font-mono text-sm min-h-[120px] transition-all placeholder-slate-500 resize-y"
+                    />
+
+                    {/* Real-time Game Preview */}
+                    <div className="mt-1 flex flex-col gap-1.5 bg-[#0a0a14]/60 border-2 border-[#2d2d44] rounded-2xl p-4 text-left">
+                        <div className="text-[10px] uppercase font-black text-slate-400 tracking-wider flex items-center justify-between">
+                            <span>In-Game Broadcast Preview</span>
+                            <span className="text-[8px] bg-orange-500/10 border border-orange-500/20 text-orange-400 font-bold px-1.5 py-0.5 rounded">Real-Time</span>
+                        </div>
+                        <div className="text-sm font-semibold tracking-wide leading-relaxed p-2.5 rounded-xl bg-black/40 border border-[#2d2d44] font-sans break-words select-none max-h-[150px] overflow-y-auto custom-scrollbar text-left">
+                            {renderMotdPreview(value)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 };
 
 // Field Render Component
@@ -818,18 +1244,14 @@ const ConfigInput = memo(({
             );
         case 'textarea':
             return (
-                <div className="col-span-1 md:col-span-2 lg:col-span-2">
-                    <div className={containerClassName}>
-                        {labelContent}
-                        <textarea
-                            value={value}
-                            onChange={(e) => handleChange(e.target.value)}
-                            className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 focus:shadow-[0_0_15px_rgba(249,115,22,0.2)] font-mono text-sm min-h-[150px] transition-all placeholder-slate-500 resize-none"
-                            placeholder={t('configEditor.placeholders.enterValues')}
-                        />
-                        {field.description && <div className="mt-2 text-sm text-slate-400">{field.description}</div>}
-                    </div>
-                </div>
+                <TextAreaFieldInput
+                    field={field}
+                    value={value}
+                    onChange={handleChange}
+                    containerClassName={containerClassName}
+                    labelContent={labelContent}
+                    t={t}
+                />
             );
         default:
             return (
@@ -1176,6 +1598,13 @@ export default function ConfigEditor() {
         checkModifications(newConfigs);
     };
 
+    const handleSaveCurrentAsPreset = useCallback((name: string, description: string) => {
+        const preset = createPresetFromConfig(name, description, configs);
+        saveCustomPreset(preset);
+        setCurrentPreset(preset.id);
+        toast.success(t('configEditor.toasts.presetSaved', 'Preset saved successfully'));
+    }, [configs, t]);
+
     // Custom Level Generator Functions
     const applyDinoLevel = (level: number) => {
         setCustomDinoLevel(level);
@@ -1301,6 +1730,7 @@ export default function ConfigEditor() {
                         <PresetSelector
                             onApplyPreset={handleApplyPreset}
                             currentPreset={currentPreset}
+                            onSaveCurrentAsPreset={handleSaveCurrentAsPreset}
                         />
                     </div>
 

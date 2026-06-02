@@ -137,7 +137,7 @@ export default function ASEAutoSaves() {
                         <div className="ml-auto flex-shrink-0 flex items-center pr-4">
                             <button
                                 onClick={() => setShowComparison(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 border border-indigo-500/20 rounded-xl transition-all duration-300 hover:scale-[1.02]"
+                                className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl transition-all duration-300 hover:scale-[1.02]"
                             >
                                 <GitCompare className="w-4 h-4" /> Compare Selected
                             </button>

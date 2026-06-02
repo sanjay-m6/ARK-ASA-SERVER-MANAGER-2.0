@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useAseConfigStore } from '../../stores/aseConfigStore';
 
@@ -25,6 +25,8 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     { tab: 'general', section: 'ServerSettings', type: 'toggle', key: 'RCONEnabled', label: 'Enable RCON', def: true },
     { tab: 'general', section: 'ServerSettings', type: 'number', key: 'RCONPort', label: 'RCON Port', def: 27020 },
     { tab: 'general', section: 'ServerSettings', type: 'toggle', key: 'BattlEyeEnforcer', label: 'BattlEye Anti-Cheat', desc: 'Requires client restart if changed', def: true },
+    { tab: 'general', section: 'MessageOfTheDay', type: 'textarea', key: 'Message', label: 'Message of the Day (MOTD)', desc: 'The message shown to players when they join the server', def: '' },
+    { tab: 'general', section: 'MessageOfTheDay', type: 'number', key: 'Duration', label: 'MOTD Duration (Secs)', desc: 'How long the message stays on screen', def: 20 },
 
     // RATES
     { tab: 'rates', section: 'ServerSettings', type: 'number', key: 'XPMultiplier', label: 'XP Multiplier', desc: 'Global experience gain rate', step: 0.1, def: 1.0 },
@@ -73,7 +75,7 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     { tab: 'breeding', section: '/Script/ShooterGame.ShooterGameMode', type: 'number', key: 'BabyCuddleLoseImprintQualitySpeedMultiplier', label: 'Imprint Quality Loss Speed', step: 0.1, def: 1.0 },
     { tab: 'breeding', section: 'ServerSettings', type: 'toggle', key: 'AllowAnyoneBabyImprintCuddle', label: 'Anyone Can Imprint', desc: 'Allow tribe members to imprint babies', def: false },
     { tab: 'breeding', section: '/Script/ShooterGame.ShooterGameMode', type: 'number', key: 'MutagenLevelBoost', label: 'Mutagen Level Boost (Wild)', def: 5 },
-    { tab: 'breeding', section: '/Script/ShooterGame.ShooterGameMode', type: 'number', key: 'MutagenLevelBoostBred', label: 'Mutagen Level Boost (Bred)', def: 1 },
+    { tab: 'breeding', section: '/Script/ShooterGame.ShooterGameMode', type: 'number', key: 'MutagenLevelBoost_Bred', label: 'Mutagen Level Boost (Bred)', def: 1 },
     { tab: 'breeding', section: '/Script/ShooterGame.ShooterGameMode', type: 'number', key: 'MaxImprintLimit', label: 'Max Imprint Limit', step: 0.1, def: 1.0 },
 
     // STRUCTURES
@@ -145,8 +147,6 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     // ADVANCED
     { tab: 'advanced', section: 'ServerSettings', type: 'toggle', key: 'DisableWeatherFog', label: 'Disable Fog', def: false },
     { tab: 'advanced', section: 'ServerSettings', type: 'number', key: 'AutoSavePeriodMinutes', label: 'Auto-Save Period (Mins)', step: 1.0, def: 15.0 },
-    { tab: 'advanced', section: 'MessageOfTheDay', type: 'text', key: 'Message', label: 'Message of the Day', desc: 'Shown to players when they join', def: '' },
-    { tab: 'advanced', section: 'MessageOfTheDay', type: 'number', key: 'Duration', label: 'MOTD Duration (Secs)', def: 20 },
     { tab: 'advanced', section: 'ServerSettings', type: 'select', key: 'ActiveEvent', label: 'Active Event', desc: 'Predefined holiday events', options: [
       { label: 'None', value: '' },
       { label: 'Easter', value: 'Easter' },
@@ -185,7 +185,11 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     const isTrue = value === 'True' || value === 'true' || value === '1';
     return (
       <Field label={field.label} description={field.desc}>
-        <button onClick={() => setVal(field.section, field.key, isTrue ? 'False' : 'True')} className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all ${isTrue ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-slate-800 text-slate-400 border border-white/10 hover:border-white/20'}`}>
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); setVal(field.section, field.key, isTrue ? 'False' : 'True'); }}
+          className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-all ${isTrue ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-slate-800 text-slate-400 border border-white/10 hover:border-white/20'}`}
+        >
           {isTrue ? 'Enabled' : 'Disabled'}
         </button>
       </Field>
@@ -210,6 +214,416 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     );
   };
 
+  const TextAreaInput = ({ field }: { field: any }) => {
+    const value = getVal(field.section, field.key, field.def);
+    const [customColor, setCustomColor] = useState('#e2a85c');
+    const [showGradientBuilder, setShowGradientBuilder] = useState(false);
+    const [gradientText, setGradientText] = useState('');
+    const [gradColor1, setGradColor1] = useState('#f59e0b');
+    const [gradColor2, setGradColor2] = useState('#3b82f6');
+    const [gradMode, setGradMode] = useState<'char' | 'word'>('char');
+
+    const hexToArkColor = (hex: string): string => {
+      const cleanHex = hex.replace(/^#/, '');
+      if (cleanHex.length !== 6) return '1,1,1,1';
+      const r = parseInt(cleanHex.substring(0, 2), 16) / 255;
+      const g = parseInt(cleanHex.substring(2, 4), 16) / 255;
+      const b = parseInt(cleanHex.substring(4, 6), 16) / 255;
+      return `${r.toFixed(3)},${g.toFixed(3)},${b.toFixed(3)},1`;
+    };
+
+    const interpolateHex = (color1: string, color2: string, ratio: number): string => {
+      const c1 = color1.replace('#', '');
+      const c2 = color2.replace('#', '');
+      const r1 = parseInt(c1.substring(0, 2), 16);
+      const g1 = parseInt(c1.substring(2, 4), 16);
+      const b1 = parseInt(c1.substring(4, 6), 16);
+      const r2 = parseInt(c2.substring(0, 2), 16);
+      const g2 = parseInt(c2.substring(2, 4), 16);
+      const b2 = parseInt(c2.substring(4, 6), 16);
+
+      const r = Math.round(r1 + (r2 - r1) * ratio);
+      const g = Math.round(g1 + (g2 - g1) * ratio);
+      const b = Math.round(b1 + (b2 - b1) * ratio);
+
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    };
+
+    const interpolateColors = (color1: string, color2: string, steps: number): string[] => {
+      const c1 = color1.replace('#', '');
+      const c2 = color2.replace('#', '');
+      const r1 = parseInt(c1.substring(0, 2), 16);
+      const g1 = parseInt(c1.substring(2, 4), 16);
+      const b1 = parseInt(c1.substring(4, 6), 16);
+      const r2 = parseInt(c2.substring(0, 2), 16);
+      const g2 = parseInt(c2.substring(2, 4), 16);
+      const b2 = parseInt(c2.substring(4, 6), 16);
+
+      const colors = [];
+      for (let i = 0; i < steps; i++) {
+        const ratio = steps > 1 ? i / (steps - 1) : 0.5;
+        const r = (r1 + (r2 - r1) * ratio) / 255;
+        const g = (g1 + (g2 - g1) * ratio) / 255;
+        const b = (b1 + (b2 - b1) * ratio) / 255;
+        colors.push(`${r.toFixed(3)},${g.toFixed(3)},${b.toFixed(3)},1`);
+      }
+      return colors;
+    };
+
+    const insertColorTag = (colorStr: string) => {
+      const textarea = document.getElementById(`textarea-${field.key}`) as HTMLTextAreaElement;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const currentText = String(value);
+      const selectedText = currentText.substring(start, end);
+
+      const replacement = `<RichColor Color="${colorStr}">${selectedText || 'Text'}</>`;
+      const newText = currentText.substring(0, start) + replacement + currentText.substring(end);
+      
+      setVal(field.section, field.key, newText);
+
+      setTimeout(() => {
+        textarea.focus();
+        const newCursorPos = start + `<RichColor Color="${colorStr}">`.length + (selectedText ? selectedText.length : 4);
+        textarea.setSelectionRange(
+          selectedText ? newCursorPos : start + `<RichColor Color="${colorStr}">`.length,
+          selectedText ? newCursorPos : start + `<RichColor Color="${colorStr}">`.length + 4
+        );
+      }, 50);
+    };
+
+    const insertNewline = () => {
+      const textarea = document.getElementById(`textarea-${field.key}`) as HTMLTextAreaElement;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const currentText = String(value);
+
+      const newText = currentText.substring(0, start) + '\\n' + currentText.substring(end);
+      setVal(field.section, field.key, newText);
+
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + 2, start + 2);
+      }, 50);
+    };
+
+    const generateGradientTags = (): string => {
+      if (!gradientText) return '';
+      
+      if (gradMode === 'char') {
+        const chars = Array.from(gradientText);
+        const colors = interpolateColors(gradColor1, gradColor2, chars.length);
+        return chars.map((char, i) => {
+          if (char === ' ') return ' ';
+          return `<RichColor Color="${colors[i]}">${char}</>`;
+        }).join('');
+      } else {
+        const words = gradientText.split(' ');
+        const colors = interpolateColors(gradColor1, gradColor2, words.length);
+        return words.map((word, i) => {
+          return `<RichColor Color="${colors[i]}">${word}</>`;
+        }).join(' ');
+      }
+    };
+
+    const insertGradientTag = () => {
+      const generated = generateGradientTags();
+      if (!generated) return;
+
+      const textarea = document.getElementById(`textarea-${field.key}`) as HTMLTextAreaElement;
+      if (!textarea) {
+        setVal(field.section, field.key, String(value) + generated);
+        return;
+      }
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const currentText = String(value);
+
+      const newText = currentText.substring(0, start) + generated + currentText.substring(end);
+      setVal(field.section, field.key, newText);
+      setShowGradientBuilder(false);
+
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + generated.length, start + generated.length);
+      }, 50);
+    };
+
+    const renderGradPreview = () => {
+      if (!gradientText) return null;
+      if (gradMode === 'char') {
+        const chars = Array.from(gradientText);
+        return chars.map((char, i) => {
+          const ratio = chars.length > 1 ? i / (chars.length - 1) : 0.5;
+          const style = { color: interpolateHex(gradColor1, gradColor2, ratio) };
+          return (
+            <span key={i} style={style}>
+              {char}
+            </span>
+          );
+        });
+      } else {
+        const words = gradientText.split(' ');
+        return words.map((word, i) => {
+          const ratio = words.length > 1 ? i / (words.length - 1) : 0.5;
+          const style = { color: interpolateHex(gradColor1, gradColor2, ratio) };
+          return (
+            <span key={i} style={style} className="mr-1">
+              {word}
+            </span>
+          );
+        });
+      }
+    };
+
+    const renderMotdPreview = (text: string) => {
+      if (!text) return <span className="text-slate-500 italic text-xs">No message entered yet.</span>;
+
+      const lines = text.split('\\n');
+
+      return lines.map((line, lineIdx) => {
+        const elements: React.ReactNode[] = [];
+        const regex = /<RichColor\s+Color="([^"]+)">([\s\S]*?)<\/>/gi;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = regex.exec(line)) !== null) {
+          const matchIndex = match.index;
+          if (matchIndex > lastIndex) {
+            elements.push(<span key={lastIndex}>{line.substring(lastIndex, matchIndex)}</span>);
+          }
+
+          const colorParts = match[1].split(',').map(c => parseFloat(c.trim()));
+          const textVal = match[2];
+
+          if (colorParts.length >= 3) {
+            const r = Math.round((colorParts[0] || 0) * 255);
+            const g = Math.round((colorParts[1] || 0) * 255);
+            const b = Math.round((colorParts[2] || 0) * 255);
+            const a = colorParts[3] !== undefined ? colorParts[3] : 1;
+            const style = { color: `rgba(${r}, ${g}, ${b}, ${a})` };
+
+            elements.push(
+              <span key={matchIndex} style={style} className="font-bold">
+                {textVal}
+              </span>
+            );
+          } else {
+            elements.push(<span key={matchIndex}>{match[0]}</span>);
+          }
+
+          lastIndex = regex.lastIndex;
+        }
+
+        if (lastIndex < line.length) {
+          elements.push(<span key={lastIndex}>{line.substring(lastIndex)}</span>);
+        }
+
+        return (
+          <div key={lineIdx} className="min-h-[1.2em]">
+            {elements.length > 0 ? elements : <span className="opacity-0">.</span>}
+          </div>
+        );
+      });
+    };
+
+    return (
+      <Field label={field.label} description={field.desc}>
+        <div className="w-full flex flex-col gap-2">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center gap-2 bg-slate-900/60 p-2 rounded-t-xl border border-white/5 border-b-0">
+            <span className="text-[10px] uppercase font-bold text-slate-500 select-none mr-1">Colors:</span>
+            {[
+              { name: 'Red', color: '1,0,0,1', bg: 'bg-red-500' },
+              { name: 'Green', color: '0,1,0,1', bg: 'bg-emerald-500' },
+              { name: 'Blue', color: '0,0.5,1,1', bg: 'bg-blue-500' },
+              { name: 'Yellow', color: '1,1,0,1', bg: 'bg-amber-400' },
+              { name: 'Orange', color: '1,0.65,0,1', bg: 'bg-orange-500' },
+              { name: 'Cyan', color: '0,1,1,1', bg: 'bg-cyan-400' },
+              { name: 'White', color: '1,1,1,1', bg: 'bg-white' },
+            ].map(c => (
+              <button
+                key={c.name}
+                type="button"
+                onClick={() => insertColorTag(c.color)}
+                className={`w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm ${c.bg}`}
+                title={`Format selection to ${c.name}`}
+              />
+            ))}
+
+            {/* Custom Color Picker */}
+            <label
+              className="w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm cursor-pointer flex items-center justify-center relative"
+              style={{ background: 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)' }}
+              title="Choose custom color"
+            >
+              <input
+                type="color"
+                value={customColor}
+                onChange={(e) => {
+                  const arkColor = hexToArkColor(e.target.value);
+                  insertColorTag(arkColor);
+                  setCustomColor(e.target.value);
+                }}
+                className="sr-only opacity-0 absolute w-0 h-0 cursor-pointer"
+              />
+            </label>
+
+            <div className="h-4 w-px bg-slate-800 mx-1" />
+
+            <button
+              type="button"
+              onClick={insertNewline}
+              className="px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-350 hover:text-white border border-white/5 text-[10px] font-bold transition-colors"
+              title="Insert literal newline \n tag"
+            >
+              + New Line (\n)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const textarea = document.getElementById(`textarea-${field.key}`) as HTMLTextAreaElement;
+                if (textarea) {
+                  const selected = String(value).substring(textarea.selectionStart, textarea.selectionEnd);
+                  if (selected) {
+                    setGradientText(selected);
+                  }
+                }
+                setShowGradientBuilder(!showGradientBuilder);
+              }}
+              className={`px-2.5 py-0.5 rounded text-[10px] font-bold border transition-colors ${showGradientBuilder ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border-white/5'}`}
+              title="Create beautiful multi-color gradient text"
+            >
+              🎨 Gradient Builder
+            </button>
+          </div>
+
+          {/* Gradient Builder Panel */}
+          {showGradientBuilder && (
+            <div className="flex flex-col gap-3 bg-slate-900/40 p-3 rounded-lg border border-white/5 mb-2 text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-400">Multi-Color Gradient Builder</span>
+                <span className="text-[10px] text-slate-500">Generates ArkML color codes dynamically</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Input Text */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Text to Colorize</label>
+                  <input
+                    type="text"
+                    value={gradientText}
+                    onChange={e => setGradientText(e.target.value)}
+                    placeholder="Enter text to make gradient..."
+                    className="px-3 py-1.5 bg-slate-950/60 border border-white/10 rounded-lg text-xs text-white focus:outline-none focus:border-amber-500/40"
+                  />
+                </div>
+
+                {/* Mode & Colors */}
+                <div className="flex items-end gap-3">
+                  {/* Colors */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Colors (Start → End)</label>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <label className="w-8 h-8 rounded-lg border border-white/10 hover:border-white/20 transition-all shadow-sm cursor-pointer flex items-center justify-center border-dashed" style={{ backgroundColor: gradColor1 }}>
+                          <input type="color" value={gradColor1} onChange={e => setGradColor1(e.target.value)} className="sr-only opacity-0 absolute w-0 h-0" />
+                        </label>
+                      </div>
+                      <span className="text-slate-500 text-xs">→</span>
+                      <div className="relative">
+                        <label className="w-8 h-8 rounded-lg border border-white/10 hover:border-white/20 transition-all shadow-sm cursor-pointer flex items-center justify-center border-dashed" style={{ backgroundColor: gradColor2 }}>
+                          <input type="color" value={gradColor2} onChange={e => setGradColor2(e.target.value)} className="sr-only opacity-0 absolute w-0 h-0" />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mode Toggle */}
+                  <div className="flex flex-col gap-1 flex-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Spread Mode</label>
+                    <div className="flex rounded-lg overflow-hidden border border-white/10 bg-slate-950/60 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setGradMode('char')}
+                        className={`flex-1 py-1 text-[10px] font-bold rounded transition-all ${gradMode === 'char' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        Smooth (Letter)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGradMode('word')}
+                        className={`flex-1 py-1 text-[10px] font-bold rounded transition-all ${gradMode === 'word' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'text-slate-400 hover:text-white'}`}
+                      >
+                        Bold (Word)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dynamic Preview */}
+              {gradientText && (
+                <div className="flex flex-col gap-1 bg-slate-950/30 p-2.5 rounded-lg border border-white/5">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase">Live Builder Preview</span>
+                  <div className="text-sm font-semibold tracking-wide flex flex-wrap select-none">
+                    {renderGradPreview()}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowGradientBuilder(false)}
+                  className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-350 text-xs font-medium transition-colors border border-white/5"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!gradientText}
+                  onClick={insertGradientTag}
+                  className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-amber-500/20"
+                >
+                  Insert Gradient
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Text Area */}
+          <textarea
+            id={`textarea-${field.key}`}
+            value={String(value)}
+            onChange={e => setVal(field.section, field.key, e.target.value)}
+            placeholder={field.desc || 'Enter server welcome message...'}
+            rows={4}
+            className="w-full px-3 py-2 bg-slate-850/50 border border-white/10 rounded-b-xl text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors resize-y min-h-[90px]"
+          />
+
+          {/* Real-time Game Preview */}
+          <div className="mt-1 flex flex-col gap-1.5 bg-slate-950/40 border border-white/5 rounded-2xl p-4">
+            <div className="text-[10px] uppercase font-black text-slate-500 tracking-wider flex items-center justify-between">
+              <span>In-Game Broadcast Preview</span>
+              <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">Real-Time</span>
+            </div>
+            <div className="text-sm font-semibold tracking-wide leading-relaxed p-2.5 rounded-xl bg-black/30 border border-slate-900/60 font-sans break-words select-none max-h-[150px] overflow-y-auto custom-scrollbar text-left">
+              {renderMotdPreview(String(value))}
+            </div>
+          </div>
+        </div>
+      </Field>
+    );
+  };
+
   const SelectInput = ({ field }: { field: any }) => {
     const value = getVal(field.section, field.key, field.def);
     return (
@@ -226,6 +640,7 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
 
   const renderField = (field: any) => {
     if (field.type === 'text') return <TextInput key={`${field.section}-${field.key}`} field={field} />;
+    if (field.type === 'textarea') return <TextAreaInput key={`${field.section}-${field.key}`} field={field} />;
     if (field.type === 'number') return <NumberInput key={`${field.section}-${field.key}`} field={field} />;
     if (field.type === 'toggle') return <Toggle key={`${field.section}-${field.key}`} field={field} />;
     if (field.type === 'select') return <SelectInput key={`${field.section}-${field.key}`} field={field} />;

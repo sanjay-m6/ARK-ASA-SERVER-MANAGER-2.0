@@ -669,7 +669,7 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 key: 'ShowFloatingDamageText',
                 label: 'Floating Damage Text',
                 type: 'boolean',
-                defaultValue: 'True',
+                defaultValue: 'False',
                 description: 'Show damage numbers'
             }
         ]
@@ -1399,11 +1399,19 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
             },
             {
                 section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bAllowSpeedLeveling',
+                label: 'Allow Speed Leveling',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Allow leveling movement speed for players and land dinos (ASA/ASE)'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
                 key: 'bAllowFlyerSpeedLeveling',
                 label: 'Allow Flyer Speed Leveling',
                 type: 'boolean',
                 defaultValue: 'False',
-                description: 'Allow leveling movement speed on flyers (ASE only)'
+                description: 'Allow leveling movement speed on flyers (ASA/ASE)'
             },
             {
                 section: '/Script/ShooterGame.ShooterGameMode',
@@ -1770,6 +1778,19 @@ export function getGroupsByCategory(category: string) {
     ];
 }
 
+// Helper to check if a key belongs to a textarea field
+export function isTextareaField(key: string): boolean {
+    const allGroups = [...GAME_USER_SETTINGS_SCHEMA, ...GAME_INI_SCHEMA];
+    for (const group of allGroups) {
+        for (const field of group.fields) {
+            if (field.key === key && field.type === 'textarea') {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 // Helper to get all categories with their groups
 export function getAllCategories(): { category: string; info: typeof CATEGORY_INFO[string]; groups: ConfigGroup[] }[] {
     return Object.entries(CATEGORY_INFO).map(([category, info]) => ({
@@ -1800,12 +1821,18 @@ export function parseIniContent(content: string): Map<string, Map<string, string
 
             const sectionMap = sections.get(currentSection);
             if (sectionMap) {
+                // If it is a textarea field, unescape literal \n to real newlines
+                let finalValue = cleanValue;
+                if (isTextareaField(cleanKey)) {
+                    finalValue = cleanValue.replace(/\\n/g, '\n');
+                }
+
                 if (sectionMap.has(cleanKey)) {
                     // Key already exists, this is a duplicate (multiline)
                     const existingValue = sectionMap.get(cleanKey);
-                    sectionMap.set(cleanKey, existingValue + '\n' + cleanValue);
+                    sectionMap.set(cleanKey, existingValue + '\n' + finalValue);
                 } else {
-                    sectionMap.set(cleanKey, cleanValue);
+                    sectionMap.set(cleanKey, finalValue);
                 }
             }
         }
@@ -1822,7 +1849,11 @@ export function generateIniContent(sections: Map<string, Map<string, string>>): 
     for (const [section, values] of sections) {
         content += `[${section}]\n`;
         for (const [key, value] of values) {
-            if (value.includes('\n')) {
+            if (isTextareaField(key)) {
+                // For textarea fields, escape real newlines to literal \n and write as a single line
+                const escapedValue = value.replace(/\n/g, '\\n');
+                content += `${key}=${escapedValue}\n`;
+            } else if (value.includes('\n')) {
                 // Handle multiline values as duplicates
                 const parts = value.split('\n');
                 for (const part of parts) {

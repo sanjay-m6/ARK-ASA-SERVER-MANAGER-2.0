@@ -98,7 +98,7 @@ impl ServerInstaller {
     }
 
     /// Install ARK server via SteamCMD (ASA or ASE)
-    pub async fn install_server(&self, install_path: &PathBuf, server_type: &str) -> Result<(), String> {
+    pub async fn install_server(&self, install_path: &PathBuf, server_type: &str, branch: Option<String>) -> Result<(), String> {
         self.emit_progress("preparing", 5.0, "Preparing installation...");
         self.emit_console(
             &format!("Starting ARK: Survival {} server installation...", if server_type == "ASE" { "Evolved" } else { "Ascended" }),
@@ -120,6 +120,15 @@ impl ServerInstaller {
         } else {
             ("ArkAscendedServer.exe", "2430930")
         };
+
+        // Bypass SteamCMD Stale Update Cache for ASA
+        if server_type != "ASE" {
+            let manifest_to_delete = install_path.join("steamapps").join("appmanifest_2430930.acf");
+            if manifest_to_delete.exists() {
+                self.emit_console("  🗑️ [ASA-FIX] Stale appmanifest_2430930.acf detected. Deleting to bypass SteamCMD update/cache loop...", "warning");
+                let _ = std::fs::remove_file(&manifest_to_delete);
+            }
+        }
 
         // Check if server is already installed
         let server_exe = install_path
@@ -209,17 +218,28 @@ impl ServerInstaller {
         self.emit_console("", "info");
 
         // Build the SteamCMD command
+        let mut steamcmd_args = vec![
+            "+force_install_dir".to_string(),
+            install_path.to_string_lossy().to_string(),
+            "+login".to_string(),
+            "anonymous".to_string(),
+            "+app_update".to_string(),
+            app_id.to_string(),
+        ];
+
+        if let Some(b) = &branch {
+            let b_trimmed = b.trim();
+            if !b_trimmed.is_empty() && b_trimmed != "default" {
+                steamcmd_args.push("-beta".to_string());
+                steamcmd_args.push(b_trimmed.to_string());
+            }
+        }
+
+        steamcmd_args.push("validate".to_string());
+        steamcmd_args.push("+quit".to_string());
+
         let mut child = Command::new(&steamcmd_exe)
-            .args([
-                "+force_install_dir",
-                &install_path.to_string_lossy(),
-                "+login",
-                "anonymous",
-                "+app_update",
-                app_id,
-                "validate",
-                "+quit",
-            ])
+            .args(&steamcmd_args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .creation_flags(0x08000000) // CREATE_NO_WINDOW
@@ -383,6 +403,6 @@ impl ServerInstaller {
         self.emit_console("Starting server update process...", "info");
 
         // Use the same installation logic - SteamCMD handles updates
-        self.install_server(install_path, server_type).await
+        self.install_server(install_path, server_type, None).await
     }
 }

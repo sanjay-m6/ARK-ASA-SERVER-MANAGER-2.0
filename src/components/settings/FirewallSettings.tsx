@@ -55,7 +55,7 @@ function StatusBadge({ status }: { status: 'open' | 'closed' | 'unknown' }) {
     );
 }
 
-export default function FirewallSettings() {
+export default function FirewallSettings({ mode = 'asa' }: { mode?: 'asa' | 'ase' }) {
     const { t } = useTranslation();
     const [servers, setServers] = useState<ServerFirewallStatus[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -71,7 +71,7 @@ export default function FirewallSettings() {
     const loadFirewallStatus = async () => {
         setIsLoading(true);
         try {
-            const status = await invoke<ServerFirewallStatus[]>('get_all_servers_firewall_status');
+            const status = await invoke<ServerFirewallStatus[]>(mode === 'ase' ? 'get_all_ase_servers_firewall_status' : 'get_all_servers_firewall_status');
             setServers(status);
         } catch (error) {
             console.error('Failed to load firewall status:', error);
@@ -88,7 +88,7 @@ export default function FirewallSettings() {
     const handleAssignPorts = async (serverId: number) => {
         setIsAssigning(serverId);
         try {
-            const result = await invoke<FirewallOperationResult>('create_firewall_rules', { serverId });
+            const result = await invoke<FirewallOperationResult>(mode === 'ase' ? 'create_ase_firewall_rules' : 'create_firewall_rules', { serverId });
 
             if (result.requiresAdmin) {
                 toast.error(result.message, { duration: 5000 });
@@ -109,7 +109,7 @@ export default function FirewallSettings() {
     const handleAssignAllPorts = async () => {
         setIsAssigning('all');
         try {
-            const result = await invoke<FirewallOperationResult>('create_all_firewall_rules');
+            const result = await invoke<FirewallOperationResult>(mode === 'ase' ? 'create_all_ase_firewall_rules' : 'create_all_firewall_rules');
 
             if (result.requiresAdmin) {
                 toast.error(result.message, { duration: 5000 });
@@ -130,7 +130,7 @@ export default function FirewallSettings() {
     const handleRemovePorts = async (serverId: number) => {
         setIsAssigning(serverId);
         try {
-            const result = await invoke<FirewallOperationResult>('remove_firewall_rules', { serverId });
+            const result = await invoke<FirewallOperationResult>(mode === 'ase' ? 'remove_ase_firewall_rules' : 'remove_firewall_rules', { serverId });
 
             if (result.requiresAdmin) {
                 toast.error(result.message, { duration: 5000 });
@@ -249,7 +249,9 @@ export default function FirewallSettings() {
                         <div>
                             <h2 className="text-2xl font-bold text-white">{t('settings.firewallAutomation.title', 'Firewall Automation')}</h2>
                             <p className="text-slate-400 mt-1">
-                                {t('settings.firewallAutomation.description', 'Manage Windows Defender Firewall rules for your ARK: Survival Ascended servers.')}
+                                {mode === 'ase'
+                                    ? t('settings.firewallAutomation.descriptionEvolved', 'Manage Windows Defender Firewall rules for your ARK: Survival Evolved servers.')
+                                    : t('settings.firewallAutomation.description', 'Manage Windows Defender Firewall rules for your ARK: Survival Ascended servers.')}
                             </p>
                         </div>
                     </div>

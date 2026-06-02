@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, Eye, EyeOff, CheckCircle, XCircle, Loader2, ChevronDown, BookOpen, ExternalLink, Copy, Shield, Hash, Server as ServerIcon } from 'lucide-react';
 import { cn } from '../../../utils/helpers';
 import {
@@ -47,20 +47,23 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
     const [connectionMessage, setConnectionMessage] = useState('');
     const [showGuide, setShowGuide] = useState(false);
 
-    const loadConfig = useCallback(async () => {
-        try {
-            const existingConfig = await getAseDiscordBridgeConfig(clusterId);
-            if (existingConfig) {
-                setConfig(existingConfig);
-            }
-        } catch (error) {
-            console.error('Failed to load Discord config:', error);
-        }
-    }, [clusterId]);
-
     useEffect(() => {
-        loadConfig();
-    }, [loadConfig]);
+        let active = true;
+        const fetchConfig = async () => {
+            try {
+                const existingConfig = await getAseDiscordBridgeConfig(clusterId);
+                if (existingConfig && active) {
+                    setConfig(existingConfig);
+                }
+            } catch (error) {
+                console.error('Failed to load Discord config:', error);
+            }
+        };
+        fetchConfig();
+        return () => {
+            active = false;
+        };
+    }, [clusterId]);
 
     const handleTestConnection = async () => {
         if (!config.bot_token || !config.channel_id) {
@@ -102,17 +105,17 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
     };
 
     return (
-        <div className="bg-slate-900/50 rounded-xl border border-violet-500/30 p-6 space-y-6">
+        <div className="bg-slate-900/50 rounded-xl border border-amber-500/30 p-6 space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-indigo-500/10 rounded-lg">
-                        <Settings className="w-5 h-5 text-indigo-400" />
+                    <div className="p-2 bg-amber-500/10 rounded-lg">
+                        <Settings className="w-5 h-5 text-amber-400" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
                             <h3 className="text-lg font-medium text-white">{t('discord.title')}</h3>
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                 {t('discord.native')}
                             </span>
                         </div>
@@ -137,7 +140,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                             onChange={(e) => setConfig({ ...config, enabled: e.target.checked })}
                             className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-amber-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
                     </label>
                 </div>
             </div>
@@ -149,7 +152,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                     className="w-full flex items-center justify-between p-4 bg-slate-800/30 hover:bg-slate-800/50 transition-colors text-left"
                 >
                     <div className="flex items-center gap-3">
-                        <BookOpen className="w-4 h-4 text-indigo-400" />
+                        <BookOpen className="w-4 h-4 text-amber-400" />
                         <span className="text-sm font-medium text-slate-200">{t('discord.setupGuideTitle')}</span>
                     </div>
                     <ChevronDown className={cn(
@@ -163,14 +166,14 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
 
                         {/* Step 1 */}
                         <div className="flex gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">{t('discord.step1')}</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">{t('discord.step1')}</div>
                             <div className="space-y-1.5">
                                 <p className="text-sm font-medium text-white">{t('discord.step1Title')}</p>
                                 <p className="text-xs text-slate-400">
                                     <Trans
                                         i18nKey="discord.step1Desc"
                                         components={{
-                                            1: <span onClick={() => openUrl('https://discord.com/developers/applications')} className="text-indigo-400 hover:text-indigo-300 cursor-pointer inline-flex items-center gap-1">Discord Developer Portal <ExternalLink className="w-3 h-3" /></span>,
+                                            1: <span onClick={() => openUrl('https://discord.com/developers/applications')} className="text-amber-400 hover:text-amber-300 cursor-pointer inline-flex items-center gap-1">Discord Developer Portal <ExternalLink className="w-3 h-3" /></span>,
                                             2: <span className="text-white font-medium" />
                                         }}
                                     />
@@ -180,9 +183,9 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
 
                         {/* Step 2 */}
                         <div className="flex gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">{t('discord.step2')}</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">{t('discord.step2')}</div>
                             <div className="space-y-1.5">
-                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Copy className="w-3.5 h-3.5 text-indigo-400" /> {t('discord.step2Title')}</p>
+                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Copy className="w-3.5 h-3.5 text-amber-400" /> {t('discord.step2Title')}</p>
                                 <p className="text-xs text-slate-400">
                                     <Trans
                                         i18nKey="discord.step2Desc"
@@ -201,9 +204,9 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
 
                         {/* Step 3 */}
                         <div className="flex gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">{t('discord.step3')}</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">{t('discord.step3')}</div>
                             <div className="space-y-1.5">
-                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-indigo-400" /> {t('discord.step3Title')}</p>
+                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-amber-400" /> {t('discord.step3Title')}</p>
                                 <p className="text-xs text-slate-400">
                                     <Trans
                                         i18nKey="discord.step3Desc"
@@ -214,22 +217,22 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                                     />
                                 </p>
                                 <div className="flex flex-wrap gap-2 pt-1">
-                                    <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-300 text-[11px] rounded border border-indigo-500/20">{t('discord.step3Intents1')}</span>
-                                    <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-300 text-[11px] rounded border border-indigo-500/20">{t('discord.step3Intents2')}</span>
+                                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-300 text-[11px] rounded border border-amber-500/20">{t('discord.step3Intents1')}</span>
+                                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-300 text-[11px] rounded border border-amber-500/20">{t('discord.step3Intents2')}</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Step 4 */}
                         <div className="flex gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">{t('discord.step4')}</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">{t('discord.step4')}</div>
                             <div className="space-y-1.5">
-                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><ServerIcon className="w-3.5 h-3.5 text-indigo-400" /> {t('discord.step4Title')}</p>
+                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><ServerIcon className="w-3.5 h-3.5 text-amber-400" /> {t('discord.step4Title')}</p>
                                 <p className="text-xs text-slate-400">
                                     <Trans i18nKey="discord.step4Desc" components={{ 1: <span className="text-white font-medium" /> }} />
                                 </p>
                                 <div className="space-y-1.5 text-xs text-slate-400">
-                                    <p><Trans i18nKey="discord.step4Scopes" components={{ 1: <span className="text-white" />, 2: <span className="text-indigo-300" /> }} /></p>
+                                    <p><Trans i18nKey="discord.step4Scopes" components={{ 1: <span className="text-white" />, 2: <span className="text-amber-300" /> }} /></p>
                                     <p><Trans i18nKey="discord.step4Perms" components={{ 1: <span className="text-white" /> }} /></p>
                                     <div className="flex flex-wrap gap-1.5 pl-3 pt-0.5">
                                         {(t('discord.step4PermsList', { returnObjects: true }) as unknown as string).split('\n').map((item, i) => (
@@ -243,15 +246,15 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
 
                         {/* Step 5 */}
                         <div className="flex gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs font-bold">{t('discord.step5')}</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs font-bold">{t('discord.step5')}</div>
                             <div className="space-y-1.5">
-                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Hash className="w-3.5 h-3.5 text-indigo-400" /> {t('discord.step5Title')}</p>
+                                <p className="text-sm font-medium text-white flex items-center gap-1.5"><Hash className="w-3.5 h-3.5 text-amber-400" /> {t('discord.step5Title')}</p>
                                 <p className="text-xs text-slate-400">
                                     <Trans i18nKey="discord.step5Desc" components={{ 1: <span className="text-white font-medium" /> }} />
                                 </p>
                                 <div className="space-y-1 text-xs text-slate-400">
-                                    <p><Trans i18nKey="discord.step5ServerId" components={{ 1: <span className="text-white" />, 2: <span className="text-indigo-300" /> }} /></p>
-                                    <p><Trans i18nKey="discord.step5ChannelId" components={{ 1: <span className="text-white" />, 2: <span className="text-indigo-300" /> }} /></p>
+                                    <p><Trans i18nKey="discord.step5ServerId" components={{ 1: <span className="text-white" />, 2: <span className="text-amber-300" /> }} /></p>
+                                    <p><Trans i18nKey="discord.step5ChannelId" components={{ 1: <span className="text-white" />, 2: <span className="text-amber-300" /> }} /></p>
                                 </div>
                             </div>
                         </div>
@@ -280,7 +283,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                             onMouseDown={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
                             placeholder="Enter your Discord bot token"
-                            className="w-full px-4 py-2.5 pr-12 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent select-text cursor-text"
+                            className="w-full px-4 py-2.5 pr-12 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent select-text cursor-text"
                         />
                         <button
                             type="button"
@@ -291,7 +294,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                         </button>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                        <Trans i18nKey="discord.createBotLink" components={{ 1: <span onClick={() => openUrl('https://discord.com/developers/applications')} className="text-violet-400 hover:underline cursor-pointer" /> }} defaults="Create a bot at <1>Discord Developer Portal</1>" />
+                        <Trans i18nKey="discord.createBotLink" components={{ 1: <span onClick={() => openUrl('https://discord.com/developers/applications')} className="text-amber-400 hover:underline cursor-pointer" /> }} defaults="Create a bot at <1>Discord Developer Portal</1>" />
                     </p>
                 </div>
 
@@ -307,7 +310,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                         onMouseDown={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
                         placeholder="e.g., 123456789012345678"
-                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent select-text cursor-text"
+                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent select-text cursor-text"
                     />
                 </div>
 
@@ -323,7 +326,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                         onMouseDown={(e) => e.stopPropagation()}
                         onKeyDown={(e) => e.stopPropagation()}
                         placeholder="e.g., 987654321098765432"
-                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent select-text cursor-text"
+                        className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent select-text cursor-text"
                     />
                 </div>
 
@@ -362,7 +365,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                     <div className={cn(
                         "w-5 h-5 rounded border flex items-center justify-center transition-colors",
                         config.game_to_discord
-                            ? "bg-violet-600 border-violet-500"
+                            ? "bg-amber-500 border-amber-500"
                             : "bg-slate-800 border-slate-600 group-hover:border-slate-500"
                     )}>
                         {config.game_to_discord && <CheckCircle className="w-3.5 h-3.5 text-white" />}
@@ -382,7 +385,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                     <div className={cn(
                         "w-5 h-5 rounded border flex items-center justify-center transition-colors",
                         config.discord_to_game
-                            ? "bg-violet-600 border-violet-500"
+                            ? "bg-amber-500 border-amber-500"
                             : "bg-slate-800 border-slate-600 group-hover:border-slate-500"
                     )}>
                         {config.discord_to_game && <CheckCircle className="w-3.5 h-3.5 text-white" />}
@@ -409,7 +412,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                         />
                         <div className={cn(
                             "w-9 h-5 rounded-full transition-colors relative",
-                            config.server_list_enabled ? "bg-violet-600" : "bg-slate-700"
+                            config.server_list_enabled ? "bg-amber-500" : "bg-slate-700"
                         )}>
                             <div className={cn(
                                 "absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform",
@@ -432,7 +435,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => e.stopPropagation()}
                                 placeholder="Channel ID for Status Panel (can be same as chat)"
-                                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 select-text cursor-text"
+                                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 select-text cursor-text"
                             />
                         </div>
                         <div className="md:col-span-2">
@@ -476,7 +479,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                         />
                         <div className={cn(
                             "w-9 h-5 rounded-full transition-colors relative",
-                            config.player_list_enabled ? "bg-violet-600" : "bg-slate-700"
+                            config.player_list_enabled ? "bg-amber-500" : "bg-slate-700"
                         )}>
                             <div className={cn(
                                 "absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform",
@@ -499,7 +502,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => e.stopPropagation()}
                                 placeholder="Channel ID for Player List"
-                                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 select-text cursor-text"
+                                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 select-text cursor-text"
                             />
                         </div>
 
@@ -510,11 +513,10 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                                     type="checkbox"
                                     checked={config.show_tribe_names}
                                     onChange={(e) => setConfig({ ...config, show_tribe_names: e.target.checked })}
-                                    className="rounded border-slate-700 bg-slate-800 text-violet-600 focus:ring-violet-500"
+                                    className="rounded border-slate-700 bg-slate-800 text-amber-550 focus:ring-amber-500"
                                 />
                                 <span className="text-xs text-slate-300">{t('discord.showTribes')}</span>
                             </label>
-                            {/* Playtime toggle not implemented in backend yet fully but UI can have it */}
                         </div>
 
                         <div className="">
@@ -574,7 +576,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                         }
                     }}
                     disabled={!config.bot_token}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-indigo-500/20"
+                    className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-amber-500/20"
                 >
                     <ExternalLink className="w-4 h-4" />
                     <span>{t('discord.generateInvite')}</span>
@@ -594,7 +596,7 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
                 <button
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="flex items-center gap-2 px-5 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg font-semibold transition-colors disabled:opacity-50"
                 >
                     {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                     <span>{t('common.saveSettings', 'Save Settings')}</span>
@@ -603,4 +605,3 @@ export default function ASEDiscordBridgeSettings({ clusterId, clusterName }: Dis
         </div>
     );
 }
-

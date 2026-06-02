@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 import { useServerStore } from '../../stores/serverStore';
 import { cn } from '../../utils/helpers';
@@ -21,20 +22,115 @@ export default function ServerSelect({
     const { servers: storeServers } = useServerStore();
     const displayServers = customServers || storeServers;
     const [isOpen, setIsOpen] = useState(false);
+    const [highlightedIndex, setHighlightedIndex] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const listRef = useRef<HTMLDivElement>(null);
+    const [coords, setCoords] = useState<{ top: number; left: number; width: number; direction: 'up' | 'down' }>({
+        top: 0,
+        left: 0,
+        width: 0,
+        direction: 'down'
+    });
 
     const currentServer = displayServers.find(s => s.id === value);
+
+    const updateCoords = () => {
+        if (buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            // Est. height of dropdown: padding + items * height
+            const dropdownHeight = Math.min(300, (displayServers.length * 40) + 12);
+            const spaceBelow = viewportHeight - rect.bottom;
+            const spaceAbove = rect.top;
+
+            let direction: 'up' | 'down' = 'down';
+            if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+                direction = 'up';
+            }
+
+            setCoords({
+                top: direction === 'down' ? rect.bottom + window.scrollY : rect.top + window.scrollY - dropdownHeight - 8,
+                left: rect.left + window.scrollX,
+                width: rect.width,
+                direction
+            });
+        }
+    };
 
     // Close dropdown on click outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+            if (
+                containerRef.current && 
+                !containerRef.current.contains(event.target as Node) &&
+                listRef.current &&
+                !listRef.current.contains(event.target as Node)
+            ) {
                 setIsOpen(false);
             }
         }
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    // Calculate coordinates when open
+    useEffect(() => {
+        if (isOpen) {
+            updateCoords();
+            window.addEventListener('resize', updateCoords);
+            window.addEventListener('scroll', updateCoords, true);
+        }
+        return () => {
+            window.removeEventListener('resize', updateCoords);
+            window.removeEventListener('scroll', updateCoords, true);
+        };
+    }, [isOpen, displayServers.length]);
+
+    // Track highlighted index & keyboard navigation
+    useEffect(() => {
+        if (isOpen) {
+            const selectedIdx = displayServers.findIndex(s => s.id === value);
+            setHighlightedIndex(selectedIdx >= 0 ? selectedIdx : 0);
+        }
+    }, [isOpen, value, displayServers]);
+
+    // Scroll highlighted item into view
+    useEffect(() => {
+        if (isOpen && listRef.current && highlightedIndex >= 0) {
+            const activeElement = listRef.current.children[highlightedIndex] as HTMLElement;
+            if (activeElement) {
+                activeElement.scrollIntoView({ block: 'nearest' });
+            }
+        }
+    }, [highlightedIndex, isOpen]);
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (!isOpen) {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsOpen(true);
+            }
+            return;
+        }
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev + 1) % displayServers.length);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex(prev => (prev - 1 + displayServers.length) % displayServers.length);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (displayServers[highlightedIndex]) {
+                onChange(displayServers[highlightedIndex].id);
+                setIsOpen(false);
+            }
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setIsOpen(false);
+        }
+    };
 
     // Color theme mapping
     const themeStyles = {
@@ -77,8 +173,10 @@ export default function ServerSelect({
     return (
         <div ref={containerRef} className={cn("relative flex-shrink-0", className)}>
             <button
+                ref={buttonRef}
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
+                onKeyDown={handleKeyDown}
                 className={cn(
                     "flex items-center justify-between gap-3 px-5 py-2.5 bg-[#0A0F1C]/80 border border-white/5 rounded-2xl text-xs font-black uppercase tracking-wider text-slate-300 hover:text-white focus:outline-none focus:ring-2 backdrop-blur-xl h-[42px] transition-all duration-300 min-w-[170px] cursor-pointer shadow-lg shadow-black/10 select-none",
                     activeTheme.border
@@ -88,10 +186,24 @@ export default function ServerSelect({
                 <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-300 flex-shrink-0", isOpen && "rotate-180")} />
             </button>
 
-            {isOpen && (
-                <div className="absolute left-0 mt-2 w-56 bg-slate-950 border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 p-1.5">
-                    {displayServers.map(server => {
+            {isOpen && createPortal(
+                <div 
+                    ref={listRef}
+                    style={{
+                        position: 'absolute',
+                        top: coords.top,
+                        left: coords.left,
+                        width: coords.width,
+                        zIndex: 9999,
+                    }}
+                    className={cn(
+                        "bg-slate-950/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl p-1.5 overflow-y-auto max-h-[300px] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent select-none transition-all duration-200 animate-in fade-in",
+                        coords.direction === 'up' ? "slide-in-from-bottom-2" : "slide-in-from-top-2"
+                    )}
+                >
+                    {displayServers.map((server, idx) => {
                         const isSelected = server.id === value;
+                        const isHighlighted = idx === highlightedIndex;
                         return (
                             <button
                                 type="button"
@@ -100,11 +212,14 @@ export default function ServerSelect({
                                     onChange(server.id);
                                     setIsOpen(false);
                                 }}
+                                onMouseEnter={() => setHighlightedIndex(idx)}
                                 className={cn(
                                     "w-full text-left px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-between cursor-pointer select-none",
                                     isSelected 
                                         ? activeTheme.active
-                                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                                        : isHighlighted
+                                            ? "text-slate-200 bg-white/5"
+                                            : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                                 )}
                             >
                                 <span className="truncate mr-2">{server.name}</span>
@@ -112,7 +227,8 @@ export default function ServerSelect({
                             </button>
                         );
                     })}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

@@ -53,7 +53,7 @@ fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
     // BUG A FIX: Added -ErrorAction SilentlyContinue because Get-NetFirewallRule
     // throws a terminating ObjectNotFound error when ZERO rules match the wildcard,
     // which caused all ports to show as "Unassigned".
-    let script = "Get-NetFirewallRule -DisplayName 'ARK Server*' -Enabled True -Direction Inbound -Action Allow -ErrorAction SilentlyContinue | Get-NetFirewallPortFilter | Select-Object LocalPort, Protocol | ConvertTo-Json -Compress";
+    let script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-NetFirewallRule -DisplayName 'ARK Server*' -Enabled True -Direction Inbound -Action Allow -ErrorAction SilentlyContinue | Get-NetFirewallPortFilter | Select-Object LocalPort, Protocol | ConvertTo-Json -Compress";
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
@@ -232,7 +232,7 @@ fn check_port_rule_exists(port: u16, protocol: &str) -> PortStatus {
     // Re-use the batch fetch for consistency, or keep independent if needed.
     // For now, let's just do a quick single check to avoid breaking existing single-calls
     let script = format!(
-        "Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow | Get-NetFirewallPortFilter | Where-Object {{ $_.LocalPort -eq '{}' -and $_.Protocol -eq '{}' }} | Measure-Object | Select-Object -ExpandProperty Count",
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow | Get-NetFirewallPortFilter | Where-Object {{ $_.LocalPort -eq '{}' -and $_.Protocol -eq '{}' }} | Measure-Object | Select-Object -ExpandProperty Count",
         port, protocol
     );
 
@@ -258,7 +258,7 @@ fn check_port_rule_exists(port: u16, protocol: &str) -> PortStatus {
 #[allow(dead_code)]
 fn create_firewall_rule(port: u16, protocol: &str, rule_name: &str) -> Result<(), String> {
     let script = format!(
-        r#"
+        r#"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
         $ruleName = "{}"
         $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
         if ($existingRule) {{
@@ -293,7 +293,7 @@ fn create_firewall_rule(port: u16, protocol: &str, rule_name: &str) -> Result<()
 #[allow(dead_code)]
 fn remove_firewall_rule(rule_name: &str) -> Result<(), String> {
     let script = format!(
-        r#"Remove-NetFirewallRule -DisplayName "{}" -ErrorAction SilentlyContinue"#,
+        r#"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Remove-NetFirewallRule -DisplayName "{}" -ErrorAction SilentlyContinue"#,
         rule_name
     );
 
@@ -356,7 +356,9 @@ if (-not $existingRule) {{
     script_parts.push("$results | Out-File -FilePath $logFile -Encoding UTF8".to_string());
     let combined_script = script_parts.join("\n");
 
-    std::fs::write(&script_path, &combined_script)
+    let mut bom_bytes = vec![0xEF, 0xBB, 0xBF];
+    bom_bytes.extend_from_slice(combined_script.as_bytes());
+    std::fs::write(&script_path, bom_bytes)
         .map_err(|e| format!("Failed to write temp script: {}", e))?;
 
     // Clean up old log file
@@ -439,7 +441,9 @@ Write-Host 'Removed: {}'"#,
     // Write script to temp file
     let temp_dir = std::env::temp_dir();
     let script_path = temp_dir.join("ark_firewall_rules.ps1");
-    std::fs::write(&script_path, &combined_script)
+    let mut bom_bytes = vec![0xEF, 0xBB, 0xBF];
+    bom_bytes.extend_from_slice(combined_script.as_bytes());
+    std::fs::write(&script_path, bom_bytes)
         .map_err(|e| format!("Failed to write temp script: {}", e))?;
 
     // Use Start-Process with -Verb RunAs to get elevation
@@ -1164,3 +1168,399 @@ pub async fn create_manual_firewall_rules(
         }),
     }
 }
+
+/// Helper struct for ASE server data
+struct AseServerData {
+    id: i64,
+    name: String,
+    game_port: u16,
+    query_port: u16,
+    rcon_port: u16,
+    rcon_enabled: bool,
+}
+
+/// Get all ASE servers from database
+fn get_ase_servers_from_db(state: &State<'_, AppState>) -> Result<Vec<AseServerData>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare("SELECT id, name, port, query_port, rcon_port FROM ase_servers")
+        .map_err(|e| e.to_string())?;
+
+    let mut servers = Vec::new();
+    let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
+
+    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        let rcon_port: u16 = row.get(4).unwrap_or(0);
+        servers.push(AseServerData {
+            id: row.get(0).map_err(|e| e.to_string())?,
+            name: row.get(1).map_err(|e| e.to_string())?,
+            game_port: row.get(2).map_err(|e| e.to_string())?,
+            query_port: row.get(3).map_err(|e| e.to_string())?,
+            rcon_port,
+            rcon_enabled: rcon_port > 0,
+        });
+    }
+
+    Ok(servers)
+}
+
+/// Get a single ASE server from database
+fn get_ase_server_from_db(state: &State<'_, AppState>, server_id: i64) -> Result<AseServerData, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    conn.query_row(
+        "SELECT id, name, port, query_port, rcon_port FROM ase_servers WHERE id = ?1",
+        [server_id],
+        |row| {
+            let rcon_port: u16 = row.get(4).unwrap_or(0);
+            Ok(AseServerData {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                game_port: row.get(2)?,
+                query_port: row.get(3)?,
+                rcon_port,
+                rcon_enabled: rcon_port > 0,
+            })
+        },
+    )
+    .map_err(|e| format!("ASE Server not found: {}", e))
+}
+
+/// Get firewall status for all ASE servers
+#[tauri::command]
+pub async fn get_all_ase_servers_firewall_status(
+    state: State<'_, AppState>,
+) -> Result<Vec<ServerFirewallStatus>, String> {
+    let servers = get_ase_servers_from_db(&state)?;
+
+    // Fetch all rules ONCE
+    let rules_cache = fetch_all_firewall_rules();
+    log::info!(
+        "[FIREWALL] ASE Status check: found {} cached rules",
+        rules_cache.len()
+    );
+
+    let mut statuses = Vec::new();
+
+    for server in servers {
+        // Check game port (both TCP + UDP required)
+        let game_udp = check_port_in_cache(&rules_cache, server.game_port, "UDP");
+        let game_tcp = check_port_in_cache(&rules_cache, server.game_port, "TCP");
+        let game_port_status = if game_udp == PortStatus::Open && game_tcp == PortStatus::Open {
+            PortStatus::Open
+        } else {
+            PortStatus::Closed
+        };
+
+        // Check query port (both TCP + UDP required)
+        let query_udp = check_port_in_cache(&rules_cache, server.query_port, "UDP");
+        let query_tcp = check_port_in_cache(&rules_cache, server.query_port, "TCP");
+        let query_port_status = if query_udp == PortStatus::Open && query_tcp == PortStatus::Open {
+            PortStatus::Open
+        } else {
+            PortStatus::Closed
+        };
+
+        // Check RCON port (both TCP + UDP required) only if enabled
+        let rcon_port_status = if server.rcon_enabled {
+            let rcon_tcp = check_port_in_cache(&rules_cache, server.rcon_port, "TCP");
+            let rcon_udp = check_port_in_cache(&rules_cache, server.rcon_port, "UDP");
+            if rcon_tcp == PortStatus::Open && rcon_udp == PortStatus::Open {
+                PortStatus::Open
+            } else {
+                PortStatus::Closed
+            }
+        } else {
+            PortStatus::Closed
+        };
+
+        statuses.push(ServerFirewallStatus {
+            server_id: server.id,
+            server_name: server.name,
+            game_port: server.game_port,
+            query_port: server.query_port,
+            rcon_port: server.rcon_port,
+            rcon_enabled: server.rcon_enabled,
+            game_port_status,
+            query_port_status,
+            rcon_port_status,
+        });
+    }
+
+    Ok(statuses)
+}
+
+/// Get firewall status for a single ASE server
+#[tauri::command]
+pub async fn get_ase_firewall_status(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<ServerFirewallStatus, String> {
+    let server = get_ase_server_from_db(&state, server_id)?;
+    let rules_cache = fetch_all_firewall_rules();
+
+    let game_port_status = if check_port_in_cache(&rules_cache, server.game_port, "UDP") == PortStatus::Open
+        && check_port_in_cache(&rules_cache, server.game_port, "TCP") == PortStatus::Open
+    {
+        PortStatus::Open
+    } else {
+        PortStatus::Closed
+    };
+
+    let query_port_status = if check_port_in_cache(&rules_cache, server.query_port, "UDP") == PortStatus::Open
+        && check_port_in_cache(&rules_cache, server.query_port, "TCP") == PortStatus::Open
+    {
+        PortStatus::Open
+    } else {
+        PortStatus::Closed
+    };
+
+    let rcon_port_status = if server.rcon_enabled {
+        if check_port_in_cache(&rules_cache, server.rcon_port, "TCP") == PortStatus::Open
+            && check_port_in_cache(&rules_cache, server.rcon_port, "UDP") == PortStatus::Open
+        {
+            PortStatus::Open
+        } else {
+            PortStatus::Closed
+        }
+    } else {
+        PortStatus::Closed
+    };
+
+    Ok(ServerFirewallStatus {
+        server_id: server.id,
+        server_name: server.name,
+        game_port: server.game_port,
+        query_port: server.query_port,
+        rcon_port: server.rcon_port,
+        rcon_enabled: server.rcon_enabled,
+        game_port_status,
+        query_port_status,
+        rcon_port_status,
+    })
+}
+
+/// Create firewall rules for a single ASE server (with UAC elevation)
+#[tauri::command]
+pub async fn create_ase_firewall_rules(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<FirewallOperationResult, String> {
+    let server = get_ase_server_from_db(&state, server_id)?;
+    let server_name = &server.name;
+
+    let mut rules: Vec<(u16, &str, String)> = vec![
+        (
+            server.game_port,
+            "UDP",
+            format!(
+                "ARK Server - {} - Game (UDP {})",
+                server_name, server.game_port
+            ),
+        ),
+        (
+            server.game_port,
+            "TCP",
+            format!(
+                "ARK Server - {} - Game (TCP {})",
+                server_name, server.game_port
+            ),
+        ),
+        (
+            server.query_port,
+            "UDP",
+            format!(
+                "ARK Server - {} - Query (UDP {})",
+                server_name, server.query_port
+            ),
+        ),
+        (
+            server.query_port,
+            "TCP",
+            format!(
+                "ARK Server - {} - Query (TCP {})",
+                server_name, server.query_port
+            ),
+        ),
+    ];
+
+    if server.rcon_enabled {
+        rules.push((
+            server.rcon_port,
+            "TCP",
+            format!(
+                "ARK Server - {} - RCON (TCP {})",
+                server_name, server.rcon_port
+            ),
+        ));
+        rules.push((
+            server.rcon_port,
+            "UDP",
+            format!(
+                "ARK Server - {} - RCON (UDP {})",
+                server_name, server.rcon_port
+            ),
+        ));
+    }
+
+    match create_firewall_rules_elevated(rules) {
+        Ok(_) => Ok(FirewallOperationResult {
+            success: true,
+            message: format!("Firewall rules created for '{}'", server_name),
+            requires_admin: false,
+        }),
+        Err(e) => Ok(FirewallOperationResult {
+            success: false,
+            message: e,
+            requires_admin: false,
+        }),
+    }
+}
+
+/// Remove firewall rules for a single ASE server (with UAC elevation)
+#[tauri::command]
+pub async fn remove_ase_firewall_rules(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<FirewallOperationResult, String> {
+    let server = get_ase_server_from_db(&state, server_id)?;
+    let server_name = &server.name;
+
+    let rule_names = vec![
+        format!(
+            "ARK Server - {} - Game (UDP {})",
+            server_name, server.game_port
+        ),
+        format!(
+            "ARK Server - {} - Game (TCP {})",
+            server_name, server.game_port
+        ),
+        format!(
+            "ARK Server - {} - Query (UDP {})",
+            server_name, server.query_port
+        ),
+        format!(
+            "ARK Server - {} - Query (TCP {})",
+            server_name, server.query_port
+        ),
+        format!(
+            "ARK Server - {} - RCON (TCP {})",
+            server_name, server.rcon_port
+        ),
+        format!(
+            "ARK Server - {} - RCON (UDP {})",
+            server_name, server.rcon_port
+        ),
+    ];
+
+    match remove_firewall_rules_elevated(rule_names) {
+        Ok(_) => Ok(FirewallOperationResult {
+            success: true,
+            message: format!("Firewall rules removed for '{}'", server_name),
+            requires_admin: false,
+        }),
+        Err(e) => Ok(FirewallOperationResult {
+            success: false,
+            message: e,
+            requires_admin: false,
+        }),
+    }
+}
+
+/// Create firewall rules for all ASE servers (with UAC elevation)
+#[tauri::command]
+pub async fn create_all_ase_firewall_rules(
+    state: State<'_, AppState>,
+) -> Result<FirewallOperationResult, String> {
+    let servers = get_ase_servers_from_db(&state)?;
+
+    if servers.is_empty() {
+        return Ok(FirewallOperationResult {
+            success: true,
+            message: "No ASE servers configured".to_string(),
+            requires_admin: false,
+        });
+    }
+
+    let mut rules: Vec<(u16, &str, String)> = Vec::new();
+
+    for server in &servers {
+        let server_name = &server.name;
+
+        rules.push((
+            server.game_port,
+            "UDP",
+            format!(
+                "ARK Server - {} - Game (UDP {})",
+                server_name, server.game_port
+            ),
+        ));
+        rules.push((
+            server.game_port,
+            "TCP",
+            format!(
+                "ARK Server - {} - Game (TCP {})",
+                server_name, server.game_port
+            ),
+        ));
+
+        rules.push((
+            server.query_port,
+            "UDP",
+            format!(
+                "ARK Server - {} - Query (UDP {})",
+                server_name, server.query_port
+            ),
+        ));
+        rules.push((
+            server.query_port,
+            "TCP",
+            format!(
+                "ARK Server - {} - Query (TCP {})",
+                server_name, server.query_port
+            ),
+        ));
+
+        if server.rcon_enabled {
+            rules.push((
+                server.rcon_port,
+                "TCP",
+                format!(
+                    "ARK Server - {} - RCON (TCP {})",
+                    server_name, server.rcon_port
+                ),
+            ));
+            rules.push((
+                server.rcon_port,
+                "UDP",
+                format!(
+                    "ARK Server - {} - RCON (UDP {})",
+                    server_name, server.rcon_port
+                ),
+            ));
+        }
+    }
+
+    let rule_count = rules.len();
+
+    match create_firewall_rules_elevated(rules) {
+        Ok(_) => Ok(FirewallOperationResult {
+            success: true,
+            message: format!(
+                "Created {} firewall rules for {} ASE servers",
+                rule_count,
+                servers.len()
+            ),
+            requires_admin: false,
+        }),
+        Err(e) => Ok(FirewallOperationResult {
+            success: false,
+            message: e,
+            requires_admin: false,
+        }),
+    }
+}
+

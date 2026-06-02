@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
 import WelcomeOverlay from './components/layout/WelcomeOverlay';
 import UpdateChecker from './components/UpdateChecker';
+import DonationAlert from './components/ui/DonationAlert';
 import { Loader2 } from 'lucide-react';
 import { checkIsAdmin } from './utils/tauri';
 import { toast } from 'react-hot-toast';
@@ -57,7 +58,13 @@ const ASEPluginManager = lazy(() => import('./ase/pages/ASEPluginManager'));
 const ASETribeLogViewer = lazy(() => import('./ase/pages/ASETribeLogViewer'));
 const ASEUPnPPanel = lazy(() => import('./ase/pages/ASEUPnPPanel'));
 const ASEServerOrganization = lazy(() => import('./ase/pages/tools/ASEServerOrganization'));
-const ASEEnvironmentManager = lazy(() => import('./ase/pages/ASEEnvironmentManager'));
+
+// Loading component for Suspense
+const PageLoader = () => (
+    <div className="flex items-center justify-center h-full w-full min-h-[400px]">
+        <Loader2 className="w-8 h-8 text-sky-500 animate-spin" />
+    </div>
+);
 
 function App() {
     const [appState, setAppState] = useState<'welcome' | 'app'>('welcome');
@@ -88,13 +95,6 @@ function App() {
     if (appState === 'welcome') {
         return <WelcomeOverlay onComplete={() => setAppState('app')} />;
     }
-
-    // Loading component for Suspense
-    const PageLoader = () => (
-        <div className="flex items-center justify-center h-full w-full min-h-[400px]">
-            <Loader2 className="w-8 h-8 text-sky-500 animate-spin" />
-        </div>
-    );
 
     return (
         <>
@@ -149,13 +149,13 @@ function App() {
                                  <Route path="ase/tools/tribe-logs" element={<ASETribeLogViewer />} />
                                  <Route path="ase/tools/upnp" element={<ASEUPnPPanel />} />
                                  <Route path="ase/tools/organization" element={<ASEServerOrganization />} />
-                                 <Route path="ase/environment" element={<ASEEnvironmentManager />} />
                             </Route>
                         </Routes>
                     </Suspense>
                 </ErrorBoundary>
             </BrowserRouter>
             <UpdateChecker />
+            <DonationAlert />
         </>
     );
 }

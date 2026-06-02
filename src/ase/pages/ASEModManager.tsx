@@ -780,7 +780,7 @@ export default function ASEModManager() {
                             { id: 'Featured', label: 'Featured', icon: Sparkles, color: 'amber' },
                             { id: 'Structures', label: 'Structures', icon: Puzzle, color: 'orange' },
                             { id: 'Dinos', label: 'Dinos', icon: Flame, color: 'emerald' },
-                            { id: 'Utilities', label: 'Utilities', icon: Wrench, color: 'indigo' },
+                            { id: 'Utilities', label: 'Utilities', icon: Wrench, color: 'cyan' },
                             { id: 'All', label: 'All Mods', icon: Globe, color: 'sky' }
                           ].map((cat) => {
                             const IconComponent = cat.icon;
@@ -805,11 +805,11 @@ export default function ASEModManager() {
                                 border: 'border-emerald-500/30',
                                 shadow: 'shadow-emerald-500/5'
                               },
-                              indigo: {
-                                bg: 'bg-indigo-500/10',
-                                text: 'text-indigo-400',
-                                border: 'border-indigo-500/30',
-                                shadow: 'shadow-indigo-500/5'
+                              cyan: {
+                                bg: 'bg-cyan-500/10',
+                                text: 'text-cyan-400',
+                                border: 'border-cyan-500/30',
+                                shadow: 'shadow-cyan-500/5'
                               },
                               sky: {
                                 bg: 'bg-sky-500/10',
@@ -1691,7 +1691,7 @@ export default function ASEModManager() {
                               <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
                                 item.status === 'queued' ? 'bg-slate-800 text-slate-400' :
                                 item.status === 'downloading' ? 'bg-blue-500/10 text-blue-400 animate-pulse' :
-                                item.status === 'extracting' ? 'bg-purple-500/10 text-purple-400 animate-pulse' :
+                                item.status === 'extracting' ? 'bg-cyan-500/10 text-cyan-400 animate-pulse' :
                                 item.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' :
                                 'bg-rose-500/10 text-rose-400'
                               }`}>
@@ -1725,7 +1725,7 @@ export default function ASEModManager() {
                               className={`h-full rounded-full transition-all duration-500 ${
                                 item.status === 'queued' ? 'bg-slate-800' :
                                 item.status === 'downloading' ? 'bg-blue-500 animate-pulse' :
-                                item.status === 'extracting' ? 'bg-gradient-to-r from-blue-500 to-purple-500 animate-pulse' :
+                                item.status === 'extracting' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 animate-pulse' :
                                 item.status === 'completed' ? 'bg-emerald-500' :
                                 'bg-rose-500'
                               }`} 

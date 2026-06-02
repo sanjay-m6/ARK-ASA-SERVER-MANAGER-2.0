@@ -31,6 +31,15 @@ export default function ImportServerDialog({ onClose, initialType = 'ASA' }: Pro
         setError(null);
         try {
             const result = await previewImportSettings(targetPath, targetType);
+            
+            // Add a warning that map name may not sync perfectly
+            const mapWarning = "Map name may not sync perfectly from the configuration import. Please verify and set/override it manually if needed.";
+            if (result.warnings) {
+                result.warnings = [...result.warnings, mapWarning];
+            } else {
+                result.warnings = [mapWarning];
+            }
+
             setPreview(result);
             // Auto-fill session name if detected
             if (result.sessionName && result.sessionName.trim()) {

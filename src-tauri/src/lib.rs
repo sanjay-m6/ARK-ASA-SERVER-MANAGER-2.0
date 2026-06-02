@@ -274,6 +274,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             let guardian_service = Arc::new(tokio::sync::Mutex::new(services::guardian::GuardianService::new()));
             app.manage(services::guardian::GuardianState(guardian_service.clone()));
             app.manage(cloud_backup.clone());
+            app.manage(player_intelligence.clone());
 
             // 3. Start background tasks ONLY AFTER state is managed
             if !safe_mode {
@@ -306,6 +307,33 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                         return;
                     }
                 };
+
+                // Sync all ASE servers with their INI files on startup
+                if !safe_mode {
+                    let mut ase_server_ids = Vec::new();
+                    if let Ok(db_guard) = state.db.lock() {
+                        if let Ok(conn) = db_guard.get_connection() {
+                            if let Ok(mut stmt) = conn.prepare("SELECT id FROM ase_servers") {
+                                if let Ok(rows) = stmt.query_map([], |row| row.get::<_, i64>(0)) {
+                                    for id in rows.flatten() {
+                                        ase_server_ids.push(id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    println!("⚙️ [ASE Startup Sync] Found {} ASE servers to sync on boot.", ase_server_ids.len());
+                    for id in ase_server_ids {
+                        let h = app_handle_clone.clone();
+                        tauri::async_runtime::spawn(async move {
+                            if let Some(state) = h.try_state::<crate::AppState>() {
+                                println!("⚙️ [ASE Startup Sync] Syncing server {} from INI files...", id);
+                                let _ = crate::ase::commands::config::sync_ase_server_from_ini(id, state).await;
+                            }
+                        });
+                    }
+                }
 
                 if !safe_mode {
                     // Check if Global Auto-Start is enabled
@@ -603,6 +631,11 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::firewall::create_firewall_rules,
             commands::firewall::remove_firewall_rules,
             commands::firewall::create_all_firewall_rules,
+            commands::firewall::get_all_ase_servers_firewall_status,
+            commands::firewall::get_ase_firewall_status,
+            commands::firewall::create_ase_firewall_rules,
+            commands::firewall::remove_ase_firewall_rules,
+            commands::firewall::create_all_ase_firewall_rules,
             // Manual port commands
             commands::firewall::check_manual_port_status,
             commands::firewall::create_manual_firewall_rule,
@@ -751,6 +784,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              ase::commands::server::delete_ase_server,
              ase::commands::server::update_ase_server,
              ase::commands::server::install_ase_server,
+             ase::commands::server::update_ase_server_install,
              ase::commands::server::start_ase_server,
              ase::commands::server::stop_ase_server,
              ase::commands::server::get_ase_server_status,
@@ -773,9 +807,11 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               ase::commands::mods::clear_ase_workshop_cache,
               ase::commands::mods::get_ase_workshop_details_batch,
               ase::commands::mods::batch_download_ase_mods,
-             // ASE Config commands
-             ase::commands::config::read_ase_config,
-             ase::commands::config::write_ase_config,
+              // ASE Config commands
+              ase::commands::config::read_ase_config,
+              ase::commands::config::write_ase_config,
+              ase::commands::config::sync_ase_server_from_ini,
+              ase::commands::config::get_ase_config_diagnostics,
              ase::commands::config_advanced::read_ase_ini,
              ase::commands::config_advanced::write_ase_ini,
              ase::commands::config_advanced::read_ase_ini_raw,

@@ -1631,11 +1631,11 @@
             "title": "Import Existing Server",
             "subtitle": "Add an existing ARK installation",
             "folderLabel": "Server Installation Folder",
-            "folderPlaceholder": "C:\\ARKServers\\MyServer",
+            "folderPlaceholder": "e.g. C:\\ARKServers\\MyServer",
             "selectFolder": "Select Folder",
             "folderHint": "Select the folder containing ShooterGame/Binaries/Win64/ArkAscendedServer.exe",
             "nameLabel": "Server Name",
-            "namePlaceholder": "My Server",
+            "namePlaceholder": "e.g. My Server",
             "nameHint": "Settings will be auto-detected from GameUserSettings.ini",
             "importing": "Importing...",
             "import": "Import Server",
@@ -1682,7 +1682,7 @@
     },
     "sponsorBanner": {
         "title": "Support the Development",
-        "subtitle": "Keep Nexus running with a small contribution."
+        "subtitle": "Keep ASM 2.0 running with a small contribution."
     },
     "help": {
         "title": "Help & Documentation",

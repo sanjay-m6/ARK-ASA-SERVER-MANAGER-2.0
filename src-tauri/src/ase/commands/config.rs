@@ -748,7 +748,7 @@ fn build_game_ini(config: &AseGameConfig) -> String {
         config.mutagen_level_boost
     ));
     out.push_str(&format!(
-        "MutagenLevelBoostBred={}\n",
+        "MutagenLevelBoost_Bred={}\n",
         config.mutagen_level_boost_bred
     ));
     out.push_str(&format!(
@@ -832,6 +832,10 @@ pub async fn read_ase_config(
         config.player_damage_multiplier = ini_get_f64(&sections, ss, "PlayerDamageMultiplier", 1.0);
         config.player_resistance_multiplier =
             ini_get_f64(&sections, ss, "PlayerResistanceMultiplier", 1.0);
+        config.player_harvesting_damage_multiplier =
+            ini_get_f64(&sections, ss, "PlayerHarvestingDamageMultiplier", 1.0);
+        config.crafting_skill_bonus_multiplier =
+            ini_get_f64(&sections, ss, "CraftingSkillBonusMultiplier", 1.0);
 
         config.dino_character_food_drain_multiplier =
             ini_get_f64(&sections, ss, "DinoCharacterFoodDrainMultiplier", 1.0);
@@ -1076,6 +1080,19 @@ pub async fn read_ase_config(
             ini_get_f64(&sections, ss, "TamedDinoCharacterFoodDrainMultiplier", 1.0);
         config.wild_dino_character_food_drain_multiplier =
             ini_get_f64(&sections, ss, "WildDinoCharacterFoodDrainMultiplier", 1.0);
+        config.dino_character_stamina_drain_multiplier = ini_get_f64(&sections, ss, "DinoCharacterStaminaDrainMultiplier", 1.0);
+        config.tamed_dino_damage_multiplier = ini_get_f64(&sections, ss, "TamedDinoDamageMultiplier", 1.0);
+        config.tamed_dino_resistance_multiplier = ini_get_f64(&sections, ss, "TamedDinoResistanceMultiplier", 1.0);
+        config.b_use_tame_limit_for_structures_only = ini_get_bool(&sections, ss, "bUseTameLimitForStructuresOnly", false);
+        config.b_allow_raid_dino_feeding = ini_get_bool(&sections, ss, "bAllowRaidDinoFeeding", false);
+        config.raid_dino_character_food_drain_multiplier = ini_get_f64(&sections, ss, "RaidDinoCharacterFoodDrainMultiplier", 1.0);
+        config.force_allow_cave_flyers = ini_get_bool(&sections, ss, "ForceAllowCaveFlyers", false);
+        config.disable_dino_decay_pve = ini_get_bool(&sections, ss, "DisableDinoDecayPvE", false);
+        config.allow_dino_level_up_animation = ini_get_bool(&sections, ss, "AllowDinoLevelUpAnimation", true);
+        config.b_allow_flying_stamina_recovery = ini_get_bool(&sections, ss, "bAllowFlyingStaminaRecovery", false);
+        config.b_allow_multiple_attached_c4 = ini_get_bool(&sections, ss, "bAllowMultipleAttachedC4", false);
+        config.disable_dino_decay_pvp = ini_get_bool(&sections, ss, "DisableDinoDecayPvP", false);
+        config.b_allow_unclaim_dinos = ini_get_bool(&sections, ss, "bAllowUnclaimDinos", true);
 
         config.structure_decay_period_multiplier =
             ini_get_f64(&sections, ss, "StructureDecayPeriodMultiplier", 1.0);
@@ -1097,6 +1114,14 @@ pub async fn read_ase_config(
             ini_get_bool(&sections, "ASM2", "UseAllAvailableCores", true);
         config.use_low_memory = ini_get_bool(&sections, "ASM2", "UseLowMemory", false);
         config.no_battle_eye = ini_get_bool(&sections, "ASM2", "NoBattlEye", false);
+        config.backup_quantity = ini_get_u32(&sections, "ASM2", "BackupQuantity", 20);
+        config.new_save_game_format = ini_get_bool(&sections, "ASM2", "NewSaveGameFormat", false);
+        config.use_store = ini_get_bool(&sections, "ASM2", "UseStore", false);
+        config.backup_transfer_player_datas = ini_get_bool(&sections, "ASM2", "BackupTransferPlayerDatas", false);
+        config.motd_interval_enabled = ini_get_bool(&sections, "ASM2", "MotdIntervalEnabled", false);
+        config.motd_interval = ini_get_u32(&sections, "ASM2", "MotdInterval", 60);
+        config.enable_extinction_event = ini_get_bool(&sections, "ASM2", "EnableExtinctionEvent", false);
+        config.extinction_event_time_interval = ini_get_u32(&sections, "ASM2", "ExtinctionEventTimeInterval", 30);
 
         // MOTD
         config.motd = ini_get_str(&sections, "MessageOfTheDay", "Message", "");
@@ -1196,10 +1221,25 @@ pub async fn read_ase_config(
             ini_get_str(&sections, sgm, "ConfigOverrideItemCraftingCosts", "");
 
         config.mutagen_level_boost = ini_get_u32(&sections, sgm, "MutagenLevelBoost", 5);
-        config.mutagen_level_boost_bred = ini_get_u32(&sections, sgm, "MutagenLevelBoostBred", 1);
+        config.mutagen_level_boost_bred = ini_get(&sections, sgm, "MutagenLevelBoost_Bred")
+            .or_else(|| ini_get(&sections, sgm, "MutagenLevelBoostBred"))
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(1);
         config.max_imprint_limit = ini_get_f64(&sections, sgm, "MaxImprintLimit", 1.0);
         config.b_disable_friendly_fire =
             ini_get_bool(&sections, sgm, "bDisableFriendlyFire", false);
+
+        let raw_ramp = ini_get_str(&sections, sgm, "LevelExperienceRampOverrides", "");
+        if !raw_ramp.is_empty() {
+            config.level_experience_ramp_overrides = raw_ramp
+                .split('\n')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<&str>>()
+                .join("\n");
+        }
+        config.override_max_experience_points_player = ini_get_str(&sections, sgm, "OverrideMaxExperiencePointsPlayer", "");
+        config.override_max_experience_points_dino = ini_get_str(&sections, sgm, "OverrideMaxExperiencePointsDino", "");
 
         // HarvestResourceItemAmountClassMultipliers — parse_ini joins duplicate keys with '\n'
         let raw_multipliers = ini_get_str(&sections, sgm, "HarvestResourceItemAmountClassMultipliers", "");
@@ -1211,6 +1251,95 @@ pub async fn read_ase_config(
                 .collect::<Vec<&str>>()
                 .join(";");
         }
+
+        config.prevent_dino_mate_boost = ini_get_bool(&sections, sgm, "PreventDinoMateBoost", false);
+        config.b_allow_flyer_speed_leveling = ini_get_bool(&sections, sgm, "bAllowFlyerSpeedLeveling", false);
+        config.b_disable_dino_riding = ini_get_bool(&sections, sgm, "bDisableDinoRiding", false);
+        config.b_disable_dino_taming = ini_get_bool(&sections, sgm, "bDisableDinoTaming", false);
+        config.b_disable_dino_breeding = ini_get_bool(&sections, sgm, "bDisableDinoBreeding", false);
+
+        let parse_array = |key: &str| -> Vec<String> {
+            let raw = ini_get_str(&sections, sgm, key, "");
+            if raw.is_empty() {
+                Vec::new()
+            } else {
+                raw.split('\n')
+                   .map(|s| s.trim().to_string())
+                   .filter(|s| !s.is_empty())
+                   .collect()
+            }
+        };
+        config.dino_spawn_weight_multipliers = parse_array("DinoSpawnWeightMultipliers");
+        config.dino_class_damage_multipliers = parse_array("DinoClassDamageMultipliers");
+        config.dino_class_resistance_multipliers = parse_array("DinoClassResistanceMultipliers");
+        config.tamed_dino_class_damage_multipliers = parse_array("TamedDinoClassDamageMultipliers");
+        config.tamed_dino_class_resistance_multipliers = parse_array("TamedDinoClassResistanceMultipliers");
+        config.npc_replacements = parse_array("NPCReplacements");
+        config.prevent_dino_tame_class_names = parse_array("PreventDinoTameClassNames");
+        config.exclude_dino_classes = parse_array("ExcludeDinoClasses");
+
+        config.max_fall_speed_multiplier = ini_get_f64(&sections, sgm, "MaxFallSpeedMultiplier", 1.0);
+
+        let mut player_base = vec![1.0; 12];
+        for i in 0..12 {
+            let key = format!("PlayerBaseStatMultipliers[{}]", i);
+            player_base[i] = ini_get_f64(&sections, sgm, &key, 1.0);
+        }
+        config.player_base_stat_multipliers = player_base;
+
+        let mut per_level_player = vec![1.0; 12];
+        for i in 0..12 {
+            let key = format!("PerLevelStatsMultiplier_Player[{}]", i);
+            per_level_player[i] = ini_get_f64(&sections, sgm, &key, 1.0);
+        }
+        config.per_level_stats_multiplier_player = per_level_player;
+
+        let mut per_level_dino_wild = vec![1.0; 12];
+        for i in 0..12 {
+            let key = format!("PerLevelStatsMultiplier_DinoWild[{}]", i);
+            per_level_dino_wild[i] = ini_get_f64(&sections, sgm, &key, 1.0);
+        }
+        config.per_level_stats_multiplier_dino_wild = per_level_dino_wild;
+
+        let mut per_level_dino_tamed = vec![1.0; 12];
+        for i in 0..12 {
+            let key = format!("PerLevelStatsMultiplier_DinoTamed[{}]", i);
+            let def = if i == 0 { 0.2 } else if i == 8 { 0.17 } else { 1.0 };
+            per_level_dino_tamed[i] = ini_get_f64(&sections, sgm, &key, def);
+        }
+        config.per_level_stats_multiplier_dino_tamed = per_level_dino_tamed;
+
+        let mut per_level_dino_tamed_add = vec![1.0; 12];
+        for i in 0..12 {
+            let key = format!("PerLevelStatsMultiplier_DinoTamed_Add[{}]", i);
+            let def = if i == 0 || i == 8 { 0.14 } else { 1.0 };
+            per_level_dino_tamed_add[i] = ini_get_f64(&sections, sgm, &key, def);
+        }
+        config.per_level_stats_multiplier_dino_tamed_add = per_level_dino_tamed_add;
+
+        let mut per_level_dino_tamed_affinity = vec![1.0; 12];
+        for i in 0..12 {
+            let key = format!("PerLevelStatsMultiplier_DinoTamed_Affinity[{}]", i);
+            let def = if i == 0 || i == 8 { 0.44 } else { 1.0 };
+            per_level_dino_tamed_affinity[i] = ini_get_f64(&sections, sgm, &key, def);
+        }
+        config.per_level_stats_multiplier_dino_tamed_affinity = per_level_dino_tamed_affinity;
+
+        let mut mutagen_wild = vec![0; 12];
+        for i in 0..12 {
+            let key = format!("MutagenLevelBoost[{}]", i);
+            let def = if i == 0 || i == 1 || i == 7 || i == 8 { 5 } else { 0 };
+            mutagen_wild[i] = ini_get_u32(&sections, sgm, &key, def);
+        }
+        config.mutagen_level_boost_array = mutagen_wild;
+
+        let mut mutagen_bred = vec![0; 12];
+        for i in 0..12 {
+            let key = format!("MutagenLevelBoost_Bred[{}]", i);
+            let def = if i == 0 || i == 1 || i == 7 || i == 8 { 1 } else { 0 };
+            mutagen_bred[i] = ini_get_u32(&sections, sgm, &key, def);
+        }
+        config.mutagen_level_boost_bred_array = mutagen_bred;
     }
 
     Ok(config)
@@ -1369,6 +1498,16 @@ pub async fn write_ase_config(
         ss,
         "PlayerResistanceMultiplier",
         format!("{:.6}", config.player_resistance_multiplier),
+    );
+    ini_set(
+        ss,
+        "PlayerHarvestingDamageMultiplier",
+        format!("{:.6}", config.player_harvesting_damage_multiplier),
+    );
+    ini_set(
+        ss,
+        "CraftingSkillBonusMultiplier",
+        format!("{:.6}", config.crafting_skill_bonus_multiplier),
     );
 
     // Dino Stats
@@ -2094,6 +2233,14 @@ pub async fn write_ase_config(
     );
     ini_set("ASM2", "UseLowMemory", config.use_low_memory.to_string());
     ini_set("ASM2", "NoBattlEye", config.no_battle_eye.to_string());
+    ini_set("ASM2", "BackupQuantity", config.backup_quantity.to_string());
+    ini_set("ASM2", "NewSaveGameFormat", config.new_save_game_format.to_string());
+    ini_set("ASM2", "UseStore", config.use_store.to_string());
+    ini_set("ASM2", "BackupTransferPlayerDatas", config.backup_transfer_player_datas.to_string());
+    ini_set("ASM2", "MotdIntervalEnabled", config.motd_interval_enabled.to_string());
+    ini_set("ASM2", "MotdInterval", config.motd_interval.to_string());
+    ini_set("ASM2", "EnableExtinctionEvent", config.enable_extinction_event.to_string());
+    ini_set("ASM2", "ExtinctionEventTimeInterval", config.extinction_event_time_interval.to_string());
 
     // ── Classic ASM Full Server Options Feature Integration - GUS ASM2 ──
     ini_set("ASM2", "UseDynamicConfigUrl", config.use_dynamic_config_url.to_string());
@@ -2142,74 +2289,136 @@ pub async fn write_ase_config(
 
     let gm = "/Script/ShooterGame.ShooterGameMode";
 
-    let mut game_set = |key: &str, val: String| {
-        let section = game_data.ensure_section(gm);
-        if let Some(entry) = section.entries.iter_mut().find(|e| e.key == key) {
-            entry.value = val;
-        } else {
-            section.entries.push(IniEntry {
-                key: key.to_string(),
-                value: val,
-                comment: None,
-            });
-        }
-    };
+    macro_rules! game_set {
+        ($key:expr, $value:expr $(,)?) => {
+            let section = game_data.ensure_section(gm);
+            let key_string = $key.to_string();
+            if let Some(entry) = section.entries.iter_mut().find(|e| e.key == key_string) {
+                entry.value = $value.to_string();
+            } else {
+                section.entries.push(IniEntry {
+                    key: key_string,
+                    value: $value.to_string(),
+                    comment: None,
+                });
+            }
+        };
+    }
 
     // Breeding
-    game_set(
+    game_set!(
         "EggHatchSpeedMultiplier",
         format!("{:.6}", config.egg_hatch_speed_multiplier),
     );
-    game_set(
+    game_set!(
         "BabyMatureSpeedMultiplier",
         format!("{:.6}", config.baby_mature_speed_multiplier),
     );
-    game_set(
+    game_set!(
         "BabyCuddleIntervalMultiplier",
         format!("{:.6}", config.baby_cuddle_interval_multiplier),
     );
-    game_set(
+    game_set!(
         "BabyImprintAmountMultiplier",
         format!("{:.6}", config.baby_imprint_amount_multiplier),
     );
-    game_set(
+    game_set!(
         "MatingIntervalMultiplier",
         format!("{:.6}", config.mating_interval_multiplier),
     );
-    game_set(
+    game_set!(
         "BabyFoodConsumptionSpeedMultiplier",
         format!("{:.6}", config.baby_food_consumption_speed_multiplier),
     );
-    game_set(
+    game_set!(
         "BabyCuddleGracePeriodMultiplier",
         format!("{:.6}", config.baby_cuddle_grace_period_multiplier),
     );
-    game_set(
+    game_set!(
         "BabyCuddleLoseImprintQualitySpeedMultiplier",
         format!(
             "{:.6}",
             config.baby_cuddle_lose_imprint_quality_speed_multiplier
         ),
     );
-    game_set("MutagenLevelBoost", config.mutagen_level_boost.to_string());
-    game_set(
-        "MutagenLevelBoostBred",
+    game_set!("MutagenLevelBoost", config.mutagen_level_boost.to_string());
+    game_set!(
+        "MutagenLevelBoost_Bred",
         config.mutagen_level_boost_bred.to_string(),
     );
-    game_set(
+    game_set!(
         "MaxImprintLimit",
         format!("{:.6}", config.max_imprint_limit),
     );
 
     // Friendly fire PvP rule (New key in Game.ini)
-    game_set(
+    game_set!(
         "bDisableFriendlyFire",
         config.b_disable_friendly_fire.to_string(),
     );
 
-    // Clear existing HarvestResourceItemAmountClassMultipliers entries
+    // Fall Speed Multiplier
+    game_set!(
+        "MaxFallSpeedMultiplier",
+        format!("{:.6}", config.max_fall_speed_multiplier),
+    );
+
+    // Write array-based multipliers
+    for i in 0..12 {
+        if i < config.player_base_stat_multipliers.len() {
+            game_set!(
+                &format!("PlayerBaseStatMultipliers[{}]", i),
+                format!("{:.6}", config.player_base_stat_multipliers[i]),
+            );
+        }
+        if i < config.per_level_stats_multiplier_player.len() {
+            game_set!(
+                &format!("PerLevelStatsMultiplier_Player[{}]", i),
+                format!("{:.6}", config.per_level_stats_multiplier_player[i]),
+            );
+        }
+        if i < config.per_level_stats_multiplier_dino_wild.len() {
+            game_set!(
+                &format!("PerLevelStatsMultiplier_DinoWild[{}]", i),
+                format!("{:.6}", config.per_level_stats_multiplier_dino_wild[i]),
+            );
+        }
+        if i < config.per_level_stats_multiplier_dino_tamed.len() {
+            game_set!(
+                &format!("PerLevelStatsMultiplier_DinoTamed[{}]", i),
+                format!("{:.6}", config.per_level_stats_multiplier_dino_tamed[i]),
+            );
+        }
+        if i < config.per_level_stats_multiplier_dino_tamed_add.len() {
+            game_set!(
+                &format!("PerLevelStatsMultiplier_DinoTamed_Add[{}]", i),
+                format!("{:.6}", config.per_level_stats_multiplier_dino_tamed_add[i]),
+            );
+        }
+        if i < config.per_level_stats_multiplier_dino_tamed_affinity.len() {
+            game_set!(
+                &format!("PerLevelStatsMultiplier_DinoTamed_Affinity[{}]", i),
+                format!("{:.6}", config.per_level_stats_multiplier_dino_tamed_affinity[i]),
+            );
+        }
+        if i < config.mutagen_level_boost_array.len() {
+            game_set!(
+                &format!("MutagenLevelBoost[{}]", i),
+                config.mutagen_level_boost_array[i].to_string(),
+            );
+        }
+        if i < config.mutagen_level_boost_bred_array.len() {
+            game_set!(
+                &format!("MutagenLevelBoost_Bred[{}]", i),
+                config.mutagen_level_boost_bred_array[i].to_string(),
+            );
+        }
+    }
+
+    // Clear existing HarvestResourceItemAmountClassMultipliers and LevelExperienceRampOverrides entries
     if let Some(section) = game_data.get_section_mut(gm) {
         section.entries.retain(|e| e.key != "HarvestResourceItemAmountClassMultipliers");
+        section.entries.retain(|e| e.key != "LevelExperienceRampOverrides");
     }
 
     // Write new multipliers
@@ -2225,6 +2434,28 @@ pub async fn write_ase_config(
                 });
             }
         }
+    }
+    
+    // Write new level overrides
+    if !config.level_experience_ramp_overrides.is_empty() {
+        let section = game_data.ensure_section(gm);
+        for ramp in config.level_experience_ramp_overrides.split('\n') {
+            let trimmed = ramp.trim();
+            if !trimmed.is_empty() {
+                section.entries.push(IniEntry {
+                    key: "LevelExperienceRampOverrides".to_string(),
+                    value: trimmed.to_string(),
+                    comment: None,
+                });
+            }
+        }
+    }
+
+    if !config.override_max_experience_points_player.is_empty() {
+        game_set!("OverrideMaxExperiencePointsPlayer", config.override_max_experience_points_player.clone());
+    }
+    if !config.override_max_experience_points_dino.is_empty() {
+        game_set!("OverrideMaxExperiencePointsDino", config.override_max_experience_points_dino.clone());
     }
 
     // Save Game.ini
@@ -2257,4 +2488,216 @@ pub async fn write_ase_config(
     .map_err(|e| format!("Failed to sync config to database: {}", e))?;
 
     Ok(())
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AseDiagnostics {
+    pub gus_exists: bool,
+    pub gus_size: u64,
+    pub gus_modified: String,
+    pub game_ini_exists: bool,
+    pub game_ini_size: u64,
+    pub game_ini_modified: String,
+    pub last_parsed: String,
+    pub cache_status: String,
+    pub config_hash: String,
+    pub active_launch_args: Vec<String>,
+}
+
+#[tauri::command]
+pub async fn sync_ase_server_from_ini(
+    server_id: i64,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    // Read live config from files
+    let config = read_ase_config(server_id, state.clone()).await?;
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Update main database record
+    conn.execute(
+        "UPDATE ase_servers SET 
+            session_name = ?1,
+            name = ?1,
+            max_players = ?2,
+            server_password = ?3,
+            admin_password = ?4,
+            rcon_port = ?5,
+            active_mods = ?6,
+            battleye = ?7,
+            updated_at = ?8
+         WHERE id = ?9",
+        rusqlite::params![
+            config.session_name,
+            config.max_players,
+            config.server_password,
+            config.server_admin_password,
+            config.rcon_port as i32,
+            config.active_mods,
+            if config.no_battle_eye { 0 } else { 1 },
+            now,
+            server_id
+        ],
+    ).map_err(|e| format!("Failed to sync ase_servers: {}", e))?;
+
+    // Synchronize ase_mods table
+    let mod_ids: Vec<String> = config.active_mods.split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if !mod_ids.is_empty() {
+        // Disable mods that aren't in this list
+        let placeholders = mod_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "UPDATE ase_mods SET enabled = 0 WHERE server_id = ?1 AND workshop_id NOT IN ({})",
+            placeholders
+        );
+        let mut params: Vec<rusqlite::types::Value> = vec![rusqlite::types::Value::Integer(server_id)];
+        for id in &mod_ids {
+            params.push(rusqlite::types::Value::Text(id.clone()));
+        }
+        let _ = conn.execute(&sql, rusqlite::params_from_iter(params));
+
+        // Ensure active ones are present and enabled
+        for (idx, id) in mod_ids.iter().enumerate() {
+            let exists: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM ase_mods WHERE server_id = ?1 AND workshop_id = ?2)",
+                rusqlite::params![server_id, id],
+                |row| row.get(0)
+            ).unwrap_or(false);
+
+            if exists {
+                let _ = conn.execute(
+                    "UPDATE ase_mods SET enabled = 1, load_order = ?1 WHERE server_id = ?2 AND workshop_id = ?3",
+                    rusqlite::params![idx as i32, server_id, id],
+                );
+            } else {
+                let _ = conn.execute(
+                    "INSERT INTO ase_mods (server_id, workshop_id, name, version, installed_at, enabled, load_order) \
+                     VALUES (?1, ?2, ?3, '1.0', ?4, 1, ?5)",
+                    rusqlite::params![server_id, id, format!("Workshop Mod {}", id), now, idx as i32],
+                );
+            }
+        }
+    } else {
+        let _ = conn.execute(
+            "UPDATE ase_mods SET enabled = 0 WHERE server_id = ?1",
+            [server_id],
+        );
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_ase_config_diagnostics(
+    server_id: i64,
+    state: State<'_, AppState>,
+) -> Result<AseDiagnostics, String> {
+    let (install_path, db_updated_at_str) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let row: Result<(String, String), _> = conn.query_row(
+            "SELECT install_path, updated_at FROM ase_servers WHERE id = ?1",
+            [server_id],
+            |r| Ok((r.get(0)?, r.get(1)?))
+        );
+        row.map_err(|e| format!("Server not found in DB: {}", e))?
+    };
+
+    let config_dir = get_config_path(&install_path);
+    let gus_path = config_dir.join("GameUserSettings.ini");
+    let game_ini_path = config_dir.join("Game.ini");
+
+    let get_file_info = |path: &PathBuf| -> (bool, u64, String, Option<std::time::SystemTime>) {
+        if !path.exists() {
+            return (false, 0, "Not Found".to_string(), None);
+        }
+        if let Ok(meta) = std::fs::metadata(path) {
+            let size = meta.len();
+            let modified = meta.modified().ok();
+            let time_str = modified.map(|system_time| {
+                let datetime: chrono::DateTime<chrono::Local> = system_time.into();
+                datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+            }).unwrap_or_else(|| "Unknown".to_string());
+            (true, size, time_str, modified)
+        } else {
+            (false, 0, "Error reading metadata".to_string(), None)
+        }
+    };
+
+    let (gus_exists, gus_size, gus_modified, gus_time) = get_file_info(&gus_path);
+    let (game_ini_exists, game_ini_size, game_ini_modified, game_time) = get_file_info(&game_ini_path);
+
+    let db_time = chrono::DateTime::parse_from_rfc3339(&db_updated_at_str)
+        .map(|dt| dt.with_timezone(&chrono::Utc))
+        .ok();
+
+    let mut cache_status = "Fresh".to_string();
+    if let Some(db_t) = db_time {
+        if let Some(gus_t) = gus_time {
+            let gus_chrono: chrono::DateTime<chrono::Utc> = gus_t.into();
+            if gus_chrono > db_t + chrono::Duration::seconds(5) {
+                cache_status = "Stale (External edits detected)".to_string();
+            }
+        }
+        if let Some(game_t) = game_time {
+            let game_chrono: chrono::DateTime<chrono::Utc> = game_t.into();
+            if game_chrono > db_t + chrono::Duration::seconds(5) {
+                cache_status = "Stale (External edits detected)".to_string();
+            }
+        }
+    } else {
+        cache_status = "Unknown".to_string();
+    }
+
+    use sha2::{Sha256, Digest};
+    let mut hasher = Sha256::new();
+    let mut hashed = false;
+    if gus_exists {
+        if let Ok(content) = std::fs::read_to_string(&gus_path) {
+            hasher.update(content.as_bytes());
+            hashed = true;
+        }
+    }
+    if game_ini_exists {
+        if let Ok(content) = std::fs::read_to_string(&game_ini_path) {
+            hasher.update(content.as_bytes());
+            hashed = true;
+        }
+    }
+
+    let config_hash = if hashed {
+        hex::encode(hasher.finalize())
+    } else {
+        "N/A".to_string()
+    };
+
+    let active_launch_args = crate::ase::commands::server::get_ase_launch_arguments(server_id, state.clone())
+        .await
+        .unwrap_or_default();
+
+    let last_parsed = if let Some(db_t) = db_time {
+        let local_t: chrono::DateTime<chrono::Local> = db_t.into();
+        local_t.format("%Y-%m-%d %H:%M:%S").to_string()
+    } else {
+        "Never".to_string()
+    };
+
+    Ok(AseDiagnostics {
+        gus_exists,
+        gus_size,
+        gus_modified,
+        game_ini_exists,
+        game_ini_size,
+        game_ini_modified,
+        last_parsed,
+        cache_status,
+        config_hash,
+        active_launch_args,
+    })
 }

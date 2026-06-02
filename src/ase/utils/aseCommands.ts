@@ -9,6 +9,7 @@ import type {
     AseScheduledTask,
     ModValidationReport,
     AseSchedulerSettings,
+    AseDiagnostics,
 } from '../types/ase.types';
 
 // ─── Server Commands ────────────────────────────────────────────────
@@ -33,6 +34,10 @@ export async function updateAseServer(serverId: number, updates: Partial<AseServ
     return invoke('update_ase_server', { serverId, updates });
 }
 
+export async function updateAseServerInstall(serverId: number): Promise<void> {
+    return invoke('update_ase_server_install', { serverId });
+}
+
 export async function installAseServer(
     name: string,
     installPath: string,
@@ -42,6 +47,7 @@ export async function installAseServer(
     rconPort: number,
     adminPassword: string,
     sessionName: string,
+    branch?: string,
 ): Promise<AseServer> {
     return invoke('install_ase_server', {
         name,
@@ -52,6 +58,7 @@ export async function installAseServer(
         rconPort,
         adminPassword,
         sessionName,
+        branch: branch || null,
     });
 }
 
@@ -315,5 +322,13 @@ export async function forceDownloadAseMod(serverId: number, workshopId: string):
 
 export async function getAseLaunchArguments(serverId: number): Promise<string[]> {
     return invoke('get_ase_launch_arguments', { serverId });
+}
+
+export async function syncAseServerFromIni(serverId: number): Promise<void> {
+    return invoke('sync_ase_server_from_ini', { serverId });
+}
+
+export async function getAseConfigDiagnostics(serverId: number): Promise<AseDiagnostics> {
+    return invoke('get_ase_config_diagnostics', { serverId });
 }
 
