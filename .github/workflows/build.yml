@@ -49,18 +49,23 @@ jobs:
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This release brings support for ARK: Survival Ascended (ASA) and ARK: Survival Evolved (ASE) along with crucial bug fixes, preset selector sharing, and performance updates.
+            This release brings complete Windows Defender Firewall automation to the ARK: Survival Evolved (ASE) side, a premium settings tabbed redesign, application-wide re-branding to ASM 2.0, raw configuration editing, visual color gradients, and critical bug fixes.
 
             ### ✨ What's New
-            - **Critical Bugfix: ASA Config Directory**: Fixed a path resolution bug where ASA configurations (admin password, RCON configuration, max players) were written to the wrong folder, rendering RCON and in-game admin cheats/GCM unusable.
-            - **Traditional Chinese (zh-TW)**: Full localization with Traditional Chinese support.
-            - **CurseForge Mod URL Parser**: Added automatic parsing and extraction of numeric Mod IDs directly from CurseForge URLs.
-            - **Custom Presets Export/Import**: Export and import custom server configs as JSON files.
-            - **SteamCMD Error Recovery**: Diagnostic tips and repair/retry recovery buttons when encountering SteamCMD errors.
-            - **Tribe Log native viewer panel & UPnP controls**.
+            - **ASE Firewall Automation**: Full automated Windows Defender Firewall rules checking, creation (both UDP and TCP rules), batch assignments, and manual custom port configurations on the ASE Settings side.
+            - **ASE Settings Tabbed Redesign**: Redesigned flat ASE settings into a modern, glassmorphic tabbed view containing General Paths, API Integrations, and Firewall Rules dashboards.
+            - **ASM 2.0 Re-branding**: Re-branded all "Nexus" references to **ASM 2.0** within the support/donation banners and popup dialogues.
+            - **Visual Color Presets & Custom Gradient Generator (ASE & ASA)**: Premium color dropper picker, automated hex-to-decimal color translator, and custom Gradient Text Builder (interpolating smooth letter-by-letter or bold word-by-word spreads) integrated directly inside MOTD editors.
+            - **MOTD Relocation & Multi-line Expander**: Moved MOTD inputs to the **General** tab for immediate access and mapped them to multiline textarea fields with a real-time parsed broadcast preview panel.
+            - **Raw INI Text Editor (ASE side)**: Toggle easily between visual and raw INI text editors with smooth sidebar expansion and disk-to-cache synchronization.
+            - **Level Generator & Stat Multipliers Routing**: Sidebar selections automatically redirect active config tabs to `Game.ini` to guarantee correct context syncing.
+
+            ### 🐛 Bug Fixes
+            - **Mutagen Level Boost spelling fix**: Corrected spelling to `MutagenLevelBoost_Bred` (with underscore) across the visual editor schema and Rust INI parser, keeping backwards-compatible fallback logic.
+            - **ASESettings Infinite Loop Fix**: Fixed a critical missing dependency array in the main ASE settings load effect that was causing infinite render loop cycles.
 
             ### Install
-            Download the `.msi` installer below.
+            Download the `.msi` or `.exe` installer below.
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, 'beta') }}
           includeUpdaterJson: true
