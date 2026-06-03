@@ -7,6 +7,8 @@ import type { ImportPreview } from '../../../utils/tauri';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { ASE_MAPS } from '../../data/aseMaps';
+import { MODDED_MAP_PRESETS } from '../../../data/moddedMapRegistry';
+
 
 interface Props {
     onClose: () => void;
@@ -49,7 +51,15 @@ export default function ASEImportServerDialog({ onClose }: Props) {
             setPreview(result);
 
             // Populate all editable fields
-            setEditableMapName(result.mapName);
+            
+            // Check if any workshop ID in customArgs or detectedCommand matches an ASE modded map preset
+            let detectedMapName = result.mapName;
+            const searchString = `${result.customArgs || ''} ${result.detectedCommand || ''}`;
+            const matchedPreset = MODDED_MAP_PRESETS.find(p => p.serverType === 'ASE' && p.mapModId && searchString.includes(p.mapModId));
+            if (matchedPreset) {
+                detectedMapName = matchedPreset.mapArgument;
+            }
+            setEditableMapName(detectedMapName);
             setEditableSessionName(result.sessionName || 'My ASE Server');
             setEditableMaxPlayers(result.maxPlayers || 70);
             setEditableGamePort(result.gamePort || 7777);

@@ -24,7 +24,8 @@ import {
   Wifi,
   FileText,
   RefreshCw,
-  Search
+  Search,
+  Flame
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence } from 'framer-motion';
@@ -65,6 +66,7 @@ export default function Sidebar() {
         { name: 'Hardware Allocation', path: '/hardware', icon: Cpu },
         { name: t('sidebar.discordBot'), path: '/tools/discord', icon: MessageSquare },
         { name: t('sidebar.plugins'), path: '/tools/plugins', icon: Plug },
+        { name: 'Infinity Damage', path: '/tools/infinity-damage', icon: Flame },
         { name: t('sidebar.fileManager'), path: '/tools/files', icon: Folder },
         { name: t('sidebar.tribeLogs', 'Tribe Logs'), path: '/tools/tribe-logs', icon: ScrollText },
         { name: t('sidebar.upnp', 'UPnP Ports'), path: '/tools/upnp', icon: Wifi },

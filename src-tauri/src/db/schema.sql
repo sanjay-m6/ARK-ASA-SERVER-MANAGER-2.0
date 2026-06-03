@@ -326,6 +326,108 @@ CREATE TABLE IF NOT EXISTS discord_rate_limits (
 
 CREATE INDEX IF NOT EXISTS idx_discord_rate_limits_cluster ON discord_rate_limits(cluster_id);
 
+-- ASE module tables
+CREATE TABLE IF NOT EXISTS ase_servers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    install_path TEXT NOT NULL DEFAULT '',
+    map_name TEXT NOT NULL DEFAULT 'TheIsland',
+    port INTEGER NOT NULL DEFAULT 7777,
+    query_port INTEGER NOT NULL DEFAULT 27015,
+    rcon_port INTEGER NOT NULL DEFAULT 27020,
+    rcon_password TEXT NOT NULL DEFAULT '',
+    max_players INTEGER NOT NULL DEFAULT 70,
+    server_password TEXT NOT NULL DEFAULT '',
+    admin_password TEXT NOT NULL DEFAULT '',
+    session_name TEXT NOT NULL DEFAULT 'ARK Server',
+    active_mods TEXT NOT NULL DEFAULT '',
+    cluster_id TEXT NOT NULL DEFAULT '',
+    battleye INTEGER NOT NULL DEFAULT 1,
+    extra_args TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'stopped',
+    process_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    auto_start INTEGER NOT NULL DEFAULT 0,
+    auto_stop INTEGER NOT NULL DEFAULT 0,
+    intelligent_mode INTEGER NOT NULL DEFAULT 0,
+    startup_delay INTEGER NOT NULL DEFAULT 0,
+    startup_priority INTEGER NOT NULL DEFAULT 100,
+    branch TEXT NOT NULL DEFAULT 'default'
+);
+
+CREATE TABLE IF NOT EXISTS ase_mods (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    workshop_id TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT 'Unknown Mod',
+    version TEXT NOT NULL DEFAULT '1.0',
+    installed_at TEXT NOT NULL DEFAULT (datetime('now')),
+    enabled INTEGER NOT NULL DEFAULT 1,
+    load_order INTEGER NOT NULL DEFAULT 0,
+    description TEXT,
+    author TEXT,
+    preview_url TEXT,
+    subscribers TEXT,
+    file_size TEXT,
+    time_updated TEXT,
+    time_created TEXT,
+    tags TEXT,
+    FOREIGN KEY(server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ase_backups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    path TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY(server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ase_scheduled_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    task_type TEXT NOT NULL DEFAULT 'restart',
+    cron_expr TEXT NOT NULL DEFAULT '0 */6 * * *',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_run TEXT,
+    FOREIGN KEY(server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS ase_clusters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    cluster_dir TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS ase_cluster_servers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cluster_id INTEGER NOT NULL,
+    server_id INTEGER NOT NULL,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cluster_id) REFERENCES ase_clusters (id) ON DELETE CASCADE,
+    FOREIGN KEY (server_id) REFERENCES ase_servers (id) ON DELETE CASCADE,
+    UNIQUE(cluster_id, server_id)
+);
+
+CREATE TABLE IF NOT EXISTS ase_cluster_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cluster_id INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cluster_id) REFERENCES ase_clusters (id) ON DELETE CASCADE,
+    UNIQUE(cluster_id, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ase_mods_server_id ON ase_mods(server_id);
+CREATE INDEX IF NOT EXISTS idx_ase_backups_server_id ON ase_backups(server_id);
+CREATE INDEX IF NOT EXISTS idx_ase_servers_status ON ase_servers(status);
+CREATE INDEX IF NOT EXISTS idx_ase_cluster_servers_cluster ON ase_cluster_servers(cluster_id);
+CREATE INDEX IF NOT EXISTS idx_ase_cluster_servers_server ON ase_cluster_servers(server_id);
+
 
 -- ASE Discord bridge configuration per cluster
 CREATE TABLE IF NOT EXISTS ase_discord_bridge_config (

@@ -49,20 +49,14 @@ jobs:
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This release brings complete Windows Defender Firewall automation to the ARK: Survival Evolved (ASE) side, a premium settings tabbed redesign, application-wide re-branding to ASM 2.0, raw configuration editing, visual color gradients, and critical bug fixes.
+            This release brings major feature additions including ASE Server Cloning, a comprehensive Plugin Manager, the brand new Infinity Floating Damage System tool, and critical GUI fixes.
 
             ### ✨ What's New
-            - **ASE Firewall Automation**: Full automated Windows Defender Firewall rules checking, creation (both UDP and TCP rules), batch assignments, and manual custom port configurations on the ASE Settings side.
-            - **ASE Settings Tabbed Redesign**: Redesigned flat ASE settings into a modern, glassmorphic tabbed view containing General Paths, API Integrations, and Firewall Rules dashboards.
-            - **ASM 2.0 Re-branding**: Re-branded all "Nexus" references to **ASM 2.0** within the support/donation banners and popup dialogues.
-            - **Visual Color Presets & Custom Gradient Generator (ASE & ASA)**: Premium color dropper picker, automated hex-to-decimal color translator, and custom Gradient Text Builder (interpolating smooth letter-by-letter or bold word-by-word spreads) integrated directly inside MOTD editors.
-            - **MOTD Relocation & Multi-line Expander**: Moved MOTD inputs to the **General** tab for immediate access and mapped them to multiline textarea fields with a real-time parsed broadcast preview panel.
-            - **Raw INI Text Editor (ASE side)**: Toggle easily between visual and raw INI text editors with smooth sidebar expansion and disk-to-cache synchronization.
-            - **Level Generator & Stat Multipliers Routing**: Sidebar selections automatically redirect active config tabs to `Game.ini` to guarantee correct context syncing.
-
-            ### 🐛 Bug Fixes
-            - **Mutagen Level Boost spelling fix**: Corrected spelling to `MutagenLevelBoost_Bred` (with underscore) across the visual editor schema and Rust INI parser, keeping backwards-compatible fallback logic.
-            - **ASESettings Infinite Loop Fix**: Fixed a critical missing dependency array in the main ASE settings load effect that was causing infinite render loop cycles.
+            - **ASE Server Cloning & Clustering**: Easily clone existing ASE servers using the new Clone Options Modal to quickly spin up instances with custom configurations, ports, and clusters.
+            - **Plugin Manager**: A fully integrated Plugin Manager UI allowing you to browse, search, configure, install/uninstall, and enable/disable server plugins seamlessly.
+            - **Infinity Floating Damage System**: Customize in-game damage indicators, colors, sizing, outline effects, animations, critical hit feedback, and boss damage stylings with real-time UI previews.
+            - **Custom GUI Color Picker**: Replaced native HTML color pickers with a premium React popover color picker, providing color preset swatches, RGB sliders, and manual Hex inputs.
+            - **GUI Focus & Search Fixes**: Solved Tauri/WebView2 keypress hijacking issues on search/filter inputs, allowing smooth text entry inside category filters, text fields, and color selectors.
 
             ### Install
             Download the `.msi` or `.exe` installer below.

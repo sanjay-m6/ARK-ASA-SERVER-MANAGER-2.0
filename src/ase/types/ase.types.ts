@@ -13,7 +13,8 @@ export type AseMapName =
   | 'CrystalIsles'
   | 'LostIsland'
   | 'Fjordur'
-  | 'Aquatic';
+  | 'Aquatic'
+  | string;
 
 export type AseServerStatus =
   | 'stopped'

@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2 } from 'lucide-react';
+import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2, Copy } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import { cn } from '../../utils/helpers';
-import { startAseServer, stopAseServer, deleteAseServer, updateAseServer, updateAseServerInstall } from '../utils/aseCommands';
+import { startAseServer, stopAseServer, deleteAseServer, updateAseServer, updateAseServerInstall, cloneAseServer, transferAseSettings, extractAseSaveData } from '../utils/aseCommands';
 import { getAseMapDisplayName, ASE_BRANCHES } from '../data/aseMaps';
 import ASEInstallWizard from '../components/install/ASEInstallWizard';
 import ASEResetDialog from '../components/server/ASEResetDialog';
 import ASEImportServerDialog from '../components/server/ASEImportServerDialog';
 import ASEImportSaveDialog from '../components/server/ASEImportSaveDialog';
+import ASECloneOptionsModal from '../components/server/ASECloneOptionsModal';
+import { AseServer } from '../types/ase.types';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -22,6 +24,7 @@ export default function ASEServerManager() {
   const [showImportSave, setShowImportSave] = useState(false);
   const [resetServer, setResetServer] = useState<{id: number, name: string} | null>(null);
   const [serverToDelete, setServerToDelete] = useState<{id: number, name: string} | null>(null);
+  const [cloneModalServer, setCloneModalServer] = useState<AseServer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedServers, setSelectedServers] = useState<number[]>([]);
@@ -189,6 +192,37 @@ export default function ASEServerManager() {
       toast.error(`${e}`); 
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleCloneServer = async () => {
+    if (!cloneModalServer) return;
+    try {
+      const newServer = await cloneAseServer(cloneModalServer.id);
+      setServers([...servers, newServer]);
+      toast.success(t('serverManager.serverCloned', 'Server cloned successfully: {{name}}', { name: newServer.name }));
+    } catch (error) {
+      toast.error(t('serverManager.cloneFailed', 'Clone failed: {{error}}', { error }));
+    }
+  };
+
+  const handleTransferSettings = async (targetServerId: number) => {
+    if (!cloneModalServer) return;
+    try {
+      await transferAseSettings(cloneModalServer.id, targetServerId);
+      toast.success(t('dashboard.settingsTransferred', 'Settings transferred successfully'));
+    } catch (error) {
+      toast.error(t('dashboard.failedTransfer', 'Failed to transfer settings: {{error}}', { error }));
+    }
+  };
+
+  const handleExtractData = async (targetServerId: number) => {
+    if (!cloneModalServer) return;
+    try {
+      await extractAseSaveData(cloneModalServer.id, targetServerId);
+      toast.success(t('dashboard.saveDataExtracted', 'Save data extracted successfully'));
+    } catch (error) {
+      toast.error(t('dashboard.failedExtract', 'Failed to extract save data: {{error}}', { error }));
     }
   };
 
@@ -501,6 +535,15 @@ export default function ASEServerManager() {
                       title="RCON Console"
                   >
                       <Terminal className="w-5 h-5" />
+                  </button>
+
+                  <button
+                      onClick={() => setCloneModalServer(srv)}
+                      disabled={srv.status === 'updating'}
+                      className="p-2.5 bg-slate-700/30 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 border border-slate-600/30 hover:border-amber-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Clone Server"
+                  >
+                      <Copy className="w-5 h-5" />
                   </button>
 
                   <div className="w-px h-8 bg-slate-700/50 mx-1"></div>
@@ -829,6 +872,18 @@ export default function ASEServerManager() {
         variant="danger"
         isLoading={isDeleting}
       />
+
+      {cloneModalServer && (
+        <ASECloneOptionsModal
+          isOpen={true}
+          onClose={() => setCloneModalServer(null)}
+          sourceServer={cloneModalServer}
+          allServers={servers}
+          onCloneServer={handleCloneServer}
+          onTransferSettings={handleTransferSettings}
+          onExtractData={handleExtractData}
+        />
+      )}
     </motion.div>
   );
 }

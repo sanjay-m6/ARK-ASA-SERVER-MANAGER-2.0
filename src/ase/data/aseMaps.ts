@@ -1,4 +1,5 @@
 import type { AseMapName } from '../types/ase.types';
+import { MODDED_MAP_PRESETS } from '../../data/moddedMapRegistry';
 
 // Map images from src/assets/Ase_maps
 import islandImg from '../../assets/Ase_maps/island.webp';
@@ -18,10 +19,13 @@ import aquaticImg from '../../assets/Ase_maps/AQUAtic.png';
 export interface AseMapInfo {
   name: string;
   serverArg: AseMapName;
-  dlcType: 'Free' | 'Paid DLC' | 'Free DLC';
+  dlcType: 'Free' | 'Paid DLC' | 'Free DLC' | 'Workshop Mod';
   description: string;
   image?: string;
   size: string;
+  author?: string;
+  mapModId?: string;
+  isModded?: boolean;
 }
 
 export const ASE_MAPS: AseMapInfo[] = [
@@ -38,6 +42,18 @@ export const ASE_MAPS: AseMapInfo[] = [
   { name: 'Lost Island', serverArg: 'LostIsland', dlcType: 'Free DLC', description: 'Community-created map with unique creatures.', image: lostIslandImg, size: '~5 GB' },
   { name: 'Fjordur', serverArg: 'Fjordur', dlcType: 'Free DLC', description: 'Norse-themed map with multiple realms and Andrewsarchus.', image: fjordurImg, size: '~6 GB' },
   { name: 'Pre-Aquatica (Aquatic)', serverArg: 'Aquatic', dlcType: 'Free DLC', description: 'Special aquatic mod or custom map before the update.', image: aquaticImg, size: '~6 GB' },
+  // Modded presets mapped to AseMapInfo dynamically
+  ...MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASE').map(p => ({
+    name: p.name,
+    serverArg: p.mapArgument,
+    dlcType: 'Workshop Mod' as const,
+    description: p.description,
+    size: p.size,
+    author: p.author,
+    mapModId: p.mapModId,
+    isModded: true,
+    image: p.mapArgument === 'ScorchedEarth_P' ? scorchedImg : islandImg
+  }))
 ];
 
 /** ASE server branches available via SteamCMD -beta flag */

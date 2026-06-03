@@ -5,6 +5,22 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::State;
 
+fn is_array_key(key: &str) -> bool {
+    let kl = key.to_lowercase();
+    kl == "levelexperiencerampoverrides"
+        || kl == "harvestresourceitemamountclassmultipliers"
+        || kl == "dinospawnweightmultipliers"
+        || kl == "dinoclassdamagemultipliers"
+        || kl == "dinoclassresistancemultipliers"
+        || kl == "tameddinoclassdamagemultipliers"
+        || kl == "tameddinoclassresistancemultipliers"
+        || kl == "npcreplacements"
+        || kl == "preventdinotameclassnames"
+        || kl == "excludedinoclasses"
+        || kl == "overridenamedengramentries"
+        || kl == "configoverrideitemcraftingcosts"
+}
+
 /// Parse a UE4-style INI file into section → (key → value) map
 fn parse_ini(content: &str) -> HashMap<String, HashMap<String, String>> {
     let mut sections: HashMap<String, HashMap<String, String>> = HashMap::new();
@@ -23,9 +39,19 @@ fn parse_ini(content: &str) -> HashMap<String, HashMap<String, String>> {
             let key = trimmed[..eq_pos].trim().to_string();
             let value = trimmed[eq_pos + 1..].trim().to_string();
             let section_map = sections.entry(current_section.clone()).or_default();
-            if let Some(existing) = section_map.get_mut(&key) {
-                existing.push('\n');
-                existing.push_str(&value);
+            
+            // Search case-insensitively for the key in section_map
+            let existing_key = section_map.keys().find(|k| k.to_lowercase() == key.to_lowercase()).cloned();
+            
+            if let Some(ek) = existing_key {
+                if is_array_key(&key) {
+                    let val_ref = section_map.get_mut(&ek).unwrap();
+                    val_ref.push('\n');
+                    val_ref.push_str(&value);
+                } else {
+                    // Single value key: overwrite the old value
+                    section_map.insert(ek, value);
+                }
             } else {
                 section_map.insert(key, value);
             }
@@ -77,7 +103,10 @@ fn ini_get_f64(
     default: f64,
 ) -> f64 {
     ini_get(sections, section, key)
-        .and_then(|v| v.parse::<f64>().ok())
+        .and_then(|v| {
+            let last_line = v.lines().last().unwrap_or("");
+            last_line.parse::<f64>().ok()
+        })
         .unwrap_or(default)
 }
 
@@ -88,7 +117,10 @@ fn ini_get_u32(
     default: u32,
 ) -> u32 {
     ini_get(sections, section, key)
-        .and_then(|v| v.parse::<u32>().ok())
+        .and_then(|v| {
+            let last_line = v.lines().last().unwrap_or("");
+            last_line.parse::<u32>().ok()
+        })
         .unwrap_or(default)
 }
 
@@ -99,7 +131,10 @@ fn ini_get_u16(
     default: u16,
 ) -> u16 {
     ini_get(sections, section, key)
-        .and_then(|v| v.parse::<u16>().ok())
+        .and_then(|v| {
+            let last_line = v.lines().last().unwrap_or("");
+            last_line.parse::<u16>().ok()
+        })
         .unwrap_or(default)
 }
 
@@ -111,7 +146,8 @@ fn ini_get_bool(
 ) -> bool {
     ini_get(sections, section, key)
         .map(|v| {
-            let lower = v.to_lowercase();
+            let last_line = v.lines().last().unwrap_or("");
+            let lower = last_line.to_lowercase();
             lower == "true" || lower == "1"
         })
         .unwrap_or(default)
@@ -124,7 +160,13 @@ fn ini_get_str(
     default: &str,
 ) -> String {
     ini_get(sections, section, key)
-        .cloned()
+        .map(|v| {
+            if is_array_key(key) {
+                v.clone()
+            } else {
+                v.lines().last().unwrap_or("").to_string()
+            }
+        })
         .unwrap_or_else(|| default.to_string())
 }
 
@@ -1382,12 +1424,26 @@ pub async fn write_ase_config(
     let ss = "ServerSettings";
     let gus_cell = std::cell::RefCell::new(gus_data);
 
-    // Helper to set values
+    // Helper to set values (case-insensitive and deduplicated)
     let ini_set = |sec: &str, key: &str, val: String| {
         let mut gus = gus_cell.borrow_mut();
         let section = gus.ensure_section(sec);
-        if let Some(entry) = section.entries.iter_mut().find(|e| e.key == key) {
-            entry.value = val;
+        let key_lower = key.to_lowercase();
+        
+        let mut matches = Vec::new();
+        for (idx, entry) in section.entries.iter().enumerate() {
+            if entry.key.to_lowercase() == key_lower {
+                matches.push(idx);
+            }
+        }
+        
+        if !matches.is_empty() {
+            let first_idx = matches[0];
+            section.entries[first_idx].key = key.to_string();
+            section.entries[first_idx].value = val;
+            for &idx in matches.iter().skip(1).rev() {
+                section.entries.remove(idx);
+            }
         } else {
             section.entries.push(IniEntry {
                 key: key.to_string(),
@@ -1399,15 +1455,33 @@ pub async fn write_ase_config(
 
     let ini_set_opt = |sec: &str, key: &str, val: String| {
         let mut gus = gus_cell.borrow_mut();
+        let key_lower = key.to_lowercase();
         if val.is_empty() {
             let section = gus.ensure_section(sec);
-            if let Some(pos) = section.entries.iter().position(|e| e.key == key) {
-                section.entries.remove(pos);
+            let mut matches = Vec::new();
+            for (idx, entry) in section.entries.iter().enumerate() {
+                if entry.key.to_lowercase() == key_lower {
+                    matches.push(idx);
+                }
+            }
+            for &idx in matches.iter().rev() {
+                section.entries.remove(idx);
             }
         } else {
             let section = gus.ensure_section(sec);
-            if let Some(entry) = section.entries.iter_mut().find(|e| e.key == key) {
-                entry.value = val;
+            let mut matches = Vec::new();
+            for (idx, entry) in section.entries.iter().enumerate() {
+                if entry.key.to_lowercase() == key_lower {
+                    matches.push(idx);
+                }
+            }
+            if !matches.is_empty() {
+                let first_idx = matches[0];
+                section.entries[first_idx].key = key.to_string();
+                section.entries[first_idx].value = val;
+                for &idx in matches.iter().skip(1).rev() {
+                    section.entries.remove(idx);
+                }
             } else {
                 section.entries.push(IniEntry {
                     key: key.to_string(),
@@ -2293,8 +2367,22 @@ pub async fn write_ase_config(
         ($key:expr, $value:expr $(,)?) => {
             let section = game_data.ensure_section(gm);
             let key_string = $key.to_string();
-            if let Some(entry) = section.entries.iter_mut().find(|e| e.key == key_string) {
-                entry.value = $value.to_string();
+            let key_lower = key_string.to_lowercase();
+            
+            let mut matches = Vec::new();
+            for (idx, entry) in section.entries.iter().enumerate() {
+                if entry.key.to_lowercase() == key_lower {
+                    matches.push(idx);
+                }
+            }
+            
+            if !matches.is_empty() {
+                let first_idx = matches[0];
+                section.entries[first_idx].key = key_string;
+                section.entries[first_idx].value = $value.to_string();
+                for &idx in matches.iter().skip(1).rev() {
+                    section.entries.remove(idx);
+                }
             } else {
                 section.entries.push(IniEntry {
                     key: key_string,

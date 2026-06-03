@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, RotateCcw, ChevronDown, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database, Loader2, Sliders } from 'lucide-react';
+import { Save, RotateCcw, ChevronDown, ChevronUp, Check, Sparkles, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database, Loader2, Sliders, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import ServerSelect from '../../components/ui/ServerSelect';
-import { readAseConfig, writeAseConfig, getAseLaunchArguments, syncAseServerFromIni, getAseConfigDiagnostics, readAseIniRaw, writeAseIniRaw } from '../utils/aseCommands';
+import { readAseConfig, writeAseConfig, updateAseServer, getAseLaunchArguments, syncAseServerFromIni, getAseConfigDiagnostics, readAseIniRaw, writeAseIniRaw } from '../utils/aseCommands';
 import { AseGameConfig, AseDiagnostics } from '../types/ase.types';
 import { EngramOverridesEditor } from '../../components/config/EngramOverridesEditor';
 import { CraftingCostEditor } from '../../components/config/CraftingCostEditor';
@@ -15,6 +15,8 @@ import ASEEnvironmentManager from './ASEEnvironmentManager';
 import { CodeEditor } from '../../components/ui/CodeEditor';
 import { cn } from '../../utils/helpers';
 import aseLogo from '../../assets/ASE.png';
+import { ASE_MAPS } from '../data/aseMaps';
+import { getModdedMapByMapArg, buildLaunchArgs } from '../../data/moddedMapRegistry';
 
 const defaultConfig: AseGameConfig = {
   // Identity
@@ -181,6 +183,7 @@ const NumberInput = memo(({ label, value, onChange, desc, step = 1, file }: { la
   const [localValue, setLocalValue] = useState<string>(String(value));
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalValue(String(value));
   }, [value]);
 
@@ -216,6 +219,7 @@ const TextInput = memo(({ label, value, onChange, desc, placeholder, file }: { l
   const [localValue, setLocalValue] = useState<string>(value || '');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalValue(value || '');
   }, [value]);
 
@@ -245,6 +249,7 @@ const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, i
   const [localValue, setLocalValue] = useState<string>(value || '');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalValue(value || '');
   }, [value]);
 
@@ -433,6 +438,16 @@ export default function ASEConfigEditor() {
   const { t } = useTranslation();
   const { servers } = useAseServerStore();
   const [selectedServer, setSelectedServer] = useState<number | null>(servers[0]?.id || null);
+
+  // Auto-select first server if none selected and servers are available
+  useEffect(() => {
+    if (!selectedServer && servers.length > 0) {
+      setSelectedServer(servers[0].id);
+    }
+  }, [servers, selectedServer]);
+
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [pendingServerSwitch, setPendingServerSwitch] = useState<number | null>(null);
   const [config, setConfig] = useState<AseGameConfig>(defaultConfig);
   const [activeFile, setActiveFile] = useState<ConfigFile>('GameUserSettings.ini');
   const [activeTab, setActiveTab] = useState<TabType>('general');
@@ -442,50 +457,9 @@ export default function ASEConfigEditor() {
   const [diagnostics, setDiagnostics] = useState<AseDiagnostics | null>(null);
   const [editorMode, setEditorMode] = useState<'visual' | 'raw'>('visual');
   const [rawIniContent, setRawIniContent] = useState<string>('');
+  const [mapName, setMapName] = useState<string>('TheIsland');
 
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    if (selectedServer) {
-      loadConfig(selectedServer);
-      loadLaunchArgs(selectedServer);
-      loadDiagnostics(selectedServer);
-    }
-  }, [selectedServer]);
-
-  useEffect(() => {
-    const fetchRawIni = async () => {
-      if (!selectedServer || editorMode !== 'raw') return;
-      setIsLoading(true);
-      try {
-        const raw = await readAseIniRaw(selectedServer, activeFile);
-        setRawIniContent(raw);
-      } catch (e) {
-        toast.error(`Failed to load raw INI: ${e}`);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchRawIni();
-  }, [selectedServer, activeFile, editorMode]);
-
-  useEffect(() => {
-    if (editorMode === 'visual' && selectedServer) {
-      loadConfig(selectedServer);
-    }
-  }, [editorMode, selectedServer]);
-
-  useEffect(() => {
-    if (selectedServer) {
-      loadLaunchArgs(selectedServer);
-    }
-  }, [config]);
-
-  useEffect(() => {
-    if (selectedServer && activeTab === 'diagnostics') {
-      loadDiagnostics(selectedServer);
-    }
-  }, [activeTab]);
 
   const loadLaunchArgs = async (id: number) => {
     try {
@@ -521,20 +495,80 @@ export default function ASEConfigEditor() {
     }
   };
 
-  const handleSave = async () => {
+  useEffect(() => {
+    if (selectedServer) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadConfig(selectedServer);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadLaunchArgs(selectedServer);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadDiagnostics(selectedServer);
+    }
+  }, [selectedServer]);
+
+  useEffect(() => {
+    if (selectedServer) {
+      const serverObj = servers.find(s => s.id === selectedServer);
+      if (serverObj && (!isDirty || mapName === 'TheIsland')) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setMapName(serverObj.mapName || 'TheIsland');
+      }
+    }
+  }, [selectedServer, servers, isDirty]);
+
+
+  useEffect(() => {
+    const fetchRawIni = async () => {
+      if (!selectedServer || editorMode !== 'raw') return;
+      setIsLoading(true);
+      try {
+        const raw = await readAseIniRaw(selectedServer, activeFile);
+        setRawIniContent(raw);
+      } catch (e) {
+        toast.error(`Failed to load raw INI: ${e}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRawIni();
+  }, [selectedServer, activeFile, editorMode]);
+
+  useEffect(() => {
+    if (editorMode === 'visual' && selectedServer) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadConfig(selectedServer);
+    }
+  }, [editorMode, selectedServer]);
+
+  useEffect(() => {
+    if (selectedServer) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadLaunchArgs(selectedServer);
+    }
+  }, [config, selectedServer]);
+
+  useEffect(() => {
+    if (selectedServer && activeTab === 'diagnostics') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadDiagnostics(selectedServer);
+    }
+  }, [activeTab, selectedServer]);
+
+  const handleSave = useCallback(async () => {
     if (!selectedServer) return;
     setIsLoading(true);
     try {
       if (editorMode === 'visual') {
         await writeAseConfig(selectedServer, config);
+        await updateAseServer(selectedServer, { mapName });
       } else {
         await writeAseIniRaw(selectedServer, activeFile, rawIniContent);
-        // Force sync SQLite DB cache with the newly updated raw INI
-        await syncAseServerFromIni(selectedServer);
-        // Reload configuration state so visual editor is updated
-        const c = await readAseConfig(selectedServer);
-        setConfig({ ...defaultConfig, ...c });
       }
+      // Force sync SQLite DB cache with the newly updated raw/visual INI
+      await syncAseServerFromIni(selectedServer);
+      // Reload configuration state so visual editor is updated
+      const c = await readAseConfig(selectedServer);
+      setConfig({ ...defaultConfig, ...c });
       setIsDirty(false);
       // Refresh servers list to reflect updates in UI
       await useAseServerStore.getState().refreshServers();
@@ -546,9 +580,47 @@ export default function ASEConfigEditor() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedServer, editorMode, config, mapName, activeFile, rawIniContent]);
 
-  const update = (key: keyof AseGameConfig, val: any) => {
+  // Ctrl+S keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (isDirty && !isLoading) {
+          handleSave();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDirty, isLoading, handleSave]);
+
+  // Unsaved-changes guard on server switch
+  const handleServerSwitch = useCallback((newServerId: number | null) => {
+    if (isDirty && newServerId !== selectedServer) {
+      setPendingServerSwitch(newServerId);
+      setShowUnsavedWarning(true);
+    } else {
+      setSelectedServer(newServerId);
+    }
+  }, [isDirty, selectedServer]);
+
+  const confirmServerSwitch = useCallback(() => {
+    setShowUnsavedWarning(false);
+    setIsDirty(false);
+    if (pendingServerSwitch !== null) {
+      setSelectedServer(pendingServerSwitch);
+      setPendingServerSwitch(null);
+    }
+  }, [pendingServerSwitch]);
+
+  const cancelServerSwitch = useCallback(() => {
+    setShowUnsavedWarning(false);
+    setPendingServerSwitch(null);
+  }, []);
+
+  const update = (key: keyof AseGameConfig, val: string | number | boolean | number[]) => {
     setConfig(prev => ({ ...prev, [key]: val }));
     setIsDirty(true);
   };
@@ -556,6 +628,258 @@ export default function ASEConfigEditor() {
   const handleRawChange = (val: string) => {
     setRawIniContent(val);
     setIsDirty(true);
+  };
+
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const mapDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mapDropdownRef.current && !mapDropdownRef.current.contains(event.target as Node)) {
+        setIsMapOpen(false);
+      }
+    };
+    if (isMapOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMapOpen]);
+
+  const selectedMapMeta = useMemo(() => {
+    return ASE_MAPS.find(m => m.serverArg === mapName);
+  }, [mapName]);
+
+  const knownValues = useMemo(() => ASE_MAPS.map(m => m.serverArg), []);
+  const isCustomValue = mapName !== '' && !knownValues.includes(mapName);
+  const dropdownValue = isCustomValue ? '__CUSTOM__' : mapName;
+
+  const groupedMaps = useMemo(() => {
+    return {
+      official: ASE_MAPS.filter(m => m.dlcType !== 'Workshop Mod'),
+      modded: ASE_MAPS.filter(m => m.dlcType === 'Workshop Mod')
+    };
+  }, []);
+
+  const handleMapChange = (newMap: string) => {
+    setMapName(newMap);
+    setIsDirty(true);
+
+    // Auto-inject modded map parameters
+    const preset = getModdedMapByMapArg(newMap, 'ASE');
+    if (preset) {
+      const updatedArgs = buildLaunchArgs(preset, config.launcherArgs || '');
+      if (updatedArgs !== config.launcherArgs) {
+        setConfig(prev => ({
+          ...prev,
+          launcherArgs: updatedArgs
+        }));
+        toast.success(`${preset.name} mod launch parameters auto-configured in Advanced tab!`);
+      }
+    }
+  };
+
+  const renderMapSelector = () => {
+    return (
+      <div className="py-5 border-b border-white/5 flex flex-col gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="text-slate-200 font-semibold tracking-wide flex items-center gap-2 mb-1 text-sm">
+            Active Map Profile
+          </div>
+          <div className="text-[13px] text-slate-400 leading-relaxed">
+            Select the active map for this ARK: Survival Evolved server instance.
+          </div>
+        </div>
+
+        {/* Dropdown Container */}
+        <div ref={mapDropdownRef} className="relative w-full z-20">
+          <button
+            type="button"
+            onClick={() => setIsMapOpen(!isMapOpen)}
+            className="w-full flex items-center justify-between bg-slate-950/60 border border-slate-800 hover:border-amber-500/50 rounded-xl px-4 py-3 text-white transition-all focus:outline-none focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.15)] text-left cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">
+                {selectedMapMeta ? (selectedMapMeta.isModded ? '🏝️' : '🗺️') : (dropdownValue === '__CUSTOM__' ? '✏️' : '🗺️')}
+              </span>
+              <div>
+                <div className="font-semibold text-slate-100 leading-tight">
+                  {selectedMapMeta ? selectedMapMeta.name : (mapName || 'Custom Map')}
+                </div>
+                <div className="text-[10px] text-amber-500 font-semibold tracking-wider uppercase mt-0.5">
+                  {selectedMapMeta ? (selectedMapMeta.author ? `${selectedMapMeta.dlcType} • By ${selectedMapMeta.author}` : selectedMapMeta.dlcType) : 'Custom Mod Map'}
+                </div>
+              </div>
+            </div>
+            {isMapOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+          </button>
+
+          {/* Options Dropdown */}
+          {isMapOpen && (
+            <div className="absolute left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200 z-30">
+              
+              {/* Official Maps */}
+              <div className="px-4 py-2 text-[10px] font-bold text-slate-450 uppercase tracking-widest bg-slate-950/40 border-b border-white/5 flex items-center gap-1.5 select-none">
+                <Globe className="w-3 h-3 text-amber-500" /> Official Maps
+              </div>
+              <div className="p-1.5 space-y-0.5">
+                {groupedMaps.official.map(m => {
+                  const isSelected = mapName === m.serverArg;
+                  return (
+                    <button
+                      key={m.serverArg}
+                      type="button"
+                      onClick={() => {
+                        handleMapChange(m.serverArg);
+                        setIsMapOpen(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
+                        isSelected 
+                          ? "bg-amber-500/10 border border-amber-500/20 text-amber-400 font-medium"
+                          : "text-slate-355 hover:bg-slate-800/40 border border-transparent hover:text-white"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🏝️</span>
+                        <span>{m.name}</span>
+                      </div>
+                      {isSelected && <Check className="w-4 h-4 text-amber-500" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Modded Maps */}
+              <div className="px-4 py-2 text-[10px] font-bold text-slate-450 uppercase tracking-widest bg-slate-950/40 border-t border-b border-white/5 flex items-center gap-1.5 select-none">
+                <Sparkles className="w-3 h-3 text-amber-500" /> Workshop Modded Maps
+              </div>
+              <div className="p-1.5 space-y-0.5">
+                {groupedMaps.modded.map(m => {
+                  const isSelected = mapName === m.serverArg;
+                  return (
+                    <button
+                      key={m.serverArg}
+                      type="button"
+                      onClick={() => {
+                        handleMapChange(m.serverArg);
+                        setIsMapOpen(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
+                        isSelected 
+                          ? "bg-amber-500/10 border border-amber-500/20 text-amber-400 font-medium"
+                          : "text-slate-355 hover:bg-slate-800/40 border border-transparent hover:text-white"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">⚙️</span>
+                        <span>{m.name} {m.author && <span className="text-[10px] text-slate-500 font-normal">by {m.author}</span>}</span>
+                      </div>
+                      {isSelected && <Check className="w-4 h-4 text-amber-500" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Selector */}
+              <div className="border-t border-white/5 p-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleMapChange(isCustomValue ? mapName : '');
+                    setIsMapOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
+                    dropdownValue === '__CUSTOM__' 
+                      ? "bg-amber-500/10 border border-amber-500/20 text-amber-400 font-medium"
+                      : "text-slate-355 hover:bg-slate-800/40 border border-transparent hover:text-white"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">✏️</span>
+                    <span>Custom Map / Mod ID</span>
+                  </div>
+                  {dropdownValue === '__CUSTOM__' && <Check className="w-4 h-4 text-amber-500" />}
+                </button>
+              </div>
+
+            </div>
+          )}
+        </div>
+
+        {/* Custom Map Input Field */}
+        {dropdownValue === '__CUSTOM__' && (
+          <div className="space-y-2 relative z-10 animate-fadeIn">
+            <label className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">Custom Map Name / Server Argument</label>
+            <input
+              type="text"
+              value={mapName}
+              onChange={(e) => handleMapChange(e.target.value)}
+              placeholder="e.g. TheIslandReforged"
+              className="w-full bg-slate-950/40 border border-slate-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.15)] font-mono text-sm transition-all placeholder-slate-650"
+            />
+          </div>
+        )}
+
+        {/* Thematic Premium Map Preview Card */}
+        <div className="relative rounded-2xl overflow-hidden border border-white/5 bg-slate-950 group/card min-h-[190px] flex flex-col justify-end transition-all duration-300 hover:border-amber-500/30 hover:shadow-[0_0_20px_rgba(245,158,11,0.1)] select-none">
+          {selectedMapMeta ? (
+            <>
+              {selectedMapMeta.image && (
+                <img 
+                  src={selectedMapMeta.image} 
+                  alt={selectedMapMeta.name} 
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105" 
+                />
+              )}
+              {/* overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent" />
+              
+              {/* Badges */}
+              <div className="absolute top-3 right-3 flex gap-1.5 items-center z-10">
+                <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-slate-950/80 border border-white/5 text-slate-300 backdrop-blur-md">
+                  {selectedMapMeta.size}
+                </span>
+                <span 
+                  className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider text-slate-950 backdrop-blur-md font-black bg-amber-500"
+                >
+                  {selectedMapMeta.dlcType}
+                </span>
+              </div>
+
+              {/* Card Contents */}
+              <div className="relative p-4 z-10">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🏝️</span>
+                  <h4 className="font-black text-white text-base leading-tight drop-shadow-md">{selectedMapMeta.name}</h4>
+                </div>
+                {selectedMapMeta.author && (
+                  <div className="text-[10px] text-amber-400 font-bold mb-1">
+                    By {selectedMapMeta.author}
+                  </div>
+                )}
+                <p className="text-xs text-slate-300 leading-normal drop-shadow-sm line-clamp-2">{selectedMapMeta.description}</p>
+                {selectedMapMeta.mapModId && (
+                  <div className="mt-2 text-[10px] text-slate-400 font-mono">
+                    Mod ID: <span className="text-slate-200">{selectedMapMeta.mapModId}</span>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="relative p-6 z-10 flex flex-col justify-center items-center h-full text-slate-500 bg-slate-950">
+              <span className="text-4xl mb-2">🗺️</span>
+              <div className="font-bold text-slate-350">Custom Modded Map Selected</div>
+              <div className="text-xs text-slate-500 mt-1">Specify custom identifier launch arguments as needed.</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -586,23 +910,25 @@ export default function ASEConfigEditor() {
       if (equalsIdx === -1) continue;
 
       const key = trimmed.substring(0, equalsIdx).trim();
-      let valStr = trimmed.substring(equalsIdx + 1).trim();
+      const valStr = trimmed.substring(equalsIdx + 1).trim();
 
       const field = schema.find(f => f.key === key);
       if (field) {
-        let parsedVal: any = valStr;
+        let parsedVal: string | number | boolean = valStr;
 
-        if (typeof parsedVal === 'string' && parsedVal.startsWith('"') && parsedVal.endsWith('"')) {
+        if (parsedVal.startsWith('"') && parsedVal.endsWith('"')) {
           parsedVal = parsedVal.substring(1, parsedVal.length - 1);
         }
 
         if (field.type === 'number') {
-          parsedVal = parseFloat(valStr);
-          if (isNaN(parsedVal)) continue;
+          const parsedNum = parseFloat(valStr);
+          if (isNaN(parsedNum)) continue;
+          parsedVal = parsedNum;
         } else if (field.type === 'toggle') {
           parsedVal = valStr.toLowerCase() === 'true' || valStr === '1';
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (newConfig as any)[key] = parsedVal;
         importedCount++;
       }
@@ -632,7 +958,18 @@ export default function ASEConfigEditor() {
     }
   };
 
-  const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
+  interface SchemaField {
+    file: string;
+    tab: string;
+    type: string;
+    key: string;
+    label: string;
+    desc?: string;
+    step?: number;
+    options?: { label: string; value: string }[];
+  }
+
+  const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = useMemo(() => [
     { id: 'general', label: 'General', icon: <Settings2 className="w-4 h-4" /> },
     { id: 'server_options', label: 'Server Options', icon: <Cpu className="w-4 h-4" /> },
     { id: 'rates', label: 'Rates & Multipliers', icon: <Flame className="w-4 h-4" /> },
@@ -648,8 +985,9 @@ export default function ASEConfigEditor() {
     { id: 'engrams', label: 'Engrams & Crafting', icon: <Hammer className="w-4 h-4" /> },
     { id: 'admin', label: 'Administration', icon: <MonitorPlay className="w-4 h-4" /> },
     { id: 'advanced', label: 'Advanced', icon: <Cpu className="w-4 h-4" /> },
-  ];
+  ], []);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const schema = useMemo(() => [
     // GENERAL - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'sessionName', label: 'Session Name', desc: 'The name displayed in the server browser' },
@@ -949,13 +1287,14 @@ export default function ASEConfigEditor() {
     if (isInvalidTab || isGameIniSpecificTab) {
       if (activeFileTabs.length > 0) {
         const fallbackTab = activeFileTabs.find(t => t.id !== 'levels' && t.id !== 'stats') || activeFileTabs[0];
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setActiveTab(fallbackTab.id);
       }
     }
   }, [activeFile, activeFileTabs, activeTab]);
 
 
-  const renderField = (field: any) => {
+  const renderField = (field: SchemaField) => {
     if (field.type === 'text') {
       return <TextInput key={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as string} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} />;
     }
@@ -969,7 +1308,7 @@ export default function ASEConfigEditor() {
       return <Toggle key={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as boolean} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} />;
     }
     if (field.type === 'select') {
-      return <SelectInput key={field.key} file={field.file} label={field.label!} value={config[field.key as keyof AseGameConfig] as string} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} options={field.options} />;
+      return <SelectInput key={field.key} file={field.file} label={field.label!} value={config[field.key as keyof AseGameConfig] as string} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} options={field.options || []} />;
     }
     if (field.type === 'engram_entries') {
       return (
@@ -1064,7 +1403,7 @@ export default function ASEConfigEditor() {
           {servers.length > 0 && (
             <ServerSelect
               value={selectedServer}
-              onChange={setSelectedServer}
+              onChange={handleServerSwitch}
               servers={servers}
               accentColor="amber"
             />
@@ -1146,7 +1485,7 @@ export default function ASEConfigEditor() {
                         )}
                       >
                         <span className="flex items-center gap-3">
-                          {React.cloneElement(tab.icon as React.ReactElement<any>, {
+                          {React.cloneElement(tab.icon as React.ReactElement<{ className?: string }>, {
                             className: cn("w-5 h-5 transition-transform duration-300", isActive ? "scale-110" : "group-hover:scale-110 opacity-70")
                           })}
                           {tab.label}
@@ -1384,6 +1723,96 @@ export default function ASEConfigEditor() {
                               : 'No arguments detected. Verify directory settings.'}
                           </div>
                         </div>
+
+                        {/* Server Readiness Pre-flight Checks */}
+                        <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-3">
+                          <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5">
+                            <Shield className="w-4 h-4" /> Server Launch Readiness
+                          </h3>
+                          <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                            Pre-flight checks to verify the server is ready to launch. Resolve any issues before starting.
+                          </p>
+                          <div className="space-y-2">
+                            {/* Executable check */}
+                            <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                              {diagnostics?.gusExists !== undefined ? (
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                              ) : (
+                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                              )}
+                              <div className="flex-1">
+                                <div className="text-xs font-semibold text-slate-200">Server Executable</div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">ShooterGame/Binaries/Win64/ShooterGameServer.exe</div>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase">
+                                {diagnostics?.gusExists !== undefined ? 'Found' : 'Unknown'}
+                              </span>
+                            </div>
+
+                            {/* GameUserSettings.ini check */}
+                            <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                              {diagnostics?.gusExists ? (
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                              ) : (
+                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                              )}
+                              <div className="flex-1">
+                                <div className="text-xs font-semibold text-slate-200">GameUserSettings.ini</div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">Core server identity, rates, and admin config</div>
+                              </div>
+                              <span className={`text-[10px] font-bold uppercase ${diagnostics?.gusExists ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {diagnostics?.gusExists ? 'Present' : 'Missing'}
+                              </span>
+                            </div>
+
+                            {/* Game.ini check */}
+                            <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                              {diagnostics?.gameIniExists ? (
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                              ) : (
+                                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                              )}
+                              <div className="flex-1">
+                                <div className="text-xs font-semibold text-slate-200">Game.ini</div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">Breeding, engrams, and gameplay overrides</div>
+                              </div>
+                              <span className={`text-[10px] font-bold uppercase ${diagnostics?.gameIniExists ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                {diagnostics?.gameIniExists ? 'Present' : 'Will be created on save'}
+                              </span>
+                            </div>
+
+                            {/* Map validation */}
+                            <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                              {mapName && mapName.trim().length > 0 ? (
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                              ) : (
+                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                              )}
+                              <div className="flex-1">
+                                <div className="text-xs font-semibold text-slate-200">Map Configuration</div>
+                                <div className="text-[10px] text-slate-500 mt-0.5">
+                                  {mapName && mapName.trim().length > 0
+                                    ? `Active map: ${mapName}`
+                                    : 'No map selected — server will fail to start'}
+                                </div>
+                              </div>
+                              <span className={`text-[10px] font-bold uppercase ${mapName && mapName.trim().length > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {mapName && mapName.trim().length > 0 ? 'Valid' : 'Invalid'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Crash hint */}
+                          <div className="mt-3 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                              <div className="text-[11px] text-slate-400 leading-relaxed">
+                                <span className="font-bold text-amber-400">Server crashes with Code 0?</span> This usually means the server files are incomplete or corrupt.
+                                Try updating the server via SteamCMD (use the Update button on the dashboard), or verify that the install path contains a complete ARK server installation.
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -1448,7 +1877,7 @@ export default function ASEConfigEditor() {
                                   <button
                                     key={tabId}
                                     type="button"
-                                    onClick={() => setActiveTab(tabId as any)}
+                                    onClick={() => setActiveTab(tabId as TabType)}
                                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
                                   >
                                     {targetTab.label}
@@ -1465,6 +1894,7 @@ export default function ASEConfigEditor() {
 
                       return (
                         <div className="space-y-6">
+                          {activeFile === 'GameUserSettings.ini' && activeTab === 'general' && !searchQuery && renderMapSelector()}
                           {filteredFields.map(field => renderField(field))}
                         </div>
                       );
@@ -1496,6 +1926,104 @@ export default function ASEConfigEditor() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* Floating Sticky Save Bar */}
+      <AnimatePresence>
+        {isDirty && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-6 py-3 bg-slate-900/95 backdrop-blur-xl border border-amber-500/30 rounded-2xl shadow-2xl shadow-black/40"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+              <span className="text-sm font-semibold text-slate-200">Unsaved changes</span>
+              <span className="text-xs text-slate-500 hidden sm:inline">(Ctrl+S to save)</span>
+            </div>
+            <div className="h-5 w-px bg-slate-700" />
+            <button
+              onClick={() => {
+                if (selectedServer) {
+                  loadConfig(selectedServer);
+                }
+              }}
+              className="px-4 py-1.5 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/50 rounded-xl transition-all"
+            >
+              Discard
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isLoading}
+              className="px-5 py-1.5 text-sm font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              {isLoading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Unsaved Changes Warning Modal */}
+      <AnimatePresence>
+        {showUnsavedWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={cancelServerSwitch}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="bg-slate-900 border border-white/10 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Unsaved Changes</h3>
+                  <p className="text-sm text-slate-400 mt-1 leading-relaxed">
+                    You have unsaved configuration changes. Switching servers will discard them.
+                  </p>
+                </div>
+                <button onClick={cancelServerSwitch} className="p-1 text-slate-500 hover:text-white transition-colors shrink-0 ml-auto">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-3 justify-end">
+                <button
+                  onClick={cancelServerSwitch}
+                  className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/50 rounded-xl transition-all"
+                >
+                  Stay Here
+                </button>
+                <button
+                  onClick={async () => {
+                    await handleSave();
+                    confirmServerSwitch();
+                  }}
+                  className="px-4 py-2 text-sm font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" /> Save & Switch
+                </button>
+                <button
+                  onClick={confirmServerSwitch}
+                  className="px-4 py-2 text-sm font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-all"
+                >
+                  Discard & Switch
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

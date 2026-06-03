@@ -62,13 +62,9 @@ pub async fn create_ase_cluster(
         let tx = conn.transaction().map_err(|e| e.to_string())?;
 
         // 1. Insert into database
-        // Serialize server_ids as JSON array
-        let server_ids_json = serde_json::to_string(&server_ids)
-            .map_err(|e| format!("Failed to serialize server_ids: {}", e))?;
-
         let cid = match tx.execute(
-            "INSERT INTO ase_clusters (name, cluster_dir, server_ids) VALUES (?1, ?2, ?3)",
-            rusqlite::params![name, cluster_dir, server_ids_json],
+            "INSERT INTO ase_clusters (name, cluster_dir) VALUES (?1, ?2)",
+            rusqlite::params![name, cluster_dir],
         ) {
             Ok(_) => tx.last_insert_rowid(),
             Err(e) => {

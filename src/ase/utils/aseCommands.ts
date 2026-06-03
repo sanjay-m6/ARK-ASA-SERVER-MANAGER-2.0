@@ -182,8 +182,8 @@ export async function deleteAseBackup(backupId: number): Promise<void> {
 
 // ─── Cluster Commands ───────────────────────────────────────────────
 
-export async function createAseCluster(name: string, clusterDir: string): Promise<AseCluster> {
-    return invoke('create_ase_cluster', { name, clusterDir });
+export async function createAseCluster(name: string, serverIds: number[], clusterDir?: string): Promise<AseCluster> {
+    return invoke('create_ase_cluster', { name, serverIds, clusterDir: clusterDir || null });
 }
 
 export async function getAseClusters(): Promise<AseCluster[]> {
@@ -330,5 +330,17 @@ export async function syncAseServerFromIni(serverId: number): Promise<void> {
 
 export async function getAseConfigDiagnostics(serverId: number): Promise<AseDiagnostics> {
     return invoke('get_ase_config_diagnostics', { serverId });
+}
+
+export async function cloneAseServer(sourceServerId: number): Promise<AseServer> {
+    return invoke('clone_ase_server', { sourceServerId });
+}
+
+export async function transferAseSettings(sourceServerId: number, targetServerId: number): Promise<void> {
+    return invoke('transfer_ase_settings', { sourceServerId, targetServerId });
+}
+
+export async function extractAseSaveData(sourceServerId: number, targetServerId: number): Promise<void> {
+    return invoke('extract_ase_save_data', { sourceServerId, targetServerId });
 }
 

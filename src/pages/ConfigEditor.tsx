@@ -20,6 +20,7 @@ import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
 import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboard';
 import ServerSelect from '../components/ui/ServerSelect';
+import { MODDED_MAP_PRESETS, buildLaunchArgs, getModdedMapByMapArg } from '../data/moddedMapRegistry';
 
 // Map images
 import mapTheIsland from '../assets/maps/the_island.png';
@@ -52,6 +53,7 @@ interface MapInfo {
     size: string;
     image: string;
     dlcType: string;
+    author?: string;
 }
 
 const MAP_METADATA: Record<string, MapInfo> = {
@@ -254,6 +256,20 @@ const MAP_METADATA: Record<string, MapInfo> = {
         dlcType: 'Upcoming (2026-2027)'
     }
 };
+
+// Add modded map entries to MAP_METADATA dynamically
+MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASA').forEach(p => {
+    MAP_METADATA[p.mapArgument] = {
+        name: p.name,
+        description: p.description,
+        color: p.color,
+        icon: p.icon,
+        size: p.size,
+        image: p.mapArgument === 'ScorchedEarthRM_WP' ? mapScorchedEarth : mapTheIsland, // Use fallback images
+        dlcType: p.dlcType,
+        author: p.author
+    };
+});
 
 const TextAreaFieldInput = ({
     field,
@@ -883,7 +899,7 @@ const ConfigInput = memo(({
                                             {selectedMapMeta ? selectedMapMeta.name : (selectedOption ? selectedOption.label.replace(/^[^\s]+\s+/, '') : value || 'Custom Map')}
                                         </div>
                                         <div className="text-[10px] text-violet-400 font-medium tracking-wider uppercase mt-0.5">
-                                            {selectedMapMeta ? selectedMapMeta.dlcType : (dropdownValue === '__CUSTOM__' ? 'Custom ID' : 'Custom Mod Map')}
+                                            {selectedMapMeta ? (selectedMapMeta.author ? `${selectedMapMeta.dlcType} • By ${selectedMapMeta.author}` : selectedMapMeta.dlcType) : (dropdownValue === '__CUSTOM__' ? 'Custom ID' : 'Custom Mod Map')}
                                         </div>
                                     </div>
                                 </div>
@@ -1125,7 +1141,20 @@ const ConfigInput = memo(({
                                             <span className="text-lg">{selectedMapMeta.icon}</span>
                                             <h4 className="font-bold text-white text-base leading-tight drop-shadow-md">{selectedMapMeta.name}</h4>
                                         </div>
-                                        <p className="text-xs text-slate-300/90 leading-normal drop-shadow-sm line-clamp-2">{selectedMapMeta.description}</p>
+                                        {selectedMapMeta.author && (
+                                            <div className="text-[10px] text-amber-400 font-semibold mb-1">
+                                                By {selectedMapMeta.author}
+                                            </div>
+                                        )}
+                                        <p className="text-xs text-slate-300/90 leading-normal drop-shadow-sm line-clamp-2 mb-2">{selectedMapMeta.description}</p>
+                                        
+                                        {/* Auto-injected indicator */}
+                                        {dropdownValue && getModdedMapByMapArg(dropdownValue, 'ASA') && (
+                                            <div className="mt-2 text-[10px] px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium rounded-lg flex items-center gap-1.5 backdrop-blur-md">
+                                                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
+                                                <span>✓ Launch configuration will be set automatically</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             ) : (
@@ -1491,7 +1520,20 @@ export default function ConfigEditor() {
 
             // Map name
             const mapName = serverSettings?.get('MapName');
-            if (mapName) updateParams.mapName = mapName;
+            if (mapName) {
+                updateParams.mapName = mapName;
+
+                // If it is a modded map, auto-inject launch arguments
+                const moddedPreset = getModdedMapByMapArg(mapName, 'ASA');
+                if (moddedPreset) {
+                    const server = useServerStore.getState().servers.find(s => s.id === selectedServerId);
+                    const currentCustomArgs = server?.config?.custom_args || '';
+                    const newCustomArgs = buildLaunchArgs(moddedPreset, currentCustomArgs);
+                    if (newCustomArgs !== currentCustomArgs) {
+                        updateParams.customArgs = newCustomArgs;
+                    }
+                }
+            }
 
             // Session name
             const sessionName = serverSettings?.get('ServerName') || serverSettings?.get('SessionName');

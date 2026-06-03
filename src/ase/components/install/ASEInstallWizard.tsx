@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../../utils/helpers';
 import { ASE_MAPS, ASE_BRANCHES } from '../../data/aseMaps';
 import { installAseServer } from '../../utils/aseCommands';
+import { getModdedMapByMapArg, buildLaunchArgs } from '../../../data/moddedMapRegistry';
 import { suggestNextAsePorts } from '../../utils/aseLaunchArgs';
 import { useAseServerStore } from '../../stores/aseServerStore';
 import { selectFolder } from '../../../utils/tauri';
@@ -108,7 +109,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
 
     try {
       const path = installPath || `C:\\ARKServerManager\\ase\\${name.replace(/\s+/g, '_')}`;
-      await installAseServer(
+      const server = await installAseServer(
         name,
         path,
         mapName,
@@ -119,6 +120,18 @@ export default function ASEInstallWizard({ onClose }: Props) {
         sessionName || name,
         branch
       );
+
+      // If it is a modded map, auto-inject launch arguments
+      const moddedPreset = getModdedMapByMapArg(mapName, 'ASE');
+      if (moddedPreset) {
+        const newLaunchArgs = buildLaunchArgs(moddedPreset, '');
+        try {
+          const { updateAseServer } = await import('../../utils/aseCommands');
+          await updateAseServer(server.id, { extraArgs: newLaunchArgs });
+        } catch (err) {
+          console.error('Failed to auto-configure modded map launch args for ASE:', err);
+        }
+      }
       
       // Complete!
       setProgress({
@@ -204,7 +217,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
   const branchInfo = ASE_BRANCHES.find(b => b.id === branch);
   const filteredMaps = ASE_MAPS.filter(m => !mapFilter || m.name.toLowerCase().includes(mapFilter.toLowerCase()));
 
-  const dlcColor = (t: string) => t === 'Free' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : t === 'Paid DLC' ? 'bg-amber-500/15 text-amber-400 border-amber-500/20' : 'bg-sky-500/15 text-sky-400 border-sky-500/20';
+  const dlcColor = (t: string) => t === 'Free' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : t === 'Paid DLC' ? 'bg-amber-500/15 text-amber-400 border-amber-500/20' : t === 'Free DLC' ? 'bg-sky-500/15 text-sky-400 border-sky-500/20' : 'bg-orange-500/15 text-orange-400 border-orange-500/20';
 
   return createPortal(
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
@@ -567,7 +580,20 @@ export default function ASEInstallWizard({ onClose }: Props) {
                               <span className={cn('text-xs font-semibold truncate flex-1 mr-1', mapName === m.serverArg ? 'text-amber-400' : 'text-slate-300')}>{m.name}</span>
                               <span className="text-[9px] text-slate-600 font-mono flex-shrink-0">{m.size}</span>
                             </div>
+                            {m.author && (
+                              <div className="text-[9px] text-amber-400 font-semibold mt-0.5">
+                                By {m.author}
+                              </div>
+                            )}
                             <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{m.description}</p>
+
+                            {/* Auto-injected indicator */}
+                            {mapName === m.serverArg && m.isModded && (
+                              <div className="mt-1.5 text-[9px] px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-semibold rounded flex items-center gap-1">
+                                <span className="w-1 h-1 bg-emerald-400 rounded-full animate-ping" />
+                                <span>✓ Launch args auto-configured</span>
+                              </div>
+                            )}
                           </div>
                         </button>
                       ))}

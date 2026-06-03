@@ -4,6 +4,7 @@ import ServerSelect from '../../components/ui/ServerSelect';
 import { updateAseServer } from '../utils/aseCommands';
 import { optimizeMemory, setProcessPriority } from '../../utils/tauri';
 import { Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Copy, Flame } from 'lucide-react';
+import { MODDED_MAP_PRESETS, buildLaunchArgs } from '../../data/moddedMapRegistry';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -18,7 +19,9 @@ export default function ASEAdvancedPage() {
     // Initialize from navigation or default
     useEffect(() => {
         if (selectedServerId === null) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             if (location.state?.serverId) setSelectedServerId(location.state.serverId);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             else if (servers.length > 0) setSelectedServerId(servers[0].id);
         }
     }, [servers, selectedServerId, location.state]);
@@ -28,6 +31,7 @@ export default function ASEAdvancedPage() {
         if (!selectedServerId) return;
         const server = servers.find(s => s.id === selectedServerId);
         if (server) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCustomArgs(server.extraArgs || '');
         }
     }, [selectedServerId, servers]);
@@ -197,6 +201,45 @@ export default function ASEAdvancedPage() {
                                         </div>
                                         <span className="text-xs text-amber-400/70 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">Apply</span>
                                     </button>
+
+                                    {MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASE').map(preset => {
+                                        const hasPreset = preset.mapModId ? customArgs.includes(`-MapModID=${preset.mapModId}`) : false;
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                onClick={() => {
+                                                    if (!preset.mapModId) return;
+                                                    if (hasPreset) {
+                                                        toast('Already applied', { icon: '✓' });
+                                                        return;
+                                                    }
+                                                    const newArgs = buildLaunchArgs(preset, customArgs);
+                                                    setCustomArgs(newArgs);
+                                                    toast.success(`${preset.name} launch arguments applied`);
+                                                }}
+                                                className={`w-full flex items-center gap-3 px-4 py-3 border rounded-lg transition-all group text-left ${
+                                                    hasPreset 
+                                                        ? 'bg-emerald-500/5 border-emerald-500/20 text-slate-300' 
+                                                        : 'bg-amber-500/5 hover:bg-amber-500/10 border-amber-500/10 hover:border-amber-500/30 text-slate-200'
+                                                }`}
+                                            >
+                                                <span className="text-lg">{preset.icon}</span>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-medium text-white flex items-center gap-1.5">
+                                                        <span>{preset.name}</span>
+                                                        {preset.author && <span className="text-[10px] text-slate-400 font-normal">by {preset.author}</span>}
+                                                        {hasPreset && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">Applied</span>}
+                                                    </div>
+                                                    <div className="text-xs text-slate-400 font-mono truncate">
+                                                        -MapModID={preset.mapModId} -mods={preset.mapModId}
+                                                    </div>
+                                                </div>
+                                                {!hasPreset && (
+                                                    <span className="text-xs text-amber-400/70 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">Apply</span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

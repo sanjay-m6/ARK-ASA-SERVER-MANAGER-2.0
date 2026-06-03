@@ -10,7 +10,8 @@ import {
     getPluginDirectory,
     checkAsaApiInstalled,
     installAsaApi,
-    getAllServers
+    getAllServers,
+    createDefaultPlugin
 } from '../utils/tauri';
 import { PluginInfo } from '../types';
 import toast from 'react-hot-toast';
@@ -29,6 +30,7 @@ export default function PluginManager() {
     const [selectedPlugin, setSelectedPlugin] = useState<PluginInfo | null>(null);
     const [asaApiInstalled, setAsaApiInstalled] = useState<boolean | null>(null);
     const [isInstallingApi, setIsInstallingApi] = useState(false);
+    const [isCreatingDefault, setIsCreatingDefault] = useState(false);
 
     // Load servers on mount
     useEffect(() => {
@@ -129,6 +131,26 @@ export default function PluginManager() {
         }
     };
 
+    const handleCreateDefaultPlugin = async () => {
+        if (!selectedServerId) {
+            toast.error('Please select a server first');
+            return;
+        }
+
+        setIsCreatingDefault(true);
+        const toastId = toast.loading('Creating default plugin template...');
+        try {
+            await createDefaultPlugin(selectedServerId);
+            toast.success('DefaultPlugin template created under ArkApi/Plugins/DefaultPlugin! You can configure floating damage text parameters in config.json.', { id: toastId, duration: 6000 });
+            await loadPlugins();
+        } catch (error) {
+            console.error('Failed to create default plugin:', error);
+            toast.error(`Failed to create default plugin: ${error}`, { id: toastId });
+        } finally {
+            setIsCreatingDefault(false);
+        }
+    };
+
     const handleTogglePlugin = async (plugin: PluginInfo) => {
         if (!selectedServerId) return;
 
@@ -177,6 +199,15 @@ export default function PluginManager() {
                             accentColor="purple" 
                         />
                     </div>
+
+                    <button
+                        onClick={handleCreateDefaultPlugin}
+                        disabled={isCreatingDefault || !selectedServerId}
+                        className="flex items-center space-x-2 px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 rounded-xl transition-all disabled:opacity-50 font-bold"
+                    >
+                        {isCreatingDefault ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plug className="w-5 h-5 text-violet-400" />}
+                        <span>Create Default Plugin</span>
+                    </button>
 
                     <button
                         onClick={handleImportPlugin}
@@ -379,37 +410,39 @@ export default function PluginManager() {
                                         key={plugin.id}
                                         onClick={() => setSelectedPlugin(plugin)}
                                         className={cn(
-                                            "glass-panel rounded-xl p-5 cursor-pointer transition-all hover:border-violet-500/30 group",
+                                            "glass-panel rounded-xl p-5 cursor-pointer transition-all hover:border-violet-500/30 group flex flex-col justify-between min-h-[12rem] h-full",
                                             !plugin.enabled && "opacity-60"
                                         )}
                                     >
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className={cn(
-                                                    "p-2 rounded-lg",
-                                                    plugin.enabled ? "bg-violet-500/20 text-violet-400" : "bg-slate-700 text-slate-500"
-                                                )}>
-                                                    <Plug className="w-5 h-5" />
+                                        <div>
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={cn(
+                                                        "p-2 rounded-lg",
+                                                        plugin.enabled ? "bg-violet-500/20 text-violet-400" : "bg-slate-700 text-slate-500"
+                                                    )}>
+                                                        <Plug className="w-5 h-5" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-white font-bold">{plugin.name}</h4>
+                                                        {plugin.version && (
+                                                            <span className="text-xs text-slate-500">v{plugin.version}</span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <h4 className="text-white font-bold">{plugin.name}</h4>
-                                                    {plugin.version && (
-                                                        <span className="text-xs text-slate-500">v{plugin.version}</span>
-                                                    )}
-                                                </div>
+                                                {!plugin.enabled && (
+                                                    <span className="px-2 py-0.5 bg-slate-700 text-slate-400 text-xs rounded">Disabled</span>
+                                                )}
                                             </div>
-                                            {!plugin.enabled && (
-                                                <span className="px-2 py-0.5 bg-slate-700 text-slate-400 text-xs rounded">Disabled</span>
+
+                                            {plugin.description && (
+                                                <p className="text-slate-400 text-sm line-clamp-2 mb-3">{plugin.description}</p>
+                                            )}
+
+                                            {plugin.author && (
+                                                <p className="text-xs text-slate-500">by {plugin.author}</p>
                                             )}
                                         </div>
-
-                                        {plugin.description && (
-                                            <p className="text-slate-400 text-sm line-clamp-2 mb-3">{plugin.description}</p>
-                                        )}
-
-                                        {plugin.author && (
-                                            <p className="text-xs text-slate-500">by {plugin.author}</p>
-                                        )}
 
                                         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-700/50">
                                             <button

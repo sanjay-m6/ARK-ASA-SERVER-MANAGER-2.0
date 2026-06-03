@@ -750,6 +750,39 @@ export async function togglePlugin(serverId: number, pluginId: string, enabled: 
     return await invoke('toggle_plugin', { serverId, pluginId, enabled });
 }
 
+export async function createDefaultPlugin(serverId: number): Promise<PluginInfo> {
+    return await invoke('create_default_plugin', { serverId });
+}
+
+export async function getInfinityDamageConfig(serverId: number): Promise<string> {
+    return await invoke('get_infinity_damage_config', { serverId });
+}
+
+export async function saveInfinityDamageConfig(serverId: number, configJson: string): Promise<void> {
+    return await invoke('save_infinity_damage_config', { serverId, configJson });
+}
+
+export async function installInfinityDamagePlugin(serverId: number): Promise<void> {
+    return await invoke('install_infinity_damage_plugin', { serverId });
+}
+
+export async function uninstallInfinityDamagePlugin(serverId: number): Promise<void> {
+    return await invoke('uninstall_infinity_damage_plugin', { serverId });
+}
+
+export async function exportInfinityDamageConfig(serverId: number, format: string): Promise<string> {
+    return await invoke('export_infinity_damage_config', { serverId, format });
+}
+
+export async function importInfinityDamageConfig(serverId: number, content: string, format: string): Promise<void> {
+    return await invoke('import_infinity_damage_config', { serverId, content, format });
+}
+
+export async function getInfinityDamageAnalytics(serverId: number): Promise<any[]> {
+    const rawData = await invoke<string>('get_infinity_damage_analytics', { serverId });
+    return JSON.parse(rawData);
+}
+
 // ============================================================================
 // Optimization Commands
 // ============================================================================

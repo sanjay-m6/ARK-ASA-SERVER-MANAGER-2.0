@@ -35,12 +35,15 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
       if (matches.length > 0) {
         const indices = matches.map(m => parseInt(m[1]));
         const detectedMaxLevel = Math.max(...indices) + 1;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setMaxLevel(detectedMaxLevel);
       }
     } else {
       // Default presets if no ramp exists
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMaxLevel(target === 'player' ? 105 : 88);
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(0);
   }, [target, config.levelExperienceRampOverrides]);
 
@@ -110,7 +113,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
 
     const maxExperience = xpData[xpData.length - 1].totalXp.toString();
 
-    let updatedConfig = { ...config };
+    const updatedConfig = { ...config };
 
     if (target === 'player') {
       newPlayerRamp = rampString;

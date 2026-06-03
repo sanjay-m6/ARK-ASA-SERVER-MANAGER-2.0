@@ -1,6 +1,8 @@
 // Configuration schema types and mappings for ARK Server settings
 // Enhanced with sliders, dropdowns, and categories for Visual Settings Manager
 
+import { MODDED_MAP_PRESETS } from './moddedMapRegistry';
+
 export type FieldType = 'text' | 'number' | 'boolean' | 'slider' | 'dropdown' | 'array' | 'textarea' | 'crafting_costs' | 'engram_entries';
 
 export interface ConfigField {
@@ -128,7 +130,11 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                     { value: 'TemptressLagoon_WP', label: '🏝️ Temptress Lagoon', group: 'premium' },
                     { value: 'Reverence_WP', label: '🏛️ Reverence', group: 'premium' },
                     // Modded Maps
-                    { value: 'ScorchedEarthRM_WP', label: '🔥 Scorched Earth Reborn', group: 'modded' },
+                    ...MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASA').map(p => ({
+                        value: p.mapArgument,
+                        label: `${p.icon} ${p.name}`,
+                        group: 'modded'
+                    })),
                     // Coming 2026
                     { value: 'Genesis_WP', label: '🧬 Genesis Part 1', group: 'upcoming' },
                     { value: 'Genesis2_WP', label: '🛸 Genesis Part 2', group: 'upcoming' },

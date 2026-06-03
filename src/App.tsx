@@ -28,6 +28,7 @@ const DiscordBot = lazy(() => import('./pages/DiscordBot'));
 const DiscordControlPanel = lazy(() => import('./pages/DiscordControlPanel'));
 const AdvancedPage = lazy(() => import('./pages/tools/AdvancedPage'));
 const PluginManager = lazy(() => import('./pages/PluginManager'));
+const InfinityDamage = lazy(() => import('./pages/tools/InfinityDamage'));
 const FileManager = lazy(() => import('./pages/FileManager'));
 const AIAssistant = lazy(() => import('./pages/AIAssistant'));
 const TribeLogViewer = lazy(() => import('./pages/tools/TribeLogViewer'));
@@ -118,6 +119,7 @@ function App() {
                                 <Route path="tools/discord" element={<DiscordBot />} />
                                 <Route path="tools/discord-control" element={<DiscordControlPanel />} />
                                 <Route path="tools/plugins" element={<PluginManager />} />
+                                <Route path="tools/infinity-damage" element={<InfinityDamage />} />
                                 <Route path="tools/files" element={<FileManager />} />
                                 <Route path="tools/ai" element={<AIAssistant />} />
                                 <Route path="tools/tribe-logs" element={<TribeLogViewer />} />

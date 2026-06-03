@@ -8,9 +8,10 @@ import {
 } from 'lucide-react';
 import { useServerStore } from '../../stores/serverStore';
 import { useInstallStore } from '../../stores/installStore';
-import { installServer, InstallServerParams, selectFolder } from '../../utils/tauri';
+import { installServer, InstallServerParams, selectFolder, updateServerSettings } from '../../utils/tauri';
 import toast from 'react-hot-toast';
 import type { ServerType } from '../../types';
+import { MODDED_MAP_PRESETS, getModdedMapByMapArg, buildLaunchArgs } from '../../data/moddedMapRegistry';
 
 import { useTranslation } from 'react-i18next';
 
@@ -75,9 +76,16 @@ export default function InstallServerDialog({ onClose }: Props) {
             { id: 'TemptressLagoon_WP', name: t('dialogs.installServer.maps.temptressLagoon', 'Temptress Lagoon'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#0ea5e9', icon: '🏝️', size: 'Medium', image: mapTemptressLagoon },
             { id: 'Reverence_WP', name: t('dialogs.installServer.maps.reverence', 'Reverence'), description: t('dialogs.installServer.mapDescriptions.premium', 'Premium community mod map'), color: '#d97706', icon: '🏛️', size: 'Large', image: mapReverence },
         ],
-        moddedMaps: [
-            { id: 'ScorchedEarthRM_WP', name: t('dialogs.installServer.maps.scorchedEarthReborn', 'Scorched Earth Reborn'), description: t('dialogs.installServer.mapDescriptions.moddedExpansion', 'Modded expansion by armangamer & tweee'), color: '#f97316', icon: '🔥', size: 'Large', image: mapScorchedEarth },
-        ],
+        moddedMaps: MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASA').map(p => ({
+            id: p.mapArgument,
+            name: p.name,
+            description: p.description,
+            color: p.color,
+            icon: p.icon,
+            size: p.size === 'Large (~6 GB)' ? 'Large' : 'Medium',
+            image: p.mapArgument === 'ScorchedEarthRM_WP' ? mapScorchedEarth : mapTheIsland,
+            author: p.author
+        })),
         upcoming: [
             { id: 'Genesis_WP', name: t('dialogs.installServer.maps.genesis1', 'Genesis Part 1'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'June 2026', defaultValue: 'Coming June 2026' }), color: '#14b8a6', icon: '🧬', size: 'Medium', image: mapGenesis },
             { id: 'Genesis2_WP', name: t('dialogs.installServer.maps.genesis2', 'Genesis Part 2'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: '2026 TBC', defaultValue: 'Coming 2026' }), color: '#6366f1', icon: '🛸', size: 'Large', image: mapGenesis2 },
@@ -225,6 +233,22 @@ export default function InstallServerDialog({ onClose }: Props) {
         setStep(4);
         try {
             const server = await installServer(formData);
+
+            // If it is a modded map, auto-inject launch arguments
+            const moddedPreset = getModdedMapByMapArg(formData.mapName, 'ASA');
+            if (moddedPreset) {
+                const newCustomArgs = buildLaunchArgs(moddedPreset, '');
+                try {
+                    await updateServerSettings({
+                        serverId: server.id,
+                        customArgs: newCustomArgs
+                    });
+                    server.config.custom_args = newCustomArgs;
+                } catch (err) {
+                    console.error('Failed to auto-configure modded map launch args:', err);
+                }
+            }
+
             addServer(server);
         } catch (error) {
             console.error('Installation failed:', error);
@@ -544,14 +568,19 @@ export default function InstallServerDialog({ onClose }: Props) {
                                                 )}
                                                 <div className="absolute bottom-0 left-0 right-0 p-3">
                                                     <div className="font-semibold text-white text-sm drop-shadow-lg">{map.name}</div>
-                                                    <div className="text-[11px] text-slate-300/80 mt-0.5 drop-shadow-md">{map.description}</div>
+                                                    {(map as any).author && (
+                                                        <div className="text-[10px] text-amber-400 font-semibold drop-shadow-md">
+                                                            By {(map as any).author}
+                                                        </div>
+                                                    )}
+                                                    <div className="text-[11px] text-slate-300/80 mt-0.5 drop-shadow-md line-clamp-1">{map.description}</div>
                                                 </div>
                                             </button>
                                         ))}
                                     </div>
-                                    <p className="mt-2 text-xs text-amber-400/70 flex items-center gap-1">
-                                        <AlertCircle className="w-3 h-3" />
-                                        {t('dialogs.installServer.moddedMapHint', 'Modded maps require launch args: -MapModID=<id> -mods=<id> in Advanced Settings')}
+                                    <p className="mt-2 text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
+                                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
+                                        <span>{t('dialogs.installServer.moddedMapSuccess', '✓ Launch configuration will be set automatically')}</span>
                                     </p>
                                 </div>
 

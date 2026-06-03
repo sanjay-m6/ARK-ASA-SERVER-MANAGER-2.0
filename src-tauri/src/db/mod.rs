@@ -1100,16 +1100,36 @@ impl Database {
             )?;
 
             println!("✅ ASE Migration: All ASE tables created successfully");
-        } else {
-            conn.execute_batch(
-                "CREATE TABLE IF NOT EXISTS ase_clusters (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    cluster_dir TEXT NOT NULL DEFAULT '',
-                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-                );"
-            )?;
         }
+
+        // Ensure ASE cluster junction, settings tables, and indexes exist
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS ase_cluster_servers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cluster_id INTEGER NOT NULL,
+                server_id INTEGER NOT NULL,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (cluster_id) REFERENCES ase_clusters (id) ON DELETE CASCADE,
+                FOREIGN KEY (server_id) REFERENCES ase_servers (id) ON DELETE CASCADE,
+                UNIQUE(cluster_id, server_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS ase_cluster_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cluster_id INTEGER NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (cluster_id) REFERENCES ase_clusters (id) ON DELETE CASCADE,
+                UNIQUE(cluster_id, key)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_ase_mods_server_id ON ase_mods(server_id);
+            CREATE INDEX IF NOT EXISTS idx_ase_backups_server_id ON ase_backups(server_id);
+            CREATE INDEX IF NOT EXISTS idx_ase_servers_status ON ase_servers(status);
+            CREATE INDEX IF NOT EXISTS idx_ase_cluster_servers_cluster ON ase_cluster_servers(cluster_id);
+            CREATE INDEX IF NOT EXISTS idx_ase_cluster_servers_server ON ase_cluster_servers(server_id);"
+        )?;
 
         // Migrate existing ase_servers databases if columns are missing
         let mut stmt_cols = conn.prepare("PRAGMA table_info(ase_servers)")?;

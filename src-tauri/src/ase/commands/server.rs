@@ -188,6 +188,18 @@ pub async fn update_ase_server(server_id: i64, updates: serde_json::Value, state
 
     for (key, val) in obj {
         let key_snake = match key.as_str() {
+            "mapName" => "map_name",
+            "sessionName" => "session_name",
+            "installPath" => "install_path",
+            "queryPort" => "query_port",
+            "rconPort" => "rcon_port",
+            "rconPassword" => "rcon_password",
+            "maxPlayers" => "max_players",
+            "serverPassword" => "server_password",
+            "adminPassword" => "admin_password",
+            "activeMods" => "active_mods",
+            "clusterId" => "cluster_id",
+            "extraArgs" => "extra_args",
             "autoStart" => "auto_start",
             "autoStop" => "auto_stop",
             "intelligentMode" => "intelligent_mode",
@@ -1166,4 +1178,382 @@ pub async fn import_ase_server(
         |row| read_server_row(row),
     ).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn clone_ase_server(
+    state: State<'_, AppState>,
+    source_server_id: i64,
+) -> Result<AseServer, String> {
+    println!("📋 Cloning ASE server {}", source_server_id);
+
+    // Get source server details
+    let (
+        name,
+        install_path,
+        map_name,
+        session_name,
+        port,
+        query_port,
+        rcon_port,
+        rcon_password,
+        max_players,
+        server_password,
+        admin_password,
+        active_mods,
+        cluster_id,
+        battleye,
+        extra_args,
+        auto_start,
+        auto_stop,
+        intelligent_mode,
+        startup_delay,
+        startup_priority,
+        branch,
+    ) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        conn.query_row(
+            "SELECT name, install_path, map_name, session_name, port, query_port, rcon_port,
+             rcon_password, max_players, server_password, admin_password, active_mods, cluster_id,
+             battleye, extra_args, auto_start, auto_stop, intelligent_mode, startup_delay, startup_priority, branch
+             FROM ase_servers WHERE id = ?1",
+            [source_server_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, u16>(4)?,
+                    row.get::<_, u16>(5)?,
+                    row.get::<_, u16>(6)?,
+                    row.get::<_, String>(7)?,
+                    row.get::<_, u32>(8)?,
+                    row.get::<_, String>(9)?,
+                    row.get::<_, String>(10)?,
+                    row.get::<_, String>(11)?,
+                    row.get::<_, String>(12)?,
+                    row.get::<_, i32>(13)? != 0,
+                    row.get::<_, String>(14)?,
+                    row.get::<_, i32>(15)? != 0,
+                    row.get::<_, i32>(16)? != 0,
+                    row.get::<_, i32>(17)? != 0,
+                    row.get::<_, i32>(18)?,
+                    row.get::<_, i32>(19)?,
+                    row.get::<_, String>(20)?,
+                ))
+            },
+        )
+        .map_err(|e| format!("Source ASE server not found: {}", e))?
+    };
+
+    // Generate unique clone name
+    let new_name = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        let base_name = name.clone();
+        let mut candidate = format!("{} (Clone)", base_name);
+        let mut counter = 2u32;
+        loop {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM ase_servers WHERE name = ?1)",
+                    [&candidate],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
+            if !exists {
+                break;
+            }
+            candidate = format!("{} (Clone {})", base_name, counter);
+            counter += 1;
+        }
+        candidate
+    };
+
+    let source_path = PathBuf::from(&install_path);
+    let new_install_path = source_path.parent().unwrap_or(&source_path).join(format!(
+        "{}_copy",
+        source_path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+    ));
+
+    // Offset ports by 10 to avoid conflicts
+    let new_port = port + 10;
+    let new_query_port = query_port + 10;
+    let new_rcon_port = rcon_port + 10;
+
+    // Create new install directory
+    std::fs::create_dir_all(&new_install_path)
+        .map_err(|e| format!("Failed to create directory: {}", e))?;
+
+    // Copy config files if they exist
+    let source_config_dir = source_path.join("ShooterGame/Saved/Config/WindowsServer");
+    let dest_config_dir = new_install_path.join("ShooterGame/Saved/Config/WindowsServer");
+    if source_config_dir.exists() {
+        std::fs::create_dir_all(&dest_config_dir)
+            .map_err(|e| format!("Failed to create config dir: {}", e))?;
+
+        for file in ["GameUserSettings.ini", "Game.ini"] {
+            let src = source_config_dir.join(file);
+            let dst = dest_config_dir.join(file);
+            if src.exists() {
+                std::fs::copy(&src, &dst).map_err(|e| format!("Failed to copy {}: {}", file, e))?;
+            }
+        }
+
+        // Also update the session name inside the cloned GameUserSettings.ini!
+        let gus_path = dest_config_dir.join("GameUserSettings.ini");
+        if gus_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&gus_path) {
+                let mut gus_data = crate::ase::ini_parser::IniData::parse(&content);
+                let ss = gus_data.ensure_section("ServerSettings");
+                
+                // Replace or add SessionName
+                if let Some(entry) = ss.entries.iter_mut().find(|e| e.key.to_lowercase() == "sessionname") {
+                    entry.value = new_name.clone();
+                } else {
+                    ss.entries.push(crate::ase::ini_parser::IniEntry {
+                        key: "SessionName".to_string(),
+                        value: new_name.clone(),
+                        comment: None,
+                    });
+                }
+                
+                // Also update SessionSettings section
+                let sss = gus_data.ensure_section("SessionSettings");
+                if let Some(entry) = sss.entries.iter_mut().find(|e| e.key.to_lowercase() == "sessionname") {
+                    entry.value = new_name.clone();
+                } else {
+                    sss.entries.push(crate::ase::ini_parser::IniEntry {
+                        key: "SessionName".to_string(),
+                        value: new_name.clone(),
+                        comment: None,
+                    });
+                }
+                
+                let _ = std::fs::write(&gus_path, gus_data.serialize());
+            }
+        }
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Insert new server into database
+    let new_id = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        conn.execute(
+            "INSERT INTO ase_servers (name, install_path, map_name, port, query_port, rcon_port,
+             rcon_password, max_players, server_password, admin_password, session_name, active_mods,
+             cluster_id, battleye, extra_args, status, created_at, updated_at, auto_start, auto_stop,
+             intelligent_mode, startup_delay, startup_priority, branch)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, 'stopped', ?16, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+            rusqlite::params![
+                new_name,
+                new_install_path.to_string_lossy(),
+                map_name,
+                new_port,
+                new_query_port,
+                new_rcon_port,
+                rcon_password,
+                max_players,
+                server_password,
+                admin_password,
+                new_name.clone(),
+                active_mods,
+                cluster_id,
+                if battleye { 1 } else { 0 },
+                extra_args,
+                now,
+                if auto_start { 1 } else { 0 },
+                if auto_stop { 1 } else { 0 },
+                if intelligent_mode { 1 } else { 0 },
+                startup_delay,
+                startup_priority,
+                branch
+            ],
+        )
+        .map_err(|e: rusqlite::Error| e.to_string())?;
+
+        let server_id = conn.last_insert_rowid();
+        let _ = conn.execute(
+            "INSERT OR IGNORE INTO ase_scheduler_settings (server_id) VALUES (?1)",
+            [server_id],
+        );
+        server_id
+    };
+
+    println!(
+        "  ✅ Cloned ASE server {} -> {} (ID: {})",
+        source_server_id, new_name, new_id
+    );
+
+    // Fetch the inserted record using read_server_row
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    conn.query_row(
+        &format!("SELECT {} FROM ase_servers WHERE id = ?1", SELECT_COLS),
+        [new_id],
+        |row| read_server_row(row),
+    ).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn transfer_ase_settings(
+    state: State<'_, AppState>,
+    source_server_id: i64,
+    target_server_id: i64,
+) -> Result<(), String> {
+    println!(
+        "📋 Transferring ASE settings from server {} to {}",
+        source_server_id, target_server_id
+    );
+
+    let (source_path, target_path) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        let source: String = conn
+            .query_row(
+                "SELECT install_path FROM ase_servers WHERE id = ?1",
+                [source_server_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Source ASE server not found: {}", e))?;
+
+        let target: String = conn
+            .query_row(
+                "SELECT install_path FROM ase_servers WHERE id = ?1",
+                [target_server_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Target ASE server not found: {}", e))?;
+
+        (PathBuf::from(source), PathBuf::from(target))
+    };
+
+    let source_config = source_path.join("ShooterGame/Saved/Config/WindowsServer");
+    let target_config = target_path.join("ShooterGame/Saved/Config/WindowsServer");
+
+    if !source_config.exists() {
+        return Err("Source ASE server has no config files".to_string());
+    }
+
+    std::fs::create_dir_all(&target_config)
+        .map_err(|e| format!("Failed to create target config dir: {}", e))?;
+
+    for file in ["GameUserSettings.ini", "Game.ini"] {
+        let src = source_config.join(file);
+        let dst = target_config.join(file);
+        if src.exists() {
+            std::fs::copy(&src, &dst).map_err(|e| format!("Failed to copy {}: {}", file, e))?;
+            println!("  ✅ Copied {}", file);
+        }
+    }
+
+    println!("  ✅ ASE Settings transferred successfully");
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn extract_ase_save_data(
+    state: State<'_, AppState>,
+    source_server_id: i64,
+    target_server_id: i64,
+) -> Result<(), String> {
+    println!(
+        "📦 Extracting ASE save data from server {} to {}",
+        source_server_id, target_server_id
+    );
+
+    let (source_path, target_path) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        let source: String = conn
+            .query_row(
+                "SELECT install_path FROM ase_servers WHERE id = ?1",
+                [source_server_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Source ASE server not found: {}", e))?;
+
+        let target: String = conn
+            .query_row(
+                "SELECT install_path FROM ase_servers WHERE id = ?1",
+                [target_server_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Target ASE server not found: {}", e))?;
+
+        (PathBuf::from(source), PathBuf::from(target))
+    };
+
+    let source_saves = source_path.join("ShooterGame/Saved/SavedArks");
+    let target_saves = target_path.join("ShooterGame/Saved/SavedArks");
+
+    if !source_saves.exists() {
+        return Err("Source ASE server has no save data".to_string());
+    }
+
+    std::fs::create_dir_all(&target_saves)
+        .map_err(|e| format!("Failed to create target saves dir: {}", e))?;
+
+    // Safe recursive directory copy
+    fn copy_dir_recursive_safe(
+        src: &std::path::Path,
+        dst: &std::path::Path,
+        canonical_dst_root: &std::path::Path,
+        depth: u32,
+    ) -> std::io::Result<()> {
+        const MAX_DEPTH: u32 = 20;
+        if depth > MAX_DEPTH {
+            return Err(std::io::Error::other(
+                format!("Directory copy exceeded max depth of {}", MAX_DEPTH),
+            ));
+        }
+
+        if src.is_dir() {
+            std::fs::create_dir_all(dst)?;
+            for entry in std::fs::read_dir(src)? {
+                let entry = entry?;
+                let src_path = entry.path();
+
+                if let Ok(canon_entry) = std::fs::canonicalize(&src_path) {
+                    if canon_entry.starts_with(canonical_dst_root) {
+                        println!(
+                            "  ⚠️ Skipping overlapping entry: {}",
+                            canon_entry.display()
+                        );
+                        continue;
+                    }
+                }
+
+                let dst_path = dst.join(entry.file_name());
+                if src_path.is_dir() {
+                    copy_dir_recursive_safe(&src_path, &dst_path, canonical_dst_root, depth + 1)?;
+                } else {
+                    std::fs::copy(&src_path, &dst_path)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    let canonical_dst_root = std::fs::canonicalize(&target_saves)
+        .map_err(|e| format!("Failed to canonicalize target path: {}", e))?;
+
+    copy_dir_recursive_safe(&source_saves, &target_saves, &canonical_dst_root, 0)
+        .map_err(|e| format!("Failed to copy saves: {}", e))?;
+
+    println!("  ✅ ASE Save data extracted successfully");
+    Ok(())
+}
+
 

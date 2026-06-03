@@ -1,6 +1,8 @@
 // Map profiles with recommended settings for ARK: Survival Ascended
 // Each map has unique characteristics that benefit from different settings
 
+import { MODDED_MAP_PRESETS } from './moddedMapRegistry';
+
 export interface MapProfile {
     mapId: string;
     mapName: string;
@@ -268,7 +270,22 @@ export const MAP_PROFILES: MapProfile[] = [
         recommendedMods: [],
         notes: ['Mini-games', 'Social area', 'Events'],
         environment: 'normal'
-    }
+    },
+    // Modded presets mapped to MapProfile dynamically
+    ...MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASA').map(p => ({
+        mapId: p.mapArgument,
+        mapName: p.name,
+        icon: p.icon,
+        color: p.color,
+        description: p.description,
+        difficultyOffset: 1.0,
+        xpMultiplier: 1.0,
+        harvestMultiplier: 1.0,
+        tamingMultiplier: 1.0,
+        recommendedMods: p.mapModId ? [p.mapModId] : [],
+        notes: [`Created by ${p.author}`, `Mod/Workshop ID: ${p.mapModId}`],
+        environment: (p.name.toLowerCase().includes('scorched') ? 'desert' : 'normal') as any
+    }))
 ];
 
 // Get profile by map ID
@@ -287,6 +304,9 @@ export function getProfilesByCategory() {
         ),
         upcoming: MAP_PROFILES.filter(p =>
             ['Genesis_WP', 'Genesis2_WP'].includes(p.mapId)
+        ),
+        moddedExpansions: MAP_PROFILES.filter(p =>
+            MODDED_MAP_PRESETS.filter(mp => mp.serverType === 'ASA').map(mp => mp.mapArgument).includes(p.mapId)
         )
     };
 }
