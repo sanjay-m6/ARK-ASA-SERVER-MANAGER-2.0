@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Server, Activity, Cpu, HardDrive, Zap, Terminal, Copy, Puzzle,
+  Server, Activity, Zap, Terminal, Copy, Puzzle,
   Play, Square, RotateCw, Clock, Database, FileEdit,
-  TrendingUp, Folder, FolderOpen, Heart, Bookmark, Search,
-  ShieldCheck, RefreshCw
+  Folder, FolderOpen, Heart, Bookmark, Search,
+  ShieldCheck
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -784,11 +784,11 @@ export default function Dashboard() {
                               {server.reachability && (
                                 <span className={cn(
                                   "text-[10px] px-1.5 py-0.5 rounded font-medium font-mono",
-                                  server.reachability.reachable
+                                  server.reachability === 'Public'
                                     ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                                     : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                                 )}>
-                                  {server.reachability.reachable ? 'REACHABLE' : 'BLOCKED'}
+                                  {server.reachability === 'Public' ? 'REACHABLE' : server.reachability}
                                 </span>
                               )}
                               {cust?.tags && cust.tags.map((tg: string) => (

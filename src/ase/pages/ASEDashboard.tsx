@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Server, Activity, Cpu, HardDrive, Zap, Terminal, Puzzle,
-  Play, Square, RotateCw, Clock, Database, FileEdit, TrendingUp,
+  Server, Activity, Zap, Terminal, Puzzle,
+  Play, Square, RotateCw, Clock, Database, FileEdit,
   Folder, FolderOpen, Heart, Bookmark, Search, Globe, ShieldCheck, Copy
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -172,8 +172,8 @@ export default function ASEDashboard() {
     { name: 'Environment', icon: Globe, path: '/ase/environment', color: 'lime' },
   ];
 
-  const cMap: Record<string, string> = { amber: 'hover:border-amber-500/50 hover:bg-amber-500/5', emerald: 'hover:border-emerald-500/50 hover:bg-emerald-500/5', orange: 'hover:border-orange-500/50 hover:bg-orange-500/5', cyan: 'hover:border-cyan-500/50 hover:bg-cyan-500/5', pink: 'hover:border-pink-500/50 hover:bg-pink-500/5', teal: 'hover:border-teal-500/50 hover:bg-teal-500/5', rose: 'hover:border-rose-500/50 hover:bg-rose-500/5', lime: 'hover:border-lime-500/50 hover:bg-lime-500/5' };
-  const iMap: Record<string, string> = { amber: 'text-amber-400 bg-amber-500/10', emerald: 'text-emerald-400 bg-emerald-500/10', orange: 'text-orange-400 bg-orange-500/10', cyan: 'text-cyan-400 bg-cyan-500/10', pink: 'text-pink-400 bg-pink-500/10', teal: 'text-teal-400 bg-teal-500/10', rose: 'text-rose-400 bg-rose-500/10', lime: 'text-lime-400 bg-lime-500/10' };
+  const _cMap: Record<string, string> = { amber: 'hover:border-amber-500/50 hover:bg-amber-500/5', emerald: 'hover:border-emerald-500/50 hover:bg-emerald-500/5', orange: 'hover:border-orange-500/50 hover:bg-orange-500/5', cyan: 'hover:border-cyan-500/50 hover:bg-cyan-500/5', pink: 'hover:border-pink-500/50 hover:bg-pink-500/5', teal: 'hover:border-teal-500/50 hover:bg-teal-500/5', rose: 'hover:border-rose-500/50 hover:bg-rose-500/5', lime: 'hover:border-lime-500/50 hover:bg-lime-500/5' };
+  const _iMap: Record<string, string> = { amber: 'text-amber-400 bg-amber-500/10', emerald: 'text-emerald-400 bg-emerald-500/10', orange: 'text-orange-400 bg-orange-500/10', cyan: 'text-cyan-400 bg-cyan-500/10', pink: 'text-pink-400 bg-pink-500/10', teal: 'text-teal-400 bg-teal-500/10', rose: 'text-rose-400 bg-rose-500/10', lime: 'text-lime-400 bg-lime-500/10' };
 
   return (
     <motion.div className="space-y-6" variants={containerVariants} initial="hidden" animate="visible">

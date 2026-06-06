@@ -8,10 +8,11 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2025
     permissions:
       contents: write
     
@@ -22,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
       
       - name: Setup Rust
@@ -31,7 +32,7 @@ jobs:
           toolchain: stable
       
       - name: Rust Cache
-        uses: swatinem/rust-cache@v2.7.5
+        uses: swatinem/rust-cache@v2.9.1
         with:
           workspaces: 'src-tauri -> target'
       
