@@ -39,6 +39,9 @@ impl Database {
         let migrations = include_str!("migrations.sql");
         conn.execute_batch(migrations)?;
 
+        let autosave_migrations = include_str!("autosave_migrations.sql");
+        conn.execute_batch(autosave_migrations)?;
+
         // Run migrations for existing databases
         Self::run_migrations(conn)?;
 
@@ -762,6 +765,8 @@ impl Database {
         let tables = vec![
             "mods",
             "backups",
+            "backup_policies",
+            "autosave_preferences",
             "cluster_servers",
             "player_sessions",
             "scheduled_tasks",
@@ -825,6 +830,39 @@ impl Database {
                         installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE,
                         UNIQUE(server_id, mod_id)
+                    )",
+                    "autosave_preferences" => "CREATE TABLE autosave_preferences (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL UNIQUE,
+                        auto_index_enabled INTEGER DEFAULT 1,
+                        auto_validate_enabled INTEGER DEFAULT 1,
+                        auto_compress_old_saves INTEGER DEFAULT 0,
+                        compress_after_days INTEGER DEFAULT 30,
+                        auto_cleanup_enabled INTEGER DEFAULT 1,
+                        cleanup_after_days INTEGER DEFAULT 90,
+                        keep_minimum_saves INTEGER DEFAULT 10,
+                        create_restore_points INTEGER DEFAULT 1,
+                        restore_point_frequency TEXT DEFAULT 'daily',
+                        notify_on_restore INTEGER DEFAULT 1,
+                        notify_on_corruption INTEGER DEFAULT 1,
+                        index_metadata INTEGER DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+                    )",
+                    "backup_policies" => "CREATE TABLE backup_policies (
+                        server_id INTEGER PRIMARY KEY,
+                        enabled BOOLEAN DEFAULT 0,
+                        interval_hours INTEGER DEFAULT 24,
+                        retention_days INTEGER DEFAULT 7,
+                        retention_count INTEGER DEFAULT 10,
+                        storage_quota_gb REAL DEFAULT 50.0,
+                        backup_before_update BOOLEAN DEFAULT 1,
+                        backup_before_restart BOOLEAN DEFAULT 1,
+                        compression_enabled BOOLEAN DEFAULT 1,
+                        cloud_sync_enabled BOOLEAN DEFAULT 0,
+                        discord_webhook TEXT,
+                        FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
                     )",
                     "backups" => "CREATE TABLE backups (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,

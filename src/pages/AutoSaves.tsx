@@ -15,10 +15,11 @@ import { History, LayoutGrid, GitCompare } from 'lucide-react';
 
 export default function AutoSaves() {
     useTranslation();
+
     const { servers, refreshServers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const { loadSaves, restoreSave } = useAutoSaveActions();
-    
+
     const [confirmState, setConfirmState] = useState<{
         action: 'restore' | null;
         save: AutoSave | null;
@@ -85,10 +86,10 @@ export default function AutoSaves() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <ServerSelect 
-                        value={selectedServerId} 
-                        onChange={setSelectedServerId} 
-                        accentColor="blue" 
+                    <ServerSelect
+                        value={selectedServerId}
+                        onChange={setSelectedServerId}
+                        accentColor="blue"
                     />
 
                     <button
@@ -165,8 +166,8 @@ export default function AutoSaves() {
                         )}
                         {activeTab === 'preferences' && (
                             <div className="overflow-y-auto flex-1">
-                                <AutoSavePreferencesPanel 
-                                    serverId={selectedServerId} 
+                                <AutoSavePreferencesPanel
+                                    serverId={selectedServerId}
                                     initialPreferences={preferences}
                                     onPreferencesUpdated={() => loadSaves(selectedServerId)}
                                 />
@@ -200,9 +201,9 @@ export default function AutoSaves() {
             {showComparison && selectedSaveIds.size === 2 && (() => {
                 const arr = Array.from(selectedSaveIds).map(id => saves.get(id)!).filter(Boolean);
                 if (arr.length !== 2) return null;
-                
+
                 return (
-                    <SaveComparison 
+                    <SaveComparison
                         save1={arr[0]}
                         save2={arr[1]}
                         onClose={() => setShowComparison(false)}

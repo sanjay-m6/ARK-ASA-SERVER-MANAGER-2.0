@@ -10,14 +10,14 @@ interface BackupPoliciesProps {
 }
 
 export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
-    const { } = useTranslation();
+    const { t } = useTranslation();
     const [policy, setPolicy] = useState<BackupPolicy | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (!serverId) return;
-        
+
         const fetchPolicy = async () => {
             setIsLoading(true);
             try {
@@ -25,7 +25,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                 setPolicy(data);
             } catch (err) {
                 console.error("Failed to fetch policy:", err);
-                toast.error("Failed to fetch backup policies.");
+                toast.error(t('backupPolicies.fetchFailed'));
             } finally {
                 setIsLoading(false);
             }
@@ -35,21 +35,22 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
 
     const handleSave = async () => {
         if (!policy || !serverId) return;
-        
+
         setIsSaving(true);
         try {
             await invoke('save_backup_policy', { policy });
-            toast.success("Backup policies saved successfully.");
+            toast.success(t('backupPolicies.saved'));
         } catch (err) {
             console.error("Failed to save policy:", err);
-            toast.error("Failed to save policies.");
+            const message = err instanceof Error ? err.message : JSON.stringify(err);
+            toast.error(t('backupPolicies.saveFailed', { error: message }));
         } finally {
             setIsSaving(false);
         }
     };
 
     if (!serverId) return null;
-    
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center py-20">
@@ -69,12 +70,12 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                             <Shield className="w-5 h-5 text-purple-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-white">Automation Policies</h2>
-                            <p className="text-slate-400 text-sm">Configure automated backup schedules and retention rules</p>
+                            <h2 className="text-xl font-bold text-white">{t('backupPolicies.title')}</h2>
+                            <p className="text-slate-400 text-sm">{t('backupPolicies.subtitle')}</p>
                         </div>
                     </div>
                     <label className="flex items-center gap-3 cursor-pointer">
-                        <span className="text-slate-300 font-medium">Enable Automation</span>
+                        <span className="text-slate-300 font-medium">{t('backupPolicies.enable')}</span>
                         <div className="relative">
                             <input
                                 type="checkbox"
@@ -88,51 +89,51 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 opacity-100 transition-opacity" style={{ opacity: policy.enabled ? 1 : 0.5, pointerEvents: policy.enabled ? 'auto' : 'none' }}>
-                    
+
                     {/* Schedule Settings */}
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                             <Clock className="w-5 h-5 text-amber-400" />
-                            Schedule Settings
+                            {t('backupPolicies.scheduleTitle')}
                         </h3>
-                        
+
                         <div className="space-y-3">
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Backup Interval (Hours)</label>
-                                <input 
-                                    type="number" 
-                                    min="1" 
+                                <label className="block text-sm font-medium text-slate-300 mb-1">{t('backupPolicies.intervalLabel')}</label>
+                                <input
+                                    type="number"
+                                    min="1"
                                     max="720"
-                                    value={policy.intervalHours} 
+                                    value={policy.intervalHours}
                                     onChange={(e) => setPolicy({ ...policy, intervalHours: parseInt(e.target.value) || 24 })}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500" 
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-purple-500"
                                 />
-                                <p className="text-xs text-slate-500 mt-1">How often a new automated backup should be created.</p>
+                                <p className="text-xs text-slate-500 mt-1">{t('backupPolicies.intervalDesc')}</p>
                             </div>
 
                             <label className="flex items-center justify-between p-3 bg-slate-900/50 border border-slate-700/50 rounded-lg cursor-pointer hover:border-purple-500/50 transition-colors">
                                 <div>
-                                    <span className="text-white font-medium block">Backup Before Update</span>
-                                    <span className="text-xs text-slate-400">Trigger backup before applying server updates</span>
+                                    <span className="text-white font-medium block">{t('backupPolicies.beforeUpdate')}</span>
+                                    <span className="text-xs text-slate-400">{t('backupPolicies.beforeUpdateDesc')}</span>
                                 </div>
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     checked={policy.backupBeforeUpdate}
                                     onChange={(e) => setPolicy({ ...policy, backupBeforeUpdate: e.target.checked })}
-                                    className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-purple-500 focus:ring-purple-500" 
+                                    className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-purple-500 focus:ring-purple-500"
                                 />
                             </label>
 
                             <label className="flex items-center justify-between p-3 bg-slate-900/50 border border-slate-700/50 rounded-lg cursor-pointer hover:border-purple-500/50 transition-colors">
                                 <div>
-                                    <span className="text-white font-medium block">Backup Before Restart</span>
-                                    <span className="text-xs text-slate-400">Trigger backup before scheduled restarts</span>
+                                    <span className="text-white font-medium block">{t('backupPolicies.beforeRestart')}</span>
+                                    <span className="text-xs text-slate-400">{t('backupPolicies.beforeRestartDesc')}</span>
                                 </div>
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     checked={policy.backupBeforeRestart}
                                     onChange={(e) => setPolicy({ ...policy, backupBeforeRestart: e.target.checked })}
-                                    className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-purple-500 focus:ring-purple-500" 
+                                    className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-purple-500 focus:ring-purple-500"
                                 />
                             </label>
                         </div>
@@ -142,44 +143,44 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                             <HardDrive className="w-5 h-5 text-blue-400" />
-                            Retention & Cleanup
+                            {t('backupPolicies.retentionTitle')}
                         </h3>
 
                         <div className="space-y-3">
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Max Retention Days</label>
-                                <input 
-                                    type="number" 
-                                    min="1" 
-                                    value={policy.retentionDays} 
+                                <label className="block text-sm font-medium text-slate-300 mb-1">{t('backupPolicies.retentionDays')}</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={policy.retentionDays}
                                     onChange={(e) => setPolicy({ ...policy, retentionDays: parseInt(e.target.value) || 7 })}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500" 
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Max Backup Count</label>
-                                <input 
-                                    type="number" 
-                                    min="1" 
-                                    value={policy.retentionCount} 
+                                <label className="block text-sm font-medium text-slate-300 mb-1">{t('backupPolicies.retentionCount')}</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={policy.retentionCount}
                                     onChange={(e) => setPolicy({ ...policy, retentionCount: parseInt(e.target.value) || 10 })}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500" 
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500"
                                 />
-                                <p className="text-xs text-slate-500 mt-1">Maximum number of automated backups to keep.</p>
+                                <p className="text-xs text-slate-500 mt-1">{t('backupPolicies.retentionCountDesc')}</p>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-1">Storage Quota (GB)</label>
-                                <input 
-                                    type="number" 
-                                    min="1" 
+                                <label className="block text-sm font-medium text-slate-300 mb-1">{t('backupPolicies.storageQuota')}</label>
+                                <input
+                                    type="number"
+                                    min="1"
                                     step="0.5"
-                                    value={policy.storageQuotaGb} 
+                                    value={policy.storageQuotaGb}
                                     onChange={(e) => setPolicy({ ...policy, storageQuotaGb: parseFloat(e.target.value) || 50.0 })}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500" 
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500"
                                 />
-                                <p className="text-xs text-slate-500 mt-1">Oldest backups will be deleted if this quota is exceeded.</p>
+                                <p className="text-xs text-slate-500 mt-1">{t('backupPolicies.storageQuotaDesc')}</p>
                             </div>
                         </div>
                     </div>
@@ -188,33 +189,33 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                     <div className="space-y-4 md:col-span-2 border-t border-slate-700/50 pt-6">
                         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                             <Server className="w-5 h-5 text-green-400" />
-                            Advanced Options
+                            {t('backupPolicies.advancedTitle')}
                         </h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <label className="flex items-center justify-between p-3 bg-slate-900/50 border border-slate-700/50 rounded-lg cursor-pointer hover:border-green-500/50 transition-colors">
                                 <div>
-                                    <span className="text-white font-medium block">Compression Enabled</span>
-                                    <span className="text-xs text-slate-400">Compress backups to save space</span>
+                                    <span className="text-white font-medium block">{t('backupPolicies.compression')}</span>
+                                    <span className="text-xs text-slate-400">{t('backupPolicies.compressionDesc')}</span>
                                 </div>
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     checked={policy.compressionEnabled}
                                     onChange={(e) => setPolicy({ ...policy, compressionEnabled: e.target.checked })}
-                                    className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-green-500 focus:ring-green-500" 
+                                    className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-green-500 focus:ring-green-500"
                                 />
                             </label>
 
                             <label className="flex items-center justify-between p-3 bg-slate-900/50 border border-slate-700/50 rounded-lg cursor-pointer hover:border-sky-500/50 transition-colors">
                                 <div>
-                                    <span className="text-white font-medium block">Cloud Sync Integration</span>
-                                    <span className="text-xs text-slate-400">Automatically upload to cloud storage</span>
+                                    <span className="text-white font-medium block">{t('backupPolicies.cloudSync')}</span>
+                                    <span className="text-xs text-slate-400">{t('backupPolicies.cloudSyncDesc')}</span>
                                 </div>
-                                <input 
-                                    type="checkbox" 
+                                <input
+                                    type="checkbox"
                                     checked={policy.cloudSyncEnabled}
                                     onChange={(e) => setPolicy({ ...policy, cloudSyncEnabled: e.target.checked })}
-                                    className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-sky-500 focus:ring-sky-500" 
+                                    className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-sky-500 focus:ring-sky-500"
                                 />
                             </label>
                         </div>
@@ -228,16 +229,16 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                         className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors shadow-lg shadow-purple-500/20 font-medium"
                     >
                         {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        Save Policies
+                        {t('backupPolicies.saveBtn')}
                     </button>
                 </div>
             </div>
-            
+
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex items-start gap-3">
                 <Info className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" />
                 <div className="text-sm text-blue-200">
-                    <p className="font-semibold text-blue-300 mb-1">How intelligent cleanup works:</p>
-                    <p>When automated backups occur or a manual cleanup is triggered, the system evaluates all unprotected backups against your Retention Days, Count, and Quota. Any backups exceeding these limits are permanently removed to reclaim disk space. Protected backups are always skipped.</p>
+                    <p className="font-semibold text-blue-300 mb-1">{t('backupPolicies.cleanupInfoTitle')}</p>
+                    <p>{t('backupPolicies.cleanupInfoDesc')}</p>
                 </div>
             </div>
         </div>
