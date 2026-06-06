@@ -69,7 +69,7 @@
     "port": "Puerto",
     "lines": "pauta",
     "players": "Jugadores",
-    "mods": "Mods",
+    "mods": "Modificaciones",
     "noResults": "No se encontraron resultados",
     "noData": "No hay datos disponibles",
     "comingSoon": "Próximamente",
@@ -105,7 +105,8 @@
     "noDescription": "Sin descripción",
     "ascending": "Ascendente",
     "descending": "Descendente",
-    "failed": "Error: {{error}}"
+    "failed": "Error: {{error}}",
+    "never": "Nunca"
   },
   "discord": {
     "title": "Pasarela Discord",
@@ -186,7 +187,7 @@
     "wiki": "Guía Wiki"
   },
   "welcome": {
-    "title": "ASA Server Manager",
+    "title": "Administrador del servidor ASA",
     "subtitle": "Herramienta profesional de gestión de servidores para ARK: Survival Ascended",
     "loading": "Inicializando el sistema...",
     "enter": "Entrar al centro de control"
@@ -416,7 +417,9 @@
       "reset": "Restablecer este elemento al valor por defecto"
     },
     "placeholders": {
-      "textarea": "Introduce un valor por línea..."
+      "textarea": "Introduce un valor por línea...",
+      "enterValues": "Introduzca valores, uno por línea...",
+      "searchSettings": "Configuración de búsqueda..."
     },
     "toasts": {
       "loadError": "Error al leer el archivo de configuración",
@@ -439,7 +442,7 @@
       "subtitle": "Personaliza la curva de experiencia requerida para subir de nivel y la dificultad de los dinos salvajes.",
       "dinoLevelLabel": "Nivel máximo de dinos salvajes",
       "applyDinoLevel": "Aplicar nivel de dinos",
-      "dinoLevelReset": "Restablece automáticamente el ajuste OverrideOfficialDifficulty al valor obtenido al dividir el nivel máximo por 30.",
+      "dinoLevelReset": "Establece la compensación de dificultad en 1.0 y anula la dificultad oficial en {{offset}}.",
       "playerLevelLabel": "Nivel máximo de jugadores",
       "generateXpRamp": "Generar curva de experiencia",
       "playerLevelDescription": "Genera automáticamente una curva de experiencia suave y exponencial para el nivel máximo seleccionado {{level}}.",
@@ -470,7 +473,11 @@
     "configReset": "Todos los archivos de configuración se han restablecido",
     "unsavedChanges": "Tienes cambios de configuración sin guardar",
     "playerStats": "Multiplicadores de estadísticas de los jugadores",
-    "dinoStats": "Multiplicadores de estadísticas de los dinos"
+    "dinoStats": "Multiplicadores de estadísticas de los dinos",
+    "emptyState": {
+      "title": "No se encontraron configuraciones",
+      "description": "Intente buscar \"{{query}}\""
+    }
   },
   "modManager": {
     "title": "Gestión de mods",
@@ -613,7 +620,8 @@
     "validationOkDetailed": "Todos los servidores vinculados comparten el mismo directorio del clúster y los puertos son únicos.",
     "validationWarnings": "Clúster válido con advertencias.",
     "validationErrors": "El cluster tiene problemas de configuración",
-    "validationFailed": "No se pudo validar la configuración del clúster"
+    "validationFailed": "No se pudo validar la configuración del clúster",
+    "clusterPath": "Directorio de clúster"
   },
   "scheduler": {
     "title": "Planificador de tareas",
@@ -697,7 +705,8 @@
     "loadTasksFailed": "No se pudo leer la lista de tareas planificadas",
     "toggleFailed": "No se pudo cambiar el estado de activación de la tarea",
     "status": "Barra de estado",
-    "noTasksDesc": "No hay ninguna otra tarea planificada actualmente"
+    "noTasksDesc": "No hay ninguna otra tarea planificada actualmente",
+    "taskNamePlaceholder": "Introduzca el nombre de la tarea..."
   },
   "discordBot": {
     "title": "Integración de la comunidad de Discord",
@@ -965,7 +974,161 @@
     "manual": "Copia de seguridad manual",
     "auto": "Copia de seguridad automática",
     "worldData": "Datos del mundo",
-    "playerData": "Datos de jugadores y tribus"
+    "playerData": "Datos de jugadores y tribus",
+    "restoreSuccess": "¡La copia de seguridad se restauró exitosamente!",
+    "deleteSuccess": "¡Copia de seguridad eliminada!",
+    "previewFailed": "No se pudo cargar la vista previa: {{error}}",
+    "verifying": "Verificando...",
+    "listView": "Vista de lista",
+    "timelineView": "Vista de línea de tiempo",
+    "confirmDeleteTitle": "Eliminar copia de seguridad",
+    "confirmRestoreTitle": "Restaurar copia de seguridad",
+    "confirmCleanupTitle": "Copias de seguridad de limpieza",
+    "deleteNow": "Borrar",
+    "restoreNow": "Restaurar",
+    "cleanupNow": "Limpieza"
+  },
+  "cloudBackup": {
+    "saved": "Configuración de copia de seguridad en la nube guardada",
+    "saveError": "No se pudo guardar la configuración de la nube: {{error}}",
+    "testSuccess": "Prueba de conexión exitosa",
+    "testError": "La prueba de conexión falló: {{error}}",
+    "restoreSuccess": "Copia de seguridad en la nube restaurada con éxito",
+    "restoreError": "No se pudo restaurar la copia de seguridad en la nube: {{error}}"
+  },
+  "autoSaves": {
+    "title": "Guardado automático",
+    "subtitle": "Administre, restaure y compare los guardados automáticos del servidor",
+    "refreshData": "Actualizar datos",
+    "compareSelected": "Comparar seleccionados",
+    "selectServer": "Seleccione un servidor para ver los guardados automáticos",
+    "confirmRestoreTitle": "¿Restaurar el guardado automático?",
+    "confirmRestoreMsg": "¿Está seguro de que desea restaurar el servidor a este estado guardado? Se creará automáticamente una copia de seguridad del estado actual.",
+    "confirmRestoreBtn": "Restaurar estado",
+    "restoreSuccess": "El guardado automático se restauró correctamente.",
+    "restoreFailed": "No se pudo restaurar el guardado automático: {{error}}",
+    "tabs": {
+      "browser": "Navegador",
+      "timeline": "Línea de tiempo",
+      "preferences": "Preferencias"
+    },
+    "browser": {
+      "title": "Guardado automático",
+      "search": "La búsqueda guarda...",
+      "statusFilter": "Filtro de estado",
+      "map": "Mapa",
+      "allMaps": "Todos los mapas",
+      "fileSize": "Tamaño de archivo",
+      "allSizes": "Todos los tamaños",
+      "sizeSmall": "Pequeño (< 50 MB)",
+      "sizeMedium": "Mediano (50 MB - 200 MB)",
+      "sizeLarge": "Grande (> 200 MB)",
+      "playerActivity": "Actividad del jugador",
+      "anyPlayers": "Cualquier jugador cuenta",
+      "playersEmpty": "Vacío (0 jugadores)",
+      "playersActive": "Activo (1 - 10 jugadores)",
+      "playersHigh": "Actividad alta (más de 10 jugadores)",
+      "sortBy": "Ordenar por",
+      "sortDate": "Fecha",
+      "sortSize": "Tamaño",
+      "sortPlayers": "Jugadores",
+      "sortUptime": "tiempo de actividad",
+      "sortName": "Nombre",
+      "filtersActive": "Filtros activos • {{count}} encontrado guarda los criterios coincidentes",
+      "noFilters": "No hay filtros activos • Mostrando todos los guardados",
+      "clearFilters": "Borrar filtros",
+      "noSaves": "No se encontraron guardados",
+      "adjustFilters": "Intenta ajustar tus filtros",
+      "corrupted": "corrupto",
+      "restore": "Restaurar",
+      "issuesDetected": "Problemas {{count}} detectados"
+    },
+    "preferences": {
+      "loading": "Cargando preferencias...",
+      "title": "Preferencias de guardado automático",
+      "subtitle": "Configure cómo se administran, validan y limpian automáticamente los guardados automáticos.",
+      "indexingTitle": "Indexación y metadatos",
+      "autoIndex": "Habilitar la indexación automática",
+      "autoIndexDesc": "Realice un seguimiento automático de los nuevos guardados cuando aparezcan en el directorio guardado.",
+      "deepIndex": "Metadatos de índice profundo",
+      "deepIndexDesc": "Analiza modificaciones, recuentos de jugadores y configuraciones de los archivos guardados (más lento).",
+      "autoValidate": "Validar automáticamente guardados",
+      "autoValidateDesc": "Verifique los archivos guardados en busca de daños y anomalías de tamaño inmediatamente después de la indexación.",
+      "retentionTitle": "Retención y limpieza",
+      "autoCleanup": "Habilitar la limpieza automática",
+      "autoCleanupDesc": "Elimine los archivos guardados antiguos automáticamente para liberar espacio en el disco.",
+      "cleanupDays": "Eliminar archivos guardados con más de (días)",
+      "keepMinimum": "Guardados mínimos para conservar",
+      "compressionTitle": "Compresión y archivo",
+      "autoCompress": "Comprimir automáticamente archivos guardados antiguos",
+      "autoCompressDesc": "Zip se guarda automáticamente después de una cierta cantidad de días para ahorrar espacio.",
+      "compressDays": "Comprimir guarda más de (días)",
+      "protectionTitle": "Protección y alertas",
+      "restorePoints": "Puntos de restauración programados",
+      "restorePointsDesc": "Marque automáticamente guardados específicos como puntos de restauración protegidos según un cronograma.",
+      "frequency": "Frecuencia",
+      "hourly": "Cada hora",
+      "daily": "A diario",
+      "weekly": "Semanalmente",
+      "notifyRestore": "Notificar sobre restauraciones",
+      "notifyCorruption": "Notificar sobre guardados corruptos",
+      "saveBtn": "Guardar preferencias",
+      "saving": "Ahorro...",
+      "saved": "Las preferencias de guardado automático se actualizaron correctamente.",
+      "saveFailed": "No se pudieron actualizar las preferencias: {{error}}"
+    },
+    "comparison": {
+      "olderSave": "Guardar más antiguo",
+      "newerSave": "Guardar más reciente",
+      "corrupted": "corrupto",
+      "valid": "Válido",
+      "playersActive": "Reproductores {{count}} activos",
+      "uptime": "{{hours}}h {{minutes}}m tiempo de actividad",
+      "restoreVersion": "Restaurar esta versión",
+      "title": "Comparar guardados",
+      "close": "Cerca",
+      "changeSummary": "Resumen de cambios",
+      "timeElapsed": "Tiempo transcurrido",
+      "unknown": "Desconocido",
+      "sizeDiff": "Diferencia de tamaño",
+      "noChange": "Sin cambios",
+      "playerCount": "Conteo de jugadores",
+      "map": "Mapa",
+      "unchanged": "Sin alterar",
+      "modChanges": "Cambios de modificación"
+    },
+    "timeline": {
+      "noEvents": "Aún no se han registrado eventos en la línea de tiempo."
+    }
+  },
+  "backupPolicies": {
+    "title": "Políticas de automatización",
+    "subtitle": "Configure programas de respaldo automatizados y reglas de retención",
+    "enable": "Habilitar la automatización",
+    "scheduleTitle": "Configuración de programación",
+    "intervalLabel": "Intervalo de respaldo (horas)",
+    "intervalDesc": "Con qué frecuencia se debe crear una nueva copia de seguridad automatizada.",
+    "beforeUpdate": "Copia de seguridad antes de la actualización",
+    "beforeUpdateDesc": "Activar copia de seguridad antes de aplicar actualizaciones del servidor",
+    "beforeRestart": "Copia de seguridad antes de reiniciar",
+    "beforeRestartDesc": "Activar copia de seguridad antes de reinicios programados",
+    "retentionTitle": "Retención y limpieza",
+    "retentionDays": "Días máximos de retención",
+    "retentionCount": "Recuento máximo de copias de seguridad",
+    "retentionCountDesc": "Número máximo de copias de seguridad automatizadas que se deben conservar.",
+    "storageQuota": "Cuota de almacenamiento (GB)",
+    "storageQuotaDesc": "Las copias de seguridad más antiguas se eliminarán si se excede esta cuota.",
+    "advancedTitle": "Opciones avanzadas",
+    "compression": "Compresión habilitada",
+    "compressionDesc": "Comprime las copias de seguridad para ahorrar espacio",
+    "cloudSync": "Integración de sincronización en la nube",
+    "cloudSyncDesc": "Subir automáticamente al almacenamiento en la nube",
+    "saveBtn": "Guardar políticas",
+    "saved": "Las políticas de copia de seguridad se guardaron correctamente.",
+    "saveFailed": "No se pudieron guardar las políticas: {{error}}",
+    "fetchFailed": "No se pudieron recuperar las políticas de respaldo.",
+    "cleanupInfoTitle": "Cómo funciona la limpieza inteligente:",
+    "cleanupInfoDesc": "Cuando se realizan copias de seguridad automatizadas o se activa una limpieza manual, el sistema evalúa todas las copias de seguridad desprotegidas comparándolas con sus días de retención, recuento y cuota. Cualquier copia de seguridad que exceda estos límites se elimina permanentemente para recuperar espacio en disco. Las copias de seguridad protegidas siempre se omiten."
   },
   "logs": {
     "title": "Lector de registros",
@@ -1173,6 +1336,172 @@
       "maxCrashesDesc": "Intentos máximos de recuperación ante bloqueos en el intervalo.",
       "observationWindow": "Intervalo de observación",
       "observationWindowDesc": "Tiempo en minutos para supervisar el recuento de bloqueos."
+    },
+    "diagnostics": {
+      "title": "Diagnóstico del entorno del servidor",
+      "description": "Compruebe la compatibilidad del hardware, la configuración de la red y la configuración de SteamCMD con el funcionamiento de un servidor de ARK.",
+      "runCheck": "Iniciar diagnóstico",
+      "running": "Analizando y diagnosticando el sistema...",
+      "healthy": "¡Diagnóstico completado! ¡El entorno físico cumple todos los requisitos para ejecutar un servidor de ARK!",
+      "issuesFound": "{{count}} problemas potenciales detectados que podrían causar fallos de conexión",
+      "reportTitle": "Informe de diagnóstico del entorno",
+      "reportHealthy": "✅ ¡Entorno impecable!\n\n• SteamCMD: Instalado con éxito y operativo\n• Accesibilidad de IP pública: Buena\n• Memoria RAM libre: Suficiente (> 16 GB)\n• Espacio en disco libre: Suficiente (> 100 GB)",
+      "reportIssues": "⚠️ ¡Atención! Se han identificado los siguientes riesgos que podrían afectar al funcionamiento:\n\n{{issues}}",
+      "failed": "Diagnóstico interrumpido: {{error}}",
+      "steamCmdMissing": "Falta el entorno de ejecución SteamCMD en el sistema",
+      "steamCmdRequired": "SteamCMD es necesario para descargar y actualizar los archivos del servidor y los mods. Su instalación es obligatoria para el funcionamiento del gestor.",
+      "installing": "Configurando el sistema...",
+      "installNow": "Descargar y configurar automáticamente",
+      "installSteamCmd": "Descargando y configurando las herramientas de SteamCMD a través del CDN oficial...",
+      "installSuccess": "¡Entorno SteamCMD configurado con éxito y listo!",
+      "installFailed": "La configuración de SteamCMD ha fallado: {{error}}"
+    },
+    "portValidator": {
+      "title": "Comprobación de accesibilidad de puertos",
+      "description": "Compruebe en tiempo real si los puertos de su servidor de ARK son accesibles desde el exterior a través de su router e Internet",
+      "checkAll": "Iniciar comprobación de accesibilidad",
+      "checking": "Enviando datos de prueba a la red...",
+      "publicIp": "Dirección IP pública de este ordenador",
+      "localIp": "Dirección IP local de este ordenador",
+      "fetching": "Recuperando...",
+      "notAvailable": "No disponible (sin conexión de red)",
+      "port": "Puerto a comprobar",
+      "protocol": "Protocolo",
+      "purpose": "Finalidad del puerto",
+      "status": "Accesibilidad exterior",
+      "open": "Abierto (conexión correcta)",
+      "closed": "Cerrado (los jugadores no pueden conectarse)",
+      "notChecked": "No comprobado actualmente",
+      "allOpen": "¡Excelente! Todos los puertos necesarios son accesibles en Internet. ¡Tus amigos pueden conectarse sin problemas!",
+      "partialOpen": "¡Atención! Actualmente solo {{count}} de los {{total}} puertos son accesibles",
+      "noOpen": "¡La comprobación ha fallado! Todos los puertos parecen cerrados. Debes configurar la redirección de puertos en tu router.",
+      "lastChecked": "Última comprobación: {{time}}",
+      "troubleshooting": "🔧 Resolución de problemas de puertos cerrados",
+      "tipClosed": "¿Puerto cerrado? Comprueba si el cortafuegos de Windows bloquea el servidor y si las redirecciones de puertos en el router están configuradas correctamente",
+      "tipUnknown": "¿Resultados inexactos? Para que la prueba funcione correctamente y pueda enviar paquetes de datos, el servidor de ARK debe estar iniciado y tener el estado 「En línea」",
+      "tipCgnat": "¿CGNAT (Carrier-Grade NAT) activo? En ese caso, compartes una IP pública con otros clientes. Contacta con tu proveedor para solicitar una IP estática real o utiliza servicios de túnel",
+      "ports": {
+        "game": "Puerto principal del juego",
+        "gameDesc": "El puerto principal utilizado por los jugadores para unirse al mundo de juego",
+        "gamePlus": "Puerto de juego adicional",
+        "gamePlusDesc": "Ayuda a mejorar la eficiencia de la transmisión de datos para los jugadores de Crossplay",
+        "query": "Puerto de consulta de Steam",
+        "queryDesc": "Permite mostrar tu servidor en las listas de Steam y del juego",
+        "rcon": "Puerto de control a distancia (RCON)",
+        "rconDesc": "Permite que herramientas externas se conecten de forma encriptada para comandos de administración"
+      }
+    },
+    "portForwarding": {
+      "title": "Guía de redirección de puertos del router (NAT)",
+      "description": "Descubra paso a paso cómo conectarse a su router y abrir los puertos necesarios para su servidor de ARK",
+      "routerGuides": "📖 Guías para modelos de router comunes",
+      "markDone": "Marcar este paso como completado",
+      "done": "Paso completado ✓",
+      "copied": "¡Comando copiado al portapapeles!",
+      "progress": "Progreso de la configuración: {{completed}} de {{total}} pasos completados",
+      "steps": {
+        "findIp": {
+          "title": "Determinar la dirección IP de su router",
+          "intro": "La dirección de la página de configuración de su router suele ser:",
+          "or": "o",
+          "cmdPrompt": "Si no estás seguro, pulsa Win+R, introduce cmd y ejecuta el siguiente comando:",
+          "findGateway": "Busca la línea 「Puerta de enlace predeterminada」(Default Gateway) en el resultado. La dirección IP que aparezca es la de tu router."
+        },
+        "login": {
+          "title": "Iniciar sesión en el router",
+          "content": "Abre un navegador web, introduce la dirección IP del router en la barra de direcciones y pulsa Enter.",
+          "credentials": "Las credenciales de acceso suelen estar en una pegatina detrás o debajo del router:",
+          "username": "Usuario estándar:",
+          "password": "Contraseña estándar:",
+          "passwordOr": "o",
+          "tip": "Nota: Da la vuelta al router. En la placa de características encontrarás la dirección por defecto y la primera contraseña para iniciar sesión."
+        },
+        "findSettings": {
+          "title": "Buscar el menú de redirección de puertos",
+          "content": "Busca términos como 「Redirección de puertos」, 「Mapeo de puertos」, 「Servidores virtuales」, 「Ajustes NAT」, 「Port Forwarding」 o 「DMZ/UPnP」 en el menú del router.",
+          "locations": "Esta opción suele encontrarse en los siguientes menús:"
+        },
+        "addRules": {
+          "title": "Configurar las reglas de redirección de puertos para ARK",
+          "content": "Crea cuatro nuevas reglas de redirección para transferir el tráfico entrante a la dirección IP local de este ordenador.",
+          "headers": {
+            "port": "Puerto estándar de ARK",
+            "protocol": "Tipo de protocolo",
+            "purpose": "Finalidad del puerto"
+          },
+          "purposes": {
+            "game": "Puerto principal del juego",
+            "gamePlus": "Puerto de juego adicional",
+            "query": "Puerto de consulta de Steam",
+            "rcon": "Puerto de control a distancia RCON"
+          },
+          "tip": "Introduce como 「Host local / Dispositivo local」 la dirección IPv4 local de este ordenador (por ejemplo, 192.168.1.50)"
+        },
+        "save": {
+          "title": "Guardar y probar los ajustes en el router",
+          "content": "Haz clic en 「Guardar」 o 「Aplicar」 en el menú del router. En algunos routers antiguos, es necesario reiniciar el dispositivo para que las reglas se apliquen.",
+          "verify": "¡Inicia el servidor de ARK y prueba la accesibilidad en el gestor en 「Comprobación de accesibilidad de puertos」!"
+        }
+      }
+    },
+    "firewallAutomation": {
+      "title": "Gestión automática del cortafuegos",
+      "description": "Configure automáticamente las reglas del Firewall de Windows para sus servidores ARK",
+      "descriptionEvolved": "Administre las reglas del Firewall de Windows Defender para sus servidores ARK: Survival Evolved.",
+      "adminRequired": "Se requieren privilegios de administrador",
+      "adminRequiredDesc": "Las reglas de firewall solo se pueden crear cuando se ejecuta la aplicación como administrador. Haga clic derecho en la aplicación y seleccione \"Ejecutar como administrador\" si falla la asignación del puerto.",
+      "noServers": "No hay servidores configurados",
+      "createProfile": "Primero cree un perfil de servidor para administrar las reglas del firewall",
+      "assignAll": "Asignar todos los puertos",
+      "assigning": "Asignando...",
+      "refresh": "Refrescar",
+      "headers": {
+        "server": "Servidor",
+        "gamePort": "Puerto de juego",
+        "queryPort": "Puerto de consulta",
+        "rconPort": "Puerto RCON",
+        "actions": "Comportamiento"
+      },
+      "manual": {
+        "title": "Asignación manual de puertos",
+        "description": "Abra puertos personalizados para servicios, modificaciones o complementos adicionales que requieran acceso a la red específico.",
+        "portNumber": "Número de puerto",
+        "protocol": "Protocolo",
+        "descriptionLabel": "Descripción (opcional)",
+        "addPort": "Agregar puerto",
+        "customPorts": "Puertos personalizados",
+        "placeholderPort": "p.ej. 8080",
+        "placeholderDesc": "p.ej. Puerto de chat de voz",
+        "remove": "Quitar puerto"
+      },
+      "about": {
+        "title": "Acerca de los puertos del firewall",
+        "game": "Puerto de juego (UDP)",
+        "gameDesc": "Puerto de conexión principal para los jugadores que se unen a su servidor",
+        "query": "Puerto de consulta (UDP)",
+        "queryDesc": "Utilizado por Steam para consultas y listados del navegador del servidor",
+        "rcon": "Puerto RCON (TCP)",
+        "rconDesc": "Acceso a consola remota para administración del servidor",
+        "note": "Todos los puertos deben estar abiertos para que su servidor sea visible y accesible para los jugadores."
+      },
+      "messages": {
+        "loadFailed": "No se pudo cargar el estado del firewall",
+        "createFailed": "No se pudieron crear reglas de firewall",
+        "removeFailed": "No se pudieron eliminar las reglas del firewall",
+        "manualCreateFailed": "No se pudo crear la regla de firewall",
+        "manualRemoveFailed": "No se pudo eliminar la regla de firewall",
+        "invalidPort": "Ingrese un número de puerto válido (1-65535)",
+        "duplicatePort": "Esta combinación de puerto/protocolo ya está en la lista",
+        "exists": "ya existe",
+        "assigned": "Asignado",
+        "assign": "Asignar",
+        "remove": "Eliminar",
+        "disabled": "Desactivado",
+        "actions": {
+          "remove": "Eliminar",
+          "assign": "Asignar"
+        }
+      }
     }
   },
   "firewallConfig": {
@@ -1206,171 +1535,6 @@
     "previousVersions": "Versiones anteriores archivadas",
     "previousDesc": "Si surgen problemas con la última versión, puedes descargar e instalar versiones anteriores desde GitHub en cualquier momento.",
     "viewReleases": "Ver todas las versiones anteriores en GitHub"
-  },
-  "diagnostics": {
-    "title": "Diagnóstico del entorno del servidor",
-    "description": "Compruebe la compatibilidad del hardware, la configuración de la red y la configuración de SteamCMD con el funcionamiento de un servidor de ARK.",
-    "runCheck": "Iniciar diagnóstico",
-    "running": "Analizando y diagnosticando el sistema...",
-    "healthy": "¡Diagnóstico completado! ¡El entorno físico cumple todos los requisitos para ejecutar un servidor de ARK!",
-    "issuesFound": "{{count}} problemas potenciales detectados que podrían causar fallos de conexión",
-    "reportTitle": "Informe de diagnóstico del entorno",
-    "reportHealthy": "✅ ¡Entorno impecable!\n\n• SteamCMD: Instalado con éxito y operativo\n• Accesibilidad de IP pública: Buena\n• Memoria RAM libre: Suficiente (> 16 GB)\n• Espacio en disco libre: Suficiente (> 100 GB)",
-    "reportIssues": "⚠️ ¡Atención! Se han identificado los siguientes riesgos que podrían afectar al funcionamiento:\n\n{{issues}}",
-    "failed": "Diagnóstico interrumpido: {{error}}",
-    "steamCmdMissing": "Falta el entorno de ejecución SteamCMD en el sistema",
-    "steamCmdRequired": "SteamCMD es necesario para descargar y actualizar los archivos del servidor y los mods. Su instalación es obligatoria para el funcionamiento del gestor.",
-    "installing": "Configurando el sistema...",
-    "installNow": "Descargar y configurar automáticamente",
-    "installSteamCmd": "Descargando y configurando las herramientas de SteamCMD a través del CDN oficial...",
-    "installSuccess": "¡Entorno SteamCMD configurado con éxito y listo!",
-    "installFailed": "La configuración de SteamCMD ha fallado: {{error}}"
-  },
-  "portValidator": {
-    "title": "Comprobación de accesibilidad de puertos",
-    "description": "Compruebe en tiempo real si los puertos de su servidor de ARK son accesibles desde el exterior a través de su router e Internet",
-    "checkAll": "Iniciar comprobación de accesibilidad",
-    "checking": "Enviando datos de prueba a la red...",
-    "publicIp": "Dirección IP pública de este ordenador",
-    "localIp": "Dirección IP local de este ordenador",
-    "fetching": "Recuperando...",
-    "notAvailable": "No disponible (sin conexión de red)",
-    "port": "Puerto a comprobar",
-    "protocol": "Protocolo",
-    "purpose": "Finalidad del puerto",
-    "status": "Accesibilidad exterior",
-    "open": "Abierto (conexión correcta)",
-    "closed": "Cerrado (los jugadores no pueden conectarse)",
-    "notChecked": "No comprobado actualmente",
-    "allOpen": "¡Excelente! Todos los puertos necesarios son accesibles en Internet. ¡Tus amigos pueden conectarse sin problemas!",
-    "partialOpen": "¡Atención! Actualmente solo {{count}} de los {{total}} puertos son accesibles",
-    "noOpen": "¡La comprobación ha fallado! Todos los puertos parecen cerrados. Debes configurar la redirección de puertos en tu router.",
-    "lastChecked": "Última comprobación: {{time}}",
-    "troubleshooting": "🔧 Resolución de problemas de puertos cerrados",
-    "tipClosed": "¿Puerto cerrado? Comprueba si el cortafuegos de Windows bloquea el servidor y si las redirecciones de puertos en el router están configuradas correctamente",
-    "tipUnknown": "¿Resultados inexactos? Para que la prueba funcione correctamente y pueda enviar paquetes de datos, el servidor de ARK debe estar iniciado y tener el estado 「En línea」",
-    "tipCgnat": "¿CGNAT (Carrier-Grade NAT) activo? En ese caso, compartes una IP pública con otros clientes. Contacta con tu proveedor para solicitar una IP estática real o utiliza servicios de túnel",
-    "ports": {
-      "game": "Puerto principal del juego",
-      "gameDesc": "El puerto principal utilizado por los jugadores para unirse al mundo de juego",
-      "gamePlus": "Puerto de juego adicional",
-      "gamePlusDesc": "Ayuda a mejorar la eficiencia de la transmisión de datos para los jugadores de Crossplay",
-      "query": "Puerto de consulta de Steam",
-      "queryDesc": "Permite mostrar tu servidor en las listas de Steam y del juego",
-      "rcon": "Puerto de control a distancia (RCON)",
-      "rconDesc": "Permite que herramientas externas se conecten de forma encriptada para comandos de administración"
-    }
-  },
-  "portForwarding": {
-    "title": "Guía de redirección de puertos del router (NAT)",
-    "description": "Descubra paso a paso cómo conectarse a su router y abrir los puertos necesarios para su servidor de ARK",
-    "routerGuides": "📖 Guías para modelos de router comunes",
-    "markDone": "Marcar este paso como completado",
-    "done": "Paso completado ✓",
-    "copied": "¡Comando copiado al portapapeles!",
-    "progress": "Progreso de la configuración: {{completed}} de {{total}} pasos completados",
-    "steps": {
-      "findIp": {
-        "title": "Determinar la dirección IP de su router",
-        "intro": "La dirección de la página de configuración de su router suele ser:",
-        "or": "o",
-        "cmdPrompt": "Si no estás seguro, pulsa Win+R, introduce cmd y ejecuta el siguiente comando:",
-        "findGateway": "Busca la línea 「Puerta de enlace predeterminada」(Default Gateway) en el resultado. La dirección IP que aparezca es la de tu router."
-      },
-      "login": {
-        "title": "Iniciar sesión en el router",
-        "content": "Abre un navegador web, introduce la dirección IP del router en la barra de direcciones y pulsa Enter.",
-        "credentials": "Las credenciales de acceso suelen estar en una pegatina detrás o debajo del router:",
-        "username": "Usuario estándar:",
-        "password": "Contraseña estándar:",
-        "passwordOr": "o",
-        "tip": "Nota: Da la vuelta al router. En la placa de características encontrarás la dirección por defecto y la primera contraseña para iniciar sesión."
-      },
-      "findSettings": {
-        "title": "Buscar el menú de redirección de puertos",
-        "content": "Busca términos como 「Redirección de puertos」, 「Mapeo de puertos」, 「Servidores virtuales」, 「Ajustes NAT」, 「Port Forwarding」 o 「DMZ/UPnP」 en el menú del router.",
-        "locations": "Esta opción suele encontrarse en los siguientes menús:"
-      },
-      "addRules": {
-        "title": "Configurar las reglas de redirección de puertos para ARK",
-        "content": "Crea cuatro nuevas reglas de redirección para transferir el tráfico entrante a la dirección IP local de este ordenador.",
-        "headers": {
-          "port": "Puerto estándar de ARK",
-          "protocol": "Tipo de protocolo",
-          "purpose": "Finalidad del puerto"
-        },
-        "purposes": {
-          "game": "Puerto principal del juego",
-          "gamePlus": "Puerto de juego adicional",
-          "query": "Puerto de consulta de Steam",
-          "rcon": "Puerto de control a distancia RCON"
-        },
-        "tip": "Introduce como 「Host local / Dispositivo local」 la dirección IPv4 local de este ordenador (por ejemplo, 192.168.1.50)"
-      },
-      "save": {
-        "title": "Guardar y probar los ajustes en el router",
-        "content": "Haz clic en 「Guardar」 o 「Aplicar」 en el menú del router. En algunos routers antiguos, es necesario reiniciar el dispositivo para que las reglas se apliquen.",
-        "verify": "¡Inicia el servidor de ARK y prueba la accesibilidad en el gestor en 「Comprobación de accesibilidad de puertos」!"
-      }
-    }
-  },
-  "firewallAutomation": {
-    "title": "Gestión automática del cortafuegos",
-    "description": "Deje que el gestor abra automáticamente todos los puertos de red necesarios en el cortafuegos de Windows",
-    "adminRequired": "Se requieren privilegios de administrador",
-    "adminRequiredDesc": "Modificar las reglas del cortafuegos de Windows requiere derechos avanzados del sistema. Reinicia el programa como administrador (haz clic derecho en el icono del programa → 「Ejecutar como administrador」) para utilizar esta función.",
-    "noServers": "No hay ningún servidor configurado actualmente",
-    "createProfile": "Crea primero un servidor de ARK para que los puertos correspondientes aparezcan aquí para su autorización",
-    "assignAll": "Autorizar todos los puertos de los servidores en el cortafuegos",
-    "assigning": "Configurando las reglas del cortafuegos...",
-    "refresh": "Actualizar estado del cortafuegos",
-    "headers": {
-      "server": "Nombre del servidor",
-      "gamePort": "Puerto de juego principal",
-      "queryPort": "Puerto de consulta",
-      "rconPort": "Puerto RCON",
-      "actions": "Acciones"
-    },
-    "manual": {
-      "title": "Añadir regla de cortafuegos manual",
-      "description": "Si utilizas extensiones adicionales (por ejemplo, para mods de chat de voz), puedes abrir puertos manualmente aquí.",
-      "portNumber": "Puerto a abrir",
-      "protocol": "Protocolo",
-      "descriptionLabel": "Descripción de la regla",
-      "addPort": "Abrir puerto",
-      "customPorts": "Reglas de cortafuegos manuales",
-      "placeholderPort": "por ejemplo, 12345",
-      "placeholderDesc": "por ejemplo, Puerto de mod de chat de voz",
-      "remove": "Eliminar regla"
-    },
-    "about": {
-      "title": "Finalidad de los puertos de servidor de ARK",
-      "game": "Puerto de juego principal (UDP)",
-      "gameDesc": "Transmite los movimientos de los jugadores, los datos de los dinos y las estructuras. Este puerto es el corazón de la conexión",
-      "query": "Puerto de consulta (UDP)",
-      "queryDesc": "Informa del nombre del servidor y del número de jugadores a Steam/Epic para que el servidor aparezca en la lista de servidores",
-      "rcon": "Puerto de control a distancia (TCP)",
-      "rconDesc": "Permite a las herramientas de administración enviar comandos encriptados al servidor",
-      "note": "Si estos puertos están bloqueados en el cortafuegos de Windows, los jugadores externos no podrán conectarse, incluso si las redirecciones de puertos en el router están correctamente configuradas."
-    },
-    "messages": {
-      "loadFailed": "No se pudieron leer las reglas del cortafuegos",
-      "createFailed": "No se pudieron crear automáticamente las reglas del cortafuegos",
-      "removeFailed": "No se pudo eliminar la regla del cortafuegos",
-      "manualCreateFailed": "No se pudo añadir la regla de cortafuegos manual",
-      "manualRemoveFailed": "No se pudo eliminar la regla",
-      "invalidPort": "Introduce un número de puerto válido entre 1 and 65535",
-      "duplicatePort": "Ya existe una regla para este puerto y protocolo en el sistema",
-      "exists": "La regla ya existe y está activa",
-      "assigned": "Autorizado con éxito",
-      "assign": "Autorizar",
-      "remove": "Eliminar regla",
-      "disabled": "Desactivado",
-      "actions": {
-        "remove": "Eliminar",
-        "assign": "Autorizar"
-      }
-    }
   },
   "plugins": {
     "title": "Gestión de plugins",
@@ -1506,7 +1670,7 @@
     },
     "chart": {
       "title": "Uso de hardware en tiempo real",
-      "cpu": "CPU %",
+      "cpu": "UPC %",
       "memory": "RAM %",
       "players": "Jugadores"
     },
@@ -1515,7 +1679,8 @@
       "cpu": "El uso del procesador está en un rango saludable (<80%)",
       "memory": "La memoria libre es suficiente, sin riesgo de desbordamiento",
       "viewDistance": "Si el servidor sufre tirones al cargar, reduce la distancia de visión de los jugadores en los archivos INI"
-    }
+    },
+    "subtitle": "Métricas de rendimiento del servidor en tiempo real"
   },
   "firewall": {
     "title": "Estado del cortafuegos",
@@ -1527,7 +1692,7 @@
     "portOpen": "Autorizado",
     "portClosed": "Sin regla encontrada",
     "portAssigned": "La regla del cortafuegos está activa",
-    "tcp": "TCP",
+    "tcp": "tcp",
     "udp": "UDP",
     "inbound": "Reglas de entrada",
     "outbound": "Reglas de salida",
@@ -1561,17 +1726,17 @@
         "installDesc": "Configuración automática"
       },
       "maps": {
-        "theIsland": "The Island",
-        "scorchedEarth": "Scorched Earth",
-        "theCenter": "The Center",
-        "aberration": "Aberration",
-        "extinction": "Extinction",
-        "ragnarok": "Ragnarok",
+        "theIsland": "la isla",
+        "scorchedEarth": "Tierra quemada",
+        "theCenter": "El Centro",
+        "aberration": "Aberración",
+        "extinction": "Extinción",
+        "ragnarok": "ragnarök",
         "valguero": "Valguero",
-        "lostColony": "Lost Colony",
-        "genesis1": "Genesis Part 1",
-        "genesis2": "Genesis Part 2",
-        "fjordur": "Fjordur",
+        "lostColony": "colonia perdida",
+        "genesis1": "Génesis Parte 1",
+        "genesis2": "Génesis Parte 2",
+        "fjordur": "fiordur",
         "astraeos": "Astraeos",
         "forglar": "Forglar"
       },
@@ -1775,6 +1940,63 @@
       "ready": {
         "title": "¡Presentación terminada!",
         "description": "Ya conoces las zonas más importantes del gestor. ¡Haz clic en Comenzar abajo para iniciar tu propia gran aventura en ARK!"
+      }
+    }
+  },
+  "firewallAutomation": {
+    "description": "Deje que el gestor abra automáticamente todos los puertos de red necesarios en el cortafuegos de Windows",
+    "adminRequired": "Se requieren privilegios de administrador",
+    "adminRequiredDesc": "Modificar las reglas del cortafuegos de Windows requiere derechos avanzados del sistema. Reinicia el programa como administrador (haz clic derecho en el icono del programa → 「Ejecutar como administrador」) para utilizar esta función.",
+    "noServers": "No hay ningún servidor configurado actualmente",
+    "createProfile": "Crea primero un servidor de ARK para que los puertos correspondientes aparezcan aquí para su autorización",
+    "assignAll": "Autorizar todos los puertos de los servidores en el cortafuegos",
+    "assigning": "Configurando las reglas del cortafuegos...",
+    "refresh": "Actualizar estado del cortafuegos",
+    "headers": {
+      "server": "Nombre del servidor",
+      "gamePort": "Puerto de juego principal",
+      "queryPort": "Puerto de consulta",
+      "rconPort": "Puerto RCON",
+      "actions": "Acciones"
+    },
+    "manual": {
+      "title": "Añadir regla de cortafuegos manual",
+      "description": "Si utilizas extensiones adicionales (por ejemplo, para mods de chat de voz), puedes abrir puertos manualmente aquí.",
+      "portNumber": "Puerto a abrir",
+      "protocol": "Protocolo",
+      "descriptionLabel": "Descripción de la regla",
+      "addPort": "Abrir puerto",
+      "customPorts": "Reglas de cortafuegos manuales",
+      "placeholderPort": "por ejemplo, 12345",
+      "placeholderDesc": "por ejemplo, Puerto de mod de chat de voz",
+      "remove": "Eliminar regla"
+    },
+    "about": {
+      "title": "Finalidad de los puertos de servidor de ARK",
+      "game": "Puerto de juego principal (UDP)",
+      "gameDesc": "Transmite los movimientos de los jugadores, los datos de los dinos y las estructuras. Este puerto es el corazón de la conexión",
+      "query": "Puerto de consulta (UDP)",
+      "queryDesc": "Informa del nombre del servidor y del número de jugadores a Steam/Epic para que el servidor aparezca en la lista de servidores",
+      "rcon": "Puerto de control a distancia (TCP)",
+      "rconDesc": "Permite a las herramientas de administración enviar comandos encriptados al servidor",
+      "note": "Si estos puertos están bloqueados en el cortafuegos de Windows, los jugadores externos no podrán conectarse, incluso si las redirecciones de puertos en el router están correctamente configuradas."
+    },
+    "messages": {
+      "loadFailed": "No se pudieron leer las reglas del cortafuegos",
+      "createFailed": "No se pudieron crear automáticamente las reglas del cortafuegos",
+      "removeFailed": "No se pudo eliminar la regla del cortafuegos",
+      "manualCreateFailed": "No se pudo añadir la regla de cortafuegos manual",
+      "manualRemoveFailed": "No se pudo eliminar la regla",
+      "invalidPort": "Introduce un número de puerto válido entre 1 and 65535",
+      "duplicatePort": "Ya existe una regla para este puerto y protocolo en el sistema",
+      "exists": "La regla ya existe y está activa",
+      "assigned": "Autorizado con éxito",
+      "assign": "Autorizar",
+      "remove": "Eliminar regla",
+      "disabled": "Desactivado",
+      "actions": {
+        "remove": "Eliminar",
+        "assign": "Autorizar"
       }
     }
   }
