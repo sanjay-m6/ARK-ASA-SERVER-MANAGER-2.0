@@ -64,9 +64,9 @@
     "size": "Größe",
     "date": "Datum",
     "actions": "Aktionen",
-    "details": "Details",
+    "details": "Einzelheiten",
     "description": "Beschreibung",
-    "port": "Port",
+    "port": "Hafen",
     "lines": "Linien",
     "players": "Spieler",
     "mods": "Mods",
@@ -105,7 +105,8 @@
     "noDescription": "Keine Beschreibung verfügbar",
     "ascending": "Aufsteigend",
     "descending": "Absteigend",
-    "failed": "Fehlgeschlagen: {{error}}"
+    "failed": "Fehlgeschlagen: {{error}}",
+    "never": "Niemals"
   },
   "discord": {
     "title": "Discord-Brücke",
@@ -148,8 +149,8 @@
     "step1Desc": "Gehen Sie zum <1>Discord-Entwicklerportal</1> und klicken Sie auf <2>„Neue Anwendung“</2>. Geben Sie ihm einen Namen (z. B. „ARK Server Bot“).",
     "step2Desc": "Klicken Sie in der linken Seitenleiste auf <1>„Bot“</1>. Klicken Sie auf <2>\"Token zurücksetzen\"</2> und kopieren Sie es. Fügen Sie es oben in das Feld <3>Bot-Token</3> ein.",
     "step3Desc": "Scrollen Sie auf derselben Seite <1>„Bot“</1> nach unten zu <2>„Privileged Gateway Intents“</2> und aktivieren Sie Folgendes:",
-    "step3Intents1": "✅ ABSICHT DES NACHRICHTENINHALTS",
-    "step3Intents2": "✅ ABSICHT DER SERVERMITGLIEDER",
+    "step3Intents1": "✅ MESSAGE CONTENT INTENT",
+    "step3Intents2": "✅ SERVER MEMBERS INTENT",
     "step4Desc": "Gehen Sie in der Seitenleiste zu <1>„OAuth2“ → „URL-Generator“</1>.",
     "step4Scopes": "• Aktivieren Sie unter <1>Umfang</1>: <2>Bot</2>",
     "step4Perms": "• Überprüfen Sie unter <1>Bot-Berechtigungen</1>:",
@@ -161,7 +162,7 @@
     "guideDone": "Wenn Sie alle Schritte abgeschlossen haben, fügen Sie oben Ihr Bot-Token, Ihre Gilden-ID und Ihre Kanal-ID ein und klicken Sie dann auf <1>Verbindung testen</1>."
   },
   "sidebar": {
-    "dashboard": "Dashboard",
+    "dashboard": "Armaturenbrett",
     "serverManager": "Server-Verwaltung",
     "rconConsole": "RCON-Konsole",
     "scheduler": "Aufgabenplaner",
@@ -291,8 +292,8 @@
     "starting": "Startet...",
     "updatingAndStarting": "Aktualisieren und starten...",
     "stopping": "Stoppt...",
-    "portInfo": "Port {{port}}",
-    "mapInfo": "{{map}} • Port {{port}}",
+    "portInfo": "Hafen {{port}}",
+    "mapInfo": "{{map}} • Hafen {{port}}",
     "noMods": "Wird ohne Mods ausgeführt",
     "modCount": "{{count}} Mod",
     "modCount_plural": "{{count}} Mods",
@@ -416,7 +417,9 @@
       "reset": "Auf Standard zurücksetzen"
     },
     "placeholders": {
-      "textarea": "Geben Sie Werte ein, einen pro Zeile..."
+      "textarea": "Geben Sie Werte ein, einen pro Zeile...",
+      "enterValues": "Geben Sie Werte ein, einen pro Zeile...",
+      "searchSettings": "Sucheinstellungen..."
     },
     "toasts": {
       "loadError": "Konfiguration konnte nicht geladen werden",
@@ -617,7 +620,8 @@
     "validationOkDetailed": "Alle Verbindungsserver nutzen dasselbe Clusterverzeichnis und die Ports sind eindeutig.",
     "validationWarnings": "Cluster gültig mit Warnungen",
     "validationErrors": "Cluster hat Konfigurationsprobleme",
-    "validationFailed": "Die Clusterkonfiguration konnte nicht validiert werden"
+    "validationFailed": "Die Clusterkonfiguration konnte nicht validiert werden",
+    "clusterPath": "Clusterverzeichnis"
   },
   "scheduler": {
     "title": "Aufgabenplaner",
@@ -701,7 +705,8 @@
     "loadTasksFailed": "Geplante Aufgaben konnten nicht geladen werden",
     "toggleFailed": "Aufgabe konnte nicht umgeschaltet werden",
     "status": "Status",
-    "noTasksDesc": "Keine zusätzlichen Aufgaben geplant"
+    "noTasksDesc": "Keine zusätzlichen Aufgaben geplant",
+    "taskNamePlaceholder": "Geben Sie den Aufgabennamen ein..."
   },
   "discordBot": {
     "title": "Discord-Community-Integration",
@@ -969,7 +974,161 @@
     "manual": "Handbuch",
     "auto": "Auto",
     "worldData": "Weltdaten",
-    "playerData": "Spieler- & Tribe-Daten"
+    "playerData": "Spieler- & Tribe-Daten",
+    "restoreSuccess": "Backup erfolgreich wiederhergestellt!",
+    "deleteSuccess": "Backup gelöscht!",
+    "previewFailed": "Vorschau konnte nicht geladen werden: {{error}}",
+    "verifying": "Überprüfung...",
+    "listView": "Listenansicht",
+    "timelineView": "Zeitleistenansicht",
+    "confirmDeleteTitle": "Backup löschen",
+    "confirmRestoreTitle": "Sicherung wiederherstellen",
+    "confirmCleanupTitle": "Bereinigen Sie Backups",
+    "deleteNow": "Löschen",
+    "restoreNow": "Wiederherstellen",
+    "cleanupNow": "Aufräumen"
+  },
+  "cloudBackup": {
+    "saved": "Cloud-Backup-Einstellungen gespeichert",
+    "saveError": "Cloud-Einstellungen konnten nicht gespeichert werden: {{error}}",
+    "testSuccess": "Verbindungstest erfolgreich",
+    "testError": "Verbindungstest fehlgeschlagen: {{error}}",
+    "restoreSuccess": "Cloud-Backup erfolgreich wiederhergestellt",
+    "restoreError": "Cloud-Backup konnte nicht wiederhergestellt werden: {{error}}"
+  },
+  "autoSaves": {
+    "title": "Automatische Speicherung",
+    "subtitle": "Verwalten, wiederherstellen und vergleichen Sie automatische Serverspeicherungen",
+    "refreshData": "Daten aktualisieren",
+    "compareSelected": "Ausgewählte vergleichen",
+    "selectServer": "Wählen Sie einen Server aus, um automatische Speicherungen anzuzeigen",
+    "confirmRestoreTitle": "Automatische Speicherung wiederherstellen?",
+    "confirmRestoreMsg": "Sind Sie sicher, dass Sie den Server in diesem gespeicherten Zustand wiederherstellen möchten? Es wird automatisch ein Sicherheitsbackup des aktuellen Standes erstellt.",
+    "confirmRestoreBtn": "Zustand wiederherstellen",
+    "restoreSuccess": "Automatische Speicherung erfolgreich wiederhergestellt.",
+    "restoreFailed": "Fehler beim Wiederherstellen der automatischen Speicherung: {{error}}",
+    "tabs": {
+      "browser": "Browser",
+      "timeline": "Zeitleiste",
+      "preferences": "Präferenzen"
+    },
+    "browser": {
+      "title": "Automatische Speicherung",
+      "search": "Suche speichert...",
+      "statusFilter": "Statusfilter",
+      "map": "Karte",
+      "allMaps": "Alle Karten",
+      "fileSize": "Dateigröße",
+      "allSizes": "Alle Größen",
+      "sizeSmall": "Klein (< 50 MB)",
+      "sizeMedium": "Mittel (50 MB – 200 MB)",
+      "sizeLarge": "Groß (> 200 MB)",
+      "playerActivity": "Spieleraktivität",
+      "anyPlayers": "Beliebige Spieleranzahl",
+      "playersEmpty": "Leer (0 Spieler)",
+      "playersActive": "Aktiv (1 - 10 Spieler)",
+      "playersHigh": "Hohe Aktivität (10+ Spieler)",
+      "sortBy": "Sortieren nach",
+      "sortDate": "Datum",
+      "sortSize": "Größe",
+      "sortPlayers": "Spieler",
+      "sortUptime": "Betriebszeit",
+      "sortName": "Name",
+      "filtersActive": "Aktive Filter • Gefunden {{count}} speichert übereinstimmende Kriterien",
+      "noFilters": "Keine Filter aktiv • Alle Speicherungen werden angezeigt",
+      "clearFilters": "Filter löschen",
+      "noSaves": "Keine Speicherungen gefunden",
+      "adjustFilters": "Versuchen Sie, Ihre Filter anzupassen",
+      "corrupted": "Beschädigt",
+      "restore": "Wiederherstellen",
+      "issuesDetected": "{{count}} Probleme erkannt"
+    },
+    "preferences": {
+      "loading": "Einstellungen werden geladen...",
+      "title": "Einstellungen für automatisches Speichern",
+      "subtitle": "Konfigurieren Sie, wie automatische Speicherungen verwaltet, validiert und automatisch bereinigt werden.",
+      "indexingTitle": "Indizierung und Metadaten",
+      "autoIndex": "Aktivieren Sie die automatische Indizierung",
+      "autoIndexDesc": "Verfolgen Sie neue Speicherungen automatisch, wenn sie im gespeicherten Verzeichnis erscheinen.",
+      "deepIndex": "Deep-Index-Metadaten",
+      "deepIndexDesc": "Mods, Spielerzahlen und Einstellungen aus den Sicherungsdateien analysieren (langsamer).",
+      "autoValidate": "Speichern automatisch validieren",
+      "autoValidateDesc": "Überprüfen Sie die gespeicherten Dateien unmittelbar nach der Indizierung auf Beschädigungen und Größenanomalien.",
+      "retentionTitle": "Aufbewahrung und Bereinigung",
+      "autoCleanup": "Aktivieren Sie die automatische Bereinigung",
+      "autoCleanupDesc": "Löschen Sie alte Speicherstände automatisch, um Speicherplatz freizugeben.",
+      "cleanupDays": "Speicherungen löschen, die älter sind als (Tage)",
+      "keepMinimum": "Mindestspeicherstände zum Aufbewahren",
+      "compressionTitle": "Komprimierung und Archivierung",
+      "autoCompress": "Alte Speicherungen automatisch komprimieren",
+      "autoCompressDesc": "Zip speichert automatisch nach einer bestimmten Anzahl von Tagen, um Platz zu sparen.",
+      "compressDays": "Speicherstände komprimieren, die älter sind als (Tage)",
+      "protectionTitle": "Schutz und Warnungen",
+      "restorePoints": "Geplante Wiederherstellungspunkte",
+      "restorePointsDesc": "Markieren Sie bestimmte Speicherungen basierend auf einem Zeitplan automatisch als geschützte Wiederherstellungspunkte.",
+      "frequency": "Frequenz",
+      "hourly": "Stündlich",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "notifyRestore": "Bei Wiederherstellungen benachrichtigen",
+      "notifyCorruption": "Bei beschädigten Speicherungen benachrichtigen",
+      "saveBtn": "Einstellungen speichern",
+      "saving": "Sparen...",
+      "saved": "Die Einstellungen für die automatische Speicherung wurden erfolgreich aktualisiert.",
+      "saveFailed": "Einstellungen konnten nicht aktualisiert werden: {{error}}"
+    },
+    "comparison": {
+      "olderSave": "Älterer Speicher",
+      "newerSave": "Neuere Speicherung",
+      "corrupted": "Beschädigt",
+      "valid": "Gültig",
+      "playersActive": "{{count}} Spieler aktiv",
+      "uptime": "{{hours}}h {{minutes}}m Betriebszeit",
+      "restoreVersion": "Stellen Sie diese Version wieder her",
+      "title": "Vergleichen Sie Saves",
+      "close": "Schließen",
+      "changeSummary": "Zusammenfassung ändern",
+      "timeElapsed": "Verstrichene Zeit",
+      "unknown": "Unbekannt",
+      "sizeDiff": "Größenunterschied",
+      "noChange": "Keine Änderung",
+      "playerCount": "Spieleranzahl",
+      "map": "Karte",
+      "unchanged": "Unverändert",
+      "modChanges": "Mod-Änderungen"
+    },
+    "timeline": {
+      "noEvents": "Es wurden noch keine Timeline-Ereignisse aufgezeichnet."
+    }
+  },
+  "backupPolicies": {
+    "title": "Automatisierungsrichtlinien",
+    "subtitle": "Konfigurieren Sie automatisierte Backup-Zeitpläne und Aufbewahrungsregeln",
+    "enable": "Aktivieren Sie die Automatisierung",
+    "scheduleTitle": "Zeitplaneinstellungen",
+    "intervalLabel": "Sicherungsintervall (Stunden)",
+    "intervalDesc": "Wie oft soll ein neues automatisiertes Backup erstellt werden?",
+    "beforeUpdate": "Sicherung vor dem Update",
+    "beforeUpdateDesc": "Lösen Sie die Sicherung aus, bevor Sie Serveraktualisierungen anwenden",
+    "beforeRestart": "Sicherung vor dem Neustart",
+    "beforeRestartDesc": "Lösen Sie die Sicherung vor geplanten Neustarts aus",
+    "retentionTitle": "Aufbewahrung und Bereinigung",
+    "retentionDays": "Maximale Aufbewahrungstage",
+    "retentionCount": "Maximale Backup-Anzahl",
+    "retentionCountDesc": "Maximale Anzahl der aufzubewahrenden automatisierten Backups.",
+    "storageQuota": "Speicherkontingent (GB)",
+    "storageQuotaDesc": "Wenn dieses Kontingent überschritten wird, werden die ältesten Backups gelöscht.",
+    "advancedTitle": "Erweiterte Optionen",
+    "compression": "Komprimierung aktiviert",
+    "compressionDesc": "Komprimieren Sie Backups, um Platz zu sparen",
+    "cloudSync": "Cloud-Sync-Integration",
+    "cloudSyncDesc": "Automatisch in den Cloud-Speicher hochladen",
+    "saveBtn": "Richtlinien speichern",
+    "saved": "Sicherungsrichtlinien erfolgreich gespeichert.",
+    "saveFailed": "Richtlinien konnten nicht gespeichert werden: {{error}}",
+    "fetchFailed": "Sicherungsrichtlinien konnten nicht abgerufen werden.",
+    "cleanupInfoTitle": "So funktioniert die intelligente Bereinigung:",
+    "cleanupInfoDesc": "Wenn automatisierte Backups durchgeführt werden oder eine manuelle Bereinigung ausgelöst wird, wertet das System alle ungeschützten Backups anhand Ihrer Aufbewahrungstage, Anzahl und Kontingente aus. Alle Backups, die diese Grenzwerte überschreiten, werden dauerhaft entfernt, um Speicherplatz freizugeben. Geschützte Backups werden immer übersprungen."
   },
   "logs": {
     "title": "Log-Betrachter",
@@ -1177,6 +1336,172 @@
       "maxCrashesDesc": "Maximale Versuche zur Absturzwiederherstellung innerhalb des Zeitfensters.",
       "observationWindow": "Beobachtungszeitfenster",
       "observationWindowDesc": "Zeitspanne in Minuten zur Verfolgung der Absturzzahlen."
+    },
+    "diagnostics": {
+      "title": "Autodiagnose",
+      "description": "Führen Sie eine umfassende Systemprüfung durch, um sicherzustellen, dass Ihre Umgebung für das Hosting bereit ist.",
+      "runCheck": "Führen Sie die Systemprüfung durch",
+      "running": "Diagnose wird ausgeführt...",
+      "healthy": "System gesund! Alle Prüfungen bestanden.",
+      "issuesFound": "{{count}} Probleme gefunden.",
+      "reportTitle": "Diagnosebericht",
+      "reportHealthy": "✅ Alle Systeme gehen!\n\n• SteamCMD: Installiert\n• Internet: Verbunden\n• Speicher: OK\n• Speicherplatz: OK",
+      "reportIssues": "⚠️ Gefundene Probleme:\n\n{{issues}}",
+      "failed": "Diagnose fehlgeschlagen: {{error}}",
+      "steamCmdMissing": "SteamCMD fehlt",
+      "steamCmdRequired": "Erforderlich zum Herunterladen von Serverdateien.",
+      "installing": "Installieren...",
+      "installNow": "Jetzt installieren",
+      "installSteamCmd": "SteamCMD herunterladen und installieren...",
+      "installSuccess": "SteamCMD erfolgreich installiert!",
+      "installFailed": "Installation fehlgeschlagen: {{error}}"
+    },
+    "portValidator": {
+      "title": "Port-Status-Checker",
+      "description": "Stellen Sie sicher, dass Ihre Server-Ports über das Internet erreichbar sind",
+      "checkAll": "Überprüfen Sie alle Ports",
+      "checking": "Überprüfung...",
+      "publicIp": "Öffentliche IP",
+      "localIp": "Lokale IP",
+      "fetching": "Abrufen...",
+      "notAvailable": "Nicht verfügbar",
+      "port": "Hafen",
+      "protocol": "Protokoll",
+      "purpose": "Zweck",
+      "status": "Status",
+      "open": "Offen",
+      "closed": "Geschlossen",
+      "notChecked": "Nicht geprüft",
+      "allOpen": "Alle Häfen sind offen und zugänglich!",
+      "partialOpen": "{{count}} / {{total}} Ports sind geöffnet",
+      "noOpen": "Es scheinen keine Ports offen zu sein. Überprüfen Sie Ihre Firewall- und Router-Einstellungen.",
+      "lastChecked": "Zuletzt überprüft: {{time}}",
+      "troubleshooting": "🔧 Fehlerbehebung",
+      "tipClosed": "Geschlossene Häfen? Überprüfen Sie die Windows-Firewall und die Portweiterleitung des Routers",
+      "tipUnknown": "Unbekannter Status? Der Server muss möglicherweise ausgeführt werden, um Ports zu testen",
+      "tipCgnat": "Hinter CGNAT? Wenden Sie sich an Ihren ISP oder verwenden Sie ein VPN mit Portweiterleitung",
+      "ports": {
+        "game": "Game-Port",
+        "gameDesc": "Hauptspiel-Client-Verbindungen",
+        "gamePlus": "Spielport +1",
+        "gamePlusDesc": "Sekundärer Spielverkehr",
+        "query": "Abfrageport",
+        "queryDesc": "Browserabfragen auf dem Steam-Server",
+        "rcon": "RCON-Port",
+        "rconDesc": "Remote-Konsolenverbindungen"
+      }
+    },
+    "portForwarding": {
+      "title": "Leitfaden zur Portweiterleitung",
+      "description": "Schritt-für-Schritt-Anleitung zur Konfiguration Ihres Routers für den Internetzugang",
+      "routerGuides": "📖 Router-Markenführer",
+      "markDone": "Markieren Sie „Fertig“.",
+      "done": "Fertig ✓",
+      "copied": "In die Zwischenablage kopiert!",
+      "progress": "{{completed}}/{{total}} abgeschlossen",
+      "steps": {
+        "findIp": {
+          "title": "Finden Sie die IP-Adresse Ihres Routers",
+          "intro": "Die IP Ihres Routers lautet normalerweise",
+          "or": "oder",
+          "cmdPrompt": "Führen Sie dies in der Eingabeaufforderung aus, um es zu finden:",
+          "findGateway": "Der Wert „Standard-Gateway“ ist die IP-Adresse Ihres Routers."
+        },
+        "login": {
+          "title": "Melden Sie sich bei Ihrem Router an",
+          "content": "Öffnen Sie einen Webbrowser und geben Sie die IP-Adresse Ihres Routers in die URL-Leiste ein.",
+          "credentials": "Allgemeine Standardanmeldeinformationen:",
+          "username": "Benutzername:",
+          "password": "Passwort:",
+          "passwordOr": "oder",
+          "tip": "Tipp: Suchen Sie auf dem Etikett Ihres Routers nach dem Standardkennwort oder lassen Sie es leer."
+        },
+        "findSettings": {
+          "title": "Suchen Sie nach den Portweiterleitungseinstellungen",
+          "content": "Suchen Sie in Ihrem Router-Menü nach „Portweiterleitung“, „NAT“, „Virtual Server“ oder „Anwendungen & Gaming“.",
+          "locations": "Gängige Menüorte:"
+        },
+        "addRules": {
+          "title": "Fügen Sie Portweiterleitungsregeln hinzu",
+          "content": "Erstellen Sie Regeln für jeden erforderlichen Port, die auf die lokale IP Ihres Computers verweisen.",
+          "headers": {
+            "port": "Hafen",
+            "protocol": "Protokoll",
+            "purpose": "Zweck"
+          },
+          "purposes": {
+            "game": "Game-Port",
+            "gamePlus": "Spielport +1",
+            "query": "Steam-Anfrage",
+            "rcon": "RCON"
+          },
+          "tip": "Stellen Sie „Interne IP“ oder „Gerät“ auf die lokale IP-Adresse Ihres Computers ein (z. B. 192.168.1.50)."
+        },
+        "save": {
+          "title": "Speichern und anwenden",
+          "content": "Speichern Sie Ihre Einstellungen. Bei einigen Routern ist möglicherweise ein Neustart erforderlich, damit die Änderungen wirksam werden.",
+          "verify": "Verwenden Sie nach dem Speichern den Port-Status-Checker oben zur Überprüfung!"
+        }
+      }
+    },
+    "firewallAutomation": {
+      "title": "Firewall-Automatisierung",
+      "description": "Konfigurieren Sie automatisch Windows-Firewallregeln für Ihre ARK-Server",
+      "descriptionEvolved": "Verwalten Sie die Windows Defender-Firewallregeln für Ihre ARK: Survival Evolved-Server.",
+      "adminRequired": "Administratorrechte erforderlich",
+      "adminRequiredDesc": "Firewallregeln können nur erstellt werden, wenn die Anwendung als Administrator ausgeführt wird. Klicken Sie mit der rechten Maustaste auf die App und wählen Sie „Als Administrator ausführen“, wenn die Portzuweisung fehlschlägt.",
+      "noServers": "Keine Server konfiguriert",
+      "createProfile": "Erstellen Sie zunächst ein Serverprofil, um Firewallregeln zu verwalten",
+      "assignAll": "Alle Ports zuweisen",
+      "assigning": "Zuweisen...",
+      "refresh": "Aktualisieren",
+      "headers": {
+        "server": "Server",
+        "gamePort": "Game-Port",
+        "queryPort": "Abfrageport",
+        "rconPort": "RCON-Port",
+        "actions": "Aktionen"
+      },
+      "manual": {
+        "title": "Manuelle Portzuweisung",
+        "description": "Öffnen Sie benutzerdefinierte Ports für zusätzliche Dienste, Mods oder Plugins, die einen bestimmten Netzwerkzugriff erfordern.",
+        "portNumber": "Portnummer",
+        "protocol": "Protokoll",
+        "descriptionLabel": "Beschreibung (optional)",
+        "addPort": "Port hinzufügen",
+        "customPorts": "Benutzerdefinierte Ports",
+        "placeholderPort": "z.B. 8080",
+        "placeholderDesc": "z.B. Voice-Chat-Port",
+        "remove": "Port entfernen"
+      },
+      "about": {
+        "title": "Über Firewall-Ports",
+        "game": "Game-Port (UDP)",
+        "gameDesc": "Hauptverbindungsport für Spieler, die Ihrem Server beitreten",
+        "query": "Abfrageport (UDP)",
+        "queryDesc": "Wird von Steam für die Auflistung und Abfrage von Serverbrowsern verwendet",
+        "rcon": "RCON-Port (TCP)",
+        "rconDesc": "Remote-Konsolenzugriff für die Serververwaltung",
+        "note": "Damit Ihr Server für Spieler sichtbar und zugänglich ist, müssen alle Ports geöffnet sein."
+      },
+      "messages": {
+        "loadFailed": "Der Firewall-Status konnte nicht geladen werden",
+        "createFailed": "Firewallregeln konnten nicht erstellt werden",
+        "removeFailed": "Firewallregeln konnten nicht entfernt werden",
+        "manualCreateFailed": "Die Firewall-Regel konnte nicht erstellt werden",
+        "manualRemoveFailed": "Die Firewall-Regel konnte nicht entfernt werden",
+        "invalidPort": "Bitte geben Sie eine gültige Portnummer ein (1-65535)",
+        "duplicatePort": "Diese Port-/Protokollkombination ist bereits in der Liste",
+        "exists": "existiert bereits",
+        "assigned": "Zugewiesen",
+        "assign": "Zuordnen",
+        "remove": "Entfernen",
+        "disabled": "Deaktiviert",
+        "actions": {
+          "remove": "Entfernen",
+          "assign": "Zuordnen"
+        }
+      }
     }
   },
   "firewallConfig": {
@@ -1201,7 +1526,7 @@
     "checkFailed": "Die Suche nach Updates ist fehlgeschlagen",
     "automaticInterval": "Automatisches Prüfintervall",
     "manualOnly": "Nur manuell",
-    "every": "Alle {{Intervall}}",
+    "every": "Alle {{interval}}",
     "updateHistory": "Update-Verlauf",
     "clearSkipped": "Übersprungene Versionen löschen",
     "noHistory": "Noch kein Update-Verlauf",
@@ -1210,171 +1535,6 @@
     "previousVersions": "Frühere Versionen",
     "previousDesc": "Wenn Sie ein Downgrade auf eine frühere Version durchführen müssen, können Sie ältere Versionen von GitHub herunterladen.",
     "viewReleases": "Alle Veröffentlichungen auf GitHub anzeigen"
-  },
-  "diagnostics": {
-    "title": "Autodiagnose",
-    "description": "Führen Sie eine umfassende Systemprüfung durch, um sicherzustellen, dass Ihre Umgebung für das Hosting bereit ist.",
-    "runCheck": "Führen Sie die Systemprüfung durch",
-    "running": "Diagnose wird ausgeführt...",
-    "healthy": "System gesund! Alle Prüfungen bestanden.",
-    "issuesFound": "{{count}} Probleme gefunden.",
-    "reportTitle": "Diagnosebericht",
-    "reportHealthy": "✅ Alle Systeme gehen!\n\n• SteamCMD: Installiert\n• Internet: Verbunden\n• Speicher: OK\n• Speicherplatz: OK",
-    "reportIssues": "⚠️ Gefundene Probleme:\n\n{{Probleme}}",
-    "failed": "Diagnose fehlgeschlagen: {{error}}",
-    "steamCmdMissing": "SteamCMD fehlt",
-    "steamCmdRequired": "Erforderlich zum Herunterladen von Serverdateien.",
-    "installing": "Installieren...",
-    "installNow": "Jetzt installieren",
-    "installSteamCmd": "SteamCMD herunterladen und installieren...",
-    "installSuccess": "SteamCMD erfolgreich installiert!",
-    "installFailed": "Installation fehlgeschlagen: {{error}}"
-  },
-  "portValidator": {
-    "title": "Port-Status-Checker",
-    "description": "Stellen Sie sicher, dass Ihre Server-Ports über das Internet erreichbar sind",
-    "checkAll": "Überprüfen Sie alle Ports",
-    "checking": "Überprüfung...",
-    "publicIp": "Öffentliche IP",
-    "localIp": "Lokale IP",
-    "fetching": "Abrufen...",
-    "notAvailable": "Nicht verfügbar",
-    "port": "Hafen",
-    "protocol": "Protokoll",
-    "purpose": "Zweck",
-    "status": "Status",
-    "open": "Offen",
-    "closed": "Geschlossen",
-    "notChecked": "Nicht geprüft",
-    "allOpen": "Alle Häfen sind offen und zugänglich!",
-    "partialOpen": "{{count}} / {{total}} Ports sind geöffnet",
-    "noOpen": "Es scheinen keine Ports offen zu sein. Überprüfen Sie Ihre Firewall- und Router-Einstellungen.",
-    "lastChecked": "Zuletzt überprüft: {{time}}",
-    "troubleshooting": "🔧 Fehlerbehebung",
-    "tipClosed": "Geschlossene Häfen? Überprüfen Sie die Windows-Firewall und die Portweiterleitung des Routers",
-    "tipUnknown": "Unbekannter Status? Der Server muss möglicherweise ausgeführt werden, um Ports zu testen",
-    "tipCgnat": "Hinter CGNAT? Wenden Sie sich an Ihren ISP oder verwenden Sie ein VPN mit Portweiterleitung",
-    "ports": {
-      "game": "Game-Port",
-      "gameDesc": "Hauptspiel-Client-Verbindungen",
-      "gamePlus": "Spielport +1",
-      "gamePlusDesc": "Sekundärer Spielverkehr",
-      "query": "Abfrageport",
-      "queryDesc": "Browserabfragen auf dem Steam-Server",
-      "rcon": "RCON-Port",
-      "rconDesc": "Remote-Konsolenverbindungen"
-    }
-  },
-  "portForwarding": {
-    "title": "Leitfaden zur Portweiterleitung",
-    "description": "Schritt-für-Schritt-Anleitung zur Konfiguration Ihres Routers für den Internetzugang",
-    "routerGuides": "📖 Router-Markenführer",
-    "markDone": "Markieren Sie „Fertig“.",
-    "done": "Fertig ✓",
-    "copied": "In die Zwischenablage kopiert!",
-    "progress": "{{completed}}/{{total}} abgeschlossen",
-    "steps": {
-      "findIp": {
-        "title": "Finden Sie die IP-Adresse Ihres Routers",
-        "intro": "Die IP Ihres Routers lautet normalerweise",
-        "or": "oder",
-        "cmdPrompt": "Führen Sie dies in der Eingabeaufforderung aus, um es zu finden:",
-        "findGateway": "Der Wert „Standard-Gateway“ ist die IP-Adresse Ihres Routers."
-      },
-      "login": {
-        "title": "Melden Sie sich bei Ihrem Router an",
-        "content": "Öffnen Sie einen Webbrowser und geben Sie die IP-Adresse Ihres Routers in die URL-Leiste ein.",
-        "credentials": "Allgemeine Standardanmeldeinformationen:",
-        "username": "Benutzername:",
-        "password": "Passwort:",
-        "passwordOr": "oder",
-        "tip": "Tipp: Suchen Sie auf dem Etikett Ihres Routers nach dem Standardkennwort oder lassen Sie es leer."
-      },
-      "findSettings": {
-        "title": "Suchen Sie nach den Portweiterleitungseinstellungen",
-        "content": "Suchen Sie in Ihrem Router-Menü nach „Portweiterleitung“, „NAT“, „Virtual Server“ oder „Anwendungen & Gaming“.",
-        "locations": "Gängige Menüorte:"
-      },
-      "addRules": {
-        "title": "Fügen Sie Portweiterleitungsregeln hinzu",
-        "content": "Erstellen Sie Regeln für jeden erforderlichen Port, die auf die lokale IP Ihres Computers verweisen.",
-        "headers": {
-          "port": "Hafen",
-          "protocol": "Protokoll",
-          "purpose": "Zweck"
-        },
-        "purposes": {
-          "game": "Game-Port",
-          "gamePlus": "Spielport +1",
-          "query": "Steam-Anfrage",
-          "rcon": "RCON"
-        },
-        "tip": "Stellen Sie „Interne IP“ oder „Gerät“ auf die lokale IP-Adresse Ihres Computers ein (z. B. 192.168.1.50)."
-      },
-      "save": {
-        "title": "Speichern und anwenden",
-        "content": "Speichern Sie Ihre Einstellungen. Bei einigen Routern ist möglicherweise ein Neustart erforderlich, damit die Änderungen wirksam werden.",
-        "verify": "Verwenden Sie nach dem Speichern den Port-Status-Checker oben zur Überprüfung!"
-      }
-    }
-  },
-  "firewallAutomation": {
-    "title": "Firewall-Automatisierung",
-    "description": "Konfigurieren Sie automatisch Windows-Firewallregeln für Ihre ARK-Server",
-    "adminRequired": "Administratorrechte erforderlich",
-    "adminRequiredDesc": "Firewallregeln können nur erstellt werden, wenn die Anwendung als Administrator ausgeführt wird. Klicken Sie mit der rechten Maustaste auf die App und wählen Sie „Als Administrator ausführen“, wenn die Portzuweisung fehlschlägt.",
-    "noServers": "Keine Server konfiguriert",
-    "createProfile": "Erstellen Sie zunächst ein Serverprofil, um Firewallregeln zu verwalten",
-    "assignAll": "Alle Ports zuweisen",
-    "assigning": "Zuweisen...",
-    "refresh": "Aktualisieren",
-    "headers": {
-      "server": "Server",
-      "gamePort": "Game-Port",
-      "queryPort": "Abfrageport",
-      "rconPort": "RCON-Port",
-      "actions": "Aktionen"
-    },
-    "manual": {
-      "title": "Manuelle Portzuweisung",
-      "description": "Öffnen Sie benutzerdefinierte Ports für zusätzliche Dienste, Mods oder Plugins, die einen bestimmten Netzwerkzugriff erfordern.",
-      "portNumber": "Portnummer",
-      "protocol": "Protokoll",
-      "descriptionLabel": "Beschreibung (optional)",
-      "addPort": "Port hinzufügen",
-      "customPorts": "Benutzerdefinierte Ports",
-      "placeholderPort": "z.B. 8080",
-      "placeholderDesc": "z.B. Voice-Chat-Port",
-      "remove": "Port entfernen"
-    },
-    "about": {
-      "title": "Über Firewall-Ports",
-      "game": "Game-Port (UDP)",
-      "gameDesc": "Hauptverbindungsport für Spieler, die Ihrem Server beitreten",
-      "query": "Abfrageport (UDP)",
-      "queryDesc": "Wird von Steam für die Auflistung und Abfrage von Serverbrowsern verwendet",
-      "rcon": "RCON-Port (TCP)",
-      "rconDesc": "Remote-Konsolenzugriff für die Serververwaltung",
-      "note": "Damit Ihr Server für Spieler sichtbar und zugänglich ist, müssen alle Ports geöffnet sein."
-    },
-    "messages": {
-      "loadFailed": "Der Firewall-Status konnte nicht geladen werden",
-      "createFailed": "Firewallregeln konnten nicht erstellt werden",
-      "removeFailed": "Firewallregeln konnten nicht entfernt werden",
-      "manualCreateFailed": "Die Firewall-Regel konnte nicht erstellt werden",
-      "manualRemoveFailed": "Die Firewall-Regel konnte nicht entfernt werden",
-      "invalidPort": "Bitte geben Sie eine gültige Portnummer ein (1-65535)",
-      "duplicatePort": "Diese Port-/Protokollkombination ist bereits in der Liste",
-      "exists": "existiert bereits",
-      "assigned": "Zugewiesen",
-      "assign": "Zuordnen",
-      "remove": "Entfernen",
-      "disabled": "Deaktiviert",
-      "actions": {
-        "remove": "Entfernen",
-        "assign": "Zuordnen"
-      }
-    }
   },
   "plugins": {
     "title": "Plugin-Verwaltung",
@@ -1519,7 +1679,8 @@
       "cpu": "Die CPU-Auslastung liegt in einem gesunden Bereich (<80%)",
       "memory": "Der freie Arbeitsspeicher ist ausreichend, kein Risiko für Überläufe",
       "viewDistance": "Falls der Server beim Laden stockt, reduzieren Sie bitte die Sichtweite der Spieler in den INI-Dateien"
-    }
+    },
+    "subtitle": "Serverleistungsmetriken in Echtzeit"
   },
   "firewall": {
     "title": "Firewall-Status",
@@ -1779,6 +1940,63 @@
       "ready": {
         "title": "Einführung abgeschlossen!",
         "description": "Sie kennen nun die wichtigsten Bereiche des Managers. Klicken Sie unten auf Starten, um Ihr eigenes großes ARK-Abenteuer zu beginnen!"
+      }
+    }
+  },
+  "firewallAutomation": {
+    "description": "Konfigurieren Sie automatisch Windows-Firewallregeln für Ihre ARK-Server",
+    "adminRequired": "Administratorrechte erforderlich",
+    "adminRequiredDesc": "Firewallregeln können nur erstellt werden, wenn die Anwendung als Administrator ausgeführt wird. Klicken Sie mit der rechten Maustaste auf die App und wählen Sie „Als Administrator ausführen“, wenn die Portzuweisung fehlschlägt.",
+    "noServers": "Keine Server konfiguriert",
+    "createProfile": "Erstellen Sie zunächst ein Serverprofil, um Firewallregeln zu verwalten",
+    "assignAll": "Alle Ports zuweisen",
+    "assigning": "Zuweisen...",
+    "refresh": "Aktualisieren",
+    "headers": {
+      "server": "Server",
+      "gamePort": "Game-Port",
+      "queryPort": "Abfrageport",
+      "rconPort": "RCON-Port",
+      "actions": "Aktionen"
+    },
+    "manual": {
+      "title": "Manuelle Portzuweisung",
+      "description": "Öffnen Sie benutzerdefinierte Ports für zusätzliche Dienste, Mods oder Plugins, die einen bestimmten Netzwerkzugriff erfordern.",
+      "portNumber": "Portnummer",
+      "protocol": "Protokoll",
+      "descriptionLabel": "Beschreibung (optional)",
+      "addPort": "Port hinzufügen",
+      "customPorts": "Benutzerdefinierte Ports",
+      "placeholderPort": "z.B. 8080",
+      "placeholderDesc": "z.B. Voice-Chat-Port",
+      "remove": "Port entfernen"
+    },
+    "about": {
+      "title": "Über Firewall-Ports",
+      "game": "Game-Port (UDP)",
+      "gameDesc": "Hauptverbindungsport für Spieler, die Ihrem Server beitreten",
+      "query": "Abfrageport (UDP)",
+      "queryDesc": "Wird von Steam für die Auflistung und Abfrage von Serverbrowsern verwendet",
+      "rcon": "RCON-Port (TCP)",
+      "rconDesc": "Remote-Konsolenzugriff für die Serververwaltung",
+      "note": "Damit Ihr Server für Spieler sichtbar und zugänglich ist, müssen alle Ports geöffnet sein."
+    },
+    "messages": {
+      "loadFailed": "Der Firewall-Status konnte nicht geladen werden",
+      "createFailed": "Firewallregeln konnten nicht erstellt werden",
+      "removeFailed": "Firewallregeln konnten nicht entfernt werden",
+      "manualCreateFailed": "Die Firewall-Regel konnte nicht erstellt werden",
+      "manualRemoveFailed": "Die Firewall-Regel konnte nicht entfernt werden",
+      "invalidPort": "Bitte geben Sie eine gültige Portnummer ein (1-65535)",
+      "duplicatePort": "Diese Port-/Protokollkombination ist bereits in der Liste",
+      "exists": "existiert bereits",
+      "assigned": "Zugewiesen",
+      "assign": "Zuordnen",
+      "remove": "Entfernen",
+      "disabled": "Deaktiviert",
+      "actions": {
+        "remove": "Entfernen",
+        "assign": "Zuordnen"
       }
     }
   }

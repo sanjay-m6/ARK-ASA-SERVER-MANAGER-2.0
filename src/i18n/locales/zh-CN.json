@@ -105,7 +105,8 @@
     "noDescription": "无描述",
     "ascending": "升序",
     "descending": "降序",
-    "failed": "失败：{{错误}}"
+    "failed": "失败：{{error}}",
+    "never": "从不"
   },
   "discord": {
     "title": "Discord 网关",
@@ -180,13 +181,13 @@
     "commandCenter": "控制中心",
     "autoSaves": "自动保存",
     "aiAssistant": "人工智能助手",
-    "tribeLogs": "部落原木",
+    "tribeLogs": "部落日志",
     "upnp": "UPnP 端口转发",
     "serverOrganization": "服务器组织",
     "wiki": "维基指南"
   },
   "welcome": {
-    "title": "ASA Server Manager",
+    "title": "ASA 服务器管理器",
     "subtitle": "专业的方舟：生存飞升 (ARK: Survival Ascended) 服务器管理工具",
     "loading": "系统初始化中...",
     "enter": "进入控制中心"
@@ -416,7 +417,9 @@
       "reset": "将此项恢复为默认值"
     },
     "placeholders": {
-      "textarea": "输入值，每行一个..."
+      "textarea": "输入值，每行一个...",
+      "enterValues": "输入值，每行一个...",
+      "searchSettings": "搜索设置..."
     },
     "toasts": {
       "loadError": "读取配置文件出错",
@@ -439,7 +442,7 @@
       "subtitle": "为您的服务器量身定制升级所需的经验曲线及野生恐龙难度系数。",
       "dinoLevelLabel": "野生恐龙最高等级限制",
       "applyDinoLevel": "应用恐龙等级",
-      "dinoLevelReset": "将 OverrideOfficialDifficulty 参数自动重置为所选最大等级除以 30 的数值。",
+      "dinoLevelReset": "将难度偏移设置为 1.0 并将官方难度覆盖为 {{offset}}。",
       "playerLevelLabel": "玩家最高等级上限",
       "generateXpRamp": "生成经验渐变曲线",
       "playerLevelDescription": "为选择的 {{level}} 级自动生成平滑且指数级增长的升级经验曲线。",
@@ -470,7 +473,12 @@
     "configReset": "已将所有配置文件重置为默认值",
     "unsavedChanges": "您有未保存的配置文件更改",
     "playerStats": "玩家属性成长倍率",
-    "dinoStats": "恐龙属性成长倍率"
+    "dinoStats": "恐龙属性成长倍率",
+    "emptyState": {
+      "title": "没有找到设置",
+      "description": "尝试搜索“{{query}}”"
+    },
+    "gusIni": "GameUserSettings.ini"
   },
   "modManager": {
     "title": "模组管理器",
@@ -613,7 +621,8 @@
     "validationOkDetailed": "所有子服务器都指向了相同的物理共享文件夹，且游戏端口分配完全独立，无任何冲突。",
     "validationWarnings": "集群配置可用但存在隐患",
     "validationErrors": "集群中存在严重的端口或配置冲突",
-    "validationFailed": "执行集群校验时出错"
+    "validationFailed": "执行集群校验时出错",
+    "clusterPath": "集群目录"
   },
   "scheduler": {
     "title": "任务计划器",
@@ -697,7 +706,8 @@
     "loadTasksFailed": "读取定时任务列表失败",
     "toggleFailed": "切换任务激活状态失败",
     "status": "状态栏",
-    "noTasksDesc": "当前无其他定时任务"
+    "noTasksDesc": "当前无其他定时任务",
+    "taskNamePlaceholder": "输入任务名称..."
   },
   "discordBot": {
     "title": "Discord 社区联动",
@@ -961,7 +971,161 @@
     "manual": "手动备份",
     "auto": "自动备份",
     "worldData": "世界地图数据",
-    "playerData": "存活者与部落数据"
+    "playerData": "存活者与部落数据",
+    "restoreSuccess": "备份恢复成功！",
+    "deleteSuccess": "备份已删除！",
+    "previewFailed": "无法加载预览：{{error}}",
+    "verifying": "正在验证...",
+    "listView": "列表视图",
+    "timelineView": "时间轴视图",
+    "confirmDeleteTitle": "删除备份",
+    "confirmRestoreTitle": "恢复备份",
+    "confirmCleanupTitle": "清理备份",
+    "deleteNow": "删除",
+    "restoreNow": "恢复",
+    "cleanupNow": "清理"
+  },
+  "cloudBackup": {
+    "saved": "已保存云备份设置",
+    "saveError": "无法保存云设置：{{error}}",
+    "testSuccess": "连接测试成功",
+    "testError": "连接测试失败：{{error}}",
+    "restoreSuccess": "云备份恢复成功",
+    "restoreError": "恢复云备份失败：{{error}}"
+  },
+  "autoSaves": {
+    "title": "自动保存",
+    "subtitle": "管理、恢复和比较服务器自动保存",
+    "refreshData": "刷新数据",
+    "compareSelected": "比较所选内容",
+    "selectServer": "选择服务器以查看自动保存",
+    "confirmRestoreTitle": "恢复自动保存？",
+    "confirmRestoreMsg": "您确定要将服务器恢复到此保存的状态吗？将自动创建当前状态的安全备份。",
+    "confirmRestoreBtn": "恢复状态",
+    "restoreSuccess": "自动保存已成功恢复。",
+    "restoreFailed": "无法恢复自动保存：{{error}}",
+    "tabs": {
+      "browser": "浏览器",
+      "timeline": "时间轴",
+      "preferences": "偏好设置"
+    },
+    "browser": {
+      "title": "自动保存",
+      "search": "搜索保存...",
+      "statusFilter": "状态过滤器",
+      "map": "地图",
+      "allMaps": "所有地图",
+      "fileSize": "文件大小",
+      "allSizes": "所有大小",
+      "sizeSmall": "小（< 50MB）",
+      "sizeMedium": "中型（50MB - 200MB）",
+      "sizeLarge": "大（> 200MB）",
+      "playerActivity": "玩家活动",
+      "anyPlayers": "任意玩家计数",
+      "playersEmpty": "空（0 名玩家）",
+      "playersActive": "活跃（1 - 10 名玩家）",
+      "playersHigh": "高活跃度（10 名以上玩家）",
+      "sortBy": "排序方式",
+      "sortDate": "日期",
+      "sortSize": "大小",
+      "sortPlayers": "玩家",
+      "sortUptime": "正常运行时间",
+      "sortName": "名称",
+      "filtersActive": "过滤器处于活动状态 • 找到 {{count}} 保存匹配条件",
+      "noFilters": "没有活动过滤器 • 显示所有保存",
+      "clearFilters": "清除过滤器",
+      "noSaves": "未找到保存内容",
+      "adjustFilters": "尝试调整你的过滤器",
+      "corrupted": "已损坏",
+      "restore": "恢复",
+      "issuesDetected": "检测到 {{count}} 问题"
+    },
+    "preferences": {
+      "loading": "正在加载首选项...",
+      "title": "自动保存首选项",
+      "subtitle": "配置如何自动管理、验证和清理自动保存。",
+      "indexingTitle": "索引和元数据",
+      "autoIndex": "启用自动索引",
+      "autoIndexDesc": "当新保存出现在已保存目录中时自动跟踪它们。",
+      "deepIndex": "深度索引元数据",
+      "deepIndexDesc": "从保存文件中解析模组、玩家数量和设置（较慢）。",
+      "autoValidate": "自动验证保存",
+      "autoValidateDesc": "索引后立即检查保存文件是否损坏和大小异常。",
+      "retentionTitle": "保留和清理",
+      "autoCleanup": "启用自动清理",
+      "autoCleanupDesc": "自动删除旧的保存以释放磁盘空间。",
+      "cleanupDays": "删除早于（天）的保存",
+      "keepMinimum": "保留的最低储蓄",
+      "compressionTitle": "压缩和归档",
+      "autoCompress": "自动压缩旧保存",
+      "autoCompressDesc": "Zip 在一定天数后自动保存以节省空间。",
+      "compressDays": "压缩保存时间早于（天）",
+      "protectionTitle": "保护和警报",
+      "restorePoints": "预定的还原点",
+      "restorePointsDesc": "根据计划自动将特定保存标记为受保护的还原点。",
+      "frequency": "频率",
+      "hourly": "每小时",
+      "daily": "每日",
+      "weekly": "每周",
+      "notifyRestore": "恢复时通知",
+      "notifyCorruption": "通知损坏的保存",
+      "saveBtn": "保存首选项",
+      "saving": "保存...",
+      "saved": "自动保存首选项已成功更新。",
+      "saveFailed": "无法更新首选项：{{error}}"
+    },
+    "comparison": {
+      "olderSave": "较旧的保存",
+      "newerSave": "较新的保存",
+      "corrupted": "已损坏",
+      "valid": "有效的",
+      "playersActive": "{{count}} 活跃玩家",
+      "uptime": "{{hours}}h {{minutes}}m 正常运行时间",
+      "restoreVersion": "恢复此版本",
+      "title": "比较保存",
+      "close": "关闭",
+      "changeSummary": "变更摘要",
+      "timeElapsed": "已过去的时间",
+      "unknown": "未知",
+      "sizeDiff": "大小差异",
+      "noChange": "没有变化",
+      "playerCount": "玩家数量",
+      "map": "地图",
+      "unchanged": "不变",
+      "modChanges": "模组变更"
+    },
+    "timeline": {
+      "noEvents": "尚未记录时间线事件。"
+    }
+  },
+  "backupPolicies": {
+    "title": "自动化政策",
+    "subtitle": "配置自动备份计划和保留规则",
+    "enable": "启用自动化",
+    "scheduleTitle": "日程设置",
+    "intervalLabel": "备份间隔（小时）",
+    "intervalDesc": "应多久创建一次新的自动备份。",
+    "beforeUpdate": "更新前备份",
+    "beforeUpdateDesc": "在应用服务器更新之前触发备份",
+    "beforeRestart": "重启前备份",
+    "beforeRestartDesc": "在计划的重新启动之前触发备份",
+    "retentionTitle": "保留和清理",
+    "retentionDays": "最大保留天数",
+    "retentionCount": "最大备份数",
+    "retentionCountDesc": "要保留的自动备份的最大数量。",
+    "storageQuota": "存储配额（GB）",
+    "storageQuotaDesc": "如果超过此配额，最旧的备份将被删除。",
+    "advancedTitle": "高级选项",
+    "compression": "启用压缩",
+    "compressionDesc": "压缩备份以节省空间",
+    "cloudSync": "云同步集成",
+    "cloudSyncDesc": "自动上传至云存储",
+    "saveBtn": "保存政策",
+    "saved": "备份策略保存成功。",
+    "saveFailed": "无法保存策略：{{error}}",
+    "fetchFailed": "无法获取备份策略。",
+    "cleanupInfoTitle": "智能清理的工作原理：",
+    "cleanupInfoDesc": "当发生自动备份或触发手动清理时，系统会根据保留天数、计数和配额评估所有未受保护的备份。任何超过这些限制的备份都将被永久删除以回收磁盘空间。始终会跳过受保护的备份。"
   },
   "logs": {
     "title": "日志查看器",
@@ -1001,7 +1165,7 @@
       "warning": "警告",
       "error": "报错",
       "debug": "调试",
-      "cfcore": "CFCORE"
+      "cfcore": "CFC核心"
     },
     "quickCommands": {
       "saveWorld": "立即安全存盘",
@@ -1067,6 +1231,274 @@
       "verified": "校验成功",
       "invalid": "密钥无效，请重新输入",
       "verifyKey": "连通性校验"
+    },
+    "diagnostics": {
+      "title": "服务器环境一键诊断",
+      "description": "诊断系统硬件、网络架构以及 SteamCMD 环境是否符合开服标准。",
+      "runCheck": "启动全盘诊断",
+      "running": "正在全盘扫描检测中...",
+      "healthy": "诊断完毕！物理环境完美通过所有方舟开服指标测试！",
+      "issuesFound": "检测到 {{count}} 处可能阻碍玩家连入的环境异常",
+      "reportTitle": "环境诊断健康体检报告",
+      "reportHealthy": "✅ 物理环境极佳！\n\n• SteamCMD 核心：安装成功，版本健康\n• 公网 IP 连通性：良好\n• 系统剩余可用内存：充足 (大于 16GB)\n• 磁盘剩余存储空间：充足 (大于 100GB)",
+      "reportIssues": "⚠️ 警告！检测到以下可能导致服务器开机失败的隐患：\n\n{{issues}}",
+      "failed": "环境诊断中断: {{error}}",
+      "steamCmdMissing": "系统缺失 SteamCMD 运行库",
+      "steamCmdRequired": "SteamCMD 是下载方舟服务端、模组以及进行热补丁升级的官方核心工具，必须安装才能使用管理器。",
+      "installing": "正在为您物理配置中...",
+      "installNow": "一键自动下载并配置",
+      "installSteamCmd": "正在从官方 CDN 下载并配置 SteamCMD 核心套件...",
+      "installSuccess": "SteamCMD 环境已成功为您部署就绪！",
+      "installFailed": "自动安装 SteamCMD 失败: {{error}}"
+    },
+    "portValidator": {
+      "title": "公网端口开放性检测",
+      "description": "实时检测您本机的方舟端口是否已成功穿透路由器及公网，使外网玩家可见",
+      "checkAll": "启动端口在线穿透检测",
+      "checking": "正在发送网络穿透封包...",
+      "publicIp": "当前本机的公网 IP 地址",
+      "localIp": "当前本机的局域网 IP 地址",
+      "fetching": "正在连网获取中...",
+      "notAvailable": "无法获取（物理离线）",
+      "port": "要检测的端口",
+      "protocol": "网络协议",
+      "purpose": "端口作用说明",
+      "status": "外网连通状态",
+      "open": "外网已开放 (连通性完美)",
+      "closed": "封闭 (外部玩家无法连入)",
+      "notChecked": "尚未进行穿透检测",
+      "allOpen": "太棒了！所有方舟开服端口均已在外网完美放行！您的朋友现在可以顺利连入！",
+      "partialOpen": "警告！当前仅有 {{count}} / {{total}} 个端口外网连通",
+      "noOpen": "检测失败！所有端口在外网均为封闭状态。请必须配置路由器端口转发规则，否则外网玩家绝对无法搜到您的服务器。",
+      "lastChecked": "最近一次检测时间: {{time}}",
+      "troubleshooting": "🔧 端口封闭排查指引",
+      "tipClosed": "端口显示封闭？请务必检查您的 Windows 防火墙是否已允许游戏进程通过，并检查路由器 NAT 转发是否填写正确",
+      "tipUnknown": "检测不准？方舟服务器进程必须处于「在线」运行状态中，本检测工具才能通过收发游戏封包精准测得连通性",
+      "tipCgnat": "检测到您处于运营商大内网 (CGNAT) 中？这通常导致无公网 IP，请向宽带客服申请「公网 IPv4」或使用联机隧道",
+      "ports": {
+        "game": "游戏核心端口",
+        "gameDesc": "外部玩家联机以及同步方舟世界画面的物理端口",
+        "gamePlus": "辅助游戏通信端口",
+        "gamePlusDesc": "用于辅助提高跨平台联机玩家的数据包吞吐率",
+        "query": "Steam 浏览器检索端口",
+        "queryDesc": "使您的服务器能出现在 Steam 全局局域网及互联网检索列表中",
+        "rcon": "远程控制端口",
+        "rconDesc": "允许外部管理程序远程登录并发送 RCON 指令进行维护"
+      }
+    },
+    "portForwarding": {
+      "title": "家用路由器端口映射 (NAT) 通俗指南",
+      "description": "手把手教您如何登录家里的无线路由器，将方舟开服端口映射到公网",
+      "routerGuides": "📖 常见主流路由器品牌配置向导",
+      "markDone": "标记此步骤已完成",
+      "done": "步骤完成 ✓",
+      "copied": "命令已成功复制到剪贴板！",
+      "progress": "路由器配置进度：已完成 {{completed}} / 共 {{total}} 步",
+      "steps": {
+        "findIp": {
+          "title": "确定您家路由器的后台网关 IP 地址",
+          "intro": "绝大多数路由器的后台登录地址通常为：",
+          "or": "或者",
+          "cmdPrompt": "如果您不确定，可以按下键盘 Win+R 输入 cmd 确定，在黑窗口中输入以下命令并回车：",
+          "findGateway": "运行后找到「默认网关」(Default Gateway) 这一行，对应的 IP 即为您路由器的管理登录后台。"
+        },
+        "login": {
+          "title": "登录路由器管理员后台",
+          "content": "打开您电脑上的浏览器，在最顶部的网址输入框中敲入刚才查到的路由器 IP 地址并回车访问。",
+          "credentials": "大部分路由器的出厂管理员账号密码通常印在路由器底部：",
+          "username": "出厂默认账户：",
+          "password": "出厂默认密码：",
+          "passwordOr": "或者",
+          "tip": "省心小贴士：翻转路由器的物理机身，查看底部的金属或纸质标签，上面清晰记录了该台机器的默认后台网址及管理员初始密码。"
+        },
+        "findSettings": {
+          "title": "在路由器中找到 NAT 端口转发菜单",
+          "content": "在路由器的管理后台菜单中细心查找包含以下关键词的选项：「端口转发」、「虚拟服务器」、「NAT 映射」、「DMZ/UPnP」或「Port Forwarding」。",
+          "locations": "此设置通常隐藏在以下高级菜单中："
+        },
+        "addRules": {
+          "title": "创建方舟专属的端口转发规则",
+          "content": "为您的方舟服务器新建 4 条转发规则，将外网流量精准导向您这台开服电脑的局域网 IP 上。",
+          "headers": {
+            "port": "方舟默认端口",
+            "protocol": "协议类型",
+            "purpose": "功能说明"
+          },
+          "purposes": {
+            "game": "游戏连接主端口",
+            "gamePlus": "跨平台辅助端口",
+            "query": "Steam 检索端口",
+            "rcon": "远程控制登录端口"
+          },
+          "tip": "在规则配置中，将「内网主机 IP / 局域网 IP」指定为您这台开服电脑的内网 IPv4 地址 (例如: 192.168.1.50)"
+        },
+        "save": {
+          "title": "保存路由器配置并测试",
+          "content": "点击路由器后台的「应用修改」或「保存配置」按钮。部分老旧路由器在更改端口映射后，需要手动在后台重启路由器才能使映射正式生效。",
+          "verify": "保存完毕并确保方舟服务器已开机后，回到管理器上方的「端口开放性检测」面板，点击开始检测以验证是否打通公网！"
+        }
+      }
+    },
+    "title": "设置",
+    "subtitle": "配置应用程序和查看指南",
+    "saveSettings": "保存设置",
+    "apiKeys": "🔑 API 密钥",
+    "networkGuides": "🌐 网络和指南",
+    "firewall": "🛡️ 防火墙",
+    "updates": "🔄 更新",
+    "language": {
+      "title": "语言",
+      "description": "选择您喜欢的应用程序界面语言。",
+      "selectLanguage": "选择语言",
+      "currentLanguage": "当前语言",
+      "autoDetected": "从系统自动检测到",
+      "restartNote": "💡 语言更改会立即应用。您的首选项已保存，并将在各个会话中持续存在。",
+      "languageChanged": "语言更改为 {{language}}"
+    },
+    "steamApiKey": {
+      "title": "Steam Web API 密钥",
+      "description": "可选 - 启用 Steam 创意工坊集成功能。",
+      "label": "API密钥",
+      "placeholder": "输入您的 Steam Web API 密钥（可选）",
+      "needKey": "需要 API 密钥吗？",
+      "getKey": "获取 Steam API 密钥",
+      "instructions": "使用Steam登录→输入域名→复制密钥",
+      "configured": "Steam API 密钥已配置",
+      "notRequired": "可选 - ASA 不需要"
+    },
+    "curseforgeApiKey": {
+      "title": "CurseForge API 密钥",
+      "description": "需要从 CurseForge 搜索和安装 ARK: Survival Ascended (ASA) mods。",
+      "label": "API密钥",
+      "placeholder": "输入您的 CurseForge API 密钥",
+      "needKey": "需要 API 密钥吗？",
+      "getKey": "获取 CurseForge API 密钥",
+      "instructions": "登录 → 创建/复制 API 密钥 → 粘贴到上面",
+      "notSet": "没有 API 密钥集 - ASA mod 搜索将不起作用",
+      "verifyKey": "验证密钥",
+      "verifying": "正在验证...",
+      "verified": "已验证并工作",
+      "invalid": "密钥无效 - 再次检查",
+      "verificationFailed": "验证失败"
+    },
+    "tabs": {
+      "apiKeys": "API 密钥",
+      "network": "网络与指南",
+      "firewall": "防火墙",
+      "updates": "更新",
+      "language": "语言"
+    },
+    "saved": "设置保存成功！",
+    "saveFailed": "保存设置失败",
+    "aboutApiKeys": {
+      "title": "关于 API 密钥",
+      "storedLocally": "您的 API 密钥存储在本地应用程序数据库中",
+      "neverShared": "除了各自的官方 API 之外，它们绝不会发送给任何第三方",
+      "steamDesc": "Steam API 密钥：可选 - 启用 Steam 创意工坊功能",
+      "curseforgeDesc": "CurseForge API 密钥：ASA mod 搜索和安装所需",
+      "revokable": "您可以随时从各自的控制台撤销或重新生成密钥"
+    },
+    "quickGuide": {
+      "title": "快速安装指南",
+      "step1": "步骤1",
+      "step1Desc": "转到仪表板并单击快速安装。",
+      "step2": "步骤2",
+      "step2Desc": "选择方舟：生存提升并选择安装路径。",
+      "step3": "步骤3",
+      "step3Desc": "等待 SteamCMD 下载服务器文件（约 20GB）。",
+      "step4": "步骤4",
+      "step4Desc": "单击启动服务器并等待完全初始化。"
+    },
+    "process": {
+      "title": "流程管理",
+      "startupTimeout": "服务器启动超时（秒）",
+      "startupTimeoutHint": "强制停止之前等待服务器启动的最长时间。如果您有很多模组，请增加此值。"
+    },
+    "keyVerified": "API密钥验证成功！",
+    "invalidKey": "API 密钥无效。请检查您的凭据。",
+    "verificationFailed": "API 密钥验证失败。",
+    "startup": {
+      "engineTitle": "全球启动与复苏",
+      "engineDesc": "配置自动服务器执行、启动延迟和自动崩溃恢复。",
+      "globalToggle": "启用全局自动启动",
+      "globalToggleDesc": "应用程序启动时自动启动启用的服务器配置文件。",
+      "bootDelay": "全局启动延迟定时器",
+      "bootDelayDesc": "启动服务器以使网络和操作系统资源稳定之前等待的时间（以秒为单位）。",
+      "osTitle": "操作系统集成",
+      "osDesc": "在系统引导挂钩内注册服务器管理器以实现完全的服务器自治。",
+      "windowsBoot": "在系统启动时运行",
+      "windowsBootDesc": "当您的计算机打开时自动运行此应用程序。",
+      "startMinimized": "开始最小化到系统托盘",
+      "startMinimizedDesc": "在后台静默启动，使任务栏系统托盘中的窗口保持最小化。",
+      "headlessMode": "绕过UAC提升（Windows任务计划程序）",
+      "headlessModeDesc": "通过任务计划程序以最高权限运行服务器管理器，以在没有 UAC 提示的情况下自动提升。",
+      "adminAlert": "需要管理员访问权限",
+      "adminAlertDesc": "通过任务计划程序注册提升的启动任务需要以管理员身份运行此应用程序一次。保存时会出现UAC提示。",
+      "watchdogTitle": "看门狗与崩溃循环防护",
+      "watchdogDesc": "防止损坏的存档文件或错误的更新触发无限崩溃循环。",
+      "maxCrashes": "最大崩溃重启次数",
+      "maxCrashesDesc": "观测时段内的最大崩溃重启尝试次数。",
+      "observationWindow": "观测时段",
+      "observationWindowDesc": "跟踪崩溃次数的时间范围（分钟）。"
+    },
+    "firewallAutomation": {
+      "title": "防火墙规则全自动托管",
+      "description": "自动为您的 ARK 服务器配置 Windows 防火墙规则",
+      "descriptionEvolved": "管理 ARK: Survival Evolved 服务器的 Windows Defender 防火墙规则。",
+      "adminRequired": "需要管理员权限",
+      "adminRequiredDesc": "仅当以管理员身份运行应用程序时才能创建防火墙规则。如果端口分配失败，右键单击该应用程序并选择“以管理员身份运行”。",
+      "noServers": "没有配置服务器",
+      "createProfile": "首先创建服务器配置文件来管理防火墙规则",
+      "assignAll": "分配所有端口",
+      "assigning": "分配...",
+      "refresh": "刷新",
+      "headers": {
+        "server": "服务器",
+        "gamePort": "游戏端口",
+        "queryPort": "查询端口",
+        "rconPort": "RCON端口",
+        "actions": "行动"
+      },
+      "manual": {
+        "title": "手动端口分配",
+        "description": "为需要特定网络访问的其他服务、模组或插件打开自定义端口。",
+        "portNumber": "端口号",
+        "protocol": "协议",
+        "descriptionLabel": "描述（可选）",
+        "addPort": "添加端口",
+        "customPorts": "自定义端口",
+        "placeholderPort": "例如8080",
+        "placeholderDesc": "例如语音聊天端口",
+        "remove": "删除端口"
+      },
+      "about": {
+        "title": "关于防火墙端口",
+        "game": "游戏端口 (UDP)",
+        "gameDesc": "玩家加入服务器的主要连接端口",
+        "query": "查询端口 (UDP)",
+        "queryDesc": "Steam 用于服务器浏览器列表和查询",
+        "rcon": "RCON 端口 (TCP)",
+        "rconDesc": "用于服务器管理的远程控制台访问",
+        "note": "所有端口都必须打开，您的服务器才能对玩家可见和访问。"
+      },
+      "messages": {
+        "loadFailed": "无法加载防火墙状态",
+        "createFailed": "创建防火墙规则失败",
+        "removeFailed": "无法删除防火墙规则",
+        "manualCreateFailed": "创建防火墙规则失败",
+        "manualRemoveFailed": "删除防火墙规则失败",
+        "invalidPort": "请输入有效的端口号 (1-65535)",
+        "duplicatePort": "该端口/协议组合已在列表中",
+        "exists": "已经存在",
+        "assigned": "已分配",
+        "assign": "分配",
+        "remove": "消除",
+        "disabled": "残疾人",
+        "actions": {
+          "remove": "消除",
+          "assign": "分配"
+        }
+      }
     }
   },
   "firewallConfig": {
@@ -1100,171 +1532,6 @@
     "previousVersions": "历史归档版本",
     "previousDesc": "如果您在最新版本中遇到物理兼容问题，可以随时前往我们的 GitHub 主页，选择历史版本安装包覆盖回滚。",
     "viewReleases": "前往 GitHub 查看所有历史版本发布"
-  },
-  "diagnostics": {
-    "title": "服务器环境一键诊断",
-    "description": "诊断系统硬件、网络架构以及 SteamCMD 环境是否符合开服标准。",
-    "runCheck": "启动全盘诊断",
-    "running": "正在全盘扫描检测中...",
-    "healthy": "诊断完毕！物理环境完美通过所有方舟开服指标测试！",
-    "issuesFound": "检测到 {{count}} 处可能阻碍玩家连入的环境异常",
-    "reportTitle": "环境诊断健康体检报告",
-    "reportHealthy": "✅ 物理环境极佳！\n\n• SteamCMD 核心：安装成功，版本健康\n• 公网 IP 连通性：良好\n• 系统剩余可用内存：充足 (大于 16GB)\n• 磁盘剩余存储空间：充足 (大于 100GB)",
-    "reportIssues": "⚠️ 警告！检测到以下可能导致服务器开机失败的隐患：\n\n{{issues}}",
-    "failed": "环境诊断中断: {{error}}",
-    "steamCmdMissing": "系统缺失 SteamCMD 运行库",
-    "steamCmdRequired": "SteamCMD 是下载方舟服务端、模组以及进行热补丁升级的官方核心工具，必须安装才能使用管理器。",
-    "installing": "正在为您物理配置中...",
-    "installNow": "一键自动下载并配置",
-    "installSteamCmd": "正在从官方 CDN 下载并配置 SteamCMD 核心套件...",
-    "installSuccess": "SteamCMD 环境已成功为您部署就绪！",
-    "installFailed": "自动安装 SteamCMD 失败: {{error}}"
-  },
-  "portValidator": {
-    "title": "公网端口开放性检测",
-    "description": "实时检测您本机的方舟端口是否已成功穿透路由器及公网，使外网玩家可见",
-    "checkAll": "启动端口在线穿透检测",
-    "checking": "正在发送网络穿透封包...",
-    "publicIp": "当前本机的公网 IP 地址",
-    "localIp": "当前本机的局域网 IP 地址",
-    "fetching": "正在连网获取中...",
-    "notAvailable": "无法获取（物理离线）",
-    "port": "要检测的端口",
-    "protocol": "网络协议",
-    "purpose": "端口作用说明",
-    "status": "外网连通状态",
-    "open": "外网已开放 (连通性完美)",
-    "closed": "封闭 (外部玩家无法连入)",
-    "notChecked": "尚未进行穿透检测",
-    "allOpen": "太棒了！所有方舟开服端口均已在外网完美放行！您的朋友现在可以顺利连入！",
-    "partialOpen": "警告！当前仅有 {{count}} / {{total}} 个端口外网连通",
-    "noOpen": "检测失败！所有端口在外网均为封闭状态。请必须配置路由器端口转发规则，否则外网玩家绝对无法搜到您的服务器。",
-    "lastChecked": "最近一次检测时间: {{time}}",
-    "troubleshooting": "🔧 端口封闭排查指引",
-    "tipClosed": "端口显示封闭？请务必检查您的 Windows 防火墙是否已允许游戏进程通过，并检查路由器 NAT 转发是否填写正确",
-    "tipUnknown": "检测不准？方舟服务器进程必须处于「在线」运行状态中，本检测工具才能通过收发游戏封包精准测得连通性",
-    "tipCgnat": "检测到您处于运营商大内网 (CGNAT) 中？这通常导致无公网 IP，请向宽带客服申请「公网 IPv4」或使用联机隧道",
-    "ports": {
-      "game": "游戏核心端口",
-      "gameDesc": "外部玩家联机以及同步方舟世界画面的物理端口",
-      "gamePlus": "辅助游戏通信端口",
-      "gamePlusDesc": "用于辅助提高跨平台联机玩家的数据包吞吐率",
-      "query": "Steam 浏览器检索端口",
-      "queryDesc": "使您的服务器能出现在 Steam 全局局域网及互联网检索列表中",
-      "rcon": "远程控制端口",
-      "rconDesc": "允许外部管理程序远程登录并发送 RCON 指令进行维护"
-    }
-  },
-  "portForwarding": {
-    "title": "家用路由器端口映射 (NAT) 通俗指南",
-    "description": "手把手教您如何登录家里的无线路由器，将方舟开服端口映射到公网",
-    "routerGuides": "📖 常见主流路由器品牌配置向导",
-    "markDone": "标记此步骤已完成",
-    "done": "步骤完成 ✓",
-    "copied": "命令已成功复制到剪贴板！",
-    "progress": "路由器配置进度：已完成 {{completed}} / 共 {{total}} 步",
-    "steps": {
-      "findIp": {
-        "title": "确定您家路由器的后台网关 IP 地址",
-        "intro": "绝大多数路由器的后台登录地址通常为：",
-        "or": "或者",
-        "cmdPrompt": "如果您不确定，可以按下键盘 Win+R 输入 cmd 确定，在黑窗口中输入以下命令并回车：",
-        "findGateway": "运行后找到「默认网关」(Default Gateway) 这一行，对应的 IP 即为您路由器的管理登录后台。"
-      },
-      "login": {
-        "title": "登录路由器管理员后台",
-        "content": "打开您电脑上的浏览器，在最顶部的网址输入框中敲入刚才查到的路由器 IP 地址并回车访问。",
-        "credentials": "大部分路由器的出厂管理员账号密码通常印在路由器底部：",
-        "username": "出厂默认账户：",
-        "password": "出厂默认密码：",
-        "passwordOr": "或者",
-        "tip": "省心小贴士：翻转路由器的物理机身，查看底部的金属或纸质标签，上面清晰记录了该台机器的默认后台网址及管理员初始密码。"
-      },
-      "findSettings": {
-        "title": "在路由器中找到 NAT 端口转发菜单",
-        "content": "在路由器的管理后台菜单中细心查找包含以下关键词的选项：「端口转发」、「虚拟服务器」、「NAT 映射」、「DMZ/UPnP」或「Port Forwarding」。",
-        "locations": "此设置通常隐藏在以下高级菜单中："
-      },
-      "addRules": {
-        "title": "创建方舟专属的端口转发规则",
-        "content": "为您的方舟服务器新建 4 条转发规则，将外网流量精准导向您这台开服电脑的局域网 IP 上。",
-        "headers": {
-          "port": "方舟默认端口",
-          "protocol": "协议类型",
-          "purpose": "功能说明"
-        },
-        "purposes": {
-          "game": "游戏连接主端口",
-          "gamePlus": "跨平台辅助端口",
-          "query": "Steam 检索端口",
-          "rcon": "远程控制登录端口"
-        },
-        "tip": "在规则配置中，将「内网主机 IP / 局域网 IP」指定为您这台开服电脑的内网 IPv4 地址 (例如: 192.168.1.50)"
-      },
-      "save": {
-        "title": "保存路由器配置并测试",
-        "content": "点击路由器后台的「应用修改」或「保存配置」按钮。部分老旧路由器在更改端口映射后，需要手动在后台重启路由器才能使映射正式生效。",
-        "verify": "保存完毕并确保方舟服务器已开机后，回到管理器上方的「端口开放性检测」面板，点击开始检测以验证是否打通公网！"
-      }
-    }
-  },
-  "firewallAutomation": {
-    "title": "防火墙规则全自动托管",
-    "description": "管理器自动接管 Windows 系统防火墙，为您一键放行所有方舟需要的物理端口",
-    "adminRequired": "需要管理员权限授权",
-    "adminRequiredDesc": "修改 Windows 系统防火墙安全等级是一项高级系统操作。管理器必须拥有系统管理员最高权限才能进行写入。请关闭软件，右键点击管理器图标并选择「以管理员身份运行」重新进入此面板。",
-    "noServers": "当前未配置任何服务器",
-    "createProfile": "请先创建一个方舟服务器，这里才会显示对应的防火墙端口放行列表",
-    "assignAll": "一键放行所有服务器防火墙规则",
-    "assigning": "正在为您改写系统网络规则...",
-    "refresh": "刷新防火墙状态",
-    "headers": {
-      "server": "方舟服务器名",
-      "gamePort": "主联机端口",
-      "queryPort": "检索端口",
-      "rconPort": "管理控制端口",
-      "actions": "放行操作"
-    },
-    "manual": {
-      "title": "手动追加自定义放行端口",
-      "description": "如果您额外安装了诸如游戏内语音模组等需要独立通信的插件，可以在此手动放行对应端口。",
-      "portNumber": "要放行的端口号",
-      "protocol": "网络协议",
-      "descriptionLabel": "规则备注说明",
-      "addPort": "放行此端口",
-      "customPorts": "手动放行规则列表",
-      "placeholderPort": "例如: 12345",
-      "placeholderDesc": "例如: 语音模组端口",
-      "remove": "撤销放行"
-    },
-    "about": {
-      "title": "方舟开服端口通俗科普",
-      "game": "主联机端口 (UDP)",
-      "gameDesc": "负责传输玩家在地图中的一举一动、恐龙数据以及建筑画面，此端口是联机的命脉",
-      "query": "检索端口 (UDP)",
-      "queryDesc": "负责向 Steam 平台定时打包汇报您的服务器名字、在线人数，使您的服务器能被搜到",
-      "rcon": "远程控制端口 (TCP)",
-      "rconDesc": "负责接收加密的远程管理控制封包，使管理员能不用进游戏即可发号施令维护服务器",
-      "note": "以上端口如果被 Windows 防火墙阻拦，哪怕您路由器映射配置再完美，外部玩家也绝无可能连入您的服务器。"
-    },
-    "messages": {
-      "loadFailed": "读取系统防火墙规则失败",
-      "createFailed": "自动改写系统防火墙规则失败",
-      "removeFailed": "撤销端口规则失败",
-      "manualCreateFailed": "手动追加防火墙规则失败",
-      "manualRemoveFailed": "注销放行规则失败",
-      "invalidPort": "请输入 1 到 65535 之间的合法数字物理端口号",
-      "duplicatePort": "系统内已存在一条相同协议的放行规则，无需重复创建",
-      "exists": "规则已存在并处于激活状态",
-      "assigned": "已成功放行",
-      "assign": "一键放行",
-      "remove": "注销规则",
-      "disabled": "已禁用",
-      "actions": {
-        "remove": "安全注销",
-        "assign": "一键放行"
-      }
-    }
   },
   "plugins": {
     "title": "扩展插件管理器",
@@ -1347,7 +1614,8 @@
     "extractData": "世界与玩家存档提取迁移",
     "extractDesc": "保留目标服务器的参数，仅将本服的玩家建建筑、驯服恐龙及地图存档迁移过去",
     "selectTarget": "指定接收的目标服务器",
-    "noOtherServers": "当前无其他符合迁移要求的服务器"
+    "noOtherServers": "当前无其他符合迁移要求的服务器",
+    "gusIni": "GameUserSettings.ini"
   },
   "confirmDialog": {
     "areYouSure": "安全确认",
@@ -1409,7 +1677,8 @@
       "cpu": "您的 CPU 目前正处于非常健康的负荷水平中 (<80%)",
       "memory": "物理内存剩余空间十分安全，没有溢出风险",
       "viewDistance": "如果服务器在开机时遇到 CPU 偶尔卡死，请尝试在 INI 中将玩家视野渲染距离调低"
-    }
+    },
+    "subtitle": "实时服务器性能指标"
   },
   "firewall": {
     "title": "防火墙状态快速总览",
@@ -1547,7 +1816,7 @@
     },
     "importSave": {
       "title": "一键迁移单人/非专用局域网存档至服务器",
-      "subtitle": "不想重新建家？把您的单人联机小世界无损变成 24 小时开机的 выделенный 独立服务器",
+      "subtitle": "不想重新建家？把您的单人联机小世界无损变成 24 小时开机的独立服务器",
       "targetLabel": "接收该存档的目标独立服务器",
       "selectServer": "选择接收存档的服务器...",
       "noServers": "列表空空如也，请先安装一个方舟独立服务器才能进行导入。",
@@ -1669,6 +1938,63 @@
       "ready": {
         "title": "新手培训顺利毕业！",
         "description": "现在您已彻底掌握了管理器的全貌。点击下方开始按钮，去开启您的第一个独立方舟世界的神秘冒险吧！"
+      }
+    }
+  },
+  "firewallAutomation": {
+    "description": "管理器自动接管 Windows 系统防火墙，为您一键放行所有方舟需要的物理端口",
+    "adminRequired": "需要管理员权限授权",
+    "adminRequiredDesc": "修改 Windows 系统防火墙安全等级是一项高级系统操作。管理器必须拥有系统管理员最高权限才能进行写入。请关闭软件，右键点击管理器图标并选择「以管理员身份运行」重新进入此面板。",
+    "noServers": "当前未配置任何服务器",
+    "createProfile": "请先创建一个方舟服务器，这里才会显示对应的防火墙端口放行列表",
+    "assignAll": "一键放行所有服务器防火墙规则",
+    "assigning": "正在为您改写系统网络规则...",
+    "refresh": "刷新防火墙状态",
+    "headers": {
+      "server": "方舟服务器名",
+      "gamePort": "主联机端口",
+      "queryPort": "检索端口",
+      "rconPort": "管理控制端口",
+      "actions": "放行操作"
+    },
+    "manual": {
+      "title": "手动追加自定义放行端口",
+      "description": "如果您额外安装了诸如游戏内语音模组等需要独立通信的插件，可以在此手动放行对应端口。",
+      "portNumber": "要放行的端口号",
+      "protocol": "网络协议",
+      "descriptionLabel": "规则备注说明",
+      "addPort": "放行此端口",
+      "customPorts": "手动放行规则列表",
+      "placeholderPort": "例如: 12345",
+      "placeholderDesc": "例如: 语音模组端口",
+      "remove": "撤销放行"
+    },
+    "about": {
+      "title": "方舟开服端口通俗科普",
+      "game": "主联机端口 (UDP)",
+      "gameDesc": "负责传输玩家在地图中的一举一动、恐龙数据以及建筑画面，此端口是联机的命脉",
+      "query": "检索端口 (UDP)",
+      "queryDesc": "负责向 Steam 平台定时打包汇报您的服务器名字、在线人数，使您的服务器能被搜到",
+      "rcon": "远程控制端口 (TCP)",
+      "rconDesc": "负责接收加密的远程管理控制封包，使管理员能不用进游戏即可发号施令维护服务器",
+      "note": "以上端口如果被 Windows 防火墙阻拦，哪怕您路由器映射配置再完美，外部玩家也绝无可能连入您的服务器。"
+    },
+    "messages": {
+      "loadFailed": "读取系统防火墙规则失败",
+      "createFailed": "自动改写系统防火墙规则失败",
+      "removeFailed": "撤销端口规则失败",
+      "manualCreateFailed": "手动追加防火墙规则失败",
+      "manualRemoveFailed": "注销放行规则失败",
+      "invalidPort": "请输入 1 到 65535 之间的合法数字物理端口号",
+      "duplicatePort": "系统内已存在一条相同协议的放行规则，无需重复创建",
+      "exists": "规则已存在并处于激活状态",
+      "assigned": "已成功放行",
+      "assign": "一键放行",
+      "remove": "注销规则",
+      "disabled": "已禁用",
+      "actions": {
+        "remove": "安全注销",
+        "assign": "一键放行"
       }
     }
   }
