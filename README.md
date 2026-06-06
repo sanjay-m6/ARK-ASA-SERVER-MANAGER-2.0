@@ -9,9 +9,9 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/Pr69DHEnXJ)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/infinity86s)
 
-**A professional-grade dedicated server management application for both ARK: Survival Ascended (ASA) and ARK: Survival Evolved (ASE), built with Tauri, React, and Rust.**
+**A professional-grade dedicated server management suite for both ARK: Survival Ascended (ASA) and ARK: Survival Evolved (ASE), built with Tauri, React, and Rust.**
 
-[Features](#-features) • [Installation](#-installation) • [Discord](https://discord.gg/Pr69DHEnXJ) • [Development](#-development) • [Contributing](#-contributing)
+[Features](#-features) • [Architecture](#%EF%B8%8F-architecture) • [Installation](#-installation) • [Development](#-development) • [Discord](https://discord.gg/Pr69DHEnXJ) • [Contributing](#-contributing)
 
 </div>
 
@@ -19,34 +19,74 @@
 
 ## ✨ Features
 
-### 🤖 Infinity AI Assistant
-- **AI-Powered Management** - Autonomous assistant capable of safely managing server actions via natural language
-- **Smart Troubleshooting** - Real-time log parsing and fix recommendations using NVIDIA's Llama models
+### 🎮 Dual-Game Support (ASA & ASE)
+- **Unified Interface** - Easily switch between dedicated management dashboards for **ARK: Survival Ascended** and **ARK: Survival Evolved**.
+- **Individually Optimized Configurations** - Handles differences in modding frameworks, network requirements, and settings between the two game architectures.
 
-### 🖥️ Server Management
-- **Multi-Game Support** - Manage dedicated servers for both **ARK: Survival Ascended (ASA)** and **ARK: Survival Evolved (ASE)**
-- **Visual Cluster Builder** - Drag-and-drop UI to link and manage cross-ARK clusters easily
-- **One-Click Server Deployment** - Install and configure dedicated servers effortlessly
-- **Real-time Server Control** - Start, stop, and restart servers with instant feedback
-- **Embedded Console** - View live server logs directly in the app with color-coded output
-- **Auto-hiding Console Window** - Server console runs in background, no popup windows
-- **Intelligent Server Automation** - Automatic data protection during updates and save imports (Graceful RCON Shutdown)
+### 🤖 Infinity AI Assistant
+- **AI-Powered Management** - Autonomous assistant capable of safely managing server actions (starts, backups, restarts) via natural language commands.
+- **Smart Troubleshooting** - Real-time server log parsing, crash analysis, and configuration fix recommendations using NVIDIA's Llama models.
+
+### 🖥️ Server Management & Automation
+- **Visual Cluster Builder** - Drag-and-drop node graph interface to easily link and manage cross-server clusters (shared inventory/tamed dinos).
+- **One-Click Server Deployment** - Effortless automatic downloading, installation, validation, and updating of servers via SteamCMD.
+- **Graceful Automations** - Auto-notifies active players via RCON in-game warnings and performs a secure world save (`cheat saveworld`) before executing updates or restarts.
+- **Mod Manager & Watchdog** - Integrated CurseForge mod browser and automatic installer for ASA, and Steam Workshop downloader for ASE. Auto-reinstalls/updates mods upon release.
 
 ### 🌐 Network & Connectivity
-- **Public/LAN Detection** - Automatically detects if your server is publicly accessible
-- **Port Management** - Configure game, query, and RCON ports
-- **Connection Info** - Quick copy IP and port for sharing with players
+- **UPnP Port Forwarding** - Automatically forwards game, query, and RCON ports directly from the application for routers that support UPnP.
+- **Connection Health Checks** - Automatically detects if your server is publicly accessible or limited to LAN.
+- **Tribe Log Viewer** - Live viewer that reads and displays in-game tribe activity logs without requiring in-game connections.
 
-### 🎮 Advanced Configuration
-- **Map Selection** - Support for all official maps for both ASA and ASE
-- **Mod Integration** - CurseForge mod browser and installer for ASA; Steam Workshop mod support for ASE
-- **RCON Console** - Send commands directly to your server
-- **Config Editor** - Edit GameUserSettings.ini and Game.ini
+### 📊 Monitoring & Scheduling
+- **System Telemetry** - Dynamic charts showing host system metrics including CPU, RAM, and disk utilization.
+- **Embedded Console** - Live-tailed server consoles running headlessly in the background with color-coded syntax output.
+- **Advanced Scheduler** - Complete cron-like custom task scheduler for automatic database backups, routine server restarts, and in-game announcement broadcasts.
+- **Backup & Cloud Restore** - Flexible local backups and automated cloud upload profiles (S3, Google Drive, Dropbox, Backblaze B2, and FTP) powered by Rust's high-performance OpenDAL engine.
 
-### 📊 Monitoring
-- **System Dashboard** - CPU, RAM, and disk usage monitoring
-- **Server Status** - Real-time uptime and player count
-- **Log Viewer** - Color-coded logs with filtering
+---
+
+## 🏗️ Architecture
+
+ARK Server Manager 2.0 is designed as a secure, high-performance hybrid desktop application:
+
+*   **Frontend (React + TypeScript + TailwindCSS + Zustand):** A highly responsive visual interface presenting separate layout workspaces for ASA and ASE. Includes lazy-loaded panels, dark-mode dashboard graphs, and an interactive mod browser.
+*   **Desktop Bridge (Tauri 2.0 + SQLite):** A lightweight IPC (Inter-Process Communication) gateway bridging UI events to native operating system functions. Leverages a local SQLite database (`rusqlite`) for secure, fast storage of server definitions and settings.
+*   **Backend Services (Rust):** A modular, multithreaded backend running high-performance daemon loops:
+    *   `process_manager.rs` - Gracefully handles background server processes and console output.
+    *   `guardian.rs` / `mod_watchdog.rs` - Self-healing monitors that auto-restart servers on crash and coordinate updates.
+    *   `discord_bridge.rs` - Full bidirectional bot gateway that bridges in-game chat to Discord channels (Cross-Chat).
+    *   `cloud_backup_service.rs` - High-performance backups powered by OpenDAL.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                             React Frontend                             │
+│ ┌──────────────────────┐ ┌──────────────────────┐ ┌──────────────────┐ │
+│ │    ASA Workspace     │ │    ASE Workspace     │ │   AI Assistant   │ │
+│ │ (Dashboard, Config)  │ │ (Dashboard, Config)  │ │   (Chat panel)   │ │
+│ └──────────────────────┘ └──────────────────────┘ └──────────────────┘ │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ Tauri IPC
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                              Tauri Bridge                              │
+│  ┌────────────────────────┐  ┌───────────────────────┐  ┌───────────┐  │
+│  │   UPnP Port Mapper     │  │ SQLite Database (DB)  │  │ Sys Info  │  │
+│  └────────────────────────┘  └───────────────────────┘  └───────────┘  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ Rust Native
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                              Rust Backend                              │
+│ ┌──────────────────┐ ┌───────────────────┐ ┌─────────────────────────┐ │
+│ │ Process Manager  │ │ Guardian Services │ │ Discord Bot / CrossChat │ │
+│ │ (Console, RCON)  │ │ (Auto-heal, Cron) │ │ (serenity, webhooks)    │ │
+│ └────────┬─────────┘ └─────────┬─────────┘ └────────────┬────────────┘ │
+│          │                     │                        │              │
+│ ┌────────▼─────────┐ ┌─────────▼─────────┐ ┌────────────▼────────────┐ │
+│ │    SteamCMD      │ │      OpenDAL      │ │    CurseForge/Steam     │ │
+│ │ (Deploy, Update) │ │  (Cloud Backups)  │ │     (Mod Scrapers)      │ │
+│ └──────────────────┘ └───────────────────┘ └─────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -54,14 +94,14 @@
 
 ### Prerequisites
 - **Windows 10/11** (64-bit)
-- **SteamCMD** (auto-installed if missing)
-- **~50GB disk space** per server
+- **SteamCMD** (automatically downloaded and installed if missing)
+- **~50GB+ SSD storage space** recommended per server instance
 
 ### Quick Install
-1. Download the latest release from [Releases](https://github.com/sanjay-m6/ASA-SERVER-MANAGER-2.0/releases)
-2. Run the installer
-3. Launch ASA Server Manager
-4. Click "Deploy Server" to install your first server
+1. Download the latest installer from the [Releases page](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases).
+2. Run the installer and launch the application.
+3. Choose either **Ascended (ASA)** or **Evolved (ASE)** mode from the main dashboard.
+4. Click **Deploy Server** to automatically download the server assets and set up your first instance.
 
 ---
 
@@ -69,132 +109,60 @@
 
 ### Tech Stack
 | Component | Technology |
-|-----------|------------|
-| Frontend | React 18 + TypeScript + Vite |
-| Styling | TailwindCSS |
-| Backend | Rust + Tauri 2.0 |
-| Database | SQLite (rusqlite) |
-| State | Zustand |
+|---|---|
+| **Frontend** | React 19 + TypeScript + Vite |
+| **Styling** | TailwindCSS + Framer Motion |
+| **State Management** | Zustand |
+| **Desktop Framework** | Tauri 2.0 |
+| **Backend Core** | Rust (Edition 2021) |
+| **Database** | SQLite (`rusqlite`) |
+| **Cloud Engine** | OpenDAL |
 
-### Prerequisites
-```bash
-# Node.js 18+
-node --version
+### Local Setup
+To run the server manager locally for development:
 
-# Rust 1.70+
-rustc --version
+1. **Prerequisites:**
+   * Node.js (v18+)
+   * Rust (v1.75+)
+   * Tauri CLI (installed via `cargo install tauri-cli`)
 
-# Tauri CLI
-cargo install tauri-cli
-```
+2. **Clone the repository:**
+   ```bash
+   git clone https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0.git
+   cd ARK-ASA-SERVER-MANAGER-2.0
+   ```
 
-### Setup
-```bash
-# Clone the repository
-git clone https://github.com/sanjay-m6/ASA-SERVER-MANAGER-2.0.git
-cd ASA-SERVER-MANAGER-2.0
+3. **Install node dependencies:**
+   ```bash
+   npm install
+   ```
 
-# Install dependencies
-npm install
+4. **Launch in development mode:**
+   ```bash
+   npm run tauri dev
+   ```
 
-# Run in development mode
-npm run tauri dev
-
-# Build for production
-npm run tauri build
-```
-
-### Project Structure
-```
-├── src/                    # React frontend
-│   ├── components/         # Reusable UI components
-│   ├── pages/              # Page components
-│   ├── stores/             # Zustand state stores
-│   ├── utils/              # Helper functions & Tauri bindings
-│   └── types/              # TypeScript definitions
-│
-├── src-tauri/              # Rust backend
-│   ├── src/
-│   │   ├── commands/       # Tauri IPC commands
-│   │   ├── services/       # Business logic
-│   │   ├── db/             # Database operations
-│   │   └── models.rs       # Data structures
-│   └── Cargo.toml          # Rust dependencies
-│
-└── asa-cli/                # CLI utility (optional)
-```
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    React Frontend                        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │  Dashboard  │  │   Server    │  │    Mods     │     │
-│  │             │  │   Manager   │  │   Browser   │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-└────────────────────────┬────────────────────────────────┘
-                         │ Tauri IPC
-┌────────────────────────▼────────────────────────────────┐
-│                    Rust Backend                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
-│  │   Process   │  │   Network   │  │   Config    │     │
-│  │   Manager   │  │   Service   │  │   Editor    │     │
-│  └─────────────┘  └─────────────┘  └─────────────┘     │
-│                         │                                │
-│  ┌──────────────────────▼───────────────────────────┐  │
-│  │               SQLite Database                     │  │
-│  └───────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🔧 Configuration
-
-### Environment Variables
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ASM_DEBUG` | Enable debug logging | `false` |
-| `ASM_DB_PATH` | Custom database path | AppData |
-
-### Server Defaults
-```json
-{
-  "gamePort": 7777,
-  "queryPort": 27015,
-  "rconPort": 27020,
-  "maxPlayers": 70
-}
-```
+5. **Build the production package:**
+   ```bash
+   npm run tauri build
+   ```
 
 ---
 
 ## 🤝 Contributing
+Contributions are welcome! If you'd like to help improve the project:
+1. Fork the repository.
+2. Create a clean feature branch (`git checkout -b feature/amazing-feature`).
+3. Commit your changes (`git commit -m 'Add amazing feature'`).
+4. Push to the branch (`git push origin feature/amazing-feature`).
+5. Open a Pull Request on the [Pull Requests page](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/pulls).
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) first.
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+For bug reports or feature suggestions, feel free to open a ticket on the [Issues page](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/issues).
 
 ---
 
 ## 📝 License
-
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- [Tauri](https://tauri.app/) - Desktop app framework
-- [ARK: Survival Ascended](https://survivetheark.com/) - Game
-- [CurseForge](https://www.curseforge.com/) - Mod hosting
 
 ---
 
@@ -202,6 +170,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for the ARK Community**
 
-[Discord](https://discord.gg/Pr69DHEnXJ) • [Report Bug](https://github.com/sanjay-m6/ASA-SERVER-MANAGER-2.0/issues) • [Request Feature](https://github.com/sanjay-m6/ASA-SERVER-MANAGER-2.0/issues) • [Donate via PayPal](https://paypal.me/infinity86s)
+[Discord](https://discord.gg/Pr69DHEnXJ) • [Report Bug](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/issues) • [Request Feature](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/issues) • [Donate via PayPal](https://paypal.me/infinity86s)
 
 </div>
