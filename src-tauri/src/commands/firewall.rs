@@ -48,12 +48,41 @@ struct FirewallRuleData {
     protocol: String,
 }
 
+fn extract_port(value: &serde_json::Value) -> Option<u16> {
+    match value {
+        serde_json::Value::String(s) => s.parse::<u16>().ok(),
+        serde_json::Value::Number(n) => n.as_u64().map(|v| v as u16),
+        _ => None,
+    }
+}
+
+fn parse_firewall_rules_json(
+    json: &str,
+    rules_set: &mut std::collections::HashSet<(u16, String)>,
+) {
+    if let Ok(rules) = serde_json::from_str::<Vec<FirewallRuleData>>(json) {
+        for rule in rules {
+            if let Some(port) = extract_port(&rule.local_port) {
+                rules_set.insert((port, rule.protocol.to_uppercase()));
+            }
+        }
+    } else if let Ok(rule) = serde_json::from_str::<FirewallRuleData>(json) {
+        if let Some(port) = extract_port(&rule.local_port) {
+            rules_set.insert((port, rule.protocol.to_uppercase()));
+        }
+    }
+}
+
 /// Fetch all relevant firewall rules (filtered for ARK to avoid hanging)
 fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
-    // BUG A FIX: Added -ErrorAction SilentlyContinue because Get-NetFirewallRule
-    // throws a terminating ObjectNotFound error when ZERO rules match the wildcard,
-    // which caused all ports to show as "Unassigned".
-    let script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-NetFirewallRule -DisplayName 'ARK Server*' -Enabled True -Direction Inbound -Action Allow -ErrorAction SilentlyContinue | Get-NetFirewallPortFilter | Select-Object LocalPort, Protocol | ConvertTo-Json -Compress";
+    // Use -DisplayName 'ARK Server*' with -ErrorAction SilentlyContinue so an empty
+    // result set doesn't throw a terminating error.
+    let script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; \
+        Get-NetFirewallRule -DisplayName 'ARK Server*' -ErrorAction SilentlyContinue \
+        | Where-Object { $_.Enabled -eq 'True' -and $_.Direction -eq 'Inbound' -and $_.Action -eq 'Allow' } \
+        | Get-NetFirewallPortFilter \
+        | Select-Object LocalPort, Protocol \
+        | ConvertTo-Json -Compress";
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
@@ -68,16 +97,12 @@ fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
             let stderr = String::from_utf8_lossy(&result.stderr).trim().to_string();
 
             if !stderr.is_empty() {
-                log::warn!(
-                    "[FIREWALL] PowerShell stderr while fetching rules: {}",
-                    stderr
-                );
+                log::warn!("[FIREWALL] PowerShell stderr: {}", stderr);
             }
 
-            // Empty stdout means no rules found — try netsh fallback
             if stdout.is_empty() {
-                log::info!("[FIREWALL] PowerShell pipeline returned empty — trying netsh fallback");
-                return fetch_firewall_rules_netsh();
+                log::info!("[FIREWALL] Primary query returned empty — trying broad PS fallback");
+                return fetch_firewall_rules_ps_broad();
             }
 
             log::info!(
@@ -85,129 +110,53 @@ fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
                 &stdout[..stdout.len().min(500)]
             );
 
-            // Handle single object vs array
-            if let Ok(rules) = serde_json::from_str::<Vec<FirewallRuleData>>(&stdout) {
-                for rule in rules {
-                    let port_val = match &rule.local_port {
-                        serde_json::Value::String(s) => s.parse::<u16>().ok(),
-                        serde_json::Value::Number(n) => n.as_u64().map(|v| v as u16),
-                        _ => None,
-                    };
+            parse_firewall_rules_json(&stdout, &mut rules_set);
 
-                    if let Some(port) = port_val {
-                        rules_set.insert((port, rule.protocol.to_uppercase()));
-                    }
-                }
-            } else if let Ok(rule) = serde_json::from_str::<FirewallRuleData>(&stdout) {
-                // Single object case
-                let port_val = match &rule.local_port {
-                    serde_json::Value::String(s) => s.parse::<u16>().ok(),
-                    serde_json::Value::Number(n) => n.as_u64().map(|v| v as u16),
-                    _ => None,
-                };
-
-                if let Some(port) = port_val {
-                    rules_set.insert((port, rule.protocol.to_uppercase()));
-                }
-            } else {
-                log::warn!(
-                    "[FIREWALL] Could not parse firewall rules JSON: {} — trying netsh fallback",
-                    stdout
-                );
-                return fetch_firewall_rules_netsh();
+            if rules_set.is_empty() {
+                log::warn!("[FIREWALL] Could not parse JSON: {} — trying broad PS fallback", stdout);
+                return fetch_firewall_rules_ps_broad();
             }
         }
         Err(e) => {
-            log::error!(
-                "[FIREWALL] Failed to execute PowerShell: {} — trying netsh fallback",
-                e
-            );
-            return fetch_firewall_rules_netsh();
-        }
-    }
-
-    // If PowerShell succeeded but found 0 rules, also try netsh as a safety net
-    if rules_set.is_empty() {
-        let netsh_rules = fetch_firewall_rules_netsh();
-        if !netsh_rules.is_empty() {
-            log::info!(
-                "[FIREWALL] PowerShell found 0 rules but netsh found {} — using netsh results",
-                netsh_rules.len()
-            );
-            return netsh_rules;
+            log::error!("[FIREWALL] PowerShell failed: {} — trying broad PS fallback", e);
+            return fetch_firewall_rules_ps_broad();
         }
     }
 
     rules_set
 }
 
-/// Fallback: Fetch firewall rules using netsh (works without admin elevation)
-fn fetch_firewall_rules_netsh() -> std::collections::HashSet<(u16, String)> {
-    let mut rules_set = std::collections::HashSet::new();
+/// Locale-independent fallback: enumerate all inbound allow rules via PowerShell
+/// without relying on the -DisplayName parameter filter (which can fail on some systems).
+/// Works correctly on non-English Windows since it uses PowerShell cmdlets, not netsh text.
+fn fetch_firewall_rules_ps_broad() -> std::collections::HashSet<(u16, String)> {
+    let script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; \
+        Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow -ErrorAction SilentlyContinue \
+        | Where-Object { $_.DisplayName -like 'ARK*' } \
+        | Get-NetFirewallPortFilter \
+        | Where-Object { $_.LocalPort -match '^[0-9]+$' } \
+        | Select-Object LocalPort, Protocol \
+        | ConvertTo-Json -Compress";
 
-    // netsh works without admin and is more reliable for reading rules
-    let output = Command::new("netsh")
-        .args([
-            "advfirewall",
-            "firewall",
-            "show",
-            "rule",
-            "name=all",
-            "dir=in",
-            "status=enabled",
-        ])
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
         .creation_flags(CREATE_NO_WINDOW)
         .output();
 
+    let mut rules_set = std::collections::HashSet::new();
+
     match output {
         Ok(result) => {
-            let stdout = String::from_utf8_lossy(&result.stdout);
-
-            // Parse netsh output — rules are separated by blank lines
-            // Each rule block contains: Rule Name, Enabled, Direction, Protocol, LocalPort, etc.
-            let mut is_ark_rule = false;
-            let mut current_protocol = String::new();
-
-            for line in stdout.lines() {
-                let line = line.trim();
-
-                // Detect ARK Server rules by name
-                if line.starts_with("Rule Name:") {
-                    let name = line.trim_start_matches("Rule Name:").trim();
-                    is_ark_rule = name.starts_with("ARK Server");
-                    current_protocol.clear();
-                }
-
-                if !is_ark_rule {
-                    continue;
-                }
-
-                // Extract protocol
-                if line.starts_with("Protocol:") {
-                    current_protocol = line.trim_start_matches("Protocol:").trim().to_uppercase();
-                }
-
-                // Extract local port
-                if line.starts_with("LocalPort:") {
-                    let port_str = line.trim_start_matches("LocalPort:").trim();
-                    if let Ok(port) = port_str.parse::<u16>() {
-                        let proto = if current_protocol.is_empty() {
-                            "TCP".to_string()
-                        } else {
-                            current_protocol.clone()
-                        };
-                        rules_set.insert((port, proto));
-                    }
-                }
+            let stdout = String::from_utf8_lossy(&result.stdout).trim().to_string();
+            if stdout.is_empty() {
+                log::info!("[FIREWALL] Broad PS fallback: no ARK rules found");
+                return rules_set;
             }
-
-            log::info!(
-                "[FIREWALL] netsh fallback found {} port/protocol rules",
-                rules_set.len()
-            );
+            parse_firewall_rules_json(&stdout, &mut rules_set);
+            log::info!("[FIREWALL] Broad PS fallback found {} rules", rules_set.len());
         }
         Err(e) => {
-            log::error!("[FIREWALL] netsh fallback also failed: {}", e);
+            log::error!("[FIREWALL] Broad PS fallback also failed: {}", e);
         }
     }
 
@@ -227,92 +176,10 @@ fn check_port_in_cache(
     }
 }
 
-/// Check if a firewall rule exists for a specific port (Legacy - rarely used now)
+/// Check if a firewall rule exists for a specific port
 fn check_port_rule_exists(port: u16, protocol: &str) -> PortStatus {
-    // Re-use the batch fetch for consistency, or keep independent if needed.
-    // For now, let's just do a quick single check to avoid breaking existing single-calls
-    let script = format!(
-        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Get-NetFirewallRule -Enabled True -Direction Inbound -Action Allow | Get-NetFirewallPortFilter | Where-Object {{ $_.LocalPort -eq '{}' -and $_.Protocol -eq '{}' }} | Measure-Object | Select-Object -ExpandProperty Count",
-        port, protocol
-    );
-
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output();
-
-    match output {
-        Ok(result) => {
-            let stdout = String::from_utf8_lossy(&result.stdout).trim().to_string();
-            match stdout.parse::<i32>() {
-                Ok(count) if count > 0 => PortStatus::Open,
-                Ok(_) => PortStatus::Closed,
-                Err(_) => PortStatus::Unknown,
-            }
-        }
-        Err(_) => PortStatus::Unknown,
-    }
-}
-
-/// Create a firewall rule for a specific port (non-elevated, for compatibility)
-#[allow(dead_code)]
-fn create_firewall_rule(port: u16, protocol: &str, rule_name: &str) -> Result<(), String> {
-    let script = format!(
-        r#"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;
-        $ruleName = "{}"
-        $existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
-        if ($existingRule) {{
-            Write-Output "Rule already exists"
-        }} else {{
-            New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort {} -Protocol {} -Action Allow -Profile Any | Out-Null
-            Write-Output "Rule created"
-        }}
-        "#,
-        rule_name, port, protocol
-    );
-
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.contains("Access is denied") || stderr.contains("requires elevation") {
-            Err("Administrator privileges required".to_string())
-        } else {
-            Err(format!("Failed to create rule: {}", stderr))
-        }
-    }
-}
-
-/// Remove a firewall rule by name (non-elevated)
-#[allow(dead_code)]
-fn remove_firewall_rule(rule_name: &str) -> Result<(), String> {
-    let script = format!(
-        r#"[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Remove-NetFirewallRule -DisplayName "{}" -ErrorAction SilentlyContinue"#,
-        rule_name
-    );
-
-    let output = Command::new("powershell")
-        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
-
-    if output.status.success() {
-        Ok(())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        if stderr.contains("Access is denied") || stderr.contains("requires elevation") {
-            Err("Administrator privileges required".to_string())
-        } else {
-            Err(format!("Failed to remove rule: {}", stderr))
-        }
-    }
+    let cache = fetch_all_firewall_rules();
+    check_port_in_cache(&cache, port, protocol)
 }
 
 /// Create multiple firewall rules with elevation (prompts UAC once)
@@ -421,24 +288,21 @@ if (-not $existingRule) {{
     }
 }
 
-/// Remove multiple firewall rules with elevation (prompts UAC once)
+/// Remove firewall rules by exact DisplayName with elevation (for manual/custom rules).
 fn remove_firewall_rules_elevated(rule_names: Vec<String>) -> Result<(), String> {
     if rule_names.is_empty() {
         return Ok(());
     }
 
-    // Build a PowerShell script that removes all rules
     let mut script_parts = Vec::new();
     for rule_name in &rule_names {
         script_parts.push(format!(
-            r#"Remove-NetFirewallRule -DisplayName '{}' -ErrorAction SilentlyContinue
-Write-Host 'Removed: {}'"#,
-            rule_name, rule_name
+            r#"Remove-NetFirewallRule -DisplayName '{}' -ErrorAction SilentlyContinue"#,
+            rule_name
         ));
     }
     let combined_script = script_parts.join("\n");
 
-    // Write script to temp file
     let temp_dir = std::env::temp_dir();
     let script_path = temp_dir.join("ark_firewall_rules.ps1");
     let mut bom_bytes = vec![0xEF, 0xBB, 0xBF];
@@ -446,7 +310,69 @@ Write-Host 'Removed: {}'"#,
     std::fs::write(&script_path, bom_bytes)
         .map_err(|e| format!("Failed to write temp script: {}", e))?;
 
-    // Use Start-Process with -Verb RunAs to get elevation
+    let launcher_script = format!(
+        r#"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
+        script_path.to_string_lossy().replace('\\', "\\\\")
+    );
+
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &launcher_script])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
+
+    let _ = std::fs::remove_file(&script_path);
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stderr.is_empty() {
+            Ok(())
+        } else {
+            Err(format!("Failed to remove rules: {}", stderr))
+        }
+    }
+}
+
+/// Remove firewall rules by port numbers with elevation (prompts UAC once).
+/// Uses port-based lookup instead of name-based, so renaming a server never
+/// leaves orphaned rules behind.
+fn remove_firewall_rules_by_ports_elevated(ports: Vec<u16>) -> Result<(), String> {
+    if ports.is_empty() {
+        return Ok(());
+    }
+
+    // Build a quoted list: '7777','27015','32330'
+    let port_list = ports
+        .iter()
+        .map(|p| format!("'{}'", p))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    // Find every inbound ARK rule whose LocalPort matches one of our ports and remove it.
+    // Matching on DisplayName prefix 'ARK Server*' keeps the scope narrow.
+    let combined_script = format!(
+        r#"$ports = @({})
+Get-NetFirewallRule -DisplayName 'ARK Server*' -ErrorAction SilentlyContinue |
+    Where-Object {{ $_.Direction -eq 'Inbound' }} |
+    ForEach-Object {{
+        $pf = $_ | Get-NetFirewallPortFilter -ErrorAction SilentlyContinue
+        if ($pf -and ($ports -contains [string]$pf.LocalPort)) {{
+            $_ | Remove-NetFirewallRule
+            Write-Host "Removed: $($_.DisplayName)"
+        }}
+    }}"#,
+        port_list
+    );
+
+    let temp_dir = std::env::temp_dir();
+    let script_path = temp_dir.join("ark_firewall_rules.ps1");
+    let mut bom_bytes = vec![0xEF, 0xBB, 0xBF];
+    bom_bytes.extend_from_slice(combined_script.as_bytes());
+    std::fs::write(&script_path, bom_bytes)
+        .map_err(|e| format!("Failed to write temp script: {}", e))?;
+
     let launcher_script = format!(
         r#"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
         script_path.to_string_lossy().replace('\\', "\\\\")
@@ -463,7 +389,6 @@ Write-Host 'Removed: {}'"#,
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 
-    // Clean up temp file
     let _ = std::fs::remove_file(&script_path);
 
     if output.status.success() {
@@ -471,7 +396,7 @@ Write-Host 'Removed: {}'"#,
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
         if stderr.is_empty() {
-            Ok(()) // UAC was shown but no error
+            Ok(())
         } else {
             Err(format!("Failed to remove rules: {}", stderr))
         }
@@ -555,56 +480,26 @@ pub async fn get_all_servers_firewall_status(
     let mut statuses = Vec::new();
 
     for server in servers {
-        // Check game port (both TCP + UDP required)
-        let game_udp = check_port_in_cache(&rules_cache, server.game_port, "UDP");
-        let game_tcp = check_port_in_cache(&rules_cache, server.game_port, "TCP");
-        let game_port_status = if game_udp == PortStatus::Open && game_tcp == PortStatus::Open {
-            PortStatus::Open
-        } else {
-            PortStatus::Closed
-        };
+        // Game port: UDP is the primary game protocol in UE5
+        let game_port_status = check_port_in_cache(&rules_cache, server.game_port, "UDP");
         log::info!(
-            "[FIREWALL] {} game port {}: UDP={:?} TCP={:?} => {:?}",
-            server.name,
-            server.game_port,
-            game_udp,
-            game_tcp,
-            game_port_status
+            "[FIREWALL] {} game port {} UDP => {:?}",
+            server.name, server.game_port, game_port_status
         );
 
-        // Check query port (both TCP + UDP required)
-        let query_udp = check_port_in_cache(&rules_cache, server.query_port, "UDP");
-        let query_tcp = check_port_in_cache(&rules_cache, server.query_port, "TCP");
-        let query_port_status = if query_udp == PortStatus::Open && query_tcp == PortStatus::Open {
-            PortStatus::Open
-        } else {
-            PortStatus::Closed
-        };
+        // Query port: Steam A2S is UDP-only
+        let query_port_status = check_port_in_cache(&rules_cache, server.query_port, "UDP");
         log::info!(
-            "[FIREWALL] {} query port {}: UDP={:?} TCP={:?} => {:?}",
-            server.name,
-            server.query_port,
-            query_udp,
-            query_tcp,
-            query_port_status
+            "[FIREWALL] {} query port {} UDP => {:?}",
+            server.name, server.query_port, query_port_status
         );
 
-        // Check RCON port (both TCP + UDP required) only if enabled
+        // RCON port: Source RCON is TCP-only
         let rcon_port_status = if server.rcon_enabled {
-            let rcon_tcp = check_port_in_cache(&rules_cache, server.rcon_port, "TCP");
-            let rcon_udp = check_port_in_cache(&rules_cache, server.rcon_port, "UDP");
-            let status = if rcon_tcp == PortStatus::Open && rcon_udp == PortStatus::Open {
-                PortStatus::Open
-            } else {
-                PortStatus::Closed
-            };
+            let status = check_port_in_cache(&rules_cache, server.rcon_port, "TCP");
             log::info!(
-                "[FIREWALL] {} RCON port {}: TCP={:?} UDP={:?} => {:?}",
-                server.name,
-                server.rcon_port,
-                rcon_tcp,
-                rcon_udp,
-                status
+                "[FIREWALL] {} RCON port {} TCP => {:?}",
+                server.name, server.rcon_port, status
             );
             status
         } else {
@@ -638,35 +533,15 @@ pub async fn get_firewall_status(
     // Use batch fetch even for single server to save process creation overhead
     let rules_cache = fetch_all_firewall_rules();
 
-    // Game port: both TCP + UDP required
-    let game_port_status = if check_port_in_cache(&rules_cache, server.game_port, "UDP")
-        == PortStatus::Open
-        && check_port_in_cache(&rules_cache, server.game_port, "TCP") == PortStatus::Open
-    {
-        PortStatus::Open
-    } else {
-        PortStatus::Closed
-    };
+    // Game port: UDP (UE5 primary protocol)
+    let game_port_status = check_port_in_cache(&rules_cache, server.game_port, "UDP");
 
-    // Query port: both TCP + UDP required
-    let query_port_status = if check_port_in_cache(&rules_cache, server.query_port, "UDP")
-        == PortStatus::Open
-        && check_port_in_cache(&rules_cache, server.query_port, "TCP") == PortStatus::Open
-    {
-        PortStatus::Open
-    } else {
-        PortStatus::Closed
-    };
+    // Query port: UDP (Steam A2S protocol)
+    let query_port_status = check_port_in_cache(&rules_cache, server.query_port, "UDP");
 
-    // RCON port: both TCP + UDP required (if enabled)
+    // RCON port: TCP (Source RCON protocol)
     let rcon_port_status = if server.rcon_enabled {
-        if check_port_in_cache(&rules_cache, server.rcon_port, "TCP") == PortStatus::Open
-            && check_port_in_cache(&rules_cache, server.rcon_port, "UDP") == PortStatus::Open
-        {
-            PortStatus::Open
-        } else {
-            PortStatus::Closed
-        }
+        check_port_in_cache(&rules_cache, server.rcon_port, "TCP")
     } else {
         PortStatus::Closed
     };
@@ -685,7 +560,7 @@ pub async fn get_firewall_status(
 }
 
 /// Create firewall rules for a single server (with UAC elevation)
-/// Creates BOTH TCP and UDP rules for every port to ensure full connectivity.
+/// Game port: UDP + TCP (UE5 compatibility). Query port: UDP only (Steam A2S). RCON: TCP only.
 #[tauri::command]
 pub async fn create_firewall_rules(
     state: State<'_, AppState>,
@@ -695,61 +570,32 @@ pub async fn create_firewall_rules(
 
     let server_name = &server.name;
 
-    // Build list of rules — BOTH TCP and UDP for each port
+    // Game port: UDP + TCP (UE5 uses UDP; TCP kept for router/NAT compatibility)
+    // Query port: UDP only (Steam A2S query protocol)
+    // RCON port: TCP only (Source RCON protocol)
     let mut rules: Vec<(u16, &str, String)> = vec![
-        // Game port - UDP + TCP
         (
             server.game_port,
             "UDP",
-            format!(
-                "ARK Server - {} - Game (UDP {})",
-                server_name, server.game_port
-            ),
+            format!("ARK Server - {} - Game (UDP {})", server_name, server.game_port),
         ),
         (
             server.game_port,
             "TCP",
-            format!(
-                "ARK Server - {} - Game (TCP {})",
-                server_name, server.game_port
-            ),
+            format!("ARK Server - {} - Game (TCP {})", server_name, server.game_port),
         ),
-        // Query port - UDP + TCP
         (
             server.query_port,
             "UDP",
-            format!(
-                "ARK Server - {} - Query (UDP {})",
-                server_name, server.query_port
-            ),
-        ),
-        (
-            server.query_port,
-            "TCP",
-            format!(
-                "ARK Server - {} - Query (TCP {})",
-                server_name, server.query_port
-            ),
+            format!("ARK Server - {} - Query (UDP {})", server_name, server.query_port),
         ),
     ];
 
-    // Add RCON port if enabled - TCP + UDP
     if server.rcon_enabled {
         rules.push((
             server.rcon_port,
             "TCP",
-            format!(
-                "ARK Server - {} - RCON (TCP {})",
-                server_name, server.rcon_port
-            ),
-        ));
-        rules.push((
-            server.rcon_port,
-            "UDP",
-            format!(
-                "ARK Server - {} - RCON (UDP {})",
-                server_name, server.rcon_port
-            ),
+            format!("ARK Server - {} - RCON (TCP {})", server_name, server.rcon_port),
         ));
     }
 
@@ -789,7 +635,7 @@ pub async fn create_firewall_rules(
 }
 
 /// Remove firewall rules for a single server (with UAC elevation)
-/// Removes BOTH TCP and UDP rules for every port.
+/// Uses port-based removal so renaming the server never leaves orphaned rules.
 #[tauri::command]
 pub async fn remove_firewall_rules(
     state: State<'_, AppState>,
@@ -799,45 +645,21 @@ pub async fn remove_firewall_rules(
 
     let server_name = &server.name;
 
-    // Build list of rule names to remove — BOTH protocols for each port
-    let rule_names = vec![
-        // Game port
-        format!(
-            "ARK Server - {} - Game (UDP {})",
-            server_name, server.game_port
-        ),
-        format!(
-            "ARK Server - {} - Game (TCP {})",
-            server_name, server.game_port
-        ),
-        // Query port
-        format!(
-            "ARK Server - {} - Query (UDP {})",
-            server_name, server.query_port
-        ),
-        format!(
-            "ARK Server - {} - Query (TCP {})",
-            server_name, server.query_port
-        ),
-        // RCON port
-        format!(
-            "ARK Server - {} - RCON (TCP {})",
-            server_name, server.rcon_port
-        ),
-        format!(
-            "ARK Server - {} - RCON (UDP {})",
-            server_name, server.rcon_port
-        ),
-    ];
+    // Collect the distinct ports used by this server; port-based removal handles
+    // all protocols (UDP/TCP) and survives server renames.
+    let mut ports = vec![server.game_port, server.query_port];
+    if server.rcon_enabled {
+        ports.push(server.rcon_port);
+    }
+    ports.dedup();
 
     log::info!(
-        "[FIREWALL] Removing {} rules for server '{}'",
-        rule_names.len(),
-        server_name
+        "[FIREWALL] Removing rules for server '{}' on ports {:?}",
+        server_name, ports
     );
 
     // Remove all rules with elevation (single UAC prompt)
-    match remove_firewall_rules_elevated(rule_names) {
+    match remove_firewall_rules_by_ports_elevated(ports) {
         Ok(_) => {
             log::info!(
                 "[FIREWALL] Successfully removed rules for '{}'",
@@ -865,7 +687,6 @@ pub async fn remove_firewall_rules(
 }
 
 /// Create firewall rules for all servers (with UAC elevation)
-/// Creates BOTH TCP and UDP rules for every port on every server.
 #[tauri::command]
 pub async fn create_all_firewall_rules(
     state: State<'_, AppState>,
@@ -880,65 +701,36 @@ pub async fn create_all_firewall_rules(
         });
     }
 
-    // Build list of all rules — BOTH TCP and UDP for each port
     let mut rules: Vec<(u16, &str, String)> = Vec::new();
 
     for server in &servers {
         let server_name = &server.name;
 
-        // Game port - UDP + TCP
+        // Game port: UDP + TCP
         rules.push((
             server.game_port,
             "UDP",
-            format!(
-                "ARK Server - {} - Game (UDP {})",
-                server_name, server.game_port
-            ),
+            format!("ARK Server - {} - Game (UDP {})", server_name, server.game_port),
         ));
         rules.push((
             server.game_port,
             "TCP",
-            format!(
-                "ARK Server - {} - Game (TCP {})",
-                server_name, server.game_port
-            ),
+            format!("ARK Server - {} - Game (TCP {})", server_name, server.game_port),
         ));
 
-        // Query port - UDP + TCP
+        // Query port: UDP only (Steam A2S)
         rules.push((
             server.query_port,
             "UDP",
-            format!(
-                "ARK Server - {} - Query (UDP {})",
-                server_name, server.query_port
-            ),
-        ));
-        rules.push((
-            server.query_port,
-            "TCP",
-            format!(
-                "ARK Server - {} - Query (TCP {})",
-                server_name, server.query_port
-            ),
+            format!("ARK Server - {} - Query (UDP {})", server_name, server.query_port),
         ));
 
-        // RCON port (if enabled) - TCP + UDP
+        // RCON port: TCP only (Source RCON protocol)
         if server.rcon_enabled {
             rules.push((
                 server.rcon_port,
                 "TCP",
-                format!(
-                    "ARK Server - {} - RCON (TCP {})",
-                    server_name, server.rcon_port
-                ),
-            ));
-            rules.push((
-                server.rcon_port,
-                "UDP",
-                format!(
-                    "ARK Server - {} - RCON (UDP {})",
-                    server_name, server.rcon_port
-                ),
+                format!("ARK Server - {} - RCON (TCP {})", server_name, server.rcon_port),
             ));
         }
     }
@@ -1127,25 +919,24 @@ pub async fn create_manual_firewall_rules(
         });
     }
 
-    // Build list of all rules
-    let rules: Vec<(u16, String, String)> = ports
-        .iter()
-        .map(|port_config| {
-            let protocol_upper = port_config.protocol.to_uppercase();
+    // Build list of all rules, expanding BOTH into separate TCP + UDP entries
+    let mut rules: Vec<(u16, String, String)> = Vec::new();
+    for port_config in &ports {
+        let protocol_upper = port_config.protocol.to_uppercase();
+        let protos: &[&str] = if protocol_upper == "BOTH" {
+            &["TCP", "UDP"]
+        } else {
+            &[protocol_upper.as_str()]
+        };
+        for proto in protos {
             let rule_name = if port_config.description.is_empty() {
-                format!(
-                    "ARK Server Manager - Custom {} {}",
-                    protocol_upper, port_config.port
-                )
+                format!("ARK Server Manager - Custom {} {}", proto, port_config.port)
             } else {
-                format!(
-                    "ARK Server Manager - {} ({} {})",
-                    port_config.description, protocol_upper, port_config.port
-                )
+                format!("ARK Server Manager - {} ({} {})", port_config.description, proto, port_config.port)
             };
-            (port_config.port, protocol_upper, rule_name)
-        })
-        .collect();
+            rules.push((port_config.port, proto.to_string(), rule_name));
+        }
+    }
 
     let rule_count = rules.len();
 
@@ -1246,33 +1037,10 @@ pub async fn get_all_ase_servers_firewall_status(
     let mut statuses = Vec::new();
 
     for server in servers {
-        // Check game port (both TCP + UDP required)
-        let game_udp = check_port_in_cache(&rules_cache, server.game_port, "UDP");
-        let game_tcp = check_port_in_cache(&rules_cache, server.game_port, "TCP");
-        let game_port_status = if game_udp == PortStatus::Open && game_tcp == PortStatus::Open {
-            PortStatus::Open
-        } else {
-            PortStatus::Closed
-        };
-
-        // Check query port (both TCP + UDP required)
-        let query_udp = check_port_in_cache(&rules_cache, server.query_port, "UDP");
-        let query_tcp = check_port_in_cache(&rules_cache, server.query_port, "TCP");
-        let query_port_status = if query_udp == PortStatus::Open && query_tcp == PortStatus::Open {
-            PortStatus::Open
-        } else {
-            PortStatus::Closed
-        };
-
-        // Check RCON port (both TCP + UDP required) only if enabled
+        let game_port_status = check_port_in_cache(&rules_cache, server.game_port, "UDP");
+        let query_port_status = check_port_in_cache(&rules_cache, server.query_port, "UDP");
         let rcon_port_status = if server.rcon_enabled {
-            let rcon_tcp = check_port_in_cache(&rules_cache, server.rcon_port, "TCP");
-            let rcon_udp = check_port_in_cache(&rules_cache, server.rcon_port, "UDP");
-            if rcon_tcp == PortStatus::Open && rcon_udp == PortStatus::Open {
-                PortStatus::Open
-            } else {
-                PortStatus::Closed
-            }
+            check_port_in_cache(&rules_cache, server.rcon_port, "TCP")
         } else {
             PortStatus::Closed
         };
@@ -1302,30 +1070,10 @@ pub async fn get_ase_firewall_status(
     let server = get_ase_server_from_db(&state, server_id)?;
     let rules_cache = fetch_all_firewall_rules();
 
-    let game_port_status = if check_port_in_cache(&rules_cache, server.game_port, "UDP") == PortStatus::Open
-        && check_port_in_cache(&rules_cache, server.game_port, "TCP") == PortStatus::Open
-    {
-        PortStatus::Open
-    } else {
-        PortStatus::Closed
-    };
-
-    let query_port_status = if check_port_in_cache(&rules_cache, server.query_port, "UDP") == PortStatus::Open
-        && check_port_in_cache(&rules_cache, server.query_port, "TCP") == PortStatus::Open
-    {
-        PortStatus::Open
-    } else {
-        PortStatus::Closed
-    };
-
+    let game_port_status = check_port_in_cache(&rules_cache, server.game_port, "UDP");
+    let query_port_status = check_port_in_cache(&rules_cache, server.query_port, "UDP");
     let rcon_port_status = if server.rcon_enabled {
-        if check_port_in_cache(&rules_cache, server.rcon_port, "TCP") == PortStatus::Open
-            && check_port_in_cache(&rules_cache, server.rcon_port, "UDP") == PortStatus::Open
-        {
-            PortStatus::Open
-        } else {
-            PortStatus::Closed
-        }
+        check_port_in_cache(&rules_cache, server.rcon_port, "TCP")
     } else {
         PortStatus::Closed
     };
@@ -1353,57 +1101,13 @@ pub async fn create_ase_firewall_rules(
     let server_name = &server.name;
 
     let mut rules: Vec<(u16, &str, String)> = vec![
-        (
-            server.game_port,
-            "UDP",
-            format!(
-                "ARK Server - {} - Game (UDP {})",
-                server_name, server.game_port
-            ),
-        ),
-        (
-            server.game_port,
-            "TCP",
-            format!(
-                "ARK Server - {} - Game (TCP {})",
-                server_name, server.game_port
-            ),
-        ),
-        (
-            server.query_port,
-            "UDP",
-            format!(
-                "ARK Server - {} - Query (UDP {})",
-                server_name, server.query_port
-            ),
-        ),
-        (
-            server.query_port,
-            "TCP",
-            format!(
-                "ARK Server - {} - Query (TCP {})",
-                server_name, server.query_port
-            ),
-        ),
+        (server.game_port, "UDP", format!("ARK Server - {} - Game (UDP {})", server_name, server.game_port)),
+        (server.game_port, "TCP", format!("ARK Server - {} - Game (TCP {})", server_name, server.game_port)),
+        (server.query_port, "UDP", format!("ARK Server - {} - Query (UDP {})", server_name, server.query_port)),
     ];
 
     if server.rcon_enabled {
-        rules.push((
-            server.rcon_port,
-            "TCP",
-            format!(
-                "ARK Server - {} - RCON (TCP {})",
-                server_name, server.rcon_port
-            ),
-        ));
-        rules.push((
-            server.rcon_port,
-            "UDP",
-            format!(
-                "ARK Server - {} - RCON (UDP {})",
-                server_name, server.rcon_port
-            ),
-        ));
+        rules.push((server.rcon_port, "TCP", format!("ARK Server - {} - RCON (TCP {})", server_name, server.rcon_port)));
     }
 
     match create_firewall_rules_elevated(rules) {
@@ -1421,6 +1125,7 @@ pub async fn create_ase_firewall_rules(
 }
 
 /// Remove firewall rules for a single ASE server (with UAC elevation)
+/// Uses port-based removal so renaming the server never leaves orphaned rules.
 #[tauri::command]
 pub async fn remove_ase_firewall_rules(
     state: State<'_, AppState>,
@@ -1429,34 +1134,18 @@ pub async fn remove_ase_firewall_rules(
     let server = get_ase_server_from_db(&state, server_id)?;
     let server_name = &server.name;
 
-    let rule_names = vec![
-        format!(
-            "ARK Server - {} - Game (UDP {})",
-            server_name, server.game_port
-        ),
-        format!(
-            "ARK Server - {} - Game (TCP {})",
-            server_name, server.game_port
-        ),
-        format!(
-            "ARK Server - {} - Query (UDP {})",
-            server_name, server.query_port
-        ),
-        format!(
-            "ARK Server - {} - Query (TCP {})",
-            server_name, server.query_port
-        ),
-        format!(
-            "ARK Server - {} - RCON (TCP {})",
-            server_name, server.rcon_port
-        ),
-        format!(
-            "ARK Server - {} - RCON (UDP {})",
-            server_name, server.rcon_port
-        ),
-    ];
+    let mut ports = vec![server.game_port, server.query_port];
+    if server.rcon_enabled {
+        ports.push(server.rcon_port);
+    }
+    ports.dedup();
 
-    match remove_firewall_rules_elevated(rule_names) {
+    log::info!(
+        "[FIREWALL] Removing ASE rules for server '{}' on ports {:?}",
+        server_name, ports
+    );
+
+    match remove_firewall_rules_by_ports_elevated(ports) {
         Ok(_) => Ok(FirewallOperationResult {
             success: true,
             message: format!("Firewall rules removed for '{}'", server_name),
@@ -1490,57 +1179,12 @@ pub async fn create_all_ase_firewall_rules(
     for server in &servers {
         let server_name = &server.name;
 
-        rules.push((
-            server.game_port,
-            "UDP",
-            format!(
-                "ARK Server - {} - Game (UDP {})",
-                server_name, server.game_port
-            ),
-        ));
-        rules.push((
-            server.game_port,
-            "TCP",
-            format!(
-                "ARK Server - {} - Game (TCP {})",
-                server_name, server.game_port
-            ),
-        ));
-
-        rules.push((
-            server.query_port,
-            "UDP",
-            format!(
-                "ARK Server - {} - Query (UDP {})",
-                server_name, server.query_port
-            ),
-        ));
-        rules.push((
-            server.query_port,
-            "TCP",
-            format!(
-                "ARK Server - {} - Query (TCP {})",
-                server_name, server.query_port
-            ),
-        ));
+        rules.push((server.game_port, "UDP", format!("ARK Server - {} - Game (UDP {})", server_name, server.game_port)));
+        rules.push((server.game_port, "TCP", format!("ARK Server - {} - Game (TCP {})", server_name, server.game_port)));
+        rules.push((server.query_port, "UDP", format!("ARK Server - {} - Query (UDP {})", server_name, server.query_port)));
 
         if server.rcon_enabled {
-            rules.push((
-                server.rcon_port,
-                "TCP",
-                format!(
-                    "ARK Server - {} - RCON (TCP {})",
-                    server_name, server.rcon_port
-                ),
-            ));
-            rules.push((
-                server.rcon_port,
-                "UDP",
-                format!(
-                    "ARK Server - {} - RCON (UDP {})",
-                    server_name, server.rcon_port
-                ),
-            ));
+            rules.push((server.rcon_port, "TCP", format!("ARK Server - {} - RCON (TCP {})", server_name, server.rcon_port)));
         }
     }
 
