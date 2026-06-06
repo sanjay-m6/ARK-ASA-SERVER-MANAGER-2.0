@@ -2,7 +2,7 @@
 name = "asa-server-manager"
 version = "4.4.6"
 description = "ASA Server Manager 2.0 - Professional ARK: Survival Ascended Server Management"
-authors = ["sanja"]
+authors = ["Sanjay"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

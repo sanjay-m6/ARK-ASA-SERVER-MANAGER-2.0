@@ -1,41 +1,64 @@
 # Logs
-logs
+logs/
 *.log
 *.err
 error.txt
+**/error.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Databases / Runtime storage
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
 # Dependencies
-node_modules
+node_modules/
+jspm_packages/
+.pnpm-store/
 
 # Build outputs
-dist
-dist-ssr
+dist/
+dist-ssr/
+build/
+out/
 *.local
 
 # Tauri / Rust
-src-tauri/target
-src-tauri/WixTools
+target/
+**/target/
+src-tauri/target/
+src-tauri/WixTools/
+src-tauri/gen/schemas/
+src-tauri/target_check/
+src-tauri/check-target/
 
-# Sensitive files (keys, credentials)
+# Sensitive files (keys, credentials, env vars)
+.env
+.env.*
+*.env
 *.key
 *.pem
 keys*.txt
 *.env.local
 *.env.*.local
+!.env.example
 
 # TypeScript
 *.tsbuildinfo
 tsc_errors.log
 
 # Editor directories and files
-.vscode/*
+.vscode/
 !.vscode/extensions.json
-.idea
+.idea/
+.cursor/
+.history/
+*.code-workspace
 .DS_Store
 *.suo
 *.ntvs*
@@ -45,6 +68,8 @@ tsc_errors.log
 
 # OS specific
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 .AppleDouble
 .LSOverride
 
@@ -55,8 +80,17 @@ generate_keys.js
 read_*.js
 sanitize_*.js
 
+# Python (for local automation scripts)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+env/
+ENV/
+
 # Antigravity Agent
 .agent/
-
-#Agent:
 .agent
