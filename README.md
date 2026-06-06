@@ -1,15 +1,15 @@
-# 🦖 ASA Server Manager 2.0
+# 🦖 ARK Server Manager 2.0 (Ascended & Evolved)
 
 <div align="center">
 
-![ASA Server Manager](https://img.shields.io/badge/ASA-Server%20Manager-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiI+PHBhdGggZD0iTTEyIDJ2MjAiLz48cGF0aCBkPSJNMiAxMmgyMCIvPjwvc3ZnPg==)
-![Version](https://img.shields.io/badge/version-2.3.6-green?style=for-the-badge)
+![ARK Server Manager](https://img.shields.io/badge/ARK-Server%20Manager-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiI+PHBhdGggZD0iTTEyIDJ2MjAiLz48cGF0aCBkPSJNMiAxMmgyMCIvPjwvc3ZnPg==)
+![Version](https://img.shields.io/badge/version-4.4.6-green?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=for-the-badge&logo=windows)
 ![License](https://img.shields.io/badge/license-MIT-orange?style=for-the-badge)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/Pr69DHEnXJ)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/infinity86s)
 
-**A professional-grade ARK: Survival Ascended dedicated server management application built with Tauri, React, and Rust.**
+**A professional-grade dedicated server management application for both ARK: Survival Ascended (ASA) and ARK: Survival Evolved (ASE), built with Tauri, React, and Rust.**
 
 [Features](#-features) • [Installation](#-installation) • [Discord](https://discord.gg/Pr69DHEnXJ) • [Development](#-development) • [Contributing](#-contributing)
 
@@ -24,8 +24,9 @@
 - **Smart Troubleshooting** - Real-time log parsing and fix recommendations using NVIDIA's Llama models
 
 ### 🖥️ Server Management
+- **Multi-Game Support** - Manage dedicated servers for both **ARK: Survival Ascended (ASA)** and **ARK: Survival Evolved (ASE)**
 - **Visual Cluster Builder** - Drag-and-drop UI to link and manage cross-ARK clusters easily
-- **One-Click Server Deployment** - Install and configure ASA dedicated servers effortlessly
+- **One-Click Server Deployment** - Install and configure dedicated servers effortlessly
 - **Real-time Server Control** - Start, stop, and restart servers with instant feedback
 - **Embedded Console** - View live server logs directly in the app with color-coded output
 - **Auto-hiding Console Window** - Server console runs in background, no popup windows
@@ -37,8 +38,8 @@
 - **Connection Info** - Quick copy IP and port for sharing with players
 
 ### 🎮 Advanced Configuration
-- **Map Selection** - Support for all official ASA maps
-- **Mod Integration** - CurseForge mod browser and installer
+- **Map Selection** - Support for all official maps for both ASA and ASE
+- **Mod Integration** - CurseForge mod browser and installer for ASA; Steam Workshop mod support for ASE
 - **RCON Console** - Send commands directly to your server
 - **Config Editor** - Edit GameUserSettings.ini and Game.ini
 
