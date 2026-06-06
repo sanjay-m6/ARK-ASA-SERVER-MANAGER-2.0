@@ -1305,6 +1305,7 @@ export default function ConfigEditor() {
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [activeCategory, setActiveCategory] = useState<string>('server');
+    const [activeFileFilter, setActiveFileFilter] = useState<'GameUserSettings' | 'Game'>('GameUserSettings');
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'visual' | 'gus' | 'game' | 'levels' | 'stats' | 'anti-cheat' | 'advanced'>('visual');
 
@@ -1605,8 +1606,11 @@ export default function ConfigEditor() {
 
     const filteredGroups = useMemo(() => {
         let groups = categories.find(c => c.category === activeCategory)?.groups || [];
+        // Filter groups by activeFileFilter
+        groups = groups.filter(g => g.source === activeFileFilter);
+
         if (searchQuery) {
-            const allGroups = categories.flatMap(c => c.groups);
+            const allGroups = categories.flatMap(c => c.groups).filter(g => g.source === activeFileFilter);
             const search = searchQuery.toLowerCase();
             return allGroups.filter(g =>
                 g.title.toLowerCase().includes(search) ||
@@ -1617,7 +1621,7 @@ export default function ConfigEditor() {
             }));
         }
         return groups;
-    }, [activeCategory, searchQuery, categories]);
+    }, [activeCategory, activeFileFilter, searchQuery, categories]);
 
     // Preset handler
     const handleApplyPreset = (preset: ConfigPreset) => {
@@ -1797,11 +1801,11 @@ export default function ConfigEditor() {
                 </div>
 
                 {/* Navigation Tabs - Modern Pill Style */}
-                <div className="flex items-center gap-2 bg-[#0d0d1a] p-2 rounded-2xl self-start border border-[#1e1e3a]">
+                <div className="flex items-center gap-2 bg-[#0d0d1a] p-2 rounded-2xl self-start border border-[#1e1e3a] max-w-full overflow-x-auto scrollbar-thin">
                     <button
                         onClick={handleSwitchToVisual}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
                             viewMode === 'visual'
                                 ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/30"
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
@@ -1812,7 +1816,7 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => handleSwitchToRaw('gus')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
                             viewMode === 'gus'
                                 ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/30"
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
@@ -1823,7 +1827,7 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => handleSwitchToRaw('game')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
                             viewMode === 'game'
                                 ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30"
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
@@ -1834,7 +1838,7 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => setViewMode('levels')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
                             viewMode === 'levels'
                                 ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30"
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
@@ -1845,7 +1849,7 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => setViewMode('stats')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
                             viewMode === 'stats'
                                 ? "bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-500/30"
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
@@ -1856,7 +1860,7 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => setViewMode('anti-cheat')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
                             viewMode === 'anti-cheat'
                                 ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30"
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
@@ -1867,7 +1871,7 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => setViewMode('advanced')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
                             viewMode === 'advanced'
                                 ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/30"
                                 : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
@@ -1924,25 +1928,66 @@ export default function ConfigEditor() {
                                             />
                                         </div>
                                     </div>
-                                    <div className="p-3 space-y-2">
-                                        {categories.map(({ category, info }) => (
-                                            <button
-                                                key={category}
-                                                onClick={() => {
-                                                    setActiveCategory(category);
-                                                    setSearchQuery('');
-                                                }}
-                                                className={cn(
-                                                    "w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-semibold transition-all duration-300",
-                                                    activeCategory === category && !searchQuery
-                                                        ? `bg-gradient-to-r ${info.color} text-white shadow-lg`
-                                                        : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
-                                                )}
-                                            >
-                                                <span className="text-lg">{info.icon}</span>
-                                                <span>{info.label}</span>
-                                            </button>
-                                        ))}
+                                    <div className="p-3 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+                                        {/* GameUserSettings.ini Section */}
+                                        <div className="flex flex-col gap-1.5 text-left">
+                                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 mb-1">GameUserSettings.ini (GUS)</h3>
+                                            {categories
+                                                .filter(c => c.groups.some(g => g.source === 'GameUserSettings'))
+                                                .map(({ category, info }) => {
+                                                    const isActive = activeCategory === category && activeFileFilter === 'GameUserSettings' && !searchQuery;
+                                                    return (
+                                                        <button
+                                                            key={`${category}-GUS`}
+                                                            onClick={() => {
+                                                                setActiveCategory(category);
+                                                                setActiveFileFilter('GameUserSettings');
+                                                                setSearchQuery('');
+                                                            }}
+                                                            className={cn(
+                                                                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 border text-left group",
+                                                                isActive
+                                                                    ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-[inset_3px_0_0_0_#8b5cf6]"
+                                                                    : "bg-transparent border-transparent text-slate-400 hover:bg-[#1a1a2e] hover:text-white"
+                                                            )}
+                                                        >
+                                                            <span className="text-base group-hover:scale-110 transition-transform duration-300">{info.icon}</span>
+                                                            <span>{info.label}</span>
+                                                        </button>
+                                                    );
+                                                })
+                                            }
+                                        </div>
+
+                                        {/* Game.ini Section */}
+                                        <div className="flex flex-col gap-1.5 text-left">
+                                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 mb-1">Game.ini Settings</h3>
+                                            {categories
+                                                .filter(c => c.groups.some(g => g.source === 'Game'))
+                                                .map(({ category, info }) => {
+                                                    const isActive = activeCategory === category && activeFileFilter === 'Game' && !searchQuery;
+                                                    return (
+                                                        <button
+                                                            key={`${category}-Game`}
+                                                            onClick={() => {
+                                                                setActiveCategory(category);
+                                                                setActiveFileFilter('Game');
+                                                                setSearchQuery('');
+                                                            }}
+                                                            className={cn(
+                                                                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 border text-left group",
+                                                                isActive
+                                                                    ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-[inset_3px_0_0_0_#6366f1]"
+                                                                    : "bg-transparent border-transparent text-slate-400 hover:bg-[#1a1a2e] hover:text-white"
+                                                            )}
+                                                        >
+                                                            <span className="text-base group-hover:scale-110 transition-transform duration-300">{info.icon}</span>
+                                                            <span>{info.label}</span>
+                                                        </button>
+                                                    );
+                                                })
+                                            }
+                                        </div>
                                     </div>
 
                                     {/* Resize Handle */}

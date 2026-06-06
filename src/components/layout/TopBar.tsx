@@ -7,7 +7,7 @@ import { cn } from '../../utils/helpers';
 import { useServerStore } from '../../stores/serverStore';
 import { useGameStore } from '../../stores/gameStore';
 import { usePublicIP } from '../../hooks/usePublicIP';
-import { manualCheckForUpdates, UpdateInfo } from '../UpdateChecker';
+import { UpdateInfo } from '../UpdateChecker';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Menu, Transition } from '@headlessui/react';
@@ -45,13 +45,7 @@ export default function TopBar() {
         let unlistenUpdate: UnlistenFn | null = null;
 
         const setupUpdateListener = async () => {
-            // Check for updates on mount
-            const result = await manualCheckForUpdates();
-            if (result.available && result.update) {
-                setUpdateAvailable(result.update);
-            }
-
-            // Listen for updates found by the background interval checker
+            // Listen for updates found by the UpdateChecker component
             unlistenUpdate = await listen<UpdateInfo>('update-found', (event) => {
                 setUpdateAvailable(event.payload);
             });

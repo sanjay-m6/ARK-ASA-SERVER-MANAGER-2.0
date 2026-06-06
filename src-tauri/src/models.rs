@@ -50,6 +50,7 @@ pub struct Server {
     pub auto_start: bool,
     pub auto_stop: bool,
     pub intelligent_mode: bool,
+    pub battleye: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -296,10 +296,10 @@ pub async fn delete_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> 
     let mut conn = db.get_connection().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    // Clear cluster_id on linked ase_servers
+    // Clear cluster_id on linked ase_servers (use empty string, not NULL — column is NOT NULL)
     if let Err(e) = tx.execute(
-        "UPDATE ase_servers SET cluster_id = NULL WHERE cluster_id = ?1",
-        [cluster_id],
+        "UPDATE ase_servers SET cluster_id = '' WHERE cluster_id = ?1",
+        [cluster_id.to_string()],
     ) {
         return Err(format!("Failed to unlink ase_servers: {}", e));
     }
@@ -385,10 +385,10 @@ pub async fn remove_ase_server_from_cluster(
     )
     .map_err(|e| e.to_string())?;
 
-    // Clear cluster_id on the server
+    // Clear cluster_id on the server (use empty string, not NULL — column is NOT NULL)
     conn.execute(
-        "UPDATE ase_servers SET cluster_id = NULL WHERE id = ?1 AND cluster_id = ?2",
-        rusqlite::params![server_id, cluster_id],
+        "UPDATE ase_servers SET cluster_id = '' WHERE id = ?1 AND cluster_id = ?2",
+        rusqlite::params![server_id, cluster_id.to_string()],
     )
     .map_err(|e| e.to_string())?;
 
@@ -704,6 +704,7 @@ pub async fn start_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> R
         String,
         Option<String>,
         Option<String>,
+        bool,
     )> = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -711,7 +712,7 @@ pub async fn start_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> R
         let mut stmt = conn
             .prepare(
                 "SELECT s.id, s.install_path, s.map_name, s.session_name, s.game_port, 
-                        s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address, s.custom_args
+                        s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address, s.custom_args, s.battleye
                  FROM ase_servers s
                  INNER JOIN ase_cluster_servers cs ON s.id = cs.server_id
                  WHERE cs.cluster_id = ?1 AND s.status = 'stopped'",
@@ -734,6 +735,7 @@ pub async fn start_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> R
                 row.get::<_, String>(9).unwrap_or_default(),
                 row.get::<_, Option<String>>(10).unwrap_or(None),
                 row.get::<_, Option<String>>(11).unwrap_or(None),
+                row.get::<_, i32>(12).unwrap_or(1) != 0,
             ));
         }
         result
@@ -753,6 +755,7 @@ pub async fn start_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> R
         admin_password,
         ip_address,
         custom_args,
+        battleye_enabled,
     ) in ase_servers
     {
         // Get enabled mods for this server
@@ -793,7 +796,7 @@ pub async fn start_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> R
 
         if let Err(e) = state.process_manager.start_server(
             server_id,
-            "ASA",
+            "ASE",
             &install_path,
             &map_name,
             &session_name,
@@ -808,6 +811,7 @@ pub async fn start_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> R
             Some(&cluster_dir),
             mods_option,
             custom_args.as_deref(),
+            battleye_enabled,
         ) {
             println!("  ⚠️ Failed to start server {}: {}", server_id, e);
         } else {

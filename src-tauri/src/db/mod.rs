@@ -357,6 +357,15 @@ impl Database {
             )?;
         }
 
+        // Add battleye column if missing
+        if !columns.contains(&"battleye".to_string()) {
+            println!("📦 Migration: Adding 'battleye' column to servers table");
+            conn.execute(
+                "ALTER TABLE servers ADD COLUMN battleye INTEGER DEFAULT 1",
+                [],
+            )?;
+        }
+
         // --- Anti-Cheat Config Migrations ---
         // Need to check anti_cheat_config columns
         let mut stmt_ac = conn.prepare("PRAGMA table_info(anti_cheat_config)")?;
@@ -665,7 +674,8 @@ impl Database {
                     mods TEXT,
                     custom_args TEXT,
                     rcon_enabled INTEGER DEFAULT 1,
-                    cluster_id INTEGER REFERENCES clusters(id) ON DELETE SET NULL
+                    cluster_id INTEGER REFERENCES clusters(id) ON DELETE SET NULL,
+                    battleye INTEGER DEFAULT 1
                 )",
                 [],
             )?;
@@ -676,8 +686,8 @@ impl Database {
             // If the user hasn't migrated, they have the ORIGINAL schema which HAS these columns.
             // So we select them.
             conn.execute(
-                "INSERT INTO servers (id, name, server_type, install_path, status, game_port, query_port, rcon_port, max_players, server_password, admin_password, map_name, session_name, motd, ip_address, created_at, last_started, auto_start, auto_stop, intelligent_mode, mods, custom_args, rcon_enabled, cluster_id)
-                 SELECT id, name, server_type, install_path, status, game_port, query_port, rcon_port, max_players, server_password, admin_password, map_name, session_name, motd, ip_address, created_at, last_started, auto_start, auto_stop, intelligent_mode, mods, custom_args, rcon_enabled, cluster_id
+                "INSERT INTO servers (id, name, server_type, install_path, status, game_port, query_port, rcon_port, max_players, server_password, admin_password, map_name, session_name, motd, ip_address, created_at, last_started, auto_start, auto_stop, intelligent_mode, mods, custom_args, rcon_enabled, cluster_id, battleye)
+                 SELECT id, name, server_type, install_path, status, game_port, query_port, rcon_port, max_players, server_password, admin_password, map_name, session_name, motd, ip_address, created_at, last_started, auto_start, auto_stop, intelligent_mode, mods, custom_args, rcon_enabled, cluster_id, COALESCE(battleye, 1)
                  FROM servers_old",
                 [],
             )?;
@@ -747,6 +757,16 @@ impl Database {
         if !columns.contains(&"motd".to_string()) {
             println!("📦 Repair Migration: Restoring 'motd'");
             conn.execute("ALTER TABLE servers ADD COLUMN motd TEXT", [])?;
+            changes_made = true;
+        }
+
+        // battleye
+        if !columns.contains(&"battleye".to_string()) {
+            println!("📦 Repair Migration: Restoring 'battleye'");
+            conn.execute(
+                "ALTER TABLE servers ADD COLUMN battleye INTEGER DEFAULT 1",
+                [],
+            )?;
             changes_made = true;
         }
 

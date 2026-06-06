@@ -190,7 +190,7 @@ function CustomColorPicker({ value, onChange, className }: CustomColorPickerProp
 
     const presets = [
         '#EF4444', '#F97316', '#F59E0B', '#10B981', 
-        '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6', 
+        '#06B6D4', '#3B82F6', '#0EA5E9', '#14B8A6', 
         '#EC4899', '#F43F5E', '#FFFFFF', '#94A3B8',
         '#64748B', '#475569', '#334155', '#1E293B'
     ];
@@ -887,7 +887,7 @@ export default function InfinityDamage() {
                         <div className="glass-panel p-5 rounded-2xl border border-cyan-500/20 bg-[#060B13]/85 relative overflow-hidden shadow-2xl h-80 flex flex-col justify-between">
                             {/* Watermark Branding */}
                             <div className="absolute inset-0 pointer-events-none select-none flex flex-col items-center justify-center opacity-[0.03]">
-                                <h1 className="text-5xl font-black tracking-widest text-white uppercase">Infinity</h1>
+                                <div className="text-5xl font-black tracking-widest text-white uppercase font-display">Infinity</div>
                                 <p className="text-xs text-white">Floating Damage Engine</p>
                             </div>
 
@@ -1836,7 +1836,7 @@ export default function InfinityDamage() {
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                             {Object.entries(config.RarityColors || {
                                                 Primitive: '#FFFFFF', Ramshackle: '#22C55E', Apprentice: '#3B82F6',
-                                                Journeyman: '#A855F7', Mastercraft: '#EAB308', Ascendant: '#EF4444'
+                                                Journeyman: '#818CF8', Mastercraft: '#EAB308', Ascendant: '#EF4444'
                                             }).map(([rarity, color]) => (
                                                 <div key={rarity} className="p-2.5 bg-slate-950/40 rounded-lg border border-white/5 flex flex-col gap-1.5">
                                                     <span className="text-[10px] text-slate-400 font-bold uppercase">{rarity}</span>

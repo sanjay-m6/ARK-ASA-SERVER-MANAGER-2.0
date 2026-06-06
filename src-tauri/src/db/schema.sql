@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS servers (
     auto_restart INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_started TIMESTAMP,
+    battleye INTEGER NOT NULL DEFAULT 1,
     UNIQUE(name)
 );
 

@@ -370,31 +370,148 @@ impl RconService {
     pub fn spawn_heartbeat(&self, app_handle: tauri::AppHandle) {
         let service = self.clone();
         tauri::async_runtime::spawn(async move {
-            log::info!("[RCON] Starting background keep-alive heartbeat task...");
-            let mut interval = tokio::time::interval(Duration::from_secs(60));
+            log::info!("[RCON] Starting background player count heartbeat task...");
+            // Initial delay to let servers finish starting
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            let mut interval = tokio::time::interval(Duration::from_secs(30));
 
             loop {
                 interval.tick().await;
 
-                let server_ids: Vec<i64> = {
-                    let sessions = service.sessions.lock().await;
-                    sessions.keys().cloned().collect()
+                // Step 1: Query DB for all running/online servers with RCON enabled
+                let servers_to_poll: Vec<(i64, String, u16, String)> = {
+                    let state_opt = app_handle.try_state::<crate::AppState>();
+                    if let Some(state) = state_opt {
+                        if let Ok(db) = state.db.lock() {
+                            if let Ok(conn) = db.get_connection() {
+                                let mut stmt = match conn.prepare(
+                                    "SELECT id, COALESCE(ip_address, '127.0.0.1') AS ip_address, rcon_port, admin_password \
+                                     FROM servers \
+                                     WHERE status IN ('running', 'online') \
+                                       AND rcon_enabled = 1 \
+                                       AND admin_password IS NOT NULL \
+                                       AND admin_password != '' \
+                                     UNION ALL \
+                                     SELECT -id AS id, '127.0.0.1' AS ip_address, rcon_port, admin_password \
+                                     FROM ase_servers \
+                                     WHERE status IN ('running', 'online') \
+                                       AND admin_password IS NOT NULL \
+                                       AND admin_password != ''"
+                                ) {
+                                    Ok(s) => s,
+                                    Err(e) => {
+                                        log::warn!("[RCON Heartbeat] Failed to prepare query: {}", e);
+                                        continue;
+                                    }
+                                };
+                                let rows = stmt.query_map([], |row| {
+                                    Ok((
+                                        row.get::<_, i64>(0)?,
+                                        row.get::<_, String>(1)?,
+                                        row.get::<_, u16>(2)?,
+                                        row.get::<_, String>(3)?,
+                                    ))
+                                });
+                                match rows {
+                                    Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
+                                    Err(_) => Vec::new(),
+                                }
+                            } else {
+                                Vec::new()
+                            }
+                        } else {
+                            Vec::new()
+                        }
+                    } else {
+                        Vec::new()
+                    }
                 };
 
-                if server_ids.is_empty() {
+                if servers_to_poll.is_empty() {
+                    // Clear player intelligence for all servers when none are running
                     continue;
                 }
 
-                for server_id in server_ids {
-                    // We use send_command here because it already has auto-reconnect logic!
-                    // Sending a simple 'ListPlayers' acts as a perfect keep-alive.
-                    if let Ok(response) = service.send_command(server_id, "ListPlayers").await {
-                        if let Some(data) = response.data {
-                            let players = parse_player_list(&data);
-                            let player_intel = app_handle.state::<Arc<crate::services::player_intelligence::PlayerIntelligenceService>>();
-                            player_intel.inner().sync_players(server_id, players).await;
+                // Step 2: For each running server, auto-connect if needed, then poll ListPlayers
+                for (server_id, address, rcon_port, password) in &servers_to_poll {
+                    // Sanitize password (same as rcon_connect command)
+                    let clean_password = password
+                        .split("?ServerPassword=")
+                        .next()
+                        .unwrap_or(password)
+                        .to_string();
+
+                    // Auto-connect if no active session exists
+                    if !service.is_connected(*server_id).await {
+                        log::info!(
+                            "[RCON Heartbeat] Auto-connecting to server {} at {}:{} for player tracking",
+                            server_id, address, rcon_port
+                        );
+                        // Use a single attempt (not full retry loop) to avoid blocking the heartbeat
+                        let addr = format!("{}:{}", address, rcon_port);
+                        match crate::services::ark_rcon::ArkRconClient::connect(&addr, &clean_password).await {
+                            Ok(conn) => {
+                                let mut sessions = service.sessions.lock().await;
+                                sessions.insert(
+                                    *server_id,
+                                    RconSession {
+                                        connection: conn,
+                                        address: address.clone(),
+                                        port: *rcon_port,
+                                        password: clean_password.clone(),
+                                    },
+                                );
+                                log::info!(
+                                    "[RCON Heartbeat] Auto-connected to server {} for player tracking",
+                                    server_id
+                                );
+                            }
+                            Err(e) => {
+                                log::debug!(
+                                    "[RCON Heartbeat] Could not auto-connect to server {}: {} (will retry next cycle)",
+                                    server_id, e
+                                );
+                                continue;
+                            }
                         }
                     }
+
+                    // Now poll ListPlayers
+                    match service.send_command(*server_id, "ListPlayers").await {
+                        Ok(response) => {
+                            if let Some(data) = response.data {
+                                let players = parse_player_list(&data);
+                                let player_intel = app_handle.state::<Arc<crate::services::player_intelligence::PlayerIntelligenceService>>();
+                                player_intel.inner().sync_players(*server_id, players).await;
+                            }
+                        }
+                        Err(e) => {
+                            log::debug!(
+                                "[RCON Heartbeat] ListPlayers failed for server {}: {}",
+                                server_id, e
+                            );
+                        }
+                    }
+                }
+
+                // Step 3: Clean up sessions for servers that are no longer running
+                let running_ids: std::collections::HashSet<i64> = servers_to_poll.iter().map(|(id, _, _, _)| *id).collect();
+                let stale_ids: Vec<i64> = {
+                    let sessions = service.sessions.lock().await;
+                    sessions.keys()
+                        .filter(|id| !running_ids.contains(id))
+                        .cloned()
+                        .collect()
+                };
+
+                for stale_id in stale_ids {
+                    // Clear player sessions for stopped servers
+                    let player_intel = app_handle.state::<Arc<crate::services::player_intelligence::PlayerIntelligenceService>>();
+                    player_intel.inner().clear_server_sessions(stale_id).await;
+
+                    // Remove RCON session
+                    let mut sessions = service.sessions.lock().await;
+                    sessions.remove(&stale_id);
                 }
             }
         });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bot, Send, Trash2, Loader2, CheckCircle, XCircle, AlertTriangle, Sparkles, Wrench, Zap, Server, Shield, Rocket, Radio, FileText, Database, Users, Calendar, Search, Save, Navigation, Brain, Plus, MessageSquare, Pin, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { listen } from '@tauri-apps/api/event';
@@ -293,7 +293,7 @@ function ToolResultBadge({ success, name }: { success: boolean; name: string }) 
 
 const MarkdownComponents: import('react-markdown').Components = {
     p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed text-slate-200">{children}</p>,
-    h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2 mt-4 first:mt-0">{children}</h1>,
+    h1: ({ children }) => React.createElement('h1', { className: "text-lg font-bold text-white mb-2 mt-4 first:mt-0" }, children),
     h2: ({ children }) => <h2 className="text-base font-bold text-white mb-2 mt-3 first:mt-0">{children}</h2>,
     h3: ({ children }) => <h3 className="text-sm font-bold text-white mb-1 mt-2 first:mt-0">{children}</h3>,
     ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1 text-slate-300">{children}</ul>,

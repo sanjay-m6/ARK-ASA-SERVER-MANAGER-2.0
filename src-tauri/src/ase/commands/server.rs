@@ -1191,7 +1191,7 @@ pub async fn clone_ase_server(
         name,
         install_path,
         map_name,
-        session_name,
+        _session_name,
         port,
         query_port,
         rcon_port,

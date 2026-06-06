@@ -21,7 +21,7 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
         .prepare(
             "SELECT id, name, install_path, status, game_port, query_port, rcon_port, max_players, 
           server_password, admin_password, ip_address, created_at, last_started, 
-          auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args, server_type FROM servers",
+          auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args, server_type, battleye FROM servers",
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
 
@@ -44,6 +44,7 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
         let auto_start: i32 = row.get(13).unwrap_or(0);
         let auto_stop: i32 = row.get(14).unwrap_or(0);
         let intelligent_mode: i32 = row.get(15).unwrap_or(0);
+        let battleye: i32 = row.get(20).unwrap_or(1);
 
         servers.push(Server {
             id: row.get(0).map_err(|e| e.to_string())?,
@@ -76,6 +77,7 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
             auto_start: auto_start != 0,
             auto_stop: auto_stop != 0,
             intelligent_mode: intelligent_mode != 0,
+            battleye: battleye != 0,
         });
     }
 
@@ -126,7 +128,7 @@ pub async fn get_server_by_id(
         .prepare(
             "SELECT id, name, install_path, status, game_port, query_port, rcon_port, max_players, 
          server_password, admin_password, ip_address, created_at, last_started, 
-         auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args, server_type FROM servers WHERE id = ?1",
+         auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args, server_type, battleye FROM servers WHERE id = ?1",
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
 
@@ -148,6 +150,7 @@ pub async fn get_server_by_id(
         let auto_start: i32 = row.get(13).unwrap_or(0);
         let auto_stop: i32 = row.get(14).unwrap_or(0);
         let intelligent_mode: i32 = row.get(15).unwrap_or(0);
+        let battleye: i32 = row.get(20).unwrap_or(1);
 
         let server = Server {
             id: row.get(0).map_err(|e| e.to_string())?,
@@ -180,6 +183,7 @@ pub async fn get_server_by_id(
             auto_start: auto_start != 0,
             auto_stop: auto_stop != 0,
             intelligent_mode: intelligent_mode != 0,
+            battleye: battleye != 0,
         };
         Ok(Some(server))
     } else {
@@ -352,8 +356,8 @@ pub async fn install_server(
 
         conn.execute(
             "INSERT INTO servers (name, install_path, status, game_port, query_port, rcon_port, 
-             max_players, admin_password, server_password, map_name, session_name, server_type, custom_args) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+             max_players, admin_password, server_password, map_name, session_name, server_type, custom_args, battleye) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             (
                 &unique_name,
                 &install_path,
@@ -368,6 +372,7 @@ pub async fn install_server(
                 &effective_session_name,
                 &server_type, // Server type - ARK: Survival Ascended or Evolved
                 &custom_args,
+                1, // default to enabled (1)
             ),
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
@@ -411,6 +416,7 @@ pub async fn install_server(
         auto_start: false, // Default: OFF
         auto_stop: false,  // Default: OFF
         intelligent_mode: false,
+        battleye: true,
     };
 
     // Attempt to create firewall rules (Best Effort)
@@ -518,6 +524,7 @@ pub async fn clone_server(
         admin_password,
         ip_address,
         server_type,
+        battleye,
     ) = {
         let db = state
             .db
@@ -529,7 +536,7 @@ pub async fn clone_server(
 
         conn.query_row(
             "SELECT name, install_path, map_name, session_name, game_port, query_port, rcon_port,
-             max_players, server_password, admin_password, ip_address, server_type FROM servers WHERE id = ?1",
+             max_players, server_password, admin_password, ip_address, server_type, battleye FROM servers WHERE id = ?1",
             [source_server_id],
             |row| {
                 Ok((
@@ -545,6 +552,7 @@ pub async fn clone_server(
                     row.get::<_, String>(9)?,
                     row.get::<_, Option<String>>(10)?,
                     row.get::<_, String>(11).unwrap_or_else(|_| "ASA".to_string()),
+                    row.get::<_, i32>(12).unwrap_or(1) != 0,
                 ))
             },
         )
@@ -627,8 +635,8 @@ pub async fn clone_server(
 
         conn.execute(
             "INSERT INTO servers (name, install_path, status, game_port, query_port, rcon_port,
-             max_players, admin_password, map_name, session_name, server_password, ip_address, server_type)
-             VALUES (?1, ?2, 'stopped', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+             max_players, admin_password, map_name, session_name, server_password, ip_address, server_type, battleye)
+             VALUES (?1, ?2, 'stopped', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             rusqlite::params![
                 new_name,
                 new_install_path.to_string_lossy(),
@@ -641,7 +649,8 @@ pub async fn clone_server(
                 new_name.clone(),
                 server_password,
                 ip_address,
-                server_type.clone()
+                server_type.clone(),
+                if battleye { 1 } else { 0 },
             ],
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
@@ -686,6 +695,7 @@ pub async fn clone_server(
         auto_start: false,
         auto_stop: false,
         intelligent_mode: false,
+        battleye,
     })
 }
 
@@ -1007,6 +1017,7 @@ async fn perform_server_startup(
         cluster_path,
         custom_args,
         server_type,
+        battleye,
     ): (
         String,
         String,
@@ -1023,6 +1034,7 @@ async fn perform_server_startup(
         Option<String>,
         Option<String>,
         String,
+        bool,
     ) = {
         let db = state
             .db
@@ -1035,7 +1047,7 @@ async fn perform_server_startup(
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address, s.cluster_id,
-             c.name, c.cluster_path, s.custom_args, s.server_type
+             c.name, c.cluster_path, s.custom_args, s.server_type, s.battleye
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
@@ -1057,6 +1069,7 @@ async fn perform_server_startup(
                     row.get::<usize, Option<String>>(12)?,
                     row.get::<usize, Option<String>>(13)?,
                     row.get::<usize, String>(14).unwrap_or_else(|_| "ASA".to_string()),
+                    row.get::<usize, i32>(15).unwrap_or(1) != 0,
                 ))
             },
         )
@@ -1241,6 +1254,7 @@ async fn perform_server_startup(
             cluster_path.as_deref() as Option<&str>,
             mods_option,
             custom_args.as_deref() as Option<&str>,
+            battleye,
         )
         .map_err(|e: AnyhowError| {
             println!("  ❌ [Debug] Process Manager failed to start: {}", e);
@@ -1297,6 +1311,7 @@ pub async fn start_server_no_mods(
         cluster_path,
         custom_args,
         server_type,
+        battleye,
     ): (
         String,
         String,
@@ -1312,6 +1327,7 @@ pub async fn start_server_no_mods(
         Option<String>,
         Option<String>,
         String,
+        bool,
     ) = {
         let db = state
             .db
@@ -1325,7 +1341,7 @@ pub async fn start_server_no_mods(
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address,
-             c.name, c.cluster_path, s.custom_args, s.server_type
+             c.name, c.cluster_path, s.custom_args, s.server_type, s.battleye
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
@@ -1346,6 +1362,7 @@ pub async fn start_server_no_mods(
                     row.get::<usize, Option<String>>(11)?,
                     row.get::<usize, Option<String>>(12)?,
                     row.get::<usize, String>(13).unwrap_or_else(|_| "ASA".to_string()),
+                    row.get::<usize, i32>(14).unwrap_or(1) != 0,
                 ))
             },
         )
@@ -1414,6 +1431,7 @@ pub async fn start_server_no_mods(
             cluster_path.as_deref() as Option<&str>,
             None, // No mods
             custom_args.as_deref() as Option<&str>,
+            battleye,
         )
         .map_err(|e: AnyhowError| e.to_string())?;
 
@@ -1580,6 +1598,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
         cluster_name,
         cluster_path,
         custom_args,
+        battleye,
     ) = {
         let db = state
             .db
@@ -1592,7 +1611,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address,
-             c.name, c.cluster_path, s.custom_args
+             c.name, c.cluster_path, s.custom_args, s.battleye
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
@@ -1612,6 +1631,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
                     row.get::<_, Option<String>>(10)?,
                     row.get::<_, Option<String>>(11)?,
                     row.get::<_, Option<String>>(12)?,
+                    row.get::<_, i32>(13).unwrap_or(1) != 0,
                 ))
             },
         )
@@ -1679,6 +1699,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
             cluster_path.as_deref() as Option<&str>,
             mods_option,
             custom_args.as_deref() as Option<&str>,
+            battleye,
         )
         .map_err(|e: AnyhowError| e.to_string())?;
 
@@ -1736,6 +1757,7 @@ pub async fn update_server_settings(
     rcon_port: Option<u16>,
     ip_address: Option<String>,
     custom_args: Option<String>,
+    battleye: Option<bool>,
 ) -> Result<(), String> {
     println!("⚙️ Updating server settings for server {}", server_id);
 
@@ -1793,6 +1815,10 @@ pub async fn update_server_settings(
     if let Some(v) = custom_args {
         updates.push("custom_args = ?");
         params.push(Box::new(v));
+    }
+    if let Some(v) = battleye {
+        updates.push("battleye = ?");
+        params.push(Box::new(if v { 1 } else { 0 }));
     }
 
     if updates.is_empty() {
@@ -3153,6 +3179,7 @@ pub async fn import_server(
         auto_start: false,
         auto_stop: false,
         intelligent_mode: false,
+        battleye: true,
     })
 }
 

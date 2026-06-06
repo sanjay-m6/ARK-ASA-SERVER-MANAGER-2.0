@@ -76,7 +76,7 @@ const ModImage = ({ mod, className }: { mod: any; className?: string }) => {
   return (
     <img 
       src={src} 
-      alt="" 
+      alt="Mod Thumbnail" 
       className={className} 
       onError={() => setHasError(true)} 
     />
@@ -880,7 +880,7 @@ export default function ASEModManager() {
                               {getModImageSrc(mod) ? (
                                 <img 
                                   src={getModImageSrc(mod)} 
-                                  alt="" 
+                                  alt="Mod Preview" 
                                   loading="lazy" 
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90" 
                                 />
@@ -968,7 +968,7 @@ export default function ASEModManager() {
                           {getModImageSrc(mod) ? (
                             <img 
                               src={getModImageSrc(mod)} 
-                              alt="" 
+                              alt="Mod Preview" 
                               loading="lazy" 
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90" 
                             />
@@ -1780,7 +1780,7 @@ export default function ASEModManager() {
                 {getModImageSrc(selectedModDetail) ? (
                   <img 
                     src={getModImageSrc(selectedModDetail)} 
-                    alt="" 
+                    alt="Mod Detail Header" 
                     className="w-full h-full object-cover opacity-80" 
                   />
                 ) : (

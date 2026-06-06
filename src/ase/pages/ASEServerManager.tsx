@@ -29,6 +29,8 @@ export default function ASEServerManager() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedServers, setSelectedServers] = useState<number[]>([]);
   const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
+  const [editingServerId, setEditingServerId] = useState<number | null>(null);
+  const [editServerName, setEditServerName] = useState('');
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -195,12 +197,48 @@ export default function ASEServerManager() {
     }
   };
 
+  const handleRenameStart = (server: AseServer, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingServerId(server.id);
+    setEditServerName(server.name);
+  };
+
+  const handleRenameSave = async (server: AseServer) => {
+    if (editingServerId === server.id) {
+      const trimmed = editServerName.trim();
+      if (!trimmed) {
+        toast.error(t('serverManager.errors.emptyName', 'Server name cannot be empty.'));
+        setEditingServerId(null);
+        return;
+      }
+      try {
+        await updateAseServer(server.id, { name: trimmed });
+        setServers(servers.map(s => s.id === server.id ? { ...s, name: trimmed } : s));
+        toast.success(t('serverManager.nameUpdated', 'Server name updated successfully.'));
+      } catch (err) {
+        console.error('Failed to rename server:', err);
+        toast.error(t('serverManager.renameFailed', 'Failed to rename server.'));
+      } finally {
+        setEditingServerId(null);
+      }
+    }
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent, server: AseServer) => {
+    if (e.key === 'Enter') {
+      handleRenameSave(server);
+    } else if (e.key === 'Escape') {
+      setEditingServerId(null);
+    }
+  };
+
   const handleCloneServer = async () => {
     if (!cloneModalServer) return;
     try {
       const newServer = await cloneAseServer(cloneModalServer.id);
       setServers([...servers, newServer]);
       toast.success(t('serverManager.serverCloned', 'Server cloned successfully: {{name}}', { name: newServer.name }));
+      setCloneModalServer(null);
     } catch (error) {
       toast.error(t('serverManager.cloneFailed', 'Clone failed: {{error}}', { error }));
     }
@@ -324,7 +362,7 @@ export default function ASEServerManager() {
 
       {/* Search Bar */}
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 z-10 pointer-events-none" />
         <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search servers by name or map..." className="w-full pl-12 pr-4 py-3.5 bg-slate-800/30 backdrop-blur-sm border border-slate-700/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all shadow-inner" />
       </div>
 
@@ -466,9 +504,26 @@ export default function ASEServerManager() {
 
                   <div>
                     <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-xl font-bold text-white group-hover:text-amber-400 transition-colors">
-                        {srv.name}
-                      </h3>
+                      {editingServerId === srv.id ? (
+                        <input
+                          type="text"
+                          value={editServerName}
+                          onChange={(e) => setEditServerName(e.target.value)}
+                          onKeyDown={(e) => handleRenameKeyDown(e, srv)}
+                          onBlur={() => handleRenameSave(srv)}
+                          autoFocus
+                          className="no-collapse text-xl font-bold bg-slate-900 border border-amber-500/50 rounded px-2 py-0.5 text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 min-w-[200px]"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <h3
+                          className="text-xl font-bold text-white group-hover:text-amber-400 transition-colors"
+                          onDoubleClick={(e) => handleRenameStart(srv, e)}
+                          title={t('serverManager.tooltips.doubleClickToRename', 'Double-click to rename')}
+                        >
+                          {srv.name}
+                        </h3>
+                      )}
                       <span className={cn(
                           'px-2.5 py-0.5 rounded-full text-xs font-bold border flex items-center gap-1.5 shadow-inner',
                           srv.status === 'online' && 'bg-green-500/10 text-green-400 border-green-500/20',

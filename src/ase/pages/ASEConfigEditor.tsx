@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, RotateCcw, ChevronDown, ChevronUp, Check, Sparkles, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database, Loader2, Sliders, AlertTriangle, X } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Save, RotateCcw, ChevronDown, ChevronUp, Check, Sparkles, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database, Loader2, Sliders, AlertTriangle, X, ExternalLink, Copy, GraduationCap, BarChart3 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import ServerSelect from '../../components/ui/ServerSelect';
-import { readAseConfig, writeAseConfig, updateAseServer, getAseLaunchArguments, syncAseServerFromIni, getAseConfigDiagnostics, readAseIniRaw, writeAseIniRaw } from '../utils/aseCommands';
-import { AseGameConfig, AseDiagnostics } from '../types/ase.types';
+import { readAseConfig, writeAseConfig, updateAseServer, getAseLaunchArguments, syncAseServerFromIni, getAseConfigDiagnostics, readAseIniRaw, writeAseIniRaw, validateAseConfig } from '../utils/aseCommands';
+import { AseGameConfig, AseDiagnostics, ValidationResult } from '../types/ase.types';
 import { EngramOverridesEditor } from '../../components/config/EngramOverridesEditor';
 import { CraftingCostEditor } from '../../components/config/CraftingCostEditor';
+import { PresetSelector } from '../../components/config/PresetSelector';
+import { ArrayEditor } from '../../components/config/ArrayEditor';
+import { ConfigPreset, saveCustomPreset } from '../../data/presets';
 import { AseStatMultiplierEditor } from '../components/config/AseStatMultiplierEditor';
 import { AseLevelGenerator } from '../components/config/AseLevelGenerator';
 import ASEEnvironmentManager from './ASEEnvironmentManager';
@@ -30,11 +34,36 @@ const defaultConfig: AseGameConfig = {
   playerCharacterFoodDrainMultiplier: 1.0, playerCharacterWaterDrainMultiplier: 1.0, playerCharacterStaminaDrainMultiplier: 1.0,
   playerCharacterHealthRecoveryMultiplier: 1.0, playerDamageMultiplier: 1.0, playerResistanceMultiplier: 1.0,
   // Dino Stats
-  dinoCharacterFoodDrainMultiplier: 1.0, dinoCharacterHealthRecoveryMultiplier: 1.0, dinoDamageMultiplier: 1.0,
+  dinoCharacterFoodDrainMultiplier: 1.0, dinoCharacterHealthRecoveryMultiplier: 1.0, dinoCharacterStaminaDrainMultiplier: 1.0, dinoDamageMultiplier: 1.0,
   dinoResistanceMultiplier: 1.0, maxTamedDinos: 5000, dinoCountMultiplier: 1.0, wildDinoTorporDrainMultiplier: 1.0,
   tamedDinoTorporDrainMultiplier: 1.0, passiveTameIntervalMultiplier: 1.0, useSingleplayerSettings: false,
   disableDinoBreeding: false, allowUnclaimDinos: false, useDinoLevelUpAnimations: true, maxPersonalTamedDinos: 40,
   personalTamedDinosSaddleStructureCost: 0.0,
+  tamedDinoDamageMultiplier: 1.0,
+  tamedDinoResistanceMultiplier: 1.0,
+  bUseTameLimitForStructuresOnly: false,
+  bAllowRaidDinoFeeding: false,
+  raidDinoCharacterFoodDrainMultiplier: 1.0,
+  forceAllowCaveFlyers: false,
+  preventDinoMateBoost: false,
+  disableDinoDecayPve: false,
+  allowDinoLevelUpAnimation: true,
+  bAllowFlyingStaminaRecovery: false,
+  bAllowMultipleAttachedC4: false,
+  disableDinoDecayPvp: false,
+  bAllowFlyerSpeedLeveling: false,
+  bAllowUnclaimDinos: true,
+  bDisableDinoRiding: false,
+  bDisableDinoTaming: false,
+  bDisableDinoBreeding: false,
+  dinoSpawnWeightMultipliers: [],
+  dinoClassDamageMultipliers: [],
+  dinoClassResistanceMultipliers: [],
+  tamedDinoClassDamageMultipliers: [],
+  tamedDinoClassResistanceMultipliers: [],
+  npcReplacements: [],
+  preventDinoTameClassNames: [],
+  excludeDinoClasses: [],
   // Breeding
   eggHatchSpeedMultiplier: 1.0, babyMatureSpeedMultiplier: 1.0, babyCuddleIntervalMultiplier: 1.0,
   babyImprintAmountMultiplier: 1.0, matingIntervalMultiplier: 1.0, babyFoodConsumptionSpeedMultiplier: 1.0,
@@ -138,40 +167,48 @@ const defaultConfig: AseGameConfig = {
 type ConfigFile = 'GameUserSettings.ini' | 'Game.ini';
 type TabType = 'general' | 'rates' | 'player' | 'breeding' | 'structures' | 'pvp' | 'tribe' | 'transfer' | 'environment' | 'engrams' | 'admin' | 'advanced' | 'server_options' | 'search' | 'diagnostics' | 'stats' | 'levels';
 
-const FieldWrapper = memo(({ label, description, children, file }: { label: string; description?: string; children: React.ReactNode; file?: string }) => {
+const FieldWrapper = memo(({ label, description, children, file, layout = 'vertical' }: { label: string; description?: string; children: React.ReactNode; file?: string; layout?: 'horizontal' | 'vertical' }) => {
   return (
-    <div className="py-5 border-b border-white/5 last:border-0 group relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 hover:bg-white/[0.02] px-4 -mx-4 rounded-xl transition-colors">
-      <div className="flex-1 min-w-0 z-10">
-        <div className="text-slate-200 font-semibold tracking-wide flex items-center gap-2 mb-1 text-sm">{label}</div>
-        {description && <div className="text-[13px] text-slate-400 leading-relaxed">{description}</div>}
+    <div className={cn(
+      "p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:scale-[1.01] hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] group relative flex flex-col justify-between gap-4 w-full min-h-[120px]",
+      layout === 'horizontal' ? "sm:flex-row sm:items-start" : "flex-col"
+    )}>
+      <div className="flex-1 min-w-0 z-10 text-left">
+        <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1.5 text-sm group-hover:text-white transition-colors">{label}</div>
+        {description && <div className="text-xs text-slate-400 leading-relaxed font-medium">{description}</div>}
         {file && (
-          <div className="mt-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800 text-[9px] uppercase font-bold text-slate-400 border border-slate-700">
+          <div className="mt-3 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 text-[9px] uppercase font-black text-slate-400 border border-slate-800/80">
             {file}
           </div>
         )}
       </div>
-      <div className="w-full sm:w-64 shrink-0 z-10 flex justify-end">{children}</div>
+      <div className={cn(
+        "z-10",
+        layout === 'horizontal' ? "w-auto shrink-0 flex justify-end items-start" : "w-full"
+      )}>
+        {children}
+      </div>
     </div>
   );
 });
 FieldWrapper.displayName = 'FieldWrapper';
 
 const Toggle = memo(({ label, value, onChange, desc, file }: { label: string; value: boolean; onChange: (v: boolean) => void; desc?: string; file?: string }) => (
-  <FieldWrapper label={label} description={desc} file={file}>
+  <FieldWrapper label={label} description={desc} file={file} layout="horizontal">
     <button
       type="button"
       onClick={(e) => { e.preventDefault(); onChange(!value); }}
       className={cn(
-        "relative w-11 h-6 rounded-full transition-colors duration-300 focus:outline-none flex-shrink-0 ml-auto block",
+        "relative w-14 h-7 rounded-full transition-all duration-300 focus:outline-none flex-shrink-0 mt-1",
         value
-          ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
-          : "bg-slate-700"
+          ? "bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30"
+          : "bg-slate-800 border border-slate-700/50"
       )}
     >
       <span
         className={cn(
-          "block w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform duration-300 mt-0.5 ml-0.5",
-          value ? "translate-x-5" : "translate-x-0"
+          "block w-5 h-5 rounded-full bg-white shadow-lg transform transition-all duration-300",
+          value ? "translate-x-8" : "translate-x-1"
         )}
       />
     </button>
@@ -200,7 +237,7 @@ const NumberInput = memo(({ label, value, onChange, desc, step = 1, file }: { la
   };
 
   return (
-    <FieldWrapper label={label} description={desc} file={file}>
+    <FieldWrapper label={label} description={desc} file={file} layout="vertical">
       <input
         type="number"
         step={step}
@@ -208,7 +245,7 @@ const NumberInput = memo(({ label, value, onChange, desc, step = 1, file }: { la
         onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className="w-full bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 font-mono transition-all text-sm placeholder-slate-600 shadow-sm"
+        className="w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none font-mono transition-all text-sm placeholder-slate-600 shadow-inner"
       />
     </FieldWrapper>
   );
@@ -230,7 +267,7 @@ const TextInput = memo(({ label, value, onChange, desc, placeholder, file }: { l
   };
 
   return (
-    <FieldWrapper label={label} description={desc} file={file}>
+    <FieldWrapper label={label} description={desc} file={file} layout="vertical">
       <input
         type="text"
         value={localValue}
@@ -238,7 +275,7 @@ const TextInput = memo(({ label, value, onChange, desc, placeholder, file }: { l
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 font-mono transition-all text-sm placeholder-slate-600 shadow-sm"
+        className="w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none font-mono transition-all text-sm placeholder-slate-600 shadow-inner"
       />
     </FieldWrapper>
   );
@@ -355,10 +392,10 @@ const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, i
   };
 
   return (
-    <FieldWrapper label={label} description={desc} file={file}>
-      <div className="w-full flex flex-col gap-2">
+    <FieldWrapper label={label} description={desc} file={file} layout="vertical">
+      <div className="w-full flex flex-col">
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 bg-slate-950/60 p-2 rounded-t-xl border border-slate-800 border-b-0">
+        <div className="flex flex-wrap items-center gap-2 bg-slate-950/80 p-2.5 rounded-t-xl border border-slate-800/85 border-b-0">
           <span className="text-[10px] uppercase font-bold text-slate-500 select-none mr-1">MOTD Colors:</span>
           {[
             { name: 'Red', color: '1,0,0,1', bg: 'bg-red-500' },
@@ -380,11 +417,11 @@ const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, i
               title={`Format selection to ${c.name}`}
             />
           ))}
-          <div className="h-4 w-px bg-slate-800 mx-1" />
+          <div className="h-4 w-px bg-slate-850 mx-1" />
           <button
             type="button"
             onClick={insertNewline}
-            className="px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-750 text-[10px] font-bold transition-colors"
+            className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800/80 text-[10px] font-bold transition-colors"
             title="Insert literal newline \n tag"
           >
             + New Line (\n)
@@ -399,11 +436,11 @@ const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, i
           onBlur={handleBlur}
           placeholder={placeholder || 'Enter server welcome message... Use \\n for line breaks, or color presets above.'}
           rows={4}
-          className="w-full bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 rounded-b-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 font-mono transition-all text-sm placeholder-slate-650 shadow-sm resize-y min-h-[90px]"
+          className="w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 rounded-b-xl px-4 py-3 text-slate-200 focus:outline-none font-mono transition-all text-sm placeholder-slate-650 shadow-inner resize-y min-h-[90px]"
         />
 
         {/* Real-time Game Preview */}
-        <div className="mt-1 flex flex-col gap-1.5 bg-slate-950/40 border border-white/5 rounded-2xl p-4">
+        <div className="mt-2.5 flex flex-col gap-1.5 bg-slate-950/40 border border-white/5 rounded-2xl p-4">
           <div className="text-[10px] uppercase font-black text-slate-500 tracking-wider flex items-center justify-between">
             <span>In-Game Broadcast Preview</span>
             <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">Real-Time</span>
@@ -419,14 +456,14 @@ const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, i
 TextAreaInput.displayName = 'TextAreaInput';
 
 const SelectInput = memo(({ label, value, onChange, desc, options, file }: { label: string; value: string; onChange: (v: string) => void; desc?: string; options: { label: string; value: string }[]; file?: string }) => (
-  <FieldWrapper label={label} description={desc} file={file}>
+  <FieldWrapper label={label} description={desc} file={file} layout="vertical">
     <div className="relative">
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full appearance-none bg-slate-900/50 border border-slate-700/50 hover:border-slate-600 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all cursor-pointer text-sm font-medium shadow-sm"
+        className="w-full appearance-none bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 rounded-xl px-4 py-2.5 pr-10 text-slate-200 focus:outline-none transition-all cursor-pointer text-sm font-medium shadow-inner"
       >
-        {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+        {options.map(opt => <option key={opt.value} value={opt.value} className="bg-[#121225]">{opt.label}</option>)}
       </select>
       <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
     </div>
@@ -436,15 +473,20 @@ SelectInput.displayName = 'SelectInput';
 
 export default function ASEConfigEditor() {
   const { t } = useTranslation();
+  const location = useLocation();
   const { servers } = useAseServerStore();
   const [selectedServer, setSelectedServer] = useState<number | null>(servers[0]?.id || null);
 
   // Auto-select first server if none selected and servers are available
   useEffect(() => {
-    if (!selectedServer && servers.length > 0) {
+    if (location.state?.serverId && servers.some(s => s.id === location.state.serverId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedServer(location.state.serverId);
+    } else if (!selectedServer && servers.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedServer(servers[0].id);
     }
-  }, [servers, selectedServer]);
+  }, [servers, selectedServer, location.state]);
 
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [pendingServerSwitch, setPendingServerSwitch] = useState<number | null>(null);
@@ -455,11 +497,25 @@ export default function ASEConfigEditor() {
   const [searchQuery, setSearchQuery] = useState('');
   const [launchArgs, setLaunchArgs] = useState<string[]>([]);
   const [diagnostics, setDiagnostics] = useState<AseDiagnostics | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
   const [editorMode, setEditorMode] = useState<'visual' | 'raw'>('visual');
   const [rawIniContent, setRawIniContent] = useState<string>('');
   const [mapName, setMapName] = useState<string>('TheIsland');
 
   const [isLoading, setIsLoading] = useState(false);
+
+  // Sidebar resize and collapse states
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+
+  // Tab viewMode state
+  const [viewMode, setViewMode] = useState<'visual' | 'raw-gus' | 'raw-game' | 'levels' | 'stats' | 'diagnostics'>('visual');
+
+  // Preset selector states
+  const [currentPreset, setCurrentPreset] = useState<string | undefined>();
+  const [copied, setCopied] = useState(false);
 
   const loadLaunchArgs = async (id: number) => {
     try {
@@ -477,6 +533,17 @@ export default function ASEConfigEditor() {
     } catch (e) {
       console.error('Failed to load diagnostics:', e);
       setDiagnostics(null);
+    }
+
+    setIsValidating(true);
+    try {
+      const val = await validateAseConfig(id);
+      setValidationResult(val);
+    } catch (e) {
+      console.error('Failed to validate configuration:', e);
+      setValidationResult(null);
+    } finally {
+      setIsValidating(false);
     }
   };
 
@@ -514,6 +581,7 @@ export default function ASEConfigEditor() {
         setMapName(serverObj.mapName || 'TheIsland');
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedServer, servers, isDirty]);
 
 
@@ -570,6 +638,7 @@ export default function ASEConfigEditor() {
       const c = await readAseConfig(selectedServer);
       setConfig({ ...defaultConfig, ...c });
       setIsDirty(false);
+      loadDiagnostics(selectedServer);
       // Refresh servers list to reflect updates in UI
       await useAseServerStore.getState().refreshServers();
       toast.success('Configuration saved successfully', {
@@ -620,7 +689,109 @@ export default function ASEConfigEditor() {
     setPendingServerSwitch(null);
   }, []);
 
-  const update = (key: keyof AseGameConfig, val: string | number | boolean | number[]) => {
+  // Sidebar resize handlers
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = e.clientX;
+      if (newWidth >= 200 && newWidth <= 500) {
+        setSidebarWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  const handleSwitchViewMode = async (mode: 'visual' | 'raw-gus' | 'raw-game' | 'levels' | 'stats' | 'diagnostics') => {
+    if (viewMode === mode) return;
+
+    if (mode === 'raw-gus') {
+      setActiveFile('GameUserSettings.ini');
+      setEditorMode('raw');
+    } else if (mode === 'raw-game') {
+      setActiveFile('Game.ini');
+      setEditorMode('raw');
+    } else {
+      setEditorMode('visual');
+      if (mode === 'levels' || mode === 'stats') {
+        setActiveFile('Game.ini');
+      } else {
+        setActiveFile('GameUserSettings.ini');
+      }
+      if (mode === 'levels') {
+        setActiveTab('levels');
+      } else if (mode === 'stats') {
+        setActiveTab('stats');
+      } else if (mode === 'diagnostics') {
+        setActiveTab('diagnostics');
+      } else {
+        if (activeTab === 'levels' || activeTab === 'stats' || activeTab === 'diagnostics') {
+          setActiveTab('general');
+        }
+      }
+    }
+    setViewMode(mode);
+  };
+
+  const copyToClipboard = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+    toast.success('Copied to clipboard');
+  };
+
+  const applyAsePreset = (preset: ConfigPreset, currentConfig: AseGameConfig): AseGameConfig => {
+    const updatedConfig = { ...currentConfig } as Record<string, unknown>;
+    const presetSettings = {
+      ...preset.settings.GameUserSettings,
+      ...preset.settings.Game
+    };
+    const configKeys = Object.keys(updatedConfig) as (keyof AseGameConfig)[];
+
+    Object.entries(presetSettings).forEach(([presetKey, val]) => {
+      const matchedKey = configKeys.find(
+        k => k.toLowerCase() === presetKey.toLowerCase()
+      );
+      if (matchedKey) {
+        const defaultValue = defaultConfig[matchedKey];
+        if (typeof defaultValue === 'boolean') {
+          updatedConfig[matchedKey] = val.toLowerCase() === 'true';
+        } else if (typeof defaultValue === 'number') {
+          updatedConfig[matchedKey] = parseFloat(val);
+        } else {
+          updatedConfig[matchedKey] = val;
+        }
+      }
+    });
+    return updatedConfig as unknown as AseGameConfig;
+  };
+
+  const handleApplyPreset = (preset: ConfigPreset) => {
+    const newConfig = applyAsePreset(preset, config);
+    setConfig(newConfig);
+    setIsDirty(true);
+    setCurrentPreset(preset.id);
+    toast.success(`Preset "${preset.name}" applied`);
+  };
+
+  const update = (key: keyof AseGameConfig, val: string | number | boolean | number[] | string[]) => {
     setConfig(prev => ({ ...prev, [key]: val }));
     setIsDirty(true);
   };
@@ -683,12 +854,12 @@ export default function ASEConfigEditor() {
 
   const renderMapSelector = () => {
     return (
-      <div className="py-5 border-b border-white/5 flex flex-col gap-4">
+      <div className="p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left">
         <div className="flex-1 min-w-0">
-          <div className="text-slate-200 font-semibold tracking-wide flex items-center gap-2 mb-1 text-sm">
+          <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1.5 text-sm group-hover:text-white transition-colors">
             Active Map Profile
           </div>
-          <div className="text-[13px] text-slate-400 leading-relaxed">
+          <div className="text-xs text-slate-450 leading-relaxed font-medium">
             Select the active map for this ARK: Survival Evolved server instance.
           </div>
         </div>
@@ -967,6 +1138,7 @@ export default function ASEConfigEditor() {
     desc?: string;
     step?: number;
     options?: { label: string; value: string }[];
+    template?: Record<string, any>;
   }
 
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = useMemo(() => [
@@ -1015,6 +1187,13 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'toggle', key: 'optimizedHarvestingHealth', label: 'Optimized Harvesting Health', desc: 'Optimizes resource node health for harvesting' },
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'tamedDinoHarvestingDamageMultiplier', label: 'Tamed Dino Harvest Damage', desc: 'Multiplier for resources harvested by tamed dinos', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'dinoTurretDamageMultiplier', label: 'Dino Turret Damage Multiplier', desc: 'Multiplier for damage dealt to dinos by turrets', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'genericXpMultiplier', label: 'Generic XP Multiplier', desc: 'Multiplier for generic experience gain', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'specialXpMultiplier', label: 'Special XP Multiplier', desc: 'Multiplier for special action experience gain', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'fishingLootQualityMultiplier', label: 'Fishing Loot Quality', desc: 'Multiplier for fishing loot quality', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'supplyCrateLootQualityMultiplier', label: 'Supply Crate Loot Quality', desc: 'Multiplier for supply crate loot quality', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'globalSpoilingTimeMultiplier', label: 'Global Spoiling Time', desc: 'Global multiplier for food spoiling speed', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'globalItemDecompositionTimeMultiplier', label: 'Global Item Decomposition Time', desc: 'Global multiplier for item decomposition time on floor', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'globalCorpseDecompositionTimeMultiplier', label: 'Global Corpse Decomposition Time', desc: 'Global multiplier for corpse decomposition time on floor', step: 0.1 },
 
     // PLAYER - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'allowThirdPersonPlayer', label: 'Allow Third Person' },
@@ -1051,6 +1230,35 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'disableDinoBreeding', label: 'Disable Dino Breeding' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'useDinoLevelUpAnimations', label: 'Use Dino Level-Up Animations' },
     { file: 'Game.ini', tab: 'player', type: 'number', key: 'maxFallSpeedMultiplier', label: 'Max Fall Speed Multiplier', desc: 'Global limit for fall acceleration speed', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'dinoCharacterStaminaDrainMultiplier', label: 'Dino Stamina Drain Multiplier', desc: 'Multiplier for dino stamina drain rate', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'tamedDinoDamageMultiplier', label: 'Tamed Dino Damage Multiplier', desc: 'Multiplier for damage dealt by tamed dinos', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'tamedDinoResistanceMultiplier', label: 'Tamed Dino Resistance Multiplier', desc: 'Multiplier for resistance (damage taken) of tamed dinos', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'raidDinoCharacterFoodDrainMultiplier', label: 'Raid Dino Food Drain Multiplier', desc: 'Multiplier for food drain of raid/titan class dinos', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'passiveTameIntervalMultiplier', label: 'Passive Tame Interval Multiplier', desc: 'Multiplier for passive taming interval', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'personalTamedDinosSaddleStructureCost', label: 'Personal Tamed Dino Saddle Structure Cost', desc: 'Structure cost modifier for platforms on personal tames', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bUseTameLimitForStructuresOnly', label: 'Use Tame Limit For Structures Only', desc: 'Restrict tame limits rules to structure-carrying saddles only' },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bAllowRaidDinoFeeding', label: 'Allow Raid Dino Feeding', desc: 'Allow feeding raid/titan dinos so they don\'t starve' },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'forceAllowCaveFlyers', label: 'Force Allow Cave Flyers', desc: 'Allow riding flyers inside caves' },
+    { file: 'Game.ini', tab: 'player', type: 'toggle', key: 'preventDinoMateBoost', label: 'Prevent Dino Mate Boost', desc: 'Disables mate boosting stat improvements for wild and tamed dinos' },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'disableDinoDecayPve', label: 'Disable Dino Decay (PvE)', desc: 'Disable decay timer for tames in PvE mode' },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'disableDinoDecayPvp', label: 'Disable Dino Decay (PvP)', desc: 'Disable decay timer for tames in PvP mode' },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'allowDinoLevelUpAnimation', label: 'Allow Dino Level-Up Animation', desc: 'Plays the leveling-up sound/particles on dino level-up' },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bAllowFlyingStaminaRecovery', label: 'Allow Flying Stamina Recovery', desc: 'Allows flyers to regenerate stamina in mid-air when standing on them' },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bAllowMultipleAttachedC4', label: 'Allow Multiple Attached C4', desc: 'Allow sticking multiple C4 explosives to a single entity' },
+    { file: 'Game.ini', tab: 'player', type: 'toggle', key: 'bAllowFlyerSpeedLeveling', label: 'Allow Flyer Speed Leveling', desc: 'Allow players to allocate stats into flyer speed' },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bAllowUnclaimDinos', label: 'Allow Unclaim Dinos (b)', desc: 'Enables or disables unclaiming dinos' },
+    { file: 'Game.ini', tab: 'player', type: 'toggle', key: 'bDisableDinoRiding', label: 'Disable Dino Riding', desc: 'Disable dino riding' },
+    { file: 'Game.ini', tab: 'player', type: 'toggle', key: 'bDisableDinoTaming', label: 'Disable Dino Taming', desc: 'Disable taming' },
+    { file: 'Game.ini', tab: 'player', type: 'toggle', key: 'bDisableDinoBreeding', label: 'Disable Dino Breeding (b)', desc: 'Disable dino breeding' },
+    { file: 'Game.ini', tab: 'player', type: 'array', key: 'dinoSpawnWeightMultipliers', label: 'Dino Spawn Weight Multipliers', desc: 'Customize spawn rate and limit multipliers for specific dino classes.', template: { DinoNameTag: { label: 'Dino Tag/Name', placeholder: 'Dodo' }, SpawnLimitPercentage: { label: 'Spawn Limit %', placeholder: '1.0' }, SpawnWeightMultiplier: { label: 'Spawn Weight Mult', placeholder: '1.0' }, OverrideSpawnLimitPercentage: { label: 'Override Limit % (True/False)', placeholder: 'True' } } },
+    { file: 'Game.ini', tab: 'player', type: 'array', key: 'dinoClassDamageMultipliers', label: 'Wild Dino Damage Multipliers', desc: 'Adjust damage dealt by specific wild dino classes.', template: { ClassName: { label: 'Dino Class Name', placeholder: 'Dodo_Character_BP_C' }, Multiplier: { label: 'Damage Multiplier', placeholder: '1.0' } } },
+    { file: 'Game.ini', tab: 'player', type: 'array', key: 'dinoClassResistanceMultipliers', label: 'Wild Dino Resistance Multipliers', desc: 'Adjust resistance (damage taken) for specific wild dino classes (lower = more resistant).', template: { ClassName: { label: 'Dino Class Name', placeholder: 'Dodo_Character_BP_C' }, Multiplier: { label: 'Resistance Multiplier', placeholder: '1.0' } } },
+    { file: 'Game.ini', tab: 'player', type: 'array', key: 'tamedDinoClassDamageMultipliers', label: 'Tamed Dino Damage Multipliers', desc: 'Adjust damage dealt by specific tamed dino classes.', template: { ClassName: { label: 'Dino Class Name', placeholder: 'Dodo_Character_BP_C' }, Multiplier: { label: 'Damage Multiplier', placeholder: '1.0' } } },
+    { file: 'Game.ini', tab: 'player', type: 'array', key: 'tamedDinoClassResistanceMultipliers', label: 'Tamed Dino Resistance Multipliers', desc: 'Adjust resistance (damage taken) for specific tamed dino classes (lower = more resistant).', template: { ClassName: { label: 'Dino Class Name', placeholder: 'Dodo_Character_BP_C' }, Multiplier: { label: 'Resistance Multiplier', placeholder: '1.0' } } },
+    { file: 'Game.ini', tab: 'player', type: 'array', key: 'npcReplacements', label: 'NPC Replacements', desc: 'Replace or disable specific dinosaur spawn classes.', template: { FromClassName: { label: 'From Class Name', placeholder: 'Dodo_Character_BP_C' }, ToClassName: { label: 'To Class Name (Empty to disable)', placeholder: 'Saber_Character_BP_C' } } },
+    { file: 'Game.ini', tab: 'player', type: 'textarea', key: 'preventDinoTameClassNames', label: 'Prevent Dino Taming Classes', desc: 'List of dino class names that cannot be tamed. Enter one class name per line.' },
+    { file: 'Game.ini', tab: 'player', type: 'textarea', key: 'excludeDinoClasses', label: 'Exclude Dino Spawn Classes', desc: 'List of dino class names to prevent from spawning entirely. Enter one class name per line.' },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'useSingleplayerSettings', label: 'Use Singleplayer Settings', desc: 'Applies singleplayer stat/rate overrides to scale for solo play' },
 
     // BREEDING - Game.ini
     { file: 'Game.ini', tab: 'breeding', type: 'number', key: 'matingIntervalMultiplier', label: 'Mating Interval', desc: 'Lower means dinos can mate sooner', step: 0.1 },
@@ -1084,6 +1292,10 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'structures', type: 'toggle', key: 'forceAllStructureLocking', label: 'Force All Structure Locking' },
     { file: 'GameUserSettings.ini', tab: 'structures', type: 'toggle', key: 'allowIntegratedSpinetAttachment', label: 'Allow S+ Integrated Structures' },
     { file: 'GameUserSettings.ini', tab: 'structures', type: 'toggle', key: 'enableExtraStructurePreventionVolumes', label: 'Extra Structure Prevention Volumes' },
+    { file: 'GameUserSettings.ini', tab: 'structures', type: 'number', key: 'structurePickupTimeAfterPlacement', label: 'Structure Pickup Time Limit (Secs)', desc: 'Time window in seconds to pick up placed structures', step: 1.0 },
+    { file: 'GameUserSettings.ini', tab: 'structures', type: 'number', key: 'structurePickupHoldDuration', label: 'Structure Pickup Hold Duration (Secs)', desc: 'Duration in seconds a player must hold key to pick up', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'structures', type: 'toggle', key: 'ignoreLimitMaxStructuresInRangeTypeFlag', label: 'Ignore Range Limit for Type Flag', desc: 'Disable limits checks for max structures of specific types' },
+    { file: 'GameUserSettings.ini', tab: 'structures', type: 'toggle', key: 'ignoreStructuresPreventionVolumes', label: 'Ignore Structure Prevention Volumes', desc: 'Disable spawn-prevention volume blocks for structures' },
 
     // PVP RULES
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'allowCaveBuildingPvp', label: 'Allow Cave Building (PvP)' },
@@ -1118,6 +1330,7 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'transfer', type: 'toggle', key: 'preventUploadItems', label: 'Prevent Upload Items' },
     { file: 'GameUserSettings.ini', tab: 'transfer', type: 'toggle', key: 'preventUploadDinos', label: 'Prevent Upload Dinos' },
     { file: 'GameUserSettings.ini', tab: 'transfer', type: 'toggle', key: 'crossarkAllowForeignDinoDownloads', label: 'CrossARK Allow Foreign Dino Downloads' },
+    { file: 'GameUserSettings.ini', tab: 'transfer', type: 'toggle', key: 'disableCustomFoldersInTributeInventories', label: 'Disable Custom Folders in Tributes', desc: 'Disables creating custom folders in obelisk/tribute inventories' },
 
     // ENVIRONMENT - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'dayCycleSpeedScale', label: 'Day Cycle Speed', step: 0.1 },
@@ -1160,6 +1373,8 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'alwaysNotifyPlayerJoined', label: 'Notify Player Joined', desc: 'Shows a broadcast notification when a player connects' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'alwaysNotifyPlayerLeft', label: 'Notify Player Left', desc: 'Shows a broadcast notification when a player disconnects' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'serverAdminCommandLogging', label: 'Log Admin Commands', desc: 'Logs all admin command usages to server logs and chat' },
+    { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'secureSendArkPayload', label: 'Secure Send ARK Payload', desc: 'Enforces secure validation of network transmission payloads' },
+    { file: 'GameUserSettings.ini', tab: 'admin', type: 'text', key: 'culture', label: 'Server Localization/Culture', desc: 'Sets the server localization/culture code (e.g. en, de, fr)' },
 
     // ADVANCED - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'disableWeatherFog', label: 'Disable Fog' },
@@ -1181,6 +1396,16 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useLowMemory', label: 'Low Memory Mode' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'noBattleEye', label: 'Disable BattlEye (Launcher Arg)' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'text', key: 'activeMods', label: 'Active Mods', desc: 'Comma-separated Workshop IDs' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'eventColorsChanceOverride', label: 'Event Colors Chance Override', desc: 'Chance factor override for custom event dinosaur color spawns', step: 0.01 },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'ragnarokVolcanoIntensity', label: 'Ragnarok Volcano Intensity', desc: 'Volcano eruption intensity multiplier (Ragnarok map)', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'ragnarokVolcanoInterval', label: 'Ragnarok Volcano Interval', desc: 'Eruption frequency interval in seconds (0 = default)', step: 1.0 },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'enableRagnarokSettings', label: 'Enable Ragnarok Volcano Settings', desc: 'Enables active volcano mechanics on Ragnarok' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useFjordurTraversalBuff', label: 'Use Fjordur Traversal Buff', desc: 'Enables teleportation traversal mechanics on Fjordur' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'enableFjordurSettings', label: 'Enable Fjordur Specific Settings', desc: 'Enables custom mechanics on Fjordur' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'adjustableMutagenSpawnDelayMultiplier', label: 'Adjustable Mutagen Spawn Delay Multiplier', desc: 'Delay multiplier for spawn rates of mutagen resources', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'maxHexagonsPerCharacter', label: 'Max Hexagons Per Character', desc: 'Genesis hexagon token max cap', step: 1000.0 },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'hexagonRewardMultiplier', label: 'Hexagon Reward Multiplier', desc: 'Multiplier for Genesis hexagon tokens earned from missions', step: 0.1 },
+    { file: 'Game.ini', tab: 'advanced', type: 'text', key: 'harvestResourceItemAmountClassMultipliers', label: 'Harvest Resource Item Amount Class Multipliers', desc: 'Advanced class-level harvest multipliers override string (semicolon-separated)' },
 
     // SERVER OPTIONS - GameUserSettings.ini (Classic ASM features)
     { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useBanListUrl', label: 'Use Ban List URL', desc: 'Download server bans from a remote URL on startup' },
@@ -1237,39 +1462,72 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'enableExtinctionEvent', label: 'Enable Extinction Event', desc: 'Enable the extinction countdown/wipe event' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'extinctionEventTimeInterval', label: 'Extinction Interval (Days)', desc: 'Number of days for the countdown', step: 1.0 },
   ], []);
+  const handleSaveCurrentAsPreset = useCallback((name: string, description: string) => {
+    const gusSettings: Record<string, string> = {};
+    const gameSettings: Record<string, string> = {};
 
-  const searchResults = useMemo(() => {
-    if (!searchQuery) return [];
-    const query = searchQuery.toLowerCase();
-    return schema.filter(f =>
-      f.file === activeFile &&
-      (f.label.toLowerCase().includes(query) || f.key.toLowerCase().includes(query) || f.desc?.toLowerCase().includes(query))
-    );
-  }, [searchQuery, schema, activeFile]);
+    schema.forEach(field => {
+      const val = config[field.key as keyof AseGameConfig];
+      if (val !== undefined && val !== null) {
+        const valStr = Array.isArray(val) ? JSON.stringify(val) : String(val);
+        const presetKey = field.key.charAt(0).toUpperCase() + field.key.slice(1);
+        if (field.file === 'GameUserSettings.ini') {
+          gusSettings[presetKey] = valStr;
+        } else {
+          gameSettings[presetKey] = valStr;
+        }
+      }
+    });
+
+    const preset: ConfigPreset = {
+      id: `custom_${Date.now()}`,
+      name,
+      description,
+      icon: '⚙️',
+      color: 'from-amber-500 to-orange-500',
+      settings: {
+        GameUserSettings: gusSettings,
+        Game: gameSettings
+      }
+    };
+
+    saveCustomPreset(preset);
+    setCurrentPreset(preset.id);
+    toast.success('Preset saved successfully');
+  }, [config, schema]);
 
   const tabMatchCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     if (!searchQuery) return counts;
     const query = searchQuery.toLowerCase();
     schema.forEach(field => {
-      if (field.file === activeFile) {
-        const matchLabel = field.label?.toLowerCase().includes(query);
-        const matchKey = field.key.toLowerCase().includes(query);
-        const matchDesc = field.desc?.toLowerCase().includes(query);
-        if (matchLabel || matchKey || matchDesc) {
-          counts[field.tab] = (counts[field.tab] || 0) + 1;
-        }
+      if (field.file !== activeFile) return;
+      const matchLabel = field.label?.toLowerCase().includes(query);
+      const matchKey = field.key.toLowerCase().includes(query);
+      const matchDesc = field.desc?.toLowerCase().includes(query);
+      if (matchLabel || matchKey || matchDesc) {
+        counts[field.tab] = (counts[field.tab] || 0) + 1;
       }
     });
     return counts;
   }, [searchQuery, schema, activeFile]);
 
-  // If a tab has no fields for the active file, it shouldn't be rendered.
+  const getMatchCount = useCallback((tabId: string, file: string) => {
+    if (!searchQuery) return 0;
+    const query = searchQuery.toLowerCase();
+    return schema.filter(field => 
+      field.tab === tabId && 
+      field.file === file && 
+      (field.label?.toLowerCase().includes(query) ||
+       field.key.toLowerCase().includes(query) ||
+       field.desc?.toLowerCase().includes(query))
+    ).length;
+  }, [searchQuery, schema]);
+
+  // Show all tabs in visual mode regardless of activeFile, so the user can configure everything seamlessly!
   const activeFileTabs = useMemo(() => {
-    const validTabIds = new Set(schema.filter(f => f.file === activeFile).map(f => f.tab));
-    if (activeFile === 'Game.ini') {
-      validTabIds.add('environment');
-    }
+    const validTabIds = new Set(schema.map(f => f.tab));
+    validTabIds.add('environment');
     const list = tabs.filter(t => 
       validTabIds.has(t.id) || 
       t.id === 'stats' ||
@@ -1277,7 +1535,7 @@ export default function ASEConfigEditor() {
     );
     list.push({ id: 'diagnostics', label: 'Diagnostics', icon: <Database className="w-4 h-4" /> });
     return list;
-  }, [schema, activeFile, tabs]);
+  }, [schema, tabs]);
 
   useEffect(() => {
     // If the current tab isn't valid for the new activeFile, or if we switched to GameUserSettings.ini while on levels/stats, switch to the first valid one
@@ -1299,7 +1557,46 @@ export default function ASEConfigEditor() {
       return <TextInput key={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as string} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} />;
     }
     if (field.type === 'textarea') {
-      return <TextAreaInput key={field.key} idKey={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as string} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} />;
+      const isArrayField = Array.isArray(config[field.key as keyof AseGameConfig]);
+      const valStr = isArrayField
+        ? (config[field.key as keyof AseGameConfig] as string[] || []).join('\n')
+        : config[field.key as keyof AseGameConfig] as string || '';
+
+      return (
+        <TextAreaInput
+          key={field.key}
+          idKey={field.key}
+          file={field.file}
+          label={field.label}
+          value={valStr}
+          onChange={v => {
+            if (isArrayField) {
+              const lines = v.split('\n').map(s => s.trim()).filter(s => s !== '');
+              update(field.key as keyof AseGameConfig, lines);
+            } else {
+              update(field.key as keyof AseGameConfig, v);
+            }
+          }}
+          desc={field.desc}
+        />
+      );
+    }
+    if (field.type === 'array') {
+      const arrayVal = config[field.key as keyof AseGameConfig] as string[] || [];
+      return (
+        <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
+          <ArrayEditor
+            label={field.label}
+            value={arrayVal.join(',')}
+            onChange={v => {
+              const items = v.match(/\(([^)]+)\)/g) || [];
+              update(field.key as keyof AseGameConfig, items);
+            }}
+            template={field.template || {}}
+          />
+          {field.desc && <div className="text-xs text-slate-400 leading-relaxed font-medium px-1 italic">{field.desc}</div>}
+        </div>
+      );
     }
     if (field.type === 'number') {
       return <NumberInput key={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as number} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} step={field.step} />;
@@ -1312,16 +1609,16 @@ export default function ASEConfigEditor() {
     }
     if (field.type === 'engram_entries') {
       return (
-        <div className="w-full mt-2" key={field.key}>
-          <div className="text-white font-semibold tracking-wide flex items-center gap-2 mb-2">{field.label}</div>
+        <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
+          <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">{field.label}</div>
           <EngramOverridesEditor value={config.overrideNamedEngramEntries} onChange={(v: string) => update('overrideNamedEngramEntries', v)} />
         </div>
       );
     }
     if (field.type === 'crafting_costs') {
       return (
-        <div className="w-full mt-2" key={field.key}>
-          <div className="text-white font-semibold tracking-wide flex items-center gap-2 mb-2">{field.label}</div>
+        <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
+          <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">{field.label}</div>
           <CraftingCostEditor value={config.configOverrideItemCraftingCosts} onChange={(v: string) => update('configOverrideItemCraftingCosts', v)} />
         </div>
       );
@@ -1330,190 +1627,274 @@ export default function ASEConfigEditor() {
   };
 
   return (
-    <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      {/* Premium Header */}
-      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 p-6 rounded-3xl bg-slate-900/60 border border-white/5 backdrop-blur-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col gap-5">
-          <div>
-            <h1 className="text-3xl font-black text-white flex items-center gap-3 tracking-tight">
-              <div className="w-[52px] h-[52px] rounded-2xl overflow-hidden border-2 border-amber-500/30 shadow-lg shadow-amber-500/10 flex items-center justify-center bg-slate-950">
+    <div className="h-full flex flex-col bg-[#0d0d1a] rounded-2xl overflow-hidden border border-[#1e1e3a] shadow-2xl">
+      {/* Header */}
+      <div className="p-6 border-b border-[#1e1e3a]/80 flex flex-col gap-5 bg-[#12121f]">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-5 flex-1">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl border border-amber-500/30 shadow-lg shadow-amber-500/10 flex items-center justify-center bg-slate-950">
                 <img src={aseLogo} alt="ARK Survival Evolved" className="w-full h-full object-cover scale-110" />
               </div>
-              ASE Configuration
-            </h1>
-            <p className="text-sm text-slate-400 mt-2 font-medium">Fine-tune your server settings effortlessly</p>
+              <span className="bg-gradient-to-r from-white via-amber-200 to-orange-200 bg-clip-text text-transparent">
+                ASE Configuration
+              </span>
+            </h2>
+
+            {servers.length > 0 && (
+              <ServerSelect
+                value={selectedServer}
+                onChange={handleServerSwitch}
+                servers={servers}
+                accentColor="amber"
+              />
+            )}
+
+            <div className="h-8 w-px bg-[#2d2d44] mx-2" />
+
+            <PresetSelector
+              onApplyPreset={handleApplyPreset}
+              currentPreset={currentPreset}
+              onSaveCurrentAsPreset={handleSaveCurrentAsPreset}
+            />
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="flex bg-slate-950/50 p-1.5 rounded-2xl border border-white/5 w-fit">
-              <button
-                onClick={() => { setActiveFile('GameUserSettings.ini'); setSearchQuery(''); }}
-                className={cn(
-                  "px-5 py-2 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 flex items-center gap-2",
-                  activeFile === 'GameUserSettings.ini'
-                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                    : "text-slate-400 hover:text-white hover:bg-white/5"
-                )}
-              >
-                <FileText className="w-4 h-4" /> GameUserSettings.ini
-              </button>
-              <button
-                onClick={() => { setActiveFile('Game.ini'); setSearchQuery(''); }}
-                className={cn(
-                  "px-5 py-2 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 flex items-center gap-2",
-                  activeFile === 'Game.ini'
-                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                    : "text-slate-400 hover:text-white hover:bg-white/5"
-                )}
-              >
-                <Database className="w-4 h-4" /> Game.ini
-              </button>
-            </div>
-
-            <div className="flex bg-slate-950/50 p-1.5 rounded-2xl border border-white/5 w-fit">
-              <button
-                onClick={() => setEditorMode('visual')}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 flex items-center gap-1.5",
-                  editorMode === 'visual'
-                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                    : "text-slate-400 hover:text-white hover:bg-white/5"
-                )}
-              >
-                <Sliders className="w-3.5 h-3.5" /> Visual Editor
-              </button>
-              <button
-                onClick={() => setEditorMode('raw')}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 flex items-center gap-1.5",
-                  editorMode === 'raw'
-                    ? "bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20"
-                    : "text-slate-400 hover:text-white hover:bg-white/5"
-                )}
-              >
-                <FileText className="w-3.5 h-3.5" /> Raw INI
-              </button>
-            </div>
+          <div className="flex items-center gap-3">
+            <input type="file" accept=".ini" className="hidden" ref={fileInputRef} onChange={handleImportIni} />
+            <button onClick={() => fileInputRef.current?.click()} className="px-3 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-amber-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]" title="Import INI">
+              <Download className="w-4 h-4" />
+            </button>
+            <button onClick={() => setConfig(defaultConfig)} className="px-3 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-amber-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]" title="Reset Default">
+              <RotateCcw className="w-4 h-4" />
+            </button>
+            <a
+              href="https://ark.wiki.gg/wiki/Server_configuration"
+              target="_blank"
+              rel="noreferrer"
+              className="px-4 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-amber-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+            >
+              <ExternalLink className="w-4 h-4" /> {t('configEditor.buttons.wiki', 'Wiki')}
+            </a>
+            <button
+              onClick={handleSave}
+              disabled={isLoading}
+              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {t('configEditor.buttons.save', 'Save Changes')}
+            </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 relative z-10">
-          {servers.length > 0 && (
-            <ServerSelect
-              value={selectedServer}
-              onChange={handleServerSwitch}
-              servers={servers}
-              accentColor="amber"
-            />
-          )}
-
-          <input type="file" accept=".ini" className="hidden" ref={fileInputRef} onChange={handleImportIni} />
-
-          <div className="flex items-center bg-slate-950/50 p-1.5 rounded-2xl border border-white/5">
-            <button onClick={() => fileInputRef.current?.click()} className="p-3 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-xl transition-all" title="Import INI">
-              <Download className="w-5 h-5" />
-            </button>
-            <button onClick={() => setConfig(defaultConfig)} className="p-3 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-xl transition-all" title="Reset Default">
-              <RotateCcw className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!isDirty}
-              className="relative px-6 py-2.5 ml-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 disabled:hover:bg-slate-800 disabled:text-slate-500 text-slate-950 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-amber-500/20"
-            >
-              <Save className="w-4 h-4" /> Save Changes
-              {isDirty && (
-                <>
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full animate-ping" />
-                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-slate-900" title="Unsaved changes" />
-                </>
-              )}
-            </button>
-          </div>
+        {/* Navigation Tabs - Modern Pill Style */}
+        <div className="flex items-center gap-2 bg-[#0d0d1a] p-2 rounded-2xl self-start border border-[#1e1e3a] max-w-full overflow-x-auto scrollbar-thin">
+          <button
+            onClick={() => handleSwitchViewMode('visual')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+              viewMode === 'visual'
+                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-lg shadow-amber-500/20"
+                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+            )}
+          >
+            <Sliders className="w-4 h-4" /> Visual Editor
+          </button>
+          <button
+            onClick={() => handleSwitchViewMode('raw-gus')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+              viewMode === 'raw-gus'
+                ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/30"
+                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+            )}
+          >
+            <FileText className="w-4 h-4" /> Raw GameUserSettings.ini
+          </button>
+          <button
+            onClick={() => handleSwitchViewMode('raw-game')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+              viewMode === 'raw-game'
+                ? "bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-500/30"
+                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+            )}
+          >
+            <FileText className="w-4 h-4" /> Raw Game.ini
+          </button>
+          <button
+            onClick={() => handleSwitchViewMode('levels')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+              viewMode === 'levels'
+                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30"
+                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+            )}
+          >
+            <GraduationCap className="w-4 h-4" /> Level Generator
+          </button>
+          <button
+            onClick={() => handleSwitchViewMode('stats')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+              viewMode === 'stats'
+                ? "bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-500/30"
+                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+            )}
+          >
+            <BarChart3 className="w-4 h-4" /> Stat Multipliers
+          </button>
+          <button
+            onClick={() => handleSwitchViewMode('diagnostics')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+              viewMode === 'diagnostics'
+                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30"
+                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+            )}
+          >
+            <Database className="w-4 h-4" /> Diagnostics
+          </button>
         </div>
       </div>
 
-      {/* Main Layout */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Modern Sidebar Navigation */}
-        {editorMode === 'visual' && (
-          <div className="lg:w-72 shrink-0 flex flex-col gap-6 h-[65vh] overflow-y-auto pr-4 custom-scrollbar pb-10">
-            
-            {/* New Search Input inside Sidebar */}
-            <div className="relative group px-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
-              <input
-                type="text"
-                placeholder="Search settings..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-white/10 rounded-2xl text-xs font-semibold text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 transition-all duration-300 shadow-inner"
-              />
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {['visual', 'levels', 'stats', 'diagnostics'].includes(viewMode) && (
+          <>
+            {/* Sidebar */}
+            <div
+              className={cn(
+                "bg-[#12121f] border-r-2 border-[#1e1e3a] overflow-hidden relative transition-all duration-300 flex flex-col gap-6 p-4 pr-3 custom-scrollbar",
+                isSidebarCollapsed && "w-0 p-0 border-r-0"
+              )}
+              style={{ width: isSidebarCollapsed ? 0 : `${sidebarWidth}px` }}
+            >
+              {!isSidebarCollapsed && (
+                <>
+                  <div className="relative group px-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-amber-500 transition-colors z-10 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search settings..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3 bg-slate-950/80 border border-white/10 rounded-2xl text-xs font-semibold text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 transition-all duration-300 shadow-inner"
+                    />
+                  </div>
+
+                  <div className="space-y-6 overflow-y-auto flex-1 pr-1 custom-scrollbar">
+                    {[
+                      {
+                        title: 'GameUserSettings.ini (GUS)',
+                        ids: ['general', 'server_options', 'rates', 'player', 'pvp', 'structures', 'tribe', 'transfer', 'environment', 'admin', 'advanced', 'breeding', 'engrams'],
+                        fileType: 'GameUserSettings.ini',
+                      },
+                      {
+                        title: 'Game.ini Settings',
+                        ids: ['breeding', 'engrams', 'levels', 'stats', 'player', 'pvp'],
+                        fileType: 'Game.ini',
+                      },
+                      {
+                        title: 'Utilities',
+                        ids: ['diagnostics'],
+                        fileType: 'Utilities',
+                      }
+                    ].map(group => {
+                      const groupTabs = activeFileTabs.filter(t => group.ids.includes(t.id as string));
+                      if (groupTabs.length === 0) return null;
+                      return (
+                        <div key={group.title} className="flex flex-col gap-1.5 text-left animate-fadeIn">
+                          <h3 className="text-[10px] font-black text-slate-550 uppercase tracking-widest px-3 mb-1">{group.title}</h3>
+                          {groupTabs.map(tab => {
+                            const isTabActive = activeTab === tab.id;
+                            const isActive = isTabActive && (
+                              (group.fileType === 'GameUserSettings.ini' && activeFile === 'GameUserSettings.ini') ||
+                              (group.fileType === 'Game.ini' && activeFile === 'Game.ini') ||
+                              group.fileType === 'Utilities'
+                            );
+                            const matchCount = group.fileType === 'Utilities' ? 0 : getMatchCount(tab.id, group.fileType);
+                            return (
+                              <button
+                                key={tab.id}
+                                onClick={() => {
+                                  if (tab.id === 'levels' || tab.id === 'stats' || tab.id === 'diagnostics') {
+                                    handleSwitchViewMode(tab.id);
+                                  } else {
+                                    handleSwitchViewMode('visual');
+                                    setActiveTab(tab.id);
+                                    if (group.fileType === 'Game.ini') {
+                                      setActiveFile('Game.ini');
+                                    } else {
+                                      setActiveFile('GameUserSettings.ini');
+                                    }
+                                  }
+                                }}
+                                className={cn(
+                                  "flex items-center justify-between w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 border group text-left",
+                                  isActive
+                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[inset_3px_0_0_0_#fbbf24]"
+                                    : "bg-transparent border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
+                                )}
+                              >
+                                <span className="flex items-center gap-3">
+                                  {React.cloneElement(tab.icon as React.ReactElement<{ className?: string }>, {
+                                    className: cn("w-5 h-5 transition-transform duration-300", isActive ? "scale-110" : "group-hover:scale-110 opacity-70")
+                                  })}
+                                  {tab.label}
+                                </span>
+                                {searchQuery && matchCount > 0 && (
+                                  <span className={cn(
+                                    "px-2 py-0.5 text-[10px] font-black rounded-lg transition-colors",
+                                    isActive ? "bg-amber-500/25 text-amber-400" : "bg-slate-800 text-slate-450 group-hover:text-slate-350"
+                                  )}>
+                                    {matchCount}
+                                  </span>
+                                )}
+                                {tab.id === 'diagnostics' && validationResult && validationResult.issues.length > 0 && (
+                                  <span className={cn(
+                                    "px-2 py-0.5 text-[10px] font-black rounded-lg transition-all border shrink-0",
+                                    validationResult.issues.some(i => i.severity === 'Error')
+                                      ? "bg-rose-500/10 text-rose-400 border-rose-500/20 animate-pulse"
+                                      : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                  )}>
+                                    {validationResult.issues.length}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Resize Handle */}
+                  <div
+                    className={cn(
+                      "absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-amber-500/50 transition-colors z-10",
+                      isResizing && "bg-amber-500"
+                    )}
+                    onMouseDown={startResizing}
+                  />
+                </>
+              )}
             </div>
 
-            {[
-              { title: 'Overview', ids: ['general', 'server_options'] },
-              { title: 'Game Rules', ids: ['rates', 'pvp', 'environment'] },
-              { title: 'Entities', ids: ['stats', 'levels', 'player', 'breeding'] },
-              { title: 'World & Tech', ids: ['structures', 'engrams', 'transfer'] },
-              { title: 'System', ids: ['tribe', 'admin', 'advanced', 'diagnostics'] }
-            ].map(group => {
-              const groupTabs = activeFileTabs.filter(t => group.ids.includes(t.id as string));
-              if (groupTabs.length === 0) return null;
-              return (
-                <div key={group.title} className="flex flex-col gap-1.5">
-                  <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest px-3 mb-1.5">{group.title}</h3>
-                  {groupTabs.map(tab => {
-                    const matchCount = tabMatchCounts[tab.id] || 0;
-                    const isActive = activeTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => {
-                          if (tab.id === 'levels' || tab.id === 'stats') {
-                            setActiveFile('Game.ini');
-                          }
-                          setActiveTab(tab.id);
-                        }}
-                        className={cn(
-                          "flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 border group",
-                          isActive
-                            ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-[inset_3px_0_0_0_#fbbf24]"
-                            : "bg-transparent border-transparent text-slate-400 hover:bg-slate-800/40 hover:text-slate-200"
-                        )}
-                      >
-                        <span className="flex items-center gap-3">
-                          {React.cloneElement(tab.icon as React.ReactElement<{ className?: string }>, {
-                            className: cn("w-5 h-5 transition-transform duration-300", isActive ? "scale-110" : "group-hover:scale-110 opacity-70")
-                          })}
-                          {tab.label}
-                        </span>
-                        {searchQuery && matchCount > 0 && (
-                          <span className={cn(
-                            "px-2 py-0.5 text-xs font-black rounded-lg transition-colors",
-                            isActive ? "bg-amber-500/25 text-amber-400" : "bg-slate-800 text-slate-450 group-hover:text-slate-350"
-                          )}>
-                            {matchCount}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
+            {/* Collapse/Expand Button */}
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="absolute top-20 left-0 z-20 w-7 h-10 bg-[#1a1a2e] border-2 border-[#2d2d44] text-slate-400 hover:bg-amber-600 hover:border-amber-500 hover:text-white transition-all shadow-lg flex items-center justify-center rounded-r-xl"
+              style={{ marginLeft: isSidebarCollapsed ? '0px' : `${sidebarWidth}px` }}
+            >
+              {isSidebarCollapsed ? '›' : '‹'}
+            </button>
+          </>
         )}
 
         {/* Content Area */}
-        <div className={cn(
-          "bg-slate-900/40 backdrop-blur-sm border border-white/5 rounded-3xl p-6 lg:p-8 h-[65vh] overflow-y-auto custom-scrollbar relative shadow-xl",
-          editorMode === 'raw' ? "w-full" : "flex-1"
-        )}>
+        <div className="flex-1 overflow-y-auto bg-[#0d0d1a] py-6 pr-6 pl-12 scrollbar-thin scrollbar-thumb-[#2d2d44] scrollbar-track-transparent">
           <AnimatePresence mode="wait">
-            {isLoading ? (
+            {isLoading && !config.sessionName ? (
               <motion.div
                 key="loading"
                 initial={{ opacity: 0, y: 10 }}
@@ -1531,14 +1912,14 @@ export default function ASEConfigEditor() {
               </motion.div>
             ) : (
               <motion.div
-                key={activeTab + activeFile + searchQuery + editorMode}
+                key={viewMode + (viewMode === 'visual' ? activeTab : '') + searchQuery}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
-                className="space-y-6 h-full"
+                className="h-full"
               >
-                {editorMode === 'raw' ? (
+                {viewMode === 'raw-gus' || viewMode === 'raw-game' ? (
                   <div className="flex flex-col h-full gap-4 min-h-[450px]">
                     <div className="flex items-center justify-between border-b border-white/5 pb-3">
                       <div>
@@ -1550,6 +1931,13 @@ export default function ASEConfigEditor() {
                           Directly edit the raw INI configuration lines. Make sure to follow correct INI key=value syntax.
                         </p>
                       </div>
+                      <button
+                        onClick={() => copyToClipboard(rawIniContent)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-[#252526] hover:bg-[#333] text-slate-300 rounded-md border border-[#3e3e3e] shadow-sm transition-all text-sm font-medium"
+                      >
+                        {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                        {t('configEditor.buttons.copy', 'Copy')}
+                      </button>
                     </div>
                     <div className="flex-1 h-full min-h-[350px]">
                       <CodeEditor
@@ -1559,284 +1947,347 @@ export default function ASEConfigEditor() {
                       />
                     </div>
                   </div>
-                ) : searchQuery && searchResults.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-                    <Search className="w-12 h-12 mb-4 opacity-50 text-slate-600" />
-                    <p className="text-lg font-medium text-slate-350">No matching settings found in {activeFile}</p>
-                    <p className="text-sm mt-1">Try a different search term or check spelling.</p>
-                  </div>
-                ) : (
-                  <>
-                    {activeTab === 'diagnostics' && (
-                      <div className="space-y-6 animate-fadeIn">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/40 pb-4">
+                ) : viewMode === 'diagnostics' ? (
+                  <div className="space-y-6 animate-fadeIn">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/40 pb-4">
+                      <div>
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                          <Database className="w-5 h-5 text-amber-500" />
+                          Configuration Diagnostics & Cache
+                        </h2>
+                        <p className="text-xs text-slate-455 mt-1">Verify profile integrity, parse status, and sync state parameters.</p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={async () => {
+                            if (!selectedServer) return;
+                            setIsLoading(true);
+                            try {
+                              await syncAseServerFromIni(selectedServer);
+                              await loadConfig(selectedServer);
+                              await loadDiagnostics(selectedServer);
+                              toast.success('Configuration successfully reloaded from disk!', {
+                                style: { background: '#10b981', color: '#fff', borderRadius: '12px' }
+                              });
+                            } catch (e) {
+                              toast.error(`Reload failed: ${e}`);
+                            } finally {
+                              setIsLoading(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-[#1a1a2e] hover:bg-slate-800 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow transition-all duration-300"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          Reload Configuration
+                        </button>
+
+                        <button
+                          onClick={async () => {
+                            if (!selectedServer) return;
+                            setIsLoading(true);
+                            try {
+                              await syncAseServerFromIni(selectedServer);
+                              await loadConfig(selectedServer);
+                              await loadDiagnostics(selectedServer);
+                              toast.success('Server profile completely rebuilt from raw configuration!', {
+                                style: { background: '#10b981', color: '#fff', borderRadius: '12px' }
+                              });
+                            } catch (e) {
+                              toast.error(`Rebuild failed: ${e}`);
+                            } finally {
+                              setIsLoading(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/10 transition-all duration-300"
+                        >
+                          <Cpu className="w-3.5 h-3.5" />
+                          Force Rebuild Profile
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Info grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Cache Status</span>
+                        <div className="mt-2 flex items-center gap-2">
+                          {diagnostics?.cacheStatus.toLowerCase().includes('fresh') ? (
+                            <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              Fresh (Synced)
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                              Stale (External edits)
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-500 mt-2 font-medium">Compares files vs active SQLite db records</span>
+                      </div>
+
+                      <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Configuration Hash</span>
+                        <div className="mt-2 text-xs font-mono font-bold text-slate-200 truncate" title={diagnostics?.configHash || 'N/A'}>
+                          {diagnostics?.configHash ? diagnostics.configHash.substring(0, 16) + '...' : 'Unknown'}
+                        </div>
+                        <span className="text-[10px] text-slate-500 mt-2 font-medium">Combined SHA-256 profile integrity check</span>
+                      </div>
+
+                      <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
+                        <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Last Sync Execution</span>
+                        <div className="mt-2 text-xs font-mono font-bold text-slate-200">
+                          {diagnostics?.lastParsed ? new Date(diagnostics.lastParsed).toLocaleString() : 'Never'}
+                        </div>
+                        <span className="text-[10px] text-slate-500 mt-2 font-medium">Timestamp of database parity parse</span>
+                      </div>
+                    </div>
+
+                    {/* Configuration Validation Panel */}
+                    <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-4 text-left">
+                      <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-amber-500" />
+                        Configuration Integrity Check
+                      </h3>
+                      {isValidating ? (
+                        <div className="flex items-center gap-2 text-slate-400 text-xs py-2">
+                          <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                          Analyzing configuration files...
+                        </div>
+                      ) : validationResult ? (
+                        validationResult.issues.length === 0 ? (
+                          <div className="flex items-center gap-3 bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-xl text-emerald-450 text-xs">
+                            <Check className="w-5 h-5 text-emerald-500 shrink-0" />
+                            <div>
+                              <div className="font-bold text-slate-200">All Checks Passed!</div>
+                              <div className="mt-0.5">No structural syntax errors, unbalanced parentheses, or misplaced keys were found in your INI files.</div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="text-[11px] font-semibold text-slate-400">
+                              Found {validationResult.issues.length} issue(s) in configuration files:
+                            </div>
+                            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                              {validationResult.issues.map((issue, idx) => {
+                                const isError = issue.severity === 'Error';
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={cn(
+                                      "flex items-start gap-3 p-3.5 rounded-xl border text-xs leading-normal",
+                                      isError
+                                        ? "bg-rose-500/5 border-rose-500/20 text-rose-200"
+                                        : "bg-amber-500/5 border-amber-500/20 text-amber-200"
+                                    )}
+                                  >
+                                    <AlertTriangle className={cn("w-4.5 h-4.5 shrink-0 mt-0.5", isError ? "text-rose-500" : "text-amber-500")} />
+                                    <div className="flex-1 space-y-1">
+                                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                        <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider", isError ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30")}>
+                                          {issue.severity}
+                                        </span>
+                                        <span className="font-bold text-slate-200 font-mono text-[10px] bg-slate-950/45 px-1.5 py-0.5 rounded border border-white/5">
+                                          {issue.file}
+                                        </span>
+                                        {issue.lineNumber && (
+                                          <span className="text-slate-400 text-[10px] font-mono">
+                                            Line {issue.lineNumber}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 font-mono">
+                                        Section: <span className="text-slate-300">[{issue.section}]</span>
+                                        {issue.key && <> • Key: <span className="text-slate-300">{issue.key}</span></>}
+                                      </div>
+                                      <p className="text-slate-300 mt-1">{issue.message}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )
+                      ) : (
+                        <div className="text-slate-500 text-xs py-2 italic">No validation results loaded.</div>
+                      )}
+                    </div>
+
+                    {/* File details panel */}
+                    <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-4">
+                      <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2">
+                        Tracked Source Configuration Files
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-900">
                           <div>
-                            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                              <Database className="w-5 h-5 text-amber-500" />
-                              Configuration Diagnostics & Cache
-                            </h2>
-                            <p className="text-xs text-slate-450 mt-1">Verify profile integrity, parse status, and sync state parameters.</p>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              onClick={async () => {
-                                if (!selectedServer) return;
-                                setIsLoading(true);
-                                try {
-                                  await syncAseServerFromIni(selectedServer);
-                                  await loadConfig(selectedServer);
-                                  await loadDiagnostics(selectedServer);
-                                  toast.success('Configuration successfully reloaded from disk!', {
-                                    style: { background: '#10b981', color: '#fff', borderRadius: '12px' }
-                                  });
-                                } catch (e) {
-                                  toast.error(`Reload failed: ${e}`);
-                                } finally {
-                                  setIsLoading(false);
-                                }
-                              }}
-                              className="px-4 py-2 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow transition-all duration-300"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                              Reload Configuration
-                            </button>
-
-                            <button
-                              onClick={async () => {
-                                if (!selectedServer) return;
-                                setIsLoading(true);
-                                try {
-                                  await syncAseServerFromIni(selectedServer);
-                                  await loadConfig(selectedServer);
-                                  await loadDiagnostics(selectedServer);
-                                  toast.success('Server profile completely rebuilt from raw configuration!', {
-                                    style: { background: '#10b981', color: '#fff', borderRadius: '12px' }
-                                  });
-                                } catch (e) {
-                                  toast.error(`Rebuild failed: ${e}`);
-                                } finally {
-                                  setIsLoading(false);
-                                }
-                              }}
-                              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-amber-500/10 transition-all duration-300"
-                            >
-                              <Cpu className="w-3.5 h-3.5" />
-                              Force Rebuild Profile
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Info grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
-                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Cache Status</span>
-                            <div className="mt-2 flex items-center gap-2">
-                              {diagnostics?.cacheStatus.toLowerCase().includes('fresh') ? (
-                                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                  Fresh (Synced)
-                                </span>
-                              ) : (
-                                <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold flex items-center gap-1.5">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                  Stale (External edits)
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-slate-500 mt-2 font-medium">Compares files vs active SQLite db records</span>
-                          </div>
-
-                          <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
-                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Configuration Hash</span>
-                            <div className="mt-2 text-xs font-mono font-bold text-slate-200 truncate" title={diagnostics?.configHash || 'N/A'}>
-                              {diagnostics?.configHash ? diagnostics.configHash.substring(0, 16) + '...' : 'Unknown'}
-                            </div>
-                            <span className="text-[10px] text-slate-500 mt-2 font-medium">Combined SHA-256 profile integrity check</span>
-                          </div>
-
-                          <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 flex flex-col justify-between min-h-[100px]">
-                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Last Sync Execution</span>
-                            <div className="mt-2 text-xs font-mono font-bold text-slate-200">
-                              {diagnostics?.lastParsed ? new Date(diagnostics.lastParsed).toLocaleString() : 'Never'}
-                            </div>
-                            <span className="text-[10px] text-slate-500 mt-2 font-medium">Timestamp of database parity parse</span>
-                          </div>
-                        </div>
-
-                        {/* File details panel */}
-                        <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-4">
-                          <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2">
-                            Tracked Source Configuration Files
-                          </h3>
-                          <div className="space-y-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-900">
-                              <div>
-                                <div className="font-semibold text-slate-200 flex items-center gap-1.5">
-                                  {diagnostics?.gusExists ? (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                  ) : (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                  )}
-                                  GameUserSettings.ini
-                                </div>
-                                <span className="text-[10px] text-slate-500 mt-0.5 block">Stores general identity, rates, administration, and launcher parameters</span>
-                              </div>
-                              <div className="text-right sm:text-right flex flex-row sm:flex-col justify-between sm:justify-start gap-4 sm:gap-1 text-[11px] font-mono">
-                                <span className="text-slate-400">Size: <b className="text-slate-200">{diagnostics?.gusSize ? (diagnostics.gusSize / 1024).toFixed(2) : '0.00'} KB</b></span>
-                                <span className="text-slate-400">Modified: <b className="text-slate-200">{diagnostics?.gusModified ? new Date(diagnostics.gusModified).toLocaleString() : 'N/A'}</b></span>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-900">
-                              <div>
-                                <div className="font-semibold text-slate-200 flex items-center gap-1.5">
-                                  {diagnostics?.gameIniExists ? (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                  ) : (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                  )}
-                                  Game.ini
-                                </div>
-                                <span className="text-[10px] text-slate-500 mt-0.5 block">Stores gameplay multipliers, breeding settings, engrams, and crafting overrides</span>
-                              </div>
-                              <div className="text-right sm:text-right flex flex-row sm:flex-col justify-between sm:justify-start gap-4 sm:gap-1 text-[11px] font-mono">
-                                <span className="text-slate-400">Size: <b className="text-slate-200">{diagnostics?.gameIniSize ? (diagnostics.gameIniSize / 1024).toFixed(2) : '0.00'} KB</b></span>
-                                <span className="text-slate-400">Modified: <b className="text-slate-200">{diagnostics?.gameIniModified ? new Date(diagnostics.gameIniModified).toLocaleString() : 'N/A'}</b></span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Live launch preview */}
-                        <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-3">
-                          <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5">
-                            <Cpu className="w-4 h-4" /> Live Boot Launch Parameters
-                          </h3>
-                          <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                            These command line arguments are generated on startup by mapping custom settings variables:
-                          </p>
-                          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-350 break-all select-all leading-normal relative">
-                            <span className="text-amber-500 select-none mr-2">ShooterGameServer.exe</span>
-                            {diagnostics?.activeLaunchArgs && diagnostics.activeLaunchArgs.length > 0
-                              ? diagnostics.activeLaunchArgs.join(' ')
-                              : 'No arguments detected. Verify directory settings.'}
-                          </div>
-                        </div>
-
-                        {/* Server Readiness Pre-flight Checks */}
-                        <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-3">
-                          <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5">
-                            <Shield className="w-4 h-4" /> Server Launch Readiness
-                          </h3>
-                          <p className="text-xs text-slate-400 leading-relaxed font-medium">
-                            Pre-flight checks to verify the server is ready to launch. Resolve any issues before starting.
-                          </p>
-                          <div className="space-y-2">
-                            {/* Executable check */}
-                            <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
-                              {diagnostics?.gusExists !== undefined ? (
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                              ) : (
-                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
-                              )}
-                              <div className="flex-1">
-                                <div className="text-xs font-semibold text-slate-200">Server Executable</div>
-                                <div className="text-[10px] text-slate-500 mt-0.5">ShooterGame/Binaries/Win64/ShooterGameServer.exe</div>
-                              </div>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase">
-                                {diagnostics?.gusExists !== undefined ? 'Found' : 'Unknown'}
-                              </span>
-                            </div>
-
-                            {/* GameUserSettings.ini check */}
-                            <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                            <div className="font-semibold text-slate-200 flex items-center gap-1.5">
                               {diagnostics?.gusExists ? (
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                               ) : (
-                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                               )}
-                              <div className="flex-1">
-                                <div className="text-xs font-semibold text-slate-200">GameUserSettings.ini</div>
-                                <div className="text-[10px] text-slate-500 mt-0.5">Core server identity, rates, and admin config</div>
-                              </div>
-                              <span className={`text-[10px] font-bold uppercase ${diagnostics?.gusExists ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {diagnostics?.gusExists ? 'Present' : 'Missing'}
-                              </span>
+                              GameUserSettings.ini
                             </div>
-
-                            {/* Game.ini check */}
-                            <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
-                              {diagnostics?.gameIniExists ? (
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                              ) : (
-                                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                              )}
-                              <div className="flex-1">
-                                <div className="text-xs font-semibold text-slate-200">Game.ini</div>
-                                <div className="text-[10px] text-slate-500 mt-0.5">Breeding, engrams, and gameplay overrides</div>
-                              </div>
-                              <span className={`text-[10px] font-bold uppercase ${diagnostics?.gameIniExists ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                {diagnostics?.gameIniExists ? 'Present' : 'Will be created on save'}
-                              </span>
-                            </div>
-
-                            {/* Map validation */}
-                            <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
-                              {mapName && mapName.trim().length > 0 ? (
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                              ) : (
-                                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
-                              )}
-                              <div className="flex-1">
-                                <div className="text-xs font-semibold text-slate-200">Map Configuration</div>
-                                <div className="text-[10px] text-slate-500 mt-0.5">
-                                  {mapName && mapName.trim().length > 0
-                                    ? `Active map: ${mapName}`
-                                    : 'No map selected — server will fail to start'}
-                                </div>
-                              </div>
-                              <span className={`text-[10px] font-bold uppercase ${mapName && mapName.trim().length > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {mapName && mapName.trim().length > 0 ? 'Valid' : 'Invalid'}
-                              </span>
-                            </div>
+                            <span className="text-[10px] text-slate-500 mt-0.5 block">Stores general identity, rates, administration, and launcher parameters</span>
                           </div>
+                          <div className="text-right sm:text-right flex flex-row sm:flex-col justify-between sm:justify-start gap-4 sm:gap-1 text-[11px] font-mono">
+                            <span className="text-slate-400">Size: <b className="text-slate-200">{diagnostics?.gusSize ? (diagnostics.gusSize / 1024).toFixed(2) : '0.00'} KB</b></span>
+                            <span className="text-slate-400">Modified: <b className="text-slate-200">{diagnostics?.gusModified ? new Date(diagnostics.gusModified).toLocaleString() : 'N/A'}</b></span>
+                          </div>
+                        </div>
 
-                          {/* Crash hint */}
-                          <div className="mt-3 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
-                            <div className="flex items-start gap-2">
-                              <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                              <div className="text-[11px] text-slate-400 leading-relaxed">
-                                <span className="font-bold text-amber-400">Server crashes with Code 0?</span> This usually means the server files are incomplete or corrupt.
-                                Try updating the server via SteamCMD (use the Update button on the dashboard), or verify that the install path contains a complete ARK server installation.
-                              </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                          <div>
+                            <div className="font-semibold text-slate-200 flex items-center gap-1.5">
+                              {diagnostics?.gameIniExists ? (
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              ) : (
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                              )}
+                              Game.ini
                             </div>
+                            <span className="text-[10px] text-slate-500 mt-0.5 block">Stores gameplay multipliers, breeding settings, engrams, and crafting overrides</span>
+                          </div>
+                          <div className="text-right sm:text-right flex flex-row sm:flex-col justify-between sm:justify-start gap-4 sm:gap-1 text-[11px] font-mono">
+                            <span className="text-slate-400">Size: <b className="text-slate-200">{diagnostics?.gameIniSize ? (diagnostics.gameIniSize / 1024).toFixed(2) : '0.00'} KB</b></span>
+                            <span className="text-slate-400">Modified: <b className="text-slate-200">{diagnostics?.gameIniModified ? new Date(diagnostics.gameIniModified).toLocaleString() : 'N/A'}</b></span>
                           </div>
                         </div>
                       </div>
-                    )}
+                    </div>
 
-                    {activeTab === 'stats' && (
-                      <AseStatMultiplierEditor
-                        config={config}
-                        onChange={(updated) => {
-                          setConfig(updated);
-                          setIsDirty(true);
-                        }}
-                      />
-                    )}
-                    
-                    {activeTab === 'levels' && (
-                      <AseLevelGenerator
-                        config={config}
-                        onChange={(updated) => {
-                          setConfig(updated);
-                          setIsDirty(true);
-                        }}
-                      />
-                    )}
+                    {/* Live launch preview */}
+                    <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-3">
+                      <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5">
+                        <Cpu className="w-4 h-4" /> Live Boot Launch Parameters
+                      </h3>
+                      <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                        These command line arguments are generated on startup by mapping custom settings variables:
+                      </p>
+                      <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-355 break-all select-all leading-normal relative">
+                        <span className="text-amber-500 select-none mr-2">ShooterGameServer.exe</span>
+                        {diagnostics?.activeLaunchArgs && diagnostics.activeLaunchArgs.length > 0
+                          ? diagnostics.activeLaunchArgs.join(' ')
+                          : 'No arguments detected. Verify directory settings.'}
+                      </div>
+                    </div>
 
-                    {activeTab === 'environment' && activeFile === 'Game.ini' && (
+                    {/* Server Readiness Pre-flight Checks */}
+                    <div className="bg-slate-900/35 border border-white/5 p-5 rounded-2xl space-y-3">
+                      <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest border-b border-white/5 pb-2 flex items-center gap-1.5">
+                        <Shield className="w-4 h-4" /> Server Launch Readiness
+                      </h3>
+                      <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                        Pre-flight checks to verify the server is ready to launch. Resolve any issues before starting.
+                      </p>
+                      <div className="space-y-2">
+                        {/* Executable check */}
+                        <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                          {diagnostics?.gusExists !== undefined ? (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                          ) : (
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                          )}
+                          <div className="flex-1">
+                            <div className="text-xs font-semibold text-slate-200">Server Executable</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">ShooterGame/Binaries/Win64/ShooterGameServer.exe</div>
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">
+                            {diagnostics?.gusExists !== undefined ? 'Found' : 'Unknown'}
+                          </span>
+                        </div>
+
+                        {/* GameUserSettings.ini check */}
+                        <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                          {diagnostics?.gusExists ? (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                          ) : (
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                          )}
+                          <div className="flex-1">
+                            <div className="text-xs font-semibold text-slate-200">GameUserSettings.ini</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">Core server identity, rates, and admin config</div>
+                          </div>
+                          <span className={`text-[10px] font-bold uppercase ${diagnostics?.gusExists ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {diagnostics?.gusExists ? 'Present' : 'Missing'}
+                          </span>
+                        </div>
+
+                        {/* Game.ini check */}
+                        <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                          {diagnostics?.gameIniExists ? (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                          ) : (
+                            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                          )}
+                          <div className="flex-1">
+                            <div className="text-xs font-semibold text-slate-200">Game.ini</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">Breeding, engrams, and gameplay overrides</div>
+                          </div>
+                          <span className={`text-[10px] font-bold uppercase ${diagnostics?.gameIniExists ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            {diagnostics?.gameIniExists ? 'Present' : 'Will be created on save'}
+                          </span>
+                        </div>
+
+                        {/* Map validation */}
+                        <div className="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-900">
+                          {mapName && mapName.trim().length > 0 ? (
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                          ) : (
+                            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                          )}
+                          <div className="flex-1">
+                            <div className="text-xs font-semibold text-slate-200">Map Configuration</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                              {mapName && mapName.trim().length > 0
+                                ? `Active map: ${mapName}`
+                                : 'No map selected — server will fail to start'}
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-bold uppercase ${mapName && mapName.trim().length > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {mapName && mapName.trim().length > 0 ? 'Valid' : 'Invalid'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Crash hint */}
+                      <div className="mt-3 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                          <div className="text-[11px] text-slate-400 leading-relaxed">
+                            <span className="font-bold text-amber-400">Server crashes with Code 0?</span> This usually means the server files are incomplete or corrupt.
+                            Try updating the server via SteamCMD (use the Update button on the dashboard), or verify that the install path contains a complete ARK server installation.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : viewMode === 'stats' ? (
+                  <div className="max-w-4xl mx-auto space-y-6">
+                    <AseStatMultiplierEditor
+                      config={config}
+                      onChange={(updated) => {
+                        setConfig(updated);
+                        setIsDirty(true);
+                      }}
+                    />
+                  </div>
+                ) : viewMode === 'levels' ? (
+                  <div className="max-w-2xl mx-auto space-y-6">
+                    <AseLevelGenerator
+                      config={config}
+                      onChange={(updated) => {
+                        setConfig(updated);
+                        setIsDirty(true);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  /* Visual Editor content */
+                  <>
+                    {activeTab === 'environment' ? (
                       <ASEEnvironmentManager
                         embedded={true}
                         config={config}
@@ -1845,67 +2296,85 @@ export default function ASEConfigEditor() {
                           setIsDirty(true);
                         }}
                       />
-                    )}
+                    ) : (
+                      (() => {
+                        if (['diagnostics', 'stats', 'levels', 'environment'].includes(activeTab)) return null;
 
-                    {(() => {
-                      // Custom tabs don't render schema fields directly here
-                      if (['diagnostics', 'stats', 'levels', 'environment'].includes(activeTab)) return null;
+                        const tabFields = schema.filter(f => f.tab === activeTab && f.file === activeFile);
+                        if (tabFields.length === 0) return null;
 
-                      const tabFields = schema.filter(f => f.file === activeFile && f.tab === activeTab);
-                      if (tabFields.length === 0) return null;
+                        const filteredFields = tabFields.filter(f => {
+                          if (!searchQuery) return true;
+                          const q = searchQuery.toLowerCase();
+                          return f.label?.toLowerCase().includes(q) ||
+                                 f.key.toLowerCase().includes(q) ||
+                                 f.desc?.toLowerCase().includes(q);
+                        });
 
-                      const filteredFields = tabFields.filter(f => {
-                        if (!searchQuery) return true;
-                        const q = searchQuery.toLowerCase();
-                        return f.label?.toLowerCase().includes(q) ||
-                               f.key.toLowerCase().includes(q) ||
-                               f.desc?.toLowerCase().includes(q);
-                      });
+                        if (searchQuery && filteredFields.length === 0) {
+                          return (
+                            <div className="flex flex-col items-center justify-center py-16 px-6 bg-slate-900/20 border border-white/5 rounded-3xl text-center">
+                              <Search className="w-10 h-10 text-amber-500/30 mb-3" />
+                              <h3 className="text-base font-bold text-white">No matches in "{tabs.find(t => t.id === activeTab)?.label}"</h3>
+                              <p className="text-xs text-slate-400 mt-1 max-w-sm">No settings match your search in this category. However, matches were found in these sections:</p>
+                              <div className="flex flex-wrap justify-center gap-2 mt-4">
+                                {Object.entries(tabMatchCounts).map(([tabId, count]) => {
+                                  const targetTab = tabs.find(t => t.id === tabId);
+                                  if (!targetTab || count === 0) return null;
+                                  return (
+                                    <button
+                                      key={tabId}
+                                      type="button"
+                                      onClick={() => setActiveTab(tabId as TabType)}
+                                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
+                                    >
+                                      {targetTab.label}
+                                      <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] font-black rounded">
+                                        {count}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        }
 
-                      if (searchQuery && filteredFields.length === 0) {
-                        // Show helpful suggestions pointing to other tabs with matches
                         return (
-                          <div className="flex flex-col items-center justify-center py-16 px-6 bg-slate-900/20 border border-white/5 rounded-3xl text-center">
-                            <Search className="w-10 h-10 text-amber-500/30 mb-3" />
-                            <h3 className="text-base font-bold text-white">No matches in "{tabs.find(t => t.id === activeTab)?.label}"</h3>
-                            <p className="text-xs text-slate-400 mt-1 max-w-sm">No settings match your search in this category. However, matches were found in these sections:</p>
-                            <div className="flex flex-wrap justify-center gap-2 mt-4">
-                              {Object.entries(tabMatchCounts).map(([tabId, count]) => {
-                                const targetTab = tabs.find(t => t.id === tabId);
-                                if (!targetTab || count === 0) return null;
-                                return (
-                                  <button
-                                    key={tabId}
-                                    type="button"
-                                    onClick={() => setActiveTab(tabId as TabType)}
-                                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
-                                  >
-                                    {targetTab.label}
-                                    <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] font-black rounded">
-                                      {count}
-                                    </span>
-                                  </button>
-                                );
-                              })}
+                          <div className="max-w-5xl mx-auto space-y-8">
+                            <div className="space-y-4 text-left animate-fadeIn">
+                              <div className="flex items-center gap-3 pb-2 border-b border-white/5 relative">
+                                <div className={cn(
+                                  "absolute bottom-0 left-0 w-16 h-px",
+                                  activeFile === 'GameUserSettings.ini' ? "bg-amber-500" : "bg-orange-500"
+                                )}></div>
+                                <h3 className={cn(
+                                  "text-xs font-black uppercase tracking-widest",
+                                  activeFile === 'GameUserSettings.ini' ? "text-amber-550" : "text-orange-500"
+                                )}>
+                                  {activeFile} Settings
+                                </h3>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {activeTab === 'general' && activeFile === 'GameUserSettings.ini' && !searchQuery && (
+                                  <div className="col-span-1 md:col-span-2">
+                                    {renderMapSelector()}
+                                  </div>
+                                )}
+                                {filteredFields.map(field => renderField(field))}
+                              </div>
                             </div>
                           </div>
                         );
-                      }
-
-                      return (
-                        <div className="space-y-6">
-                          {activeFile === 'GameUserSettings.ini' && activeTab === 'general' && !searchQuery && renderMapSelector()}
-                          {filteredFields.map(field => renderField(field))}
-                        </div>
-                      );
-                    })()}
+                      })()
+                    )}
                     {activeTab === 'server_options' && (
                       <div className="mt-8 p-6 bg-slate-950/70 border border-amber-500/20 rounded-3xl relative overflow-hidden group">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
                         <div className="flex items-center gap-2 mb-3 text-amber-400 font-bold text-sm uppercase tracking-wider">
                           <Cpu className="w-4 h-4" /> Real-time Launch Preview
                         </div>
-                        <p className="text-xs text-slate-400 mb-4 leading-relaxed font-medium">
+                        <p className="text-xs text-slate-450 mb-4 leading-relaxed font-medium">
                           This live command line is automatically compiled on server boot based on your settings:
                         </p>
                         <div className="bg-slate-900 border border-white/5 rounded-2xl p-4 font-mono text-xs text-slate-300 break-all select-all leading-normal relative">
@@ -1949,7 +2418,7 @@ export default function ASEConfigEditor() {
                   loadConfig(selectedServer);
                 }
               }}
-              className="px-4 py-1.5 text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/50 rounded-xl transition-all"
+              className="px-4 py-1.5 text-xs font-semibold text-slate-400 hover:text-white bg-slate-850 hover:bg-slate-700 border border-slate-700/50 rounded-xl transition-all"
             >
               Discard
             </button>
@@ -2024,6 +2493,6 @@ export default function ASEConfigEditor() {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

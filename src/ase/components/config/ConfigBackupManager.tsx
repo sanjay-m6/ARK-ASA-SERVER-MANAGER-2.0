@@ -33,6 +33,7 @@ export default function ConfigBackupManager({ serverId }: ConfigBackupManagerPro
   }, [serverId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBackups();
   }, [fetchBackups]);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Bot, Send, Trash2, Loader2, CheckCircle, XCircle, AlertTriangle, Sparkles, ChevronDown, Wrench, Zap, Server, Shield, Rocket, Radio, FileText, Database, Users, Calendar, Search, Save, Navigation, ChevronRight, Brain, Plus, MessageSquare, Pin, PanelLeftClose, PanelLeftOpen, Clock, MemoryStick, Edit3, X } from 'lucide-react';
@@ -331,7 +331,7 @@ const MarkdownComponents: import('react-markdown').Components = {
     th: ({ children }) => <th className="px-4 py-3 border-b border-white/10">{children}</th>,
     td: ({ children }) => <td className="px-4 py-3">{children}</td>,
     blockquote: ({ children }) => <blockquote className="border-l-2 border-cyan-500/50 pl-4 py-1 my-3 text-slate-400 italic bg-cyan-500/5 rounded-r-lg">{children}</blockquote>,
-    h1: ({ children }) => <h1 className="text-xl font-bold text-white mb-3 mt-4">{children}</h1>,
+    h1: ({ children }) => React.createElement('h1', { className: "text-xl font-bold text-white mb-3 mt-4" }, children),
     h2: ({ children }) => <h2 className="text-lg font-bold text-white mb-2 mt-4">{children}</h2>,
     h3: ({ children }) => <h3 className="text-base font-bold text-white mb-2 mt-3">{children}</h3>,
 };
@@ -498,7 +498,7 @@ export default function AIAssistant() {
     const [agentTurnCount, setAgentTurnCount] = useState(0);
     const [showMacros, setShowMacros] = useState(false);
     const macros = getAllMacros();
-    
+
     // Typewriter state
     const [isThinking, setIsThinking] = useState(false);
     const [typewriterText, setTypewriterText] = useState('');
@@ -631,7 +631,7 @@ export default function AIAssistant() {
         return () => {
             if (typewriterRef.current) clearTimeout(typewriterRef.current);
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [typewriterFullText, isTyping]);
 
     // Helper: start typewriter effect with text
@@ -1118,138 +1118,138 @@ export default function AIAssistant() {
                 {/* Chat Area */}
                 <div className="flex-1 rounded-2xl glass-panel border-white/5 overflow-hidden flex flex-col">
 
-                {/* Messages */}
-                <div className="flex-1 overflow-y-auto py-4 space-y-1 scrollbar-hide">
-                    {messages.length === 0 && !isStreaming && (
-                        <div className="flex flex-col items-center justify-center h-full text-center px-8">
-                            <div className="p-5 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/10 mb-6">
-                                <Bot className="w-12 h-12 text-cyan-400/60" />
-                            </div>
-                            <h3 className="text-lg font-bold text-white mb-2">Welcome to Infinity AI</h3>
-                            <p className="text-sm text-slate-400 max-w-md mb-8">
-                                Your autonomous ARK server management assistant. Ask me to check server status, start or stop servers, create backups, run RCON commands, and more.
-                            </p>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-3xl w-full">
-                                {[
-                                    'Show all server status',
-                                    'What is the system health?',
-                                    'Create a backup for server 1',
-                                    'Show scheduled tasks',
-                                    'Check server logs for crashes',
-                                    'Broadcast a message to all players',
-                                    'Optimize my GameUserSettings.ini',
-                                    'Explain breeding multipliers',
-                                    'Check for server updates'
-                                ].map((prompt) => (
-                                    <button
-                                        key={prompt}
-                                        onClick={() => { setInput(prompt); inputRef.current?.focus(); }}
-                                        className="text-left px-4 py-3 rounded-xl bg-slate-800/30 border border-slate-700/30 text-xs text-slate-400 hover:text-white hover:bg-slate-800/60 hover:border-slate-600/50 transition-all line-clamp-2"
-                                    >
-                                        {prompt}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {messages.map((msg) => (
-                        <MessageBubble key={msg.id} message={msg} />
-                    ))}
-
-                    {isStreaming && !executingTool && !isTyping && <ThinkingBubble />}
-
-                    {/* Typewriter text reveal */}
-                    {isTyping && typewriterText && (
-                        <TypewriterBubble content={typewriterText} isComplete={false} />
-                    )}
-
-                    {executingTool && (
-                        <div className="relative">
-                            {agentTurnCount > 1 && (
-                                <div className="flex items-center gap-2 px-6 py-1">
-                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-                                        <ChevronRight className="w-3 h-3 text-indigo-400" />
-                                        <span className="text-[10px] font-bold text-indigo-400">STEP {agentTurnCount}/{MAX_TOOL_TURNS}</span>
-                                    </span>
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto py-4 space-y-1 scrollbar-hide">
+                        {messages.length === 0 && !isStreaming && (
+                            <div className="flex flex-col items-center justify-center h-full text-center px-8">
+                                <div className="p-5 rounded-3xl bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border border-cyan-500/10 mb-6">
+                                    <Bot className="w-12 h-12 text-cyan-400/60" />
                                 </div>
-                            )}
-                            <ToolProgressCard state={executingTool} />
-                        </div>
-                    )}
-
-                    {pendingToolCall && (
-                        <ToolConfirmation
-                            toolCall={pendingToolCall}
-                            onConfirm={handleConfirmTool}
-                            onDeny={handleDenyTool}
-                        />
-                    )}
-
-                    <div ref={messagesEndRef} />
-                </div>
-
-                {/* Macro Bar + Input */}
-                <div className="border-t border-white/5 p-4">
-                    {/* Macro Quick Actions */}
-                    <div className="mb-3">
-                        <button
-                            onClick={() => setShowMacros(!showMacros)}
-                            className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-cyan-400 transition-colors mb-2"
-                        >
-                            <Zap className="w-3 h-3" />
-                            Quick Actions
-                            <ChevronDown className={cn("w-3 h-3 transition-transform", showMacros && "rotate-180")} />
-                        </button>
-                        {showMacros && (
-                            <div className="flex flex-wrap gap-2 ai-tool-card-enter">
-                                {macros.map((macro: AiMacro) => (
-                                    <button
-                                        key={macro.id}
-                                        onClick={() => { setInput(macro.prompt); setShowMacros(false); inputRef.current?.focus(); }}
-                                        disabled={isStreaming}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/40 border border-slate-700/30 text-xs text-slate-400 hover:text-white hover:bg-slate-800/70 hover:border-cyan-500/20 transition-all disabled:opacity-40"
-                                        title={macro.description}
-                                    >
-                                        <span>{macro.icon}</span>
-                                        <span>{macro.name}</span>
-                                    </button>
-                                ))}
+                                <h3 className="text-lg font-bold text-white mb-2">Welcome to Infinity AI</h3>
+                                <p className="text-sm text-slate-400 max-w-md mb-8">
+                                    Your autonomous ARK server management assistant. Ask me to check server status, start or stop servers, create backups, run RCON commands, and more.
+                                </p>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-3xl w-full">
+                                    {[
+                                        'Show all server status',
+                                        'What is the system health?',
+                                        'Create a backup for server 1',
+                                        'Show scheduled tasks',
+                                        'Check server logs for crashes',
+                                        'Broadcast a message to all players',
+                                        'Optimize my GameUserSettings.ini',
+                                        'Explain breeding multipliers',
+                                        'Check for server updates'
+                                    ].map((prompt) => (
+                                        <button
+                                            key={prompt}
+                                            onClick={() => { setInput(prompt); inputRef.current?.focus(); }}
+                                            className="text-left px-4 py-3 rounded-xl bg-slate-800/30 border border-slate-700/30 text-xs text-slate-400 hover:text-white hover:bg-slate-800/60 hover:border-slate-600/50 transition-all line-clamp-2"
+                                        >
+                                            {prompt}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         )}
+
+                        {messages.map((msg) => (
+                            <MessageBubble key={msg.id} message={msg} />
+                        ))}
+
+                        {isStreaming && !executingTool && !isTyping && <ThinkingBubble />}
+
+                        {/* Typewriter text reveal */}
+                        {isTyping && typewriterText && (
+                            <TypewriterBubble content={typewriterText} isComplete={false} />
+                        )}
+
+                        {executingTool && (
+                            <div className="relative">
+                                {agentTurnCount > 1 && (
+                                    <div className="flex items-center gap-2 px-6 py-1">
+                                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+                                            <ChevronRight className="w-3 h-3 text-indigo-400" />
+                                            <span className="text-[10px] font-bold text-indigo-400">STEP {agentTurnCount}/{MAX_TOOL_TURNS}</span>
+                                        </span>
+                                    </div>
+                                )}
+                                <ToolProgressCard state={executingTool} />
+                            </div>
+                        )}
+
+                        {pendingToolCall && (
+                            <ToolConfirmation
+                                toolCall={pendingToolCall}
+                                onConfirm={handleConfirmTool}
+                                onDeny={handleDenyTool}
+                            />
+                        )}
+
+                        <div ref={messagesEndRef} />
                     </div>
 
-                    <div className="flex items-end gap-3">
-                        <textarea
-                            ref={inputRef}
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder={t('aiAssistant.placeholder', 'Ask Infinity AI...')}
-                            rows={1}
-                            className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 resize-none focus:outline-none focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 transition-all"
-                            style={{ minHeight: '44px', maxHeight: '120px' }}
-                            disabled={isStreaming}
-                        />
-                        <button
-                            onClick={handleSend}
-                            disabled={!input.trim() || isStreaming}
-                            className={cn(
-                                "p-3 rounded-xl transition-all flex-shrink-0",
-                                input.trim() && !isStreaming
-                                    ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40"
-                                    : "bg-slate-800/50 text-slate-500 cursor-not-allowed border border-slate-700/30"
+                    {/* Macro Bar + Input */}
+                    <div className="border-t border-white/5 p-4">
+                        {/* Macro Quick Actions */}
+                        <div className="mb-3">
+                            <button
+                                onClick={() => setShowMacros(!showMacros)}
+                                className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 hover:text-cyan-400 transition-colors mb-2"
+                            >
+                                <Zap className="w-3 h-3" />
+                                Quick Actions
+                                <ChevronDown className={cn("w-3 h-3 transition-transform", showMacros && "rotate-180")} />
+                            </button>
+                            {showMacros && (
+                                <div className="flex flex-wrap gap-2 ai-tool-card-enter">
+                                    {macros.map((macro: AiMacro) => (
+                                        <button
+                                            key={macro.id}
+                                            onClick={() => { setInput(macro.prompt); setShowMacros(false); inputRef.current?.focus(); }}
+                                            disabled={isStreaming}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800/40 border border-slate-700/30 text-xs text-slate-400 hover:text-white hover:bg-slate-800/70 hover:border-cyan-500/20 transition-all disabled:opacity-40"
+                                            title={macro.description}
+                                        >
+                                            <span>{macro.icon}</span>
+                                            <span>{macro.name}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             )}
-                        >
-                            {isStreaming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                        </button>
+                        </div>
+
+                        <div className="flex items-end gap-3">
+                            <textarea
+                                ref={inputRef}
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                                placeholder={t('aiAssistant.placeholder', 'Ask Infinity AI...')}
+                                rows={1}
+                                className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 resize-none focus:outline-none focus:border-cyan-500/30 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+                                style={{ minHeight: '44px', maxHeight: '120px' }}
+                                disabled={isStreaming}
+                            />
+                            <button
+                                onClick={handleSend}
+                                disabled={!input.trim() || isStreaming}
+                                className={cn(
+                                    "p-3 rounded-xl transition-all flex-shrink-0",
+                                    input.trim() && !isStreaming
+                                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40"
+                                        : "bg-slate-800/50 text-slate-500 cursor-not-allowed border border-slate-700/30"
+                                )}
+                            >
+                                {isStreaming ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                            </button>
+                        </div>
+                        <p className="text-[10px] text-slate-600 mt-2 text-center">
+                            Press Enter to send · Shift+Enter for new line · {agentTurnCount > 0 ? `Agent loop: step ${agentTurnCount}/${MAX_TOOL_TURNS}` : 'Powered by NVIDIA AI'}
+                        </p>
                     </div>
-                    <p className="text-[10px] text-slate-600 mt-2 text-center">
-                        Press Enter to send · Shift+Enter for new line · {agentTurnCount > 0 ? `Agent loop: step ${agentTurnCount}/${MAX_TOOL_TURNS}` : 'Powered by NVIDIA AI'}
-                    </p>
                 </div>
             </div>
-        </div>
         </div>
     );
 }

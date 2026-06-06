@@ -161,7 +161,7 @@ export function resetUpdateCache(): void {
 
 // Get GitHub releases URL for manual rollback
 export function getReleasesUrl(): string {
-    return 'https://github.com/sanjay-m6/ASA-SERVER-MANAGER-2.0/releases';
+    return 'https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases';
 }
 
 // Format relative time for display

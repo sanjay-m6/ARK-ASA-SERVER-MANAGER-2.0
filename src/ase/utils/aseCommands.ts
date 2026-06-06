@@ -10,6 +10,7 @@ import type {
     ModValidationReport,
     AseSchedulerSettings,
     AseDiagnostics,
+    ValidationResult,
 } from '../types/ase.types';
 
 // ─── Server Commands ────────────────────────────────────────────────
@@ -134,6 +135,10 @@ export async function readAseConfig(serverId: number): Promise<AseGameConfig> {
 
 export async function writeAseConfig(serverId: number, config: AseGameConfig): Promise<void> {
     return invoke('write_ase_config', { serverId, config });
+}
+
+export async function validateAseConfig(serverId: number): Promise<ValidationResult> {
+    return invoke('validate_ase_config', { serverId });
 }
 
 export async function readAseIniRaw(serverId: number, filename: string): Promise<string> {

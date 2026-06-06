@@ -1,7 +1,6 @@
-use crate::ase::ini_parser::{IniData, IniEntry};
+use crate::ase::ini_parser::{IniDocument, IniLine};
 use crate::ase::models::AseGameConfig;
 use crate::AppState;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::State;
 
@@ -21,52 +20,8 @@ fn is_array_key(key: &str) -> bool {
         || kl == "configoverrideitemcraftingcosts"
 }
 
-/// Parse a UE4-style INI file into section → (key → value) map
-fn parse_ini(content: &str) -> HashMap<String, HashMap<String, String>> {
-    let mut sections: HashMap<String, HashMap<String, String>> = HashMap::new();
-    let mut current_section = String::from("__root__");
-
-    for line in content.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with(';') || trimmed.starts_with('#') {
-            continue;
-        }
-
-        if trimmed.starts_with('[') && trimmed.ends_with(']') {
-            current_section = trimmed[1..trimmed.len() - 1].to_string();
-            sections.entry(current_section.clone()).or_default();
-        } else if let Some(eq_pos) = trimmed.find('=') {
-            let key = trimmed[..eq_pos].trim().to_string();
-            let value = trimmed[eq_pos + 1..].trim().to_string();
-            let section_map = sections.entry(current_section.clone()).or_default();
-            
-            // Search case-insensitively for the key in section_map
-            let existing_key = section_map.keys().find(|k| k.to_lowercase() == key.to_lowercase()).cloned();
-            
-            if let Some(ek) = existing_key {
-                if is_array_key(&key) {
-                    let val_ref = section_map.get_mut(&ek).unwrap();
-                    val_ref.push('\n');
-                    val_ref.push_str(&value);
-                } else {
-                    // Single value key: overwrite the old value
-                    section_map.insert(ek, value);
-                }
-            } else {
-                section_map.insert(key, value);
-            }
-        }
-    }
-
-    sections
-}
-
-/// Get a value from parsed INI sections (case-insensitive and resilient to /Script/ prefixing)
-fn ini_get<'a>(
-    sections: &'a HashMap<String, HashMap<String, String>>,
-    section: &str,
-    key: &str,
-) -> Option<&'a String> {
+/// Get a value from parsed INI document (case-insensitive and resilient to /Script/ prefixing)
+fn ini_get(doc: &IniDocument, section: &str, key: &str) -> Option<String> {
     let section_lower = section.to_lowercase();
     let key_lower = key.to_lowercase();
 
@@ -81,28 +36,56 @@ fn ini_get<'a>(
 
     let target_clean = clean_sec(&section_lower);
 
-    for (sec_name, keys_map) in sections {
-        let sec_name_lower = sec_name.to_lowercase();
-        let sec_name_clean = clean_sec(&sec_name_lower);
+    let mut in_target_section = false;
+    let mut matches = Vec::new();
+    let mut i = 0;
 
-        if sec_name_lower == section_lower || sec_name_clean == target_clean {
-            for (k, v) in keys_map {
+    while i < doc.lines.len() {
+        match &doc.lines[i] {
+            IniLine::SectionHeader { name, .. } => {
+                let current_section_clean = clean_sec(name);
+                in_target_section = name.to_lowercase() == section_lower || current_section_clean == target_clean;
+            }
+            IniLine::Entry { key: k, value: v, .. } if in_target_section => {
                 if k.to_lowercase() == key_lower {
-                    return Some(v);
+                    // Collect continuation lines
+                    let mut full_value = v.clone();
+                    let mut j = i + 1;
+                    while j < doc.lines.len() {
+                        if let IniLine::Continuation(cont) = &doc.lines[j] {
+                            full_value.push('\n');
+                            full_value.push_str(cont);
+                            j += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    matches.push(full_value);
                 }
             }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    if matches.is_empty() {
+        None
+    } else {
+        if is_array_key(key) {
+            Some(matches.join("\n"))
+        } else {
+            matches.pop()
         }
     }
-    None
 }
 
 fn ini_get_f64(
-    sections: &HashMap<String, HashMap<String, String>>,
+    doc: &IniDocument,
     section: &str,
     key: &str,
     default: f64,
 ) -> f64 {
-    ini_get(sections, section, key)
+    ini_get(doc, section, key)
         .and_then(|v| {
             let last_line = v.lines().last().unwrap_or("");
             last_line.parse::<f64>().ok()
@@ -111,12 +94,12 @@ fn ini_get_f64(
 }
 
 fn ini_get_u32(
-    sections: &HashMap<String, HashMap<String, String>>,
+    doc: &IniDocument,
     section: &str,
     key: &str,
     default: u32,
 ) -> u32 {
-    ini_get(sections, section, key)
+    ini_get(doc, section, key)
         .and_then(|v| {
             let last_line = v.lines().last().unwrap_or("");
             last_line.parse::<u32>().ok()
@@ -125,12 +108,12 @@ fn ini_get_u32(
 }
 
 fn ini_get_u16(
-    sections: &HashMap<String, HashMap<String, String>>,
+    doc: &IniDocument,
     section: &str,
     key: &str,
     default: u16,
 ) -> u16 {
-    ini_get(sections, section, key)
+    ini_get(doc, section, key)
         .and_then(|v| {
             let last_line = v.lines().last().unwrap_or("");
             last_line.parse::<u16>().ok()
@@ -139,12 +122,12 @@ fn ini_get_u16(
 }
 
 fn ini_get_bool(
-    sections: &HashMap<String, HashMap<String, String>>,
+    doc: &IniDocument,
     section: &str,
     key: &str,
     default: bool,
 ) -> bool {
-    ini_get(sections, section, key)
+    ini_get(doc, section, key)
         .map(|v| {
             let last_line = v.lines().last().unwrap_or("");
             let lower = last_line.to_lowercase();
@@ -154,651 +137,20 @@ fn ini_get_bool(
 }
 
 fn ini_get_str(
-    sections: &HashMap<String, HashMap<String, String>>,
+    doc: &IniDocument,
     section: &str,
     key: &str,
     default: &str,
 ) -> String {
-    ini_get(sections, section, key)
+    ini_get(doc, section, key)
         .map(|v| {
             if is_array_key(key) {
-                v.clone()
+                v
             } else {
                 v.lines().last().unwrap_or("").to_string()
             }
         })
         .unwrap_or_else(|| default.to_string())
-}
-
-/// Build the GameUserSettings.ini and Game.ini content from AseGameConfig
-#[allow(dead_code)]
-fn build_game_user_settings(config: &AseGameConfig) -> String {
-    let mut out = String::with_capacity(4096);
-
-    out.push_str("[ServerSettings]\n");
-    // Identity
-    out.push_str(&format!("SessionName={}\n", config.session_name));
-    out.push_str(&format!("ServerPassword={}\n", config.server_password));
-    out.push_str(&format!(
-        "ServerAdminPassword={}\n",
-        config.server_admin_password
-    ));
-    out.push_str(&format!("MaxPlayers={}\n", config.max_players));
-
-    // Difficulty
-    out.push_str(&format!(
-        "DifficultyOffset={:.6}\n",
-        config.difficulty_offset
-    ));
-    out.push_str(&format!(
-        "OverrideOfficialDifficulty={:.6}\n",
-        config.override_official_difficulty
-    ));
-
-    // Core Rates
-    out.push_str(&format!("XPMultiplier={:.6}\n", config.xp_multiplier));
-    out.push_str(&format!(
-        "TamingSpeedMultiplier={:.6}\n",
-        config.taming_speed_multiplier
-    ));
-    out.push_str(&format!(
-        "HarvestAmountMultiplier={:.6}\n",
-        config.harvest_amount_multiplier
-    ));
-    out.push_str(&format!(
-        "HarvestHealthMultiplier={:.6}\n",
-        config.harvest_health_multiplier
-    ));
-    out.push_str(&format!(
-        "ResourcesRespawnPeriodMultiplier={:.6}\n",
-        config.resources_respawn_period_multiplier
-    ));
-    out.push_str(&format!(
-        "ItemStackSizeMultiplier={:.6}\n",
-        config.item_stack_size_multiplier
-    ));
-
-    // Player Stats
-    out.push_str(&format!(
-        "PlayerCharacterFoodDrainMultiplier={:.6}\n",
-        config.player_character_food_drain_multiplier
-    ));
-    out.push_str(&format!(
-        "PlayerCharacterWaterDrainMultiplier={:.6}\n",
-        config.player_character_water_drain_multiplier
-    ));
-    out.push_str(&format!(
-        "PlayerCharacterStaminaDrainMultiplier={:.6}\n",
-        config.player_character_stamina_drain_multiplier
-    ));
-    out.push_str(&format!(
-        "PlayerCharacterHealthRecoveryMultiplier={:.6}\n",
-        config.player_character_health_recovery_multiplier
-    ));
-    out.push_str(&format!(
-        "PlayerDamageMultiplier={:.6}\n",
-        config.player_damage_multiplier
-    ));
-    out.push_str(&format!(
-        "PlayerResistanceMultiplier={:.6}\n",
-        config.player_resistance_multiplier
-    ));
-
-    // Dino Stats
-    out.push_str(&format!(
-        "DinoCharacterFoodDrainMultiplier={:.6}\n",
-        config.dino_character_food_drain_multiplier
-    ));
-    out.push_str(&format!(
-        "DinoCharacterHealthRecoveryMultiplier={:.6}\n",
-        config.dino_character_health_recovery_multiplier
-    ));
-    out.push_str(&format!(
-        "DinoDamageMultiplier={:.6}\n",
-        config.dino_damage_multiplier
-    ));
-    out.push_str(&format!(
-        "DinoResistanceMultiplier={:.6}\n",
-        config.dino_resistance_multiplier
-    ));
-    out.push_str(&format!("MaxTamedDinos={}\n", config.max_tamed_dinos));
-    out.push_str(&format!(
-        "DinoCountMultiplier={:.6}\n",
-        config.dino_count_multiplier
-    ));
-    out.push_str(&format!(
-        "WildDinoTorporDrainMultiplier={:.6}\n",
-        config.wild_dino_torpor_drain_multiplier
-    ));
-    out.push_str(&format!(
-        "TamedDinoTorporDrainMultiplier={:.6}\n",
-        config.tamed_dino_torpor_drain_multiplier
-    ));
-    out.push_str(&format!(
-        "PassiveTameIntervalMultiplier={:.6}\n",
-        config.passive_tame_interval_multiplier
-    ));
-    out.push_str(&format!(
-        "UseSingleplayerSettings={}\n",
-        config.use_singleplayer_settings
-    ));
-    out.push_str(&format!(
-        "DisableDinoBreeding={}\n",
-        config.disable_dino_breeding
-    ));
-    out.push_str(&format!(
-        "AllowUnclaimDinos={}\n",
-        config.allow_unclaim_dinos
-    ));
-    out.push_str(&format!(
-        "UseDinoLevelUpAnimations={}\n",
-        config.use_dino_level_up_animations
-    ));
-    out.push_str(&format!(
-        "MaxPersonalTamedDinos={}\n",
-        config.max_personal_tamed_dinos
-    ));
-    out.push_str(&format!(
-        "PersonalTamedDinosSaddleStructureCost={:.6}\n",
-        config.personal_tamed_dinos_saddle_structure_cost
-    ));
-
-    // Structures
-    out.push_str(&format!(
-        "TheMaxStructuresInRange={}\n",
-        config.the_max_structures_in_range
-    ));
-    out.push_str(&format!(
-        "StructureDamageMultiplier={:.6}\n",
-        config.structure_damage_multiplier
-    ));
-    out.push_str(&format!(
-        "StructureResistanceMultiplier={:.6}\n",
-        config.structure_resistance_multiplier
-    ));
-    out.push_str(&format!(
-        "PerPlatformMaxStructuresMultiplier={:.6}\n",
-        config.per_platform_max_structures_multiplier
-    ));
-    out.push_str(&format!(
-        "AutoDestroyDecayedDinos={}\n",
-        config.auto_destroy_decayed_dinos
-    ));
-    out.push_str(&format!(
-        "DisableStructureDecayPvE={}\n",
-        config.disable_structure_decay_pve
-    ));
-    out.push_str(&format!(
-        "PvEAllowStructuresAtSupplyDrops={}\n",
-        config.pve_allow_structures_at_supply_drops
-    ));
-    out.push_str(&format!(
-        "ForceAllStructureLocking={}\n",
-        config.force_all_structure_locking
-    ));
-    out.push_str(&format!(
-        "AutoDestroyOldStructuresMultiplier={:.6}\n",
-        config.auto_destroy_old_structures_multiplier
-    ));
-    out.push_str(&format!(
-        "StructurePickupTimeAfterPlacement={:.6}\n",
-        config.structure_pickup_time_after_placement
-    ));
-    out.push_str(&format!(
-        "StructurePickupHoldDuration={:.6}\n",
-        config.structure_pickup_hold_duration
-    ));
-    out.push_str(&format!(
-        "AllowIntegratedSPlusStructures={}\n",
-        config.allow_integrated_spinet_attachment
-    ));
-    out.push_str(&format!(
-        "IgnoreLimitMaxStructuresInRangeTypeFlag={}\n",
-        config.ignore_limit_max_structures_in_range_type_flag
-    ));
-    out.push_str(&format!(
-        "IgnoreStructuresPreventionVolumes={}\n",
-        config.ignore_structures_prevention_volumes
-    ));
-
-    // PvP Rules
-    out.push_str(&format!("ServerPVE={}\n", config.server_pve));
-    out.push_str(&format!(
-        "AllowCaveBuildingPvP={}\n",
-        config.allow_cave_building_pvp
-    ));
-    out.push_str(&format!(
-        "DisableRailgunPVP={}\n",
-        config.disable_railgun_pvp
-    ));
-    out.push_str(&format!("EnablePvPGamma={}\n", config.enable_pvp_gamma));
-    out.push_str(&format!(
-        "PvPStructureDecay={}\n",
-        config.pvp_structure_decay
-    ));
-    out.push_str(&format!("PvPDinoDecay={}\n", config.pvp_dino_decay));
-    out.push_str(&format!(
-        "GlobalPoweredBatteryDurabilityDecreasePerSecond={:.6}\n",
-        config.global_powered_battery_durability_decrease_per_second
-    ));
-
-    // Player Rules
-    out.push_str(&format!(
-        "AllowThirdPersonPlayer={}\n",
-        config.allow_third_person_player
-    ));
-    out.push_str(&format!("ServerCrosshair={}\n", config.server_crosshair));
-    out.push_str(&format!(
-        "ShowMapPlayerLocation={}\n",
-        config.show_map_player_location
-    ));
-    out.push_str(&format!(
-        "AllowFlyerCarryPvE={}\n",
-        config.allow_flyer_carry_pve
-    ));
-    out.push_str(&format!(
-        "DisableWeatherFog={}\n",
-        config.disable_weather_fog
-    ));
-    out.push_str(&format!(
-        "AllowAnyoneBabyImprintCuddle={}\n",
-        config.allow_anyone_baby_imprint_cuddle
-    ));
-    out.push_str(&format!("AllowHitMarkers={}\n", config.allow_hit_markers));
-    out.push_str(&format!(
-        "EnableExtraStructurePreventionVolumes={}\n",
-        config.enable_extra_structure_prevention_volumes
-    ));
-    out.push_str(&format!(
-        "ShowFloatingDamageText={}\n",
-        config.show_floating_damage_text
-    ));
-    out.push_str(&format!(
-        "ForceFlyerExplosives={}\n",
-        config.force_flyerexplosives
-    ));
-
-    // Tribe Settings
-    out.push_str(&format!(
-        "PreventTribeAlliances={}\n",
-        config.prevent_tribe_alliances
-    ));
-    out.push_str(&format!(
-        "AllowTribeAlliance={}\n",
-        config.allow_tribe_alliance
-    ));
-    out.push_str(&format!(
-        "AllowTribeWarfare={}\n",
-        config.allow_tribe_warfare
-    ));
-    out.push_str(&format!("MaxTribeLogs={}\n", config.max_tribe_logs));
-    out.push_str(&format!(
-        "MaxNumberOfPlayersInTribe={}\n",
-        config.max_number_of_players_in_tribe
-    ));
-
-    // Tribute / Transfer
-    out.push_str(&format!("MaxTributeDinos={}\n", config.max_tribute_dinos));
-    out.push_str(&format!("MaxTributeItems={}\n", config.max_tribute_items));
-    out.push_str(&format!(
-        "NoTributeDownloads={}\n",
-        config.no_tribute_downloads
-    ));
-    out.push_str(&format!(
-        "PreventDownloadSurvivors={}\n",
-        config.prevent_download_survivors
-    ));
-    out.push_str(&format!(
-        "PreventDownloadItems={}\n",
-        config.prevent_download_items
-    ));
-    out.push_str(&format!(
-        "PreventDownloadDinos={}\n",
-        config.prevent_download_dinos
-    ));
-    out.push_str(&format!(
-        "PreventUploadSurvivors={}\n",
-        config.prevent_upload_survivors
-    ));
-    out.push_str(&format!(
-        "PreventUploadItems={}\n",
-        config.prevent_upload_items
-    ));
-    out.push_str(&format!(
-        "PreventUploadDinos={}\n",
-        config.prevent_upload_dinos
-    ));
-    out.push_str(&format!(
-        "DisableCustomFoldersInTributeInventories={}\n",
-        config.disable_custom_folders_in_tribute_inventories
-    ));
-    out.push_str(&format!(
-        "CrossARKAllowForeignDinoDownloads={}\n",
-        config.crossark_allow_foreign_dino_downloads
-    ));
-
-    // Environment
-    out.push_str(&format!(
-        "DayCycleSpeedScale={:.6}\n",
-        config.day_cycle_speed_scale
-    ));
-    out.push_str(&format!(
-        "DayTimeSpeedScale={:.6}\n",
-        config.day_time_speed_scale
-    ));
-    out.push_str(&format!(
-        "NightTimeSpeedScale={:.6}\n",
-        config.night_time_speed_scale
-    ));
-    out.push_str(&format!(
-        "SpoilingTimeMultiplier={:.6}\n",
-        config.spoiling_time_multiplier
-    ));
-    out.push_str(&format!(
-        "ItemDecompositionTimeMultiplier={:.6}\n",
-        config.item_decomposition_time_multiplier
-    ));
-    out.push_str(&format!(
-        "CorpseDecompositionTimeMultiplier={:.6}\n",
-        config.corpse_decomposition_time_multiplier
-    ));
-    out.push_str(&format!(
-        "CropGrowthSpeedMultiplier={:.6}\n",
-        config.crop_growth_speed_multiplier
-    ));
-    out.push_str(&format!(
-        "CropDecaySpeedMultiplier={:.6}\n",
-        config.crop_decay_speed_multiplier
-    ));
-    out.push_str(&format!(
-        "LayEggIntervalMultiplier={:.6}\n",
-        config.lay_egg_interval_multiplier
-    ));
-    out.push_str(&format!(
-        "PoopIntervalMultiplier={:.6}\n",
-        config.poop_interval_multiplier
-    ));
-    out.push_str(&format!(
-        "HairGrowthSpeedMultiplier={:.6}\n",
-        config.hair_growth_speed_multiplier
-    ));
-    out.push_str(&format!(
-        "CustomRecipeEffectivenessMultiplier={:.6}\n",
-        config.custom_recipe_effectiveness_multiplier
-    ));
-    out.push_str(&format!(
-        "CustomRecipeSkillMultiplier={:.6}\n",
-        config.custom_recipe_skill_multiplier
-    ));
-    out.push_str(&format!(
-        "FishingLootQualityMultiplier={:.6}\n",
-        config.fishing_loot_quality_multiplier
-    ));
-    out.push_str(&format!(
-        "SupplyCrateLootQualityMultiplier={:.6}\n",
-        config.supply_crate_loot_quality_multiplier
-    ));
-    out.push_str(&format!(
-        "GlobalSpoilingTimeMultiplier={:.6}\n",
-        config.global_spoiling_time_multiplier
-    ));
-    out.push_str(&format!(
-        "GlobalItemDecompositionTimeMultiplier={:.6}\n",
-        config.global_item_decomposition_time_multiplier
-    ));
-    out.push_str(&format!(
-        "GlobalCorpseDecompositionTimeMultiplier={:.6}\n",
-        config.global_corpse_decomposition_time_multiplier
-    ));
-    out.push_str(&format!(
-        "KillXPMultiplier={:.6}\n",
-        config.kill_xp_multiplier
-    ));
-    out.push_str(&format!(
-        "HarvestXPMultiplier={:.6}\n",
-        config.harvest_xp_multiplier
-    ));
-    out.push_str(&format!(
-        "CraftXPMultiplier={:.6}\n",
-        config.craft_xp_multiplier
-    ));
-    out.push_str(&format!(
-        "GenericXPMultiplier={:.6}\n",
-        config.generic_xp_multiplier
-    ));
-    out.push_str(&format!(
-        "SpecialXPMultiplier={:.6}\n",
-        config.special_xp_multiplier
-    ));
-
-    // Hexagons
-    out.push_str(&format!(
-        "MaxHexagonsPerCharacter={:.6}\n",
-        config.max_hexagons_per_character
-    ));
-    out.push_str(&format!(
-        "HexagonRewardMultiplier={:.6}\n",
-        config.hexagon_reward_multiplier
-    ));
-
-    // Engrams
-    out.push_str(&format!(
-        "AutoUnlockAllEngrams={}\n",
-        config.auto_unlock_all_engrams
-    ));
-    out.push_str(&format!(
-        "OnlyAllowSpecifiedEngrams={}\n",
-        config.only_allow_specified_engrams
-    ));
-
-    // Network / Admin
-    out.push_str(&format!("RCONEnabled={}\n", config.rcon_enabled));
-    out.push_str(&format!("RCONPort={}\n", config.rcon_port));
-    out.push_str(&format!(
-        "BattlEyeEnforcer={}\n",
-        config.battle_eye_enforcer
-    ));
-    out.push_str(&format!(
-        "EnableCreativeMode={}\n",
-        config.enable_creative_mode
-    ));
-    out.push_str(&format!(
-        "ServerForceNoHUD={}\n",
-        config.server_force_no_hud
-    ));
-    out.push_str(&format!(
-        "KickIdlePlayerPeriod={:.6}\n",
-        config.kick_idle_player_period
-    ));
-    out.push_str(&format!(
-        "DestroyTamesOverLevelClamp={}\n",
-        config.destroy_tames_over_level_clamp
-    ));
-
-    // Mods
-    if !config.active_mods.is_empty() {
-        out.push_str(&format!("ActiveMods={}\n", config.active_mods));
-    }
-
-    // Auto-save
-    out.push_str(&format!(
-        "AutoSavePeriodMinutes={:.6}\n",
-        config.auto_save_period_minutes
-    ));
-
-    // Events
-    if !config.active_event.is_empty() {
-        out.push_str(&format!("ActiveEvent={}\n", config.active_event));
-    }
-    out.push_str(&format!(
-        "EventColorsChanceOverride={:.6}\n",
-        config.event_colors_chance_override
-    ));
-
-    // Administration
-    if !config.bad_word_filter.is_empty() {
-        out.push_str(&format!("BadWordFilter={}\n", config.bad_word_filter));
-    }
-    if !config.admin_list.is_empty() {
-        out.push_str(&format!("AdminList={}\n", config.admin_list));
-    }
-    if !config.custom_dynamic_config_url.is_empty() {
-        out.push_str(&format!(
-            "CustomDynamicConfigUrl={}\n",
-            config.custom_dynamic_config_url
-        ));
-    }
-    if !config.custom_live_tuning_url.is_empty() {
-        out.push_str(&format!(
-            "CustomLiveTuningUrl={}\n",
-            config.custom_live_tuning_url
-        ));
-    }
-    out.push_str(&format!(
-        "UseSecureSpawnRules={}\n",
-        config.use_secure_spawn_rules
-    ));
-    out.push_str(&format!(
-        "UseItemDupeCheck={}\n",
-        config.use_item_dupe_check
-    ));
-    out.push_str(&format!(
-        "SecureSendARKPayload={}\n",
-        config.secure_send_ark_payload
-    ));
-    if !config.culture.is_empty() {
-        out.push_str(&format!("Culture={}\n", config.culture));
-    }
-
-    // Ragnarok
-    out.push_str(&format!(
-        "RagnarokVolcanoIntensity={:.6}\n",
-        config.ragnarok_volcano_intensity
-    ));
-    out.push_str(&format!(
-        "RagnarokVolcanoInterval={:.6}\n",
-        config.ragnarok_volcano_interval
-    ));
-    out.push_str(&format!(
-        "EnableRagnarokSettings={}\n",
-        config.enable_ragnarok_settings
-    ));
-
-    // Fjordur
-    out.push_str(&format!(
-        "UseFjordurTraversalBuff={}\n",
-        config.use_fjordur_traversal_buff
-    ));
-    out.push_str(&format!(
-        "EnableFjordurSettings={}\n",
-        config.enable_fjordur_settings
-    ));
-
-    // Adjustable Spawner
-    out.push_str(&format!(
-        "AdjustableMutagenSpawnDelayMultiplier={:.6}\n",
-        config.adjustable_mutagen_spawn_delay_multiplier
-    ));
-
-    // Session settings
-    out.push_str("\n[SessionSettings]\nSessionName=");
-    out.push_str(&config.session_name);
-    out.push('\n');
-
-    // Game session (max players)
-    out.push_str("\n[/Script/Engine.GameSession]\n");
-    out.push_str(&format!("MaxPlayers={}\n", config.max_players));
-
-    // MOTD
-    if !config.motd.is_empty() {
-        out.push_str("\n[MessageOfTheDay]\n");
-        out.push_str(&format!("Message={}\n", config.motd));
-        out.push_str(&format!("Duration={}\n", config.motd_duration));
-    }
-
-    // Custom section for launcher args
-    out.push_str("\n[ASM2]\n");
-    if !config.launcher_args.is_empty() {
-        out.push_str(&format!("LauncherArgs={}\n", config.launcher_args));
-    }
-    out.push_str(&format!(
-        "UseAllAvailableCores={}\n",
-        config.use_all_available_cores
-    ));
-    out.push_str(&format!("UseLowMemory={}\n", config.use_low_memory));
-    out.push_str(&format!("NoBattlEye={}\n", config.no_battle_eye));
-
-    out
-}
-
-#[allow(dead_code)]
-fn build_game_ini(config: &AseGameConfig) -> String {
-    let mut out = String::with_capacity(1024);
-
-    out.push_str("[/Script/ShooterGame.ShooterGameMode]\n");
-    // Breeding
-    out.push_str(&format!(
-        "EggHatchSpeedMultiplier={:.6}\n",
-        config.egg_hatch_speed_multiplier
-    ));
-    out.push_str(&format!(
-        "BabyMatureSpeedMultiplier={:.6}\n",
-        config.baby_mature_speed_multiplier
-    ));
-    out.push_str(&format!(
-        "BabyCuddleIntervalMultiplier={:.6}\n",
-        config.baby_cuddle_interval_multiplier
-    ));
-    out.push_str(&format!(
-        "BabyImprintAmountMultiplier={:.6}\n",
-        config.baby_imprint_amount_multiplier
-    ));
-    out.push_str(&format!(
-        "MatingIntervalMultiplier={:.6}\n",
-        config.mating_interval_multiplier
-    ));
-    out.push_str(&format!(
-        "BabyFoodConsumptionSpeedMultiplier={:.6}\n",
-        config.baby_food_consumption_speed_multiplier
-    ));
-    out.push_str(&format!(
-        "BabyCuddleGracePeriodMultiplier={:.6}\n",
-        config.baby_cuddle_grace_period_multiplier
-    ));
-    out.push_str(&format!(
-        "BabyCuddleLoseImprintQualitySpeedMultiplier={:.6}\n",
-        config.baby_cuddle_lose_imprint_quality_speed_multiplier
-    ));
-
-    // Engram Overrides
-    for line in config.override_named_engram_entries.split('\n') {
-        let l = line.trim();
-        if !l.is_empty() {
-            out.push_str(&format!("OverrideNamedEngramEntries={}\n", l));
-        }
-    }
-
-    for line in config.config_override_item_crafting_costs.split('\n') {
-        let l = line.trim();
-        if !l.is_empty() {
-            out.push_str(&format!("ConfigOverrideItemCraftingCosts={}\n", l));
-        }
-    }
-
-    out.push_str(&format!(
-        "MutagenLevelBoost={}\n",
-        config.mutagen_level_boost
-    ));
-    out.push_str(&format!(
-        "MutagenLevelBoost_Bred={}\n",
-        config.mutagen_level_boost_bred
-    ));
-    out.push_str(&format!(
-        "MaxImprintLimit={:.6}\n",
-        config.max_imprint_limit
-    ));
-
-    out
 }
 
 fn get_config_path(install_path: &str) -> PathBuf {
@@ -835,7 +187,7 @@ pub async fn read_ase_config(
     if gus_path.exists() {
         let content = std::fs::read_to_string(&gus_path)
             .map_err(|e| format!("Failed to read GameUserSettings.ini: {}", e))?;
-        let sections = parse_ini(&content);
+        let sections = IniDocument::parse(&content);
         let ss = "ServerSettings";
 
         config.session_name = ini_get_str(&sections, ss, "SessionName", "My ASE Server");
@@ -1056,6 +408,14 @@ pub async fn read_ase_config(
         config.kick_idle_player_period = ini_get_f64(&sections, ss, "KickIdlePlayerPeriod", 3600.0);
         config.destroy_tames_over_level_clamp =
             ini_get_u32(&sections, ss, "DestroyTamesOverLevelClamp", 0);
+        config.max_difficulty = ini_get_bool(&sections, ss, "MaxDifficulty", false);
+        config.prevent_offline_pvp = ini_get_bool(&sections, ss, "PreventOfflinePvP", false);
+        config.prevent_offline_pvp_interval = ini_get_u32(&sections, ss, "PreventOfflinePvPInterval", 900);
+        config.b_disable_structure_placement_collision = ini_get_bool(&sections, ss, "bDisableStructurePlacementCollision", false);
+        config.b_use_corpse_locator = ini_get_bool(&sections, ss, "bUseCorpseLocator", true);
+        config.b_show_status_types = ini_get_bool(&sections, ss, "bShowStatusTypes", true);
+        config.b_allow_unlimited_respecs = ini_get_bool(&sections, ss, "bAllowUnlimitedRespecs", false);
+        config.spectator_password = ini_get_str(&sections, ss, "SpectatorPassword", "");
 
         config.active_mods = ini_get_str(&sections, ss, "ActiveMods", "");
 
@@ -1233,7 +593,7 @@ pub async fn read_ase_config(
     if game_ini_path.exists() {
         let content = std::fs::read_to_string(&game_ini_path)
             .map_err(|e| format!("Failed to read Game.ini: {}", e))?;
-        let sections = parse_ini(&content);
+        let sections = IniDocument::parse(&content);
         let sgm = "/Script/ShooterGame.ShooterGameMode";
 
         config.egg_hatch_speed_multiplier =
@@ -1413,84 +773,29 @@ pub async fn write_ase_config(
     }
 
     let gus_path = config_dir.join("GameUserSettings.ini");
-    let gus_data = if gus_path.exists() {
+    let mut gus_doc = if gus_path.exists() {
         let content = std::fs::read_to_string(&gus_path)
             .map_err(|e| format!("Failed to read GameUserSettings.ini: {}", e))?;
-        IniData::parse(&content)
+        IniDocument::parse(&content)
     } else {
-        IniData::new()
+        IniDocument::new()
     };
 
     let ss = "ServerSettings";
-    let gus_cell = std::cell::RefCell::new(gus_data);
 
-    // Helper to set values (case-insensitive and deduplicated)
+    let gus_doc_ptr = &mut gus_doc as *mut IniDocument as usize;
+
+    // Helper closures to set values on gus_doc (non-destructive, case-insensitive, deduplicated)
     let ini_set = |sec: &str, key: &str, val: String| {
-        let mut gus = gus_cell.borrow_mut();
-        let section = gus.ensure_section(sec);
-        let key_lower = key.to_lowercase();
-        
-        let mut matches = Vec::new();
-        for (idx, entry) in section.entries.iter().enumerate() {
-            if entry.key.to_lowercase() == key_lower {
-                matches.push(idx);
-            }
-        }
-        
-        if !matches.is_empty() {
-            let first_idx = matches[0];
-            section.entries[first_idx].key = key.to_string();
-            section.entries[first_idx].value = val;
-            for &idx in matches.iter().skip(1).rev() {
-                section.entries.remove(idx);
-            }
-        } else {
-            section.entries.push(IniEntry {
-                key: key.to_string(),
-                value: val,
-                comment: None,
-            });
-        }
+        let doc = unsafe { &mut *(gus_doc_ptr as *mut IniDocument) };
+        doc.set_value(sec, key, &val);
     };
 
     let ini_set_opt = |sec: &str, key: &str, val: String| {
-        let mut gus = gus_cell.borrow_mut();
-        let key_lower = key.to_lowercase();
-        if val.is_empty() {
-            let section = gus.ensure_section(sec);
-            let mut matches = Vec::new();
-            for (idx, entry) in section.entries.iter().enumerate() {
-                if entry.key.to_lowercase() == key_lower {
-                    matches.push(idx);
-                }
-            }
-            for &idx in matches.iter().rev() {
-                section.entries.remove(idx);
-            }
-        } else {
-            let section = gus.ensure_section(sec);
-            let mut matches = Vec::new();
-            for (idx, entry) in section.entries.iter().enumerate() {
-                if entry.key.to_lowercase() == key_lower {
-                    matches.push(idx);
-                }
-            }
-            if !matches.is_empty() {
-                let first_idx = matches[0];
-                section.entries[first_idx].key = key.to_string();
-                section.entries[first_idx].value = val;
-                for &idx in matches.iter().skip(1).rev() {
-                    section.entries.remove(idx);
-                }
-            } else {
-                section.entries.push(IniEntry {
-                    key: key.to_string(),
-                    value: val,
-                    comment: None,
-                });
-            }
-        }
+        let doc = unsafe { &mut *(gus_doc_ptr as *mut IniDocument) };
+        doc.set_value_opt(sec, key, &val);
     };
+
 
     // Identity
     ini_set(ss, "SessionName", config.session_name.clone());
@@ -2046,6 +1351,14 @@ pub async fn write_ase_config(
         "DestroyTamesOverLevelClamp",
         config.destroy_tames_over_level_clamp.to_string(),
     );
+    ini_set(ss, "MaxDifficulty", config.max_difficulty.to_string());
+    ini_set(ss, "PreventOfflinePvP", config.prevent_offline_pvp.to_string());
+    ini_set(ss, "PreventOfflinePvPInterval", config.prevent_offline_pvp_interval.to_string());
+    ini_set(ss, "bDisableStructurePlacementCollision", config.b_disable_structure_placement_collision.to_string());
+    ini_set(ss, "bUseCorpseLocator", config.b_use_corpse_locator.to_string());
+    ini_set(ss, "bShowStatusTypes", config.b_show_status_types.to_string());
+    ini_set(ss, "bAllowUnlimitedRespecs", config.b_allow_unlimited_respecs.to_string());
+    ini_set(ss, "SpectatorPassword", config.spectator_password.clone());
 
     // Mods
     ini_set_opt(ss, "ActiveMods", config.active_mods.clone());
@@ -2293,9 +1606,8 @@ pub async fn write_ase_config(
         );
     } else {
         // Clear MOTD section entries if empty
-        let mut gus = gus_cell.borrow_mut();
-        let section = gus.ensure_section("MessageOfTheDay");
-        section.entries.clear();
+        gus_doc.remove_key("MessageOfTheDay", "Message");
+        gus_doc.remove_key("MessageOfTheDay", "Duration");
     }
 
     // Custom section for launcher args
@@ -2347,49 +1659,25 @@ pub async fn write_ase_config(
     ini_set("ASM2", "UseClusterDirectoryOverride", config.use_cluster_directory_override.to_string());
 
     // Save GameUserSettings.ini
-    let gus_content = gus_cell.into_inner().serialize();
+    let gus_content = gus_doc.serialize();
     std::fs::write(config_dir.join("GameUserSettings.ini"), gus_content)
         .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
 
     // Now write Game.ini
     let game_ini_path = config_dir.join("Game.ini");
-    let mut game_data = if game_ini_path.exists() {
+    let mut game_doc = if game_ini_path.exists() {
         let content = std::fs::read_to_string(&game_ini_path)
             .map_err(|e| format!("Failed to read Game.ini: {}", e))?;
-        IniData::parse(&content)
+        IniDocument::parse(&content)
     } else {
-        IniData::new()
+        IniDocument::new()
     };
 
     let gm = "/Script/ShooterGame.ShooterGameMode";
 
     macro_rules! game_set {
         ($key:expr, $value:expr $(,)?) => {
-            let section = game_data.ensure_section(gm);
-            let key_string = $key.to_string();
-            let key_lower = key_string.to_lowercase();
-            
-            let mut matches = Vec::new();
-            for (idx, entry) in section.entries.iter().enumerate() {
-                if entry.key.to_lowercase() == key_lower {
-                    matches.push(idx);
-                }
-            }
-            
-            if !matches.is_empty() {
-                let first_idx = matches[0];
-                section.entries[first_idx].key = key_string;
-                section.entries[first_idx].value = $value.to_string();
-                for &idx in matches.iter().skip(1).rev() {
-                    section.entries.remove(idx);
-                }
-            } else {
-                section.entries.push(IniEntry {
-                    key: key_string,
-                    value: $value.to_string(),
-                    comment: None,
-                });
-            }
+            game_doc.set_value(gm, &$key.to_string(), &$value.to_string());
         };
     }
 
@@ -2503,41 +1791,46 @@ pub async fn write_ase_config(
         }
     }
 
-    // Clear existing HarvestResourceItemAmountClassMultipliers and LevelExperienceRampOverrides entries
-    if let Some(section) = game_data.get_section_mut(gm) {
-        section.entries.retain(|e| e.key != "HarvestResourceItemAmountClassMultipliers");
-        section.entries.retain(|e| e.key != "LevelExperienceRampOverrides");
-    }
-
     // Write new multipliers
-    if !config.harvest_resource_item_amount_class_multipliers.is_empty() {
-        let section = game_data.ensure_section(gm);
-        for mult in config.harvest_resource_item_amount_class_multipliers.split(';') {
-            let trimmed = mult.trim();
-            if !trimmed.is_empty() {
-                section.entries.push(IniEntry {
-                    key: "HarvestResourceItemAmountClassMultipliers".to_string(),
-                    value: trimmed.to_string(),
-                    comment: None,
-                });
-            }
-        }
-    }
-    
+    let harvest_multipliers: Vec<String> = config.harvest_resource_item_amount_class_multipliers
+        .split(';')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    game_doc.set_array_values(gm, "HarvestResourceItemAmountClassMultipliers", &harvest_multipliers);
+
     // Write new level overrides
-    if !config.level_experience_ramp_overrides.is_empty() {
-        let section = game_data.ensure_section(gm);
-        for ramp in config.level_experience_ramp_overrides.split('\n') {
-            let trimmed = ramp.trim();
-            if !trimmed.is_empty() {
-                section.entries.push(IniEntry {
-                    key: "LevelExperienceRampOverrides".to_string(),
-                    value: trimmed.to_string(),
-                    comment: None,
-                });
-            }
-        }
-    }
+    let level_overrides: Vec<String> = config.level_experience_ramp_overrides
+        .split('\n')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    game_doc.set_array_values(gm, "LevelExperienceRampOverrides", &level_overrides);
+
+    // Write Engram and Crafting overrides
+    let engram_entries: Vec<String> = config.override_named_engram_entries
+        .split('\n')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    game_doc.set_array_values(gm, "OverrideNamedEngramEntries", &engram_entries);
+
+    let crafting_costs: Vec<String> = config.config_override_item_crafting_costs
+        .split('\n')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    game_doc.set_array_values(gm, "ConfigOverrideItemCraftingCosts", &crafting_costs);
+
+    // Write advanced array fields
+    game_doc.set_array_values(gm, "DinoSpawnWeightMultipliers", &config.dino_spawn_weight_multipliers);
+    game_doc.set_array_values(gm, "DinoClassDamageMultipliers", &config.dino_class_damage_multipliers);
+    game_doc.set_array_values(gm, "DinoClassResistanceMultipliers", &config.dino_class_resistance_multipliers);
+    game_doc.set_array_values(gm, "TamedDinoClassDamageMultipliers", &config.tamed_dino_class_damage_multipliers);
+    game_doc.set_array_values(gm, "TamedDinoClassResistanceMultipliers", &config.tamed_dino_class_resistance_multipliers);
+    game_doc.set_array_values(gm, "NPCReplacements", &config.npc_replacements);
+    game_doc.set_array_values(gm, "PreventDinoTameClassNames", &config.prevent_dino_tame_class_names);
+    game_doc.set_array_values(gm, "ExcludeDinoClasses", &config.exclude_dino_classes);
 
     if !config.override_max_experience_points_player.is_empty() {
         game_set!("OverrideMaxExperiencePointsPlayer", config.override_max_experience_points_player.clone());
@@ -2547,7 +1840,7 @@ pub async fn write_ase_config(
     }
 
     // Save Game.ini
-    let game_content = game_data.serialize();
+    let game_content = game_doc.serialize();
     std::fs::write(&game_ini_path, game_content)
         .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
 
@@ -2789,3 +2082,6 @@ pub async fn get_ase_config_diagnostics(
         active_launch_args,
     })
 }
+
+pub use crate::ase::ini_validator::{validate_ase_config, __cmd__validate_ase_config};
+

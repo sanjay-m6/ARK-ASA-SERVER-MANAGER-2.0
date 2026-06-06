@@ -149,6 +149,7 @@ export interface AseGameConfig {
   // ── Dino Stats ──
   dinoCharacterFoodDrainMultiplier: number;
   dinoCharacterHealthRecoveryMultiplier: number;
+  dinoCharacterStaminaDrainMultiplier: number;
   dinoDamageMultiplier: number;
   dinoResistanceMultiplier: number;
   maxTamedDinos: number;
@@ -162,6 +163,31 @@ export interface AseGameConfig {
   useDinoLevelUpAnimations: boolean;
   maxPersonalTamedDinos: number;
   personalTamedDinosSaddleStructureCost: number;
+  tamedDinoDamageMultiplier: number;
+  tamedDinoResistanceMultiplier: number;
+  bUseTameLimitForStructuresOnly: boolean;
+  bAllowRaidDinoFeeding: boolean;
+  raidDinoCharacterFoodDrainMultiplier: number;
+  forceAllowCaveFlyers: boolean;
+  preventDinoMateBoost: boolean;
+  disableDinoDecayPve: boolean;
+  allowDinoLevelUpAnimation: boolean;
+  bAllowFlyingStaminaRecovery: boolean;
+  bAllowMultipleAttachedC4: boolean;
+  disableDinoDecayPvp: boolean;
+  bAllowFlyerSpeedLeveling: boolean;
+  bAllowUnclaimDinos: boolean;
+  bDisableDinoRiding: boolean;
+  bDisableDinoTaming: boolean;
+  bDisableDinoBreeding: boolean;
+  dinoSpawnWeightMultipliers: string[];
+  dinoClassDamageMultipliers: string[];
+  dinoClassResistanceMultipliers: string[];
+  tamedDinoClassDamageMultipliers: string[];
+  tamedDinoClassResistanceMultipliers: string[];
+  npcReplacements: string[];
+  preventDinoTameClassNames: string[];
+  excludeDinoClasses: string[];
 
   // ── Breeding (Game.ini) ──
   eggHatchSpeedMultiplier: number;
@@ -488,3 +514,18 @@ export interface AseDiagnostics {
     configHash: string;
     activeLaunchArgs: string[];
 }
+
+export interface ValidationIssue {
+  file: string;
+  section: string;
+  key: string | null;
+  severity: 'Error' | 'Warning';
+  message: string;
+  lineNumber?: number;
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  issues: ValidationIssue[];
+}
+

@@ -41,6 +41,7 @@ pub fn get_all_handlers() -> Vec<&'static str> {
         // Config
         "read_ase_config",
         "write_ase_config",
+        "validate_ase_config",
         // Backup
         "create_ase_backup",
         "list_ase_backups",

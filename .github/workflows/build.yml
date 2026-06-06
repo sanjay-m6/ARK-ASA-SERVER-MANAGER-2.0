@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -49,14 +50,14 @@ jobs:
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This release brings major feature additions including ASE Server Cloning, a comprehensive Plugin Manager, the brand new Infinity Floating Damage System tool, and critical GUI fixes.
+            This release introduces active monitoring and auto-restart support for ARK: Survival Evolved (ASE) servers via the Guardian Watchdog service, periodic MOTD RCON announcements, and an advanced Enterprise Server Organization dashboard with nested folders and archiving.
 
             ### ✨ What's New
-            - **ASE Server Cloning & Clustering**: Easily clone existing ASE servers using the new Clone Options Modal to quickly spin up instances with custom configurations, ports, and clusters.
-            - **Plugin Manager**: A fully integrated Plugin Manager UI allowing you to browse, search, configure, install/uninstall, and enable/disable server plugins seamlessly.
-            - **Infinity Floating Damage System**: Customize in-game damage indicators, colors, sizing, outline effects, animations, critical hit feedback, and boss damage stylings with real-time UI previews.
-            - **Custom GUI Color Picker**: Replaced native HTML color pickers with a premium React popover color picker, providing color preset swatches, RGB sliders, and manual Hex inputs.
-            - **GUI Focus & Search Fixes**: Solved Tauri/WebView2 keypress hijacking issues on search/filter inputs, allowing smooth text entry inside category filters, text fields, and color selectors.
+            - **🛡️ Guardian Watchdog for ASE**: Full active monitoring, process health tracking, and automated crash recovery with Loop Prevention for ASE server instances.
+            - **📢 Automated MOTD Announcements**: Periodically broadcast in-game MOTD messages via RCON scheduler settings for online ASE servers.
+            - **📂 Enterprise Server Organization**: Organize server instances dynamically with multi-nested folders, customizable colors, and visual tags on the dashboard.
+            - **💾 Archive & Restore System**: Clean up your active dashboard by archiving inactive servers with notes while retaining their database configurations for future restorations.
+            - **🎨 Dashboard Layout Customization**: Save and switch between custom grid/list layout configurations, views, and pinning preferences per user.
 
             ### Install
             Download the `.msi` or `.exe` installer below.

@@ -1,4 +1,4 @@
-import React, { useState, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Heart, Zap, Moon, Wind, Apple, Droplet, Thermometer, Scale, Swords, Gauge, Shield, Wrench,
@@ -36,6 +36,99 @@ const STAT_DEFINITIONS: StatDef[] = [
   { index: 10, label: 'Fortitude', icon: <Shield className="w-4 h-4 text-emerald-400" />, step: 0.1, min: 0 },
   { index: 11, label: 'Crafting', icon: <Wrench className="w-4 h-4 text-orange-400" />, step: 0.1, min: 0 }
 ];
+
+interface StatMultiplierRowProps {
+  stat: StatDef;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  isMutagen: boolean;
+  onChange: (val: number) => void;
+}
+
+const StatMultiplierRow: React.FC<StatMultiplierRowProps> = memo(({
+  stat,
+  value,
+  min,
+  max,
+  step,
+  isMutagen,
+  onChange
+}) => {
+  const [localValue, setLocalValue] = useState(String(value));
+
+  // Update local input state when value changes externally (e.g. slider drag, preset, reset)
+  useEffect(() => {
+    setLocalValue(String(value));
+  }, [value]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value;
+    setLocalValue(rawVal);
+    
+    const parsed = parseFloat(rawVal);
+    if (!isNaN(parsed)) {
+      onChange(parsed);
+    }
+  };
+
+  const handleBlur = () => {
+    const parsed = parseFloat(localValue);
+    if (isNaN(parsed)) {
+      setLocalValue(String(value));
+    } else {
+      setLocalValue(String(parsed));
+    }
+  };
+
+  const fillPercentage = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+
+  return (
+    <div className="flex items-center gap-4 py-2 group/slider">
+      <div className="flex items-center gap-2.5 w-32 shrink-0">
+        {stat.icon}
+        <span className="text-sm font-semibold text-slate-300 group-hover/slider:text-white transition-colors">
+          {stat.label}:
+        </span>
+      </div>
+
+      <div className="flex-1 flex items-center gap-3">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={Math.min(max, Math.max(min, value))}
+          onChange={(e) => {
+            const val = parseFloat(e.target.value);
+            onChange(val);
+            setLocalValue(String(val));
+          }}
+          className="w-full accent-amber-500 h-1.5 rounded-full appearance-none cursor-pointer focus:outline-none transition-all duration-300"
+          style={{
+            background: `linear-gradient(to right, hsl(var(--accent-hue, 45) 80% 50%) 0%, hsl(var(--accent-hue, 45) 80% 50%) ${fillPercentage}%, rgba(255,255,255,0.05) ${fillPercentage}%, rgba(255,255,255,0.05) 100%)`,
+          }}
+        />
+
+        <div className="w-20 shrink-0 flex items-center gap-1.5 bg-slate-950/60 border border-white/5 rounded-lg px-2 py-1 group-focus-within/slider:border-amber-500/50">
+          <input
+            type="text"
+            value={localValue}
+            onChange={handleTextChange}
+            onBlur={handleBlur}
+            className="w-full bg-transparent text-white font-mono text-xs focus:outline-none text-right"
+          />
+          <span className="text-[10px] font-bold text-slate-500 shrink-0 select-none">
+            {isMutagen ? 'L' : 'x'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+StatMultiplierRow.displayName = 'StatMultiplierRow';
 
 export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = memo(({ config, onChange }) => {
   // Collapsible sections state
@@ -174,52 +267,26 @@ export const AseStatMultiplierEditor: React.FC<AseStatMultiplierEditorProps> = m
             className="overflow-hidden"
           >
             <div className={cn(
-              "p-5 bg-slate-950/40 border border-t-0 border-white/5 rounded-b-2xl grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 transition-all duration-300",
+              "p-5 bg-slate-950/40 border border-t-0 border-white/5 rounded-b-2xl grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4 transition-all duration-300",
               !isEnabled ? "pointer-events-none opacity-40" : ""
             )}>
               {STAT_DEFINITIONS.map(stat => {
                 const value = values[stat.index] !== undefined ? values[stat.index] : (isMutagen ? 0 : 1.0);
                 const step = isMutagen ? 1 : (stat.step || 0.1);
                 const min = isMutagen ? 0 : (stat.min !== undefined ? stat.min : 0);
-                const max = isMutagen ? 100 : (stat.max !== undefined ? stat.max : 100);
+                const max = isMutagen ? 100 : (stat.max !== undefined ? stat.max : 10);
 
                 return (
-                  <div key={stat.index} className="flex items-center gap-4 py-2 group/slider">
-                    <div className="flex items-center gap-2.5 w-32 shrink-0">
-                      {stat.icon}
-                      <span className="text-sm font-semibold text-slate-300 group-hover/slider:text-white transition-colors">{stat.label}:</span>
-                    </div>
-
-                    <div className="flex-1 flex items-center gap-3">
-                      <input
-                        type="range"
-                        min={min}
-                        max={max}
-                        step={step}
-                        value={value}
-                        onChange={(e) => handleArrayChange(key, stat.index, parseFloat(e.target.value))}
-                        className="w-full accent-amber-500 bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none transition-all duration-300 group-hover/slider:bg-slate-700"
-                      />
-                      
-                      <div className="w-20 flex items-center gap-1.5 bg-slate-950/60 border border-white/5 rounded-lg px-2 py-1 group-focus-within/slider:border-amber-500/50">
-                        <input
-                          type="number"
-                          step={step}
-                          value={value}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            if (!isNaN(val)) {
-                              handleArrayChange(key, stat.index, val);
-                            }
-                          }}
-                          className="w-full bg-transparent text-white font-mono text-xs focus:outline-none text-right"
-                        />
-                        <span className="text-[10px] font-bold text-slate-500 shrink-0 select-none">
-                          {isMutagen ? 'L' : 'x'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  <StatMultiplierRow
+                    key={stat.index}
+                    stat={stat}
+                    value={value}
+                    min={min}
+                    max={max}
+                    step={step}
+                    isMutagen={isMutagen}
+                    onChange={(val) => handleArrayChange(key, stat.index, val)}
+                  />
                 );
               })}
             </div>

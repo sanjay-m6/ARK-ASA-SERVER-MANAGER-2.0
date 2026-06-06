@@ -222,7 +222,7 @@ export default function ASERconConsole() {
     const lines = response.split('\n');
     const parsed = [];
     for (const line of lines) {
-      const match = line.match(/\d+\.\s+(.+),\s+(\d+)/);
+      const match = line.match(/\d+\.\s+(.+),\s+([a-zA-Z0-9_-]+)/);
       if (match) {
         parsed.push({ name: match[1].trim(), steamId: match[2].trim() });
       }
@@ -507,31 +507,31 @@ export default function ASERconConsole() {
       </div>
 
       {/* Navigation tabs matching existing theme */}
-      <div className="flex border-b border-white/5 bg-slate-950/50 p-1.5 rounded-xl gap-1 max-w-fit">
+      <div className="flex p-1.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md w-max shadow-inner gap-1 mb-2">
         <button
           onClick={() => setActiveTab('terminal')}
           className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300",
+            "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
             activeTab === 'terminal' 
-              ? "bg-slate-800/80 text-amber-400 shadow-sm border border-slate-700/50" 
-              : "text-slate-400 hover:text-slate-200"
+              ? "text-amber-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
           )}
         >
           <TerminalIcon className="w-4 h-4" />
-          <span>Interactive Terminal</span>
+          <span className="relative z-10">Interactive Terminal</span>
         </button>
 
         <button
           onClick={() => setActiveTab('log_stream')}
           className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 relative",
+            "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
             activeTab === 'log_stream' 
-              ? "bg-slate-800/80 text-amber-400 shadow-sm border border-slate-700/50" 
-              : "text-slate-400 hover:text-slate-200"
+              ? "text-amber-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
           )}
         >
           <Eye className="w-4 h-4" />
-          <span>Live Log Feed</span>
+          <span className="relative z-10">Live Log Feed</span>
           {isStreamingLogs && (
             <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />
           )}
@@ -540,27 +540,27 @@ export default function ASERconConsole() {
         <button
           onClick={() => setActiveTab('cluster')}
           className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300",
+            "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
             activeTab === 'cluster' 
-              ? "bg-slate-800/80 text-amber-400 shadow-sm border border-slate-700/50" 
-              : "text-slate-400 hover:text-slate-200"
+              ? "text-amber-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
           )}
         >
           <Layers className="w-4 h-4" />
-          <span>Cluster Deck</span>
+          <span className="relative z-10">Cluster Deck</span>
         </button>
 
         <button
           onClick={() => setActiveTab('save_manager')}
           className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300",
+            "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
             activeTab === 'save_manager' 
-              ? "bg-slate-800/80 text-amber-400 shadow-sm border border-slate-700/50" 
-              : "text-slate-400 hover:text-slate-200"
+              ? "text-amber-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
           )}
         >
           <Save className="w-4 h-4" />
-          <span>Verified Saves</span>
+          <span className="relative z-10">Verified Saves</span>
         </button>
       </div>
 
@@ -615,7 +615,7 @@ export default function ASERconConsole() {
               </div>
 
               {/* Console output shell scroll block */}
-              <div ref={logRef} className="flex-1 overflow-y-auto font-mono text-[13px] space-y-2 mb-4 max-h-[320px] bg-slate-950 p-4 rounded-xl border border-white/5 shadow-inner">
+              <div ref={logRef} className="flex-1 overflow-y-auto font-mono text-[13px] space-y-2 mb-4 min-h-[420px] max-h-[60vh] bg-slate-950 p-4 rounded-xl border border-white/5 shadow-inner">
                 <AnimatePresence initial={false}>
                   {log.length === 0 ? (
                     <motion.div 
@@ -769,7 +769,7 @@ export default function ASERconConsole() {
 
               <div
                 ref={logFeedRef}
-                className="flex-1 bg-slate-950 rounded-xl p-4 font-mono text-xs overflow-y-auto border border-white/5 max-h-[320px] shadow-inner text-slate-400 leading-relaxed"
+                className="flex-1 bg-slate-950 rounded-xl p-4 font-mono text-xs overflow-y-auto border border-white/5 min-h-[420px] max-h-[60vh] shadow-inner text-slate-400 leading-relaxed"
               >
                 {filteredLogs.length === 0 ? (
                   <div className="text-slate-600 italic text-center py-12">
@@ -1041,7 +1041,7 @@ export default function ASERconConsole() {
           <motion.div 
             initial={{ opacity: 0, width: 0, x: 20 }} 
             animate={{ opacity: 1, width: 'auto', x: 0 }}
-            className="w-full lg:w-80 glass-panel rounded-2xl p-4 flex flex-col h-[500px] border border-white/5 shadow-xl shrink-0"
+            className="w-full lg:w-80 glass-panel rounded-2xl p-4 flex flex-col min-h-[500px] h-auto border border-white/5 shadow-xl shrink-0"
           >
             <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5">
               <h3 className="font-bold text-white flex items-center gap-2 text-sm">
@@ -1053,7 +1053,7 @@ export default function ASERconConsole() {
               </span>
             </div>
 
-            <div className="flex-1 overflow-y-auto pr-2 space-y-2.5 max-h-[400px]">
+            <div className="flex-1 overflow-y-auto pr-2 space-y-2.5 min-h-[380px] max-h-[60vh]">
               {players.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-slate-500 text-xs text-center py-12">
                   <Users className="w-8 h-8 mb-3 opacity-20" />

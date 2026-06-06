@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Flame, Info, Check, TrendingUp, Table, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { AseGameConfig } from '../../types/ase.types';
 import { toast } from 'react-hot-toast';
@@ -10,6 +10,87 @@ interface AseLevelGeneratorProps {
 }
 
 type GeneratorTarget = 'player' | 'dino';
+
+interface GeneratorSliderProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (val: number) => void;
+  isFloat?: boolean;
+}
+
+const GeneratorSlider: React.FC<GeneratorSliderProps> = ({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  isFloat = false
+}) => {
+  const [localValue, setLocalValue] = useState(String(value));
+
+  // Sync state with outer changes
+  useEffect(() => {
+    setLocalValue(isFloat ? value.toFixed(2) : String(value));
+  }, [value, isFloat]);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value;
+    setLocalValue(rawVal);
+
+    const parsed = isFloat ? parseFloat(rawVal) : parseInt(rawVal, 10);
+    if (!isNaN(parsed)) {
+      onChange(parsed);
+    }
+  };
+
+  const handleBlur = () => {
+    const parsed = isFloat ? parseFloat(localValue) : parseInt(localValue, 10);
+    if (isNaN(parsed)) {
+      setLocalValue(isFloat ? value.toFixed(2) : String(value));
+    } else {
+      setLocalValue(isFloat ? parsed.toFixed(2) : String(parsed));
+    }
+  };
+
+  const fillPercentage = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-semibold text-slate-350">
+        {label}
+      </label>
+      <div className="flex items-center gap-3">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => {
+            const val = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+            onChange(val);
+            setLocalValue(isFloat ? val.toFixed(2) : String(val));
+          }}
+          className="w-full accent-amber-500 h-1.5 rounded-full appearance-none cursor-pointer focus:outline-none transition-all duration-300"
+          style={{
+            background: `linear-gradient(to right, hsl(var(--accent-hue, 45) 80% 50%) 0%, hsl(var(--accent-hue, 45) 80% 50%) ${fillPercentage}%, rgba(255,255,255,0.05) ${fillPercentage}%, rgba(255,255,255,0.05) 100%)`,
+          }}
+        />
+        <input
+          type="text"
+          value={localValue}
+          onChange={handleTextChange}
+          onBlur={handleBlur}
+          className="w-16 bg-[#0a0f1d]/60 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center font-mono transition-all focus:outline-none focus:border-amber-500/50 hover:border-white/20"
+        />
+      </div>
+    </div>
+  );
+};
 
 export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) {
   const [target, setTarget] = useState<GeneratorTarget>('player');
@@ -178,25 +259,25 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Dynamic XP Generator Configuration */}
-        <div className="lg:col-span-2 bg-slate-900/50 border border-white/5 rounded-2xl p-6 flex flex-col justify-between gap-6">
+        <div className="lg:col-span-3 glass-panel rounded-2xl p-6 flex flex-col justify-between gap-6">
           <div className="space-y-6">
             {/* Target & Presets Row */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-4">
               <div>
-                <h4 className="text-base font-bold text-slate-200">Custom Experience curve</h4>
+                <h4 className="text-base font-bold text-slate-200">Custom Experience Curve</h4>
                 <p className="text-xs text-slate-400 mt-1">Configure target and rate coefficients</p>
               </div>
 
               {/* Target Selector */}
-              <div className="flex bg-slate-950/50 p-1 rounded-xl border border-white/5">
+              <div className="flex bg-[#0a0f1d]/60 p-1 rounded-xl border border-white/10">
                 <button
                   type="button"
                   onClick={() => setTarget('player')}
                   className={cn(
-                    "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
-                    target === 'player' ? "bg-amber-500 text-slate-950" : "text-slate-450 hover:text-slate-200"
+                    "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all focus:outline-none",
+                    target === 'player' ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20" : "text-slate-400 hover:text-slate-200"
                   )}
                 >
                   Players
@@ -205,8 +286,8 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
                   type="button"
                   onClick={() => setTarget('dino')}
                   className={cn(
-                    "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all",
-                    target === 'dino' ? "bg-amber-500 text-slate-950" : "text-slate-450 hover:text-slate-200"
+                    "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all focus:outline-none",
+                    target === 'dino' ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20" : "text-slate-400 hover:text-slate-200"
                   )}
                 >
                   Tamed Dinos
@@ -217,117 +298,57 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
             {/* Presets Button Group */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-slate-400 mr-2 font-semibold">Presets:</span>
-              <button
-                type="button"
-                onClick={() => applyPreset('official')}
-                className="px-2.5 py-1 bg-slate-800/40 hover:bg-slate-800 text-[11px] font-bold text-slate-300 border border-slate-700/50 rounded-lg transition-all"
-              >
-                Official Scale
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset('high')}
-                className="px-2.5 py-1 bg-slate-800/40 hover:bg-slate-800 text-[11px] font-bold text-slate-300 border border-slate-700/50 rounded-lg transition-all"
-              >
-                High-Rate
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset('brutal')}
-                className="px-2.5 py-1 bg-slate-800/40 hover:bg-slate-800 text-[11px] font-bold text-slate-300 border border-slate-700/50 rounded-lg transition-all"
-              >
-                Brutal Curve
-              </button>
+              {['official', 'high', 'brutal'].map((preset) => {
+                const label = preset === 'official' ? 'Official Scale' : preset === 'high' ? 'High-Rate' : 'Brutal Curve';
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => applyPreset(preset as any)}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-500/30 text-[11px] font-bold text-slate-300 rounded-lg transition-all focus:outline-none"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Custom Input Sliders */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {/* Max Level Slider */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 flex justify-between">
-                  <span>Max Level Limit</span>
-                  <span className="text-amber-500 font-mono">{maxLevel}</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="5"
-                    max="500"
-                    value={maxLevel}
-                    onChange={(e) => setMaxLevel(parseInt(e.target.value))}
-                    className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                  />
-                  <input
-                    type="number"
-                    min="5"
-                    max="500"
-                    value={maxLevel}
-                    onChange={(e) => setMaxLevel(parseInt(e.target.value))}
-                    className="w-16 bg-slate-950 border border-white/5 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 text-center font-mono"
-                  />
-                </div>
-              </div>
+            <div className="space-y-5">
+              <GeneratorSlider
+                label="Max Level Limit"
+                min={5}
+                max={500}
+                step={1}
+                value={maxLevel}
+                onChange={setMaxLevel}
+              />
 
-              {/* Base XP Modifier */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 flex justify-between">
-                  <span>Base XP Multiplier</span>
-                  <span className="text-amber-500 font-mono">{baseXp}</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min="1"
-                    max="100"
-                    value={baseXp}
-                    onChange={(e) => setBaseXp(parseInt(e.target.value))}
-                    className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                  />
-                  <input
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={baseXp}
-                    onChange={(e) => setBaseXp(parseInt(e.target.value))}
-                    className="w-16 bg-slate-950 border border-white/5 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 text-center font-mono"
-                  />
-                </div>
-              </div>
+              <GeneratorSlider
+                label="Base XP Multiplier"
+                min={1}
+                max={100}
+                step={1}
+                value={baseXp}
+                onChange={setBaseXp}
+              />
 
-              {/* Exponent Factor */}
-              <div className="space-y-2 sm:col-span-2">
-                <label className="text-xs font-bold text-slate-300 flex justify-between">
-                  <span>Exponential Curve Exponent</span>
-                  <span className="text-amber-500 font-mono">{exponent.toFixed(2)}</span>
-                </label>
-                <div className="flex items-center gap-4">
-                  <input
-                    type="range"
-                    min="1.0"
-                    max="4.0"
-                    step="0.05"
-                    value={exponent}
-                    onChange={(e) => setExponent(parseFloat(e.target.value))}
-                    className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                  />
-                  <input
-                    type="number"
-                    min="1.0"
-                    max="4.0"
-                    step="0.05"
-                    value={exponent}
-                    onChange={(e) => setExponent(parseFloat(e.target.value))}
-                    className="w-16 bg-slate-950 border border-white/5 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 text-center font-mono"
-                  />
-                </div>
-              </div>
+              <GeneratorSlider
+                label="Exponential Curve Exponent"
+                min={1.0}
+                max={4.0}
+                step={0.05}
+                value={exponent}
+                onChange={setExponent}
+                isFloat={true}
+              />
             </div>
           </div>
 
           <button
             type="button"
             onClick={handleApplyXpRamp}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all shadow-lg shadow-amber-500/10"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all shadow-lg shadow-amber-500/10 active:scale-[0.98] focus:outline-none"
           >
             <Check className="w-4 h-4" />
             Apply {target === 'player' ? 'Player' : 'Dino'} XP Ramp
@@ -335,7 +356,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
         </div>
 
         {/* Visualizer & Preview Table */}
-        <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-5 flex flex-col justify-between gap-5">
+        <div className="lg:col-span-2 glass-panel rounded-2xl p-5 flex flex-col justify-between gap-5">
           <div>
             <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5 mb-3">
               <TrendingUp className="w-4 h-4 text-amber-500" />
@@ -343,7 +364,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
             </h4>
 
             {/* SVG Line Chart */}
-            <div className="w-full bg-slate-950/60 rounded-xl p-3 border border-white/5 flex items-center justify-center relative overflow-hidden h-[124px]">
+            <div className="w-full bg-[#0a0f1d]/60 rounded-xl p-3 border border-white/10 flex items-center justify-center relative overflow-hidden h-[124px]">
               {xpData.length > 1 ? (
                 <svg width="320" height="120" viewBox="0 0 320 120" className="w-full h-full overflow-visible">
                   <defs>
@@ -388,35 +409,35 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
               Level Progression Table
             </h4>
 
-            <div className="bg-slate-950/60 border border-white/5 rounded-xl overflow-hidden">
+            <div className="bg-[#0a0f1d]/40 border border-white/10 rounded-xl overflow-hidden">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-white/5 text-[10px] text-slate-500 uppercase font-black tracking-wider bg-slate-950/30">
-                    <th className="py-2.5 px-3">Level</th>
-                    <th className="py-2.5 px-3">XP Required</th>
-                    <th className="py-2.5 px-3 text-right">Total XP</th>
+                  <tr className="border-b border-white/10 text-[10px] text-slate-400 uppercase font-black tracking-wider bg-slate-950/40">
+                    <th className="py-2.5 px-2 whitespace-nowrap">Level</th>
+                    <th className="py-2.5 px-2 whitespace-nowrap">XP Required</th>
+                    <th className="py-2.5 px-2 text-right whitespace-nowrap">Total XP</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.03] text-xs font-medium text-slate-350">
                   {paginatedData.map((d) => (
                     <tr key={d.level} className="hover:bg-white/[0.01]">
-                      <td className="py-2 px-3 font-bold text-slate-300 font-mono">Lvl {d.level}</td>
-                      <td className="py-2 px-3 font-mono">{d.xpNeeded.toLocaleString()}</td>
-                      <td className="py-2 px-3 text-right font-mono font-semibold text-amber-400">{d.totalXp.toLocaleString()}</td>
+                      <td className="py-2 px-2 font-bold text-slate-300 font-mono whitespace-nowrap">Lvl {d.level}</td>
+                      <td className="py-2 px-2 font-mono whitespace-nowrap">{d.xpNeeded.toLocaleString()}</td>
+                      <td className="py-2 px-2 text-right font-mono font-semibold text-amber-400 whitespace-nowrap">{d.totalXp.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
 
               {/* Table Pagination Controls */}
-              <div className="flex items-center justify-between border-t border-white/5 px-3 py-2 bg-slate-950/20 text-slate-450 text-[10px] font-bold">
+              <div className="flex items-center justify-between border-t border-white/10 px-4 py-2.5 bg-[#0a0f1d]/60 text-slate-400 text-[10px] font-bold">
                 <span>Page {page + 1} of {maxPage || 1}</span>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setPage(p => Math.max(0, p - 1))}
                     disabled={page === 0}
-                    className="p-1 bg-slate-800/50 hover:bg-slate-800 disabled:opacity-30 rounded border border-white/5 text-slate-300"
+                    className="p-1 px-1.5 bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-white/5 rounded-lg text-slate-300 transition-all focus:outline-none"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
@@ -424,7 +445,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
                     type="button"
                     onClick={() => setPage(p => Math.min(maxPage - 1, p + 1))}
                     disabled={page >= maxPage - 1}
-                    className="p-1 bg-slate-800/50 hover:bg-slate-800 disabled:opacity-30 rounded border border-white/5 text-slate-300"
+                    className="p-1 px-1.5 bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-white/5 rounded-lg text-slate-300 transition-all focus:outline-none"
                   >
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
@@ -436,44 +457,26 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
       </div>
 
       {/* Wild Dino Max Level & Difficulty Offset */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 bg-slate-900/50 border border-white/5 rounded-2xl p-6 flex flex-col justify-between gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-3 glass-panel rounded-2xl p-6 flex flex-col justify-between gap-6">
           <div>
             <h4 className="text-base font-bold text-slate-200">Wild Dino Max Level</h4>
-            <p className="text-xs text-slate-450 mt-1 mb-6">
+            <p className="text-xs text-slate-455 mt-1 mb-6">
               Automatically calculates the required Official Difficulty settings to achieve this maximum wild dino level on spawn.
             </p>
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-300 flex justify-between">
-                <span>Dino Level Target</span>
-                <span className="text-amber-500 font-mono">{wildDinoLevel}</span>
-              </label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min="30"
-                  max="600"
-                  step="30"
-                  value={wildDinoLevel}
-                  onChange={(e) => setWildDinoLevel(parseInt(e.target.value))}
-                  className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                />
-                <input
-                  type="number"
-                  min="30"
-                  max="600"
-                  step="30"
-                  value={wildDinoLevel}
-                  onChange={(e) => setWildDinoLevel(parseInt(e.target.value))}
-                  className="w-16 bg-slate-950 border border-white/5 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 text-center font-mono"
-                />
-              </div>
-            </div>
+            <GeneratorSlider
+              label="Dino Level Target"
+              min={30}
+              max={600}
+              step={30}
+              value={wildDinoLevel}
+              onChange={setWildDinoLevel}
+            />
           </div>
           <button
             type="button"
             onClick={() => applyDinoLevel(wildDinoLevel)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all shadow-lg shadow-amber-500/10"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl transition-all shadow-lg shadow-amber-500/10 active:scale-[0.98] focus:outline-none"
           >
             <Check className="w-4 h-4" />
             Apply Wild Dino Difficulty
@@ -481,7 +484,7 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
         </div>
 
         {/* Info card */}
-        <div className="bg-slate-950/20 border border-white/5 rounded-2xl p-6 flex flex-col gap-4">
+        <div className="lg:col-span-2 glass-panel rounded-2xl p-6 flex flex-col gap-4">
           <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-amber-500" />
             Formula Parameters
@@ -490,25 +493,25 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
           <div className="space-y-3.5 text-xs text-slate-400 leading-relaxed font-medium">
             <div>
               <span className="text-slate-200 font-semibold block mb-0.5">XP Progression Math</span>
-              XP is generated dynamically per level using: <code className="bg-slate-950/80 px-1.5 py-0.5 rounded border border-white/5 text-[10px] text-amber-400 font-mono">BaseXP * Level ^ Exponent</code>
+              XP is generated dynamically per level using: <code className="bg-[#0a0f1d]/80 px-1.5 py-0.5 rounded border border-white/10 text-[10px] text-amber-400 font-mono">BaseXP * Level ^ Exponent</code>
             </div>
             <div>
               <span className="text-slate-200 font-semibold block mb-0.5">Dual-Ramp Injection</span>
               Applies distinct overrides for players (first array line) and dinos (second array line) in Game.ini.
             </div>
             <div>
-              <span className="text-slate-200 font-semibold block mb-0.5">Difficulty Offset calculation</span>
-              Dino spawns use <code className="bg-slate-950/80 px-1.5 py-0.5 rounded border border-white/5 text-[10px] text-amber-400 font-mono">Difficulty = Level / 30</code>. A target level of 150 yields a difficulty parameter of 5.0.
+              <span className="text-slate-200 font-semibold block mb-0.5">Difficulty Offset Calculation</span>
+              Dino spawns use <code className="bg-[#0a0f1d]/80 px-1.5 py-0.5 rounded border border-white/10 text-[10px] text-amber-400 font-mono">Difficulty = Level / 30</code>. A target level of 150 yields a difficulty parameter of 5.0.
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3 text-sm text-amber-250">
+      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-3 text-sm text-amber-200/90">
         <Info className="w-5 h-5 shrink-0 text-amber-400" />
         <div>
           <strong className="block mb-1 text-amber-300">Important System Details</strong>
-          Applying these curves will write detailed configurations to your <code className="bg-amber-950/40 px-1 rounded text-amber-300">Game.ini</code> file. Experience curves are computed up to the defined level limits.
+          Applying these curves will write detailed configurations to your <code className="bg-amber-950/60 border border-amber-500/20 px-1.5 py-0.5 rounded text-amber-300 font-mono text-xs">Game.ini</code> file. Experience curves are computed up to the defined level limits.
         </div>
       </div>
     </div>

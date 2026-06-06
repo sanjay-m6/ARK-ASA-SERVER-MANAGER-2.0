@@ -1100,7 +1100,6 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
     }
 ];
 
-// Game.ini schema - Enhanced with sliders and categories
 export const GAME_INI_SCHEMA: ConfigGroup[] = [
     {
         title: 'Engrams & Crafting',
@@ -1325,6 +1324,284 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 max: 10,
                 step: 0.1,
                 description: 'Time between egg laying'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'MatingIntervalMultiplier',
+                label: 'Mating Interval',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.01,
+                max: 1,
+                step: 0.01,
+                description: 'Time between matings (lower = faster)'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bDisableDinoBreeding',
+                label: 'Disable Breeding',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Prevent dino breeding'
+            }
+        ]
+    },
+    {
+        title: 'Player Settings',
+        description: 'Player customization and behavior in Game.ini',
+        category: 'player',
+        fields: [
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bAllowSpeedLeveling',
+                label: 'Allow Speed Leveling',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Allow leveling movement speed for players and land dinos (ASA/ASE)'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bUseCorpseLocator',
+                label: 'Use Corpse Locator',
+                type: 'boolean',
+                defaultValue: 'True',
+                description: 'Show death marker on map'
+            }
+        ]
+    },
+    {
+        title: 'Dino Settings',
+        description: 'Dino customization and behavior in Game.ini',
+        category: 'dino',
+        fields: [
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bAllowFlyerSpeedLeveling',
+                label: 'Allow Flyer Speed Leveling',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Allow leveling movement speed on flyers (ASA/ASE)'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bDisableDinoTaming',
+                label: 'Disable Taming',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Prevent all dino taming'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bDisableDinoRiding',
+                label: 'Disable Riding',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Prevent riding tamed dinos'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'DinoHarvestingDamageMultiplier',
+                label: 'Dino Harvesting Damage',
+                type: 'slider',
+                defaultValue: '3.2',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Harvesting damage multiplier for dinos'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bDisableDinoDecayPvE',
+                label: 'Disable Dino Decay',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Disable dino decay in PvE'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'PerDinoClassResistanceMultipliers',
+                label: 'Dino Resistance Multipliers',
+                type: 'array',
+                defaultValue: '',
+                description: 'Adjust resistance for specific dino classes (lower = more resistant)',
+                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#PerDinoClassResistanceMultipliers',
+                template: {
+                    ClassName: { label: 'Dino Class Name', placeholder: 'DinoCharacterBP_C' },
+                    Multiplier: { label: 'Resistance Multiplier', placeholder: '0.5' }
+                }
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'DinoSpawnWeightMultipliers',
+                label: 'Dino Spawn Weight Multipliers',
+                type: 'array',
+                defaultValue: '',
+                description: 'Customize the spawn rate and limits for specific dino classes.',
+                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#DinoSpawnWeightMultipliers',
+                template: {
+                    DinoNameTag: { label: 'Dino Tag/Name', placeholder: 'Dodo' },
+                    SpawnLimitPercentage: { label: 'Spawn Limit %', placeholder: '1.0' },
+                    SpawnWeightMultiplier: { label: 'Spawn Weight Mult', placeholder: '1.0' },
+                    OverrideSpawnLimitPercentage: { label: 'Override Limit % (True/False)', placeholder: 'True' }
+                }
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'DinoClassDamageMultipliers',
+                label: 'Wild Dino Damage Multipliers',
+                type: 'array',
+                defaultValue: '',
+                description: 'Adjust damage dealt by specific wild dino classes.',
+                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#DinoClassDamageMultipliers',
+                template: {
+                    ClassName: { label: 'Dino Class Name', placeholder: 'DinoCharacterBP_C' },
+                    Multiplier: { label: 'Damage Multiplier', placeholder: '1.0' }
+                }
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'DinoClassResistanceMultipliers',
+                label: 'Wild Dino Resistance Multipliers',
+                type: 'array',
+                defaultValue: '',
+                description: 'Adjust resistance (damage taken) for specific wild dino classes (lower = more resistant).',
+                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#DinoClassResistanceMultipliers',
+                template: {
+                    ClassName: { label: 'Dino Class Name', placeholder: 'DinoCharacterBP_C' },
+                    Multiplier: { label: 'Resistance Multiplier', placeholder: '1.0' }
+                }
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'TamedDinoClassDamageMultipliers',
+                label: 'Tamed Dino Damage Multipliers',
+                type: 'array',
+                defaultValue: '',
+                description: 'Adjust damage dealt by specific tamed dino classes.',
+                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#TamedDinoClassDamageMultipliers',
+                template: {
+                    ClassName: { label: 'Dino Class Name', placeholder: 'DinoCharacterBP_C' },
+                    Multiplier: { label: 'Damage Multiplier', placeholder: '1.0' }
+                }
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'TamedDinoClassResistanceMultipliers',
+                label: 'Tamed Dino Resistance Multipliers',
+                type: 'array',
+                defaultValue: '',
+                description: 'Adjust resistance (damage taken) for specific tamed dino classes (lower = more resistant).',
+                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#TamedDinoClassResistanceMultipliers',
+                template: {
+                    ClassName: { label: 'Dino Class Name', placeholder: 'DinoCharacterBP_C' },
+                    Multiplier: { label: 'Resistance Multiplier', placeholder: '1.0' }
+                }
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'NPCReplacements',
+                label: 'NPC Replacements',
+                type: 'array',
+                defaultValue: '',
+                description: 'Replace or disable specific dinosaur spawn classes.',
+                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#NPCReplacements',
+                template: {
+                    FromClassName: { label: 'From Class Name', placeholder: 'DinoCharacterBP_C' },
+                    ToClassName: { label: 'To Class Name (Empty to disable)', placeholder: 'Saber_Character_BP_C' }
+                }
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'PreventDinoTameClassNames',
+                label: 'Prevent Dino Taming Classes',
+                type: 'textarea',
+                defaultValue: '',
+                description: 'List of dino class names that cannot be tamed. Enter one class name per line.',
+                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#PreventDinoTameClassNames'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'ExcludeDinoClasses',
+                label: 'Exclude Dino Spawn Classes',
+                type: 'textarea',
+                defaultValue: '',
+                description: 'List of dino class names to prevent from spawning entirely. Enter one class name per line.',
+                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#ExcludeDinoClasses'
+            }
+        ]
+    },
+    {
+        title: 'PvP/PvE Settings',
+        description: 'Combat settings in Game.ini',
+        category: 'pvp',
+        fields: [
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bPvEDisableFriendlyFire',
+                label: 'PvE Disable Friendly Fire',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Prevent tribe members from hurting each other'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'DinoTurretDamageMultiplier',
+                label: 'Dino Turret Damage',
+                type: 'slider',
+                defaultValue: '1',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Damage dinos take from turrets'
+            }
+        ]
+    },
+    {
+        title: 'Structure Settings',
+        description: 'Structure and building tweaks in Game.ini',
+        category: 'structure',
+        fields: [
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bDisableStructurePlacementCollision',
+                label: 'Disable Placement Collision',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Allow overlapping structures'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bPassiveDefensesDamageRiderlessDinos',
+                label: 'Spike Walls Damage Riderless Dinos',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Spike walls and passive defenses damage riderless/wild dinos. Does NOT affect turrets.'
+            }
+        ]
+    },
+    {
+        title: 'Gameplay Rules',
+        description: 'Server gameplay rules in Game.ini',
+        category: 'rules',
+        fields: [
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'bUseSingleplayerSettings',
+                label: 'Use Singleplayer Settings',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Apply singleplayer balancing adjustments'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'MaxTribeLogs',
+                label: 'Max Tribe Logs',
+                type: 'slider',
+                defaultValue: '400',
+                min: 100,
+                max: 10000,
+                step: 100,
+                description: 'Maximum tribe log entries'
             }
         ]
     },
@@ -1387,218 +1664,6 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 max: 10,
                 step: 0.1,
                 description: 'How fast crops decay'
-            }
-        ]
-    },
-    {
-        title: 'Advanced Gameplay',
-        description: 'Advanced server mechanics',
-        category: 'advanced',
-        fields: [
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bAutoUnlockAllEngrams',
-                label: 'Auto-Unlock All Engrams',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Automatically unlock all engrams for players'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bAllowSpeedLeveling',
-                label: 'Allow Speed Leveling',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Allow leveling movement speed for players and land dinos (ASA/ASE)'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bAllowFlyerSpeedLeveling',
-                label: 'Allow Flyer Speed Leveling',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Allow leveling movement speed on flyers (ASA/ASE)'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bAllowUnlimitedRespecs',
-                label: 'Unlimited Respecs',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Remove Mindwipe Tonic cooldown'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bDisableDinoTaming',
-                label: 'Disable Taming',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Prevent all dino taming'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bDisableDinoRiding',
-                label: 'Disable Riding',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Prevent riding tamed dinos'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bDisableDinoBreeding',
-                label: 'Disable Breeding',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Prevent dino breeding'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bUseSingleplayerSettings',
-                label: 'Use Singleplayer Settings',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Apply singleplayer balancing adjustments'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bPvEDisableFriendlyFire',
-                label: 'PvE Disable Friendly Fire',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Prevent tribe members from hurting each other'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bUseCorpseLocator',
-                label: 'Use Corpse Locator',
-                type: 'boolean',
-                defaultValue: 'True',
-                description: 'Show death marker on map'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bAllowCustomRecipes',
-                label: 'Allow Custom Recipes',
-                type: 'boolean',
-                defaultValue: 'True',
-                description: 'Enable custom recipe creation'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'MaxNumberOfPlayersInTribe',
-                label: 'Max Tribe Members',
-                type: 'slider',
-                defaultValue: '0',
-                min: 0,
-                max: 100,
-                step: 1,
-                description: 'Maximum players per tribe (0=unlimited)'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'MaxTribeLogs',
-                label: 'Max Tribe Logs',
-                type: 'slider',
-                defaultValue: '400',
-                min: 100,
-                max: 10000,
-                step: 100,
-                description: 'Maximum tribe log entries'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'DinoTurretDamageMultiplier',
-                label: 'Dino Turret Damage',
-                type: 'slider',
-                defaultValue: '1',
-                min: 0.1,
-                max: 10,
-                step: 0.1,
-                description: 'Damage dinos take from turrets'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'DinoHarvestingDamageMultiplier',
-                label: 'Dino Harvesting Damage',
-                type: 'slider',
-                defaultValue: '3.2',
-                min: 0.1,
-                max: 10,
-                step: 0.1,
-                description: 'Harvesting damage multiplier for dinos'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'FishingLootQualityMultiplier',
-                label: 'Fishing Loot Quality',
-                type: 'slider',
-                defaultValue: '1',
-                min: 0.1,
-                max: 10,
-                step: 0.1,
-                description: 'Quality of fishing loot'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'CraftingSkillBonusMultiplier',
-                label: 'Crafting Speed Bonus',
-                type: 'slider',
-                defaultValue: '1',
-                min: 0.1,
-                max: 10,
-                step: 0.1,
-                description: 'Bonus to crafting speed (ASA)'
-            }
-        ]
-    },
-    {
-        title: 'Mating & Imprinting',
-        description: 'Mating intervals and imprinting settings',
-        category: 'breeding',
-        fields: [
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'MatingIntervalMultiplier',
-                label: 'Mating Interval',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.01,
-                max: 1,
-                step: 0.01,
-                description: 'Time between matings (lower = faster)'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'BabyCuddleIntervalMultiplier',
-                label: 'Cuddle Interval',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.01,
-                max: 1,
-                step: 0.01,
-                description: 'Time between imprint cuddles (lower = faster)'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'BabyCuddleGracePeriodMultiplier',
-                label: 'Cuddle Grace Period',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 1,
-                max: 10,
-                step: 0.5,
-                description: 'Grace period for imprinting'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'BabyImprintAmountMultiplier',
-                label: 'Imprint Amount',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 1,
-                max: 10,
-                step: 0.5,
-                description: 'Imprint percentage per cuddle'
             }
         ]
     },
@@ -1700,77 +1765,6 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 max: 10,
                 step: 0.5,
                 description: 'Fishing loot quality'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'CraftingSkillBonusMultiplier',
-                label: 'Crafting Speed Bonus',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 1,
-                max: 10,
-                step: 0.5,
-                description: 'Bonus to crafting speed (ASA)'
-            }
-        ]
-    },
-    {
-        title: 'Advanced Options',
-        description: 'Advanced gameplay tweaks',
-        category: 'advanced',
-        fields: [
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'PerDinoClassResistanceMultipliers',
-                label: 'Dino Resistance Multipliers',
-                type: 'array',
-                defaultValue: '',
-                description: 'Adjust resistance for specific dino classes (lower = more resistant)',
-                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#PerDinoClassResistanceMultipliers',
-                template: {
-                    ClassName: { label: 'Dino Class Name', placeholder: 'DinoCharacterBP_C' },
-                    Multiplier: { label: 'Resistance Multiplier', placeholder: '0.5' }
-                }
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bAllowUnlimitedRespecs',
-                label: 'Unlimited Mindwipes',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Allow unlimited mindwipe tonics'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bDisableDinoDecayPvE',
-                label: 'Disable Dino Decay',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Disable dino decay in PvE'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bPassiveDefensesDamageRiderlessDinos',
-                label: 'Spike Walls Damage Riderless Dinos',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Spike walls and passive defenses damage riderless/wild dinos. Does NOT affect turrets.'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bUseSingleplayerSettings',
-                label: 'Singleplayer Settings',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Use singleplayer-like rates'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'bDisableStructurePlacementCollision',
-                label: 'Disable Placement Collision',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Allow overlapping structures'
             }
         ]
     }

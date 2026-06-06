@@ -838,6 +838,7 @@ impl ProcessManager {
         cluster_dir: Option<&str>,
         mods: Option<&[String]>,
         custom_args: Option<&str>,
+        battleye_enabled: bool,
     ) -> Result<()> {
         let win64_dir = install_path
             .join("ShooterGame")
@@ -925,7 +926,9 @@ impl ProcessManager {
         let mut args = vec![connection_url];
 
         args.push("-log".to_string());
-        args.push("-NoBattlEye".to_string());
+        if !battleye_enabled {
+            args.push("-NoBattlEye".to_string());
+        }
 
         // Add MaxPlayers as a launch argument (Required for ASA)
         args.push(format!("-WinLiveMaxPlayers={}", max_players));
@@ -1658,6 +1661,7 @@ impl ProcessManager {
         cluster_dir: Option<&str>,
         mods: Option<&[String]>,
         custom_args: Option<&str>,
+        battleye_enabled: bool,
     ) -> Result<()> {
         if self.is_running(server_id) {
             self.stop_server(server_id)?;
@@ -1683,6 +1687,7 @@ impl ProcessManager {
             cluster_dir,
             mods,
             custom_args,
+            battleye_enabled,
         )
     }
 

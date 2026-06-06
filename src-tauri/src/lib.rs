@@ -52,6 +52,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(crate::commands::server_organization::init())
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -490,6 +491,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::system::set_auto_start_config,
              commands::system::set_server_startup_config,
             commands::system::get_player_counts,
+            commands::system::get_app_logs_dir,
             // Server commands
             commands::server::get_all_servers,
             commands::server::update_server_status_in_db,
@@ -819,9 +821,10 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               ase::commands::mods::get_ase_workshop_details_batch,
               ase::commands::mods::batch_download_ase_mods,
               // ASE Config commands
-              ase::commands::config::read_ase_config,
-              ase::commands::config::write_ase_config,
-              ase::commands::config::sync_ase_server_from_ini,
+               ase::commands::config::read_ase_config,
+               ase::commands::config::write_ase_config,
+               ase::commands::config::validate_ase_config,
+               ase::commands::config::sync_ase_server_from_ini,
               ase::commands::config::get_ase_config_diagnostics,
              ase::commands::config_advanced::read_ase_ini,
              ase::commands::config_advanced::write_ase_ini,

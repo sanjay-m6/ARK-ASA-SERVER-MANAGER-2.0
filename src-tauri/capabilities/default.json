@@ -11,6 +11,7 @@
     "dialog:default",
     "shell:default",
     "updater:default",
+    "process:default",
     "server-org:allow-add-server-to-folder",
     "server-org:allow-archive-server",
     "server-org:allow-assign-server-priority",

@@ -481,3 +481,12 @@ pub async fn set_server_startup_config(
 pub async fn get_player_counts(state: State<'_, AppState>) -> Result<std::collections::HashMap<i64, i32>, String> {
     Ok(state.player_intelligence.get_player_counts().await)
 }
+
+#[tauri::command]
+pub fn get_app_logs_dir(app: tauri::AppHandle) -> Result<String, String> {
+    app.path()
+        .app_data_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| e.to_string())
+}
+

@@ -2,12 +2,34 @@ import { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useAseConfigStore } from '../../stores/aseConfigStore';
 
+interface IniEntry {
+  key: string;
+  value: string;
+}
+
+interface IniSection {
+  name: string;
+  entries: IniEntry[];
+}
+
+interface VisualField {
+  tab: string;
+  section: string;
+  type: string;
+  key: string;
+  label: string;
+  desc?: string;
+  def: string | number | boolean;
+  step?: number;
+  options?: { label: string; value: string }[];
+}
+
 export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab: string, searchQuery: string }) {
   const { currentData, updateEntry } = useAseConfigStore();
 
   const getVal = (section: string, key: string, def: string | number | boolean): string => {
-    const sec = currentData?.sections.find((s: any) => s.name === section);
-    const entry = sec?.entries.find((e: any) => e.key === key);
+    const sec = currentData?.sections.find((s: IniSection) => s.name === section);
+    const entry = sec?.entries.find((e: IniEntry) => e.key === key);
     return entry ? entry.value : String(def);
   };
 
@@ -180,7 +202,7 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     </div>
   );
 
-  const Toggle = ({ field }: { field: any }) => {
+  const Toggle = ({ field }: { field: VisualField }) => {
     const value = getVal(field.section, field.key, field.def);
     const isTrue = value === 'True' || value === 'true' || value === '1';
     return (
@@ -196,7 +218,7 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     );
   };
 
-  const NumberInput = ({ field }: { field: any }) => {
+  const NumberInput = ({ field }: { field: VisualField }) => {
     const value = getVal(field.section, field.key, field.def);
     return (
       <Field label={field.label} description={field.desc}>
@@ -205,7 +227,7 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     );
   };
 
-  const TextInput = ({ field }: { field: any }) => {
+  const TextInput = ({ field }: { field: VisualField }) => {
     const value = getVal(field.section, field.key, field.def);
     return (
       <Field label={field.label} description={field.desc}>
@@ -214,7 +236,7 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     );
   };
 
-  const TextAreaInput = ({ field }: { field: any }) => {
+  const TextAreaInput = ({ field }: { field: VisualField }) => {
     const value = getVal(field.section, field.key, field.def);
     const [customColor, setCustomColor] = useState('#e2a85c');
     const [showGradientBuilder, setShowGradientBuilder] = useState(false);
@@ -459,7 +481,7 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
             {/* Custom Color Picker */}
             <label
               className="w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm cursor-pointer flex items-center justify-center relative"
-              style={{ background: 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)' }}
+              style={{ background: 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, #ee82ee)' }}
               title="Choose custom color"
             >
               <input
@@ -624,13 +646,13 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     );
   };
 
-  const SelectInput = ({ field }: { field: any }) => {
+  const SelectInput = ({ field }: { field: VisualField }) => {
     const value = getVal(field.section, field.key, field.def);
     return (
       <Field label={field.label} description={field.desc}>
         <div className="relative">
           <select value={String(value)} onChange={e => setVal(field.section, field.key, e.target.value)} className="w-full appearance-none px-3 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors">
-            {field.options.map((opt: any) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            {field.options?.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
         </div>
@@ -638,7 +660,7 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     );
   };
 
-  const renderField = (field: any) => {
+  const renderField = (field: VisualField) => {
     if (field.type === 'text') return <TextInput key={`${field.section}-${field.key}`} field={field} />;
     if (field.type === 'textarea') return <TextAreaInput key={`${field.section}-${field.key}`} field={field} />;
     if (field.type === 'number') return <NumberInput key={`${field.section}-${field.key}`} field={field} />;

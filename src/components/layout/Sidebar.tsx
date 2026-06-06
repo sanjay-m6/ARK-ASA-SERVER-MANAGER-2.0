@@ -32,7 +32,20 @@ import { AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/helpers';
 import { useServerStore } from '../../stores/serverStore';
 import { useGameStore } from '../../stores/gameStore';
-import logo from '../../assets/logo.png';
+import asaLogo from '../../assets/ASA.png';
+import aseLogo from '../../assets/ASE.png';
+
+interface NavigationItem {
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  path?: string;
+  children?: {
+    name: string;
+    path: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }[];
+  _forceOpen?: boolean;
+}
 
 export default function Sidebar() {
   const location = useLocation();
@@ -121,6 +134,16 @@ export default function Sidebar() {
     navigate(game === 'ASE' ? '/ase/dashboard' : '/dashboard');
   };
 
+  // Synchronize game switcher context automatically based on active route path
+  useEffect(() => {
+    const isAseRoute = location.pathname.startsWith('/ase');
+    if (isAseRoute && activeGame !== 'ASE') {
+      setActiveGame('ASE');
+    } else if (!isAseRoute && activeGame !== 'ASA' && location.pathname !== '/') {
+      setActiveGame('ASA');
+    }
+  }, [location.pathname, activeGame, setActiveGame]);
+
   // Check if any server is running
   const runningServers = servers.filter((s) => s.status === 'running');
   const isAnyServerRunning = runningServers.length > 0;
@@ -156,7 +179,7 @@ export default function Sidebar() {
     }
     
     return item.name.toLowerCase().includes(query) ? item : null;
-  }).filter(Boolean) as typeof navigation & { _forceOpen?: boolean }[];
+  }).filter(Boolean) as NavigationItem[];
 
   return (
     <div className="w-72 glass-panel static-panel border-r-0 border-r-white/5 flex flex-col h-screen relative z-50">
@@ -166,7 +189,7 @@ export default function Sidebar() {
           <div className="relative group">
             <div className={cn("absolute inset-0 blur-xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity", isASE ? "bg-amber-500/30" : "bg-cyan-500/30")}></div>
             <img
-              src={logo}
+              src={isASE ? aseLogo : asaLogo}
               alt="ARK Manager"
               className={cn("w-16 h-16 rounded-xl object-contain transform transition-transform group-hover:scale-105", isASE ? "drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]" : "drop-shadow-[0_0_15px_rgba(6,182,212,0.3)]")}
             />
@@ -233,7 +256,7 @@ export default function Sidebar() {
         <AnimatePresence>
           {filteredNavigation.map((item) => {
             if (item.children) {
-              const isOpen = (item as any)._forceOpen || openSections.includes(item.name);
+              const isOpen = item._forceOpen || openSections.includes(item.name);
               const isChildActive = item.children.some(child => location.pathname === child.path);
 
               return (

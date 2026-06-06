@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, FolderOpen, Save, ExternalLink, Shield } from 'lucide-react';
+import { Settings, FolderOpen, Save, ExternalLink, Shield, Terminal, FileText, Search, Copy, Check, X, RefreshCw } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
 import FirewallSettings from '../../components/settings/FirewallSettings';
 
 export default function ASESettings() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [defaultInstallPath, setDefaultInstallPath] = useState('');
   const [steamcmdPath, setSteamcmdPath] = useState('');
   const [autoUpdate, setAutoUpdate] = useState(true);
@@ -16,6 +18,46 @@ export default function ASESettings() {
   const [discordClientId, setDiscordClientId] = useState('');
   const [activeTab, setActiveTab] = useState<'general' | 'api' | 'firewall'>('general');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Log Viewer state
+  const [isViewLogOpen, setIsViewLogOpen] = useState(false);
+  const [logContent, setLogContent] = useState('');
+  const [logLoading, setLogLoading] = useState(false);
+  const [logSearch, setLogSearch] = useState('');
+  const [isCopied, setIsCopied] = useState(false);
+
+  const loadLogContent = async () => {
+    setLogLoading(true);
+    try {
+      const logsDir: string = await invoke('get_app_logs_dir');
+      const path = `${logsDir}/startup.log`;
+      const content: string = await invoke('read_file_content', { path });
+      setLogContent(content);
+    } catch (error) {
+      console.error('Failed to load log content:', error);
+      setLogContent(t('settings.diagnosticsTab.noLogYet', 'No startup log file found or failed to read.'));
+    } finally {
+      setLogLoading(false);
+    }
+  };
+
+  const handleOpenLogsFolder = async () => {
+    try {
+      const logsDir: string = await invoke('get_app_logs_dir');
+      await invoke('open_in_explorer', { path: logsDir });
+      toast.success(t('settings.diagnosticsTab.folderOpened', 'Logs folder opened in file explorer'));
+    } catch (error) {
+      console.error('Failed to open logs folder:', error);
+      toast.error(t('settings.diagnosticsTab.folderOpenFailed', 'Failed to open logs folder'));
+    }
+  };
+
+  const handleCopyLog = () => {
+    navigator.clipboard.writeText(logContent);
+    setIsCopied(true);
+    toast.success(t('common.copied', 'Copied to clipboard'));
+    setTimeout(() => setIsCopied(false), 2000);
+  };
 
   // Load settings on mount
   useEffect(() => {
@@ -203,6 +245,37 @@ export default function ASESettings() {
                 <p>Mod Platform: <span className="text-white">Steam Workshop</span></p>
               </div>
             </div>
+
+            <div className="border-t border-white/5 pt-6">
+              <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-amber-400" />
+                {t('settings.diagnosticsTab.title', 'Troubleshooting & Diagnostics')}
+              </h3>
+              <p className="text-xs text-slate-400 mb-4">
+                {t('settings.diagnosticsTab.desc', 'Examine application logs and open the log directory to diagnose startup issues or update failures.')}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={handleOpenLogsFolder}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white border border-white/10 rounded-xl transition-colors text-xs font-bold shadow-md focus:outline-none"
+                >
+                  <FolderOpen className="w-4 h-4 text-sky-400" />
+                  {t('settings.diagnosticsTab.openFolder', 'Open Logs Folder')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsViewLogOpen(true);
+                    loadLogContent();
+                  }}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white border border-white/10 rounded-xl transition-colors text-xs font-bold shadow-md focus:outline-none"
+                >
+                  <FileText className="w-4 h-4 text-indigo-400" />
+                  {t('settings.diagnosticsTab.viewLog', 'View Startup Log')}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : activeTab === 'api' ? (
@@ -262,6 +335,129 @@ export default function ASESettings() {
       ) : (
         <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
           <FirewallSettings mode="ase" />
+        </div>
+      )}
+
+      {/* Log Viewer Modal */}
+      {isViewLogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-5xl h-[85vh] flex flex-col bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 border-b border-slate-800 bg-slate-900/40">
+              <div>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Terminal className="w-5 h-5 text-amber-400" />
+                  {t('settings.diagnosticsTab.modalTitle', 'Startup & Diagnostics Logs')}
+                </h3>
+                <p className="text-sm text-slate-400 mt-1">
+                  {t('settings.diagnosticsTab.modalSubtitle', 'Review active application state messages and errors.')}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+                {/* Search box */}
+                <div className="relative max-w-xs flex-1 sm:flex-initial">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="text"
+                    value={logSearch}
+                    onChange={(e) => setLogSearch(e.target.value)}
+                    placeholder={t('common.search', 'Search logs...')}
+                    className="w-full pl-9 pr-4 py-2 bg-slate-950/40 border border-slate-800 focus:border-slate-700 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-1 focus:ring-slate-700 transition-all"
+                  />
+                  {logSearch && (
+                    <button 
+                      onClick={() => setLogSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                
+                <button
+                  onClick={loadLogContent}
+                  disabled={logLoading}
+                  title={t('common.refresh', 'Refresh')}
+                  className="p-2 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white rounded-xl border border-slate-700/50 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={cn("w-4 h-4", logLoading && "animate-spin")} />
+                </button>
+                
+                <button
+                  onClick={handleCopyLog}
+                  title={t('common.copy', 'Copy')}
+                  className="p-2 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white rounded-xl border border-slate-700/50 transition-colors"
+                >
+                  {isCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setIsViewLogOpen(false);
+                    setLogSearch('');
+                  }}
+                  className="p-2 bg-slate-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 rounded-xl border border-slate-700/50 hover:border-red-500/30 transition-all ml-2"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Log Output Body */}
+            <div className="flex-1 overflow-auto p-6 bg-slate-950/60 font-mono text-sm leading-relaxed custom-scrollbar selection:bg-indigo-500/30">
+              {logLoading ? (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
+                  <RefreshCw className="w-8 h-8 animate-spin text-amber-400" />
+                  <p>{t('settings.diagnosticsTab.loadingLogs', 'Reading log file...')}</p>
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  {(() => {
+                    const lines = logContent.split('\n');
+                    const filtered = lines.filter(line => 
+                      !logSearch || line.toLowerCase().includes(logSearch.toLowerCase())
+                    );
+                    
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-slate-500 text-center py-12">
+                          {t('settings.diagnosticsTab.noMatches', 'No lines matching search query')}
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((line, index) => {
+                      let lineClass = "text-slate-300";
+                      if (line.toLowerCase().includes("error") || line.toLowerCase().includes("panic") || line.toLowerCase().includes("crashed")) {
+                        lineClass = "text-red-400 bg-red-950/20 px-1 rounded";
+                      } else if (line.toLowerCase().includes("warn")) {
+                        lineClass = "text-amber-400 bg-amber-950/20 px-1 rounded";
+                      } else if (line.toLowerCase().includes("info") || line.includes("----")) {
+                        lineClass = "text-slate-500";
+                      }
+
+                      return (
+                        <div key={index} className={cn("hover:bg-slate-800/40 py-0.5 transition-colors whitespace-pre-wrap break-all", lineClass)}>
+                          <span className="text-slate-600 select-none mr-4 text-right inline-block w-8 text-xs">{index + 1}</span>
+                          {line}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+            </div>
+            
+            {/* Footer / Status bar */}
+            <div className="px-6 py-4 bg-slate-900/60 border-t border-slate-800 text-xs text-slate-500 flex justify-between items-center">
+              <span>
+                {t('settings.diagnosticsTab.logLocation', 'Log path:')} <span className="font-mono text-slate-400 select-all">%APPDATA%\asa-manager\startup.log</span>
+              </span>
+              <span>
+                {logContent ? `${logContent.split('\n').length} lines total` : '0 lines'}
+              </span>
+            </div>
+          </div>
         </div>
       )}
     </motion.div>

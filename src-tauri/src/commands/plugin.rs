@@ -1113,7 +1113,7 @@ fn convert_xml_to_json(xml: &str) -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 pub async fn get_infinity_damage_analytics(
-    state: State<'_, AppState>,
+    _state: State<'_, AppState>,
     _server_id: i64,
 ) -> Result<String, String> {
     let mut data = Vec::new();

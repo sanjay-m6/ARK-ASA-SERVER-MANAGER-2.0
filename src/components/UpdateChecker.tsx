@@ -120,10 +120,7 @@ export async function manualCheckForUpdates(): Promise<UpdateCheckResult> {
     }
 
     try {
-        const settings = getUpdateSettings();
-        const target = settings.updateChannel || 'release';
-
-        const update = await withRetry(() => check({ target }));
+        const update = await withRetry(() => check({ timeout: 30000 }));
         updateLastCheck();
         saveUpdateSettings({ lastError: null });
 
@@ -296,10 +293,7 @@ export default function UpdateChecker() {
         if (!isManual && !acquireCheckLock()) return;
 
         try {
-            const settings = getUpdateSettings();
-            const target = settings.updateChannel || 'release';
-
-            const update = await withRetry(() => check({ target }));
+            const update = await withRetry(() => check({ timeout: 30000 }));
             updateLastCheck();
             saveUpdateSettings({ lastError: null });
 
@@ -427,7 +421,7 @@ export default function UpdateChecker() {
         return () => clearTimeout(timer);
     }, [checkForUpdates]);
 
-    // Listen for manual check events
+    // Listen for manual check events and TopBar banner trigger
     useEffect(() => {
         let unlistenUpdate: (() => void) | null = null;
 
@@ -438,10 +432,19 @@ export default function UpdateChecker() {
             });
         };
 
+        // Listen for TopBar's "Review & Update" click
+        const handleShowBanner = () => {
+            if (updateAvailableRef.current) {
+                setUiState('prompt');
+            }
+        };
+        window.addEventListener('show-update-banner', handleShowBanner);
+
         setupListeners();
 
         return () => {
             if (unlistenUpdate) unlistenUpdate();
+            window.removeEventListener('show-update-banner', handleShowBanner);
         };
     }, []);
 

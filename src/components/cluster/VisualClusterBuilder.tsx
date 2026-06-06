@@ -31,12 +31,12 @@ const MAP_COLORS: Record<string, string> = {
     'TheIsland_WP': '#22c55e',
     'ScorchedEarth_WP': '#f59e0b',
     'TheCenter_WP': '#3b82f6',
-    'Aberration_WP': '#a855f7',
+    'Aberration_WP': '#0ea5e9',
     'Extinction_WP': '#ef4444',
     'Ragnarok_WP': '#06b6d4',
     'Valguero_WP': '#ec4899',
     'LostIsland_WP': '#14b8a6',
-    'Fjordur_WP': '#8b5cf6',
+    'Fjordur_WP': '#10b981',
 };
 
 function getMapColor(mapName: string): string {
@@ -79,15 +79,24 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                 const x = existingNode ? existingNode.x : centerX + radius * Math.cos(angle);
                 const y = existingNode ? existingNode.y : centerY + radius * Math.sin(angle);
 
+                // Support both ASA (server.config.mapName, server.ports) and ASE (server.mapName, top-level ports) shapes
+                const anyServer = server as any;
+                const resolvedMapName = server.config?.mapName ?? anyServer.mapName ?? 'Unknown';
+                const resolvedPorts = server.ports ?? {
+                    gamePort: anyServer.port ?? 7777,
+                    queryPort: anyServer.queryPort ?? 27015,
+                    rconPort: anyServer.rconPort ?? 27020,
+                };
+
                 return {
                     id: idx,
                     serverId: server.id,
                     x,
                     y,
                     name: server.name,
-                    mapName: server.config.mapName,
+                    mapName: resolvedMapName,
                     status: server.status,
-                    ports: server.ports,
+                    ports: resolvedPorts,
                     // Mock dynamic data for demonstration
                     cpu: server.status === 'running' || server.status === 'online' ? Math.floor(Math.random() * 40) + 10 : 0,
                     players: server.status === 'running' || server.status === 'online' ? Math.floor(Math.random() * 50) : 0,
@@ -339,7 +348,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                     {/* Label underneath */}
                                     <div className="absolute top-[72px] left-1/2 -translate-x-1/2 text-center pointer-events-none w-[120px]">
                                         <p className="text-[11px] font-bold text-white drop-shadow-md truncate">{node.name}</p>
-                                        <p className="text-[9px] text-slate-400 drop-shadow-md truncate">{node.mapName.replace('_WP', '')}</p>
+                                        <p className="text-[9px] text-slate-400 drop-shadow-md truncate">{(node.mapName || 'Unknown').replace('_WP', '')}</p>
                                     </div>
 
                                     {/* Hover / Select Popover Tooltip */}

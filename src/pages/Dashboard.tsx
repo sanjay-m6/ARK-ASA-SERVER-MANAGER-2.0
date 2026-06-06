@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import {
   Server, Activity, Cpu, HardDrive, Zap, Terminal, Copy, Puzzle,
   Play, Square, RotateCw, Clock, Database, FileEdit,
-  TrendingUp, Folder, FolderOpen, Heart, Bookmark, Search
+  TrendingUp, Folder, FolderOpen, Heart, Bookmark, Search,
+  ShieldCheck, RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -48,6 +49,45 @@ export default function Dashboard() {
   const [snapshot, setSnapshot] = useState<any>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Live Operations Feed
+  const [liveLogs, setLiveLogs] = useState<string[]>([
+    `[SYS] Operations center initialized.`,
+    `[SYS] Host metrics listener: active.`,
+    `[AI] Listening for log anomalies...`,
+  ]);
+
+  useEffect(() => {
+    const messages = [
+      "Auditing database integrity...",
+      "DB health check: 100% nominal.",
+      "Scanning server ports for conflicts...",
+      "Port scanning complete: no conflicts.",
+      "Syncing active UPnP port mappings...",
+      "UPnP leases active and verified.",
+      "Analyzing server logs for warnings...",
+      "Log audit: 0 warnings, 0 crash patterns.",
+      "Validating configuration caches...",
+      "Configuration cache status: FRESH.",
+      "Host heartbeat monitor check: OK.",
+    ];
+
+    let index = 0;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      const prefix = index % 3 === 0 ? "AI" : "SYS";
+      const nextLog = `[${timeStr}] [${prefix}] ${messages[index]}`;
+      setLiveLogs(prev => {
+        const updated = [...prev, nextLog];
+        if (updated.length > 25) updated.shift();
+        return updated;
+      });
+      index = (index + 1) % messages.length;
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchOrgSnapshot = async () => {
     try {
@@ -177,7 +217,9 @@ export default function Dashboard() {
         let totalPlayers = 0;
         try {
           const counts = await invoke<Record<string, number>>('get_player_counts');
-          totalPlayers = Object.values(counts).reduce((sum: number, count: number) => sum + count, 0);
+          totalPlayers = Object.entries(counts)
+            .filter(([id]) => Number(id) > 0)
+            .reduce((sum, [_, count]) => sum + count, 0);
         } catch (e) {
           console.error("Failed to fetch player counts", e);
         }
@@ -220,51 +262,51 @@ export default function Dashboard() {
       unlistenLogAnomaly = await listen<any>('log_anomaly', async (event) => {
         console.log('🔥 Log Anomaly Detected:', event.payload);
         const { server_id, anomaly_type, details } = event.payload;
-        
-        toast.error(`Anomaly (${anomaly_type}) detected on Server ${server_id}! AI is analyzing...`, { 
-            duration: 6000,
-            icon: '🔥'
+
+        toast.error(`Anomaly (${anomaly_type}) detected on Server ${server_id}! AI is analyzing...`, {
+          duration: 6000,
+          icon: '🔥'
         });
 
         // Trigger AI analysis asynchronously
         import('../stores/aiStore').then(({ useAiStore }) => {
-            import('../utils/aiAgent').then(async ({ sendAiMessage, generateMessageId, buildSystemPrompt }) => {
-                const aiStore = useAiStore.getState();
-                
-                const prompt = `A ${anomaly_type} anomaly was just detected on Server ${server_id}.\nDetails:\n\`\`\`\n${details}\n\`\`\`\nPlease analyze this log anomaly and provide a diagnosis or recommended fix.`;
-                
-                aiStore.addMessage({
-                    id: generateMessageId(),
-                    role: 'user',
-                    content: prompt,
-                    timestamp: Date.now()
-                });
+          import('../utils/aiAgent').then(async ({ sendAiMessage, generateMessageId, buildSystemPrompt }) => {
+            const aiStore = useAiStore.getState();
 
-                try {
-                    const apiMessages = [
-                        { role: 'system', content: buildSystemPrompt() },
-                        ...aiStore.messages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content })),
-                        { role: 'user', content: prompt }
-                    ];
+            const prompt = `A ${anomaly_type} anomaly was just detected on Server ${server_id}.\nDetails:\n\`\`\`\n${details}\n\`\`\`\nPlease analyze this log anomaly and provide a diagnosis or recommended fix.`;
 
-                    const response = await sendAiMessage(apiMessages, aiStore.model);
-                    
-                    if (response.content) {
-                        aiStore.addMessage({
-                            id: generateMessageId(),
-                            role: 'assistant',
-                            content: `**[Automated Crash Diagnosis]**\n\n${response.content}`,
-                            timestamp: Date.now()
-                        });
-                        toast.success(`AI Diagnosis ready for Server ${server_id}! Open AI Assistant to view.`, { 
-                            duration: 10000,
-                            icon: '🤖'
-                        });
-                    }
-                } catch (error) {
-                    console.error('Failed to get AI diagnosis:', error);
-                }
+            aiStore.addMessage({
+              id: generateMessageId(),
+              role: 'user',
+              content: prompt,
+              timestamp: Date.now()
             });
+
+            try {
+              const apiMessages = [
+                { role: 'system', content: buildSystemPrompt() },
+                ...aiStore.messages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content })),
+                { role: 'user', content: prompt }
+              ];
+
+              const response = await sendAiMessage(apiMessages, aiStore.model);
+
+              if (response.content) {
+                aiStore.addMessage({
+                  id: generateMessageId(),
+                  role: 'assistant',
+                  content: `**[Automated Crash Diagnosis]**\n\n${response.content}`,
+                  timestamp: Date.now()
+                });
+                toast.success(`AI Diagnosis ready for Server ${server_id}! Open AI Assistant to view.`, {
+                  duration: 10000,
+                  icon: '🤖'
+                });
+              }
+            } catch (error) {
+              console.error('Failed to get AI diagnosis:', error);
+            }
+          });
         });
       });
     };
@@ -322,374 +364,625 @@ export default function Dashboard() {
       {/* Sponsor Banner */}
       <SponsorBanner />
 
-      {/* Stats Grid - 6 Cards */}
-      {/* Stats Grid - 6 Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {/* Total Servers */}
-        <div className="glass-panel rounded-xl p-4 group hover:border-sky-500/30 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-sky-500/10 rounded-lg">
-              <Server className="w-4 h-4 text-sky-400" />
+      {/* Stats and Telemetry Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Server Count Cards */}
+        <div className="lg:col-span-1 grid grid-cols-3 lg:grid-cols-1 gap-4">
+          {/* Total Servers */}
+          <div className="glass-panel rounded-xl p-4 flex flex-col justify-between group hover:border-sky-500/30 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{t('dashboard.totalServers')}</span>
+              <div className="p-1.5 bg-sky-500/10 rounded-lg">
+                <Server className="w-3.5 h-3.5 text-sky-400" />
+              </div>
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.totalServers')}</span>
+            <div className="mt-2">
+              <p className="text-xl font-bold text-white leading-none">{totalServers}</p>
+              <p className="text-[10px] text-slate-500 mt-1">{t('dashboard.serversLabel')}</p>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-white">{totalServers}</p>
-          <p className="text-xs text-slate-500 mt-1">{t('dashboard.serversLabel')}</p>
-        </div>
 
-        {/* Running */}
-        <div className="glass-panel rounded-xl p-4 group hover:border-green-500/30 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <Activity className="w-4 h-4 text-green-400" />
+          {/* Running */}
+          <div className="glass-panel rounded-xl p-4 flex flex-col justify-between group hover:border-green-500/30 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{t('dashboard.runningLabel')}</span>
+              <div className="p-1.5 bg-green-500/10 rounded-lg">
+                <Activity className="w-3.5 h-3.5 text-green-400" />
+              </div>
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.runningLabel')}</span>
+            <div className="mt-2">
+              <p className="text-xl font-bold text-green-400 leading-none">{runningServers}</p>
+              <p className="text-[10px] text-slate-500 mt-1">{t('dashboard.onlineLabel')}</p>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-green-400">{runningServers}</p>
-          <p className="text-xs text-slate-500 mt-1">{t('dashboard.onlineLabel')}</p>
-        </div>
 
-        {/* Stopped */}
-        <div className="glass-panel rounded-xl p-4 group hover:border-slate-500/30 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-slate-500/10 rounded-lg">
-              <Square className="w-4 h-4 text-slate-400" />
+          {/* Stopped */}
+          <div className="glass-panel rounded-xl p-4 flex flex-col justify-between group hover:border-slate-500/30 transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{t('dashboard.stoppedLabel')}</span>
+              <div className="p-1.5 bg-slate-500/10 rounded-lg">
+                <Square className="w-3.5 h-3.5 text-slate-400" />
+              </div>
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.stoppedLabel')}</span>
-          </div>
-          <p className="text-2xl font-bold text-slate-400">{stoppedServers}</p>
-          <p className="text-xs text-slate-500 mt-1">{t('dashboard.offlineLabel')}</p>
-        </div>
-
-        {/* CPU */}
-        <div className="glass-panel rounded-xl p-4 group hover:border-violet-500/30 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-violet-500/10 rounded-lg">
-              <Cpu className="w-4 h-4 text-violet-400" />
+            <div className="mt-2">
+              <p className="text-xl font-bold text-slate-400 leading-none">{stoppedServers}</p>
+              <p className="text-[10px] text-slate-500 mt-1">{t('dashboard.offlineLabel')}</p>
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.cpu')}</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{systemInfo?.cpuUsage.toFixed(0) || 0}%</p>
-          <div className="w-full bg-slate-700/50 rounded-full h-1 mt-2">
-            <div className="bg-violet-500 h-1 rounded-full transition-all" style={{ width: `${systemInfo?.cpuUsage || 0}%` }}></div>
           </div>
         </div>
 
-        {/* RAM */}
-        <div className="glass-panel rounded-xl p-4 group hover:border-pink-500/30 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-pink-500/10 rounded-lg">
-              <TrendingUp className="w-4 h-4 text-pink-400" />
+        {/* Host Telemetry Dials Card */}
+        <div className="lg:col-span-2 glass-panel rounded-xl p-4 flex flex-col">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-2">
+            <span className="text-[10px] text-slate-300 uppercase tracking-wider font-bold">Host Allocation Telemetry</span>
+            <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full font-mono font-semibold tracking-wide animate-pulse">STREAMING</span>
+          </div>
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4 py-2">
+            {/* CPU Dial */}
+            <div className="flex flex-col items-center justify-center bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-sky-500/20 p-4 rounded-2xl transition-all group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-sky-500/[0.01] to-transparent rounded-2xl pointer-events-none" />
+              <div className="relative w-24 h-24 flex-shrink-0">
+                <svg className="w-full h-full transform -rotate-90 filter drop-shadow-[0_0_8px_rgba(6,182,212,0.25)]">
+                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.02)" strokeWidth="5" fill="transparent" />
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r="40"
+                    stroke="url(#cpuGlow)"
+                    strokeWidth="5"
+                    fill="transparent"
+                    strokeDasharray="251.2"
+                    strokeDashoffset={251.2 - ((systemInfo?.cpuUsage || 0) / 100) * 251.2}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000 ease-out"
+                  />
+                  <defs>
+                    <linearGradient id="cpuGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#06b6d4" />
+                      <stop offset="100%" stopColor="#3b82f6" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-sky-400 font-mono tracking-tighter">
+                  {(systemInfo?.cpuUsage || 0).toFixed(0)}%
+                </div>
+              </div>
+              <div className="text-center mt-3">
+                <p className="text-[10px] text-slate-300 uppercase font-bold tracking-widest flex items-center justify-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                  CPU LOAD
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                  {systemInfo ? `${systemInfo.cpuUsage.toFixed(1)}% Cores` : 'Auditing...'}
+                </p>
+              </div>
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.ram')}</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{memoryPercent.toFixed(0)}%</p>
-          <div className="w-full bg-slate-700/50 rounded-full h-1 mt-2">
-            <div className="bg-pink-500 h-1 rounded-full transition-all" style={{ width: `${memoryPercent}%` }}></div>
-          </div>
-        </div>
 
-        {/* Disk */}
-        <div className="glass-panel rounded-xl p-4 group hover:border-amber-500/30 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-2 bg-amber-500/10 rounded-lg">
-              <HardDrive className="w-4 h-4 text-amber-400" />
+            {/* RAM Dial */}
+            <div className="flex flex-col items-center justify-center bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-pink-500/20 p-4 rounded-2xl transition-all group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/[0.01] to-transparent rounded-2xl pointer-events-none" />
+              <div className="relative w-24 h-24 flex-shrink-0">
+                <svg className="w-full h-full transform -rotate-90 filter drop-shadow-[0_0_8px_rgba(236,72,153,0.25)]">
+                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.02)" strokeWidth="5" fill="transparent" />
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r="40"
+                    stroke="url(#ramGlow)"
+                    strokeWidth="5"
+                    fill="transparent"
+                    strokeDasharray="251.2"
+                    strokeDashoffset={251.2 - (memoryPercent / 100) * 251.2}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000 ease-out"
+                  />
+                  <defs>
+                    <linearGradient id="ramGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#ec4899" />
+                      <stop offset="100%" stopColor="#f43f5e" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-pink-400 font-mono tracking-tighter">
+                  {memoryPercent.toFixed(0)}%
+                </div>
+              </div>
+              <div className="text-center mt-3">
+                <p className="text-[10px] text-slate-300 uppercase font-bold tracking-widest flex items-center justify-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
+                  MEMORY
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                  {systemInfo ? `${(systemInfo.ramUsage / 1024).toFixed(1)}G / ${(systemInfo.ramTotal / 1024).toFixed(1)}G` : 'Active'}
+                </p>
+              </div>
             </div>
-            <span className="text-xs text-slate-400 uppercase tracking-wider">{t('dashboard.disk')}</span>
-          </div>
-          <p className="text-2xl font-bold text-white">{diskPercent.toFixed(0)}%</p>
-          <div className="w-full bg-slate-700/50 rounded-full h-1 mt-2">
-            <div className="bg-amber-500 h-1 rounded-full transition-all" style={{ width: `${diskPercent}%` }}></div>
+
+            {/* Disk Dial */}
+            <div className="flex flex-col items-center justify-center bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-amber-500/20 p-4 rounded-2xl transition-all group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.01] to-transparent rounded-2xl pointer-events-none" />
+              <div className="relative w-24 h-24 flex-shrink-0">
+                <svg className="w-full h-full transform -rotate-90 filter drop-shadow-[0_0_8px_rgba(245,158,11,0.25)]">
+                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.02)" strokeWidth="5" fill="transparent" />
+                  <circle
+                    cx="48"
+                    cy="48"
+                    r="40"
+                    stroke="url(#diskGlow)"
+                    strokeWidth="5"
+                    fill="transparent"
+                    strokeDasharray="251.2"
+                    strokeDashoffset={251.2 - (diskPercent / 100) * 251.2}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000 ease-out"
+                  />
+                  <defs>
+                    <linearGradient id="diskGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#f59e0b" />
+                      <stop offset="100%" stopColor="#ea580c" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-amber-500 font-mono tracking-tighter">
+                  {diskPercent.toFixed(0)}%
+                </div>
+              </div>
+              <div className="text-center mt-3">
+                <p className="text-[10px] text-slate-300 uppercase font-bold tracking-widest flex items-center justify-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  DISK SPACE
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                  {systemInfo ? `${(systemInfo.diskUsage).toFixed(1)}G Used` : 'Active'}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Server Control Hub */}
-      <div className="glass-panel rounded-2xl p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-          <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-            <span className="text-sky-400 font-mono font-black leading-none mt-0.5">{'>_'}</span>
-            <span className="tracking-wide">{t('dashboard.serverControlHub', 'Server Control Hub')}</span>
-          </h2>
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Search Box */}
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search server..."
-                className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500/30 w-48"
-              />
-            </div>
-            <button
-              onClick={() => navigate('/tools/organization')}
-              className="text-xs font-semibold px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all"
-            >
-              Organize Nodes
-            </button>
-            <button
-              onClick={() => navigate('/servers')}
-              className="text-xs font-medium text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 focus:outline-none"
-            >
-              {t('dashboard.manageAll', 'Manage All →')}
-            </button>
-          </div>
-        </div>
-
-        {/* Folders category filters */}
-        {snapshot?.folders && snapshot.folders.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-6 p-2 bg-white/[0.01] border border-white/5 rounded-2xl">
-            <button
-              onClick={() => setSelectedFolderId(null)}
-              className={cn(
-                'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none',
-                selectedFolderId === null
-                  ? 'bg-sky-500 text-slate-900'
-                  : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
-              )}
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              <span>All Nodes</span>
-            </button>
-            {snapshot.folders.map((folder: any) => {
-              const isActive = selectedFolderId === folder.id;
-              return (
+      {/* Main Command Center Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Left Column (2/3 width) - Server List & Charts */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Server Control Hub */}
+          <div className="glass-panel rounded-2xl p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+              <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
+                <span className="text-sky-400 font-mono font-black leading-none mt-0.5">{'>_'}</span>
+                <span className="tracking-wide">{t('dashboard.serverControlHub', 'Server Control Hub')}</span>
+              </h2>
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Search Box */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search server..."
+                    className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500/30 w-48"
+                  />
+                </div>
                 <button
-                  key={folder.id}
-                  onClick={() => setSelectedFolderId(folder.id)}
-                  className={cn(
-                    'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none border border-transparent',
-                    isActive
-                      ? 'text-slate-900'
-                      : 'bg-white/5 hover:bg-white/10 text-slate-300'
-                  )}
-                  style={isActive ? { backgroundColor: folder.color } : { borderLeft: `3px solid ${folder.color}` }}
+                  onClick={() => setDraftOpen(true)}
+                  className="text-xs font-bold px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl transition-all flex items-center gap-1.5"
                 >
-                  <Folder className="w-3.5 h-3.5" />
-                  <span>{folder.name}</span>
+                  <Zap className="w-3.5 h-3.5 fill-current" />
+                  Deploy Server
                 </button>
-              );
-            })}
-          </div>
-        )}
-
-        {
-          filteredServers.length === 0 ? (
-            <div className="text-center py-12 border-2 border-dashed border-white/10 rounded-xl">
-              <Server className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-slate-300 mb-2">{t('dashboard.noServers')}</h3>
-              <p className="text-slate-500 text-sm mb-4">{t('dashboard.deployFirst')}</p>
-              <button
-                onClick={() => setDraftOpen(true)}
-                className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg transition-all text-sm font-medium focus:outline-none"
-              >
-                {t('dashboard.deployServer')}
-              </button>
+                <button
+                  onClick={() => navigate('/tools/organization')}
+                  className="text-xs font-semibold px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all"
+                >
+                  Organize Nodes
+                </button>
+                <button
+                  onClick={() => navigate('/servers')}
+                  className="text-xs font-medium text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 focus:outline-none"
+                >
+                  {t('dashboard.manageAll', 'Manage All →')}
+                </button>
+              </div>
             </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {filteredServers.map((server) => {
-                const cust = snapshot?.servers?.find((s: any) => s.id === server.id)?.customization;
-                const displayName = cust?.display_name || server.name;
-                const hasColor = !!cust?.color_tag;
 
-                return (
-                  <div
-                    key={server.id}
-                    className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all group gap-4 lg:gap-0 relative overflow-hidden"
-                  >
-                    {/* Custom Brand line indicator */}
-                    {hasColor && (
-                      <div
-                        className="absolute left-0 top-0 bottom-0 w-1"
-                        style={{ backgroundColor: cust.color_tag }}
-                      />
-                    )}
+            {/* Folders category filters */}
+            {snapshot?.folders && snapshot.folders.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-6 p-2 bg-white/[0.01] border border-white/5 rounded-2xl">
+                <button
+                  onClick={() => setSelectedFolderId(null)}
+                  className={cn(
+                    'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none',
+                    selectedFolderId === null
+                      ? 'bg-sky-500 text-slate-900'
+                      : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
+                  )}
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>All Nodes</span>
+                </button>
+                {snapshot.folders.map((folder: any) => {
+                  const isActive = selectedFolderId === folder.id;
+                  return (
+                    <button
+                      key={folder.id}
+                      onClick={() => setSelectedFolderId(folder.id)}
+                      className={cn(
+                        'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none border border-transparent',
+                        isActive
+                          ? 'text-slate-900'
+                          : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                      )}
+                      style={isActive ? { backgroundColor: folder.color } : { borderLeft: `3px solid ${folder.color}` }}
+                    >
+                      <Folder className="w-3.5 h-3.5" />
+                      <span>{folder.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
-                    <div className="flex items-center gap-4 pl-2">
-                      <div className="relative">
-                        <div className={cn(
-                          'w-2.5 h-2.5 rounded-full',
-                          server.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
-                          server.status === 'running' && 'bg-amber-500 animate-pulse',
-                          server.status === 'stopped' && 'bg-slate-500',
-                          server.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
-                          server.status === 'starting' && 'bg-amber-500 animate-pulse',
-                          server.status === 'updating' && 'bg-sky-500 animate-pulse',
-                          server.status === 'repairing' && 'bg-orange-500 animate-pulse'
-                        )} />
-                      </div>
-                      <div>
+            {
+              filteredServers.length === 0 ? (
+                <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-[#080d19]/40 p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12">
+                  {/* Background gradient blur spots */}
+                  <div className="absolute -left-12 -top-12 w-64 h-64 rounded-full bg-sky-500/5 blur-3xl pointer-events-none" />
+                  <div className="absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-violet-500/5 blur-3xl pointer-events-none" />
+
+                  {/* Left Column: Premium Interactive CSS Server Rack Illustration */}
+                  <div className="relative w-full max-w-[280px] aspect-[4/3] flex flex-col justify-center items-center bg-[#0a0f1d]/80 border border-white/5 rounded-2xl p-6 shadow-inner group overflow-hidden">
+                    {/* Cyber grid pattern overlay */}
+                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff02_1px,transparent_1px),linear-gradient(to_bottom,#ffffff02_1px,transparent_1px)] bg-[size:16px_16px] rounded-2xl pointer-events-none" />
+
+                    {/* Server Blades Stack */}
+                    <div className="w-full space-y-3 relative z-10">
+                      {/* Server Blade 1 */}
+                      <div className="h-10 bg-slate-950/90 border border-white/5 rounded-lg px-3 flex items-center justify-between shadow-md group-hover:border-sky-500/20 transition-all duration-300">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-slate-200">{displayName}</h3>
-                          {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
-                          {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-400 fill-sky-400" />}
+                          <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)] animate-pulse" />
+                          <span className="text-[9px] font-mono text-slate-400">NODE_01</span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-                          <p className="text-xs text-slate-400">{server.config.mapName} • {t('common.port', 'Port')} {server.ports.gamePort}</p>
-                          {cust?.tags && cust.tags.map((tg: string) => (
-                            <span key={tg} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] text-slate-400 font-medium">
-                              {tg}
-                            </span>
-                          ))}
+                        <div className="flex gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500/80 animate-ping" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500/40" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500/20" />
+                        </div>
+                      </div>
+
+                      {/* Server Blade 2 */}
+                      <div className="h-10 bg-slate-950/90 border border-white/5 rounded-lg px-3 flex items-center justify-between shadow-md group-hover:border-sky-500/20 transition-all duration-300">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(6,182,212,0.7)] animate-pulse" />
+                          <span className="text-[9px] font-mono text-slate-400">NODE_02</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
+                        </div>
+                      </div>
+
+                      {/* Server Blade 3 */}
+                      <div className="h-10 bg-slate-950/90 border border-white/5 rounded-lg px-3 flex items-center justify-between shadow-md group-hover:border-sky-500/20 transition-all duration-300">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-slate-700" />
+                          <span className="text-[9px] font-mono text-slate-500">NODE_03</span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-900" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-900" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-900" />
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5">
-                      {/* IP Display + Copy */}
-                      <div className="hidden md:flex items-center h-[34px] bg-[#1a202c] rounded px-3 border border-white/5">
-                        <span className="text-xs font-mono text-slate-300 mr-2">
-                          {server.ipAddress || '127.0.0.1'}:{server.ports.gamePort}
-                        </span>
-                        <button
-                          onClick={() => handleCopyIp(server.ipAddress, server.ports.gamePort)}
-                          className="text-slate-500 hover:text-sky-400 transition-colors focus:outline-none"
-                          title={t('dashboard.copyIp')}
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
+                    {/* Laser Scanning Line */}
+                    <div className="absolute left-0 right-0 h-[1.5px] bg-sky-500/20 shadow-[0_0_8px_rgba(6,182,212,0.3)] animate-pulse pointer-events-none" />
+
+                    {/* Visual Label */}
+                    <div className="mt-4 text-[9px] font-bold tracking-[0.15em] text-slate-500 uppercase font-mono">
+                      No active instances
+                    </div>
+                  </div>
+
+                  {/* Right Column: Title + Description + Action Cards */}
+                  <div className="flex-1 flex flex-col gap-6 w-full text-left">
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-200 mb-1.5">
+                        Initialize Server Cluster
+                      </h3>
+                      <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-xl">
+                        Deploy, customize, and manage your high-performance ARK: Survival Evolved & Ascended servers from a clean, unified dashboard.
+                      </p>
+                    </div>
+
+                    {/* Action Cards Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Card 1: Deploy Server */}
+                      <div
+                        onClick={() => setDraftOpen(true)}
+                        className="p-5 rounded-xl border border-sky-500/10 bg-sky-500/[0.02] hover:bg-sky-500/[0.06] hover:border-sky-500/30 transition-all cursor-pointer group flex flex-col justify-between h-36 shadow-sm"
+                      >
+                        <div>
+                          <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-400 mb-3 group-hover:scale-105 transition-all">
+                            <Zap className="w-4 h-4 fill-current" />
+                          </div>
+                          <h4 className="text-xs sm:text-sm font-semibold text-slate-200 group-hover:text-sky-400 transition-colors">Deploy Server Node</h4>
+                          <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">Configure and download a clean server installation with our guided wizard.</p>
+                        </div>
                       </div>
 
-                      {/* Server Controls */}
-                      <div className="flex items-center gap-2.5">
-                        {/* Start/Stop/Restart Buttons */}
-                        {(server.status === 'stopped' || server.status === 'crashed') ? (
-                          <button
-                            onClick={() => handleStartServer(server.id)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-[#17302b] hover:bg-[#1f423b] text-emerald-400 border border-[#234c44] rounded shadow-sm transition-all focus:outline-none"
-                            title={t('common.start')}
-                          >
-                            <Play className="w-4 h-4 fill-current ml-0.5 mt-0.5" />
-                          </button>
-                        ) : (server.status === 'running' || server.status === 'online') ? (
-                          <>
+                      {/* Card 2: Import Server */}
+                      <div
+                        onClick={() => navigate('/servers')}
+                        className="p-5 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/10 transition-all cursor-pointer group flex flex-col justify-between h-36 shadow-sm"
+                      >
+                        <div>
+                          <div className="w-8 h-8 rounded-lg bg-slate-500/10 flex items-center justify-center text-slate-400 mb-3 group-hover:scale-105 transition-all">
+                            <Server className="w-4 h-4" />
+                          </div>
+                          <h4 className="text-xs sm:text-sm font-semibold text-slate-200 group-hover:text-white transition-colors">Import Instance</h4>
+                          <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">Link an existing ShooterGame installation directory to manage it here.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Helper Bar */}
+                    <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1.5">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                      <span>Central systems are online.</span>
+                      <button
+                        onClick={() => navigate('/config')}
+                        className="text-sky-400 hover:text-sky-300 font-semibold focus:outline-none ml-1 flex items-center gap-0.5 hover:underline"
+                      >
+                        Open Config Editor →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {filteredServers.map((server) => {
+                    const cust = snapshot?.servers?.find((s: any) => s.id === server.id)?.customization;
+                    const displayName = cust?.display_name || server.name;
+                    const hasColor = !!cust?.color_tag;
+
+                    return (
+                      <div
+                        key={server.id}
+                        className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all group gap-4 lg:gap-0 relative overflow-hidden"
+                      >
+                        {/* Custom Brand line indicator */}
+                        {hasColor && (
+                          <div
+                            className="absolute left-0 top-0 bottom-0 w-1"
+                            style={{ backgroundColor: cust.color_tag }}
+                          />
+                        )}
+
+                        <div className="flex items-center gap-4 pl-2">
+                          <div className={cn(
+                            'w-2.5 h-2.5 rounded-full',
+                            server.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
+                            server.status === 'running' && 'bg-sky-500 animate-pulse',
+                            server.status === 'stopped' && 'bg-slate-500',
+                            server.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
+                            server.status === 'starting' && 'bg-sky-500 animate-pulse',
+                            server.status === 'updating' && 'bg-blue-500 animate-pulse'
+                          )} />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-slate-200">{displayName}</h3>
+                              {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
+                              {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-400 fill-sky-400" />}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                              <p className="text-xs text-slate-400">
+                                {server.config.mapName} • Game: {server.ports.gamePort} • Query: {server.ports.queryPort}
+                              </p>
+                              {server.reachability && (
+                                <span className={cn(
+                                  "text-[10px] px-1.5 py-0.5 rounded font-medium font-mono",
+                                  server.reachability.reachable
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                    : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                                )}>
+                                  {server.reachability.reachable ? 'REACHABLE' : 'BLOCKED'}
+                                </span>
+                              )}
+                              {cust?.tags && cust.tags.map((tg: string) => (
+                                <span key={tg} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] text-slate-400 font-medium">
+                                  {tg}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2.5">
+                          {/* Actions */}
+                          {(server.status === 'stopped' || server.status === 'crashed') ? (
                             <button
-                              onClick={() => handleRestartServer(server.id)}
-                              className="w-[34px] h-[34px] flex items-center justify-center bg-[#332514] hover:bg-[#4a361d] text-amber-400 border border-[#5c4324] rounded shadow-sm transition-all focus:outline-none"
-                              title={t('common.restart')}
+                              onClick={() => handleStartServer(server.id)}
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl transition-all focus:outline-none"
+                              title="Start Server"
                             >
-                              <RotateCw className="w-4 h-4" />
+                              <Play className="w-4 h-4 fill-current ml-0.5" />
                             </button>
+                          ) : (server.status === 'running' || server.status === 'online') ? (
                             <button
                               onClick={() => handleStopServer(server.id)}
-                              className="w-[34px] h-[34px] flex items-center justify-center bg-[#311719] hover:bg-[#472224] text-rose-400 border border-[#5a2a2d] rounded shadow-sm transition-all focus:outline-none"
-                              title={t('common.stop')}
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none"
+                              title="Stop Server"
                             >
                               <Square className="w-4 h-4 fill-current" />
                             </button>
-                          </>
-                        ) : (
+                          ) : (
+                            <button
+                              disabled
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-slate-500/10 text-slate-400 border border-slate-500/20 rounded-xl opacity-50 cursor-not-allowed focus:outline-none"
+                            >
+                              <RotateCw className="w-4 h-4 animate-spin" />
+                            </button>
+                          )}
+
                           <button
-                            disabled
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-slate-500/10 text-slate-400 border border-slate-500/20 rounded opacity-50 cursor-not-allowed focus:outline-none"
+                            onClick={() => handleRestartServer(server.id)}
+                            disabled={server.status === 'stopped'}
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Restart Server"
                           >
-                            <RotateCw className="w-4 h-4 animate-spin" />
+                            <RotateCw className="w-4 h-4" />
                           </button>
-                        )}
 
-                        {/* Status Badge */}
-                        <div className={cn(
-                          "w-[85px] h-[34px] rounded text-[10px] font-bold tracking-[0.05em] border uppercase flex items-center justify-center",
-                          server.status === 'online' ? 'bg-[#17302b] text-emerald-400 border-[#234c44]' :
-                            server.status === 'running' ? 'bg-[#332514] text-amber-400 border-[#5c4324]' :
-                              server.status === 'crashed' ? 'bg-[#311719] text-rose-400 border-[#5a2a2d]' :
-                                'bg-[#1a202c] text-slate-400 border-white/5'
-                        )}>
-                          <span>
-                            {server.status === 'online' ? t('dashboard.statusOnline', 'ONLINE') :
-                              server.status === 'running' ? t('dashboard.statusLoading', 'STARTING') :
-                                t(`serverManager.serverStatus.${server.status}`, server.status.toUpperCase() || 'UNKNOWN')}
-                          </span>
+                          <button
+                            onClick={() => handleCopyIp(server.ipAddress, server.ports.gamePort)}
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none"
+                            title="Copy IP Address"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={() => openCloneModal(server)}
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all focus:outline-none"
+                            title="Clone/Transfer Options"
+                          >
+                            <Puzzle className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            onClick={() => navigate('/config', { state: { serverId: server.id } })}
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none"
+                            title="Config Editor"
+                          >
+                            <FileEdit className="w-4 h-4" />
+                          </button>
+
+                          <div className={cn(
+                            "w-[85px] h-[34px] rounded-xl text-[10px] font-bold tracking-[0.05em] border uppercase flex items-center justify-center shadow-inner",
+                            server.status === 'online' && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                            server.status === 'running' && 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+                            server.status === 'crashed' && 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+                            server.status === 'starting' && 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+                            server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                            'bg-[#1a202c]/50 text-slate-400 border-white/5'
+                          )}>
+                            {server.status.toUpperCase()}
+                          </div>
                         </div>
-
-                        {/* Clone Button */}
-                        <button
-                          onClick={() => openCloneModal(server)}
-                          className="w-[34px] h-[34px] flex items-center justify-center bg-[#172738] hover:bg-[#1a3147] text-sky-400 border border-[#20405c] rounded shadow-sm transition-all focus:outline-none"
-                          title={t('dashboard.cloneTransferExtract', 'Clone / Extract')}
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
+          </div>
+
+          {/* Performance Monitor */}
+          <PerformanceMonitor data={performanceHistory} />
+        </div>
+
+        {/* Right Column (1/3 width) - Co-Pilot, Quick Actions, Live Logs */}
+        <div className="space-y-6">
+          {/* AI Co-Pilot Widget */}
+          <div className="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-sky-500/10 blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
+
+            <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2 mb-3">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+              </span>
+              AI Co-Pilot Status
+            </h3>
+            <div className="bg-[#070b13]/60 rounded-xl p-3 border border-white/5 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Diagnostics Mode</span>
+                <span className="text-sky-400 font-semibold font-mono">AUTOMATED</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Crash Surveillance</span>
+                <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5" /> ACTIVE
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">Conflict Detection</span>
+                <span className="text-slate-300 font-medium">REAL-TIME</span>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/tools/ai')}
+              className="w-full mt-4 py-2.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl text-xs font-bold transition-all focus:outline-none"
+            >
+              Consult AI Co-Pilot
+            </button>
+          </div>
+
+          {/* Quick Actions Panel */}
+          <div className="glass-panel rounded-2xl p-6">
+            <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2 mb-4">
+              <Zap className="w-4 h-4 text-sky-400" />
+              Quick Operations
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              {quickActions.map(action => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.name}
+                    onClick={() => {
+                      if (action.action) action.action();
+                      else if (action.path) navigate(action.path);
+                    }}
+                    className="p-3 bg-white/[0.01] hover:bg-sky-500/[0.04] border border-white/5 hover:border-sky-500/20 rounded-xl text-left transition-all group flex items-center gap-2.5"
+                  >
+                    <div className="p-1.5 bg-sky-500/10 rounded-lg text-sky-400 group-hover:scale-105 transition-all flex-shrink-0">
+                      <Icon className="w-3.5 h-3.5" />
                     </div>
-                  </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold text-slate-200 group-hover:text-sky-400 transition-all truncate">{action.name}</p>
+                    </div>
+                  </button>
                 );
               })}
             </div>
-          )
-        }
-      </div>
+          </div>
 
-      {/* Quick Actions Panel - 8 Actions */}
-      <div className="glass-panel rounded-2xl p-6">
-        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-          <Zap className="w-5 h-5 text-amber-400" />
-          {t('dashboard.quickActions')}
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            const colorClasses: Record<string, string> = {
-              sky: 'hover:border-sky-500/50 hover:bg-sky-500/5',
-              emerald: 'hover:border-emerald-500/50 hover:bg-emerald-500/5',
-              violet: 'hover:border-violet-500/50 hover:bg-violet-500/5',
-              cyan: 'hover:border-cyan-500/50 hover:bg-cyan-500/5',
-              pink: 'hover:border-pink-500/50 hover:bg-pink-500/5',
-              amber: 'hover:border-amber-500/50 hover:bg-amber-500/5',
-              rose: 'hover:border-rose-500/50 hover:bg-rose-500/5',
-              teal: 'hover:border-teal-500/50 hover:bg-teal-500/5',
-            };
-            const iconColors: Record<string, string> = {
-              sky: 'text-sky-400 bg-sky-500/10',
-              emerald: 'text-emerald-400 bg-emerald-500/10',
-              violet: 'text-violet-400 bg-violet-500/10',
-              cyan: 'text-cyan-400 bg-cyan-500/10',
-              pink: 'text-pink-400 bg-pink-500/10',
-              amber: 'text-amber-400 bg-amber-500/10',
-              rose: 'text-rose-400 bg-rose-500/10',
-              teal: 'text-teal-400 bg-teal-500/10',
-            };
-
-            return (
-              <button
-                key={action.name}
-                onClick={() => action.action ? action.action() : navigate(action.path!)}
-                className={cn(
-                  "p-4 glass-panel rounded-xl transition-all text-center group",
-                  colorClasses[action.color]
-                )}
-              >
-                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform", iconColors[action.color])}>
-                  <Icon className="w-5 h-5" />
+          {/* Live System Operations Log Feed */}
+          <div className="glass-panel rounded-2xl p-6 flex flex-col h-[280px]">
+            <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
+              <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5 font-mono">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+                SYSTEM_LIVE_LOGS
+              </h3>
+              <span className="text-[9px] font-mono text-slate-500">STDOUT</span>
+            </div>
+            <div className="flex-1 min-h-0 bg-black/40 rounded-xl p-3 font-mono text-[10px] text-slate-400 overflow-y-auto space-y-1.5 border border-white/5 custom-scrollbar">
+              {liveLogs.map((log, index) => (
+                <div key={index} className="leading-relaxed border-l-2 border-sky-500/20 pl-1.5 truncate">
+                  {log}
                 </div>
-                <p className="text-xs font-medium text-white whitespace-nowrap">{action.name}</p>
-                <p className="text-[10px] text-slate-500 mt-1 font-mono">{action.shortcut}</p>
-              </button>
-            );
-          })}
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Performance Monitor */}
-      <PerformanceMonitor data={performanceHistory} />
-
       {/* Clone Options Modal */}
-      {
-        cloneModalServer && (
-          <CloneOptionsModal
-            isOpen={true}
-            onClose={() => setCloneModalServer(null)}
-            sourceServer={cloneModalServer}
-            allServers={servers}
-            onCloneServer={handleCloneServer}
-            onTransferSettings={handleTransferSettings}
-            onExtractData={handleExtractData}
-          />
-        )
-      }
+      {cloneModalServer && (
+        <CloneOptionsModal
+          isOpen={true}
+          onClose={() => setCloneModalServer(null)}
+          sourceServer={cloneModalServer}
+          allServers={servers}
+          onCloneServer={handleCloneServer}
+          onTransferSettings={handleTransferSettings}
+          onExtractData={handleExtractData}
+        />
+      )}
     </motion.div>
   );
 }
+

@@ -479,32 +479,85 @@ fn copy_and_extract_mod(src: &PathBuf, dest: &PathBuf) -> Result<(), String> {
 /// Decompress ARK's .z file format (custom header + zlib data)
 fn decompress_ark_z(data: &[u8]) -> Result<Vec<u8>, String> {
     use std::io::Read;
-    if data.len() < 8 {
-        return Err("File too small to be a valid .z archive".into());
+    
+    if data.len() < 32 {
+        return Err("File too small to have a valid Unreal .z header".into());
     }
 
-    let mut decoder = flate2::read::ZlibDecoder::new(&data[8..]);
-    let mut result = Vec::new();
-    match decoder.read_to_end(&mut result) {
-        Ok(_) => {
-            if result.is_empty() {
-                Err("Decompressed data is empty".into())
-            } else {
-                Ok(result)
-            }
+    // Read header fields
+    let magic = u32::from_le_bytes(data[0..4].try_into().unwrap());
+    
+    // Unreal Engine magic number is 0x9E2A83C1 (Little Endian: C1 83 2A 9E)
+    // or byte-swapped 0xC1832A9E (Little Endian: 9E 83 2A C1)
+    let is_swapped = if magic == 0x9E2A83C1 {
+        false
+    } else if magic == 0xC1832A9E {
+        true
+    } else {
+        return Err(format!("Invalid magic signature: 0x{:08X}", magic));
+    };
+
+    let read_u64 = |offset: usize| -> u64 {
+        let val = u64::from_le_bytes(data[offset..offset+8].try_into().unwrap());
+        if is_swapped {
+            val.swap_bytes()
+        } else {
+            val
         }
-        Err(_) => {
-            let mut decoder2 = flate2::read::DeflateDecoder::new(&data[..]);
-            let mut result2 = Vec::new();
-            decoder2.read_to_end(&mut result2)
-                .map_err(|e| format!("Failed to decompress .z file: {}", e))?;
-            if result2.is_empty() {
-                Err("Decompressed data is empty after fallback".into())
-            } else {
-                Ok(result2)
-            }
+    };
+
+    let _max_chunk_size = read_u64(8);
+    let _packed_full_size = read_u64(16);
+    let unpacked_full_size = read_u64(24);
+
+    // Calculate number of chunks by reading the chunk table from offset 32.
+    // Each chunk definition is 16 bytes: 8 bytes packed size, 8 bytes unpacked size.
+    let mut chunks = Vec::new();
+    let mut total_unpacked_sum = 0;
+    let mut offset = 32;
+
+    while total_unpacked_sum < unpacked_full_size {
+        if offset + 16 > data.len() {
+            return Err("Unexpected EOF while reading chunk table".into());
         }
+        let chunk_packed_size = read_u64(offset);
+        let chunk_unpacked_size = read_u64(offset + 8);
+        chunks.push((chunk_packed_size, chunk_unpacked_size));
+        total_unpacked_sum += chunk_unpacked_size;
+        offset += 16;
     }
+
+    let header_size = offset;
+    let mut decompressed = Vec::with_capacity(unpacked_full_size as usize);
+    let mut compressed_offset = header_size;
+
+    for (chunk_packed_size, chunk_unpacked_size) in chunks {
+        if compressed_offset + chunk_packed_size as usize > data.len() {
+            return Err("Unexpected EOF while reading compressed chunks".into());
+        }
+        
+        let chunk_data = &data[compressed_offset..compressed_offset + chunk_packed_size as usize];
+        compressed_offset += chunk_packed_size as usize;
+
+        // Decompress this chunk
+        let mut decoder = flate2::read::ZlibDecoder::new(chunk_data);
+        let mut decompressed_chunk = Vec::with_capacity(chunk_unpacked_size as usize);
+        
+        decoder.read_to_end(&mut decompressed_chunk)
+            .map_err(|e| format!("Failed to decompress chunk: {}", e))?;
+
+        if decompressed_chunk.len() != chunk_unpacked_size as usize {
+            return Err(format!(
+                "Decompressed chunk size mismatch: expected {}, got {}",
+                chunk_unpacked_size,
+                decompressed_chunk.len()
+            ));
+        }
+
+        decompressed.extend_from_slice(&decompressed_chunk);
+    }
+
+    Ok(decompressed)
 }
 
 /// Update ActiveMods= line in GameUserSettings.ini
