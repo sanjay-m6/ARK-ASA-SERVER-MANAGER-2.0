@@ -562,7 +562,7 @@ export default function ASEProfileSync() {
                               <span className="text-[10px] text-slate-400">{s.map_name}</span>
                             </div>
                           </div>
-                          <div className={`w-4.5 h-4.5 rounded border flex items-center justify-center transition-all ${
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
                             isSelected ? 'border-amber-500 bg-amber-500 text-slate-950' : 'border-white/10 bg-slate-800'
                           }`}>
                             {isSelected && <Check className="w-3 h-3 stroke-[3]" />}

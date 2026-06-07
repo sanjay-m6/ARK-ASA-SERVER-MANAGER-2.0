@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 import ErrorBoundary from './components/ErrorBoundary';
 import './i18n'; // Initialize i18n
 import { initializeInstallListeners } from './stores/installStore';
+import { initializeAseModListeners } from './ase/stores/aseModStore';
 
 
 // Lazy load pages for performance optimization
@@ -74,6 +75,7 @@ function App() {
     useEffect(() => {
         // Initialize global Tauri installation event listeners
         initializeInstallListeners();
+        initializeAseModListeners();
 
         checkIsAdmin()
             .then(isAdmin => {

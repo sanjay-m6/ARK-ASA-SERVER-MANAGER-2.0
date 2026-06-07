@@ -62,7 +62,7 @@ use tauri::Manager;
 #[cfg(target_os = "windows")]
 use std::os::windows::io::AsRawHandle;
 #[cfg(target_os = "windows")]
-use windows_sys::Win32::System::Threading::{SetProcessAffinityMask, SetPriorityClass, HIGH_PRIORITY_CLASS, ABOVE_NORMAL_PRIORITY_CLASS, REALTIME_PRIORITY_CLASS, NORMAL_PRIORITY_CLASS, IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS};
+use windows_sys::Win32::System::Threading::{SetProcessAffinityMask, SetPriorityClass, HIGH_PRIORITY_CLASS, ABOVE_NORMAL_PRIORITY_CLASS, NORMAL_PRIORITY_CLASS, IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CLASS};
 
 #[cfg(target_os = "windows")]
 mod window_hider {
@@ -1049,7 +1049,14 @@ impl ProcessManager {
                                 
                                 // Apply Priority
                                 let priority_flag = match process_priority.as_str() {
-                                    "RealTime" => REALTIME_PRIORITY_CLASS,
+                                    "RealTime" => {
+                                        // REALTIME_PRIORITY_CLASS is extremely dangerous in Windows.
+                                        // It preempts operating system threads, input drivers, disk cache flushes, and thermal control threads.
+                                        // This can lead to system freezes, watchdog timeouts, or complete thermal shutdowns.
+                                        // For safety and system stability, we downgrade RealTime to High priority.
+                                        println!("  ⚠️ [SAFETY-FIX] Downgrading RealTime process priority to High to prevent Windows freezing/shutdown.");
+                                        HIGH_PRIORITY_CLASS
+                                    }
                                     "High" => HIGH_PRIORITY_CLASS,
                                     "AboveNormal" => ABOVE_NORMAL_PRIORITY_CLASS,
                                     "BelowNormal" => BELOW_NORMAL_PRIORITY_CLASS,
@@ -1064,16 +1071,18 @@ impl ProcessManager {
                                         if !cores.is_empty() {
                                             let mut mask: usize = 0;
                                             for core in cores {
-                                                mask |= 1 << core;
+                                                if core < 64 {
+                                                    mask |= 1usize << core;
+                                                }
                                             }
                                             if mask > 0 {
                                                 unsafe { SetProcessAffinityMask(handle, mask) };
-                                                println!("  ?? Applied CPU Affinity Mask: {} for Server {}", mask, server_id);
+                                                println!("  ✅ Applied CPU Affinity Mask: {} for Server {}", mask, server_id);
                                             }
                                         }
                                     }
                                 }
-                                println!("  ?? Applied Process Priority: {} for Server {}", process_priority, server_id);
+                                println!("  ✅ Applied Process Priority: {} for Server {}", process_priority, server_id);
                             }
                         }
                     }

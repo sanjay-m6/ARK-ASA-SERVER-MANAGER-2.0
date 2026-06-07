@@ -486,3 +486,48 @@ CREATE TABLE IF NOT EXISTS ase_discord_sent_messages (
 
 CREATE INDEX IF NOT EXISTS idx_ase_discord_sent_messages_hash ON ase_discord_sent_messages(message_hash);
 CREATE INDEX IF NOT EXISTS idx_ase_discord_sent_messages_created_at ON ase_discord_sent_messages(created_at);
+
+-- Server folders and organization
+CREATE TABLE IF NOT EXISTS server_folders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    color TEXT DEFAULT '#8B5CF6',
+    icon TEXT,
+    parent_folder_id INTEGER,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_folder_id) REFERENCES server_folders(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS server_folder_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    folder_id INTEGER NOT NULL,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+    FOREIGN KEY (folder_id) REFERENCES server_folders(id) ON DELETE CASCADE,
+    UNIQUE(server_id, folder_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_server_folder_members_server_id ON server_folder_members(server_id);
+CREATE INDEX IF NOT EXISTS idx_server_folder_members_folder_id ON server_folder_members(folder_id);
+
+-- Server activity log
+CREATE TABLE IF NOT EXISTS server_activity_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    activity_type TEXT NOT NULL,
+    player_count INTEGER,
+    uptime_seconds INTEGER,
+    cpu_usage REAL,
+    ram_usage REAL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_server_activity_log_server_id ON server_activity_log(server_id);
+CREATE INDEX IF NOT EXISTS idx_server_activity_log_created_at ON server_activity_log(created_at);
+

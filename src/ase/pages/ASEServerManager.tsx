@@ -454,10 +454,10 @@ export default function ASEServerManager() {
                         {...provided.draggableProps}
                         style={{ ...provided.draggableProps.style, zIndex: snapshot.isDragging ? 50 : 'auto' }}
                         className={cn(
-                          "glass-panel rounded-2xl p-6 transition-all duration-300 group relative cursor-pointer",
+                          "glass-panel rounded-2xl p-6 group relative cursor-pointer",
                           snapshot.isDragging
                             ? "shadow-2xl shadow-amber-500/20 ring-2 ring-amber-500/50 cursor-grabbing scale-[1.02]"
-                            : "hover:border-amber-500/50 hover:shadow-[0_8px_30px_rgba(245,158,11,0.15)] hover:-translate-y-1"
+                            : "transition-all duration-300 hover:border-amber-500/50 hover:shadow-[0_8px_30px_rgba(245,158,11,0.15)] hover:-translate-y-1"
                         )}
                         onClick={(e) => toggleCollapse(srv.id, e)}
                       >

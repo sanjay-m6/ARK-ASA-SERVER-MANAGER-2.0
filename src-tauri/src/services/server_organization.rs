@@ -102,6 +102,10 @@ impl ServerOrganizationService {
             [],
         )?;
 
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_server_folder_members_server_id ON server_folder_members(server_id)", [])?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_server_folder_members_folder_id ON server_folder_members(folder_id)", [])?;
+
+
         let mut stmt = conn.prepare(
             "SELECT id, name, description, color, icon, parent_folder_id, sort_order, created_at, updated_at
              FROM server_folders ORDER BY sort_order ASC, name ASC"
@@ -300,6 +304,10 @@ impl ServerOrganizationService {
             [],
         )?;
 
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_server_folder_members_server_id ON server_folder_members(server_id)", [])?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_server_folder_members_folder_id ON server_folder_members(folder_id)", [])?;
+
+
         conn.execute(
             "INSERT OR IGNORE INTO server_folder_members (server_id, folder_id, added_at)
              VALUES (?1, ?2, ?3)",
@@ -348,6 +356,10 @@ impl ServerOrganizationService {
             )",
             [],
         )?;
+
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_server_folder_members_server_id ON server_folder_members(server_id)", [])?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_server_folder_members_folder_id ON server_folder_members(folder_id)", [])?;
+
 
         let mut stmt = conn.prepare(
             "SELECT sf.id, sf.name, sf.description, sf.color, sf.icon, sf.parent_folder_id, sf.sort_order, sf.created_at, sf.updated_at
@@ -963,6 +975,10 @@ impl ServerOrganizationService {
             [],
         )?;
 
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_server_activity_log_server_id ON server_activity_log(server_id)", [])?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_server_activity_log_created_at ON server_activity_log(created_at)", [])?;
+
+
         conn.execute(
             "INSERT INTO server_activity_log
              (server_id, activity_type, player_count, uptime_seconds, cpu_usage, ram_usage, description, created_at)
@@ -999,6 +1015,10 @@ impl ServerOrganizationService {
             )",
             [],
         )?;
+
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_server_activity_log_server_id ON server_activity_log(server_id)", [])?;
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_server_activity_log_created_at ON server_activity_log(created_at)", [])?;
+
 
         let mut stmt = conn.prepare(
             "SELECT

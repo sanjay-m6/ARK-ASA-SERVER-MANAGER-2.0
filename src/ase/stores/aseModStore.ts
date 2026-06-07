@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { listen } from '@tauri-apps/api/event';
 import type { AseInstalledMod, AseWorkshopMod } from '../types/ase.types';
 
 export interface InstallingModState {
@@ -23,6 +24,7 @@ interface AseModStore {
     // Queue Actions
     addToQueue: (workshopId: string, modName: string) => void;
     updateQueueStatus: (workshopId: string, status: InstallingModState['status'], error?: string) => void;
+    updateQueueProgress: (workshopId: string, progress: number, status?: InstallingModState['status'], error?: string) => void;
     removeFromQueue: (workshopId: string) => void;
     clearQueue: () => void;
 
@@ -79,6 +81,22 @@ export const useAseModStore = create<AseModStore>((set) => ({
         };
     }),
 
+    updateQueueProgress: (workshopId, progress, status, error) => set((state) => {
+        const item = state.installingQueue[workshopId];
+        if (!item) return {};
+        return {
+            installingQueue: {
+                ...state.installingQueue,
+                [workshopId]: {
+                    ...item,
+                    progress,
+                    status: status || item.status,
+                    error: error !== undefined ? error : item.error,
+                }
+            }
+        };
+    }),
+
     removeFromQueue: (workshopId) => set((state) => {
         const newQueue = { ...state.installingQueue };
         delete newQueue[workshopId];
@@ -105,4 +123,22 @@ export const useAseModStore = create<AseModStore>((set) => ({
         }
     },
 }));
+
+let listenersInitialized = false;
+
+export const initializeAseModListeners = () => {
+    if (listenersInitialized) return;
+    listenersInitialized = true;
+
+    listen<{ workshopId: string; status: InstallingModState['status']; progress: number; message: string }>(
+        'ase-mod-download-progress',
+        (event) => {
+            const { workshopId, status, progress, message } = event.payload;
+            if (workshopId) {
+                const error = status === 'failed' ? message : undefined;
+                useAseModStore.getState().updateQueueProgress(workshopId, progress, status, error);
+            }
+        }
+    ).catch(console.error);
+};
 

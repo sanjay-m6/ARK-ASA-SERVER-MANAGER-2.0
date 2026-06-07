@@ -1,7 +1,7 @@
 use crate::ase::models::AseInstalledMod;
 use crate::AppState;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
@@ -21,7 +21,7 @@ pub struct WorkshopSearchResult {
     pub tags: Vec<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModDownloadProgress {
     pub workshop_id: String,
@@ -54,6 +54,13 @@ pub async fn search_ase_workshop(
     query: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<WorkshopSearchResult>, String> {
+    let trimmed = query.trim();
+    let is_numeric = !trimmed.is_empty() && trimmed.chars().all(|c| c.is_ascii_digit());
+
+    if is_numeric {
+        return get_ase_workshop_details(vec![trimmed.to_string()]).await;
+    }
+
     let key = crate::services::api_key_manager::ApiKeyManager::get_steam_key(&state).unwrap_or_default();
     let key = key.trim();
 
@@ -74,10 +81,10 @@ pub async fn search_ase_workshop(
 
     let url = format!(
         "https://api.steampowered.com/IPublishedFileService/QueryFiles/v1/\
-         ?key={}&query_type=1&page=1&numperpage=20&appid=346110\
+         ?key={}&query_type=12&page=1&numperpage=20&appid=346110\
          &search_text={}&return_previews=true",
         key,
-        urlencoding::encode(&query)
+        urlencoding::encode(trimmed)
     );
 
     let resp = reqwest::get(&url).await.map_err(|e| format!("HTTP request failed: {}", e))?;
@@ -182,7 +189,13 @@ pub async fn get_ase_workshop_details(
             results.push(WorkshopSearchResult {
                 workshop_id: published_id.to_string(),
                 title,
-                description: file["file_description"].as_str().unwrap_or("").chars().take(200).collect(),
+                description: file["description"]
+                    .as_str()
+                    .or_else(|| file["file_description"].as_str())
+                    .unwrap_or("")
+                    .chars()
+                    .take(200)
+                    .collect(),
                 preview_url: file["preview_url"].as_str().unwrap_or("").to_string(),
                 subscriptions: file["subscriptions"].as_u64().unwrap_or(0),
                 file_size: file["file_size"]
@@ -273,18 +286,97 @@ async fn download_ase_workshop_mod_internal(
         "+workshop_download_item", "346110", workshop_id,
         "+quit",
     ]);
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
-    let output = cmd.output()
-        .await
-        .map_err(|e| format!("SteamCMD failed to start: {}", e))?;
+    let mut child = cmd.spawn().map_err(|e| format!("SteamCMD failed to start: {}", e))?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    // Initial event emission for downloading progress
+    let _ = app_handle.emit(
+        "ase-mod-download-progress",
+        ModDownloadProgress {
+            workshop_id: workshop_id.to_string(),
+            status: "downloading".to_string(),
+            progress: 10.0,
+            message: "Starting download...".to_string(),
+        },
+    );
 
-    if !output.status.success() && !stdout.contains("Success") {
-        return Err(format!("SteamCMD workshop download failed. stdout: {}, stderr: {}", stdout, stderr));
+    let stderr_handle = if let Some(stderr) = child.stderr.take() {
+        Some(tokio::spawn(async move {
+            use tokio::io::AsyncBufReadExt;
+            let reader = tokio::io::BufReader::new(stderr);
+            let mut lines = reader.lines();
+            let mut stderr_lines = Vec::new();
+            while let Ok(Some(line)) = lines.next_line().await {
+                let trimmed = line.trim().to_string();
+                if !trimmed.is_empty() {
+                    stderr_lines.push(trimmed);
+                }
+            }
+            stderr_lines
+        }))
+    } else {
+        None
+    };
+
+    let mut stdout_lines = Vec::new();
+    if let Some(stdout) = child.stdout.take() {
+        use tokio::io::AsyncBufReadExt;
+        let reader = tokio::io::BufReader::new(stdout);
+        let mut lines = reader.lines();
+
+        while let Ok(Some(line)) = lines.next_line().await {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            stdout_lines.push(trimmed.to_string());
+
+            // Parse SteamCMD output for progress updates
+            if trimmed.contains("Update state") {
+                if let Some(progress_str) = trimmed.split("progress:").nth(1) {
+                    if let Some(pct) = progress_str.split_whitespace().next() {
+                        if let Ok(pct_float) = pct.parse::<f64>() {
+                            let _ = app_handle.emit(
+                                "ase-mod-download-progress",
+                                ModDownloadProgress {
+                                    workshop_id: workshop_id.to_string(),
+                                    status: "downloading".to_string(),
+                                    progress: pct_float,
+                                    message: format!("Downloading... {:.1}%", pct_float),
+                                },
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let status = child.wait().await.map_err(|e| format!("SteamCMD wait failed: {}", e))?;
+
+    let stdout_joined = stdout_lines.join("\n");
+    let mut stderr_joined = String::new();
+    if let Some(handle) = stderr_handle {
+        if let Ok(stderr_lines) = handle.await {
+            stderr_joined = stderr_lines.join("\n");
+        }
+    }
+
+    if !status.success() && !stdout_joined.contains("Success") {
+        let _ = app_handle.emit(
+            "ase-mod-download-progress",
+            ModDownloadProgress {
+                workshop_id: workshop_id.to_string(),
+                status: "failed".to_string(),
+                progress: 100.0,
+                message: format!("SteamCMD workshop download failed. stdout: {}, stderr: {}", stdout_joined, stderr_joined),
+            },
+        );
+        return Err(format!("SteamCMD workshop download failed. stdout: {}, stderr: {}", stdout_joined, stderr_joined));
     }
 
     let app_dir = app_handle.path().app_data_dir()
@@ -305,7 +397,18 @@ async fn download_ase_workshop_mod_internal(
             .map_err(|e| format!("Failed to create mod directory: {}", e))?;
     }
 
-    copy_and_extract_mod(&steamcmd_content, &mods_dir)?;
+    // Emit extracting progress event
+    let _ = app_handle.emit(
+        "ase-mod-download-progress",
+        ModDownloadProgress {
+            workshop_id: workshop_id.to_string(),
+            status: "extracting".to_string(),
+            progress: 90.0,
+            message: "Extracting mod files...".to_string(),
+        },
+    );
+
+    copy_and_extract_mod_parallel(steamcmd_content, mods_dir.clone()).await?;
 
     let mod_file_in_subdir = mods_dir.join(format!("{}.mod", workshop_id));
     if mod_file_in_subdir.exists() {
@@ -331,32 +434,30 @@ async fn download_ase_workshop_mod_internal(
     let mut final_time_created = None;
     let mut final_tags = None;
 
-    if !api_key.trim().is_empty() {
-        if let Ok(details) = crate::services::workshop_metadata::fetch_workshop_details(
-            vec![workshop_id.to_string()],
-            api_key,
-        ).await {
-            if let Some(detail) = details.get(workshop_id) {
-                if let Some(t) = &detail.title {
-                    final_name = t.clone();
-                }
-                final_description = detail.file_description.clone();
-                final_author = detail.creator.clone();
-                final_preview_url = detail.preview_url.clone();
-                final_subscribers = detail.subscriptions.as_ref().and_then(|s| s.parse::<u64>().ok());
-                final_file_size = detail.file_size.as_ref().and_then(|s| s.parse::<u64>().ok());
-                final_time_updated = detail.time_updated;
-                final_time_created = detail.time_created;
-                final_tags = detail.tags.as_ref().map(|tags| tags.iter().map(|t| t.tag.clone()).collect());
+    if let Ok(details) = crate::services::workshop_metadata::fetch_workshop_details(
+        vec![workshop_id.to_string()],
+        api_key,
+    ).await {
+        if let Some(detail) = details.get(workshop_id) {
+            if let Some(t) = &detail.title {
+                final_name = t.clone();
+            }
+            final_description = detail.file_description.clone();
+            final_author = detail.creator.clone();
+            final_preview_url = detail.preview_url.clone();
+            final_subscribers = detail.subscriptions.as_ref().and_then(|s| s.parse::<u64>().ok());
+            final_file_size = detail.file_size.as_ref().and_then(|s| s.parse::<u64>().ok());
+            final_time_updated = detail.time_updated;
+            final_time_created = detail.time_created;
+            final_tags = detail.tags.as_ref().map(|tags| tags.iter().map(|t| t.tag.clone()).collect());
 
-                if let Some(preview_url) = &detail.preview_url {
-                    if !preview_url.is_empty() {
-                        let _ = crate::services::workshop_metadata::cache_workshop_image(
-                            preview_url.clone(),
-                            workshop_id.to_string(),
-                            app_handle,
-                        ).await;
-                    }
+            if let Some(preview_url) = &detail.preview_url {
+                if !preview_url.is_empty() {
+                    let _ = crate::services::workshop_metadata::cache_workshop_image(
+                        preview_url.clone(),
+                        workshop_id.to_string(),
+                        app_handle,
+                    ).await;
                 }
             }
         }
@@ -442,37 +543,112 @@ async fn clean_failed_download(
     Ok(())
 }
 
-/// Copy mod files, extracting .z compressed files using flate2
-fn copy_and_extract_mod(src: &PathBuf, dest: &PathBuf) -> Result<(), String> {
-    for entry in std::fs::read_dir(src).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        let file_name = entry.file_name();
-        let dest_path = dest.join(&file_name);
+lazy_static::lazy_static! {
+    /// Global semaphore limiting concurrent mod decompression/copy tasks across all servers
+    /// to prevent CPU thermal/power spikes and keep the host system stable.
+    static ref DECOMPRESSION_SEMAPHORE: std::sync::Arc<tokio::sync::Semaphore> = std::sync::Arc::new(tokio::sync::Semaphore::new(4));
+}
+
+/// Copy mod files, extracting .z compressed files in parallel using flate2
+async fn copy_and_extract_mod_parallel(src: PathBuf, dest: PathBuf) -> Result<(), String> {
+    use std::sync::Arc;
+    use walkdir::WalkDir;
+
+    let src = Arc::new(src);
+    let dest = Arc::new(dest);
+    let mut tasks = Vec::new();
+
+    // Walk directory synchronously to gather entries
+    let entries: Vec<_> = WalkDir::new(&*src)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .collect();
+
+    for entry in entries {
+        let path = entry.path().to_path_buf();
+        let rel_path = match path.strip_prefix(&*src) {
+            Ok(p) => p.to_path_buf(),
+            Err(e) => return Err(format!("Failed to calculate relative path: {}", e)),
+        };
+
+        let dest_path = dest.join(&rel_path);
 
         if path.is_dir() {
-            std::fs::create_dir_all(&dest_path).map_err(|e| e.to_string())?;
-            copy_and_extract_mod(&path, &dest_path)?;
-        } else if path.extension().map_or(false, |ext| ext == "z") {
-            let compressed = std::fs::read(&path).map_err(|e| e.to_string())?;
-            if compressed.len() > 8 {
-                match decompress_ark_z(&compressed) {
-                    Ok(decompressed) => {
-                        let out_name = file_name.to_string_lossy().trim_end_matches(".z").to_string();
-                        std::fs::write(dest.join(out_name), decompressed).map_err(|e| e.to_string())?;
-                    }
-                    Err(e) => {
-                        eprintln!("[ASE Mod Loader] Failed to decompress {:?}: {}", file_name, e);
-                        std::fs::copy(&path, &dest_path).map_err(|e| e.to_string())?;
+            tokio::fs::create_dir_all(&dest_path)
+                .await
+                .map_err(|e| format!("Failed to create directory {:?}: {}", dest_path, e))?;
+        } else {
+            // Ensure parent directory of this file exists
+            if let Some(parent) = dest_path.parent() {
+                let parent = parent.to_path_buf();
+                tokio::fs::create_dir_all(&parent)
+                    .await
+                    .map_err(|e| format!("Failed to create parent directory {:?}: {}", parent, e))?;
+            }
+
+            let sem_clone = Arc::clone(&DECOMPRESSION_SEMAPHORE);
+            let path_clone = path.clone();
+            let dest_path_clone = dest_path.clone();
+
+            let task = tokio::spawn(async move {
+                let _permit = sem_clone.acquire().await.map_err(|e| e.to_string())?;
+
+                let is_z = path_clone.extension().map_or(false, |ext| ext == "z");
+
+                if is_z {
+                    let compressed = tokio::fs::read(&path_clone)
+                        .await
+                        .map_err(|e| format!("Failed to read compressed file {:?}: {}", path_clone, e))?;
+
+                    if compressed.len() > 8 {
+                        // Decompression is CPU-heavy; run inside spawn_blocking
+                        let decompressed_result = tokio::task::spawn_blocking(move || {
+                            decompress_ark_z(&compressed)
+                        })
+                        .await
+                        .map_err(|e| format!("Decompression task join error: {}", e))?;
+
+                        match decompressed_result {
+                            Ok(decompressed) => {
+                                let file_name = dest_path_clone.file_name().ok_or("No file name")?;
+                                let out_name = file_name.to_string_lossy().trim_end_matches(".z").to_string();
+                                let parent = dest_path_clone.parent().ok_or("No parent dir")?;
+                                let target_file = parent.join(out_name);
+
+                                tokio::fs::write(&target_file, decompressed)
+                                    .await
+                                    .map_err(|e| format!("Failed to write decompressed file {:?}: {}", target_file, e))?;
+                                return Ok(());
+                            }
+                            Err(e) => {
+                                eprintln!("[ASE Mod Loader] Failed to decompress {:?}: {}. Copying compressed file as fallback.", path_clone, e);
+                            }
+                        }
                     }
                 }
-            } else {
-                std::fs::copy(&path, &dest_path).map_err(|e| e.to_string())?;
-            }
-        } else {
-            std::fs::copy(&path, &dest_path).map_err(|e| e.to_string())?;
+
+                // If not .z or decompression failed, copy the file as-is
+                tokio::fs::copy(&path_clone, &dest_path_clone)
+                    .await
+                    .map_err(|e| format!("Failed to copy file from {:?} to {:?}: {}", path_clone, dest_path_clone, e))?;
+
+                Ok::<(), String>(())
+            });
+
+            tasks.push(task);
         }
     }
+
+    // Await all tasks to finish
+    let results = futures_util::future::join_all(tasks).await;
+    for res in results {
+        match res {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => return Err(e),
+            Err(e) => return Err(format!("Task joined with error: {}", e)),
+        }
+    }
+
     Ok(())
 }
 
@@ -1226,7 +1402,7 @@ pub async fn repair_ase_mod(
                 let _ = std::fs::create_dir_all(&mods_dir);
 
                 // Copy and extract files from local cache
-                if let Ok(_) = copy_and_extract_mod(&steamcmd_cache, &mods_dir) {
+                if let Ok(_) = copy_and_extract_mod_parallel(steamcmd_cache.clone(), mods_dir.clone()).await {
                     let mod_file_in_subdir = mods_dir.join(format!("{}.mod", &workshop_id));
                     if mod_file_in_subdir.exists() {
                         let target_mod_file = mods_parent_dir.join(format!("{}.mod", &workshop_id));

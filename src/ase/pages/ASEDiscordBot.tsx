@@ -353,10 +353,14 @@ export default function ASEDiscordBot() {
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="font-semibold text-white text-sm">{alert.label}</span>
-                          <div className={`w-8 h-4.5 rounded-full p-0.5 transition-all ${
-                            alert.enabled ? 'bg-amber-500 flex justify-end' : 'bg-slate-800 flex justify-start'
-                          }`}>
-                            <div className="w-3.5 h-3.5 rounded-full bg-slate-950" />
+                          <div className={`w-8 h-5 rounded-full relative transition-all duration-300 ${
+                            alert.enabled ? 'bg-amber-500/20 border-amber-500/30' : 'bg-slate-950 border-white/10'
+                          } border`}>
+                            <div 
+                              className={`w-3 h-3 rounded-full transition-all duration-300 ease-in-out absolute top-[3px] left-[3px] ${
+                                alert.enabled ? 'translate-x-3 bg-amber-400' : 'translate-x-0 bg-slate-500'
+                              }`} 
+                            />
                           </div>
                         </div>
                         <p className="text-xs text-slate-400">{alert.description}</p>

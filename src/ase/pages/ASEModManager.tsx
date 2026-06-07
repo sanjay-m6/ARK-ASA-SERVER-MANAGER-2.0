@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { createPortal } from 'react-dom';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { 
   Puzzle, Search, Download, ExternalLink, Trash2, 
   CheckCircle2, AlertCircle, Loader2, X, Copy, ArrowUp, ArrowDown, 
   CheckSquare, Square, ChevronUp, ChevronDown, Sparkles, PlusCircle, RefreshCw,
-  ShieldAlert, GripVertical, Undo, Redo, Pin, Wrench, Globe, Flame
+  GripVertical, Undo, Redo, Pin, Wrench, Globe, Flame,
+  User, HardDrive, Users, FolderOpen
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -32,7 +34,7 @@ const getModImageSrc = (mod: any) => {
 };
 
 const resolveModDetails = (mod: any) => {
-  if (!mod) return { name: '', description: '', previewUrl: '' };
+  if (!mod) return { name: '', description: '', previewUrl: '', remotePreviewUrl: '' };
   
   let name = mod.name;
   if (!name || name.startsWith('Workshop Mod #')) {
@@ -41,6 +43,7 @@ const resolveModDetails = (mod: any) => {
   
   const description = mod.description || 'No description available on Steam Workshop.';
   const previewUrl = getModImageSrc(mod);
+  const remotePreviewUrl = mod.remotePreviewUrl || mod.previewUrl || '';
   const author = mod.author || "Steam Mod Author";
   const fileSize = mod.fileSize || 0;
   const subscribers = mod.subscribers || mod.subscriberCount || 0;
@@ -51,6 +54,7 @@ const resolveModDetails = (mod: any) => {
     name,
     description,
     previewUrl,
+    remotePreviewUrl,
     author,
     fileSize,
     subscribers,
@@ -59,11 +63,25 @@ const resolveModDetails = (mod: any) => {
 };
 
 const ModImage = ({ mod, className }: { mod: any; className?: string }) => {
-  const [hasError, setHasError] = useState(false);
   const resolved = resolveModDetails(mod);
-  const src = resolved.previewUrl;
+  const [src, setSrc] = useState(resolved.previewUrl || '');
+  const [fallbackAttempted, setFallbackAttempted] = useState(false);
 
-  if (!src || hasError) {
+  useEffect(() => {
+    setSrc(resolved.previewUrl || '');
+    setFallbackAttempted(false);
+  }, [resolved.previewUrl]);
+
+  const handleError = () => {
+    if (!fallbackAttempted && resolved.remotePreviewUrl && src !== resolved.remotePreviewUrl) {
+      setSrc(resolved.remotePreviewUrl);
+      setFallbackAttempted(true);
+    } else {
+      setSrc('');
+    }
+  };
+
+  if (!src) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-slate-950/80 relative overflow-hidden group">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.08),transparent_50%)]" />
@@ -78,7 +96,7 @@ const ModImage = ({ mod, className }: { mod: any; className?: string }) => {
       src={src} 
       alt="Mod Thumbnail" 
       className={className} 
-      onError={() => setHasError(true)} 
+      onError={handleError} 
     />
   );
 };
@@ -110,7 +128,7 @@ export default function ASEModManager() {
   // Selection & Manual Mod installation states
   const [selectedModIds, setSelectedModIds] = useState<string[]>([]);
   const [manualModId, setManualModId] = useState('');
-  const [isQueueExpanded, setIsQueueExpanded] = useState(true);
+  const [queueState, setQueueState] = useState<'minimized' | 'collapsed' | 'expanded'>('expanded');
   const [discoverCategory, setDiscoverCategory] = useState<string>('Featured');
 
   // Real-time Steam storefront states
@@ -118,9 +136,6 @@ export default function ASEModManager() {
   const [isLoadingStorefront, setIsLoadingStorefront] = useState(false);
   const [visibleModsCount, setVisibleModsCount] = useState(20);
 
-  // Integrity check & Repair states
-  const [isValidating, setIsValidating] = useState(false);
-  const [validationReport, setValidationReport] = useState<any | null>(null);
 
   // Drag and Drop reordering states (managed by @hello-pangea/dnd)
 
@@ -151,29 +166,6 @@ export default function ASEModManager() {
   };
   const [isRepairing, setIsRepairing] = useState(false);
 
-  useEffect(() => {
-    setValidationReport(null);
-  }, [selectedModDetail]);
-
-  const handleValidateMod = async (workshopId: string) => {
-    if (!selectedServer) return;
-    setIsValidating(true);
-    try {
-      const { validateAseMod } = await import('../utils/aseCommands');
-      const report = await validateAseMod(selectedServer, workshopId);
-      setValidationReport(report);
-      if (report.isValid) {
-        toast.success('Mod structure is healthy and fully valid!');
-      } else {
-        toast.error(`Mod validation failed! Found ${report.issues.length} issue(s).`);
-      }
-    } catch (error) {
-      console.error('Failed to validate mod:', error);
-      toast.error('Failed to validate mod files structure.');
-    } finally {
-      setIsValidating(false);
-    }
-  };
 
   const handleRepairMod = async (workshopId: string, forceRedownload: boolean = false) => {
     if (!selectedServer) return;
@@ -184,14 +176,12 @@ export default function ASEModManager() {
         toast('Force redownloading and extracting mod files...');
         await forceDownloadAseMod(selectedServer, workshopId);
         toast.success('Mod successfully redownloaded and reinstalled!');
-        setValidationReport(null);
         setSelectedModDetail(null);
         refreshInstalledMods(selectedServer);
       } else {
         const { repairAseMod } = await import('../utils/aseCommands');
         toast('Running rapid structural repair locally...');
         const report = await repairAseMod(selectedServer, workshopId);
-        setValidationReport(report);
         if (report.isValid) {
           toast.success('Mod successfully repaired and re-validated!');
         } else {
@@ -204,6 +194,22 @@ export default function ASEModManager() {
       toast.error('Failed to repair/reinstall mod.');
     } finally {
       setIsRepairing(false);
+    }
+  };
+
+  const handleOpenModFolder = async (workshopId: string) => {
+    if (!selectedServer) return;
+    const serverObj = servers.find(s => s.id === selectedServer);
+    if (!serverObj) {
+      toast.error("No active server selected");
+      return;
+    }
+    const path = `${serverObj.installPath}/ShooterGame/Content/Mods/${workshopId}`;
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('open_in_explorer', { path });
+    } catch (err) {
+      toast.error('Failed to open folder: ' + err);
     }
   };
 
@@ -330,14 +336,7 @@ export default function ASEModManager() {
     setIsInstalling(workshopId); // Keep for backwards compatibility
     
     try {
-      // Decompressing extraction state simulation after 2 seconds
-      const extractTimer = setTimeout(() => {
-        updateQueueStatus(workshopId, 'extracting');
-      }, 2500);
-
       await downloadWorkshopMod(selectedServer, workshopId, modName);
-      clearTimeout(extractTimer);
-      
       updateQueueStatus(workshopId, 'completed');
       toast.success(`Mod "${modName}" installed successfully!`);
       refreshInstalledMods(selectedServer);
@@ -484,11 +483,28 @@ export default function ASEModManager() {
     const currentIds = installedMods.map(m => m.workshopId);
     pushToUndoHistory(currentIds);
 
-    const newMods = [...installedMods];
-    const [removed] = newMods.splice(sourceIndex, 1);
-    newMods.splice(destinationIndex, 0, removed);
+    // Reorder the elements in filteredInstalledMods first (which is the visual list)
+    const newFilteredMods = [...filteredInstalledMods];
+    const [removed] = newFilteredMods.splice(sourceIndex, 1);
+    newFilteredMods.splice(destinationIndex, 0, removed);
 
-    const orderedIds = newMods.map(m => m.workshopId);
+    // Build the new order of ALL installed mods by mapping the visual list changes
+    const filteredIdsSet = new Set(filteredInstalledMods.map(m => m.workshopId));
+    const newFilteredIds = newFilteredMods.map(m => m.workshopId);
+
+    const orderedIds: string[] = [];
+    let filteredPtr = 0;
+
+    for (const mod of installedMods) {
+      if (filteredIdsSet.has(mod.workshopId)) {
+        if (filteredPtr < newFilteredIds.length) {
+          orderedIds.push(newFilteredIds[filteredPtr]);
+          filteredPtr++;
+        }
+      } else {
+        orderedIds.push(mod.workshopId);
+      }
+    }
 
     try {
       await updateAseModOrder(selectedServer, orderedIds);
@@ -497,6 +513,67 @@ export default function ASEModManager() {
     } catch (e) {
       toast.error(`Failed to update order: ${e}`);
     }
+  };
+
+  const renderClone = (provided: any, _snapshot: any, rubric: any) => {
+    const mod = filteredInstalledMods[rubric.source.index];
+    if (!mod) return null;
+    const resolved = resolveModDetails(mod);
+    const i = rubric.source.index;
+
+    return createPortal(
+      <div 
+        ref={provided.innerRef}
+        {...provided.draggableProps}
+        {...provided.dragHandleProps}
+        style={{ 
+          ...provided.draggableProps.style,
+          width: provided.draggableProps.style?.width || '100%',
+        }}
+        className="bg-slate-900 border border-amber-500/40 rounded-2xl overflow-hidden shadow-2xl shadow-amber-500/10 scale-[1.01] opacity-95 flex flex-col justify-between p-4 pointer-events-none select-none max-w-4xl"
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="cursor-grabbing p-1.5 text-amber-400 shrink-0">
+              <GripVertical className="w-4 h-4" />
+            </div>
+            <div className="w-8 h-8 flex items-center justify-center bg-slate-950/80 rounded-xl border border-white/5 text-xs text-amber-400 font-mono font-black shrink-0 shadow-inner">
+              {i + 1}
+            </div>
+            <div className="w-11 h-11 rounded-xl border border-white/10 bg-slate-950 overflow-hidden shrink-0 flex items-center justify-center relative shadow-md">
+              <ModImage mod={resolved} className="w-full h-full object-cover" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-sm font-bold text-white truncate pr-4 flex flex-wrap items-center gap-2">
+                {resolved.name}
+                {pinnedModIds.includes(mod.workshopId) && (
+                  <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] text-amber-400 font-black uppercase tracking-wider">Pinned</span>
+                )}
+                {!mod.enabled && (
+                  <span className="px-2 py-0.5 rounded bg-slate-950 border border-white/5 text-[8px] text-slate-500 font-black uppercase tracking-wider">Disabled</span>
+                )}
+              </h4>
+              <p className="text-[10px] text-slate-500 mt-1 font-mono flex items-center gap-1.5 flex-wrap">
+                <span>ID: {mod.workshopId}</span>
+                {mod.version && (
+                  <>
+                    <span className="text-slate-700">•</span>
+                    <span className="text-slate-400 font-sans font-medium">v{mod.version}</span>
+                  </>
+                )}
+                {resolved.fileSize > 0 && (
+                  <>
+                    <span className="text-slate-700">•</span>
+                    <span className="text-slate-400 font-sans font-medium">{(resolved.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
   };
 
   const handleMoveMod = async (index: number, direction: 'up' | 'down') => {
@@ -695,9 +772,12 @@ export default function ASEModManager() {
               }`}
             >
               Installed Mods
-              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black font-mono transition-all duration-300 ${
-                activeTab === 'installed' ? 'bg-slate-950/20 text-slate-900' : 'bg-slate-950 text-slate-500'
-              }`}>
+              <span 
+                style={{ borderRadius: '9999px' }}
+                className={`flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-black font-mono transition-all duration-300 ${
+                  activeTab === 'installed' ? 'bg-slate-950/15 text-slate-950' : 'bg-slate-950 text-slate-500'
+                }`}
+              >
                 {installedMods.length}
               </span>
             </button>
@@ -1167,33 +1247,36 @@ export default function ASEModManager() {
 
                 <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
                   <span className="text-[10px] text-slate-500 uppercase font-bold shrink-0">Sort By</span>
-                  <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-white/5 w-full md:w-auto justify-between gap-1">
+                  <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-white/5 w-full md:w-auto justify-between gap-1 shadow-inner">
                     <button
                       onClick={() => setSortOrder('load_order')}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                      style={{ borderRadius: '8px' }}
+                      className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-200 select-none ${
                         sortOrder === 'load_order'
-                          ? 'bg-amber-500 text-slate-950 shadow-md'
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                       }`}
                     >
                       Load Order
                     </button>
                     <button
                       onClick={() => setSortOrder('name')}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                      style={{ borderRadius: '8px' }}
+                      className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-200 select-none ${
                         sortOrder === 'name'
-                          ? 'bg-amber-500 text-slate-950 shadow-md'
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                       }`}
                     >
                       Name
                     </button>
                     <button
                       onClick={() => setSortOrder('size')}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                      style={{ borderRadius: '8px' }}
+                      className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-200 select-none ${
                         sortOrder === 'size'
-                          ? 'bg-amber-500 text-slate-950 shadow-md'
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                       }`}
                     >
                       Size
@@ -1210,10 +1293,10 @@ export default function ASEModManager() {
               )}
 
               <DragDropContext onDragEnd={onDragEnd}>
-                <Droppable droppableId="ase-mod-list" isDropDisabled={sortOrder !== 'load_order'}>
+                <Droppable droppableId="ase-mod-list" isDropDisabled={sortOrder !== 'load_order'} renderClone={renderClone}>
                   {(provided) => (
                     <div 
-                      className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin"
+                      className="flex flex-col gap-3.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin"
                       {...provided.droppableProps}
                       ref={provided.innerRef}
                     >
@@ -1235,6 +1318,7 @@ export default function ASEModManager() {
                     filteredInstalledMods.map((mod, i) => {
                       const isExpanded = expandedModId === mod.workshopId;
                       const resolved = resolveModDetails(mod);
+
                       return (
                         <Draggable key={mod.workshopId} draggableId={mod.workshopId} index={i} isDragDisabled={sortOrder !== 'load_order'}>
                           {(provided, snapshot) => (
@@ -1242,329 +1326,246 @@ export default function ASEModManager() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               style={{ ...provided.draggableProps.style, zIndex: snapshot.isDragging ? 50 : 'auto' }}
-                              className={`mb-3 bg-slate-800/10 border rounded-2xl overflow-hidden transition-all shadow-sm relative group ${
-                                !mod.enabled ? 'opacity-70 hover:opacity-100' : ''
+                              className={`bg-slate-900/40 border rounded-2xl overflow-hidden relative group backdrop-blur-sm shadow-md transition-[border-color,background-color,box-shadow,opacity] duration-200 ${
+                                !mod.enabled ? 'opacity-65 hover:opacity-100' : ''
                               } ${
                                 snapshot.isDragging 
-                                  ? 'border-amber-500/50 shadow-2xl shadow-amber-500/10 bg-slate-900/60 scale-[1.02] opacity-90' 
-                                  : 'border-white/5 hover:border-amber-500/20 hover:-translate-y-[1px]'
+                                  ? 'border-amber-500/40 shadow-2xl shadow-amber-500/10 bg-slate-900/80 scale-[1.01] opacity-95' 
+                                  : 'border-white/5 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/[0.02]'
                               }`}
                             >
                               {/* Card Header (Summary Row) */}
                               <div 
                                 onClick={() => setExpandedModId(isExpanded ? null : mod.workshopId)}
-                                className="flex items-center justify-between p-3.5 cursor-pointer select-none hover:bg-slate-800/30 transition-colors"
+                                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 cursor-pointer select-none hover:bg-slate-800/20 transition-all gap-4"
                               >
-                                <div className="flex items-center gap-4 min-w-0">
+                                <div className="flex items-center gap-3.5 min-w-0">
                                   {sortOrder === 'load_order' && (
                                     <div 
                                       {...provided.dragHandleProps}
-                                      className="cursor-grab active:cursor-grabbing p-1.5 text-slate-500 hover:text-amber-500 hover:bg-slate-800/40 rounded shrink-0 transition-all"
+                                      className="cursor-grab active:cursor-grabbing p-1.5 text-slate-500 hover:text-amber-400 hover:bg-slate-800/50 rounded-xl shrink-0 transition-all"
                                       onClick={(e) => e.stopPropagation()}
+                                      title="Drag to Reorder"
                                     >
                                       <GripVertical className="w-4 h-4" />
                                     </div>
                                   )}
-                              <div className="w-8 h-8 flex items-center justify-center bg-slate-950 rounded-xl border border-white/5 text-xs text-amber-500 font-mono font-bold shrink-0">
-                                {i + 1}
-                              </div>
-                              <div className="w-10 h-10 rounded-xl border border-white/5 bg-slate-950 overflow-hidden shrink-0 flex items-center justify-center relative shadow-sm">
-                                <ModImage mod={resolved} className="w-full h-full object-cover animate-in fade-in duration-300" />
-                              </div>
-                              <div className="min-w-0">
-                                <h4 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors truncate pr-4 flex items-center gap-2">
-                                  {resolved.name}
-                                  {pinnedModIds.includes(mod.workshopId) && (
-                                    <span className="px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-400 font-bold uppercase tracking-wider">Pinned</span>
-                                  )}
-                                  {!mod.enabled && (
-                                    <span className="px-1.5 py-0.5 rounded bg-slate-950 border border-white/5 text-[9px] text-slate-500 font-bold uppercase tracking-wider">Disabled</span>
-                                  )}
-                                </h4>
-                                <p className="text-[10px] text-slate-500 mt-1 font-mono flex items-center gap-1.5">
-                                  <span>ID: {mod.workshopId}</span>
-                                  {mod.version && (
-                                    <>
-                                      <span className="text-slate-700">•</span>
-                                      <span className="text-slate-400 font-sans font-medium">v{mod.version}</span>
-                                    </>
-                                  )}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-3 z-10" onClick={e => e.stopPropagation()}>
-                              {/* Pin Toggle Button */}
-                              <button
-                                onClick={() => handleTogglePin(mod.workshopId)}
-                                className={`p-1.5 rounded-xl border transition-all ${
-                                  pinnedModIds.includes(mod.workshopId)
-                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                                    : 'bg-slate-900/60 border-white/5 text-slate-500 hover:text-slate-350'
-                                }`}
-                                title={pinnedModIds.includes(mod.workshopId) ? "Unpin Mod" : "Pin to Top"}
-                              >
-                                <Pin className={`w-3.5 h-3.5 ${pinnedModIds.includes(mod.workshopId) ? 'fill-amber-400' : ''}`} />
-                              </button>
-                              
-                              {/* Active / Inactive switch toggle */}
-                              <div className="flex items-center gap-2 mr-1">
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input 
-                                    type="checkbox" 
-                                    checked={mod.enabled} 
-                                    onChange={() => handleToggleModActive(mod.workshopId, mod.enabled)}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-9 h-5 bg-slate-950 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 peer-checked:after:bg-amber-400 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500/20 border border-white/10 peer-checked:border-amber-500/30"></div>
-                                </label>
-                              </div>
-
-                              {/* Re-order buttons */}
-                              <div className="flex items-center bg-slate-950 rounded-xl border border-white/5 p-1">
-                                <button
-                                  disabled={i === 0 || sortOrder !== 'load_order'}
-                                  onClick={() => handleMoveMod(i, 'up')}
-                                  className="p-1 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-slate-500 text-slate-500 transition-colors rounded-lg"
-                                  title="Move Up"
-                                >
-                                  <ArrowUp className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  disabled={i === installedMods.length - 1 || sortOrder !== 'load_order'}
-                                  onClick={() => handleMoveMod(i, 'down')}
-                                  className="p-1 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-slate-500 text-slate-500 transition-colors rounded-lg"
-                                  title="Move Down"
-                                >
-                                  <ArrowDown className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-
-                              <button 
-                                onClick={() => handleRemove(mod.workshopId)} 
-                                className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all focus:outline-none opacity-0 group-hover:opacity-100 shrink-0"
-                                title="Uninstall Mod"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-
-                              {/* Expand chevron button */}
-                              <button
-                                onClick={() => setExpandedModId(isExpanded ? null : mod.workshopId)}
-                                className="p-1.5 rounded-xl border bg-slate-900/60 border-white/5 text-slate-500 hover:text-slate-350 transition-all shrink-0"
-                                title={isExpanded ? "Collapse Details" : "Expand Details"}
-                              >
-                                <ChevronDown className={`w-4 h-4 transform transition-transform duration-300 ${isExpanded ? 'rotate-180 text-amber-400' : ''}`} />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Expandable Sliding Drawer Detail Panel */}
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2, ease: "easeInOut" }}
-                                className="border-t border-white/5 bg-slate-950/40 p-4"
-                                onClick={e => e.stopPropagation()}
-                              >
-                                <div className="flex flex-col md:flex-row gap-5">
-                                  {/* Left Column: Premium Preview Image */}
-                                  <div className="w-full md:w-48 h-32 rounded-xl border border-white/10 overflow-hidden bg-slate-950 shrink-0 relative shadow-inner group/preview">
-                                    <ModImage mod={resolved} className="w-full h-full object-cover group-hover/preview:scale-105 transition-transform duration-500" />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent pointer-events-none" />
+                                  <div className="w-8 h-8 flex items-center justify-center bg-slate-950/80 rounded-xl border border-white/5 text-xs text-amber-400 font-mono font-black shrink-0 shadow-inner">
+                                    {i + 1}
                                   </div>
-                                  
-                                  {/* Right Column: Descriptions & Stats Grid */}
-                                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                                    <div>
-                                      <p className="text-xs text-slate-350 leading-relaxed line-clamp-3 mb-3 font-medium">
-                                        {resolved.description || "This mod is successfully installed and active on your server. Config files are managed automatically."}
-                                      </p>
-                                      
-                                      <div className="flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-slate-500">
-                                        {resolved.author && (
-                                          <div>
-                                            <span className="text-slate-600 font-bold uppercase tracking-wider mr-1">Author:</span>
-                                            <span className="text-slate-400 font-bold">{resolved.author}</span>
-                                          </div>
-                                        )}
-                                        {resolved.fileSize && (
-                                          <div>
-                                            <span className="text-slate-600 font-bold uppercase tracking-wider mr-1">Size:</span>
-                                            <span className="text-slate-400 font-mono font-bold">{(resolved.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
-                                          </div>
-                                        )}
-                                        {resolved.subscribers !== undefined && (
-                                          <div>
-                                            <span className="text-slate-600 font-bold uppercase tracking-wider mr-1">Subscribers:</span>
-                                            <span className="text-slate-450 font-mono font-bold">{resolved.subscribers.toLocaleString()}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Badges / Tags */}
-                                    {resolved.tags && resolved.tags.length > 0 && (
-                                      <div className="flex flex-wrap gap-1.5 mt-3">
-                                        {resolved.tags.map((t: string) => (
-                                          <span key={t} className="px-2 py-0.5 rounded bg-slate-900/80 border border-white/5 text-[9px] text-slate-400 font-bold uppercase font-mono">
-                                            {t}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
+                                  <div className="w-11 h-11 rounded-xl border border-white/10 bg-slate-950 overflow-hidden shrink-0 flex items-center justify-center relative shadow-md group-hover:border-amber-500/20 transition-colors">
+                                    <ModImage mod={resolved} className="w-full h-full object-cover animate-in fade-in duration-300" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h4 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors truncate pr-4 flex flex-wrap items-center gap-2">
+                                      {resolved.name}
+                                      {pinnedModIds.includes(mod.workshopId) && (
+                                        <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] text-amber-400 font-black uppercase tracking-wider">Pinned</span>
+                                      )}
+                                      {!mod.enabled && (
+                                        <span className="px-2 py-0.5 rounded bg-slate-950 border border-white/5 text-[8px] text-slate-500 font-black uppercase tracking-wider">Disabled</span>
+                                      )}
+                                    </h4>
+                                    <p className="text-[10px] text-slate-500 mt-1 font-mono flex items-center gap-1.5 flex-wrap">
+                                      <span>ID: {mod.workshopId}</span>
+                                      {mod.version && (
+                                        <>
+                                          <span className="text-slate-700">•</span>
+                                          <span className="text-slate-400 font-sans font-medium">v{mod.version}</span>
+                                        </>
+                                      )}
+                                      {resolved.fileSize > 0 && (
+                                        <>
+                                          <span className="text-slate-700">•</span>
+                                          <span className="text-slate-400 font-sans font-medium">{(resolved.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
+                                        </>
+                                      )}
+                                    </p>
                                   </div>
                                 </div>
                                 
-                                {/* Actions / Recovery Tools Section */}
-                                <div className="flex flex-wrap items-center gap-3 mt-4 pt-3.5 border-t border-white/5">
+                                <div className="flex items-center gap-3.5 z-10 self-end sm:self-center" onClick={e => e.stopPropagation()}>
+                                  {/* Pin Toggle Button */}
                                   <button
-                                    onClick={() => {
-                                      const url = resolved.workshopUrl || `https://steamcommunity.com/sharedfiles/filedetails/?id=${resolved.workshopId}`;
-                                      openUrl(url);
-                                    }}
-                                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-350 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                                    onClick={() => handleTogglePin(mod.workshopId)}
+                                    className={`p-2 rounded-xl border transition-all hover:scale-105 active:scale-95 ${
+                                      pinnedModIds.includes(mod.workshopId)
+                                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                                        : 'bg-slate-950/60 border-white/5 text-slate-500 hover:text-slate-300'
+                                    }`}
+                                    title={pinnedModIds.includes(mod.workshopId) ? "Unpin Mod" : "Pin to Top"}
                                   >
-                                    <ExternalLink className="w-3.5 h-3.5" />
-                                    View on Workshop
+                                    <Pin className={`w-3.5 h-3.5 ${pinnedModIds.includes(mod.workshopId) ? 'fill-amber-400' : ''}`} />
                                   </button>
                                   
-                                  <button
-                                    onClick={() => handleValidateMod(resolved.workshopId)}
-                                    disabled={isValidating}
-                                    className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500 hover:text-slate-950 border border-amber-500/20 text-amber-400 rounded-xl text-xs font-bold disabled:opacity-50 transition-all flex items-center gap-1.5"
+                                  {/* Active / Inactive Switch */}
+                                  <div className="flex items-center gap-2">
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={mod.enabled} 
+                                        onChange={() => handleToggleModActive(mod.workshopId, mod.enabled)}
+                                        className="sr-only peer"
+                                      />
+                                      <div className="w-10 h-6 bg-slate-950 rounded-full relative peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-slate-500 peer-checked:after:bg-amber-400 after:rounded-full after:h-4 after:w-4 after:transition-all after:duration-300 after:ease-in-out transition-all duration-300 ease-in-out peer-checked:bg-amber-500/20 border border-white/10 peer-checked:border-amber-500/30 shadow-inner"></div>
+                                    </label>
+                                  </div>
+ 
+                                  {/* Re-order Buttons */}
+                                  <div className="flex items-center bg-slate-950 rounded-xl border border-white/5 p-1">
+                                    <button
+                                      disabled={i === 0 || sortOrder !== 'load_order'}
+                                      onClick={() => handleMoveMod(i, 'up')}
+                                      className="p-1.5 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-slate-500 text-slate-500 transition-colors rounded-lg"
+                                      title="Move Up"
+                                    >
+                                      <ArrowUp className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      disabled={i === installedMods.length - 1 || sortOrder !== 'load_order'}
+                                      onClick={() => handleMoveMod(i, 'down')}
+                                      className="p-1.5 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-slate-500 text-slate-500 transition-colors rounded-lg"
+                                      title="Move Down"
+                                    >
+                                      <ArrowDown className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+ 
+                                  {/* Delete Button */}
+                                  <button 
+                                    onClick={() => handleRemove(mod.workshopId)} 
+                                    className="p-2 text-slate-500 hover:text-rose-455 hover:bg-rose-500/10 rounded-xl transition-all focus:outline-none opacity-0 group-hover:opacity-100 shrink-0"
+                                    title="Uninstall Mod"
                                   >
-                                    {isValidating ? (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : (
-                                      <ShieldAlert className="w-3.5 h-3.5" />
-                                    )}
-                                    Validate Structure
+                                    <Trash2 className="w-4 h-4" />
                                   </button>
-                                  
+ 
+                                  {/* Expand chevron button */}
                                   <button
-                                    onClick={() => handleRepairMod(resolved.workshopId, true)}
-                                    disabled={isRepairing}
-                                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-350 rounded-xl text-xs font-bold disabled:opacity-50 transition-all flex items-center gap-1.5"
+                                    onClick={() => setExpandedModId(isExpanded ? null : mod.workshopId)}
+                                    className="p-2 rounded-xl border bg-slate-950/60 border-white/5 text-slate-500 hover:text-slate-300 transition-all shrink-0"
+                                    title={isExpanded ? "Collapse Details" : "Expand Details"}
                                   >
-                                    {isRepairing ? (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : (
-                                      <RefreshCw className="w-3.5 h-3.5" />
-                                    )}
-                                    Force Redownload
+                                    <ChevronDown className={`w-4 h-4 transform transition-transform duration-300 ${isExpanded ? 'rotate-180 text-amber-400' : ''}`} />
                                   </button>
                                 </div>
-
-                                {/* Validation Diagnostic Panel */}
-                                {validationReport && validationReport.workshopId === resolved.workshopId && (
+                              </div>
+ 
+                              {/* Expandable Sliding Drawer Detail Panel */}
+                              <AnimatePresence>
+                                {isExpanded && (
                                   <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className={`mt-4 p-3.5 rounded-xl border ${
-                                      validationReport.isValid 
-                                        ? 'bg-emerald-500/5 border-emerald-500/10 text-emerald-400' 
-                                        : 'bg-rose-500/5 border-rose-500/10 text-rose-400'
-                                    }`}
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                                    className="border-t border-white/5 bg-slate-950/60 p-5"
+                                    onClick={e => e.stopPropagation()}
                                   >
-                                    <div className="flex items-center gap-2 font-bold text-xs mb-1.5">
-                                      {validationReport.isValid ? (
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                                      ) : (
-                                        <ShieldAlert className="w-4 h-4 text-rose-400" />
-                                      )}
-                                      Mod Diagnostic Integrity Status: {validationReport.isValid ? 'Healthy & Fully Intact' : 'Structure Corrupted!'}
+                                    <div className="flex flex-col md:flex-row gap-6">
+                                      {/* Left Column: Premium Preview Image */}
+                                      <div className="w-full md:w-56 h-36 rounded-2xl border border-white/10 overflow-hidden bg-slate-950 shrink-0 relative shadow-lg group/preview">
+                                        <ModImage mod={resolved} className="w-full h-full object-cover group-hover/preview:scale-105 transition-transform duration-500" />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none" />
+                                      </div>
+                                      
+                                      {/* Right Column: Descriptions & Stats Grid */}
+                                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                                        <div>
+                                          <p className="text-xs text-slate-300 leading-relaxed line-clamp-4 mb-4 font-medium max-w-2xl">
+                                            {resolved.description || "This mod is successfully installed and active on your server. Config files are managed automatically."}
+                                          </p>
+                                          
+                                          {/* Premium Stats Grid */}
+                                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-900/30 p-3.5 rounded-xl border border-white/5 max-w-2xl">
+                                            <div className="flex items-center gap-2.5">
+                                              <div className="p-2 bg-amber-500/10 rounded-lg text-amber-400">
+                                                <User className="w-3.5 h-3.5" />
+                                              </div>
+                                              <div className="min-w-0">
+                                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Author</p>
+                                                <p className="text-xs text-slate-200 font-bold truncate">
+                                                  {resolved.author && isNaN(Number(resolved.author)) ? resolved.author : "Steam Mod Author"}
+                                                </p>
+                                              </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-2.5">
+                                              <div className="p-2 bg-orange-500/10 rounded-lg text-orange-400">
+                                                <HardDrive className="w-3.5 h-3.5" />
+                                              </div>
+                                              <div>
+                                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Disk Size</p>
+                                                <p className="text-xs text-slate-200 font-mono font-bold">
+                                                  {resolved.fileSize ? `${(resolved.fileSize / (1024 * 1024)).toFixed(1)} MB` : '0.0 MB'}
+                                                </p>
+                                              </div>
+                                            </div>
+ 
+                                            <div className="flex items-center gap-2.5">
+                                              <div className="p-2 bg-sky-500/10 rounded-lg text-sky-400">
+                                                <Users className="w-3.5 h-3.5" />
+                                              </div>
+                                              <div>
+                                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Subscribers</p>
+                                                <p className="text-xs text-slate-200 font-mono font-bold">
+                                                  {resolved.subscribers ? resolved.subscribers.toLocaleString() : '0'}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        
+                                        {/* Badges / Tags */}
+                                        {resolved.tags && resolved.tags.length > 0 && (
+                                          <div className="flex flex-wrap gap-1.5 mt-4">
+                                            {resolved.tags.map((t: string) => (
+                                              <span key={t} className="px-2.5 py-0.5 rounded-lg bg-slate-900/90 border border-white/5 text-[9px] text-slate-400 font-bold uppercase font-mono tracking-wider">
+                                                {t}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-4 mt-2 text-[10px] font-mono text-slate-400 bg-black/25 p-2.5 rounded-lg border border-white/5">
-                                      <div>
-                                        <span className="text-slate-500 mr-1">Files count:</span>
-                                        <span className="font-bold text-white">{validationReport.fileCount}</span>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-500 mr-1">Total size:</span>
-                                        <span className="font-bold text-white">{(validationReport.totalSize / (1024 * 1024)).toFixed(1)} MB</span>
-                                      </div>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className={validationReport.hasModFile ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>●</span>
-                                        <span className="text-slate-500">Parent .mod:</span>
-                                        <span className={validationReport.hasModFile ? 'text-emerald-400' : 'text-rose-400'}>
-                                          {validationReport.hasModFile ? 'Found' : 'Missing'}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className={validationReport.hasModInfo ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>●</span>
-                                        <span className="text-slate-500">mod.info:</span>
-                                        <span className={validationReport.hasModInfo ? 'text-emerald-400' : 'text-rose-400'}>
-                                          {validationReport.hasModInfo ? 'Found' : 'Missing'}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className={validationReport.hasAssets ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>●</span>
-                                        <span className="text-slate-500">Assets (.uasset):</span>
-                                        <span className={validationReport.hasAssets ? 'text-emerald-400' : 'text-rose-400'}>
-                                          {validationReport.hasAssets ? 'Found' : 'Missing'}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-1.5">
-                                        <span className={validationReport.hasActiveModsEntry ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>●</span>
-                                        <span className="text-slate-500">ActiveMods INI:</span>
-                                        <span className={validationReport.hasActiveModsEntry ? 'text-emerald-400' : 'text-rose-400'}>
-                                          {validationReport.hasActiveModsEntry ? 'Synced' : 'Not Sync'}
-                                        </span>
-                                      </div>
-                                      {validationReport.hasUnextractedZ && (
-                                        <div className="col-span-2 md:col-span-3 text-amber-400 flex items-center gap-1 text-[9px] mt-1 font-bold">
-                                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                                          Leftover .z compressed files detected! Extraction is incomplete.
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {!validationReport.isValid && validationReport.issues.length > 0 && (
-                                      <div className="mt-2 text-[10px] text-rose-350/90 leading-relaxed font-mono">
-                                        <div className="font-bold uppercase mb-1">Detected Structure Issues:</div>
-                                        <ul className="list-disc pl-4 space-y-0.5">
-                                          {validationReport.issues.map((issue: string, idx: number) => (
-                                            <li key={idx}>{issue}</li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-
-                                    {/* Action buttons for inline diagnostic */}
-                                    <div className="flex gap-2 mt-3">
-                                      <button 
-                                        onClick={() => handleRepairMod(resolved.workshopId, false)}
-                                        disabled={isRepairing}
-                                        className="flex-1 py-1 bg-amber-500/10 hover:bg-amber-500 hover:text-slate-950 border border-amber-500/20 text-amber-400 rounded-lg text-[10px] font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-1"
-                                      >
-                                        {isRepairing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                                        Run Structural Repair
-                                      </button>
-                                      <button 
-                                        onClick={async () => {
-                                          try {
-                                            const { invoke } = await import('@tauri-apps/api/core');
-                                            await invoke('open_in_explorer', { path: validationReport.modDir });
-                                          } catch (err) {
-                                            toast.error('Failed to open folder: ' + err);
-                                          }
+                                    {/* Actions / Recovery Tools Section */}
+                                    <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-white/5">
+                                      <button
+                                        onClick={() => {
+                                          const url = resolved.workshopUrl || `https://steamcommunity.com/sharedfiles/filedetails/?id=${resolved.workshopId}`;
+                                          openUrl(url);
                                         }}
-                                        className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-350 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1 border border-white/5"
+                                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
                                       >
-                                        <ExternalLink className="w-3 h-3" />
-                                        Open Folder
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                        View on Workshop
+                                      </button>
+                                      
+                                      <button
+                                        onClick={() => handleRepairMod(resolved.workshopId, true)}
+                                        disabled={isRepairing}
+                                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-200 rounded-xl text-xs font-bold disabled:opacity-50 transition-all flex items-center gap-1.5 shadow-sm"
+                                      >
+                                        {isRepairing ? (
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                          <RefreshCw className="w-3.5 h-3.5" />
+                                        )}
+                                        Force Redownload
+                                      </button>
+
+                                      <button
+                                        onClick={() => handleOpenModFolder(resolved.workshopId)}
+                                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                                      >
+                                        <FolderOpen className="w-3.5 h-3.5" />
+                                        Open Mod Folder
                                       </button>
                                     </div>
                                   </motion.div>
                                 )}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                              </AnimatePresence>
                             </div>
                           )}
                         </Draggable>
@@ -1633,133 +1634,202 @@ export default function ASEModManager() {
       <AnimatePresence>
         {totalInQueue > 0 && (
           <div className="fixed bottom-6 right-6 z-40 w-full max-w-sm px-4 md:px-0">
-            <motion.div
-              initial={{ y: 50, scale: 0.95, opacity: 0 }}
-              animate={{ y: 0, scale: 1, opacity: 1 }}
-              exit={{ y: 50, scale: 0.95, opacity: 0 }}
-              className="bg-slate-900/95 border border-white/10 rounded-2xl shadow-2xl shadow-black/85 backdrop-blur-md overflow-hidden flex flex-col border-amber-500/20"
-            >
-              {/* Drawer Header */}
-              <div 
-                className="bg-slate-950/80 p-3.5 flex items-center justify-between cursor-pointer border-b border-white/5 select-none"
-                onClick={() => setIsQueueExpanded(!isQueueExpanded)}
+            {queueState === 'minimized' ? (
+              <motion.div
+                key="minimized-pill"
+                initial={{ scale: 0.8, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.8, opacity: 0, y: 20 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setQueueState('expanded')}
+                className="bg-slate-900/95 border border-amber-500/35 rounded-full px-4 py-3 shadow-2xl backdrop-blur-md flex items-center gap-3 cursor-pointer select-none hover:border-amber-400 hover:shadow-amber-500/10 transition-all duration-300"
               >
-                <div className="flex items-center gap-2">
-                  {activeDownloadsCount > 0 ? (
-                    <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  )}
-                  <span className="text-xs font-bold text-white">
-                    Mod Downloader Queue ({completedDownloadsCount}/{totalInQueue})
-                  </span>
-                </div>
-                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                  <button
-                    onClick={clearQueue}
-                    className="p-1 hover:bg-slate-800 text-slate-500 hover:text-white rounded transition-colors text-[10px] font-bold"
-                    title="Clear All Completed"
-                  >
-                    Clear Queue
-                  </button>
-                  {isQueueExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-slate-400 hover:text-white transition-colors" />
-                  ) : (
-                    <ChevronUp className="w-4 h-4 text-slate-400 hover:text-white transition-colors" />
-                  )}
-                </div>
-              </div>
-
-              {/* Collapsed / Expanded Content */}
-              <AnimatePresence>
-                {isQueueExpanded && (
-                  <motion.div 
-                    initial={{ height: 0 }}
-                    animate={{ height: 'auto' }}
-                    exit={{ height: 0 }}
-                    className="max-h-64 overflow-y-auto p-4 space-y-3.5 scrollbar-thin"
-                  >
-                    {activeQueueList.map((item) => {
-                      return (
-                        <div key={item.workshopId} className="space-y-1.5 text-xs border-b border-white/5 pb-2.5 last:border-b-0 last:pb-0">
-                          <div className="flex items-center justify-between">
-                            <div className="min-w-0 pr-4">
-                              <p className="font-bold text-slate-200 truncate">{item.modName}</p>
-                              <p className="text-[9px] text-slate-500 font-mono mt-0.5">ID: {item.workshopId}</p>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                                item.status === 'queued' ? 'bg-slate-800 text-slate-400' :
-                                item.status === 'downloading' ? 'bg-blue-500/10 text-blue-400 animate-pulse' :
-                                item.status === 'extracting' ? 'bg-cyan-500/10 text-cyan-400 animate-pulse' :
-                                item.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' :
-                                'bg-rose-500/10 text-rose-400'
-                              }`}>
-                                {item.status}
-                              </span>
-                              
-                              {/* Cancel/Remove from Queue */}
-                              {item.status === 'queued' && (
-                                <button
-                                  onClick={() => removeFromQueue(item.workshopId)}
-                                  className="text-slate-500 hover:text-rose-400 transition-colors p-0.5"
-                                  title="Cancel Download"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                              {(item.status === 'completed' || item.status === 'failed') && (
-                                <button
-                                  onClick={() => removeFromQueue(item.workshopId)}
-                                  className="text-slate-500 hover:text-slate-300 transition-colors p-0.5"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Progress Line */}
-                          <div className="relative h-1 bg-slate-950 rounded-full overflow-hidden border border-white/5">
-                            <div 
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                item.status === 'queued' ? 'bg-slate-800' :
-                                item.status === 'downloading' ? 'bg-blue-500 animate-pulse' :
-                                item.status === 'extracting' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 animate-pulse' :
-                                item.status === 'completed' ? 'bg-emerald-500' :
-                                'bg-rose-500'
-                              }`} 
-                              style={{ width: `${item.progress}%` }} 
-                            />
-                          </div>
-
-                          {item.error && (
-                            <p className="text-[9px] text-rose-400 leading-normal max-h-12 overflow-y-auto font-mono mt-1">
-                              Error: {item.error}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </motion.div>
+                {activeDownloadsCount > 0 ? (
+                  <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 )}
-              </AnimatePresence>
+                <span className="text-xs font-bold text-white">
+                  Mod Queue ({completedDownloadsCount}/{totalInQueue})
+                </span>
+                {activeDownloadsCount > 0 && (
+                  <span className="text-[10px] font-black font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 animate-pulse">
+                    {Math.round(activeQueueList.reduce((acc, curr) => acc + curr.progress, 0) / totalInQueue)}%
+                  </span>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="queue-window"
+                initial={{ y: 50, scale: 0.95, opacity: 0 }}
+                animate={{ 
+                  y: 0, 
+                  scale: 1, 
+                  opacity: 1,
+                  borderColor: activeDownloadsCount > 0 ? "rgba(245, 158, 11, 0.4)" : "rgba(255, 255, 255, 0.1)",
+                  boxShadow: activeDownloadsCount > 0 
+                    ? [
+                        "0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 15px rgba(245, 158, 11, 0.05)",
+                        "0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 15px rgba(245, 158, 11, 0.15)",
+                        "0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 15px rgba(245, 158, 11, 0.05)"
+                      ]
+                    : "0 25px 50px -12px rgba(0, 0, 0, 0.85)",
+                }}
+                transition={{
+                  boxShadow: {
+                    repeat: Infinity,
+                    duration: 2,
+                    ease: "easeInOut"
+                  },
+                  default: { duration: 0.3 }
+                }}
+                exit={{ y: 50, scale: 0.95, opacity: 0 }}
+                className="bg-slate-900/95 border rounded-2xl shadow-2xl backdrop-blur-md overflow-hidden flex flex-col"
+              >
+                {/* Drawer Header */}
+                <div 
+                  className="bg-slate-950/80 p-3.5 flex items-center justify-between cursor-pointer border-b border-white/5 select-none"
+                  onClick={() => setQueueState(queueState === 'expanded' ? 'collapsed' : 'expanded')}
+                >
+                  <div className="flex items-center gap-2">
+                    {activeDownloadsCount > 0 ? (
+                      <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    )}
+                    <span className="text-xs font-bold text-white">
+                      Mod Downloader Queue ({completedDownloadsCount}/{totalInQueue})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                    {/* Minimize Button */}
+                    <button
+                      onClick={() => setQueueState('minimized')}
+                      className="p-1 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors flex items-center justify-center"
+                      title="Minimize"
+                    >
+                      <span className="block w-2.5 h-[2px] bg-current rounded-full" />
+                    </button>
 
-              {/* Mini Collapsed footer */}
-              {!isQueueExpanded && (
-                <div className="p-3 bg-slate-900 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400">
-                  <span>
-                    {activeDownloadsCount > 0 
-                      ? `Currently downloading mod...`
-                      : 'All downloads in queue complete'
-                    }
-                  </span>
-                  <span className="font-mono text-white font-bold">
-                    {completedDownloadsCount} / {totalInQueue} Done
-                  </span>
+                    {/* Toggle Button */}
+                    <button
+                      onClick={() => setQueueState(queueState === 'expanded' ? 'collapsed' : 'expanded')}
+                      className="p-1 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors flex items-center justify-center"
+                      title={queueState === 'expanded' ? "Collapse" : "Expand"}
+                    >
+                      {queueState === 'expanded' ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+
+                    {/* Clear/Close Button */}
+                    <button
+                      onClick={clearQueue}
+                      className="p-1 hover:bg-white/10 text-slate-450 hover:text-rose-450 rounded-lg transition-colors flex items-center justify-center ml-0.5"
+                      title="Clear Queue"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              )}
-            </motion.div>
+
+                {/* Collapsed / Expanded Content */}
+                <AnimatePresence>
+                  {queueState === 'expanded' && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="max-h-64 overflow-y-auto p-4 space-y-3.5 scrollbar-thin"
+                    >
+                      {activeQueueList.map((item) => {
+                        return (
+                          <div key={item.workshopId} className="space-y-1.5 text-xs border-b border-white/5 pb-2.5 last:border-b-0 last:pb-0">
+                            <div className="flex items-center justify-between">
+                              <div className="min-w-0 pr-4">
+                                <p className="font-bold text-slate-200 truncate">{item.modName}</p>
+                                <p className="text-[9px] text-slate-500 font-mono mt-0.5">ID: {item.workshopId}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                                  item.status === 'queued' ? 'bg-slate-800 text-slate-400' :
+                                  item.status === 'downloading' ? 'bg-blue-500/10 text-blue-400 animate-pulse' :
+                                  item.status === 'extracting' ? 'bg-cyan-500/10 text-cyan-400 animate-pulse' :
+                                  item.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' :
+                                  'bg-rose-500/10 text-rose-400'
+                                }`}>
+                                  {item.status}
+                                </span>
+                                
+                                {/* Cancel/Remove from Queue */}
+                                {item.status === 'queued' && (
+                                  <button
+                                    onClick={() => removeFromQueue(item.workshopId)}
+                                    className="text-slate-500 hover:text-rose-400 transition-colors p-0.5"
+                                    title="Cancel Download"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                {(item.status === 'completed' || item.status === 'failed') && (
+                                  <button
+                                    onClick={() => removeFromQueue(item.workshopId)}
+                                    className="text-slate-500 hover:text-slate-350 transition-colors p-0.5"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Progress Line */}
+                            <div className="relative h-1 bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                              <div 
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  item.status === 'queued' ? 'bg-slate-800' :
+                                  item.status === 'downloading' ? 'bg-blue-500 animate-pulse' :
+                                  item.status === 'extracting' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 animate-pulse' :
+                                  item.status === 'completed' ? 'bg-emerald-500' :
+                                  'bg-rose-500'
+                                }`} 
+                                style={{ width: `${item.progress}%` }} 
+                              />
+                            </div>
+
+                            {item.error && (
+                              <p className="text-[9px] text-rose-400 leading-normal max-h-12 overflow-y-auto font-mono mt-1">
+                                Error: {item.error}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Mini Collapsed footer */}
+                {queueState === 'collapsed' && (
+                  <div 
+                    onClick={() => setQueueState('expanded')}
+                    className="p-3 bg-slate-900 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400 hover:bg-slate-850 cursor-pointer select-none transition-colors"
+                  >
+                    <span>
+                      {activeDownloadsCount > 0 
+                        ? `Currently downloading mod...`
+                        : 'All downloads in queue complete'
+                      }
+                    </span>
+                    <span className="font-mono text-white font-bold bg-white/5 px-2 py-0.5 rounded-md">
+                      {completedDownloadsCount} / {totalInQueue} Done
+                    </span>
+                  </div>
+                )}
+              </motion.div>
+            )}
           </div>
         )}
       </AnimatePresence>
@@ -1851,127 +1921,24 @@ export default function ASEModManager() {
                   </div>
                 </div>
 
-                {/* Validation & Health Section */}
-                {selectedModDetail.isInstalled && (
-                  <div className="space-y-3 bg-slate-950/40 border border-white/5 rounded-xl p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <ShieldAlert className="w-4 h-4 text-amber-400" />
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Mod Integrity Check</h4>
-                      </div>
-                      <button
-                        onClick={() => handleValidateMod(selectedModDetail.workshopId)}
-                        disabled={isValidating || isRepairing}
-                        className="px-3 py-1 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1"
-                      >
-                        {isValidating ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            Validating...
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="w-3 h-3" />
-                            Verify Integrity
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {validationReport ? (
-                      <div className="space-y-3 pt-2 border-t border-white/5 animate-in fade-in duration-200">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-slate-400">Status:</span>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            validationReport.isValid 
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          }`}>
-                            {validationReport.isValid ? 'Healthy & Valid' : 'Corrupted / Missing Files'}
-                          </span>
-                        </div>
-
-                        {/* File metrics */}
-                        <div className="grid grid-cols-2 gap-2.5 text-[10px] font-mono text-slate-400 bg-slate-950/60 p-3 rounded-lg border border-white/5">
-                          <div>Files Count: <span className="text-white font-bold">{validationReport.fileCount}</span></div>
-                          <div>Total Size: <span className="text-white font-bold">{(validationReport.totalSize / (1024 * 1024)).toFixed(2)} MB</span></div>
-                          
-                          <div className="flex items-center gap-1.5">
-                            <span className={validationReport.hasModFile ? 'text-emerald-400' : 'text-rose-400'}>●</span>
-                            .mod File: <span className={validationReport.hasModFile ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{validationReport.hasModFile ? 'Found' : 'Missing'}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={validationReport.hasModInfo ? 'text-emerald-400' : 'text-rose-400'}>●</span>
-                            mod.info: <span className={validationReport.hasModInfo ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{validationReport.hasModInfo ? 'Found' : 'Missing'}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={validationReport.hasAssets ? 'text-emerald-400' : 'text-rose-400'}>●</span>
-                            Assets (.uasset): <span className={validationReport.hasAssets ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{validationReport.hasAssets ? 'Found' : 'Missing'}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={validationReport.hasActiveModsEntry ? 'text-emerald-400' : 'text-rose-400'}>●</span>
-                            ActiveMods INI: <span className={validationReport.hasActiveModsEntry ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{validationReport.hasActiveModsEntry ? 'Synced' : 'Not Sync'}</span>
-                          </div>
-                          {validationReport.hasUnextractedZ && (
-                            <div className="col-span-2 text-amber-400 flex items-center gap-1 text-[9px] mt-0.5 font-bold">
-                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                              Leftover .z files found: extraction is incomplete.
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Issues List */}
-                        {!validationReport.isValid && validationReport.issues && (
-                          <div className="space-y-1 bg-rose-500/5 border border-rose-500/15 rounded-lg p-2.5">
-                            <p className="text-[10px] font-bold text-rose-300">Detected Issues:</p>
-                            <ul className="list-disc list-inside text-[10px] text-rose-400/90 leading-relaxed pl-1 space-y-0.5">
-                              {validationReport.issues.map((issue: string, idx: number) => (
-                                <li key={idx} className="truncate">{issue}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Actions for validation result */}
-                        <div className="flex items-center gap-2 pt-1">
-                          <button
-                            onClick={() => handleRepairMod(selectedModDetail.workshopId, false)}
-                            disabled={isRepairing}
-                            className="flex-1 py-1.5 bg-amber-500/10 hover:bg-amber-500 hover:text-slate-950 border border-amber-500/20 text-amber-400 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1"
-                          >
-                            {isRepairing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                            Quick Repair
-                          </button>
-                          <button
-                            onClick={() => handleRepairMod(selectedModDetail.workshopId, true)}
-                            disabled={isRepairing}
-                            className="flex-1 py-1.5 bg-rose-500/10 hover:bg-rose-500 hover:text-white border border-rose-500/20 text-rose-400 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1"
-                          >
-                            {isRepairing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3 h-3" />}
-                            Force Redownload
-                          </button>
-                          <button
-                            onClick={async () => {
-                              try {
-                                const { invoke } = await import('@tauri-apps/api/core');
-                                await invoke('open_in_explorer', { path: validationReport.modDir });
-                              } catch (err) {
-                                toast.error('Failed to open folder: ' + err);
-                              }
-                            }}
-                            className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-350 border border-white/5 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1"
-                            title="Open Mod Folder"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            Open Folder
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-[10px] text-slate-500 italic mt-1 leading-normal">
-                        Click 'Verify Integrity' to scan the mod's local files, checking for missing .mod, mod.info, and compiled assets.
-                      </p>
-                    )}
+                {/* Actions Section for Installed Mod */}
+                {isInstalled(selectedModDetail.workshopId) && (
+                  <div className="flex gap-3 pt-4 border-t border-white/5">
+                    <button
+                      onClick={() => handleRepairMod(selectedModDetail.workshopId, true)}
+                      disabled={isRepairing}
+                      className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      {isRepairing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                      Force Redownload
+                    </button>
+                    <button
+                      onClick={() => handleOpenModFolder(selectedModDetail.workshopId)}
+                      className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      Open Mod Folder
+                    </button>
                   </div>
                 )}
               </div>

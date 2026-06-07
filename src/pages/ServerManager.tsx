@@ -797,10 +797,10 @@ export default function ServerManager() {
                                                     {...provided.draggableProps}
                                                     style={{ ...provided.draggableProps.style, zIndex: snapshot.isDragging ? 50 : 'auto' }}
                                                     className={cn(
-                                                        "glass-panel rounded-2xl p-6 transition-all duration-300 group relative",
+                                                        "glass-panel rounded-2xl p-6 group relative",
                                                         snapshot.isDragging 
                                                             ? "shadow-2xl shadow-sky-500/20 ring-2 ring-sky-500/50 cursor-grabbing scale-[1.02]" 
-                                                            : "hover:border-sky-500/50 hover:shadow-[0_8px_30px_rgba(14,165,233,0.15)] hover:-translate-y-1 cursor-pointer"
+                                                            : "transition-all duration-300 hover:border-sky-500/50 hover:shadow-[0_8px_30px_rgba(14,165,233,0.15)] hover:-translate-y-1 cursor-pointer"
                                                     )}
                                                     onClick={(e) => toggleCollapse(server.id, e)}
                                                 >
@@ -932,7 +932,7 @@ export default function ServerManager() {
                                 </div>
 
                                     {/* Actions Toolbar */}
-                                <div className="flex items-center gap-1 p-1 bg-slate-900/60 border border-slate-700/50 rounded-full shadow-inner">
+                                <div className="flex items-center gap-1 p-1 bg-slate-900/60 border border-slate-700/50 rounded-full shadow-inner lg:mr-8">
 
                                     {server.status === 'stopped' || server.status === 'crashed' ? (
                                         <div className="relative group/start">

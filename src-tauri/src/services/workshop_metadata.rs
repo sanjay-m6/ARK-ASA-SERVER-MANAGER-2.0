@@ -149,8 +149,9 @@ pub async fn fetch_workshop_details(
                 title: file["title"]
                     .as_str()
                     .map(|s| s.to_string()),
-                file_description: file["file_description"]
+                file_description: file["description"]
                     .as_str()
+                    .or_else(|| file["file_description"].as_str())
                     .map(|s| s.to_string()),
                 preview_url: file["preview_url"]
                     .as_str()
