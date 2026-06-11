@@ -351,7 +351,7 @@ const TextAreaFieldInput = ({
 
         const replacement = `<RichColor Color="${colorStr}">${selectedText || 'Text'}</>`;
         const newText = currentText.substring(0, start) + replacement + currentText.substring(end);
-        
+
         onChange(newText);
 
         setTimeout(() => {
@@ -383,7 +383,7 @@ const TextAreaFieldInput = ({
 
     const generateGradientTags = (): string => {
         if (!gradientText) return '';
-        
+
         if (gradMode === 'char') {
             const chars = Array.from(gradientText);
             const colors = interpolateColors(gradColor1, gradColor2, chars.length);
@@ -716,6 +716,11 @@ const ConfigInput = memo(({
 }) => {
     const { t } = useTranslation();
 
+    const fieldLabel = t(`configEditor.fields.${field.key}.label`, { defaultValue: field.label });
+    const fieldDescription = field.description
+        ? t(`configEditor.fields.${field.key}.description`, { defaultValue: field.description })
+        : undefined;
+
     // Stable handlers that call the parent's stable callbacks
     const handleChange = (val: string) => {
         onFieldChange(source, field.section, field.key, val, field.defaultValue);
@@ -730,15 +735,15 @@ const ConfigInput = memo(({
     // Inline label JSX to avoid recreating component on each render
     const labelContent = (
         <ConfigTooltip
-            label={field.label}
-            description={field.description}
+            label={fieldLabel}
+            description={fieldDescription}
             defaultValue={field.defaultValue}
             currentValue={value}
             wikiLink={field.wikiLink}
         >
             <div className="flex items-center gap-2 mb-1">
                 <div className="text-white font-medium flex items-center gap-2">
-                    {field.label}
+                    {fieldLabel}
                     {isModified && (
                         <span className="w-2 h-2 rounded-full bg-orange-500 shadow-lg shadow-orange-500/50" title={t('configEditor.tooltips.modified')} />
                     )}
@@ -770,14 +775,14 @@ const ConfigInput = memo(({
                 <SettingsSlider
                     label={
                         <ConfigTooltip
-                            label={field.label}
-                            description={field.description}
+                            label={fieldLabel}
+                            description={fieldDescription}
                             defaultValue={field.defaultValue}
                             currentValue={value}
                             wikiLink={field.wikiLink}
                         >
                             <div className="flex items-center gap-2">
-                                {field.label}
+                                {fieldLabel}
                                 {isModified && <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />}
                                 {isModified && onFieldReset && (
                                     <button onClick={(e) => { e.stopPropagation(); handleReset(); }} className="opacity-0 group-hover:opacity-100 transition-opacity p-1">
@@ -787,7 +792,7 @@ const ConfigInput = memo(({
                             </div>
                         </ConfigTooltip>
                     }
-                    description={field.description}
+                    description={fieldDescription}
                     value={parseFloat(value) || field.min || 0}
                     min={field.min || 0}
                     max={field.max || 100}
@@ -801,7 +806,7 @@ const ConfigInput = memo(({
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                             {labelContent}
-                            {field.description && <div className="text-sm text-slate-400">{field.description}</div>}
+                            {fieldDescription && <div className="text-sm text-slate-400">{fieldDescription}</div>}
                         </div>
                         <button
                             onClick={() => handleChange(value.toLowerCase() === 'true' ? 'False' : 'True')}
@@ -833,11 +838,17 @@ const ConfigInput = memo(({
             if (field.key === 'MapName') {
                 const [isOpen, setIsOpen] = useState(false);
                 const dropdownRef = useRef<HTMLDivElement>(null);
+                const mapButtonRef = useRef<HTMLButtonElement>(null);
+                const mapListRef = useRef<HTMLDivElement>(null);
+                const [mapDropdownPos, setMapDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
-                // Close dropdown on click outside
+                // Close dropdown on click outside — must check both the button wrapper and the fixed list panel
                 useEffect(() => {
                     const handleClickOutside = (event: MouseEvent) => {
-                        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                        const target = event.target as Node;
+                        const insideButton = dropdownRef.current?.contains(target);
+                        const insideList = mapListRef.current?.contains(target);
+                        if (!insideButton && !insideList) {
                             setIsOpen(false);
                         }
                     };
@@ -875,19 +886,26 @@ const ConfigInput = memo(({
                 }, [field.options]);
 
                 return (
-                    <div 
+                    <div
                         className={cn(
                             containerClassName.replace('overflow-hidden', 'overflow-visible'),
                             isOpen ? "z-30" : "z-10"
                         )}
                     >
                         {labelContent}
-                        
+
                         {/* Custom Select Button */}
                         <div ref={dropdownRef} className="relative z-20">
                             <button
+                                ref={mapButtonRef}
                                 type="button"
-                                onClick={() => setIsOpen(!isOpen)}
+                                onClick={() => {
+                                    if (!isOpen && mapButtonRef.current) {
+                                        const rect = mapButtonRef.current.getBoundingClientRect();
+                                        setMapDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width });
+                                    }
+                                    setIsOpen(!isOpen);
+                                }}
                                 className="w-full flex items-center justify-between bg-[#1a1a2e] border-2 border-[#2d2d44] hover:border-violet-500/50 rounded-xl px-4 py-3 text-white transition-all focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] text-left cursor-pointer"
                             >
                                 <div className="flex items-center gap-2.5">
@@ -906,10 +924,14 @@ const ConfigInput = memo(({
                                 {isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
                             </button>
 
-                            {/* Grouped Dropdown Options List */}
+                            {/* Grouped Dropdown Options List — fixed so it escapes overflow:hidden/scroll ancestors */}
                             {isOpen && (
-                                <div className="absolute left-0 right-0 mt-2 bg-[#121225]/95 border-2 border-[#2d2d44] rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200">
-                                    
+                                <div
+                                    ref={mapListRef}
+                                    className="fixed bg-[#121225]/95 border-2 border-[#2d2d44] rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200 z-[150]"
+                                    style={{ top: mapDropdownPos.top, left: mapDropdownPos.left, width: mapDropdownPos.width }}
+                                >
+
                                     {/* Released/Official Maps */}
                                     {groupedOptions.released && groupedOptions.released.length > 0 && (
                                         <div>
@@ -930,7 +952,7 @@ const ConfigInput = memo(({
                                                             }}
                                                             className={cn(
                                                                 "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                                                                isSelected 
+                                                                isSelected
                                                                     ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
                                                                     : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
                                                             )}
@@ -967,7 +989,7 @@ const ConfigInput = memo(({
                                                             }}
                                                             className={cn(
                                                                 "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                                                                isSelected 
+                                                                isSelected
                                                                     ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
                                                                     : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
                                                             )}
@@ -1004,7 +1026,7 @@ const ConfigInput = memo(({
                                                             }}
                                                             className={cn(
                                                                 "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                                                                isSelected 
+                                                                isSelected
                                                                     ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
                                                                     : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
                                                             )}
@@ -1041,7 +1063,7 @@ const ConfigInput = memo(({
                                                             }}
                                                             className={cn(
                                                                 "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                                                                isSelected 
+                                                                isSelected
                                                                     ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
                                                                     : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
                                                             )}
@@ -1074,7 +1096,7 @@ const ConfigInput = memo(({
                                                             }}
                                                             className={cn(
                                                                 "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                                                                isSelected 
+                                                                isSelected
                                                                     ? "bg-amber-600/30 border border-amber-500/50 text-white font-medium"
                                                                     : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
                                                             )}
@@ -1114,20 +1136,20 @@ const ConfigInput = memo(({
                             {selectedMapMeta ? (
                                 <>
                                     {/* Image background with zoom and transition */}
-                                    <img 
-                                        src={selectedMapMeta.image} 
-                                        alt={selectedMapMeta.name} 
-                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105" 
+                                    <img
+                                        src={selectedMapMeta.image}
+                                        alt={selectedMapMeta.name}
+                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105"
                                     />
                                     {/* Glassmorphic/gradient overlay */}
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/10" />
-                                    
+
                                     {/* Header badges */}
                                     <div className="absolute top-3 right-3 flex gap-1.5 items-center z-10">
                                         <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-black/60 border border-white/10 text-slate-300 backdrop-blur-md">
                                             {selectedMapMeta.size}
                                         </span>
-                                        <span 
+                                        <span
                                             className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider text-white backdrop-blur-md"
                                             style={{ backgroundColor: `${selectedMapMeta.color}70`, border: `1px solid ${selectedMapMeta.color}` }}
                                         >
@@ -1147,7 +1169,7 @@ const ConfigInput = memo(({
                                             </div>
                                         )}
                                         <p className="text-xs text-slate-300/90 leading-normal drop-shadow-sm line-clamp-2 mb-2">{selectedMapMeta.description}</p>
-                                        
+
                                         {/* Auto-injected indicator */}
                                         {dropdownValue && getModdedMapByMapArg(dropdownValue, 'ASA') && (
                                             <div className="mt-2 text-[10px] px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium rounded-lg flex items-center gap-1.5 backdrop-blur-md">
@@ -1165,7 +1187,7 @@ const ConfigInput = memo(({
                                         <MapPin className="w-12 h-12 text-amber-500/20" />
                                     </div>
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
-                                    
+
                                     {/* Header badge */}
                                     <div className="absolute top-3 right-3 z-10">
                                         <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-amber-500/20 border border-amber-500/50 text-amber-300 backdrop-blur-md">
@@ -1187,7 +1209,7 @@ const ConfigInput = memo(({
                             )}
                         </div>
 
-                        {field.description && <div className="mt-2.5 text-xs text-slate-400">{field.description}</div>}
+                        {fieldDescription && <div className="mt-2.5 text-xs text-slate-400">{fieldDescription}</div>}
                     </div>
                 );
             }
@@ -1223,7 +1245,7 @@ const ConfigInput = memo(({
                             />
                         </div>
                     )}
-                    {field.description && <div className="mt-2 text-sm text-slate-400">{field.description}</div>}
+                    {fieldDescription && <div className="mt-2 text-sm text-slate-400">{fieldDescription}</div>}
                 </div>
             );
         }
@@ -1231,14 +1253,14 @@ const ConfigInput = memo(({
             return (
                 <div className="col-span-1 md:col-span-2 lg:col-span-2">
                     <ArrayEditor
-                        label={field.label}
+                        label={fieldLabel}
                         value={value}
                         onChange={handleChange}
                         template={field.template || {}}
                     />
-                    {field.description && (
+                    {fieldDescription && (
                         <div className="mt-2 text-xs text-slate-500 px-1 italic">
-                            {field.description}
+                            {fieldDescription}
                         </div>
                     )}
                 </div>
@@ -1250,9 +1272,9 @@ const ConfigInput = memo(({
                         value={value}
                         onChange={(val: string) => handleChange(val)}
                     />
-                    {field.description && (
+                    {fieldDescription && (
                         <div className="mt-2 text-xs text-slate-500 px-1 italic">
-                            {field.description}
+                            {fieldDescription}
                         </div>
                     )}
                 </div>
@@ -1264,9 +1286,9 @@ const ConfigInput = memo(({
                         value={value}
                         onChange={(val: string) => handleChange(val)}
                     />
-                    {field.description && (
+                    {fieldDescription && (
                         <div className="mt-2 text-xs text-slate-500 px-1 italic">
-                            {field.description}
+                            {fieldDescription}
                         </div>
                     )}
                 </div>
@@ -1292,11 +1314,16 @@ const ConfigInput = memo(({
                         onChange={(e) => handleChange(e.target.value)}
                         className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 focus:shadow-[0_0_15px_rgba(249,115,22,0.2)] font-mono transition-all placeholder-slate-500"
                     />
-                    {field.description && <div className="mt-2 text-sm text-slate-400">{field.description}</div>}
+                    {fieldDescription && <div className="mt-2 text-sm text-slate-400">{fieldDescription}</div>}
                 </div>
             );
     }
 });
+
+const groupTitleKey = (title: string) =>
+    title.replace(/[^a-zA-Z0-9\s]/g, ' ').trim().split(/\s+/)
+        .map((w, i) => i === 0 ? w.toLowerCase() : w[0].toUpperCase() + w.slice(1).toLowerCase())
+        .join('');
 
 export default function ConfigEditor() {
     const { t } = useTranslation();
@@ -1765,10 +1792,10 @@ export default function ConfigEditor() {
                             <span className="bg-gradient-to-r from-white via-violet-200 to-indigo-200 bg-clip-text text-transparent">{t('configEditor.title')}</span>
                         </h2>
 
-                        <ServerSelect 
-                            value={selectedServerId} 
-                            onChange={setSelectedServerId} 
-                            accentColor="purple" 
+                        <ServerSelect
+                            value={selectedServerId}
+                            onChange={setSelectedServerId}
+                            accentColor="purple"
                         />
 
                         <div className="h-8 w-px bg-[#2d2d44] mx-2" />
@@ -1952,7 +1979,7 @@ export default function ConfigEditor() {
                                                             )}
                                                         >
                                                             <span className="text-base group-hover:scale-110 transition-transform duration-300">{info.icon}</span>
-                                                            <span>{info.label}</span>
+                                                            <span>{t(`configEditor.categories.${category}`, { defaultValue: info.label })}</span>
                                                         </button>
                                                     );
                                                 })
@@ -1982,7 +2009,7 @@ export default function ConfigEditor() {
                                                             )}
                                                         >
                                                             <span className="text-base group-hover:scale-110 transition-transform duration-300">{info.icon}</span>
-                                                            <span>{info.label}</span>
+                                                            <span>{t(`configEditor.categories.${category}`, { defaultValue: info.label })}</span>
                                                         </button>
                                                     );
                                                 })
@@ -2032,7 +2059,7 @@ export default function ConfigEditor() {
                                                     "absolute bottom-0 left-0 w-24 h-px bg-gradient-to-r to-transparent",
                                                     categories.find(c => c.category === activeCategory)?.info.color.replace('from-', 'from-').replace('to-', 'to-') || "from-cyan-500"
                                                 )}></div>
-                                                <h3 className="text-lg font-bold text-white tracking-tight">{group.title}</h3>
+                                                <h3 className="text-lg font-bold text-white tracking-tight">{t(`configEditor.groups.${groupTitleKey(group.title)}.title`, { defaultValue: group.title })}</h3>
                                                 <span className={cn(
                                                     "text-xs px-2.5 py-1 rounded-full border font-medium",
                                                     group.source === 'GameUserSettings'

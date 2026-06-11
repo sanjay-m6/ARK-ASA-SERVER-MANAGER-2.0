@@ -248,7 +248,7 @@
     "statusLoading": "LOADING...",
     "statusPublic": "PUBLIC",
     "statusLan": "LAN",
-    "publicIpAddress": "Public IP Address"
+    "publicIpAddress": "Public IP Address",
   },
   "serverManager": {
     "title": "Server Manager",
@@ -477,7 +477,697 @@
     "configReset": "Configuration reset to defaults",
     "unsavedChanges": "You have unsaved changes",
     "playerStats": "Player Stat Multipliers",
-    "dinoStats": "Dino Stat Multipliers"
+    "dinoStats": "Dino Stat Multipliers",
+    "fields": {
+      "ServerName": {
+        "label": "Server Name",
+        "description": "The name of your server"
+      },
+      "Message": {
+        "label": "Message of the Day",
+        "description": "Message shown to players when they join. Use \\n for new lines."
+      },
+      "ServerPassword": {
+        "label": "Server Password",
+        "description": "Password required to join"
+      },
+      "ServerAdminPassword": {
+        "label": "Admin Password",
+        "description": "Password for admin access"
+      },
+      "MaxPlayers": {
+        "label": "Max Players",
+        "description": "Maximum number of players"
+      },
+      "MapName": {
+        "label": "Map",
+        "description": "The map to load"
+      },
+      "IPAddress": {
+        "label": "Server IP Address",
+        "description": "Bind server to specific IP address (leave empty for all interfaces)"
+      },
+      "RCONEnabled": {
+        "label": "RCON Enabled",
+        "description": "Enable remote console access for server management"
+      },
+      "Port": {
+        "label": "Game Port",
+        "description": "Main game port for player connections (default: 7777)"
+      },
+      "QueryPort": {
+        "label": "Query Port",
+        "description": "Port for server browser queries (default: 27015)"
+      },
+      "RCONPort": {
+        "label": "RCON Port",
+        "description": "Port for RCON connections (default: 27020)"
+      },
+      "ServerCrossplay": {
+        "label": "Enable Crossplay",
+        "description": "Allow Xbox, PlayStation, and PC players to join together"
+      },
+      "Culture": {
+        "label": "Server Language (Culture)",
+        "description": "Sets the in-game language/culture (appends -culture launch argument)"
+      },
+      "XPMultiplier": {
+        "label": "XP Multiplier",
+        "description": "Global XP gain rate from all sources"
+      },
+      "DifficultyOffset": {
+        "label": "Difficulty",
+        "description": "Server difficulty (affects max wild dino level)"
+      },
+      "OverrideOfficialDifficulty": {
+        "label": "Override Max Difficulty",
+        "description": "Override max wild dino level (5.0 = level 150)"
+      },
+      "HarvestAmountMultiplier": {
+        "label": "Harvest Amount",
+        "description": "Resource harvest amount multiplier"
+      },
+      "HarvestHealthMultiplier": {
+        "label": "Harvest Health",
+        "description": "Resource node health multiplier"
+      },
+      "ResourcesRespawnPeriodMultiplier": {
+        "label": "Resource Respawn",
+        "description": "Resource respawn rate (lower = faster)"
+      },
+      "TamingSpeedMultiplier": {
+        "label": "Taming Speed",
+        "description": "How fast creatures are tamed"
+      },
+      "DinoCharacterFoodDrainMultiplier": {
+        "label": "Dino Food Drain",
+        "description": "Dino food consumption rate"
+      },
+      "DinoCountMultiplier": {
+        "label": "Wild Dino Count",
+        "description": "Wild dino spawn density"
+      },
+      "DinoDamageMultiplier": {
+        "label": "Dino Damage",
+        "description": "Dino damage output"
+      },
+      "DinoResistanceMultiplier": {
+        "label": "Dino Resistance",
+        "description": "Dino damage resistance"
+      },
+      "PlayerDamageMultiplier": {
+        "label": "Player Damage",
+        "description": "Player damage output"
+      },
+      "PlayerResistanceMultiplier": {
+        "label": "Player Resistance",
+        "description": "Player damage resistance"
+      },
+      "PlayerCharacterWaterDrainMultiplier": {
+        "label": "Water Drain",
+        "description": "Water consumption rate"
+      },
+      "PlayerCharacterFoodDrainMultiplier": {
+        "label": "Food Drain",
+        "description": "Food consumption rate"
+      },
+      "PlayerCharacterStaminaDrainMultiplier": {
+        "label": "Stamina Drain",
+        "description": "Stamina consumption rate"
+      },
+      "PlayerCharacterHealthRecoveryMultiplier": {
+        "label": "Health Recovery",
+        "description": "Health regeneration rate"
+      },
+      "StructureResistanceMultiplier": {
+        "label": "Structure Resistance",
+        "description": "Structure damage resistance"
+      },
+      "StructureDamageMultiplier": {
+        "label": "Structure Damage",
+        "description": "Damage to structures"
+      },
+      "PvEStructureDecayPeriodMultiplier": {
+        "label": "Structure Decay Rate",
+        "description": "Structure decay period"
+      },
+      "AlwaysAllowStructurePickup": {
+        "label": "Allow Structure Pickup",
+        "description": "Allow picking up placed structures"
+      },
+      "DayTimeSpeedScale": {
+        "label": "Day Speed",
+        "description": "Daytime speed multiplier"
+      },
+      "NightTimeSpeedScale": {
+        "label": "Night Speed",
+        "description": "Nighttime speed multiplier"
+      },
+      "DayCycleSpeedScale": {
+        "label": "Day Cycle Speed",
+        "description": "Overall day/night cycle speed"
+      },
+      "ServerPVE": {
+        "label": "PvE Mode",
+        "description": "Enable PvE mode (no player damage)"
+      },
+      "AllowCaveBuildingPvE": {
+        "label": "Allow Cave Building",
+        "description": "Allow building inside caves"
+      },
+      "PreventTribeAlliances": {
+        "label": "Prevent Alliances",
+        "description": "Prevent tribe alliances"
+      },
+      "AllowFlyerCarryPvE": {
+        "label": "Allow Flyer Carry",
+        "description": "Allow flyers to carry players"
+      },
+      "EnablePvPGamma": {
+        "label": "Enable PvP Gamma",
+        "description": "Allow gamma adjustment in PvP"
+      },
+      "DisableFriendlyFire": {
+        "label": "Disable Friendly Fire",
+        "description": "Prevent tribe members hurting each other"
+      },
+      "PreventOfflinePvP": {
+        "label": "Prevent Offline PvP",
+        "description": "Protect structures and players when owners are offline"
+      },
+      "PreventOfflinePvPInterval": {
+        "label": "Offline Protection Delay (seconds)",
+        "description": "Delay before offline protection activates (0 = immediate)"
+      },
+      "GlobalVoiceChat": {
+        "label": "Global Voice Chat",
+        "description": "Voice chat is heard by everyone"
+      },
+      "ProximityChat": {
+        "label": "Proximity Text Chat",
+        "description": "Text chat only visible to nearby players"
+      },
+      "AlwaysNotifyPlayerLeft": {
+        "label": "Notify Player Left",
+        "description": "Show message when player leaves"
+      },
+      "AlwaysNotifyPlayerJoined": {
+        "label": "Notify Player Joined",
+        "description": "Show message when player joins"
+      },
+      "ServerCrosshair": {
+        "label": "Enable Crosshair",
+        "description": "Show crosshair"
+      },
+      "ShowMapPlayerLocation": {
+        "label": "Map Player Location",
+        "description": "Show player position on map"
+      },
+      "ShowFloatingDamageText": {
+        "label": "Floating Damage Text",
+        "description": "Show damage numbers"
+      },
+      "AllowThirdPersonPlayer": {
+        "label": "Allow Third Person",
+        "description": "Allow 3rd person camera"
+      },
+      "PreventDiseases": {
+        "label": "Prevent Diseases",
+        "description": "Disable disease system"
+      },
+      "NonPermanentDiseases": {
+        "label": "Non-Permanent Diseases",
+        "description": "Diseases cure on death"
+      },
+      "ForceAllStructureLocking": {
+        "label": "Force Lock Structures",
+        "description": "Auto-lock all containers"
+      },
+      "AllowCrateSpawnsOnTopOfStructures": {
+        "label": "Crates on Structures",
+        "description": "Allow supply crates on buildings"
+      },
+      "NoTributeDownloads": {
+        "label": "Disable Downloads",
+        "description": "Disable all downloads"
+      },
+      "PreventDownloadSurvivors": {
+        "label": "Block Survivor Downloads",
+        "description": "Prevent downloading characters"
+      },
+      "PreventDownloadItems": {
+        "label": "Block Item Downloads",
+        "description": "Prevent downloading items"
+      },
+      "PreventDownloadDinos": {
+        "label": "Block Dino Downloads",
+        "description": "Prevent downloading dinos"
+      },
+      "CrossARKAllowForeignDinoDownloads": {
+        "label": "Allow Foreign Dinos",
+        "description": "Allow dinos from other maps"
+      },
+      "AllowAnyoneBabyImprintCuddle": {
+        "label": "Anyone Can Imprint",
+        "description": "Allow any tribe member to imprint babies"
+      },
+      "DisableImprintDinoBuff": {
+        "label": "Disable Imprint Bonus",
+        "description": "Remove stat bonuses from imprinting"
+      },
+      "AllowRaidDinoFeeding": {
+        "label": "Allow Raid Dino Feeding",
+        "description": "Enable feeding for tamed raid dinos"
+      },
+      "DisableDinoDecayPvE": {
+        "label": "Disable Dino Decay (PvE)",
+        "description": "Prevent unclaimed dinos from decaying in PvE"
+      },
+      "AutoDestroyDecayedDinos": {
+        "label": "Auto-Destroy Decayed Dinos",
+        "description": "Automatically remove fully decayed dinos"
+      },
+      "DisableStructureDecayPvE": {
+        "label": "Disable Structure Decay",
+        "description": "Prevent structures from decaying"
+      },
+      "AutoDestroyOldStructuresMultiplier": {
+        "label": "Auto-Destroy Multiplier",
+        "description": "Auto-destroy abandoned structures (0=off)"
+      },
+      "FastDecayUnsnappedCoreStructures": {
+        "label": "Fast Decay Unsnapped",
+        "description": "Unsnapped foundations decay faster"
+      },
+      "OnlyDecayUnsnappedCoreStructures": {
+        "label": "Only Decay Unsnapped",
+        "description": "Only unsnapped structures decay"
+      },
+      "OnlyAutoDestroyCoreStructures": {
+        "label": "Only Auto-Destroy Core",
+        "description": "Only destroy foundations/pillars"
+      },
+      "DestroyUnconnectedWaterPipes": {
+        "label": "Destroy Unconnected Pipes",
+        "description": "Remove pipes not connected to water"
+      },
+      "AllowHitMarkers": {
+        "label": "Allow Hit Markers",
+        "description": "Show damage hit markers"
+      },
+      "AllowHideDamageSourceFromLogs": {
+        "label": "Hide Damage Source",
+        "description": "Hide damage source in tribe logs"
+      },
+      "AllowMultipleAttachedC4": {
+        "label": "Multiple C4",
+        "description": "Allow multiple C4 on same structure"
+      },
+      "DisablePvEGamma": {
+        "label": "Disable PvE Gamma",
+        "description": "Block gamma command in PvE"
+      },
+      "DisableWeatherFog": {
+        "label": "Disable Weather Fog",
+        "description": "Remove fog weather effects"
+      },
+      "MaxTamedDinos": {
+        "label": "Max Tamed Dinos",
+        "description": "Server-wide tame limit"
+      },
+      "MaxPersonalTamedDinos": {
+        "label": "Max Personal Dinos",
+        "description": "Per-player tame limit (0=unlimited)"
+      },
+      "MaxPlatformSaddleStructureLimit": {
+        "label": "Platform Saddle Limit",
+        "description": "Max structures on platform saddles"
+      },
+      "PerPlatformMaxStructuresMultiplier": {
+        "label": "Platform Structure Multiplier",
+        "description": "Multiplier for platform structure limits"
+      },
+      "MaxTributeItems": {
+        "label": "Max Tribute Items",
+        "description": "Max items in tribute inventory"
+      },
+      "MaxTributeDinos": {
+        "label": "Max Tribute Dinos",
+        "description": "Max dinos in tribute inventory"
+      },
+      "MaxTributeCharacters": {
+        "label": "Max Tribute Characters",
+        "description": "Max characters in tribute inventory"
+      },
+      "KickIdlePlayersPeriod": {
+        "label": "Kick Idle After (seconds)",
+        "description": "Kick players after idle time (0=disabled)"
+      },
+      "OverrideStructurePlatformPrevention": {
+        "label": "Override Platform Prevention",
+        "description": "Allow structures anywhere on platforms"
+      },
+      "AllowIntegratedSPlusStructures": {
+        "label": "Allow S+ Structures",
+        "description": "Enable Structures Plus features"
+      },
+      "ClampResourceHarvestDamage": {
+        "label": "Clamp Harvest Damage",
+        "description": "Limit harvest damage multipliers"
+      },
+      "ClampItemSpoilingTimes": {
+        "label": "Clamp Spoiling Times",
+        "description": "Limit spoiling time changes"
+      },
+      "ClampItemStats": {
+        "label": "Clamp Item Stats",
+        "description": "Limit item stat improvements"
+      },
+      "AutoSavePeriodMinutes": {
+        "label": "Auto-Save Interval (minutes)",
+        "description": "How often to auto-save"
+      },
+      "ItemStackSizeMultiplier": {
+        "label": "Stack Size Multiplier",
+        "description": "Multiply item stack sizes"
+      },
+      "bAutoUnlockAllEngrams": {
+        "label": "Auto-Unlock All Engrams",
+        "description": "Automatically unlock all engrams for players as they level up"
+      },
+      "bAllowUnlimitedRespecs": {
+        "label": "Unlimited Respecs",
+        "description": "Removes the cooldown timer for the Mindwipe Tonic"
+      },
+      "bAllowCustomRecipes": {
+        "label": "Allow Custom Recipes",
+        "description": "Allow players to create custom consumable recipes"
+      },
+      "CraftingSkillBonusMultiplier": {
+        "label": "Crafting Skill Bonus Multiplier",
+        "description": "Multiplier for crafting skill effects on custom recipe stats"
+      },
+      "OverrideNamedEngramEntries": {
+        "label": "Engram Overrides",
+        "description": "Override engram level requirements, point costs, or hide them entirely"
+      },
+      "ConfigOverrideItemCraftingCosts": {
+        "label": "Crafting Cost Overrides",
+        "description": "Override the resource costs to craft specific items"
+      },
+      "KillXPMultiplier": {
+        "label": "Kill XP Multiplier",
+        "description": "XP gained from killing creatures"
+      },
+      "HarvestXPMultiplier": {
+        "label": "Harvest XP Multiplier",
+        "description": "XP gained from harvesting resources"
+      },
+      "CraftXPMultiplier": {
+        "label": "Craft XP Multiplier",
+        "description": "XP gained from crafting items"
+      },
+      "GenericXPMultiplier": {
+        "label": "Generic XP Multiplier",
+        "description": "Multiplier for all other XP sources"
+      },
+      "SpecialXPMultiplier": {
+        "label": "Special XP Multiplier",
+        "description": "Multiplier for special events"
+      },
+      "EggHatchSpeedMultiplier": {
+        "label": "Egg Hatch Speed",
+        "description": "How fast eggs hatch"
+      },
+      "BabyMatureSpeedMultiplier": {
+        "label": "Baby Mature Speed",
+        "description": "How fast babies mature"
+      },
+      "BabyFoodConsumptionSpeedMultiplier": {
+        "label": "Baby Food Consumption",
+        "description": "Baby food consumption rate"
+      },
+      "BabyCuddleIntervalMultiplier": {
+        "label": "Cuddle Interval Multiplier",
+        "description": "Time between cuddle requests"
+      },
+      "BabyCuddleGracePeriodMultiplier": {
+        "label": "Cuddle Grace Period",
+        "description": "Extra time to complete cuddle"
+      },
+      "BabyCuddleLoseImprintQualitySpeedMultiplier": {
+        "label": "Lose Imprint Speed",
+        "description": "How fast imprint quality degrades if missed"
+      },
+      "BabyImprintAmountMultiplier": {
+        "label": "Imprint Amount Multiplier",
+        "description": "Amount of imprint per cuddle"
+      },
+      "BabyImprintingStatScaleMultiplier": {
+        "label": "Imprint Stat Bonus",
+        "description": "Stat bonus from imprinting"
+      },
+      "LayEggIntervalMultiplier": {
+        "label": "Lay Egg Interval",
+        "description": "Time between egg laying"
+      },
+      "GlobalSpoilingTimeMultiplier": {
+        "label": "Spoiling Time Multiplier",
+        "description": "How fast items spoil"
+      },
+      "GlobalItemDecompositionTimeMultiplier": {
+        "label": "Item Decomposition Time",
+        "description": "How fast dropped items despawn"
+      },
+      "GlobalCorpseDecompositionTimeMultiplier": {
+        "label": "Corpse Decomposition Time",
+        "description": "How fast corpses disappear"
+      },
+      "CropGrowthSpeedMultiplier": {
+        "label": "Crop Growth Speed",
+        "description": "How fast crops grow"
+      },
+      "CropDecaySpeedMultiplier": {
+        "label": "Crop Decay Speed",
+        "description": "How fast crops decay"
+      },
+      "bAllowSpeedLeveling": {
+        "label": "Allow Speed Leveling",
+        "description": "Allow leveling movement speed for players and land dinos"
+      },
+      "bAllowFlyerSpeedLeveling": {
+        "label": "Allow Flyer Speed Leveling",
+        "description": "Allow leveling movement speed on flyers"
+      },
+      "bDisableDinoTaming": {
+        "label": "Disable Taming",
+        "description": "Prevent all dino taming"
+      },
+      "bDisableDinoRiding": {
+        "label": "Disable Riding",
+        "description": "Prevent riding tamed dinos"
+      },
+      "bDisableDinoBreeding": {
+        "label": "Disable Breeding",
+        "description": "Prevent dino breeding"
+      },
+      "bUseSingleplayerSettings": {
+        "label": "Use Singleplayer Settings",
+        "description": "Apply singleplayer balancing adjustments"
+      },
+      "bPvEDisableFriendlyFire": {
+        "label": "PvE Disable Friendly Fire",
+        "description": "Prevent tribe members from hurting each other"
+      },
+      "bUseCorpseLocator": {
+        "label": "Use Corpse Locator",
+        "description": "Show death marker on map"
+      },
+      "MaxNumberOfPlayersInTribe": {
+        "label": "Max Tribe Members",
+        "description": "Maximum players per tribe (0=unlimited)"
+      },
+      "MaxTribeLogs": {
+        "label": "Max Tribe Logs",
+        "description": "Maximum tribe log entries"
+      },
+      "DinoTurretDamageMultiplier": {
+        "label": "Dino Turret Damage",
+        "description": "Damage dinos take from turrets"
+      },
+      "DinoHarvestingDamageMultiplier": {
+        "label": "Dino Harvesting Damage",
+        "description": "Harvesting damage multiplier for dinos"
+      },
+      "FishingLootQualityMultiplier": {
+        "label": "Fishing Loot Quality",
+        "description": "Quality of fishing loot"
+      },
+      "MatingIntervalMultiplier": {
+        "label": "Mating Interval",
+        "description": "Time between matings (lower = faster)"
+      },
+      "MaxAlliancesPerTribe": {
+        "label": "Max Alliances",
+        "description": "Maximum alliances per tribe"
+      },
+      "MaxTribesPerAlliance": {
+        "label": "Max Tribes Per Alliance",
+        "description": "Maximum tribes in an alliance"
+      },
+      "OverrideMaxExperiencePointsPlayer": {
+        "label": "Max Player XP",
+        "description": "Total XP required for max level"
+      },
+      "LevelExperienceRampOverrides": {
+        "label": "XP Ramp Override",
+        "description": "Custom XP curve (array)"
+      },
+      "OverridePlayerLevelEngramPoints": {
+        "label": "Engram Points Per Level",
+        "description": "Engram points granted for each level up. Enter one value per line."
+      },
+      "SupplyCrateLootQualityMultiplier": {
+        "label": "Supply Crate Quality",
+        "description": "Supply crate loot quality"
+      },
+      "PerDinoClassResistanceMultipliers": {
+        "label": "Dino Resistance Multipliers",
+        "description": "Adjust resistance for specific dino classes (lower = more resistant)"
+      },
+      "bDisableDinoDecayPvE": {
+        "label": "Disable Dino Decay",
+        "description": "Disable dino decay in PvE"
+      },
+      "bPassiveDefensesDamageRiderlessDinos": {
+        "label": "Spike Walls Damage Riderless Dinos",
+        "description": "Spike walls and passive defenses damage riderless/wild dinos"
+      },
+      "bDisableStructurePlacementCollision": {
+        "label": "Disable Placement Collision",
+        "description": "Allow overlapping structures"
+      }
+    },
+    "groups": {
+      "serverIdentity": {
+        "title": "Server Identity",
+        "description": "Basic server configuration"
+      },
+      "xpProgression": {
+        "title": "XP & Progression",
+        "description": "Experience and leveling settings"
+      },
+      "harvesting": {
+        "title": "Harvesting",
+        "description": "Resource gathering rates"
+      },
+      "taming": {
+        "title": "Taming",
+        "description": "Creature taming settings"
+      },
+      "dinoStats": {
+        "title": "Dino Stats",
+        "description": "Dinosaur stat multipliers"
+      },
+      "playerStats": {
+        "title": "Player Stats",
+        "description": "Player stat multipliers"
+      },
+      "structureSettings": {
+        "title": "Structure Settings",
+        "description": "Building and decay options"
+      },
+      "dayNightCycle": {
+        "title": "Day/Night Cycle",
+        "description": "Time and lighting settings"
+      },
+      "pvpPveMode": {
+        "title": "PvP / PvE Mode",
+        "description": "Player vs Player settings"
+      },
+      "chatHud": {
+        "title": "Chat & HUD",
+        "description": "Communication and display settings"
+      },
+      "rulesPrevention": {
+        "title": "Rules & Prevention",
+        "description": "Server rules and restrictions"
+      },
+      "transfers": {
+        "title": "Transfers",
+        "description": "Cross-ARK download settings"
+      },
+      "breedingImprinting": {
+        "title": "Breeding & Imprinting",
+        "description": "Baby care and imprinting mechanics"
+      },
+      "structureDecay": {
+        "title": "Structure Decay",
+        "description": "Building decay and auto-destruction"
+      },
+      "combatPvp": {
+        "title": "Combat & PvP",
+        "description": "Combat mechanics and PvP settings"
+      },
+      "serverLimits": {
+        "title": "Server Limits",
+        "description": "Tame limits and restrictions"
+      },
+      "qualityOfLife": {
+        "title": "Quality of Life",
+        "description": "Convenience and gameplay features"
+      },
+      "engramsCrafting": {
+        "title": "Engrams & Crafting",
+        "description": "Modify engram requirements and item crafting costs"
+      },
+      "breedingSpeed": {
+        "title": "Breeding Speed",
+        "description": "Egg hatching and baby maturation"
+      },
+      "spoilingDecay": {
+        "title": "Spoiling & Decay",
+        "description": "Item and corpse decay times"
+      },
+      "advancedGameplay": {
+        "title": "Advanced Gameplay",
+        "description": "Advanced server mechanics"
+      },
+      "matingImprinting": {
+        "title": "Mating & Imprinting",
+        "description": "Mating intervals and imprinting settings"
+      },
+      "tribeSettings": {
+        "title": "Tribe Settings",
+        "description": "Tribe size and governance"
+      },
+      "levelXpOverrides": {
+        "title": "Level & XP Overrides",
+        "description": "Advanced leveling configuration"
+      },
+      "lootQuality": {
+        "title": "Loot Quality",
+        "description": "Supply crate and loot settings"
+      },
+      "advancedOptions": {
+        "title": "Advanced Options",
+        "description": "Advanced gameplay tweaks"
+      }
+    },
+    "categories": {
+      "server": "Server",
+      "gameplay": "Gameplay",
+      "rules": "Rules",
+      "chat": "Chat & HUD",
+      "transfers": "Transfers",
+      "player": "Player",
+      "dino": "Dinosaurs",
+      "breeding": "Breeding",
+      "structure": "Structures",
+      "pvp": "PvP/PvE",
+      "advanced": "Advanced",
+      "engrams": "Engrams & Crafting"
+    }
   },
   "modManager": {
     "title": "Mod Manager",

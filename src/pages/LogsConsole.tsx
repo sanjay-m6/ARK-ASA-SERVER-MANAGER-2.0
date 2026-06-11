@@ -47,12 +47,22 @@ function parseLogLevel(line: string): 'info' | 'warning' | 'error' | 'debug' | '
 }
 
 function parseTimestamp(line: string): string {
-    // Try to extract timestamp from ARK log format: [2024.01.14-12.34.56:789]
-    const match = line.match(/\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}:\d{3})\]/);
+    // ARK log format: [YYYY.MM.DD-HH.MM.SS:mmm] — timestamps are local machine time
+    const match = line.match(/\[(\d{4})\.(\d{2})\.(\d{2})-(\d{2})\.(\d{2})\.(\d{2}):\d{3}\]/);
     if (match) {
-        return match[1].replace(/\./g, ':').replace('-', ' ');
+        const [, year, month, day, hour, min, sec] = match;
+        const local = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(min), Number(sec)));
+        return local.toLocaleString([], {
+            month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false,
+        });
     }
-    return new Date().toLocaleTimeString();
+    return new Date().toLocaleString([], {
+        month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
+    });
 }
 
 export default function LogsConsole() {
@@ -249,10 +259,10 @@ export default function LogsConsole() {
                     <p className="text-slate-400 mt-1">{t('logs.realTimeLogs')}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <ServerSelect 
-                        value={selectedServerId} 
-                        onChange={(id) => { setSelectedServerId(id); setLogs([]); }} 
-                        accentColor="emerald" 
+                    <ServerSelect
+                        value={selectedServerId}
+                        onChange={(id) => { setSelectedServerId(id); setLogs([]); }}
+                        accentColor="emerald"
                     />
                 </div>
             </div>
