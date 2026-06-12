@@ -248,7 +248,7 @@
     "statusLoading": "LOADING...",
     "statusPublic": "PUBLIC",
     "statusLan": "LAN",
-    "publicIpAddress": "Public IP Address",
+    "publicIpAddress": "Public IP Address"
   },
   "serverManager": {
     "title": "Server Manager",
