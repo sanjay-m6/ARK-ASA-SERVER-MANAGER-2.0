@@ -25,6 +25,58 @@ const DINO_STAT_TYPES = [
     { key: 'TamedAffinity', label: 'Tamed Affinity', description: 'Bonus based on taming effectiveness', prefix: 'PerLevelStatsMultiplier_DinoTamed_Affinity' },
 ];
 
+// Official (vanilla) per-level stat defaults. PerLevelStatsMultiplier in the INI
+// REPLACES the game's internal default rather than multiplying on top of it, so the
+// real "no change" value is the table below — NOT 1.0 for every cell. Only Health (0)
+// and Damage (8) differ from 1.0, and only for the tamed variants.
+// Source: ark.wiki.gg PerLevelStatsMultiplier default table. Wild = all 1.0.
+const OFFICIAL_DINO_DEFAULTS: Record<string, Record<number, number>> = {
+    Tamed: { 0: 0.2, 8: 0.17 },
+    TamedAdd: { 0: 0.14, 8: 0.14 },
+    TamedAffinity: { 0: 0.44, 8: 0.44 },
+};
+
+const officialDinoDefault = (type: string, statId: number): number =>
+    OFFICIAL_DINO_DEFAULTS[type]?.[statId] ?? 1.0;
+
+// Format a multiplier without losing precision (0.17) or trailing-zero noise (1.00 -> 1).
+const formatMult = (v: number): string => v.toFixed(2).replace(/\.?0+$/, '');
+
+type PresetKey = 'official' | 'uniform' | 'boosted' | 'pvp';
+
+// Flat value applied to every stat for the non-vanilla presets. "official" is handled
+// separately because its value is per-stat (see officialDinoDefault).
+const UNIFORM_PRESET_VALUES: Record<Exclude<PresetKey, 'official'>, number> = {
+    uniform: 1.0,
+    boosted: 2.0,
+    pvp: 1.5,
+};
+
+const PRESET_BUTTONS: { key: PresetKey; label: string; tone: 'slate' | 'green' | 'red'; title: string }[] = [
+    { key: 'official', label: 'Official', tone: 'slate', title: 'Restore real vanilla defaults (tamed Health 0.2x, Damage 0.17x, etc.)' },
+    { key: 'uniform', label: '1.0x', tone: 'slate', title: 'Set every stat to a flat 1.0x (not vanilla — a uniform baseline)' },
+    { key: 'boosted', label: 'Boosted 2x', tone: 'green', title: 'Double the per-level gain for every stat' },
+    { key: 'pvp', label: 'PvP 1.5x', tone: 'red', title: '1.5x per-level gain for every stat' },
+];
+
+// Button styling, with a distinct highlighted state when the preset is currently active.
+const presetButtonClass = (tone: 'slate' | 'green' | 'red', active: boolean): string => {
+    const base = 'px-3 py-1.5 rounded-lg text-xs font-medium transition-all';
+    if (tone === 'green') {
+        return cn(base, active
+            ? 'bg-green-500/30 text-green-200 ring-1 ring-green-400/60'
+            : 'bg-green-500/20 text-green-400 hover:bg-green-500/30');
+    }
+    if (tone === 'red') {
+        return cn(base, active
+            ? 'bg-red-500/30 text-red-200 ring-1 ring-red-400/60'
+            : 'bg-red-500/20 text-red-400 hover:bg-red-500/30');
+    }
+    return cn(base, active
+        ? 'bg-slate-600 text-white ring-1 ring-cyan-400/60'
+        : 'bg-slate-700 text-slate-300 hover:bg-slate-600');
+};
+
 interface StatMultiplierEditorProps {
     getValue: (source: 'GameUserSettings' | 'Game', section: string, key: string, defaultValue?: string) => string;
     setValue: (source: 'GameUserSettings' | 'Game', section: string, key: string, value: string) => void;
@@ -43,20 +95,21 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
 
     const setPlayerStat = (statId: number, value: number) => {
         const key = `PerLevelStatsMultiplier_Player[${statId}]`;
-        setValue('Game', '/Script/ShooterGame.ShooterGameMode', key, value.toFixed(1));
+        setValue('Game', '/Script/ShooterGame.ShooterGameMode', key, formatMult(value));
     };
 
     // Get/set dino stat multiplier
     const getDinoStat = (statId: number, type: string) => {
         const prefix = DINO_STAT_TYPES.find(t => t.key === type)?.prefix || 'PerLevelStatsMultiplier_DinoWild';
         const key = `${prefix}[${statId}]`;
-        return parseFloat(getValue('Game', '/Script/ShooterGame.ShooterGameMode', key, '1.0')) || 1.0;
+        const def = officialDinoDefault(type, statId);
+        return parseFloat(getValue('Game', '/Script/ShooterGame.ShooterGameMode', key, def.toString())) || def;
     };
 
     const setDinoStat = (statId: number, type: string, value: number) => {
         const prefix = DINO_STAT_TYPES.find(t => t.key === type)?.prefix || 'PerLevelStatsMultiplier_DinoWild';
         const key = `${prefix}[${statId}]`;
-        setValue('Game', '/Script/ShooterGame.ShooterGameMode', key, value.toFixed(1));
+        setValue('Game', '/Script/ShooterGame.ShooterGameMode', key, formatMult(value));
     };
 
     const toggleStat = (statId: number) => {
@@ -69,25 +122,33 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
         setExpandedStats(newExpanded);
     };
 
-    // Apply preset multipliers
-    const applyPreset = (preset: 'official' | 'boosted' | 'pvp') => {
-        const multipliers = {
-            official: 1.0,
-            boosted: 2.0,
-            pvp: 1.5,
-        };
-        const value = multipliers[preset];
+    // The value a given preset expects for one stat in the current view.
+    // "official" is per-stat/type (vanilla); the others are a flat multiplier.
+    const expectedPresetValue = (preset: PresetKey, statId: number): number =>
+        preset === 'official'
+            ? (activeTab === 'player' ? 1.0 : officialDinoDefault(activeDinoType, statId))
+            : UNIFORM_PRESET_VALUES[preset];
 
-        if (activeTab === 'player') {
-            PLAYER_STATS.forEach(stat => {
+    // Apply preset multipliers across every stat in the current view.
+    const applyPreset = (preset: PresetKey) => {
+        PLAYER_STATS.forEach(stat => {
+            const value = expectedPresetValue(preset, stat.id);
+            if (activeTab === 'player') {
                 setPlayerStat(stat.id, value);
-            });
-        } else {
-            PLAYER_STATS.forEach(stat => {
+            } else {
                 setDinoStat(stat.id, activeDinoType, value);
-            });
-        }
+            }
+        });
     };
+
+    // The preset (if any) the current values already match — used to highlight the button.
+    const activePreset: PresetKey | null = (() => {
+        const current = (statId: number) =>
+            activeTab === 'player' ? getPlayerStat(statId) : getDinoStat(statId, activeDinoType);
+        const matches = (preset: PresetKey) =>
+            PLAYER_STATS.every(s => Math.abs(current(s.id) - expectedPresetValue(preset, s.id)) < 1e-6);
+        return PRESET_BUTTONS.find(b => matches(b.key))?.key ?? null;
+    })();
 
     const renderStatSlider = (
         statId: number,
@@ -135,7 +196,7 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
                                     value > 1.0 ? "bg-green-500/20 text-green-400" :
                                         "bg-red-500/20 text-red-400"
                             )}>
-                                {value.toFixed(1)}x
+                                {formatMult(value)}x
                             </div>
                         )}
                         {!isDisabled && (isExpanded ? (
@@ -222,30 +283,24 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
                 </div>
 
                 {/* Preset buttons */}
-                <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Presets:</span>
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                    <span className="text-xs text-slate-500 mr-0.5">Presets:</span>
+                    {PRESET_BUTTONS.map(btn => (
+                        <button
+                            key={btn.key}
+                            onClick={() => applyPreset(btn.key)}
+                            title={btn.title}
+                            aria-pressed={activePreset === btn.key}
+                            className={presetButtonClass(btn.tone, activePreset === btn.key)}
+                        >
+                            {btn.label}
+                        </button>
+                    ))}
+                    <span className="w-px h-5 bg-slate-700 mx-0.5" aria-hidden="true" />
                     <button
                         onClick={() => applyPreset('official')}
-                        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-medium transition-colors"
-                    >
-                        Official
-                    </button>
-                    <button
-                        onClick={() => applyPreset('boosted')}
-                        className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-medium transition-colors"
-                    >
-                        Boosted
-                    </button>
-                    <button
-                        onClick={() => applyPreset('pvp')}
-                        className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors"
-                    >
-                        PvP Meta
-                    </button>
-                    <button
-                        onClick={() => applyPreset('official')}
-                        className="p-1.5 bg-slate-700 hover:bg-slate-600 text-slate-400 rounded-lg transition-colors"
-                        title="Reset All"
+                        className="p-1.5 bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-slate-200 rounded-lg transition-colors"
+                        title="Reset all to Official (vanilla) defaults"
                     >
                         <RotateCcw className="w-4 h-4" />
                     </button>
@@ -296,9 +351,10 @@ export default function StatMultiplierEditor({ getValue, setValue }: StatMultipl
             <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700/50">
                 <h4 className="text-sm font-medium text-slate-300 mb-2">💡 How Per-Stat Multipliers Work</h4>
                 <ul className="text-xs text-slate-500 space-y-1">
-                    <li>• <strong className="text-slate-400">1.0x</strong> = Official/default rates</li>
-                    <li>• <strong className="text-green-400">Above 1.0x</strong> = More points per level</li>
-                    <li>• <strong className="text-red-400">Below 1.0x</strong> = Fewer points per level</li>
+                    <li>• <strong className="text-green-400">Above 1.0x</strong> = more points per level</li>
+                    <li>• <strong className="text-red-400">Below 1.0x</strong> = fewer points per level</li>
+                    <li>• <strong className="text-slate-300">1.0x</strong> = flat uniform baseline for every stat (not the same as vanilla)</li>
+                    <li>• <strong className="text-slate-300">Official</strong> = real vanilla defaults (e.g. tamed Health 0.2x, Damage 0.17x)</li>
                     <li>• Changes are written to <code className="text-purple-400">Game.ini</code></li>
                 </ul>
             </div>
