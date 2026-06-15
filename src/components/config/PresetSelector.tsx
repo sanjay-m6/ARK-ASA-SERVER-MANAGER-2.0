@@ -25,6 +25,8 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
     const [saveName, setSaveName] = useState('');
     const [saveDesc, setSaveDesc] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
 
     useEffect(() => {
         setCustomPresets(getCustomPresets());
@@ -73,7 +75,14 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
     return (
         <div className="relative">
             <button
-                onClick={() => setIsOpen(!isOpen)}
+                ref={buttonRef}
+                onClick={() => {
+                    if (!isOpen && buttonRef.current) {
+                        const rect = buttonRef.current.getBoundingClientRect();
+                        setDropdownPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                    }
+                    setIsOpen(!isOpen);
+                }}
                 className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-sm text-slate-200 transition-all shadow-sm"
             >
                 <Sparkles className="w-4 h-4 text-purple-400" />
@@ -94,10 +103,13 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
             {isOpen && (
                 <>
                     {/* Backdrop */}
-                    <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+                    <div className="fixed inset-0 z-[60]" onClick={() => setIsOpen(false)} />
 
-                    {/* Dropdown */}
-                    <div className="absolute top-full mt-2 right-0 z-50 w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl overflow-hidden">
+                    {/* Dropdown — fixed so it escapes overflow:hidden ancestors */}
+                    <div
+                        className="fixed z-[70] w-80 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl overflow-hidden"
+                        style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                    >
                         {/* Header with actions */}
                         <div className="p-2 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
                             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Quick Apply</h3>

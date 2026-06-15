@@ -478,7 +478,697 @@
       "title": "沒有找到設定",
       "description": "嘗試搜尋“{{query}}”"
     },
-    "gusIni": "GameUserSettings.ini"
+    "gusIni": "GameUserSettings.ini",
+    "fields": {
+      "ServerName": {
+        "label": "伺服器名稱",
+        "description": "伺服器的名稱"
+      },
+      "Message": {
+        "label": "每日訊息",
+        "description": "玩家加入時顯示的訊息，使用 \\n 換行"
+      },
+      "ServerPassword": {
+        "label": "伺服器密碼",
+        "description": "加入伺服器所需的密碼"
+      },
+      "ServerAdminPassword": {
+        "label": "管理員密碼",
+        "description": "管理員存取密碼"
+      },
+      "MaxPlayers": {
+        "label": "最大玩家數",
+        "description": "最大玩家人數"
+      },
+      "MapName": {
+        "label": "地圖",
+        "description": "要載入的地圖"
+      },
+      "IPAddress": {
+        "label": "伺服器 IP 位址",
+        "description": "綁定到特定 IP 位址（留空則使用所有介面）"
+      },
+      "RCONEnabled": {
+        "label": "啟用 RCON",
+        "description": "啟用遠端控制台以管理伺服器"
+      },
+      "Port": {
+        "label": "遊戲連接埠",
+        "description": "玩家連線的主要遊戲連接埠（預設：7777）"
+      },
+      "QueryPort": {
+        "label": "查詢連接埠",
+        "description": "伺服器瀏覽器查詢的連接埠（預設：27015）"
+      },
+      "RCONPort": {
+        "label": "RCON 連接埠",
+        "description": "RCON 連線的連接埠（預設：27020）"
+      },
+      "ServerCrossplay": {
+        "label": "啟用跨平台",
+        "description": "允許 Xbox、PlayStation 和 PC 玩家一起遊玩"
+      },
+      "Culture": {
+        "label": "伺服器語言（文化）",
+        "description": "設定遊戲內語言（附加 -culture 啟動參數）"
+      },
+      "XPMultiplier": {
+        "label": "經驗值倍率",
+        "description": "所有來源的全域經驗值獲取速率"
+      },
+      "DifficultyOffset": {
+        "label": "難度",
+        "description": "伺服器難度（影響野生恐龍最高等級）"
+      },
+      "OverrideOfficialDifficulty": {
+        "label": "覆蓋最大難度",
+        "description": "覆蓋野生恐龍最高等級（5.0 = 等級 150）"
+      },
+      "HarvestAmountMultiplier": {
+        "label": "採集數量",
+        "description": "資源採集數量倍率"
+      },
+      "HarvestHealthMultiplier": {
+        "label": "採集健康值",
+        "description": "資源節點健康值倍率"
+      },
+      "ResourcesRespawnPeriodMultiplier": {
+        "label": "資源重生",
+        "description": "資源重生速率（越低越快）"
+      },
+      "TamingSpeedMultiplier": {
+        "label": "馴服速度",
+        "description": "馴服生物的速度"
+      },
+      "DinoCharacterFoodDrainMultiplier": {
+        "label": "恐龍食物消耗",
+        "description": "恐龍食物消耗速率"
+      },
+      "DinoCountMultiplier": {
+        "label": "野生恐龍數量",
+        "description": "野生恐龍生成密度"
+      },
+      "DinoDamageMultiplier": {
+        "label": "恐龍傷害",
+        "description": "恐龍傷害輸出"
+      },
+      "DinoResistanceMultiplier": {
+        "label": "恐龍抗性",
+        "description": "恐龍傷害抗性"
+      },
+      "PlayerDamageMultiplier": {
+        "label": "玩家傷害",
+        "description": "玩家傷害輸出"
+      },
+      "PlayerResistanceMultiplier": {
+        "label": "玩家抗性",
+        "description": "玩家傷害抗性"
+      },
+      "PlayerCharacterWaterDrainMultiplier": {
+        "label": "水分消耗",
+        "description": "水分消耗速率"
+      },
+      "PlayerCharacterFoodDrainMultiplier": {
+        "label": "食物消耗",
+        "description": "食物消耗速率"
+      },
+      "PlayerCharacterStaminaDrainMultiplier": {
+        "label": "耐力消耗",
+        "description": "耐力消耗速率"
+      },
+      "PlayerCharacterHealthRecoveryMultiplier": {
+        "label": "生命回復",
+        "description": "生命值再生速率"
+      },
+      "StructureResistanceMultiplier": {
+        "label": "建築抗性",
+        "description": "建築傷害抗性"
+      },
+      "StructureDamageMultiplier": {
+        "label": "建築傷害",
+        "description": "對建築的傷害"
+      },
+      "PvEStructureDecayPeriodMultiplier": {
+        "label": "建築腐朽速率",
+        "description": "建築腐朽週期"
+      },
+      "AlwaysAllowStructurePickup": {
+        "label": "允許拾取建築",
+        "description": "允許拾取已放置的建築"
+      },
+      "DayTimeSpeedScale": {
+        "label": "白天速度",
+        "description": "白天速度倍率"
+      },
+      "NightTimeSpeedScale": {
+        "label": "夜晚速度",
+        "description": "夜晚速度倍率"
+      },
+      "DayCycleSpeedScale": {
+        "label": "日夜循環速度",
+        "description": "整體日夜循環速度"
+      },
+      "ServerPVE": {
+        "label": "PvE 模式",
+        "description": "啟用 PvE 模式（禁止玩家傷害）"
+      },
+      "AllowCaveBuildingPvE": {
+        "label": "允許洞穴建築",
+        "description": "允許在洞穴內建造"
+      },
+      "PreventTribeAlliances": {
+        "label": "禁止部落聯盟",
+        "description": "防止部落聯盟"
+      },
+      "AllowFlyerCarryPvE": {
+        "label": "允許飛行抓取",
+        "description": "允許飛行生物攜帶玩家"
+      },
+      "EnablePvPGamma": {
+        "label": "啟用 PvP Gamma",
+        "description": "允許在 PvP 中調整 Gamma"
+      },
+      "DisableFriendlyFire": {
+        "label": "禁止友軍傷害",
+        "description": "防止部落成員互相傷害"
+      },
+      "PreventOfflinePvP": {
+        "label": "防止離線 PvP",
+        "description": "當擁有者離線時保護建築和玩家"
+      },
+      "PreventOfflinePvPInterval": {
+        "label": "離線保護延遲（秒）",
+        "description": "離線保護啟動前的延遲（0 = 立即）"
+      },
+      "GlobalVoiceChat": {
+        "label": "全域語音聊天",
+        "description": "所有人都能聽到語音聊天"
+      },
+      "ProximityChat": {
+        "label": "近距離文字聊天",
+        "description": "文字聊天僅對附近玩家可見"
+      },
+      "AlwaysNotifyPlayerLeft": {
+        "label": "通知玩家離開",
+        "description": "玩家離開時顯示訊息"
+      },
+      "AlwaysNotifyPlayerJoined": {
+        "label": "通知玩家加入",
+        "description": "玩家加入時顯示訊息"
+      },
+      "ServerCrosshair": {
+        "label": "啟用準心",
+        "description": "顯示準心"
+      },
+      "ShowMapPlayerLocation": {
+        "label": "地圖玩家位置",
+        "description": "在地圖上顯示玩家位置"
+      },
+      "ShowFloatingDamageText": {
+        "label": "浮動傷害數字",
+        "description": "顯示傷害數字"
+      },
+      "AllowThirdPersonPlayer": {
+        "label": "允許第三人稱",
+        "description": "允許第三人稱視角"
+      },
+      "PreventDiseases": {
+        "label": "防止疾病",
+        "description": "停用疾病系統"
+      },
+      "NonPermanentDiseases": {
+        "label": "非永久疾病",
+        "description": "死亡後疾病消除"
+      },
+      "ForceAllStructureLocking": {
+        "label": "強制鎖定建築",
+        "description": "自動鎖定所有容器"
+      },
+      "AllowCrateSpawnsOnTopOfStructures": {
+        "label": "建築上的補給箱",
+        "description": "允許補給箱出現在建築上"
+      },
+      "NoTributeDownloads": {
+        "label": "禁用下載",
+        "description": "禁止所有下載"
+      },
+      "PreventDownloadSurvivors": {
+        "label": "封鎖生存者下載",
+        "description": "禁止下載角色"
+      },
+      "PreventDownloadItems": {
+        "label": "封鎖物品下載",
+        "description": "禁止下載物品"
+      },
+      "PreventDownloadDinos": {
+        "label": "封鎖恐龍下載",
+        "description": "禁止下載恐龍"
+      },
+      "CrossARKAllowForeignDinoDownloads": {
+        "label": "允許外來恐龍",
+        "description": "允許來自其他地圖的恐龍"
+      },
+      "AllowAnyoneBabyImprintCuddle": {
+        "label": "任何人可印記",
+        "description": "允許任何部落成員對幼崽進行印記"
+      },
+      "DisableImprintDinoBuff": {
+        "label": "禁用印記加成",
+        "description": "移除印記的屬性加成"
+      },
+      "AllowRaidDinoFeeding": {
+        "label": "允許攻城恐龍餵食",
+        "description": "啟用馴服攻城恐龍的餵食功能"
+      },
+      "DisableDinoDecayPvE": {
+        "label": "禁用恐龍腐朽（PvE）",
+        "description": "防止未認領的恐龍在 PvE 中腐朽"
+      },
+      "AutoDestroyDecayedDinos": {
+        "label": "自動摧毀腐朽恐龍",
+        "description": "自動移除完全腐朽的恐龍"
+      },
+      "DisableStructureDecayPvE": {
+        "label": "禁用建築腐朽",
+        "description": "防止建築腐朽"
+      },
+      "AutoDestroyOldStructuresMultiplier": {
+        "label": "自動摧毀倍率",
+        "description": "自動摧毀廢棄建築（0=關閉）"
+      },
+      "FastDecayUnsnappedCoreStructures": {
+        "label": "快速腐朽未連接建築",
+        "description": "未連接的地基腐朽更快"
+      },
+      "OnlyDecayUnsnappedCoreStructures": {
+        "label": "僅腐朽未連接建築",
+        "description": "只有未連接的建築會腐朽"
+      },
+      "OnlyAutoDestroyCoreStructures": {
+        "label": "僅自動摧毀核心建築",
+        "description": "只摧毀地基和柱子"
+      },
+      "DestroyUnconnectedWaterPipes": {
+        "label": "摧毀未連接水管",
+        "description": "移除未連接到水源的水管"
+      },
+      "AllowHitMarkers": {
+        "label": "允許命中標記",
+        "description": "顯示傷害命中標記"
+      },
+      "AllowHideDamageSourceFromLogs": {
+        "label": "隱藏傷害來源",
+        "description": "在部落記錄中隱藏傷害來源"
+      },
+      "AllowMultipleAttachedC4": {
+        "label": "多個 C4",
+        "description": "允許在同一建築上放置多個 C4"
+      },
+      "DisablePvEGamma": {
+        "label": "禁用 PvE Gamma",
+        "description": "在 PvE 中封鎖 gamma 指令"
+      },
+      "DisableWeatherFog": {
+        "label": "禁用天氣霧效",
+        "description": "移除霧氣天氣效果"
+      },
+      "MaxTamedDinos": {
+        "label": "最大馴服恐龍數",
+        "description": "伺服器整體馴服上限"
+      },
+      "MaxPersonalTamedDinos": {
+        "label": "個人最大恐龍數",
+        "description": "每位玩家的馴服上限（0=無限）"
+      },
+      "MaxPlatformSaddleStructureLimit": {
+        "label": "平台鞍具上限",
+        "description": "平台鞍具上的最大建築數量"
+      },
+      "PerPlatformMaxStructuresMultiplier": {
+        "label": "平台建築倍率",
+        "description": "平台建築限制的倍率"
+      },
+      "MaxTributeItems": {
+        "label": "最大貢品物品數",
+        "description": "貢品庫存中的最大物品數量"
+      },
+      "MaxTributeDinos": {
+        "label": "最大貢品恐龍數",
+        "description": "貢品庫存中的最大恐龍數量"
+      },
+      "MaxTributeCharacters": {
+        "label": "最大貢品角色數",
+        "description": "貢品庫存中的最大角色數量"
+      },
+      "KickIdlePlayersPeriod": {
+        "label": "踢除閒置玩家（秒）",
+        "description": "閒置後踢除玩家（0=停用）"
+      },
+      "OverrideStructurePlatformPrevention": {
+        "label": "覆蓋平台限制",
+        "description": "允許在平台任何位置建造"
+      },
+      "AllowIntegratedSPlusStructures": {
+        "label": "允許 S+ 建築",
+        "description": "啟用 Structures Plus 功能"
+      },
+      "ClampResourceHarvestDamage": {
+        "label": "限制採集傷害",
+        "description": "限制採集傷害倍率"
+      },
+      "ClampItemSpoilingTimes": {
+        "label": "限制腐敗時間",
+        "description": "限制腐敗時間變更"
+      },
+      "ClampItemStats": {
+        "label": "限制物品屬性",
+        "description": "限制物品屬性提升"
+      },
+      "AutoSavePeriodMinutes": {
+        "label": "自動儲存間隔（分鐘）",
+        "description": "自動儲存的頻率"
+      },
+      "ItemStackSizeMultiplier": {
+        "label": "堆疊數量倍率",
+        "description": "倍增物品堆疊數量"
+      },
+      "bAutoUnlockAllEngrams": {
+        "label": "自動解鎖所有配方",
+        "description": "玩家升級時自動解鎖所有配方"
+      },
+      "bAllowUnlimitedRespecs": {
+        "label": "無限重置",
+        "description": "移除心智淨化藥水的冷卻時間"
+      },
+      "bAllowCustomRecipes": {
+        "label": "允許自訂配方",
+        "description": "允許玩家建立自訂消耗品配方"
+      },
+      "CraftingSkillBonusMultiplier": {
+        "label": "製作技能加成倍率",
+        "description": "製作技能對自訂配方屬性的效果倍率"
+      },
+      "OverrideNamedEngramEntries": {
+        "label": "配方覆蓋",
+        "description": "覆蓋配方等級需求、點數成本或完全隱藏"
+      },
+      "ConfigOverrideItemCraftingCosts": {
+        "label": "製作成本覆蓋",
+        "description": "覆蓋特定物品的製作資源成本"
+      },
+      "KillXPMultiplier": {
+        "label": "擊殺經驗值倍率",
+        "description": "擊殺生物獲得的經驗值"
+      },
+      "HarvestXPMultiplier": {
+        "label": "採集經驗值倍率",
+        "description": "採集資源獲得的經驗值"
+      },
+      "CraftXPMultiplier": {
+        "label": "製作經驗值倍率",
+        "description": "製作物品獲得的經驗值"
+      },
+      "GenericXPMultiplier": {
+        "label": "通用經驗值倍率",
+        "description": "所有其他經驗值來源的倍率"
+      },
+      "SpecialXPMultiplier": {
+        "label": "特殊經驗值倍率",
+        "description": "特殊事件的倍率"
+      },
+      "EggHatchSpeedMultiplier": {
+        "label": "孵化速度",
+        "description": "蛋孵化的速度"
+      },
+      "BabyMatureSpeedMultiplier": {
+        "label": "幼崽成長速度",
+        "description": "幼崽成長的速度"
+      },
+      "BabyFoodConsumptionSpeedMultiplier": {
+        "label": "幼崽食物消耗",
+        "description": "幼崽食物消耗速率"
+      },
+      "BabyCuddleIntervalMultiplier": {
+        "label": "撫摸間隔倍率",
+        "description": "撫摸請求之間的時間"
+      },
+      "BabyCuddleGracePeriodMultiplier": {
+        "label": "撫摸寬限期",
+        "description": "完成撫摸的額外時間"
+      },
+      "BabyCuddleLoseImprintQualitySpeedMultiplier": {
+        "label": "失去印記速度",
+        "description": "錯過撫摸後印記品質下降的速度"
+      },
+      "BabyImprintAmountMultiplier": {
+        "label": "印記量倍率",
+        "description": "每次撫摸的印記量"
+      },
+      "BabyImprintingStatScaleMultiplier": {
+        "label": "印記屬性加成",
+        "description": "印記的屬性加成"
+      },
+      "LayEggIntervalMultiplier": {
+        "label": "產蛋間隔",
+        "description": "產蛋之間的時間"
+      },
+      "GlobalSpoilingTimeMultiplier": {
+        "label": "腐敗時間倍率",
+        "description": "物品腐敗的速度"
+      },
+      "GlobalItemDecompositionTimeMultiplier": {
+        "label": "物品分解時間",
+        "description": "掉落物品消失的速度"
+      },
+      "GlobalCorpseDecompositionTimeMultiplier": {
+        "label": "屍體分解時間",
+        "description": "屍體消失的速度"
+      },
+      "CropGrowthSpeedMultiplier": {
+        "label": "作物生長速度",
+        "description": "作物生長的速度"
+      },
+      "CropDecaySpeedMultiplier": {
+        "label": "作物腐朽速度",
+        "description": "作物腐朽的速度"
+      },
+      "bAllowSpeedLeveling": {
+        "label": "允許速度升級",
+        "description": "允許玩家和陸地恐龍升級移動速度"
+      },
+      "bAllowFlyerSpeedLeveling": {
+        "label": "允許飛行速度升級",
+        "description": "允許飛行生物升級移動速度"
+      },
+      "bDisableDinoTaming": {
+        "label": "禁止馴服",
+        "description": "禁止所有恐龍馴服"
+      },
+      "bDisableDinoRiding": {
+        "label": "禁止騎乘",
+        "description": "禁止騎乘馴服的恐龍"
+      },
+      "bDisableDinoBreeding": {
+        "label": "禁止繁殖",
+        "description": "禁止恐龍繁殖"
+      },
+      "bUseSingleplayerSettings": {
+        "label": "使用單人遊戲設定",
+        "description": "套用單人遊戲平衡調整"
+      },
+      "bPvEDisableFriendlyFire": {
+        "label": "PvE 禁用友軍傷害",
+        "description": "防止部落成員互相傷害"
+      },
+      "bUseCorpseLocator": {
+        "label": "使用屍體定位",
+        "description": "在地圖上顯示死亡標記"
+      },
+      "MaxNumberOfPlayersInTribe": {
+        "label": "部落最大成員數",
+        "description": "每個部落的最大玩家數（0=無限）"
+      },
+      "MaxTribeLogs": {
+        "label": "最大部落記錄數",
+        "description": "最大部落記錄條目數"
+      },
+      "DinoTurretDamageMultiplier": {
+        "label": "恐龍砲塔傷害",
+        "description": "恐龍受到砲塔的傷害"
+      },
+      "DinoHarvestingDamageMultiplier": {
+        "label": "恐龍採集傷害",
+        "description": "恐龍的採集傷害倍率"
+      },
+      "FishingLootQualityMultiplier": {
+        "label": "釣魚戰利品品質",
+        "description": "釣魚戰利品的品質"
+      },
+      "MatingIntervalMultiplier": {
+        "label": "交配間隔",
+        "description": "交配之間的時間（越低越快）"
+      },
+      "MaxAlliancesPerTribe": {
+        "label": "最大聯盟數",
+        "description": "每個部落的最大聯盟數量"
+      },
+      "MaxTribesPerAlliance": {
+        "label": "每個聯盟最大部落數",
+        "description": "聯盟中的最大部落數量"
+      },
+      "OverrideMaxExperiencePointsPlayer": {
+        "label": "最大玩家經驗值",
+        "description": "達到最高等級所需的總經驗值"
+      },
+      "LevelExperienceRampOverrides": {
+        "label": "經驗值曲線覆蓋",
+        "description": "自訂經驗值曲線（陣列）"
+      },
+      "OverridePlayerLevelEngramPoints": {
+        "label": "每級配方點數",
+        "description": "每次升級獲得的配方點數，每行輸入一個值"
+      },
+      "SupplyCrateLootQualityMultiplier": {
+        "label": "補給箱品質",
+        "description": "補給箱戰利品品質"
+      },
+      "PerDinoClassResistanceMultipliers": {
+        "label": "恐龍抗性倍率",
+        "description": "調整特定恐龍類型的抗性（越低越耐打）"
+      },
+      "bDisableDinoDecayPvE": {
+        "label": "禁用恐龍腐朽",
+        "description": "在 PvE 中禁用恐龍腐朽"
+      },
+      "bPassiveDefensesDamageRiderlessDinos": {
+        "label": "尖刺牆傷害無騎手恐龍",
+        "description": "尖刺牆和被動防禦會傷害無騎手/野生恐龍"
+      },
+      "bDisableStructurePlacementCollision": {
+        "label": "禁用放置碰撞",
+        "description": "允許建築重疊放置"
+      }
+    },
+    "groups": {
+      "serverIdentity": {
+        "title": "伺服器基本設定",
+        "description": "基本伺服器設定"
+      },
+      "xpProgression": {
+        "title": "經驗值與進度",
+        "description": "經驗值與等級設定"
+      },
+      "harvesting": {
+        "title": "採集",
+        "description": "資源採集速率"
+      },
+      "taming": {
+        "title": "馴服",
+        "description": "生物馴服設定"
+      },
+      "dinoStats": {
+        "title": "恐龍屬性",
+        "description": "恐龍屬性倍率"
+      },
+      "playerStats": {
+        "title": "玩家屬性",
+        "description": "玩家屬性倍率"
+      },
+      "structureSettings": {
+        "title": "建築設定",
+        "description": "建築與腐朽選項"
+      },
+      "dayNightCycle": {
+        "title": "日夜循環",
+        "description": "時間與光線設定"
+      },
+      "pvpPveMode": {
+        "title": "PvP / PvE 模式",
+        "description": "玩家對玩家設定"
+      },
+      "chatHud": {
+        "title": "聊天與介面",
+        "description": "溝通與顯示設定"
+      },
+      "rulesPrevention": {
+        "title": "規則與限制",
+        "description": "伺服器規則與限制"
+      },
+      "transfers": {
+        "title": "傳送",
+        "description": "跨 ARK 下載設定"
+      },
+      "breedingImprinting": {
+        "title": "繁殖與印記",
+        "description": "幼崽照顧與印記機制"
+      },
+      "structureDecay": {
+        "title": "建築腐朽",
+        "description": "建築腐朽與自動摧毀"
+      },
+      "combatPvp": {
+        "title": "戰鬥與 PvP",
+        "description": "戰鬥機制與 PvP 設定"
+      },
+      "serverLimits": {
+        "title": "伺服器限制",
+        "description": "馴服上限與其他限制"
+      },
+      "qualityOfLife": {
+        "title": "遊戲品質",
+        "description": "便利性與遊戲功能"
+      },
+      "engramsCrafting": {
+        "title": "配方與製作",
+        "description": "修改配方需求與製作成本"
+      },
+      "breedingSpeed": {
+        "title": "繁殖速度",
+        "description": "孵化與幼崽成長"
+      },
+      "spoilingDecay": {
+        "title": "腐敗與分解",
+        "description": "物品與屍體消失時間"
+      },
+      "advancedGameplay": {
+        "title": "進階遊戲",
+        "description": "進階伺服器機制"
+      },
+      "matingImprinting": {
+        "title": "交配與印記",
+        "description": "交配間隔與印記設定"
+      },
+      "tribeSettings": {
+        "title": "部落設定",
+        "description": "部落規模與管理"
+      },
+      "levelXpOverrides": {
+        "title": "等級與經驗覆蓋",
+        "description": "進階等級設定"
+      },
+      "lootQuality": {
+        "title": "戰利品品質",
+        "description": "補給箱與戰利品設定"
+      },
+      "advancedOptions": {
+        "title": "進階選項",
+        "description": "進階遊戲調整"
+      }
+    },
+    "categories": {
+      "server": "伺服器",
+      "gameplay": "遊戲玩法",
+      "rules": "規則",
+      "chat": "聊天與介面",
+      "transfers": "傳送",
+      "player": "玩家",
+      "dino": "恐龍",
+      "breeding": "繁殖",
+      "structure": "建築",
+      "pvp": "PvP/PvE",
+      "advanced": "進階",
+      "engrams": "配方與製作"
+    }
   },
   "modManager": {
     "title": "模組管理器",
