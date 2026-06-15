@@ -21,20 +21,58 @@ pub struct PluginManifest {
     pub min_api_version: Option<String>,
 }
 
-/// Helper function to get server install path from database
-fn get_server_install_path(state: &State<'_, AppState>, server_id: i64) -> Result<PathBuf, String> {
+/// Helper function to get server install path and type from database
+fn get_server_install_path(state: &State<'_, AppState>, server_id: i64) -> Result<(PathBuf, String), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-    let install_path: String = conn
-        .query_row(
-            "SELECT install_path FROM servers WHERE id = ?1",
-            [server_id],
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("Server not found: {}", e))?;
+    // Try servers table first (primarily ASA or servers configured in main dashboard)
+    if let Ok((path, server_type)) = conn.query_row(
+        "SELECT install_path, server_type FROM servers WHERE id = ?1",
+        [server_id],
+        |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+    ) {
+        return Ok((PathBuf::from(path), server_type));
+    }
 
-    Ok(PathBuf::from(install_path))
+    // Try ase_servers table next (ASE module)
+    if let Ok(path) = conn.query_row(
+        "SELECT install_path FROM ase_servers WHERE id = ?1",
+        [server_id],
+        |row| row.get::<_, String>(0),
+    ) {
+        return Ok((PathBuf::from(path), "ASE".to_string()));
+    }
+
+    Err(format!("Server {} not found in servers or ase_servers table", server_id))
+}
+
+/// Helper function to dynamically locate the plugins directory (supporting AsaApi or ArkApi)
+fn get_api_plugins_dir(install_path: &std::path::Path, server_type: &str) -> Result<PathBuf, String> {
+    let win64_dir = install_path
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64");
+
+    if !win64_dir.exists() {
+        return Err("Server binaries directory not found. Please install the server first.".to_string());
+    }
+
+    // Try AsaApi folder first, then ArkApi folder
+    let api_name = if win64_dir.join("AsaApi").exists() {
+        "AsaApi"
+    } else if win64_dir.join("ArkApi").exists() {
+        "ArkApi"
+    } else {
+        // Fallback default based on server type
+        if server_type == "ASA" {
+            "AsaApi"
+        } else {
+            "ArkApi"
+        }
+    };
+
+    Ok(win64_dir.join(api_name).join("Plugins"))
 }
 
 /// Check if a specific plugin is installed
@@ -55,7 +93,7 @@ pub async fn check_asa_api_installed(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<bool, String> {
-    let install_path = get_server_install_path(&state, server_id)?;
+    let (install_path, _server_type) = get_server_install_path(&state, server_id)?;
 
     let win64_dir = install_path
         .join("ShooterGame")
@@ -64,9 +102,10 @@ pub async fn check_asa_api_installed(
 
     let api_loader = win64_dir.join("AsaApiLoader.exe");
     let arkapi_path = win64_dir.join("ArkApi");
+    let asaapi_path = win64_dir.join("AsaApi");
 
-    // Consider installed ONLY if both the loader executable AND the ArkApi directory exist
-    Ok(api_loader.exists() && arkapi_path.exists())
+    // Consider installed if both the loader executable AND either directory exist
+    Ok(api_loader.exists() && (arkapi_path.exists() || asaapi_path.exists()))
 }
 
 /// Get the plugin directory for a specific server
@@ -75,22 +114,16 @@ pub async fn get_plugin_directory(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<String, String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-
-    let plugin_dir = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkApi")
-        .join("Plugins");
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
+    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
 
     // Create if doesn't exist
-    if !plugin_dir.exists() {
-        fs::create_dir_all(&plugin_dir)
-            .map_err(|e| format!("Failed to create plugin directory: {}", e))?;
+    if !plugins_dir.exists() {
+        fs::create_dir_all(&plugins_dir)
+            .map_err(|e| format!("Failed to create plugins directory: {}", e))?;
     }
 
-    Ok(plugin_dir.to_string_lossy().to_string())
+    Ok(plugins_dir.to_string_lossy().to_string())
 }
 
 /// Import a plugin from an archive file (ZIP, 7z, RAR)
@@ -106,15 +139,9 @@ pub async fn import_plugin_archive(
         return Err("Archive file not found".to_string());
     }
 
-    // Get server install path
-    let install_path = get_server_install_path(&state, server_id)?;
-
-    let plugins_dir = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkApi")
-        .join("Plugins");
+    // Get server install path and type
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
+    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
 
     // Create plugins directory if it doesn't exist
     if !plugins_dir.exists() {
@@ -274,14 +301,8 @@ pub async fn get_installed_plugins(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<Vec<PluginInfo>, String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-
-    let plugin_dir = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkApi")
-        .join("Plugins");
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
+    let plugin_dir = get_api_plugins_dir(&install_path, &server_type)?;
 
     if !plugin_dir.exists() {
         return Ok(vec![]);
@@ -363,15 +384,9 @@ pub async fn uninstall_plugin(
     server_id: i64,
     plugin_id: String,
 ) -> Result<(), String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-
-    let plugin_path = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkApi")
-        .join("Plugins")
-        .join(&plugin_id);
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
+    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
+    let plugin_path = plugins_dir.join(&plugin_id);
 
     if !plugin_path.exists() {
         return Err(format!("Plugin '{}' not found", plugin_id));
@@ -395,15 +410,9 @@ pub async fn toggle_plugin(
     plugin_id: String,
     enabled: bool,
 ) -> Result<(), String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-
-    let plugin_path = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkApi")
-        .join("Plugins")
-        .join(&plugin_id);
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
+    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
+    let plugin_path = plugins_dir.join(&plugin_id);
 
     if !plugin_path.exists() {
         return Err(format!("Plugin '{}' not found", plugin_id));
@@ -433,7 +442,7 @@ pub async fn install_asa_api(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<String, String> {
-    let install_path = get_server_install_path(&state, server_id)?;
+    let (install_path, _) = get_server_install_path(&state, server_id)?;
     let win64_dir = install_path
         .join("ShooterGame")
         .join("Binaries")
@@ -575,14 +584,8 @@ pub async fn create_default_plugin(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<PluginInfo, String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-
-    let plugins_dir = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkApi")
-        .join("Plugins");
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
+    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
 
     if !plugins_dir.exists() {
         fs::create_dir_all(&plugins_dir)
@@ -626,10 +629,12 @@ pub async fn create_default_plugin(
     fs::write(&config_path, config_content)
         .map_err(|e| format!("Failed to write config template: {}", e))?;
 
-    // Create dummy DLL so that the manager detects it as a valid installed plugin
+    // Create dummy DLL so that the manager detects it as a valid installed plugin (if it doesn't exist)
     let dll_path = plugin_dir.join(format!("{}.dll", plugin_name));
-    fs::write(&dll_path, vec![0; 64])
-        .map_err(|e| format!("Failed to create placeholder DLL: {}", e))?;
+    if !dll_path.exists() {
+        fs::write(&dll_path, vec![0; 64])
+            .map_err(|e| format!("Failed to create placeholder DLL: {}", e))?;
+    }
 
     Ok(PluginInfo {
         id: plugin_name.clone(),
@@ -650,13 +655,9 @@ pub async fn get_infinity_damage_config(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<String, String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-    let config_path = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkApi")
-        .join("Plugins")
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
+    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
+    let config_path = plugins_dir
         .join("InfinityDamageSystem")
         .join("config.json");
 
@@ -674,14 +675,9 @@ pub async fn save_infinity_damage_config(
     server_id: i64,
     config_json: String,
 ) -> Result<(), String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-    let plugin_dir = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkApi")
-        .join("Plugins")
-        .join("InfinityDamageSystem");
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
+    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
+    let plugin_dir = plugins_dir.join("InfinityDamageSystem");
 
     if !plugin_dir.exists() {
         return Err("Infinity Floating Damage System plugin directory not found.".to_string());
@@ -699,18 +695,10 @@ pub async fn install_infinity_damage_plugin(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<(), String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-    let api_win64_dir = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkApi");
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
+    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
 
-    if !api_win64_dir.exists() {
-        return Err("ASA Server API is not installed or incomplete on this server. Please install ASA Server API first.".to_string());
-    }
-
-    let plugin_dir = api_win64_dir.join("Plugins").join("InfinityDamageSystem");
+    let plugin_dir = plugins_dir.join("InfinityDamageSystem");
     if !plugin_dir.exists() {
         fs::create_dir_all(&plugin_dir)
             .map_err(|e| format!("Failed to create plugin directory: {}", e))?;
@@ -795,10 +783,12 @@ pub async fn install_infinity_damage_plugin(
     fs::write(&config_path, config_content)
         .map_err(|e| format!("Failed to write default config: {}", e))?;
 
-    // Create placeholder DLL so that the manager detects it as a valid installed plugin
+    // Create placeholder DLL so that the manager detects it as a valid installed plugin (only if not already present)
     let dll_path = plugin_dir.join("InfinityDamageSystem.dll");
-    fs::write(&dll_path, vec![0; 64])
-        .map_err(|e| format!("Failed to create placeholder DLL: {}", e))?;
+    if !dll_path.exists() {
+        fs::write(&dll_path, vec![0; 64])
+            .map_err(|e| format!("Failed to create placeholder DLL: {}", e))?;
+    }
 
     Ok(())
 }
@@ -808,14 +798,9 @@ pub async fn uninstall_infinity_damage_plugin(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<(), String> {
-    let install_path = get_server_install_path(&state, server_id)?;
-    let plugin_path = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64")
-        .join("ArkApi")
-        .join("Plugins")
-        .join("InfinityDamageSystem");
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
+    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
+    let plugin_path = plugins_dir.join("InfinityDamageSystem");
 
     if plugin_path.exists() {
         fs::remove_dir_all(&plugin_path)

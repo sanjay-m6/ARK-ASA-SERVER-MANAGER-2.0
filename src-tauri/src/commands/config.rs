@@ -36,12 +36,25 @@ fn sanitize_ini_content(content: &str) -> String {
 fn get_server_info(state: &State<'_, AppState>, server_id: i64) -> Result<(String, String), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
-    conn.query_row(
+    
+    // Try to get from servers (ASA) table first
+    match conn.query_row(
         "SELECT install_path, server_type FROM servers WHERE id = ?1",
         [server_id],
-        |row| Ok((row.get(0)?, row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string()))),
-    )
-    .map_err(|e| e.to_string())
+        |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string()))),
+    ) {
+        Ok(info) => Ok(info),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            // Try to query from ase_servers table next
+            conn.query_row(
+                "SELECT install_path FROM ase_servers WHERE id = ?1",
+                [server_id],
+                |row| Ok((row.get::<_, String>(0)?, "ASE".to_string())),
+            )
+            .map_err(|e| format!("Server not found in servers or ase_servers: {}", e))
+        }
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 /// Get config file path
@@ -196,7 +209,11 @@ pub async fn save_config(
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        let mut query = "UPDATE servers SET ".to_string();
+        let mut query = if server_type == "ASE" {
+            "UPDATE ase_servers SET ".to_string()
+        } else {
+            "UPDATE servers SET ".to_string()
+        };
         let mut updates = Vec::new();
         let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
@@ -216,38 +233,50 @@ pub async fn save_config(
         // But for strings we usually just overwrite.
         if let Some(v) = server_password {
             updates.push("server_password = ?");
-            if v.is_empty() {
-                params.push(Box::new(None::<String>));
+            if server_type == "ASE" {
+                params.push(Box::new(v));
             } else {
-                params.push(Box::new(Some(v)));
+                if v.is_empty() {
+                    params.push(Box::new(None::<String>));
+                } else {
+                    params.push(Box::new(Some(v)));
+                }
             }
         }
         if let Some(v) = admin_password {
             updates.push("admin_password = ?");
             params.push(Box::new(v));
         }
-        if let Some(v) = rcon_enabled {
-            updates.push("rcon_enabled = ?");
-            params.push(Box::new(v));
+        if server_type != "ASE" {
+            if let Some(v) = rcon_enabled {
+                updates.push("rcon_enabled = ?");
+                params.push(Box::new(v));
+            }
         }
         if let Some(v) = rcon_port {
             updates.push("rcon_port = ?");
             params.push(Box::new(v));
         }
         if let Some(v) = game_port {
-            updates.push("game_port = ?");
+            if server_type == "ASE" {
+                updates.push("port = ?");
+            } else {
+                updates.push("game_port = ?");
+            }
             params.push(Box::new(v));
         }
         if let Some(v) = query_port {
             updates.push("query_port = ?");
             params.push(Box::new(v));
         }
-        if let Some(v) = ip_address {
-            updates.push("ip_address = ?");
-            if v.is_empty() {
-                params.push(Box::new(None::<String>));
-            } else {
-                params.push(Box::new(Some(v)));
+        if server_type != "ASE" {
+            if let Some(v) = ip_address {
+                updates.push("ip_address = ?");
+                if v.is_empty() {
+                    params.push(Box::new(None::<String>));
+                } else {
+                    params.push(Box::new(Some(v)));
+                }
             }
         }
 
@@ -289,11 +318,46 @@ pub async fn load_server_config(
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         let mut cfg = ServerConfig::default();
 
-        conn
-            .query_row(
+        if server_type == "ASE" {
+            conn.query_row(
                 "SELECT session_name, server_password, admin_password, max_players, map_name, 
-             game_port, query_port, rcon_port, rcon_enabled, ip_address 
-             FROM servers WHERE id = ?1",
+                 port, query_port, rcon_port 
+                 FROM ase_servers WHERE id = ?1",
+                [server_id],
+                |row| {
+                    cfg.session_name = row.get::<_, String>(0).unwrap_or_default();
+                    let mut server_pwd = row.get::<_, String>(1).unwrap_or_default();
+                    let mut loaded_admin_pwd = row.get::<_, String>(2).unwrap_or_default();
+                    
+                    // Auto-repair polluted admin_password from previous bugs
+                    if loaded_admin_pwd.contains("?ServerPassword=") {
+                        let parts: Vec<&str> = loaded_admin_pwd.split("?ServerPassword=").collect();
+                        let clean_admin = parts.first().unwrap_or(&"").to_string();
+                        
+                        // If the server password is empty but we found it baked into the admin password, recover it
+                        if parts.len() > 1 && server_pwd.is_empty() {
+                            server_pwd = parts[1].to_string();
+                        }
+                        loaded_admin_pwd = clean_admin;
+                    }
+                    cfg.server_password = if server_pwd.is_empty() { None } else { Some(server_pwd) };
+                    cfg.admin_password = loaded_admin_pwd;
+                    cfg.max_players = row.get::<_, i32>(3).unwrap_or(70);
+                    cfg.map_name = row.get::<_, String>(4).unwrap_or_default();
+                    cfg.game_port = row.get::<_, u16>(5).unwrap_or(7777);
+                    cfg.query_port = row.get::<_, u16>(6).unwrap_or(27015);
+                    cfg.rcon_port = row.get::<_, u16>(7).unwrap_or(32330);
+                    cfg.rcon_enabled = true; // default true for ASE
+                    cfg.ip_address = None;
+                    Ok(())
+                },
+            )
+            .map_err(|e| format!("Failed to load server from DB (ase_servers): {}", e))?;
+        } else {
+            conn.query_row(
+                "SELECT session_name, server_password, admin_password, max_players, map_name, 
+                 game_port, query_port, rcon_port, rcon_enabled, ip_address 
+                 FROM servers WHERE id = ?1",
                 [server_id],
                 |row| {
                     cfg.session_name = row.get::<_, String>(0).unwrap_or_default();
@@ -323,6 +387,7 @@ pub async fn load_server_config(
                 },
             )
             .map_err(|e| format!("Failed to load server from DB: {}", e))?;
+        }
 
         cfg
     };
@@ -583,25 +648,45 @@ pub async fn write_server_configs(
         .unwrap_or(&config.admin_password)
         .to_string();
 
-    conn.execute(
-        "UPDATE servers SET max_players = ?1, map_name = ?2, session_name = ?3, 
-         game_port = ?4, query_port = ?5, rcon_port = ?6, admin_password = ?7,
-         server_password = ?8, rcon_enabled = ?9, ip_address = ?10 WHERE id = ?11",
-        rusqlite::params![
-            config.max_players,
-            config.map_name,
-            config.session_name,
-            config.game_port,
-            config.query_port,
-            config.rcon_port,
-            clean_admin_password,
-            config.server_password,
-            config.rcon_enabled,
-            config.ip_address,
-            server_id,
-        ],
-    )
-    .map_err(|e| e.to_string())?;
+    if server_type == "ASE" {
+        conn.execute(
+            "UPDATE ase_servers SET max_players = ?1, map_name = ?2, session_name = ?3, 
+             port = ?4, query_port = ?5, rcon_port = ?6, admin_password = ?7,
+             server_password = ?8 WHERE id = ?9",
+            rusqlite::params![
+                config.max_players,
+                config.map_name,
+                config.session_name,
+                config.game_port,
+                config.query_port,
+                config.rcon_port,
+                clean_admin_password,
+                config.server_password.clone().unwrap_or_default(),
+                server_id,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    } else {
+        conn.execute(
+            "UPDATE servers SET max_players = ?1, map_name = ?2, session_name = ?3, 
+             game_port = ?4, query_port = ?5, rcon_port = ?6, admin_password = ?7,
+             server_password = ?8, rcon_enabled = ?9, ip_address = ?10 WHERE id = ?11",
+            rusqlite::params![
+                config.max_players,
+                config.map_name,
+                config.session_name,
+                config.game_port,
+                config.query_port,
+                config.rcon_port,
+                clean_admin_password,
+                config.server_password,
+                config.rcon_enabled,
+                config.ip_address,
+                server_id,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
 
     println!(
         "✅ Config saved and synced to database for server {}",

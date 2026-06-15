@@ -6,14 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function FloatingInstallCenter() {
     const { t } = useTranslation();
-    const { activeInstalls, setViewingPath, removeInstall, clearCompleted, draftSetup, setDraftSetup, setDraftOpen } = useInstallStore();
+    const { activeInstalls, setViewingPath, removeInstall, clearCompleted, draftSetup, setDraftSetup, setDraftOpen, isDraftOpen } = useInstallStore();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     const tasks = Object.values(activeInstalls);
     const activeCount = tasks.filter(t => !t.isComplete && !t.isError).length;
     const completedCount = tasks.filter(t => t.isComplete).length;
     const failedCount = tasks.filter(t => t.isError).length;
-    const hasDraft = !!draftSetup;
+    const hasDraft = !!draftSetup && !isDraftOpen;
 
     return (
         <AnimatePresence>
@@ -24,6 +24,7 @@ export default function FloatingInstallCenter() {
                     exit={{ opacity: 0, scale: 0.95, y: 20 }}
                     transition={{ type: 'spring', damping: 22, stiffness: 280 }}
                     className="fixed bottom-22 right-6 left-6 sm:bottom-6 sm:right-22 sm:left-auto z-50 w-auto sm:w-96 flex flex-col gap-3 font-sans"
+                    aria-label="Installation Center"
                 >
                     {/* Main Header / Trigger Pill */}
                     <div className="bg-slate-900/85 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-4 shadow-2xl transition-all duration-300 hover:shadow-sky-500/15">
@@ -85,7 +86,7 @@ export default function FloatingInstallCenter() {
                                     className="overflow-hidden"
                                 >
                                     <div className="flex flex-col gap-3 max-h-72 overflow-y-auto pr-1">
-                                        {/* Minimized Draft Card */}
+                                        {/* Minimized Draft Panel */}
                                         {hasDraft && (
                                             <div 
                                                 onClick={() => setDraftOpen(true)}
@@ -131,22 +132,28 @@ export default function FloatingInstallCenter() {
                                                 </div>
 
                                                 {/* Mini progress representation */}
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="flex items-center justify-between text-[10px]">
-                                                        <span className="text-slate-400 font-medium">
-                                                            Minimized at Step {draftSetup.step} / 3
-                                                        </span>
-                                                        <span className="text-sky-400 font-bold group-hover/draft:text-sky-300 transition-colors">
-                                                            {Math.round((draftSetup.step / 3) * 100)}% Setup
-                                                        </span>
-                                                    </div>
-                                                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                                        <div 
-                                                            className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 animate-pulse"
-                                                            style={{ width: `${(draftSetup.step / 3) * 100}%` }}
-                                                        />
-                                                    </div>
-                                                </div>
+                                                {(() => {
+                                                    const totalSteps = draftSetup.formData.serverType === 'ASE' ? 6 : 3;
+                                                    const pct = Math.round((draftSetup.step / totalSteps) * 100);
+                                                    return (
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center justify-between text-[10px]">
+                                                                <span className="text-slate-400 font-medium">
+                                                                    Minimized at Step {draftSetup.step} / {totalSteps}
+                                                                </span>
+                                                                <span className="text-sky-400 font-bold group-hover/draft:text-sky-300 transition-colors">
+                                                                    {pct}% Setup
+                                                                </span>
+                                                            </div>
+                                                            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                                <div 
+                                                                    className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 animate-pulse"
+                                                                    style={{ width: `${pct}%` }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         )}
                                         {tasks.map((task) => {

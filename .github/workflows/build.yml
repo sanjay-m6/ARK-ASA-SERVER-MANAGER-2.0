@@ -51,13 +51,13 @@ jobs:
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This release focuses on application optimizations, database indexing, and user interface refinements.
+            This release brings full native support for ARK: Survival Evolved (ASE) server management alongside core stability and console interface upgrades.
 
             ### ✨ What's New
-            - **⚡ Cargo Release Profile Optimizations**: Configured Link-Time Optimization (`lto = true`), abort panic behavior, and debug symbol stripping to reduce executable size by ~20-30MB and optimize runtime CPU execution speeds.
-            - **🗄️ SQLite Database Query Indexes**: Added indexes on `server_folder_members` and `server_activity_log` to eliminate full-table scans, greatly improving dashboard folder loading speeds and activity logging performance.
-            - **🎛️ Drag-and-Drop Jitter/Lag Fixes**: Disabled transform transitions on server cards during active dragging, preventing layout jumping and keeping the card locked smoothly to the cursor position.
-            - **🧹 Compiler Warning Cleanup**: Resolved unused import warnings in the backend process manager.
+            - **🦕 Full ARK: Survival Evolved (ASE) Support Engine**: Added comprehensive native integration for managing ASE server instances, config parameters, sequential boots, backups, and automatic mod updates.
+            - **🔌 Rebuilt RCON Console**: Rewrote the RCON interface to feature tabbed layout for multi-server management, dynamic command history, and ANSI-colored output logs.
+            - **⚙️ Advanced Configuration Panels**: Added new multiplier slider inputs, masked password fields for security, and Event Profile configurations.
+            - **🪄 Installation Recovery Wizard**: Added interactive troubleshooting checklists, SteamCMD repair/cache cleaning tools, and clear error recovery dialogs.
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, 'beta') }}
           includeUpdaterJson: true

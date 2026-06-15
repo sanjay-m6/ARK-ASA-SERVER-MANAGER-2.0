@@ -1769,6 +1769,24 @@ pub async fn update_server_settings(
         .get_connection()
         .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
+    // Determine the server type (ASA or ASE)
+    let is_ase = {
+        let is_in_servers = conn.query_row(
+            "SELECT 1 FROM servers WHERE id = ?1",
+            [server_id],
+            |_| Ok(true)
+        ).unwrap_or(false);
+        if !is_in_servers {
+            conn.query_row(
+                "SELECT 1 FROM ase_servers WHERE id = ?1",
+                [server_id],
+                |_| Ok(true)
+            ).unwrap_or(false)
+        } else {
+            false
+        }
+    };
+
     // Build dynamic update query
     let mut updates = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
@@ -1784,7 +1802,11 @@ pub async fn update_server_settings(
     if let Some(v) = admin_password {
         let clean_v = v.split("?ServerPassword=").next().unwrap_or(&v).to_string();
         updates.push("admin_password = ?");
-        params.push(Box::new(clean_v));
+        params.push(Box::new(clean_v.clone()));
+        if is_ase {
+            updates.push("rcon_password = ?");
+            params.push(Box::new(clean_v));
+        }
     }
     if let Some(v) = map_name {
         updates.push("map_name = ?");
@@ -1797,7 +1819,11 @@ pub async fn update_server_settings(
         params.push(Box::new(v));
     }
     if let Some(v) = game_port {
-        updates.push("game_port = ?");
+        if is_ase {
+            updates.push("port = ?");
+        } else {
+            updates.push("game_port = ?");
+        }
         params.push(Box::new(v as i32));
     }
     if let Some(v) = query_port {
@@ -1808,12 +1834,18 @@ pub async fn update_server_settings(
         updates.push("rcon_port = ?");
         params.push(Box::new(v as i32));
     }
-    if let Some(v) = ip_address {
-        updates.push("ip_address = ?");
-        params.push(Box::new(v));
+    if !is_ase {
+        if let Some(v) = ip_address {
+            updates.push("ip_address = ?");
+            params.push(Box::new(v));
+        }
     }
     if let Some(v) = custom_args {
-        updates.push("custom_args = ?");
+        if is_ase {
+            updates.push("extra_args = ?");
+        } else {
+            updates.push("custom_args = ?");
+        }
         params.push(Box::new(v));
     }
     if let Some(v) = battleye {
@@ -1825,7 +1857,8 @@ pub async fn update_server_settings(
         return Ok(());
     }
 
-    let query = format!("UPDATE servers SET {} WHERE id = ?", updates.join(", "));
+    let table = if is_ase { "ase_servers" } else { "servers" };
+    let query = format!("UPDATE {} SET {} WHERE id = ?", table, updates.join(", "));
     params.push(Box::new(server_id));
 
     let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();

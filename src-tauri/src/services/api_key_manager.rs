@@ -1,10 +1,9 @@
 use crate::AppState;
-use tauri::State;
 
 pub struct ApiKeyManager;
 
 impl ApiKeyManager {
-    pub fn get_curseforge_key(state: &State<'_, AppState>) -> Option<String> {
+    pub fn get_curseforge_key(state: &AppState) -> Option<String> {
         // 1. Try to get from Database
         let db = state.db.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Ok(Some(key)) = db.get_setting("curseforge_api_key") {
@@ -23,7 +22,7 @@ impl ApiKeyManager {
         None
     }
 
-    pub fn get_steam_key(state: &State<'_, AppState>) -> Option<String> {
+    pub fn get_steam_key(state: &AppState) -> Option<String> {
         // 1. Try to get from Database
         let db = state.db.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Ok(Some(key)) = db.get_setting("steam_api_key") {

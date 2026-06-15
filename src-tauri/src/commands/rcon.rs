@@ -309,3 +309,127 @@ pub async fn rcon_validate_save(
         })
     }
 }
+
+/// Automatically resolve SteamID/EOS/Platform IDs of players to their internal 9-digit UE4 Player IDs by parsing their .arkprofile save files.
+#[tauri::command]
+pub async fn rcon_resolve_player_ids(
+    state: State<'_, crate::AppState>,
+    server_id: i64,
+    platform_ids: Vec<String>,
+) -> Result<std::collections::HashMap<String, u64>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let install_path_str: String = if server_id > 0 {
+        conn.query_row(
+            "SELECT install_path FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        ).map_err(|e| format!("ASA Server not found: {}", e))?
+    } else {
+        conn.query_row(
+            "SELECT install_path FROM ase_servers WHERE id = ?1",
+            [-server_id],
+            |row| row.get(0),
+        ).map_err(|e| format!("ASE Server not found: {}", e))?
+    };
+
+    let saved_arks = std::path::PathBuf::from(&install_path_str)
+        .join("ShooterGame")
+        .join("Saved")
+        .join("SavedArks");
+
+    let mut resolved = std::collections::HashMap::new();
+
+    if !saved_arks.exists() {
+        return Ok(resolved);
+    }
+
+    if platform_ids.is_empty() {
+        // Scan all .arkprofile files in the folder
+        if let Ok(entries) = std::fs::read_dir(saved_arks) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("arkprofile") {
+                    if let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) {
+                        let platform_id = file_stem.to_string();
+                        if let Ok(data) = std::fs::read(&path) {
+                            if let Some(player_id) = parse_player_id_from_bytes(&data) {
+                                resolved.insert(platform_id, player_id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // Scan only the requested platform_ids
+        for platform_id in platform_ids {
+            if platform_id.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+                let profile_file = saved_arks.join(format!("{}.arkprofile", platform_id));
+                if profile_file.exists() && profile_file.is_file() {
+                    if let Ok(data) = std::fs::read(&profile_file) {
+                        if let Some(player_id) = parse_player_id_from_bytes(&data) {
+                            resolved.insert(platform_id, player_id);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(resolved)
+}
+
+/// Helper function to extract PlayerDataID (the internal UE4 Player ID) from binary data of .arkprofile
+fn parse_player_id_from_bytes(data: &[u8]) -> Option<u64> {
+    let pattern_name = b"PlayerDataID";
+    let pos_name = data.windows(pattern_name.len()).position(|w| w == pattern_name)?;
+    
+    let search_slice = &data[pos_name..];
+    let pattern_type = b"UInt64Property";
+    
+    if let Some(pos_type_offset) = search_slice.windows(pattern_type.len()).position(|w| w == pattern_type) {
+        let pos_type = pos_name + pos_type_offset;
+        let type_end = pos_type + pattern_type.len();
+        
+        // Find the null terminator of "UInt64Property"
+        let mut null_pos = type_end;
+        while null_pos < data.len() && data[null_pos] != 0 {
+            null_pos += 1;
+        }
+        let after_null = null_pos + 1;
+        
+        if after_null + 8 + 4 + 1 + 8 <= data.len() {
+            let value_size = i64::from_le_bytes(data[after_null..after_null+8].try_into().unwrap());
+            if value_size == 8 {
+                let id_bytes = data[after_null + 8 + 4 + 1..after_null + 8 + 4 + 1 + 8].try_into().ok()?;
+                return Some(u64::from_le_bytes(id_bytes));
+            }
+        }
+    }
+    
+    // Fallback check for "Int64Property"
+    let pattern_type_alt = b"Int64Property";
+    if let Some(pos_type_offset) = search_slice.windows(pattern_type_alt.len()).position(|w| w == pattern_type_alt) {
+        let pos_type = pos_name + pos_type_offset;
+        let type_end = pos_type + pattern_type_alt.len();
+        
+        let mut null_pos = type_end;
+        while null_pos < data.len() && data[null_pos] != 0 {
+            null_pos += 1;
+        }
+        let after_null = null_pos + 1;
+        
+        if after_null + 8 + 4 + 1 + 8 <= data.len() {
+            let value_size = i64::from_le_bytes(data[after_null..after_null+8].try_into().unwrap());
+            if value_size == 8 {
+                let id_bytes = data[after_null + 8 + 4 + 1..after_null + 8 + 4 + 1 + 8].try_into().ok()?;
+                return Some(u64::from_le_bytes(id_bytes));
+            }
+        }
+    }
+
+    None
+}
+

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
-import { Save, RotateCcw, ChevronDown, ChevronUp, Check, Sparkles, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database, Loader2, Sliders, AlertTriangle, X, ExternalLink, Copy, GraduationCap, BarChart3 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { invoke } from '@tauri-apps/api/core';
+import { Save, RotateCcw, ChevronDown, ChevronUp, Check, Sparkles, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database, Loader2, Sliders, AlertTriangle, X, ExternalLink, Copy, GraduationCap, BarChart3, RefreshCw, TerminalSquare, Lock, Unlock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
@@ -24,7 +25,7 @@ import { getModdedMapByMapArg, buildLaunchArgs } from '../../data/moddedMapRegis
 
 const defaultConfig: AseGameConfig = {
   // Identity
-  sessionName: 'My ASE Server', serverPassword: '', serverAdminPassword: 'admin123', maxPlayers: 70,
+  sessionName: 'My ASE Server', serverPassword: '', serverAdminPassword: 'admin123', maxPlayers: 70, RCONServerLogBuffer: 600,
   // Difficulty
   difficultyOffset: 1.0, overrideOfficialDifficulty: 5.0, MaxDifficulty: false,
   // Core Rates
@@ -121,7 +122,7 @@ const defaultConfig: AseGameConfig = {
   badWordFilter: '', adminList: '', customDynamicConfigUrl: '', customLiveTuningUrl: '', useSecureSpawnRules: false,
   useItemDupeCheck: false, secureSendArkPayload: false, culture: '',
   // Launcher
-  launcherArgs: '', useAllAvailableCores: true, useLowMemory: false, noBattleEye: false,
+  launcherArgs: '', useAllAvailableCores: true, useLowMemory: false, noBattleEye: false, enableAutomanagedMods: false,
   // Specific Maps
   ragnarokVolcanoIntensity: 1.0, ragnarokVolcanoInterval: 0.0, enableRagnarokSettings: false,
   useFjordurTraversalBuff: true, enableFjordurSettings: false, adjustableMutagenSpawnDelayMultiplier: 1.0,
@@ -140,7 +141,7 @@ const defaultConfig: AseGameConfig = {
   badWordListUrl: '', badWordWhiteListUrl: '', bFilterTribeNames: false, bFilterCharacterNames: false, bFilterChat: false,
   banListUrl: '', useBanListUrl: false, useDynamicConfigUrl: false, useCustomLiveTuningUrl: false,
   kickIdlePlayersPeriod: 3600.0, enableIdleTimeout: false, noPlayervac: false, noAntiSpeedHack: false,
-  speedHackCpuBias: 1.0, disableMovementValidation: false, outputServerLogToConsole: false, noHangDet: false,
+  speedHackCpuBias: 1.0, disableMovementValidation: false, outputServerLogToConsole: true, noHangDet: false,
   noDinos: false, noUnderMeshChecking: false, noUnderMeshKilling: false, enableVivox: false,
   allowSharedConnections: false, creatureUploadIssueProtection: false, additionalDupeProtection: false,
   secureItemDinoSpawningRules: false, forceRespawnDinosOnStartup: false, enableAutoForceRespawnDinos: false,
@@ -148,7 +149,7 @@ const defaultConfig: AseGameConfig = {
   forceNoManSky: false, useNoMemoryBias: false, stasisKeepControllers: false, serverAllowAnsel: false,
   structureMemoryOptimizations: false, structureStasisGrid: false, enableCrossplay: false,
   enablePublicIpForEpic: false, epicStorePlayersOnly: false, alternateSaveDirectoryName: '',
-  clusterDirectoryOverride: '', useClusterDirectoryOverride: false, harvestResourceItemAmountClassMultipliers: '',
+  clusterDirectoryOverride: '', serverLanguage: '', useClusterDirectoryOverride: false, harvestResourceItemAmountClassMultipliers: '',
   levelExperienceRampOverrides: '', overrideMaxExperiencePointsPlayer: '', overrideMaxExperiencePointsDino: '',
 
   playerHarvestingDamageMultiplier: 1.0,
@@ -165,7 +166,7 @@ const defaultConfig: AseGameConfig = {
 };
 
 type ConfigFile = 'GameUserSettings.ini' | 'Game.ini';
-type TabType = 'general' | 'rates' | 'player' | 'breeding' | 'structures' | 'pvp' | 'tribe' | 'transfer' | 'environment' | 'engrams' | 'admin' | 'advanced' | 'server_options' | 'search' | 'diagnostics' | 'stats' | 'levels';
+type TabType = 'administration' | 'general' | 'rates' | 'player' | 'breeding' | 'structures' | 'pvp' | 'tribe' | 'transfer' | 'environment' | 'engrams' | 'admin' | 'advanced' | 'server_options' | 'search' | 'diagnostics' | 'stats' | 'levels';
 
 const FieldWrapper = memo(({ label, description, children, file, layout = 'vertical' }: { label: string; description?: string; children: React.ReactNode; file?: string; layout?: 'horizontal' | 'vertical' }) => {
   return (
@@ -340,57 +341,6 @@ const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, i
     }, 50);
   };
 
-  const renderMotdPreview = (text: string) => {
-    if (!text) return <span className="text-slate-500 italic text-xs">No message entered yet.</span>;
-
-    const lines = text.split('\\n');
-
-    return lines.map((line, lineIdx) => {
-      const elements: React.ReactNode[] = [];
-      const regex = /<RichColor\s+Color="([^"]+)">([\s\S]*?)<\/>/gi;
-      let lastIndex = 0;
-      let match;
-
-      while ((match = regex.exec(line)) !== null) {
-        const matchIndex = match.index;
-        if (matchIndex > lastIndex) {
-          elements.push(<span key={lastIndex}>{line.substring(lastIndex, matchIndex)}</span>);
-        }
-
-        const colorParts = match[1].split(',').map(c => parseFloat(c.trim()));
-        const textVal = match[2];
-
-        if (colorParts.length >= 3) {
-          const r = Math.round((colorParts[0] || 0) * 255);
-          const g = Math.round((colorParts[1] || 0) * 255);
-          const b = Math.round((colorParts[2] || 0) * 255);
-          const a = colorParts[3] !== undefined ? colorParts[3] : 1;
-          const style = { color: `rgba(${r}, ${g}, ${b}, ${a})` };
-
-          elements.push(
-            <span key={matchIndex} style={style} className="font-bold">
-              {textVal}
-            </span>
-          );
-        } else {
-          elements.push(<span key={matchIndex}>{match[0]}</span>);
-        }
-
-        lastIndex = regex.lastIndex;
-      }
-
-      if (lastIndex < line.length) {
-        elements.push(<span key={lastIndex}>{line.substring(lastIndex)}</span>);
-      }
-
-      return (
-        <div key={lineIdx} className="min-h-[1.2em]">
-          {elements.length > 0 ? elements : <span className="opacity-0">.</span>}
-        </div>
-      );
-    });
-  };
-
   return (
     <FieldWrapper label={label} description={desc} file={file} layout="vertical">
       <div className="w-full flex flex-col">
@@ -459,7 +409,7 @@ const SelectInput = memo(({ label, value, onChange, desc, options, file }: { lab
   <FieldWrapper label={label} description={desc} file={file} layout="vertical">
     <div className="relative">
       <select
-        value={value}
+        value={value ?? ''}
         onChange={e => onChange(e.target.value)}
         className="w-full appearance-none bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 rounded-xl px-4 py-2.5 pr-10 text-slate-200 focus:outline-none transition-all cursor-pointer text-sm font-medium shadow-inner"
       >
@@ -471,9 +421,61 @@ const SelectInput = memo(({ label, value, onChange, desc, options, file }: { lab
 ));
 SelectInput.displayName = 'SelectInput';
 
+const renderMotdPreview = (text: string) => {
+  if (!text) return <span className="text-slate-500 italic text-xs">No message entered yet.</span>;
+
+  const lines = text.split('\\n');
+
+  return lines.map((line, lineIdx) => {
+    const elements: React.ReactNode[] = [];
+    const regex = /<RichColor\s+Color="([^"]+)">([\s\S]*?)<\/>/gi;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(line)) !== null) {
+      const matchIndex = match.index;
+      if (matchIndex > lastIndex) {
+        elements.push(<span key={lastIndex}>{line.substring(lastIndex, matchIndex)}</span>);
+      }
+
+      const colorParts = match[1].split(',').map(c => parseFloat(c.trim()));
+      const textVal = match[2];
+
+      if (colorParts.length >= 3) {
+        const r = Math.round((colorParts[0] || 0) * 255);
+        const g = Math.round((colorParts[1] || 0) * 255);
+        const b = Math.round((colorParts[2] || 0) * 255);
+        const a = colorParts[3] !== undefined ? colorParts[3] : 1;
+        const style = { color: `rgba(${r}, ${g}, ${b}, ${a})` };
+
+        elements.push(
+          <span key={matchIndex} style={style} className="font-bold">
+            {textVal}
+          </span>
+        );
+      } else {
+        elements.push(<span key={matchIndex}>{match[0]}</span>);
+      }
+
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < line.length) {
+      elements.push(<span key={lastIndex}>{line.substring(lastIndex)}</span>);
+    }
+
+    return (
+      <div key={lineIdx} className="min-h-[1.2em]">
+        {elements.length > 0 ? elements : <span className="opacity-0">.</span>}
+      </div>
+    );
+  });
+};
+
 export default function ASEConfigEditor() {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
   const { servers } = useAseServerStore();
   const [selectedServer, setSelectedServer] = useState<number | null>(servers[0]?.id || null);
 
@@ -510,12 +512,14 @@ export default function ASEConfigEditor() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
 
-  // Tab viewMode state
   const [viewMode, setViewMode] = useState<'visual' | 'raw-gus' | 'raw-game' | 'levels' | 'stats' | 'diagnostics'>('visual');
 
   // Preset selector states
   const [currentPreset, setCurrentPreset] = useState<string | undefined>();
   const [copied, setCopied] = useState(false);
+
+  // Peer port lock state
+  const [isPeerPortLocked, setIsPeerPortLocked] = useState(true);
 
   const loadLaunchArgs = async (id: number) => {
     try {
@@ -573,12 +577,49 @@ export default function ASEConfigEditor() {
     }
   }, [selectedServer]);
 
+  const [adminState, setAdminState] = useState({
+    localIp: '',
+    port: 7777,
+    peerPort: 7778,
+    queryPort: 27015,
+    rconPort: 27020,
+    activeMods: '',
+    totalConversionId: '',
+  });
+
   useEffect(() => {
     if (selectedServer) {
       const serverObj = servers.find(s => s.id === selectedServer);
-      if (serverObj && (!isDirty || mapName === 'TheIsland')) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setMapName(serverObj.mapName || 'TheIsland');
+      if (serverObj) {
+        if (!isDirty || mapName === 'TheIsland') {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setMapName(serverObj.mapName || 'TheIsland');
+        }
+
+        let localIp = '';
+        let peerPort = serverObj.port + 1;
+        let totalConversionId = '';
+        
+        if (serverObj.extraArgs) {
+          const multihomeMatch = serverObj.extraArgs.match(/-MultiHome=([\d.]+)/);
+          if (multihomeMatch) localIp = multihomeMatch[1];
+          
+          const peerPortMatch = serverObj.extraArgs.match(/\?PeerPort=(\d+)/);
+          if (peerPortMatch) peerPort = parseInt(peerPortMatch[1], 10);
+          
+          const tcMatch = serverObj.extraArgs.match(/-TotalConversionMod=(\d+)/);
+          if (tcMatch) totalConversionId = tcMatch[1];
+        }
+        
+        setAdminState({
+          localIp,
+          port: serverObj.port || 7777,
+          peerPort,
+          queryPort: serverObj.queryPort || 27015,
+          rconPort: serverObj.rconPort || 27020,
+          activeMods: serverObj.activeMods || '',
+          totalConversionId,
+        });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -622,13 +663,112 @@ export default function ASEConfigEditor() {
     }
   }, [activeTab, selectedServer]);
 
+  const fetchLocalIp = async () => {
+    try {
+      const ip = await invoke<string>('get_local_ip');
+      if (ip && ip !== '127.0.0.1') {
+        setAdminState(prev => ({...prev, localIp: ip}));
+        setIsDirty(true);
+        toast.success(`Detected IP: ${ip}`);
+      } else {
+        toast.error("Could not determine local IP automatically");
+      }
+    } catch (err) {
+      console.error("Failed to detect IP", err);
+      toast.error("Failed to detect local IP");
+    }
+  };
+
+  const insertMotdColorTag = (colorStr: string) => {
+    const textarea = document.getElementById(`motd-textarea`) as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = config.motd || '';
+    const selectedText = currentText.substring(start, end);
+
+    const replacement = `<RichColor Color="${colorStr}">${selectedText || 'Text'}</>`;
+    const newText = currentText.substring(0, start) + replacement + currentText.substring(end);
+    
+    setConfig({...config, motd: newText});
+    setIsDirty(true);
+
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = start + `<RichColor Color="${colorStr}">`.length + (selectedText ? selectedText.length : 4);
+      textarea.setSelectionRange(
+        selectedText ? newCursorPos : start + `<RichColor Color="${colorStr}">`.length,
+        selectedText ? newCursorPos : start + `<RichColor Color="${colorStr}">`.length + 4
+      );
+    }, 50);
+  };
+
+  const insertMotdNewline = () => {
+    const textarea = document.getElementById(`motd-textarea`) as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = config.motd || '';
+
+    const newText = currentText.substring(0, start) + '\\n' + currentText.substring(end);
+    setConfig({...config, motd: newText});
+    setIsDirty(true);
+
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + 2, start + 2);
+    }, 50);
+  };
+
+  const addFirewallRules = async () => {
+    if (!selectedServer) return;
+    try {
+      const toastId = toast.loading('Adding firewall rules (requires admin)...');
+      await invoke('create_ase_firewall_rules', { serverId: selectedServer });
+      toast.success('Firewall rules added successfully!', { id: toastId });
+    } catch (err) {
+      console.error("Failed to add firewall rules", err);
+      toast.error(`Failed to add firewall rules: ${err}`);
+    }
+  };
+
   const handleSave = useCallback(async () => {
     if (!selectedServer) return;
     setIsLoading(true);
     try {
       if (editorMode === 'visual') {
         await writeAseConfig(selectedServer, config);
-        await updateAseServer(selectedServer, { mapName });
+        
+        const server = servers.find(s => s.id === selectedServer);
+        if (server) {
+          let extraArgs = server.extraArgs || '';
+          
+          extraArgs = extraArgs.replace(/-MultiHome=[\d.]+\s*/g, '');
+          if (adminState.localIp) {
+            extraArgs += ` -MultiHome=${adminState.localIp.trim()}`;
+          }
+          
+          extraArgs = extraArgs.replace(/\?PeerPort=\d+\s*/g, '');
+          if (adminState.peerPort !== adminState.port + 1) {
+            extraArgs += ` ?PeerPort=${adminState.peerPort}`;
+          }
+          
+          extraArgs = extraArgs.replace(/-TotalConversionMod=\d+\s*/g, '');
+          if (adminState.totalConversionId) {
+            extraArgs += ` -TotalConversionMod=${adminState.totalConversionId.trim()}`;
+          }
+          
+          await updateAseServer(selectedServer, { 
+            mapName,
+            port: adminState.port,
+            queryPort: adminState.queryPort,
+            rconPort: adminState.rconPort,
+            activeMods: adminState.activeMods,
+            extraArgs: extraArgs.trim()
+          });
+        }
       } else {
         await writeAseIniRaw(selectedServer, activeFile, rawIniContent);
       }
@@ -1049,6 +1189,19 @@ export default function ASEConfigEditor() {
             </div>
           )}
         </div>
+        
+        {/* Total Conversion and Mods */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-300">Total Conversion ID</label>
+            <input type="text" value={adminState.totalConversionId} onChange={e => { setAdminState({...adminState, totalConversionId: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950/40 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Mod ID (e.g. 111111111)" />
+          </div>
+          <div className="flex flex-col gap-1.5 md:col-span-2">
+            <label className="text-xs font-bold text-slate-300">Active Mod IDs</label>
+            <input type="text" value={adminState.activeMods} onChange={e => { setAdminState({...adminState, activeMods: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950/40 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Comma separated list (e.g. 123456, 789012)" />
+            <p className="text-[10px] text-slate-500">List of workshop Mod IDs loaded on server startup. Multiple entries must be comma separated.</p>
+          </div>
+        </div>
       </div>
     );
   };
@@ -1138,6 +1291,7 @@ export default function ASEConfigEditor() {
     desc?: string;
     step?: number;
     options?: { label: string; value: string }[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     template?: Record<string, any>;
   }
 
@@ -1155,23 +1309,15 @@ export default function ASEConfigEditor() {
     { id: 'transfer', label: 'Tribute & Transfer', icon: <Globe className="w-4 h-4" /> },
     { id: 'environment', label: 'Environment', icon: <Map className="w-4 h-4" /> },
     { id: 'engrams', label: 'Engrams & Crafting', icon: <Hammer className="w-4 h-4" /> },
-    { id: 'admin', label: 'Administration', icon: <MonitorPlay className="w-4 h-4" /> },
+    { id: 'admin', label: 'Server Rules', icon: <MonitorPlay className="w-4 h-4" /> },
     { id: 'advanced', label: 'Advanced', icon: <Cpu className="w-4 h-4" /> },
   ], []);
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const schema = useMemo(() => [
+  const schema: SchemaField[] = useMemo(() => [
     // GENERAL - GameUserSettings.ini
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'sessionName', label: 'Session Name', desc: 'The name displayed in the server browser' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'serverPassword', label: 'Server Password', desc: 'Leave blank for open server' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'serverAdminPassword', label: 'Admin Password', desc: 'Used for in-game admin commands' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'maxPlayers', label: 'Max Players' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'serverPve', label: 'PvE Mode', desc: 'Disables player vs player combat and structure damage' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'rconEnabled', label: 'Enable RCON' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'rconPort', label: 'RCON Port' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'battleEyeEnforcer', label: 'BattlEye Anti-Cheat', desc: 'Requires client restart if changed' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'textarea', key: 'motd', label: 'Message of the Day (MOTD)', desc: 'The message shown to players when they join the server' },
-    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'motdDuration', label: 'MOTD Duration (Secs)', desc: 'How long the message stays on screen' },
 
     // RATES - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'xpMultiplier', label: 'XP Multiplier', desc: 'Global experience gain rate', step: 0.1 },
@@ -1196,9 +1342,9 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'globalCorpseDecompositionTimeMultiplier', label: 'Global Corpse Decomposition Time', desc: 'Global multiplier for corpse decomposition time on floor', step: 0.1 },
 
     // PLAYER - GameUserSettings.ini
-    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'allowThirdPersonPlayer', label: 'Allow Third Person' },
-    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'serverCrosshair', label: 'Show Crosshair' },
-    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'showMapPlayerLocation', label: 'Show Player on Map' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'allowThirdPersonPlayer', label: 'Allow Third Person' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'serverCrosshair', label: 'Show Crosshair' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'showMapPlayerLocation', label: 'Show Player on Map' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'playerCharacterFoodDrainMultiplier', label: 'Player Food Drain', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'playerCharacterWaterDrainMultiplier', label: 'Player Water Drain', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'playerCharacterStaminaDrainMultiplier', label: 'Player Stamina Drain', step: 0.1 },
@@ -1209,10 +1355,10 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'craftingSkillBonusMultiplier', label: 'Crafting Skill Bonus Multiplier', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'nonPermanentDiseases', label: 'Non-Permanent Diseases', desc: 'Diseases will be cured upon respawning' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'preventDiseases', label: 'Prevent Diseases', desc: 'Completely disables sickness and swamp fever' },
-    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bUseCorpseLocator', label: 'Use Corpse Locator', desc: 'Shows a green beam of light indicating where you died' },
-    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bShowStatusTypes', label: 'Show Status Types', desc: 'Shows buffs/debuffs icons on the HUD' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'bUseCorpseLocator', label: 'Use Corpse Locator', desc: 'Shows a green beam of light indicating where you died' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'bShowStatusTypes', label: 'Show Status Types', desc: 'Shows buffs/debuffs icons on the HUD' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bAllowUnlimitedRespecs', label: 'Allow Unlimited Respecs', desc: 'Allows consuming Mindwipe Tonic without cooldown' },
-    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'showFloatingDamageText', label: 'Show Floating Damage Text', desc: 'Displays RPG-style damage numbers' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'showFloatingDamageText', label: 'Show Floating Damage Text', desc: 'Displays RPG-style damage numbers' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'allowFlyingStaminaRecovery', label: 'Flyer Stamina Recovery', desc: 'Allows flyers to regain stamina when standing on top of them in mid-air' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'allowFlyerCarryPve', label: 'Allow Flyer Carry in PvE' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'number', key: 'dinoDamageMultiplier', label: 'Dino Damage', desc: 'Global wild/tamed damage multiplier', step: 0.1 },
@@ -1306,7 +1452,7 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'pvpStructureDecay', label: 'PvP Structure Decay' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'pvpDinoDecay', label: 'PvP Dino Decay' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'number', key: 'globalPoweredBatteryDurabilityDecreasePerSecond', label: 'Battery Durability Decrease/Sec', step: 0.1 },
-    { file: 'Game.ini', tab: 'pvp', type: 'toggle', key: 'bDisableFriendlyFire', label: 'Disable Friendly Fire', desc: 'Prevents damaging tribe members and owned tames' },
+    { file: 'Game.ini', tab: 'general', type: 'toggle', key: 'bDisableFriendlyFire', label: 'Disable Friendly Fire', desc: 'Prevents damaging tribe members and owned tames' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'allowCryoCooldownOnPvE', label: 'Allow Cryo Cooldown on PvE', desc: 'Enables cryo sickness cooldown on PvE' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'disableCryopodEnemyCheck', label: 'Disable Cryopod Enemy Check', desc: 'Allows deploying cryopods even if enemies are nearby' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'number', key: 'pvpZoneStructureDamageMultiplier', label: 'PvP Zone Structure Damage', desc: 'Damage multiplier for structures inside PvP zones', step: 0.1 },
@@ -1368,17 +1514,16 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'text', key: 'SpectatorPassword', label: 'Spectator Password', desc: 'Password required to use spectator mode' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'useSecureSpawnRules', label: 'Use Secure Spawn Rules' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'useItemDupeCheck', label: 'Use Item Dupe Check' },
-    { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'globalVoiceChat', label: 'Global Voice Chat', desc: 'Allows everyone to hear voice communications across the map' },
-    { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'proximityVoiceChat', label: 'Proximity Voice Chat', desc: 'Restricts voice chat to nearby players only' },
-    { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'alwaysNotifyPlayerJoined', label: 'Notify Player Joined', desc: 'Shows a broadcast notification when a player connects' },
-    { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'alwaysNotifyPlayerLeft', label: 'Notify Player Left', desc: 'Shows a broadcast notification when a player disconnects' },
-    { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'serverAdminCommandLogging', label: 'Log Admin Commands', desc: 'Logs all admin command usages to server logs and chat' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'globalVoiceChat', label: 'Global Voice Chat', desc: 'Allows everyone to hear voice communications across the map' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'proximityVoiceChat', label: 'Proximity Voice Chat', desc: 'Restricts voice chat to nearby players only' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'alwaysNotifyPlayerJoined', label: 'Notify Player Joined', desc: 'Shows a broadcast notification when a player connects' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'alwaysNotifyPlayerLeft', label: 'Notify Player Left', desc: 'Shows a broadcast notification when a player disconnects' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'serverAdminCommandLogging', label: 'Log Admin Commands', desc: 'Logs all admin command usages to server logs and chat' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'secureSendArkPayload', label: 'Secure Send ARK Payload', desc: 'Enforces secure validation of network transmission payloads' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'text', key: 'culture', label: 'Server Localization/Culture', desc: 'Sets the server localization/culture code (e.g. en, de, fr)' },
 
     // ADVANCED - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'disableWeatherFog', label: 'Disable Fog' },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'autoSavePeriodMinutes', label: 'Auto-Save Period (Mins)', step: 1.0 },
     {
       file: 'GameUserSettings.ini', tab: 'advanced', type: 'select', key: 'activeEvent', label: 'Active Event', desc: 'Predefined holiday events', options: [
         { label: 'None', value: '' },
@@ -1395,6 +1540,7 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useAllAvailableCores', label: 'Use All Cores' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useLowMemory', label: 'Low Memory Mode' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'noBattleEye', label: 'Disable BattlEye (Launcher Arg)' },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'enableAutomanagedMods', label: 'Enable Auto-Managed Mods (Server CMD)', desc: 'If enabled, the server downloads/updates mods via a popup command prompt on startup. Disable to download/install mods silently via the manager.' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'text', key: 'activeMods', label: 'Active Mods', desc: 'Comma-separated Workshop IDs' },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'eventColorsChanceOverride', label: 'Event Colors Chance Override', desc: 'Chance factor override for custom event dinosaur color spawns', step: 0.01 },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'ragnarokVolcanoIntensity', label: 'Ragnarok Volcano Intensity', desc: 'Volcano eruption intensity multiplier (Ragnarok map)', step: 0.1 },
@@ -1408,59 +1554,70 @@ export default function ASEConfigEditor() {
     { file: 'Game.ini', tab: 'advanced', type: 'text', key: 'harvestResourceItemAmountClassMultipliers', label: 'Harvest Resource Item Amount Class Multipliers', desc: 'Advanced class-level harvest multipliers override string (semicolon-separated)' },
 
     // SERVER OPTIONS - GameUserSettings.ini (Classic ASM features)
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useBanListUrl', label: 'Use Ban List URL', desc: 'Download server bans from a remote URL on startup' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'banListUrl', label: 'Ban List URL', desc: 'Remote URL pointing to banlist.txt' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useDynamicConfigUrl', label: 'Use Dynamic Config URL', desc: 'Sync configuration dynamically from a remote URL' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'customDynamicConfigUrl', label: 'Dynamic Config URL', desc: 'Remote URL pointing to dynamic config file' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useCustomLiveTuningUrl', label: 'Use Custom Live Tuning URL', desc: 'Download custom live tuning params on boot' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'customLiveTuningUrl', label: 'Custom Live Tuning URL', desc: 'Remote URL pointing to live tuning file' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'badWordListUrl', label: 'Bad Word List URL', desc: 'Remote URL pointing to a list of censored words' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'badWordWhiteListUrl', label: 'Bad Word Whitelist URL', desc: 'Remote URL pointing to a list of allowed words' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'bFilterTribeNames', label: 'Filter Tribe Names', desc: 'Apply bad word filter to tribe names' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'bFilterCharacterNames', label: 'Filter Character Names', desc: 'Apply bad word filter to survivor names' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'bFilterChat', label: 'Filter Chat', desc: 'Apply bad word filter to chat messages' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'enableIdleTimeout', label: 'Enable Idle Timeout', desc: 'Kick players who remain idle' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'number', key: 'kickIdlePlayersPeriod', label: 'Idle Timeout Duration (Secs)', desc: 'Seconds before an idle player is kicked', step: 10.0 },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noPlayervac', label: 'Disable Valve Anti-Cheat (VAC)', desc: 'Spawns server in insecure mode' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noAntiSpeedHack', label: 'Disable Anti-Speed Hack Detection', desc: 'Turns off built-in player speed-hack checks' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'number', key: 'speedHackCpuBias', label: 'Anti-Speed Hack Bias', desc: 'Built-in anti-speed hack threshold scale', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'disableMovementValidation', label: 'Disable Player Move Physics Optimization', desc: 'Disables movement correction checks' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'outputServerLogToConsole', label: 'Output Server Log to Server Console', desc: 'Streams logging directly into terminal output' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noHangDet', label: 'Disable Hang Detection', desc: 'Prevent server from restarting if it stops responding briefly' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noDinos', label: 'No Dinos Mode', desc: 'Prevents any wild or tamed creatures from spawning' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noUnderMeshChecking', label: 'Disable Under Mesh Checking', desc: 'Disables mesh exploitation prevention checks' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'noUnderMeshKilling', label: 'Disable Under Mesh Killing', desc: 'Prevents server from killing players who clip under mesh' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'enableVivox', label: 'Enable Vivox (In-Game Voice)', desc: 'Uses Vivox spatial sound engine instead of default' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'allowSharedConnections', label: 'Allow Shared Connections', desc: 'Allow multiple clients on the same IP' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'creatureUploadIssueProtection', label: 'Creature Upload Issue Protection', desc: 'Validates payloads when uploading characters' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'additionalDupeProtection', label: 'Additional Dupe Protection', desc: 'Enables deep item duping checking rules' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'secureItemDinoSpawningRules', label: 'Secure Item/Dino Spawning Rules', desc: 'Protects console commands from duplicate spawns' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'forceRespawnDinosOnStartup', label: 'Force Respawn Dinos on Startup', desc: 'Performs a wild dino wipe every boot' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'enableAutoForceRespawnDinos', label: 'Enable Auto Force Respawn Dinos', desc: 'Periodically wipes wild dinos to keep populations fresh' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'number', key: 'autoForceRespawnDinosInterval', label: 'Auto Force Respawn Interval (Hours)', desc: 'Interval between periodic dino wipes', step: 1.0 },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'forceDirectX10', label: 'Force DirectX 10', desc: 'Uses d3d10 instructions' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'forceShaderModel4', label: 'Force Shader Model 4', desc: 'Forces Shader Model 4 rendering limit' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'forceLowMemory', label: 'Force Low Memory Mode', desc: 'Reduces memory usage' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'forceNoManSky', label: 'Force No Man\'s Sky (Low Quality Sky)', desc: 'Disables advanced trueSky clouds' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useNoMemoryBias', desc: 'Prevents caching in page pools', label: 'Use No Memory Bias' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'stasisKeepControllers', label: 'Stasis Keep Controllers', desc: 'Keeps AI controller structures cached in stasis grid' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'serverAllowAnsel', label: 'Server Allow Ansel', desc: 'Allows connected clients to capture high-fidelity 3D pictures' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'structureMemoryOptimizations', label: 'Structure Memory Optimizations', desc: 'Compacts structure assets memory footprint' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'structureStasisGrid', label: 'Structure Stasis Grid', desc: 'Optimizes stasis grid handling for faster loading' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'enableCrossplay', label: 'Enable Crossplay', desc: 'Allows Epic Games Store and Steam players to join together' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'enablePublicIpForEpic', label: 'Enable Public IP for Epic', desc: 'Resolves server\'s public IP automatically to prevent EGS time-outs' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'epicStorePlayersOnly', label: 'Epic Store Players Only', desc: 'Blocks Steam connections completely' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'alternateSaveDirectoryName', label: 'Alternate Save Directory Name', desc: 'Alternate folder name for server savegames' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'text', key: 'clusterDirectoryOverride', label: 'Cluster Directory Override', desc: 'Absolute custom path for cluster data files' },
-    { file: 'GameUserSettings.ini', tab: 'server_options', type: 'toggle', key: 'useClusterDirectoryOverride', label: 'Enable Cluster Directory Override', desc: 'Uses ClusterDirectoryOverride instead of default Save directory' },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'backupQuantity', label: 'Backup Quantity', desc: 'Number of backup archives to keep (excess/oldest will be automatically pruned)' },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'newSaveGameFormat', label: 'New Save Game Format', desc: 'Enable Version 11 faster/smaller save game format (-newsaveformat)' },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useStore', label: 'Use Store', desc: 'Integrate player data directly into map save file (-usestore)' },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'backupTransferPlayerDatas', label: 'Backup Transfer Player Datas', desc: 'Backup character profile during cluster transfers (-BackupTransferPlayerDatas)' },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'motdIntervalEnabled', label: 'Enable Periodic MOTD', desc: 'Broadcast MOTD periodically to active players' },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'motdInterval', label: 'MOTD Broadcast Interval (Mins)', desc: 'Interval in minutes between periodic broadcasts', step: 1.0 },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'enableExtinctionEvent', label: 'Enable Extinction Event', desc: 'Enable the extinction countdown/wipe event' },
-    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'number', key: 'extinctionEventTimeInterval', label: 'Extinction Interval (Days)', desc: 'Number of days for the countdown', step: 1.0 },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'useBanListUrl', label: 'Use Ban List URL', desc: 'Download server bans from a remote URL on startup' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'banListUrl', label: 'Ban List URL', desc: 'Remote URL pointing to banlist.txt' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'useDynamicConfigUrl', label: 'Use Dynamic Config URL', desc: 'Sync configuration dynamically from a remote URL' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'customDynamicConfigUrl', label: 'Dynamic Config URL', desc: 'Remote URL pointing to dynamic config file' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'useCustomLiveTuningUrl', label: 'Use Custom Live Tuning URL', desc: 'Download custom live tuning params on boot' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'customLiveTuningUrl', label: 'Custom Live Tuning URL', desc: 'Remote URL pointing to live tuning file' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'badWordListUrl', label: 'Bad Word List URL', desc: 'Remote URL pointing to a list of censored words' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'badWordWhiteListUrl', label: 'Bad Word Whitelist URL', desc: 'Remote URL pointing to a list of allowed words' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'bFilterTribeNames', label: 'Filter Tribe Names', desc: 'Apply bad word filter to tribe names' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'bFilterCharacterNames', label: 'Filter Character Names', desc: 'Apply bad word filter to survivor names' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'bFilterChat', label: 'Filter Chat', desc: 'Apply bad word filter to chat messages' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'enableIdleTimeout', label: 'Enable Idle Timeout', desc: 'Kick players who remain idle' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'kickIdlePlayersPeriod', label: 'Idle Timeout Duration (Secs)', desc: 'Seconds before an idle player is kicked', step: 10.0 },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'noPlayervac', label: 'Disable Valve Anti-Cheat (VAC)', desc: 'Spawns server in insecure mode' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'noAntiSpeedHack', label: 'Disable Anti-Speed Hack Detection', desc: 'Turns off built-in player speed-hack checks' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'speedHackCpuBias', label: 'Anti-Speed Hack Bias', desc: 'Built-in anti-speed hack threshold scale', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'disableMovementValidation', label: 'Disable Player Move Physics Optimization', desc: 'Disables movement correction checks' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'outputServerLogToConsole', label: 'Output Server Log to Server Console', desc: 'Streams logging directly into terminal output' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'noHangDet', label: 'Disable Hang Detection', desc: 'Prevent server from restarting if it stops responding briefly' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'noDinos', label: 'No Dinos Mode', desc: 'Prevents any wild or tamed creatures from spawning' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'noUnderMeshChecking', label: 'Disable Under Mesh Checking', desc: 'Disables mesh exploitation prevention checks' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'noUnderMeshKilling', label: 'Disable Under Mesh Killing', desc: 'Prevents server from killing players who clip under mesh' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'enableVivox', label: 'Enable Vivox (In-Game Voice)', desc: 'Uses Vivox spatial sound engine instead of default' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'allowSharedConnections', label: 'Allow Shared Connections', desc: 'Allow multiple clients on the same IP' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'creatureUploadIssueProtection', label: 'Creature Upload Issue Protection', desc: 'Validates payloads when uploading characters' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'additionalDupeProtection', label: 'Additional Dupe Protection', desc: 'Enables deep item duping checking rules' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'secureItemDinoSpawningRules', label: 'Secure Item/Dino Spawning Rules', desc: 'Protects console commands from duplicate spawns' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'forceRespawnDinosOnStartup', label: 'Force Respawn Dinos on Startup', desc: 'Performs a wild dino wipe every boot' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'enableAutoForceRespawnDinos', label: 'Enable Auto Force Respawn Dinos', desc: 'Periodically wipes wild dinos to keep populations fresh' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'autoForceRespawnDinosInterval', label: 'Auto Force Respawn Interval (Hours)', desc: 'Interval between periodic dino wipes', step: 1.0 },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'forceDirectX10', label: 'Force DirectX 10', desc: 'Uses d3d10 instructions' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'forceShaderModel4', label: 'Force Shader Model 4', desc: 'Forces Shader Model 4 rendering limit' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'forceLowMemory', label: 'Force Low Memory Mode', desc: 'Reduces memory usage' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'forceNoManSky', label: 'Force No Man\'s Sky (Low Quality Sky)', desc: 'Disables advanced trueSky clouds' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'useNoMemoryBias', desc: 'Prevents caching in page pools', label: 'Use No Memory Bias' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'stasisKeepControllers', label: 'Stasis Keep Controllers', desc: 'Keeps AI controller structures cached in stasis grid' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'serverAllowAnsel', label: 'Server Allow Ansel', desc: 'Allows connected clients to capture high-fidelity 3D pictures' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'structureMemoryOptimizations', label: 'Structure Memory Optimizations', desc: 'Compacts structure assets memory footprint' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'structureStasisGrid', label: 'Structure Stasis Grid', desc: 'Optimizes stasis grid handling for faster loading' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'enableCrossplay', label: 'Enable Crossplay', desc: 'Allows Epic Games Store and Steam players to join together' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'enablePublicIpForEpic', label: 'Enable Public IP for Epic', desc: 'Resolves server\'s public IP automatically to prevent EGS time-outs' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'epicStorePlayersOnly', label: 'Epic Store Players Only', desc: 'Blocks Steam connections completely' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'alternateSaveDirectoryName', label: 'Alternate Save Directory Name', desc: 'Alternate folder name for server savegames' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'clusterDirectoryOverride', label: 'Cluster Directory Override', desc: 'Absolute custom path for cluster data files' },
+    { 
+      file: 'GameUserSettings.ini', tab: 'general', type: 'select', key: 'serverLanguage', label: 'Server Language', desc: 'Forces server language',
+      options: [
+        { label: 'Default', value: '' },
+        { label: 'English', value: 'en' },
+        { label: 'French', value: 'fr' },
+        { label: 'German', value: 'de' },
+        { label: 'Italian', value: 'it' },
+        { label: 'Spanish', value: 'es' },
+        { label: 'Russian', value: 'ru' },
+        { label: 'Portuguese', value: 'pt-BR' },
+        { label: 'Simplified Chinese', value: 'zh' },
+        { label: 'Traditional Chinese', value: 'zh-TW' },
+        { label: 'Japanese', value: 'ja' },
+        { label: 'Korean', value: 'ko' },
+        { label: 'Polish', value: 'pl' },
+        { label: 'Turkish', value: 'tr' }
+      ]
+    },
+    { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useClusterDirectoryOverride', label: 'Enable Cluster Directory Override', desc: 'Uses ClusterDirectoryOverride instead of default Save directory' },
   ], []);
   const handleSaveCurrentAsPreset = useCallback((name: string, description: string) => {
     const gusSettings: Record<string, string> = {};
@@ -2298,7 +2455,7 @@ export default function ASEConfigEditor() {
                       />
                     ) : (
                       (() => {
-                        if (['diagnostics', 'stats', 'levels', 'environment'].includes(activeTab)) return null;
+                        if (['administration', 'diagnostics', 'stats', 'levels', 'environment'].includes(activeTab)) return null;
 
                         const tabFields = schema.filter(f => f.tab === activeTab && f.file === activeFile);
                         if (tabFields.length === 0) return null;
@@ -2355,12 +2512,274 @@ export default function ASEConfigEditor() {
                                   {activeFile} Settings
                                 </h3>
                               </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {activeTab === 'general' && activeFile === 'GameUserSettings.ini' && !searchQuery && (
-                                  <div className="col-span-1 md:col-span-2">
+                              
+                              {activeTab === 'general' && activeFile === 'GameUserSettings.ini' && !searchQuery && (
+                                <>
+                                  <div className="space-y-8 mb-8 animate-fadeIn">
+                                    {/* Name and Passwords */}
+                                    <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6">
+                                      <h3 className="text-amber-500 font-bold mb-4 uppercase tracking-wider text-sm flex items-center gap-2">
+                                        <Settings2 className="w-4 h-4" /> Name and Passwords
+                                      </h3>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-bold text-slate-300">Session Name</label>
+                                          <input type="text" value={config.sessionName || ''} onChange={e => { setConfig({...config, sessionName: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-bold text-slate-300">Server Password</label>
+                                          <input type="text" value={config.serverPassword || ''} onChange={e => { setConfig({...config, serverPassword: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Leave blank for public" />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-bold text-slate-300">Admin Password</label>
+                                          <input type="text" value={config.serverAdminPassword || ''} onChange={e => { setConfig({...config, serverAdminPassword: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-bold text-slate-300">Spectator Password</label>
+                                          <input type="text" value={config.SpectatorPassword || ''} onChange={e => { setConfig({...config, SpectatorPassword: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Networking */}
+                                    <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6">
+                                      <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-amber-500 font-bold uppercase tracking-wider text-sm flex items-center gap-2">
+                                          <Globe className="w-4 h-4" /> Networking
+                                        </h3>
+                                        <button
+                                          onClick={addFirewallRules}
+                                          className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-500 border border-slate-700 hover:border-amber-500/50 rounded-lg text-xs font-semibold transition-colors"
+                                        >
+                                          <Shield className="w-3 h-3" /> Add Firewall Exception
+                                        </button>
+                                      </div>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                        <div className="flex flex-col gap-1.5 lg:col-span-2">
+                                          <label className="text-xs font-bold text-slate-300">Local IP</label>
+                                          <div className="flex items-center gap-2">
+                                            <input type="text" value={adminState.localIp} onChange={e => { setAdminState({...adminState, localIp: e.target.value}); setIsDirty(true); }} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="e.g. 192.168.1.100" />
+                                            <button title="Detect Local IP" onClick={fetchLocalIp} className="p-2.5 bg-slate-950 hover:bg-amber-500/20 text-slate-400 hover:text-amber-500 rounded-xl border border-slate-800 transition-colors flex-shrink-0">
+                                              <RefreshCw className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-bold text-slate-300">Server Port</label>
+                                          <input type="number" value={adminState.port} onChange={e => { 
+                                            const newPort = parseInt(e.target.value) || 0;
+                                            setAdminState({...adminState, port: newPort, peerPort: isPeerPortLocked ? (newPort ? newPort + 1 : adminState.peerPort) : adminState.peerPort}); 
+                                            setIsDirty(true); 
+                                          }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                          <div className="flex items-center justify-between">
+                                            <label className="text-xs font-bold text-slate-300">Peer Port</label>
+                                          </div>
+                                          <div className="relative">
+                                            <input 
+                                              type="number" 
+                                              disabled={isPeerPortLocked} 
+                                              value={adminState.peerPort} 
+                                              onChange={e => { setAdminState({...adminState, peerPort: parseInt(e.target.value) || 0}); setIsDirty(true); }} 
+                                              className="w-full px-4 py-2.5 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                                            />
+                                            <button 
+                                              type="button"
+                                              onClick={() => setIsPeerPortLocked(!isPeerPortLocked)}
+                                              title={isPeerPortLocked ? "Unlock to edit manually" : "Lock to auto-calculate"}
+                                              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors ${isPeerPortLocked ? 'text-slate-500 hover:text-slate-300 hover:bg-slate-800' : 'text-amber-500 bg-amber-500/10 hover:bg-amber-500/20'}`}
+                                            >
+                                              {isPeerPortLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                                            </button>
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-bold text-slate-300">Query Port</label>
+                                          <input type="number" value={adminState.queryPort} onChange={e => { setAdminState({...adminState, queryPort: parseInt(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-bold text-slate-300">Max Players</label>
+                                          <input type="number" value={config.maxPlayers || 70} onChange={e => { setConfig({...config, maxPlayers: parseInt(e.target.value) || 70}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* RCON */}
+                                    <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6">
+                                      <h3 className="text-amber-500 font-bold mb-4 uppercase tracking-wider text-sm flex items-center gap-2">
+                                        <MonitorPlay className="w-4 h-4" /> RCON
+                                      </h3>
+                                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                        <label className="flex items-center gap-3 p-3 h-[42px] bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
+                                          <input type="checkbox" checked={adminState.rconPort > 0} onChange={e => { setAdminState({...adminState, rconPort: e.target.checked ? 27020 : 0}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                          <span className="text-sm font-semibold text-slate-200">Enable RCON</span>
+                                        </label>
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-bold text-slate-300">RCON Port</label>
+                                          <input type="number" disabled={adminState.rconPort === 0} value={adminState.rconPort > 0 ? adminState.rconPort : 27020} onChange={e => { setAdminState({...adminState, rconPort: parseInt(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                          <label className="text-xs font-bold text-slate-300">Server Log Buffer</label>
+                                          <input type="number" value={config.RCONServerLogBuffer || 600} onChange={e => { setConfig({...config, RCONServerLogBuffer: parseInt(e.target.value) || 600}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                          <button 
+                                            onClick={() => navigate('/ase/rcon', { state: { serverId: selectedServer } })}
+                                            disabled={adminState.rconPort === 0}
+                                            className="flex items-center justify-center gap-2 px-4 py-2.5 h-[42px] bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500 hover:text-slate-900 transition-all rounded-xl w-full font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                                          >
+                                            <TerminalSquare className="w-4 h-4" /> Open RCON
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Saves & Official Settings */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                      <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6">
+                                        <h3 className="text-amber-500 font-bold mb-4 uppercase tracking-wider text-sm flex items-center gap-2">
+                                          <Save className="w-4 h-4" /> Saves
+                                        </h3>
+                                        <div className="space-y-4">
+                                          <div className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-bold text-slate-300">Auto Save Period (Mins)</label>
+                                            <input type="number" value={config.autoSavePeriodMinutes || 15} onChange={e => { setConfig({...config, autoSavePeriodMinutes: parseFloat(e.target.value) || 15}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                          </div>
+                                          <div className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-bold text-slate-300">Backup Quantity</label>
+                                            <input type="number" value={config.backupQuantity || 0} onChange={e => { setConfig({...config, backupQuantity: parseInt(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                            <p className="text-[10px] text-slate-500">Number of backup archives to keep. Oldest will be pruned.</p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6">
+                                        <h3 className="text-amber-500 font-bold mb-4 uppercase tracking-wider text-sm flex items-center gap-2">
+                                          <Database className="w-4 h-4" /> Official Save Settings
+                                        </h3>
+                                        <div className="space-y-3">
+                                          <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
+                                            <input type="checkbox" checked={!!config.newSaveGameFormat} onChange={e => { setConfig({...config, newSaveGameFormat: e.target.checked}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                            <span className="text-sm font-semibold text-slate-200">New Save Game Format</span>
+                                          </label>
+                                          <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
+                                            <input type="checkbox" checked={!!config.useStore} onChange={e => { setConfig({...config, useStore: e.target.checked}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                            <span className="text-sm font-semibold text-slate-200">Use Store</span>
+                                          </label>
+                                          <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
+                                            <input type="checkbox" checked={!!config.backupTransferPlayerDatas} onChange={e => { setConfig({...config, backupTransferPlayerDatas: e.target.checked}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                            <span className="text-sm font-semibold text-slate-200">Backup Transfer Player Datas</span>
+                                          </label>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* MOTD and Extinction */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                      <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6">
+                                        <h3 className="text-amber-500 font-bold mb-4 uppercase tracking-wider text-sm flex items-center gap-2">
+                                          <FileText className="w-4 h-4" /> Message of the Day
+                                        </h3>
+                                        <div className="space-y-4">
+                                          <div className="w-full flex flex-col">
+                                            {/* Toolbar */}
+                                            <div className="flex flex-wrap items-center gap-2 bg-slate-950 p-2.5 rounded-t-xl border border-slate-800 border-b-0">
+                                              <span className="text-[10px] uppercase font-bold text-slate-500 select-none mr-1">MOTD Colors:</span>
+                                              {[
+                                                { name: 'Red', color: '1,0,0,1', bg: 'bg-red-500' },
+                                                { name: 'Green', color: '0,1,0,1', bg: 'bg-emerald-500' },
+                                                { name: 'Blue', color: '0,0.5,1,1', bg: 'bg-blue-500' },
+                                                { name: 'Yellow', color: '1,1,0,1', bg: 'bg-amber-400' },
+                                                { name: 'Orange', color: '1,0.65,0,1', bg: 'bg-orange-500' },
+                                                { name: 'Cyan', color: '0,1,1,1', bg: 'bg-cyan-400' },
+                                                { name: 'White', color: '1,1,1,1', bg: 'bg-white' },
+                                              ].map(c => (
+                                                <button
+                                                  key={c.name}
+                                                  type="button"
+                                                  onClick={() => insertMotdColorTag(c.color)}
+                                                  className={cn(
+                                                    "w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm",
+                                                    c.bg
+                                                  )}
+                                                  title={`Format selection to ${c.name}`}
+                                                />
+                                              ))}
+                                              <div className="h-4 w-px bg-slate-800 mx-1" />
+                                              <button
+                                                type="button"
+                                                onClick={insertMotdNewline}
+                                                className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 text-[10px] font-bold transition-colors"
+                                                title="Insert literal newline \n tag"
+                                              >
+                                                + New Line (\n)
+                                              </button>
+                                            </div>
+
+                                            {/* Text Area */}
+                                            <textarea
+                                              id="motd-textarea"
+                                              value={config.motd || ''}
+                                              onChange={e => { setConfig({...config, motd: e.target.value}); setIsDirty(true); }}
+                                              placeholder="Enter server welcome message... Use \n for line breaks, or color presets above."
+                                              rows={4}
+                                              className="w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 rounded-b-xl px-4 py-3 text-slate-200 focus:outline-none font-mono transition-all text-sm placeholder-slate-600 shadow-inner resize-y min-h-[90px]"
+                                            />
+
+                                            {/* Real-time Game Preview */}
+                                            <div className="mt-2.5 flex flex-col gap-1.5 bg-slate-950/40 border border-white/5 rounded-2xl p-4">
+                                              <div className="text-[10px] uppercase font-black text-slate-500 tracking-wider flex items-center justify-between">
+                                                <span>In-Game Broadcast Preview</span>
+                                                <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">Real-Time</span>
+                                              </div>
+                                              <div className="text-sm font-semibold tracking-wide leading-relaxed p-2.5 rounded-xl bg-black/30 border border-slate-900/60 font-sans break-words select-none max-h-[150px] overflow-y-auto custom-scrollbar text-left">
+                                                {renderMotdPreview(config.motd || '')}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-4">
+                                            <div className="flex flex-col gap-1.5">
+                                              <label className="text-xs font-bold text-slate-300">Duration</label>
+                                              <input type="number" value={config.motdDuration || 0} onChange={e => { setConfig({...config, motdDuration: parseFloat(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                              <label className="text-xs font-bold text-slate-300">Interval (Mins)</label>
+                                              <input type="number" disabled={!config.motdIntervalEnabled} value={config.motdInterval || 0} onChange={e => { setConfig({...config, motdInterval: parseFloat(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
+                                            </div>
+                                          </div>
+                                          <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
+                                            <input type="checkbox" checked={!!config.motdIntervalEnabled} onChange={e => { setConfig({...config, motdIntervalEnabled: e.target.checked}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                            <span className="text-sm font-semibold text-slate-200">Enable Periodic MOTD</span>
+                                          </label>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6">
+                                        <h3 className="text-amber-500 font-bold mb-4 uppercase tracking-wider text-sm flex items-center gap-2">
+                                          <AlertTriangle className="w-4 h-4" /> Extinction Event
+                                        </h3>
+                                        <div className="space-y-4">
+                                          <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
+                                            <input type="checkbox" checked={!!config.enableExtinctionEvent} onChange={e => { setConfig({...config, enableExtinctionEvent: e.target.checked}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                            <span className="text-sm font-semibold text-slate-200">Enable Extinction Event</span>
+                                          </label>
+                                          <div className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-bold text-slate-300">Extinction Interval (Days)</label>
+                                            <input type="number" disabled={!config.enableExtinctionEvent} value={config.extinctionEventTimeInterval || 0} onChange={e => { setConfig({...config, extinctionEventTimeInterval: parseFloat(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="mb-8">
                                     {renderMapSelector()}
                                   </div>
-                                )}
+                                </>
+                              )}
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {filteredFields.map(field => renderField(field))}
                               </div>
                             </div>
@@ -2469,7 +2888,7 @@ export default function ASEConfigEditor() {
               <div className="flex items-center gap-3 justify-end">
                 <button
                   onClick={cancelServerSwitch}
-                  className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/50 rounded-xl transition-all"
+                  className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/50 rounded-xl transition-all whitespace-nowrap"
                 >
                   Stay Here
                 </button>
@@ -2478,13 +2897,13 @@ export default function ASEConfigEditor() {
                     await handleSave();
                     confirmServerSwitch();
                   }}
-                  className="px-4 py-2 text-sm font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center gap-1.5"
+                  className="px-4 py-2 text-sm font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <Save className="w-3.5 h-3.5" /> Save & Switch
                 </button>
                 <button
                   onClick={confirmServerSwitch}
-                  className="px-4 py-2 text-sm font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-all"
+                  className="px-4 py-2 text-sm font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-all whitespace-nowrap"
                 >
                   Discard & Switch
                 </button>

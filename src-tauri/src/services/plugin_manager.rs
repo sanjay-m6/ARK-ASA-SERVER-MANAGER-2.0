@@ -25,12 +25,19 @@ impl PluginManagerService {
         };
 
         // Construct potential paths for the plugin
-        // Standard ArkApi structure: ShooterGame/Binaries/Win64/ArkApi/Plugins/{PluginName}
-        let api_plugin_path = install_path
+        let win64_dir = install_path
             .join("ShooterGame")
             .join("Binaries")
-            .join("Win64")
-            .join("ArkApi")
+            .join("Win64");
+
+        let api_name = if win64_dir.join("AsaApi").exists() {
+            "AsaApi"
+        } else {
+            "ArkApi"
+        };
+
+        let api_plugin_path = win64_dir
+            .join(api_name)
             .join("Plugins")
             .join(plugin_name);
 
@@ -54,14 +61,24 @@ impl PluginManagerService {
         let db = state.db.lock().ok()?;
         let conn = db.get_connection().ok()?;
 
-        let path_str: String = conn
-            .query_row(
-                "SELECT install_path FROM servers WHERE id = ?1",
-                [server_id],
-                |row| row.get(0),
-            )
-            .ok()?;
+        // Try servers table first
+        if let Ok(path_str) = conn.query_row(
+            "SELECT install_path FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get::<_, String>(0),
+        ) {
+            return Some(PathBuf::from(path_str));
+        }
 
-        Some(PathBuf::from(path_str))
+        // Try ase_servers table next
+        if let Ok(path_str) = conn.query_row(
+            "SELECT install_path FROM ase_servers WHERE id = ?1",
+            [server_id],
+            |row| row.get::<_, String>(0),
+        ) {
+            return Some(PathBuf::from(path_str));
+        }
+
+        None
     }
 }

@@ -5,6 +5,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use sysinfo::{Pid, System};
+use crate::services::process_manager::find_game_server_pid_by_install_path;
 use tokio::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -331,6 +332,55 @@ impl GuardianService {
                             });
                         }
                     } else {
+                        // Check if a handoff process took over
+                        let handoff_pid = {
+                            if let Ok(db_guard) = state.db.lock() {
+                                if let Ok(conn) = db_guard.get_connection() {
+                                    if server_id < 0 {
+                                        conn.query_row(
+                                            "SELECT install_path FROM ase_servers WHERE id = ?",
+                                            [-server_id],
+                                            |row| row.get::<_, String>(0)
+                                        ).ok().and_then(|path| {
+                                            find_game_server_pid_by_install_path(&path, "ASE")
+                                        })
+                                    } else {
+                                        conn.query_row(
+                                            "SELECT install_path FROM servers WHERE id = ?",
+                                            [server_id],
+                                            |row| row.get::<_, String>(0)
+                                        ).ok().and_then(|path| {
+                                            find_game_server_pid_by_install_path(&path, "ASA")
+                                        })
+                                    }
+                                } else { None }
+                            } else { None }
+                        };
+
+                        if let Some(new_pid) = handoff_pid {
+                            println!("🛡️ Guardian Watchdog: Handoff detected for server {}! Swapped watchdog tracking to new PID {}.", server_id, new_pid);
+                            {
+                                let mut pids = server_pids.lock().await;
+                                pids.insert(server_id, new_pid);
+                            }
+                            if let Ok(db_guard) = state.db.lock() {
+                                if let Ok(conn) = db_guard.get_connection() {
+                                    if server_id < 0 {
+                                        let _ = conn.execute(
+                                            "UPDATE ase_servers SET process_id = ?1 WHERE id = ?2",
+                                            rusqlite::params![new_pid, -server_id]
+                                        );
+                                    } else {
+                                        let _ = conn.execute(
+                                            "UPDATE servers SET process_id = ?1 WHERE id = ?2",
+                                            rusqlite::params![new_pid, server_id]
+                                        );
+                                    }
+                                }
+                            }
+                            continue;
+                        }
+
                         println!("🛡️ Guardian Watchdog: Server {} (PID {}) crashed or terminated!", server_id, pid);
 
                         // Stop tracking crashed PID to prevent duplicate restarts
@@ -385,7 +435,7 @@ impl GuardianService {
                             }
                             
                             let _ = app_handle.emit("server-status-change", serde_json::json!({
-                                "serverId": if server_id < 0 { -server_id } else { server_id },
+                                "server_id": if server_id < 0 { -server_id } else { server_id },
                                 "status": "stopped"
                             }));
                             
@@ -464,9 +514,15 @@ impl GuardianService {
                                     service.log_crash(server_id, &server_name, "crashed (auto-restart aborted: crash loop prevention)", false).await;
                                 }
 
+                                // Emit status change event for frontend
+                                let _ = app_handle.emit("server-status-change", serde_json::json!({
+                                    "server_id": if server_id < 0 { -server_id } else { server_id },
+                                    "status": "crashed"
+                                }));
+
                                 // Emit alert event to frontend
                                 let _ = app_handle.emit("server-health-alert", serde_json::json!({
-                                    "serverId": if server_id < 0 { -server_id } else { server_id },
+                                    "server_id": if server_id < 0 { -server_id } else { server_id },
                                     "serverName": server_name,
                                     "type": "crash_loop_prevented",
                                     "message": format!("Crash loop detected! Auto-restart disabled for '{}' to prevent system degradation.", server_name)
@@ -532,6 +588,12 @@ impl GuardianService {
                                     }
                                 }
                             }
+
+                            // Emit status change event for frontend
+                            let _ = app_handle.emit("server-status-change", serde_json::json!({
+                                "server_id": if server_id < 0 { -server_id } else { server_id },
+                                "status": "crashed"
+                            }));
 
                             // Log crash event
                             {

@@ -589,6 +589,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::rcon::stop_log_stream,
             commands::rcon::rcon_execute_cluster_command,
             commands::rcon::rcon_validate_save,
+            commands::rcon::rcon_resolve_player_ids,
             // Discord panel commands
             commands::discord_panel::get_cluster_servers_health,
             commands::discord_panel::get_active_players,
@@ -800,11 +801,17 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              ase::commands::server::get_ase_server_status,
              ase::commands::server::get_ase_launch_arguments,
              ase::commands::server::reset_ase_server,
+             ase::commands::server::restart_ase_server,
              ase::commands::server::import_ase_server,
              ase::commands::server::clone_ase_server,
              ase::commands::server::transfer_ase_settings,
-             ase::commands::server::extract_ase_save_data,
-             ase::commands::import::import_ase_save,
+              ase::commands::server::extract_ase_save_data,
+              ase::commands::server::validate_ase_install_path,
+              ase::commands::server::run_ase_preflight_check,
+              ase::commands::server::diagnose_ase_server_visibility,
+              ase::commands::server::join_ase_server,
+              ase::commands::server::get_ase_server_version,
+              ase::commands::import::import_ase_save,
               // ASE Mod commands
               ase::commands::mods::search_ase_workshop,
               ase::commands::mods::get_ase_workshop_details,
@@ -885,9 +892,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               ase::commands::tools::discover_ase_upnp_gateway,
               ase::commands::tools::forward_ase_server_ports,
               ase::commands::tools::remove_ase_server_port_forwards,
+              ase::commands::tools::get_local_ip,
+              ase::commands::tools::generate_diagnostics_report,
         ])
         .run(tauri::generate_context!())
 }
-
-
-

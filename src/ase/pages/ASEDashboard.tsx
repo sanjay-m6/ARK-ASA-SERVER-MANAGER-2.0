@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Server, Activity, Zap, Terminal, Puzzle,
   Play, Square, RotateCw, Clock, Database, FileEdit,
@@ -28,6 +29,19 @@ export default function ASEDashboard() {
   const { systemInfo, setSystemInfo } = useUIStore();
   const [performanceHistory, setPerformanceHistory] = useState<any[]>([]);
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  // Autostart States
+  const [startupConfig, setStartupConfig] = useState<any>({
+    globalAutoStartEnabled: false,
+    globalBootDelay: 0,
+    startMinimizedToTray: false,
+    silentHeadlessStartup: false,
+    windowsStartupShortcut: false,
+    loopPreventionMaxCrashes: 3,
+    loopPreventionTimeWindowMins: 15,
+  });
+  const [isSavingStartup, setIsSavingStartup] = useState(false);
 
   // Organization States
   const [snapshot, setSnapshot] = useState<any>(null);
@@ -77,6 +91,56 @@ export default function ASEDashboard() {
     const address = `127.0.0.1:${port}`;
     navigator.clipboard.writeText(address);
     toast.success(`Copied address (${address}) to clipboard!`);
+  };
+
+  const fetchStartupConfig = async () => {
+    try {
+      const cfg = await invoke<any>('get_auto_start_config');
+      setStartupConfig(cfg);
+    } catch (e) {
+      console.error('Failed to load auto start config:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchStartupConfig();
+  }, []);
+
+  const handleToggleStartupSetting = async (key: string, value: boolean) => {
+    const updatedConfig = { ...startupConfig, [key]: value };
+    
+    if (key === 'windowsStartupShortcut') {
+      updatedConfig.silentHeadlessStartup = value;
+    }
+    
+    setStartupConfig(updatedConfig);
+    setIsSavingStartup(true);
+
+    try {
+      // 1. Save to database
+      await invoke('set_auto_start_config', { config: updatedConfig });
+
+      // 2. Sync Windows shortcuts/scheduler
+      if (updatedConfig.windowsStartupShortcut) {
+        if (updatedConfig.silentHeadlessStartup) {
+          await invoke('set_startup_shortcut', { enabled: false, minimized: false });
+          await invoke('set_startup_task_scheduler', { enabled: true });
+        } else {
+          await invoke('set_startup_shortcut', { enabled: true, minimized: updatedConfig.startMinimizedToTray });
+          await invoke('set_startup_task_scheduler', { enabled: false });
+        }
+      } else {
+        await invoke('set_startup_shortcut', { enabled: false, minimized: false });
+        await invoke('set_startup_task_scheduler', { enabled: false });
+      }
+      toast.success(t('settings.saved', 'Startup settings updated!'));
+    } catch (error) {
+      console.error('Failed to save startup settings:', error);
+      toast.error(t('settings.saveFailed', 'Failed to update OS startup configuration. Run as Administrator if using Task Scheduler.'));
+      fetchStartupConfig();
+    } finally {
+      setIsSavingStartup(false);
+    }
   };
 
 
@@ -150,7 +214,7 @@ export default function ASEDashboard() {
     };
     fetchSys();
     let unsub: () => void;
-    listen<{ server_id: number; status: any }>('ase-server-status-change', (e) => { updateServerStatus(e.payload.server_id, e.payload.status); }).then(u => { unsub = u; });
+    listen<{ server_id: number; status: any }>('server-status-change', (e) => { updateServerStatus(e.payload.server_id, e.payload.status); }).then(u => { unsub = u; });
     const i1 = setInterval(fetchSys, 10000);
     const i2 = setInterval(refreshServers, 3000);
     return () => { clearInterval(i1); clearInterval(i2); if (unsub) unsub(); };
@@ -596,6 +660,11 @@ export default function ASEDashboard() {
                             <h3 className="font-semibold text-slate-200">{displayName}</h3>
                             {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
                             {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                            {srv.autoStart && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold tracking-wide uppercase">
+                                AUTOSTART
+                              </span>
+                            )}
                           </div>
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
                             <p className="text-xs text-slate-400">{getAseMapDisplayName(srv.mapName)} • Game: {srv.port} • Query: {srv.queryPort} • RCON: {srv.rconPort}</p>
@@ -647,6 +716,15 @@ export default function ASEDashboard() {
                           title="Config Editor"
                         >
                           <FileEdit className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={(e) => { e.stopPropagation(); window.location.href = `steam://connect/127.0.0.1:${srv.queryPort || 27015}`; }}
+                          disabled={srv.status !== 'online'}
+                          className="w-[34px] h-[34px] flex items-center justify-center bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Join Server via Steam"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4c7 0 11 8 11 8a18.6 18.6 0 0 1-3.2 4.6"/><path d="M18.8 18.8A18.6 18.6 0 0 1 12 20c-7 0-11-8-11-8a18.6 18.6 0 0 1 5.3-6.4"/><circle cx="12" cy="12" r="3"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
                         </button>
 
                         <div className={cn(
@@ -704,6 +782,78 @@ export default function ASEDashboard() {
             >
               Consult AI Co-Pilot
             </button>
+          </div>
+
+          {/* Startup & Boot Options Widget */}
+          <div className="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-amber-500/10 blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
+
+            <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2 mb-4">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+              </span>
+              Startup & Boot Options
+            </h3>
+            
+            <div className="space-y-3">
+              {/* Run at System Boot */}
+              <div className="flex items-center justify-between p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition-colors">
+                <div className="min-w-0 pr-2">
+                  <p className="text-xs font-semibold text-slate-200">Run at System Boot</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Auto-start app when PC starts</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={startupConfig.windowsStartupShortcut}
+                    onChange={(e) => handleToggleStartupSetting('windowsStartupShortcut', e.target.checked)}
+                    disabled={isSavingStartup}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+              </div>
+
+              {/* Enable Global Auto-Start */}
+              <div className="flex items-center justify-between p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition-colors">
+                <div className="min-w-0 pr-2">
+                  <p className="text-xs font-semibold text-slate-200">Auto-Start Server Profiles</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Launch servers on app boot</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={startupConfig.globalAutoStartEnabled}
+                    onChange={(e) => handleToggleStartupSetting('globalAutoStartEnabled', e.target.checked)}
+                    disabled={isSavingStartup}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+              </div>
+
+              {/* Bypass UAC (Task Scheduler) */}
+              <div className="flex items-center justify-between p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition-colors">
+                <div className="min-w-0 pr-2">
+                  <p className="text-xs font-semibold text-slate-200">Bypass UAC (Admin Level)</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5 truncate">Elevated run via Task Scheduler</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={startupConfig.silentHeadlessStartup}
+                    disabled={!startupConfig.windowsStartupShortcut || isSavingStartup}
+                    onChange={(e) => handleToggleStartupSetting('silentHeadlessStartup', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 peer-disabled:opacity-30"></div>
+                </label>
+              </div>
+            </div>
+            
+            <p className="text-[10px] text-slate-500 mt-3 text-center">
+              Additional options are available in <button onClick={() => navigate('/ase/settings')} className="text-amber-500 hover:underline">Settings</button>
+            </p>
           </div>
 
           {/* Quick Actions Panel */}

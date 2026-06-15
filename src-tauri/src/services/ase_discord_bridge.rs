@@ -443,7 +443,9 @@ impl SerenityEventHandler for GatewayHandler {
                     if let Some(id) = server_id {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
-                            let _ = crate::commands::server::start_server(app, id, false).await;
+                            if let Some(state) = app.try_state::<AppState>() {
+                                let _ = crate::ase::commands::server::start_ase_server(app.clone(), id, state).await;
+                            }
                         });
                         format!("🚀 Initiated START for server `#{}`.", id)
                     } else {
@@ -454,8 +456,9 @@ impl SerenityEventHandler for GatewayHandler {
                     if let Some(id) = server_id {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::stop_server(state, id).await;
+                            if let Some(state) = app.try_state::<AppState>() {
+                                let _ = crate::ase::commands::server::stop_ase_server(id, state).await;
+                            }
                         });
                         format!("🛑 Initiated STOP for server `#{}`.", id)
                     } else {
@@ -466,8 +469,9 @@ impl SerenityEventHandler for GatewayHandler {
                     if let Some(id) = server_id {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::restart_server(state, id).await;
+                            if let Some(state) = app.try_state::<AppState>() {
+                                let _ = crate::ase::commands::server::restart_ase_server(app.clone(), id, state).await;
+                            }
                         });
                         format!("🔄 Initiated RESTART for server `#{}`.", id)
                     } else {
@@ -478,8 +482,9 @@ impl SerenityEventHandler for GatewayHandler {
                     if let Some(id) = server_id {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::update_server(app.clone(), state, id).await;
+                            if let Some(state) = app.try_state::<AppState>() {
+                                let _ = crate::ase::commands::server::update_ase_server_install(app.clone(), id, state).await;
+                            }
                         });
                         format!("🔄 Initiated UPDATE for server `#{}`.", id)
                     } else {
@@ -603,7 +608,9 @@ impl SerenityEventHandler for GatewayHandler {
                     for id in server_ids {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
-                            let _ = crate::commands::server::start_server(app, id, false).await;
+                            if let Some(state) = app.try_state::<AppState>() {
+                                let _ = crate::ase::commands::server::start_ase_server(app.clone(), id, state).await;
+                            }
                         });
                     }
                     "🚀 Initiated START for all servers in the cluster."
@@ -612,8 +619,9 @@ impl SerenityEventHandler for GatewayHandler {
                     for id in server_ids {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::stop_server(state, id).await;
+                            if let Some(state) = app.try_state::<AppState>() {
+                                let _ = crate::ase::commands::server::stop_ase_server(id, state).await;
+                            }
                         });
                     }
                     "🛑 Initiated STOP for all servers in the cluster."
@@ -622,8 +630,9 @@ impl SerenityEventHandler for GatewayHandler {
                     for id in server_ids {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::restart_server(state, id).await;
+                            if let Some(state) = app.try_state::<AppState>() {
+                                let _ = crate::ase::commands::server::restart_ase_server(app.clone(), id, state).await;
+                            }
                         });
                     }
                     "🔄 Initiated RESTART for all servers in the cluster."
@@ -632,8 +641,9 @@ impl SerenityEventHandler for GatewayHandler {
                     for id in server_ids {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::update_server(app.clone(), state, id).await;
+                            if let Some(state) = app.try_state::<AppState>() {
+                                let _ = crate::ase::commands::server::update_ase_server_install(app.clone(), id, state).await;
+                            }
                         });
                     }
                     "🔄 Initiated UPDATE for all servers in the cluster."
@@ -759,9 +769,13 @@ impl SerenityEventHandler for GatewayHandler {
                     let http = ctx.http.clone();
                     let channel_id = msg.channel_id;
                     tauri::async_runtime::spawn(async move {
-                        match crate::commands::server::start_server(app, id, false).await {
-                            Ok(_) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(build_embed("✅ Server Started", &format!("Server `{}` started successfully.", id), 0x22C55E))).await; }
-                            Err(e) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed(&format!("Failed to start server {}: {}", id, e)))).await; }
+                        if let Some(state) = app.try_state::<AppState>() {
+                            match crate::ase::commands::server::start_ase_server(app.clone(), id, state).await {
+                                Ok(_) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(build_embed("✅ Server Started", &format!("Server `{}` started successfully.", id), 0x22C55E))).await; }
+                                Err(e) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed(&format!("Failed to start server {}: {}", id, e)))).await; }
+                            }
+                        } else {
+                            let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed("Failed to acquire application state."))).await;
                         }
                     });
                 } else {
@@ -784,10 +798,13 @@ impl SerenityEventHandler for GatewayHandler {
                     let http = ctx.http.clone();
                     let channel_id = msg.channel_id;
                     tauri::async_runtime::spawn(async move {
-                        let state = app.state::<AppState>();
-                        match crate::commands::server::stop_server(state, id).await {
-                            Ok(_) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(build_embed("✅ Server Stopped", &format!("Server `{}` stopped.", id), 0x22C55E))).await; }
-                            Err(e) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed(&format!("Failed to stop server {}: {}", id, e)))).await; }
+                        if let Some(state) = app.try_state::<AppState>() {
+                            match crate::ase::commands::server::stop_ase_server(id, state).await {
+                                Ok(_) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(build_embed("✅ Server Stopped", &format!("Server `{}` stopped.", id), 0x22C55E))).await; }
+                                Err(e) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed(&format!("Failed to stop server {}: {}", id, e)))).await; }
+                            }
+                        } else {
+                            let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed("Failed to acquire application state."))).await;
                         }
                     });
                 } else {
@@ -810,10 +827,13 @@ impl SerenityEventHandler for GatewayHandler {
                     let http = ctx.http.clone();
                     let channel_id = msg.channel_id;
                     tauri::async_runtime::spawn(async move {
-                        let state = app.state::<AppState>();
-                        match crate::commands::server::restart_server(state, id).await {
-                            Ok(_) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(build_embed("✅ Server Restarted", &format!("Server `{}` restarted.", id), 0x22C55E))).await; }
-                            Err(e) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed(&format!("Failed to restart server {}: {}", id, e)))).await; }
+                        if let Some(state) = app.try_state::<AppState>() {
+                            match crate::ase::commands::server::restart_ase_server(app.clone(), id, state).await {
+                                Ok(_) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(build_embed("✅ Server Restarted", &format!("Server `{}` restarted.", id), 0x22C55E))).await; }
+                                Err(e) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed(&format!("Failed to restart server {}: {}", id, e)))).await; }
+                            }
+                        } else {
+                            let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed("Failed to acquire application state."))).await;
                         }
                     });
                 } else {
@@ -836,16 +856,19 @@ impl SerenityEventHandler for GatewayHandler {
                     let channel_id = msg.channel_id;
 
                     tauri::async_runtime::spawn(async move {
-                        let state = app.state::<AppState>();
-                        match crate::commands::server::update_server(app.clone(), state, id).await {
-                            Ok(_) => {
-                                log::info!("✅ Discord !update: Server {} updated successfully", id);
-                                let _ = channel_id.say(&http, format!("✅ Server {} updated.", id)).await;
+                        if let Some(state) = app.try_state::<AppState>() {
+                            match crate::ase::commands::server::update_ase_server_install(app.clone(), id, state).await {
+                                Ok(_) => {
+                                    log::info!("✅ Discord !update: Server {} updated successfully", id);
+                                    let _ = channel_id.say(&http, format!("✅ Server {} updated.", id)).await;
+                                }
+                                Err(e) => {
+                                    log::error!("❌ Discord !update: Failed to update server {}: {}", id, e);
+                                    let _ = channel_id.say(&http, format!("❌ Failed to update server {}: {}", id, e)).await;
+                                }
                             }
-                            Err(e) => {
-                                log::error!("❌ Discord !update: Failed to update server {}: {}", id, e);
-                                let _ = channel_id.say(&http, format!("❌ Failed to update server {}: {}", id, e)).await;
-                            }
+                        } else {
+                            let _ = channel_id.say(&http, "❌ Failed to acquire application state.").await;
                         }
                     });
                 } else {

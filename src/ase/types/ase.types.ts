@@ -16,6 +16,16 @@ export type AseMapName =
   | 'Aquatic'
   | string;
 
+export type TabType =
+  | 'administration'
+  | 'general'
+  | 'server_options'
+  | 'rates'
+  | 'player'
+  | 'dino'
+  | 'breeding'
+  | 'structures';
+
 export type AseServerStatus =
   | 'stopped'
   | 'starting'
@@ -124,6 +134,7 @@ export interface AseGameConfig {
   serverPassword: string;
   serverAdminPassword: string;
   maxPlayers: number;
+  RCONServerLogBuffer: number;
 
   // ── Difficulty ──
   difficultyOffset: number;
@@ -354,6 +365,7 @@ export interface AseGameConfig {
   useAllAvailableCores: boolean;
   useLowMemory: boolean;
   noBattleEye: boolean;
+  enableAutomanagedMods: boolean;
 
   // ── Ragnarok-specific ──
   ragnarokVolcanoIntensity: number;
@@ -445,6 +457,7 @@ export interface AseGameConfig {
   epicStorePlayersOnly: boolean;
   alternateSaveDirectoryName: string;
   clusterDirectoryOverride: string;
+  serverLanguage: string;
   useClusterDirectoryOverride: boolean;
   playerHarvestingDamageMultiplier: number;
   craftingSkillBonusMultiplier: number;

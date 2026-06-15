@@ -183,7 +183,7 @@ fn check_port_rule_exists(port: u16, protocol: &str) -> PortStatus {
 }
 
 /// Create multiple firewall rules with elevation (prompts UAC once)
-fn create_firewall_rules_elevated(rules: Vec<(u16, &str, String)>) -> Result<(), String> {
+pub fn create_firewall_rules_elevated(rules: Vec<(u16, &str, String)>) -> Result<(), String> {
     if rules.is_empty() {
         return Ok(());
     }
@@ -285,6 +285,145 @@ if (-not $existingRule) {{
             "Firewall rules could not be verified. UAC elevation may have been dismissed."
                 .to_string(),
         )
+    }
+}
+
+/// Create outbound firewall rules with elevation (mirrors inbound but with Direction=Outbound).
+/// Required for Steam LAN broadcast discovery responses.
+pub fn create_outbound_firewall_rules_elevated(rules: Vec<(u16, &str, String)>) -> Result<(), String> {
+    if rules.is_empty() {
+        return Ok(());
+    }
+
+    let temp_dir = std::env::temp_dir();
+    let script_path = temp_dir.join("ark_firewall_outbound.ps1");
+    let log_path = temp_dir.join("ark_firewall_outbound.log");
+
+    let mut script_parts = Vec::new();
+    script_parts.push(format!(
+        "$logFile = '{}'",
+        log_path.to_string_lossy().replace('\\', "\\\\")
+    ));
+    script_parts.push("$results = @()".to_string());
+
+    for (port, protocol, rule_name) in &rules {
+        script_parts.push(format!(
+            r#"$ruleName = '{}'
+$existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+if (-not $existingRule) {{
+    try {{
+        New-NetFirewallRule -DisplayName $ruleName -Direction Outbound -LocalPort {} -Protocol {} -Action Allow -Profile Any | Out-Null
+        $results += "CREATED: $ruleName"
+    }} catch {{
+        $results += "FAILED: $ruleName - $($_.Exception.Message)"
+    }}
+}} else {{
+    $results += "EXISTS: $ruleName"
+}}"#,
+            rule_name, port, protocol
+        ));
+    }
+
+    script_parts.push("$results | Out-File -FilePath $logFile -Encoding UTF8".to_string());
+    let combined_script = script_parts.join("\n");
+
+    let mut bom_bytes = vec![0xEF, 0xBB, 0xBF];
+    bom_bytes.extend_from_slice(combined_script.as_bytes());
+    std::fs::write(&script_path, bom_bytes)
+        .map_err(|e| format!("Failed to write temp script: {}", e))?;
+
+    let _ = std::fs::remove_file(&log_path);
+
+    let launcher_script = format!(
+        r#"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
+        script_path.to_string_lossy().replace('\\', "\\\\")
+    );
+
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &launcher_script])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
+
+    let _ = std::fs::remove_file(&script_path);
+    let log_contents = std::fs::read_to_string(&log_path).unwrap_or_default();
+    let _ = std::fs::remove_file(&log_path);
+
+    if !log_contents.is_empty() {
+        log::info!("[FIREWALL] Outbound rules results:\n{}", log_contents.trim());
+        if log_contents.contains("FAILED:") {
+            let failures: Vec<&str> = log_contents.lines().filter(|l| l.contains("FAILED:")).collect();
+            return Err(format!("Some outbound rules failed: {}", failures.join("; ")));
+        }
+        Ok(())
+    } else if !output.status.success() {
+        Err("UAC elevation was denied for outbound rules.".to_string())
+    } else {
+        Err("Outbound rules could not be verified. UAC may have been dismissed.".to_string())
+    }
+}
+
+/// Create a program-based firewall rule allowing all UDP traffic from a specific executable.
+/// This covers Steam LAN broadcast packets that may not match specific port rules.
+pub fn create_program_firewall_rule_elevated(exe_path: &str, rule_name: &str) -> Result<(), String> {
+    let temp_dir = std::env::temp_dir();
+    let script_path = temp_dir.join("ark_firewall_program.ps1");
+    let log_path = temp_dir.join("ark_firewall_program.log");
+
+    let escaped_exe = exe_path.replace('\\', "\\\\");
+    let script = format!(
+        r#"$logFile = '{log}'
+$ruleName = '{name}'
+$results = @()
+$existingRule = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+if (-not $existingRule) {{
+    try {{
+        New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Program '{exe}' -Protocol UDP -Action Allow -Profile Any | Out-Null
+        $results += "CREATED: $ruleName"
+    }} catch {{
+        $results += "FAILED: $ruleName - $($_.Exception.Message)"
+    }}
+}} else {{
+    $results += "EXISTS: $ruleName"
+}}
+$results | Out-File -FilePath $logFile -Encoding UTF8"#,
+        log = log_path.to_string_lossy().replace('\\', "\\\\"),
+        name = rule_name,
+        exe = escaped_exe,
+    );
+
+    let mut bom_bytes = vec![0xEF, 0xBB, 0xBF];
+    bom_bytes.extend_from_slice(script.as_bytes());
+    std::fs::write(&script_path, bom_bytes)
+        .map_err(|e| format!("Failed to write temp script: {}", e))?;
+
+    let _ = std::fs::remove_file(&log_path);
+
+    let launcher_script = format!(
+        r#"Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '{}'"#,
+        script_path.to_string_lossy().replace('\\', "\\\\")
+    );
+
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &launcher_script])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
+
+    let _ = std::fs::remove_file(&script_path);
+    let log_contents = std::fs::read_to_string(&log_path).unwrap_or_default();
+    let _ = std::fs::remove_file(&log_path);
+
+    if !log_contents.is_empty() {
+        log::info!("[FIREWALL] Program rule results:\n{}", log_contents.trim());
+        if log_contents.contains("FAILED:") {
+            return Err(format!("Program firewall rule failed: {}", log_contents.trim()));
+        }
+        Ok(())
+    } else if !output.status.success() {
+        Err("UAC elevation was denied for program rule.".to_string())
+    } else {
+        Err("Program rule could not be verified. UAC may have been dismissed.".to_string())
     }
 }
 
@@ -585,6 +724,11 @@ pub async fn create_firewall_rules(
             format!("ARK Server - {} - Game (TCP {})", server_name, server.game_port),
         ),
         (
+            server.game_port + 1,
+            "UDP",
+            format!("ARK Server - {} - Raw (UDP {})", server_name, server.game_port + 1),
+        ),
+        (
             server.query_port,
             "UDP",
             format!("ARK Server - {} - Query (UDP {})", server_name, server.query_port),
@@ -647,7 +791,7 @@ pub async fn remove_firewall_rules(
 
     // Collect the distinct ports used by this server; port-based removal handles
     // all protocols (UDP/TCP) and survives server renames.
-    let mut ports = vec![server.game_port, server.query_port];
+    let mut ports = vec![server.game_port, server.game_port + 1, server.query_port];
     if server.rcon_enabled {
         ports.push(server.rcon_port);
     }
@@ -716,6 +860,11 @@ pub async fn create_all_firewall_rules(
             server.game_port,
             "TCP",
             format!("ARK Server - {} - Game (TCP {})", server_name, server.game_port),
+        ));
+        rules.push((
+            server.game_port + 1,
+            "UDP",
+            format!("ARK Server - {} - Raw (UDP {})", server_name, server.game_port + 1),
         ));
 
         // Query port: UDP only (Steam A2S)
@@ -1103,6 +1252,7 @@ pub async fn create_ase_firewall_rules(
     let mut rules: Vec<(u16, &str, String)> = vec![
         (server.game_port, "UDP", format!("ARK Server - {} - Game (UDP {})", server_name, server.game_port)),
         (server.game_port, "TCP", format!("ARK Server - {} - Game (TCP {})", server_name, server.game_port)),
+        (server.game_port + 1, "UDP", format!("ARK Server - {} - Raw (UDP {})", server_name, server.game_port + 1)),
         (server.query_port, "UDP", format!("ARK Server - {} - Query (UDP {})", server_name, server.query_port)),
     ];
 
@@ -1134,7 +1284,7 @@ pub async fn remove_ase_firewall_rules(
     let server = get_ase_server_from_db(&state, server_id)?;
     let server_name = &server.name;
 
-    let mut ports = vec![server.game_port, server.query_port];
+    let mut ports = vec![server.game_port, server.game_port + 1, server.query_port];
     if server.rcon_enabled {
         ports.push(server.rcon_port);
     }
@@ -1181,6 +1331,7 @@ pub async fn create_all_ase_firewall_rules(
 
         rules.push((server.game_port, "UDP", format!("ARK Server - {} - Game (UDP {})", server_name, server.game_port)));
         rules.push((server.game_port, "TCP", format!("ARK Server - {} - Game (TCP {})", server_name, server.game_port)));
+        rules.push((server.game_port + 1, "UDP", format!("ARK Server - {} - Raw (UDP {})", server_name, server.game_port + 1)));
         rules.push((server.query_port, "UDP", format!("ARK Server - {} - Query (UDP {})", server_name, server.query_port)));
 
         if server.rcon_enabled {

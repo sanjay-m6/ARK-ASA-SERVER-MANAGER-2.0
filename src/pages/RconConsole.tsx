@@ -28,7 +28,10 @@ import {
     EyeOff,
     Check,
     Pause,
-    History
+    History,
+    Gift,
+    Package,
+    Sliders
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
@@ -91,6 +94,164 @@ const AUTOCOMPLETE_COMMANDS = [
     { command: 'AdminCheat', desc: 'Prefix to run server administration commands.' }
 ];
 
+const PRESET_ITEMS = [
+    // Resources
+    { name: 'Stone', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Stone.PrimalItemResource_Stone'" },
+    { name: 'Metal Ingot', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_MetalIngot.PrimalItemResource_MetalIngot'" },
+    { name: 'Metal (Raw)', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Metal.PrimalItemResource_Metal'" },
+    { name: 'Scrap Metal', category: 'Resources', path: "Blueprint'/Game/Extinction/CoreBlueprints/Resources/PrimalItemResource_ScrapMetal.PrimalItemResource_ScrapMetal'" },
+    { name: 'Scrap Metal Ingot', category: 'Resources', path: "Blueprint'/Game/Extinction/CoreBlueprints/Resources/PrimalItemResource_ScrapMetalIngot.PrimalItemResource_ScrapMetalIngot'" },
+    { name: 'Wood', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wood.PrimalItemResource_Wood'" },
+    { name: 'Fungal Wood', category: 'Resources', path: "Blueprint'/Game/Aberration/CoreBlueprints/Resources/PrimalItemResource_FungalWood.PrimalItemResource_FungalWood'" },
+    { name: 'Thatch', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Thatch.PrimalItemResource_Thatch'" },
+    { name: 'Fiber', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Fibers.PrimalItemResource_Fibers'" },
+    { name: 'Hide', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Hide.PrimalItemResource_Hide'" },
+    { name: 'Pelt', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Pelt.PrimalItemResource_Pelt'" },
+    { name: 'Hair', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Hair.PrimalItemResource_Hair'" },
+    { name: 'Wool', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wool.PrimalItemResource_Wool'" },
+    { name: 'Silk', category: 'Resources', path: "Blueprint'/Game/ScorchedEarth/CoreBlueprints/Resources/PrimalItemResource_Silk.PrimalItemResource_Silk'" },
+    { name: 'Chitin', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Chitin.PrimalItemResource_Chitin'" },
+    { name: 'Keratin', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Keratin.PrimalItemResource_Keratin'" },
+    { name: 'Shell Fragment', category: 'Resources', path: "Blueprint'/Game/Extinction/CoreBlueprints/Resources/PrimalItemResource_ShellFragment.PrimalItemResource_ShellFragment'" },
+    { name: 'Obsidian', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Obsidian.PrimalItemResource_Obsidian'" },
+    { name: 'Crystal', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Crystal.PrimalItemResource_Crystal'" },
+    { name: 'Primal Crystal', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Crystal_IslesPrimal.PrimalItemResource_Crystal_IslesPrimal'" },
+    { name: 'Flint', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Flint.PrimalItemResource_Flint'" },
+    { name: 'Cementing Paste', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_CementingPaste.PrimalItemResource_CementingPaste'" },
+    { name: 'Polymer (Standard)', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Polymer.PrimalItemResource_Polymer'" },
+    { name: 'Polymer (Organic)', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_PolymerOrganic.PrimalItemResource_PolymerOrganic'" },
+    { name: 'Corrupted Nodule', category: 'Resources', path: "Blueprint'/Game/Extinction/CoreBlueprints/Resources/PrimalItemResource_CorruptedNodule.PrimalItemResource_CorruptedNodule'" },
+    { name: 'Electronics', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Electronics.PrimalItemResource_Electronics'" },
+    { name: 'Gunpowder', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Gunpowder.PrimalItemResource_Gunpowder'" },
+    { name: 'Sparkpowder', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Sparkpowder.PrimalItemResource_Sparkpowder'" },
+    { name: 'Charcoal', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Charcoal.PrimalItemResource_Charcoal'" },
+    { name: 'Element', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element'" },
+    { name: 'Element Shard', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ElementShard.PrimalItemResource_ElementShard'" },
+    { name: 'Element Dust', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ElementDust.PrimalItemResource_ElementDust'" },
+    { name: 'Element Ore', category: 'Resources', path: "Blueprint'/Game/Aberration/CoreBlueprints/Resources/PrimalItemResource_ElementOre.PrimalItemResource_ElementOre'" },
+    { name: 'Mutagel', category: 'Resources', path: "Blueprint'/Game/Genesis2/CoreBlueprints/Environment/Mutagel/PrimalItemResource_Mutagel.PrimalItemResource_Mutagel'" },
+    { name: 'Mutagen', category: 'Resources', path: "Blueprint'/Game/Genesis2/CoreBlueprints/Environment/Mutagen/PrimalItemConsumable_Mutagen.PrimalItemConsumable_Mutagen'" },
+    { name: 'Black Pearl', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_BlackPearl.PrimalItemResource_BlackPearl'" },
+    { name: 'Silica Pearls', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_SiliconPearls.PrimalItemResource_SiliconPearls'" },
+    { name: 'Ambergris', category: 'Resources', path: "Blueprint'/Game/Genesis/CoreBlueprints/Environment/PrimalItemResource_Ambergris.PrimalItemResource_Ambergris'" },
+    { name: 'Oil', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Oil.PrimalItemResource_Oil'" },
+    { name: 'Gasoline', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Gasoline.PrimalItemResource_Gasoline'" },
+    { name: 'Sulfur', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Sulfur.PrimalItemResource_Sulfur'" },
+    { name: 'Raw Salt', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_RawSalt.PrimalItemResource_RawSalt'" },
+    { name: 'Clay', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Clay.PrimalItemResource_Clay'" },
+    { name: 'Sand', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Sand.PrimalItemResource_Sand'" },
+    { name: 'Cactus Sap', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_CactusSap.PrimalItemResource_CactusSap'" },
+    { name: 'Sap', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Sap.PrimalItemResource_Sap'" },
+    { name: 'Angler Gel', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_AnglerGel.PrimalItemResource_AnglerGel'" },
+    { name: 'Achatina Paste', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_AchatinaPaste.PrimalItemResource_AchatinaPaste'" },
+    { name: 'Rare Flower', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_RareFlower.PrimalItemResource_RareFlower'" },
+    { name: 'Rare Mushroom', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_RareMushroom.PrimalItemResource_RareMushroom'" },
+    { name: 'Substrate Absorbent', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_SubstrateAbsorbent.PrimalItemResource_SubstrateAbsorbent'" },
+    { name: 'Preserving Salt', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_PreservingSalt.PrimalItemResource_PreservingSalt'" },
+    { name: 'Propellant', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Propellant.PrimalItemResource_Propellant'" },
+    { name: 'Congealed Gas Ball', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_GasBall.PrimalItemResource_GasBall'" },
+    { name: 'Condensed Gas', category: 'Resources', path: "Blueprint'/Game/Extinction/CoreBlueprints/Resources/PrimalItemResource_CondensedGas.PrimalItemResource_CondensedGas'" },
+    { name: 'Gasbags Bladder', category: 'Resources', path: "Blueprint'/Game/Extinction/CoreBlueprints/Resources/PrimalItemResource_GasBagsBladder.PrimalItemResource_GasBagsBladder'" },
+    { name: 'Green Gem', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Gem_BioLum.PrimalItemResource_Gem_BioLum'" },
+    { name: 'Blue Gem', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Gem_Fertile.PrimalItemResource_Gem_Fertile'" },
+    { name: 'Red Gem', category: 'Resources', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Gem_Element.PrimalItemResource_Gem_Element'" },
+
+    // Consumables & Kibbles
+    { name: 'Medical Brew', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_HealSoup.PrimalItemConsumable_HealSoup'" },
+    { name: 'Energy Brew', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_StaminaSoup.PrimalItemConsumable_StaminaSoup'" },
+    { name: 'Sweet Vegetable Cake', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_SweetVeggieCake.PrimalItemConsumable_SweetVeggieCake'" },
+    { name: 'Broth of Enlightenment', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Soup_Enlightenment.PrimalItemConsumable_Soup_Enlightenment'" },
+    { name: 'Enduro Stew', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Soup_Enduro.PrimalItemConsumable_Soup_Enduro'" },
+    { name: 'Focal Chili', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Soup_FocalChili.PrimalItemConsumable_Soup_FocalChili'" },
+    { name: 'Lazarus Chowder', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Soup_Lazarus.PrimalItemConsumable_Soup_Lazarus'" },
+    { name: 'Shadow Steak Saute', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Soup_ShadowSteak.PrimalItemConsumable_Soup_ShadowSteak'" },
+    { name: 'Basic Kibble (Extra Small)', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Kibble_Base_XSmall.PrimalItemConsumable_Kibble_Base_XSmall'" },
+    { name: 'Simple Kibble (Small)', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Kibble_Base_Small.PrimalItemConsumable_Kibble_Base_Small'" },
+    { name: 'Regular Kibble (Medium)', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Kibble_Base_Medium.PrimalItemConsumable_Kibble_Base_Medium'" },
+    { name: 'Superior Kibble (Large)', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Kibble_Base_Large.PrimalItemConsumable_Kibble_Base_Large'" },
+    { name: 'Exceptional Kibble (Extra Large)', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Kibble_Base_XLarge.PrimalItemConsumable_Kibble_Base_XLarge'" },
+    { name: 'Extraordinary Kibble (Special)', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Kibble_Base_Special.PrimalItemConsumable_Kibble_Base_Special'" },
+    { name: 'Narcoberry', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemConsumable_Berry_Narcoberry.PrimalItemConsumable_Berry_Narcoberry'" },
+    { name: 'Stimberry', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemConsumable_Berry_Stimberry.PrimalItemConsumable_Berry_Stimberry'" },
+    { name: 'Narcotic', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemConsumable_Narcotic.PrimalItemConsumable_Narcotic'" },
+    { name: 'Stimulant', category: 'Consumables', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemConsumable_Stimulant.PrimalItemConsumable_Stimulant'" },
+
+    // Apex Drops
+    { name: 'Argentavis Talon', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Argentavis.PrimalItemResource_ApexDrop_Argentavis'" },
+    { name: 'Megalodon Tooth', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Megalodon.PrimalItemResource_ApexDrop_Megalodon'" },
+    { name: 'Tyrannosaurus Arm', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Rex.PrimalItemResource_ApexDrop_Rex'" },
+    { name: 'Sauropod Vertebra', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Sauropod.PrimalItemResource_ApexDrop_Sauropod'" },
+    { name: 'Tusoteuthis Tentacle', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Tuso.PrimalItemResource_ApexDrop_Tuso'" },
+    { name: 'Basilosaurus Blubber', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Basilo.PrimalItemResource_ApexDrop_Basilo'" },
+    { name: 'Sarcosuchus Skin', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Sarco.PrimalItemResource_ApexDrop_Sarco'" },
+    { name: 'Titanoboa Venom', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Boa.PrimalItemResource_ApexDrop_Boa'" },
+    { name: 'Spinosaurus Sail', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Spino.PrimalItemResource_ApexDrop_Spino'" },
+    { name: 'Thylacoleo Hook-Claw', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Thyla.PrimalItemResource_ApexDrop_Thyla'" },
+    { name: 'Megalania Toxin', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Megalania.PrimalItemResource_ApexDrop_Megalania'" },
+    { name: 'Allosaurus Brain', category: 'Apex Drops', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ApexDrop_Allo.PrimalItemResource_ApexDrop_Allo'" },
+
+    // Artifacts
+    { name: 'Artifact of the Hunter', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_01.PrimalItemArtifact_01'" },
+    { name: 'Artifact of the Pack', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_02.PrimalItemArtifact_02'" },
+    { name: 'Artifact of the Massive', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_03.PrimalItemArtifact_03'" },
+    { name: 'Artifact of the Devious', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_04.PrimalItemArtifact_04'" },
+    { name: 'Artifact of the Clever', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_05.PrimalItemArtifact_05'" },
+    { name: 'Artifact of the Skylord', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_06.PrimalItemArtifact_06'" },
+    { name: 'Artifact of the Devourer', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_07.PrimalItemArtifact_07'" },
+    { name: 'Artifact of the Immune', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_08.PrimalItemArtifact_08'" },
+    { name: 'Artifact of the Strong', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_09.PrimalItemArtifact_09'" },
+    { name: 'Artifact of the Cunning', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_11.PrimalItemArtifact_11'" },
+    { name: 'Artifact of the Brute', category: 'Artifacts', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Artifacts/PrimalItemArtifact_12.PrimalItemArtifact_12'" },
+
+    // Ammo
+    { name: 'Simple Rifle Ammo', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_SimpleRifleBullet.PrimalItemAmmo_SimpleRifleBullet'" },
+    { name: 'Advanced Rifle Ammo', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_AdvancedRifleBullet.PrimalItemAmmo_AdvancedRifleBullet'" },
+    { name: 'Sniper Ammo', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_AdvancedSniperBullet.PrimalItemAmmo_AdvancedSniperBullet'" },
+    { name: 'Shocking Tranq Dart', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_RefinedTranqDart.PrimalItemAmmo_RefinedTranqDart'" },
+    { name: 'Simple Bullet', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_SimpleBullet.PrimalItemAmmo_SimpleBullet'" },
+    { name: 'Simple Shotgun Ammo', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_SimpleShotgunBullet.PrimalItemAmmo_SimpleShotgunBullet'" },
+    { name: 'Advanced Bullet', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_AdvancedBullet.PrimalItemAmmo_AdvancedBullet'" },
+    { name: 'Grappling Hook', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_GrapplingHook.PrimalItemAmmo_GrapplingHook'" },
+    { name: 'Tranq Dart', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_TranqDart.PrimalItemAmmo_TranqDart'" },
+    { name: 'Flame Arrow', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_ArrowFlame.PrimalItemAmmo_ArrowFlame'" },
+    { name: 'Tranq Arrow', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_ArrowTranq.PrimalItemAmmo_ArrowTranq'" },
+    { name: 'Stone Arrow', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_ArrowStone.PrimalItemAmmo_ArrowStone'" },
+    { name: 'Rocket Propelled Grenade', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_RocketRPG.PrimalItemAmmo_RocketRPG'" },
+    { name: 'Advanced Sniper Ammo', category: 'Ammo', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_AdvancedSniperBullet.PrimalItemAmmo_AdvancedSniperBullet'" },
+
+    // Gear
+    { name: 'Canteen', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/PrimalItemCanteen.PrimalItemCanteen'" },
+    { name: 'Cryopod', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod'" },
+    { name: 'GPS', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/PrimalItemGPS.PrimalItemGPS'" },
+    { name: 'Compass', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/PrimalItemCompass.PrimalItemCompass'" },
+    { name: 'Radio', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/PrimalItemRadio.PrimalItemRadio'" },
+    { name: 'Spyglass', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/PrimalItemWeaponSpyglass.PrimalItemWeaponSpyglass'" },
+    { name: 'Metal Pick', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponMetalPick.PrimalItem_WeaponMetalPick'" },
+    { name: 'Metal Hatchet', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponMetalHatchet.PrimalItem_WeaponMetalHatchet'" },
+    { name: 'Chainsaw', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_ChainSaw.PrimalItem_ChainSaw'" },
+    { name: 'Mining Drill', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponMiningDrill.PrimalItem_WeaponMiningDrill'" },
+    { name: 'Glider Suit Skin', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemCostume_Glider.PrimalItemCostume_Glider'" },
+    { name: 'Hazmat Suit Mask', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/GasMask/PrimalItemArmor_HazardSuitHelmet.PrimalItemArmor_HazardSuitHelmet'" },
+    { name: 'Hazmat Suit Shirt', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hazard/PrimalItemArmor_HazardSuitShirt.PrimalItemArmor_HazardSuitShirt'" },
+    { name: 'Hazmat Suit Gloves', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hazard/PrimalItemArmor_HazardSuitGloves.PrimalItemArmor_HazardSuitGloves'" },
+    { name: 'Hazmat Suit Pants', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hazard/PrimalItemArmor_HazardSuitPants.PrimalItemArmor_HazardSuitPants'" },
+    { name: 'Hazmat Suit Boots', category: 'Gear', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hazard/PrimalItemArmor_HazardSuitBoots.PrimalItemArmor_HazardSuitBoots'" },
+
+    // Structures
+    { name: 'Tek Replicator', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekReplicator.PrimalItemStructure_TekReplicator'" },
+    { name: 'Tek Generator', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekGenerator.PrimalItemStructure_TekGenerator'" },
+    { name: 'Tek Transmitter', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekTransmitter.PrimalItemStructure_TekTransmitter'" },
+    { name: 'Industrial Forge', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_IndustrialForge.PrimalItemStructure_IndustrialForge'" },
+    { name: 'Chemistry Bench', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_ChemBench.PrimalItemStructure_ChemBench'" },
+    { name: 'Industrial Grinder', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_Grinder.PrimalItemStructure_Grinder'" },
+    { name: 'Heavy Auto Turret', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_HeavyTurret.PrimalItemStructure_HeavyTurret'" },
+    { name: 'Auto Turret', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_Turret.PrimalItemStructure_Turret'" },
+    { name: 'Tek Turret', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_TurretTek.PrimalItemStructure_TurretTek'" },
+    { name: 'Vault', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_Bed_Modern.PrimalItemStructure_Bed_Modern'" },
+    { name: 'Cryofridge', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_CryoFridge.PrimalItemStructure_CryoFridge'" },
+    { name: 'Dedicated Storage', category: 'Structures', path: "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_DedicatedStorage.PrimalItemStructure_DedicatedStorage'" }
+];
+
 function classifyError(errMsg: string): { category: string; icon: typeof AlertTriangle; colorClass: string } {
     const lower = errMsg.toLowerCase();
     if (lower.includes('authentication failed') || lower.includes('wrong admin password')) {
@@ -112,10 +273,28 @@ export default function RconConsole() {
     const { t } = useTranslation();
     const { servers } = useServerStore();
 
-    // Active Tab state: terminal, log_stream, cluster, save_manager
-    const [activeTab, setActiveTab] = useState<'terminal' | 'log_stream' | 'cluster' | 'save_manager'>('terminal');
+    // Active Tab state: terminal, log_stream, cluster, save_manager, give_items
+    const [activeTab, setActiveTab] = useState<'terminal' | 'log_stream' | 'cluster' | 'save_manager' | 'give_items'>('terminal');
 
     const [isHelpOpen, setIsHelpOpen] = useState(false);
+
+    // Give Items states
+    const [giveTargetType, setGiveTargetType] = useState<'online' | 'manual'>('online');
+    const [giveSelectedPlayerId, setGiveSelectedPlayerId] = useState('');
+    const [giveManualPlayerId, setGiveManualPlayerId] = useState('');
+    const [giveItemSource, setGiveItemSource] = useState<'preset' | 'custom'>('preset');
+    const [giveSelectedPresetItem, setGiveSelectedPresetItem] = useState('');
+    const [giveCustomBlueprint, setGiveCustomBlueprint] = useState('');
+    const [giveItemQuantity, setGiveItemQuantity] = useState(1);
+    const [giveItemQuality, setGiveItemQuality] = useState(0);
+    const [giveForceBlueprint, setGiveForceBlueprint] = useState(false);
+    const [giveCatalogSearch, setGiveCatalogSearch] = useState('');
+    const [isGivingItem, setIsGivingItem] = useState(false);
+    const [giveSelectedCategory, setGiveSelectedCategory] = useState<'All' | 'Resources' | 'Consumables' | 'Apex Drops' | 'Artifacts' | 'Ammo' | 'Gear' | 'Structures'>('All');
+
+    // Player ID resolution states
+    const [resolvedPlayerIds, setResolvedPlayerIds] = useState<Record<string, string>>({});
+    const [isResolvingIds, setIsResolvingIds] = useState(false);
 
     // Zustand global state for RCON
     const rconStore = useRconStore();
@@ -126,8 +305,43 @@ export default function RconConsole() {
     const isConnected = serverState?.isConnected || false;
     const isConnecting = serverState?.isConnecting || false;
     const commandHistory = serverState?.commandHistory || [];
-    const players = serverState?.players || [];
+    const onlinePlayers = serverState?.players || [];
     const connectionInfo = serverState?.connectionInfo || null;
+
+    // Resolve Player IDs automatically
+    useEffect(() => {
+        if (!selectedServerId || onlinePlayers.length === 0) {
+            setResolvedPlayerIds({});
+            return;
+        }
+
+        const platformIds = onlinePlayers.map(p => p.steamId);
+        setIsResolvingIds(true);
+        invoke<Record<string, number>>('rcon_resolve_player_ids', {
+            serverId: selectedServerId,
+            platformIds
+        })
+        .then(resolvedMap => {
+            const stringifiedMap: Record<string, string> = {};
+            for (const [k, v] of Object.entries(resolvedMap)) {
+                stringifiedMap[k] = String(v);
+            }
+            setResolvedPlayerIds(stringifiedMap);
+        })
+        .catch(err => {
+            console.error('Failed to resolve player IDs:', err);
+        })
+        .finally(() => {
+            setIsResolvingIds(false);
+        });
+    }, [selectedServerId, onlinePlayers]);
+
+    // Default selected player when player list refreshes
+    useEffect(() => {
+        if (onlinePlayers.length > 0 && !giveSelectedPlayerId) {
+            setGiveSelectedPlayerId(onlinePlayers[0].steamId);
+        }
+    }, [onlinePlayers, giveSelectedPlayerId]);
 
     const [command, setCommand] = useState('');
     const [historyIndex, setHistoryIndex] = useState(-1);
@@ -536,6 +750,57 @@ export default function RconConsole() {
         }
     };
 
+    // RCON command to give item to a player
+    const executeGiveItem = async () => {
+        if (!selectedServerId || !isConnected) {
+            toast.error(t('rcon.notConnected', 'Must be connected to send commands'));
+            return;
+        }
+
+        let targetId = giveTargetType === 'online' ? giveSelectedPlayerId : giveManualPlayerId;
+        if (giveTargetType === 'online' && resolvedPlayerIds[giveSelectedPlayerId]) {
+            targetId = resolvedPlayerIds[giveSelectedPlayerId];
+        }
+
+        if (!targetId.trim()) {
+            toast.error(t('rcon.giveItem.noTarget', 'Please select a player or enter a Player ID'));
+            return;
+        }
+
+        const blueprint = giveItemSource === 'preset' ? giveSelectedPresetItem : giveCustomBlueprint;
+        if (!blueprint.trim()) {
+            toast.error(t('rcon.giveItem.noBlueprint', 'Please select an item or enter a custom blueprint path'));
+            return;
+        }
+
+        setIsGivingItem(true);
+        
+        // Construct command: GiveItemToPlayer <PlayerID> <BlueprintPath> <Quantity> <Quality> <ForceBlueprint>
+        const isBp = giveForceBlueprint ? 1 : 0;
+        const formattedCmd = `GiveItemToPlayer ${targetId} "${blueprint}" ${giveItemQuantity} ${giveItemQuality} ${isBp}`;
+
+        try {
+            const response = await invoke<RconResponse>('rcon_send_command', {
+                serverId: selectedServerId,
+                command: formattedCmd,
+            });
+
+            addToHistory(formattedCmd, response.data || response.message, response.success);
+            
+            if (response.success) {
+                toast.success(t('rcon.giveItem.success', 'Item command sent successfully!'));
+            } else {
+                toast.error(t('rcon.giveItem.failed', { error: response.message, defaultValue: `Failed: ${response.message}` }));
+            }
+        } catch (error) {
+            const errMsg = String(error);
+            addToHistory(formattedCmd, errMsg, false);
+            toast.error(t('rcon.giveItem.failed', { error: errMsg, defaultValue: `Failed: ${errMsg}` }));
+        } finally {
+            setIsGivingItem(false);
+        }
+    };
+
     // Dedicated verified manual world save procedure
     const triggerManualSave = async () => {
         if (!selectedServerId || !isConnected) {
@@ -700,7 +965,7 @@ export default function RconConsole() {
                     className={cn(
                         "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'cluster' 
-                            ? "text-purple-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+                            ? "text-sky-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
                             : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
                     )}
                 >
@@ -719,6 +984,19 @@ export default function RconConsole() {
                 >
                     <Save className="w-4 h-4" />
                     <span className="relative z-10">{t('rcon.tabs.saveManager', 'Verified Saves')}</span>
+                </button>
+
+                <button
+                    onClick={() => setActiveTab('give_items')}
+                    className={cn(
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
+                        activeTab === 'give_items' 
+                            ? "text-amber-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                    )}
+                >
+                    <Gift className="w-4 h-4" />
+                    <span className="relative z-10">{t('rcon.tabs.giveItems', 'Give Items')}</span>
                 </button>
             </div>
 
@@ -1204,6 +1482,389 @@ export default function RconConsole() {
                             </div>
                         </div>
                     )}
+
+                    {/* TAB 5: GIVE ITEMS (ADMIN CARGO SHIELD) */}
+                    {activeTab === 'give_items' && (
+                        <div className="flex-1 flex flex-col h-full space-y-6 animate-in fade-in duration-300">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Left Column: Target & Config */}
+                                <div className="space-y-6">
+                                    {/* Card 1: Target Selector */}
+                                    <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-xl space-y-4">
+                                        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                            <Users className="w-4 h-4 text-amber-400" />
+                                            <span>{t('rcon.giveItem.targetSurvivor', 'Target Survivor')}</span>
+                                        </h3>
+                                        
+                                        <div className="bg-amber-950/30 border border-amber-500/20 rounded-lg p-2.5 flex items-start gap-2 text-amber-400/90 text-xs shadow-inner">
+                                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                                            <p className="leading-relaxed">
+                                                <strong className="text-amber-500 font-medium">Vanilla ARK Warning:</strong> <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer</code> requires the internal <strong>UE4 Player ID</strong>. Steam IDs or EOS IDs from the Online list will result in <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer 0</code>.
+                                                <br/>If you don't use API plugins, select <strong>Manual ID</strong> and enter the UE4 Player ID.
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="flex p-1 rounded-lg bg-slate-950 border border-slate-850 w-full shadow-inner gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setGiveTargetType('online')}
+                                                className={cn(
+                                                    "flex-1 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
+                                                    giveTargetType === 'online'
+                                                        ? "text-amber-400 bg-slate-800/80 shadow"
+                                                        : "text-slate-400 hover:text-slate-300"
+                                                )}
+                                            >
+                                                {t('rcon.giveItem.targetType.online', 'Online Survivors')}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setGiveTargetType('manual')}
+                                                className={cn(
+                                                    "flex-1 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
+                                                    giveTargetType === 'manual'
+                                                        ? "text-amber-400 bg-slate-800/80 shadow"
+                                                        : "text-slate-400 hover:text-slate-300"
+                                                )}
+                                            >
+                                                {t('rcon.giveItem.targetType.manual', 'Manual ID / EOS ID')}
+                                            </button>
+                                        </div>
+
+                                        {giveTargetType === 'online' ? (
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                                    {t('rcon.giveItem.selectSurvivor', 'Select Survivor')}
+                                                </label>
+                                                {onlinePlayers.length === 0 ? (
+                                                    <div className="bg-slate-900/50 border border-slate-850/60 rounded-xl p-3 text-center text-xs text-slate-500 italic">
+                                                        {t('rcon.noPlayers', 'No survivors currently connected to this server.')}
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-1.5">
+                                                        <select
+                                                            value={giveSelectedPlayerId}
+                                                            onChange={(e) => setGiveSelectedPlayerId(e.target.value)}
+                                                            disabled={!isConnected}
+                                                            className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50 transition-all font-sans cursor-pointer disabled:cursor-not-allowed"
+                                                        >
+                                                            {onlinePlayers.map((p) => (
+                                                                <option key={p.steamId} value={p.steamId}>
+                                                                    {p.name} ({p.steamId})
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="text-[10px] mt-1 flex items-center gap-1.5 px-1">
+                                                            {isResolvingIds ? (
+                                                                <span className="text-amber-400 animate-pulse flex items-center gap-1">
+                                                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                                                    Resolving UE4 Player ID...
+                                                                </span>
+                                                            ) : resolvedPlayerIds[giveSelectedPlayerId] ? (
+                                                                <span className="text-emerald-400 font-medium flex items-center gap-1">
+                                                                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                                                    Resolved UE4 Player ID: <code className="bg-emerald-950/40 px-1 py-0.5 rounded font-mono text-emerald-300 text-[10px]">{resolvedPlayerIds[giveSelectedPlayerId]}</code>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-rose-400 font-medium flex items-center gap-1 leading-normal">
+                                                                    <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                                                    Could not resolve Player ID automatically (save profile not found).
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                                    {t('rcon.giveItem.enterPlayerId', 'Enter Unique Player ID / SteamID / EOS ID')}
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={giveManualPlayerId}
+                                                    onChange={(e) => setGiveManualPlayerId(e.target.value)}
+                                                    placeholder="e.g. 123456789 or 76561198..."
+                                                    className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50 font-mono transition-all"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Card 2: Configuration & Command Preview */}
+                                    <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-xl space-y-5">
+                                        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                            <Sliders className="w-4 h-4 text-amber-400" />
+                                            <span>{t('rcon.giveItem.configuration', 'Attributes & Cargo Details')}</span>
+                                        </h3>
+
+                                        {/* Quantity Field */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                                    {t('rcon.giveItem.quantity', 'Quantity')}
+                                                </label>
+                                                <span className="text-xs font-mono font-bold text-amber-400">{giveItemQuantity}</span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min="1"
+                                                max="1000"
+                                                value={giveItemQuantity}
+                                                onChange={(e) => setGiveItemQuantity(parseInt(e.target.value))}
+                                                className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                            />
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {[1, 5, 20, 50, 100, 200, 500, 1000].map((qty) => (
+                                                    <button
+                                                        key={qty}
+                                                        type="button"
+                                                        onClick={() => setGiveItemQuantity(qty)}
+                                                        className={cn(
+                                                            "flex-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-all",
+                                                            giveItemQuantity === qty
+                                                                ? "bg-amber-950/20 text-amber-400 border-amber-500/30"
+                                                                : "bg-slate-900 border-slate-850 text-slate-500 hover:text-slate-400"
+                                                        )}
+                                                    >
+                                                        {qty}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Quality Field */}
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                                    {t('rcon.giveItem.quality', 'Quality Index')}
+                                                </label>
+                                                <span className="text-xs font-mono font-bold text-amber-400">
+                                                    {giveItemQuality === 0 ? 'Primitive (0)' : giveItemQuality === 2 ? 'Ramshackle (2)' : giveItemQuality === 4 ? 'Apprentice (4)' : giveItemQuality === 6 ? 'Journeyman (6)' : giveItemQuality === 10 ? 'Mastercraft (10)' : giveItemQuality === 20 ? 'Ascendant (20)' : `Custom (${giveItemQuality})`}
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="100"
+                                                value={giveItemQuality}
+                                                onChange={(e) => setGiveItemQuality(parseInt(e.target.value))}
+                                                className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                            />
+                                            <div className="flex gap-1.5">
+                                                {[[0, 'Prim'], [2, 'Ram'], [4, 'App'], [6, 'Journ'], [10, 'Mast'], [20, 'Asc']].map(([val, label]) => (
+                                                    <button
+                                                        key={val}
+                                                        type="button"
+                                                        onClick={() => setGiveItemQuality(val as number)}
+                                                        className={cn(
+                                                            "flex-1 py-0.5 rounded text-[10px] font-semibold border transition-all",
+                                                            giveItemQuality === val
+                                                                ? "bg-amber-950/20 text-amber-400 border-amber-500/30"
+                                                                : "bg-slate-900 border-slate-850 text-slate-500 hover:text-slate-400"
+                                                        )}
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Toggle Force Blueprint */}
+                                        <div className="flex items-center justify-between p-3 bg-slate-900/30 border border-slate-850 rounded-xl">
+                                            <div>
+                                                <p className="text-xs font-semibold text-white">
+                                                    {t('rcon.giveItem.forceBlueprint.title', 'Spawn Blueprint Only')}
+                                                </p>
+                                                <p className="text-[10px] text-slate-500">
+                                                    {t('rcon.giveItem.forceBlueprint.desc', 'Gives the craftable blueprint instead of the item itself')}
+                                                </p>
+                                            </div>
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={giveForceBlueprint}
+                                                    onChange={(e) => setGiveForceBlueprint(e.target.checked)}
+                                                    className="sr-only peer"
+                                                />
+                                                <div className="w-9 h-5 bg-slate-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 peer-checked:after:bg-slate-950 peer-checked:after:border-amber-400" />
+                                            </label>
+                                        </div>
+
+                                        {/* Command Preview */}
+                                        <div className="bg-slate-950 rounded-xl p-3 border border-slate-850">
+                                            <p className="text-[9px] uppercase font-bold text-slate-600 tracking-wider">
+                                                {t('rcon.giveItem.cmdPreview', 'Generated RCON Command Preview')}
+                                            </p>
+                                            <p className="text-xs font-mono text-slate-400 select-all mt-1 whitespace-pre-wrap break-all leading-normal">
+                                                GiveItemToPlayer {giveTargetType === 'online' ? (giveSelectedPlayerId || '<PlayerID>') : (giveManualPlayerId || '<PlayerID>')} "{giveItemSource === 'preset' ? (giveSelectedPresetItem || '<ItemBlueprint>') : (giveCustomBlueprint || '<ItemBlueprint>')}" {giveItemQuantity} {giveItemQuality} {giveForceBlueprint ? 1 : 0}
+                                            </p>
+                                        </div>
+
+                                        {/* Delivery Action Button */}
+                                        <button
+                                            type="button"
+                                            onClick={executeGiveItem}
+                                            disabled={isGivingItem || !isConnected}
+                                            className={cn(
+                                                "w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-bold text-sm shadow-xl transition-all duration-300 active:scale-98",
+                                                isConnected
+                                                    ? "bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:from-amber-500 hover:to-orange-500 shadow-amber-950/20"
+                                                    : "bg-slate-850 border border-slate-800 text-slate-500 cursor-not-allowed"
+                                            )}
+                                        >
+                                            {isGivingItem ? (
+                                                <RefreshCw className="w-5 h-5 animate-spin text-amber-300" />
+                                            ) : (
+                                                <Send className="w-4 h-4" />
+                                            )}
+                                            <span>
+                                                {isGivingItem
+                                                    ? t('rcon.giveItem.delivering', 'Delivering Cargo...')
+                                                    : t('rcon.giveItem.deliver', 'Deliver Item to Survivor')}
+                                            </span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Right Column: Item Catalog / Selection */}
+                                <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-xl flex flex-col space-y-4 min-h-[500px]">
+                                    <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                        <Package className="w-4 h-4 text-amber-400" />
+                                        <span>{t('rcon.giveItem.itemCatalog', 'Cargo Catalog')}</span>
+                                    </h3>
+
+                                    <div className="flex p-1 rounded-lg bg-slate-950 border border-slate-850 w-full shadow-inner gap-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setGiveItemSource('preset')}
+                                            className={cn(
+                                                "flex-1 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
+                                                giveItemSource === 'preset'
+                                                    ? "text-amber-400 bg-slate-800/80 shadow"
+                                                    : "text-slate-400 hover:text-slate-300"
+                                            )}
+                                        >
+                                            {t('rcon.giveItem.presets', 'Preset Catalog')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setGiveItemSource('custom')}
+                                            className={cn(
+                                                "flex-1 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
+                                                giveItemSource === 'custom'
+                                                    ? "text-amber-400 bg-slate-800/80 shadow"
+                                                    : "text-slate-400 hover:text-slate-300"
+                                            )}
+                                        >
+                                            {t('rcon.giveItem.customBp', 'Custom Blueprint')}
+                                        </button>
+                                    </div>
+
+                                    {giveItemSource === 'preset' ? (
+                                        <div className="flex-1 flex flex-col space-y-3 min-h-0">
+                                            {/* Category pill filters */}
+                                            <div className="flex flex-wrap gap-1.5 p-1 bg-slate-900/25 border border-slate-900/40 rounded-xl shadow-inner">
+                                                {['All', 'Resources', 'Ammo', 'Gear', 'Structures'].map((cat) => (
+                                                    <button
+                                                        key={cat}
+                                                        type="button"
+                                                        onClick={() => setGiveSelectedCategory(cat as any)}
+                                                        className={cn(
+                                                            "px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all duration-200 active:scale-95",
+                                                            giveSelectedCategory === cat
+                                                                ? "bg-amber-500/10 text-amber-400 border-amber-500/30 shadow-[0_1px_8px_rgba(245,158,11,0.08)]"
+                                                                : "bg-slate-950 border-slate-900/40 text-slate-500 hover:text-slate-400"
+                                                        )}
+                                                    >
+                                                        {t(`rcon.giveItem.categories.${cat.toLowerCase()}`, cat)}
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            {/* Search box */}
+                                            <div className="relative">
+                                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                                                <input
+                                                    type="text"
+                                                    value={giveCatalogSearch}
+                                                    onChange={(e) => setGiveCatalogSearch(e.target.value)}
+                                                    placeholder={t('rcon.giveItem.searchPreset', 'Search items...')}
+                                                    className="w-full bg-slate-950 border border-slate-850 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-amber-500/50 transition-all text-white"
+                                                />
+                                            </div>
+
+                                            {/* Search Results List */}
+                                            <div className="flex-1 overflow-y-auto max-h-[460px] border border-slate-850 rounded-xl divide-y divide-slate-900/50 bg-slate-950 pr-1">
+                                                {PRESET_ITEMS.filter((item) => {
+                                                    const matchesSearch = item.name.toLowerCase().includes(giveCatalogSearch.toLowerCase());
+                                                    const matchesCategory = giveSelectedCategory === 'All' || item.category === giveSelectedCategory;
+                                                    return matchesSearch && matchesCategory;
+                                                }).length === 0 ? (
+                                                    <div className="p-8 text-center text-xs text-slate-600 italic">
+                                                        {t('rcon.giveItem.noMatches', 'No matching items found.')}
+                                                    </div>
+                                                ) : (
+                                                    PRESET_ITEMS.filter((item) => {
+                                                        const matchesSearch = item.name.toLowerCase().includes(giveCatalogSearch.toLowerCase());
+                                                        const matchesCategory = giveSelectedCategory === 'All' || item.category === giveSelectedCategory;
+                                                        return matchesSearch && matchesCategory;
+                                                    }).map((item) => {
+                                                        // Determine category badge colors dynamically
+                                                        let badgeClass = "bg-slate-900 border border-slate-850 text-slate-500";
+                                                        if (item.category === 'Resources') badgeClass = "bg-orange-950/15 border-orange-500/15 text-orange-400";
+                                                        if (item.category === 'Ammo') badgeClass = "bg-red-950/15 border-red-500/15 text-red-400";
+                                                        if (item.category === 'Gear') badgeClass = "bg-cyan-950/15 border-cyan-500/15 text-cyan-400";
+                                                        if (item.category === 'Structures') badgeClass = "bg-emerald-950/15 border-emerald-500/15 text-emerald-400";
+
+                                                        return (
+                                                            <button
+                                                                key={item.path}
+                                                                type="button"
+                                                                onClick={() => setGiveSelectedPresetItem(item.path)}
+                                                                className={cn(
+                                                                    "w-full text-left px-4 py-3 flex items-center justify-between transition-all duration-200 text-xs border-b border-slate-900/30 group relative overflow-hidden",
+                                                                    giveSelectedPresetItem === item.path
+                                                                        ? "bg-amber-500/10 border-l-4 border-l-amber-500 text-amber-300 shadow-[inset_0_1px_15px_rgba(245,158,11,0.05)]"
+                                                                        : "text-slate-300 hover:bg-slate-900/40 hover:text-white"
+                                                                )}
+                                                            >
+                                                                <div className="text-left min-w-0 pr-4">
+                                                                    <p className={cn("font-semibold transition-colors group-hover:text-white", giveSelectedPresetItem === item.path ? "text-amber-400 font-bold" : "")}>{item.name}</p>
+                                                                    <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-[240px] md:max-w-[320px] transition-colors group-hover:text-slate-400">
+                                                                        {item.path}
+                                                                    </p>
+                                                                </div>
+                                                                <span className={cn("text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shrink-0 ml-2 transition-colors", badgeClass)}>
+                                                                    {item.category}
+                                                                </span>
+                                                            </button>
+                                                        );
+                                                    })
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 space-y-2">
+                                            <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                                {t('rcon.giveItem.pasteBpPath', 'Paste Item Blueprint Path')}
+                                            </label>
+                                            <textarea
+                                                rows={5}
+                                                value={giveCustomBlueprint}
+                                                onChange={(e) => setGiveCustomBlueprint(e.target.value)}
+                                                placeholder={`e.g. Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wood.PrimalItemResource_Wood'`}
+                                                className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-3 text-xs text-white focus:outline-none focus:border-amber-500/50 font-mono transition-all resize-none leading-relaxed"
+                                            />
+                                            <p className="text-[10px] text-slate-500 leading-normal">
+                                                {t('rcon.giveItem.bpTip', 'Ensure you include the full Blueprint path starting with "Blueprint\'" and ending with "\'".')}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* SIDE PANEL: ONLINE PLAYER LISTING */}
@@ -1211,7 +1872,7 @@ export default function RconConsole() {
                     <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/80">
                         <h3 className="text-sm font-bold text-white flex items-center gap-2">
                             <Users className="w-5 h-5 text-cyan-400" />
-                            <span>{t('rcon.playersOnline', { count: players.length, defaultValue: `Players Online (${players.length})` })}</span>
+                            <span>{t('rcon.playersOnline', { count: onlinePlayers.length, defaultValue: `Players Online (${onlinePlayers.length})` })}</span>
                         </h3>
                         <button
                             onClick={refreshPlayers}
@@ -1228,12 +1889,12 @@ export default function RconConsole() {
                             <p className="text-slate-500 text-xs text-center py-12">
                                 {t('rcon.connectToView', 'Please connect to RCON to fetch current server player lists.')}
                             </p>
-                        ) : players.length === 0 ? (
+                        ) : onlinePlayers.length === 0 ? (
                             <p className="text-slate-500 text-xs text-center py-12">
                                 {t('rcon.noPlayers', 'No survivors currently connected to this server.')}
                             </p>
                         ) : (
-                            players.map((player) => (
+                            onlinePlayers.map((player) => (
                                 <div
                                     key={player.steamId}
                                     className="bg-slate-950 border border-slate-850/80 hover:border-slate-800 rounded-xl p-3.5 transition-colors duration-250"

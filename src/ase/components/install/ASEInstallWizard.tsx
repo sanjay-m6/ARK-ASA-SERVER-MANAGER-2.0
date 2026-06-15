@@ -4,7 +4,7 @@ import {
   X, ChevronRight, ChevronLeft, MapPin, Wifi, Shield, Rocket, 
   AlertTriangle, HardDrive, GitBranch, Server, Check, FolderOpen, 
   Search, Loader2, Terminal, Clock, Copy, ChevronUp, ChevronDown, 
-  ArrowDownToLine, CheckCircle, AlertCircle, Zap, Settings 
+  ArrowDownToLine, CheckCircle, AlertCircle, Zap, Settings, Minus 
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,14 +15,14 @@ import { getModdedMapByMapArg, buildLaunchArgs } from '../../../data/moddedMapRe
 import { suggestNextAsePorts } from '../../utils/aseLaunchArgs';
 import { useAseServerStore } from '../../stores/aseServerStore';
 import { selectFolder } from '../../../utils/tauri';
-import { listen } from '@tauri-apps/api/event';
+import { useInstallStore } from '../../../stores/installStore';
 import type { AseMapName } from '../../types/ase.types';
 
 interface Props { onClose: () => void; }
-type Step = 'name' | 'version' | 'map' | 'ports' | 'admin' | 'confirm';
-const STEPS: Step[] = ['name', 'version', 'map', 'ports', 'admin', 'confirm'];
-const STEP_LABELS: Record<Step, string> = { name: 'Identity', version: 'Version', map: 'Map', ports: 'Network', admin: 'Security', confirm: 'Deploy' };
-const STEP_ICONS: Record<Step, React.ReactNode> = { 
+type Step = 'name' | 'version' | 'map' | 'ports' | 'admin' | 'confirm' | 'progress';
+const STEPS = ['name', 'version', 'map', 'ports', 'admin', 'confirm'];
+const STEP_LABELS: Record<string, string> = { name: 'Identity', version: 'Version', map: 'Map', ports: 'Network', admin: 'Security', confirm: 'Deploy' };
+const STEP_ICONS: Record<string, React.ReactNode> = { 
   name: <Server className="w-4 h-4" />, 
   version: <GitBranch className="w-4 h-4" />, 
   map: <MapPin className="w-4 h-4" />, 
@@ -31,51 +31,97 @@ const STEP_ICONS: Record<Step, React.ReactNode> = {
   confirm: <Rocket className="w-4 h-4" /> 
 };
 
-interface InstallProgress {
-  stage: string;
-  progress: number;
-  message: string;
-  isComplete: boolean;
-  isError: boolean;
-}
-
-interface ConsoleOutput {
-  timestamp: string;
-  line: string;
-  lineType: string;
-}
-
 export default function ASEInstallWizard({ onClose }: Props) {
   const servers = useAseServerStore(s => s.servers);
   const suggested = suggestNextAsePorts(servers);
   const refreshServers = useAseServerStore(s => s.refreshServers);
 
-  const [step, setStep] = useState<Step>('name');
-  const [isInstalling, setIsInstalling] = useState(false);
+  // Connect to global concurrent installation store
+  const { activeInstalls, currentlyViewingPath, startInstall, setViewingPath, draftSetup, setDraftSetup } = useInstallStore();
+  const activeTask = currentlyViewingPath ? activeInstalls[currentlyViewingPath] : null;
+  const isInstalling = !!activeTask && !activeTask.isComplete && !activeTask.isError;
+  const progress = activeTask ? {
+    stage: activeTask.stage,
+    progress: activeTask.progress,
+    message: activeTask.message,
+    isComplete: activeTask.isComplete,
+    isError: activeTask.isError,
+  } : null;
+  const consoleLogs = activeTask ? activeTask.logs : [];
+
+  const [step, setStep] = useState<Step>(() => {
+    if (draftSetup?.formData?.serverType === 'ASE' && draftSetup?.step) {
+      const stepVal = draftSetup.step;
+      if (typeof stepVal === 'number') {
+        return (STEPS[stepVal - 1] as Step) || 'name';
+      }
+      return stepVal as unknown as Step;
+    }
+    return 'name';
+  });
   const [mapFilter, setMapFilter] = useState('');
 
   // Form Fields
-  const [name, setName] = useState('');
-  const [mapName, setMapName] = useState<AseMapName>('TheIsland');
-  const [branch, setBranch] = useState('default');
-  const [gamePort, setGamePort] = useState(suggested.gamePort);
-  const [queryPort, setQueryPort] = useState(suggested.queryPort);
-  const [rconPort, setRconPort] = useState(suggested.rconPort);
-  const [adminPassword, setAdminPassword] = useState('');
-  const [sessionName, setSessionName] = useState('');
-  const [installPath, setInstallPath] = useState('');
-  const [maxPlayers, setMaxPlayers] = useState(70);
+  const [name, setName] = useState(draftSetup?.formData?.name || '');
+  const [mapName, setMapName] = useState<AseMapName>(draftSetup?.formData?.mapName || 'TheIsland');
+  const [branch, setBranch] = useState(draftSetup?.formData?.branch || 'default');
+  const [gamePort, setGamePort] = useState(draftSetup?.formData?.gamePort || suggested.gamePort);
+  const [queryPort, setQueryPort] = useState(draftSetup?.formData?.queryPort || suggested.queryPort);
+  const [rconPort, setRconPort] = useState(draftSetup?.formData?.rconPort || suggested.rconPort);
+  const [adminPassword, setAdminPassword] = useState(draftSetup?.formData?.adminPassword || '');
+  const [sessionName, setSessionName] = useState(draftSetup?.formData?.sessionName || '');
+  const [installPath, setInstallPath] = useState(draftSetup?.formData?.installPath || '');
+  const [maxPlayers, setMaxPlayers] = useState(draftSetup?.formData?.maxPlayers || 70);
+  const [baseDir, setBaseDir] = useState(draftSetup?.baseDir || 'C:\\ARKServerManager\\ase');
 
   // Realtime progress & console states
-  const [progress, setProgress] = useState<InstallProgress | null>(null);
-  const [consoleLogs, setConsoleLogs] = useState<ConsoleOutput[]>([]);
   const [showConsole, setShowConsole] = useState(true);
   const [showTimestamps, setShowTimestamps] = useState(false);
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const consoleRef = useRef<HTMLDivElement>(null);
-  const stepIdx = STEPS.indexOf(step);
+  const stepIdx = STEPS.indexOf(step as any);
+
+  // Skip to progress step if we open the dialog and an install is active/viewing
+  useEffect(() => {
+    if (currentlyViewingPath && activeInstalls[currentlyViewingPath]) {
+      setStep('progress');
+    }
+  }, [currentlyViewingPath, activeInstalls]);
+
+  // Handle auto path generation
+  useEffect(() => {
+    if (name && !draftSetup?.formData?.installPath) {
+      const sanitized = name.replace(/\s+/g, '_');
+      const path = `${baseDir}\\${sanitized}`;
+      setInstallPath(path);
+    }
+  }, [name, baseDir, draftSetup]);
+
+  // Window exit warnings
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isInstalling) {
+        e.preventDefault();
+        e.returnValue = 'ARK: Survival Evolved Server installation is in progress. Exiting the application may interrupt the setup. Are you sure you want to exit?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isInstalling]);
+
+  // Keyboard accessibility
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isInstalling, name, adminPassword, installPath, baseDir, mapName, branch, gamePort, queryPort, rconPort, sessionName, maxPlayers]);
 
   const canNext = () => {
     if (step === 'name') return name.trim().length > 0;
@@ -86,29 +132,26 @@ export default function ASEInstallWizard({ onClose }: Props) {
     return true;
   };
 
-  const next = () => { if (stepIdx < STEPS.length - 1) setStep(STEPS[stepIdx + 1]); };
-  const prev = () => { if (stepIdx > 0) setStep(STEPS[stepIdx - 1]); };
+  const next = () => { if (stepIdx < STEPS.length - 1) setStep(STEPS[stepIdx + 1] as Step); };
+  const prev = () => { if (stepIdx > 0) setStep(STEPS[stepIdx - 1] as Step); };
 
   const handleBrowse = async () => {
     try {
-      const selected = await selectFolder('Select Installation Folder');
-      if (selected) setInstallPath(selected);
+      const selected = await selectFolder('Select Base Directory');
+      if (selected) {
+        setBaseDir(selected);
+      }
     } catch { /* user cancelled */ }
   };
 
   const handleInstall = async () => {
-    setConsoleLogs([]);
-    setProgress({
-      stage: 'preparing',
-      progress: 0,
-      message: 'Initializing ARK: Survival Evolved Dedicated Server installation...',
-      isComplete: false,
-      isError: false,
-    });
-    setIsInstalling(true);
+    const path = installPath || `${baseDir}\\${name.replace(/\s+/g, '_')}`;
+    setDraftSetup(null); // Clear draft
+    startInstall(path, name, mapName, 'ASE');
+    setViewingPath(path);
+    setStep('progress');
 
     try {
-      const path = installPath || `C:\\ARKServerManager\\ase\\${name.replace(/\s+/g, '_')}`;
       const server = await installAseServer(
         name,
         path,
@@ -133,49 +176,54 @@ export default function ASEInstallWizard({ onClose }: Props) {
         }
       }
       
-      // Complete!
-      setProgress({
-        stage: 'complete',
-        progress: 100,
-        message: 'ARK: Survival Evolved Server installed successfully!',
-        isComplete: true,
-        isError: false
-      });
-      
       await refreshServers();
     } catch (e) {
-      setProgress({
-        stage: 'error',
-        progress: 0,
-        message: e instanceof Error ? e.message : String(e),
-        isComplete: false,
-        isError: true,
-      });
+      console.error('ASE Server installation failed:', e);
     }
   };
 
-  // Listen for install progress events
-  useEffect(() => {
-    if (!isInstalling) return;
-    const unlisten = listen<InstallProgress>('install-progress', (event) => {
-      setProgress(event.payload);
-      if (event.payload.isComplete) {
-        toast.success('ASE Server installed successfully!');
-      } else if (event.payload.isError) {
-        toast.error(event.payload.message);
-      }
-    });
-    return () => { unlisten.then(fn => fn()); };
-  }, [isInstalling]);
+  const handleMinimize = () => {
+    if (!isInstalling) {
+      setDraftSetup({ 
+        step: STEPS.indexOf(step as any) + 1, 
+        formData: {
+          serverType: 'ASE',
+          name,
+          mapName,
+          branch,
+          gamePort,
+          queryPort,
+          rconPort,
+          adminPassword,
+          sessionName,
+          installPath,
+          maxPlayers
+        }, 
+        baseDir 
+      });
+    }
+    onClose();
+    setViewingPath(null);
+  };
 
-  // Listen for console output events
-  useEffect(() => {
-    if (!isInstalling) return;
-    const unlisten = listen<ConsoleOutput>('install-console', (event) => {
-      setConsoleLogs(prev => [...prev.slice(-200), event.payload]); // Keep last 200 lines
-    });
-    return () => { unlisten.then(fn => fn()); };
-  }, [isInstalling]);
+  const handleClose = () => {
+    if (step === 'progress') {
+      if (isInstalling) {
+        const confirm = window.confirm("An installation is currently in progress. Closing this window will minimize it to the background. Do you want to proceed?");
+        if (!confirm) return;
+      }
+      setDraftSetup(null);
+    } else {
+      const hasData = name || adminPassword || installPath;
+      if (hasData) {
+        const confirm = window.confirm("Are you sure you want to close? Your current setup details will be discarded.");
+        if (!confirm) return;
+      }
+      setDraftSetup(null);
+    }
+    onClose();
+    setViewingPath(null);
+  };
 
   // Auto-scroll console to bottom (only when auto-scroll is enabled)
   useEffect(() => {
@@ -220,7 +268,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
   const dlcColor = (t: string) => t === 'Free' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : t === 'Paid DLC' ? 'bg-amber-500/15 text-amber-400 border-amber-500/20' : t === 'Free DLC' ? 'bg-sky-500/15 text-sky-400 border-sky-500/20' : 'bg-orange-500/15 text-orange-400 border-orange-500/20';
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={handleClose}>
       <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.25 }}
         className="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden shadow-2xl shadow-black/50" onClick={e => e.stopPropagation()}>
 
@@ -233,26 +281,39 @@ export default function ASEInstallWizard({ onClose }: Props) {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white">
-                  {isInstalling ? 'Installing ASE Server' : 'Deploy ASE Server'}
+                  {step === 'progress' ? 'Installing ASE Server' : 'Deploy ASE Server'}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium">ARK: Survival Evolved • SteamCMD AppID 376030</p>
               </div>
             </div>
-            {!isInstalling && (
-              <button onClick={onClose} className="p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-lg transition-all">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleMinimize}
+                className="p-1.5 sm:p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl transition-all duration-200 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-500/40 flex items-center gap-1.5 shadow-sm"
+                aria-label="Minimize installation"
+                title="Minimize to Background"
+              >
+                <Minus className="w-4 h-4" />
+                <span className="text-xs font-semibold pr-0.5">Minimize</span>
+              </button>
+              <button
+                onClick={handleClose}
+                className="p-1.5 sm:p-2 bg-slate-800/50 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700/50 hover:border-red-500/30 rounded-xl transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-red-500/40 shadow-sm"
+                aria-label="Close dialog"
+              >
                 <X className="w-5 h-5" />
               </button>
-            )}
+            </div>
           </div>
 
           {/* Step indicators */}
-          {!isInstalling && (
+          {step !== 'progress' && (
             <div className="flex items-center gap-1">
               {STEPS.map((s, i) => {
                 const isActive = i === stepIdx;
                 const isDone = i < stepIdx;
                 return (
-                  <button key={s} onClick={() => { if (isDone) setStep(s); }}
+                  <button key={s} onClick={() => { if (isDone) setStep(s as Step); }}
                     className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex-1 justify-center border border-transparent',
                       isActive ? 'bg-amber-500/15 text-amber-400 border-amber-500/25' :
                       isDone ? 'text-emerald-400 hover:bg-white/5 cursor-pointer' :
@@ -269,7 +330,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
           <AnimatePresence mode="wait">
-            {isInstalling && progress ? (
+            {step === 'progress' && progress ? (
               <motion.div key="installing-progress" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.2 }}
                 className="space-y-6 max-w-lg mx-auto py-2">
                 
@@ -832,7 +893,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-white/5 bg-slate-950/50">
-          {isInstalling ? (
+          {step === 'progress' ? (
             progress ? (
               <div className="w-full flex items-center justify-between">
                 <span className="text-xs text-slate-500 font-medium">
@@ -853,7 +914,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
                 </span>
 
                 <button
-                  onClick={onClose}
+                  onClick={handleClose}
                   disabled={!progress.isComplete && !progress.isError}
                   className={cn(
                     "px-6 py-2 rounded-xl text-sm font-semibold transition-all shadow-lg",
@@ -870,7 +931,7 @@ export default function ASEInstallWizard({ onClose }: Props) {
             ) : null
           ) : (
             <>
-              <button onClick={stepIdx > 0 ? prev : onClose}
+              <button onClick={stepIdx > 0 ? prev : handleClose}
                 className="px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-white transition-colors flex items-center gap-1.5">
                 <ChevronLeft className="w-4 h-4" />{stepIdx > 0 ? 'Back' : 'Cancel'}
               </button>

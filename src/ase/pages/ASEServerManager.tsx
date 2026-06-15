@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2, Copy } from 'lucide-react';
+import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2, Copy, AlertTriangle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
+import { useInstallStore } from '../../stores/installStore';
+import { suggestNextAsePorts } from '../utils/aseLaunchArgs';
 import { cn } from '../../utils/helpers';
-import { startAseServer, stopAseServer, deleteAseServer, updateAseServer, updateAseServerInstall, cloneAseServer, transferAseSettings, extractAseSaveData } from '../utils/aseCommands';
+import { startAseServer, stopAseServer, deleteAseServer, updateAseServer, updateAseServerInstall, cloneAseServer, transferAseSettings, extractAseSaveData, joinAseServer, getAseServerVersion } from '../utils/aseCommands';
 import { getAseMapDisplayName, ASE_BRANCHES } from '../data/aseMaps';
-import ASEInstallWizard from '../components/install/ASEInstallWizard';
 import ASEResetDialog from '../components/server/ASEResetDialog';
 import ASEImportServerDialog from '../components/server/ASEImportServerDialog';
 import ASEImportSaveDialog from '../components/server/ASEImportSaveDialog';
@@ -19,8 +20,30 @@ import ConfirmDialog from '../../components/ui/ConfirmDialog';
 
 export default function ASEServerManager() {
   const { servers, setServers, updateServerStatus, refreshServers, removeServer } = useAseServerStore();
-  const [showInstall, setShowInstall] = useState(false);
+  const { setDraftOpen, setDraftSetup } = useInstallStore();
   const [showImport, setShowImport] = useState(false);
+
+  const handleDeployServer = () => {
+    const suggested = suggestNextAsePorts(servers);
+    setDraftSetup({
+      step: 1,
+      formData: {
+        serverType: 'ASE',
+        name: '',
+        mapName: 'TheIsland',
+        branch: 'default',
+        gamePort: suggested.gamePort,
+        queryPort: suggested.queryPort,
+        rconPort: suggested.rconPort,
+        adminPassword: '',
+        sessionName: '',
+        installPath: '',
+        maxPlayers: 70
+      },
+      baseDir: 'C:\\ARKServerManager\\ase'
+    });
+    setDraftOpen(true);
+  };
   const [showImportSave, setShowImportSave] = useState(false);
   const [resetServer, setResetServer] = useState<{id: number, name: string} | null>(null);
   const [serverToDelete, setServerToDelete] = useState<{id: number, name: string} | null>(null);
@@ -31,6 +54,7 @@ export default function ASEServerManager() {
   const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
   const [editingServerId, setEditingServerId] = useState<number | null>(null);
   const [editServerName, setEditServerName] = useState('');
+  const [serverVersions, setServerVersions] = useState<Record<number, string>>({});
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -156,6 +180,33 @@ export default function ASEServerManager() {
       unlistenPromise.then((unlisten) => unlisten());
     };
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') === 'install') {
+      handleDeployServer();
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [servers]);
+
+  useEffect(() => {
+    const fetchVersions = async () => {
+      const targets = servers.filter(
+        (s) => (s.status === 'online' || s.status === 'running') && !serverVersions[s.id]
+      );
+      if (targets.length === 0) return;
+      for (const srv of targets) {
+        try {
+          const version = await getAseServerVersion(srv.id);
+          setServerVersions(prev => ({ ...prev, [srv.id]: version }));
+        } catch (err) {
+          console.error(`Failed to get version for server ${srv.id}:`, err);
+        }
+      }
+    };
+    fetchVersions();
+  }, [servers, serverVersions]);
 
   const handleStart = async (id: number) => { 
     try { 
@@ -353,7 +404,7 @@ export default function ASEServerManager() {
             <Save className="w-5 h-5" />
             <span>{t('serverManager.buttons.importSave', 'Import Save')}</span>
           </button>
-          <button onClick={() => setShowInstall(true)} className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl transition-all shadow-lg shadow-amber-500/20 font-medium group focus:outline-none">
+          <button onClick={handleDeployServer} className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl transition-all shadow-lg shadow-amber-500/20 font-medium group focus:outline-none">
             <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
             <span>{t('serverManager.buttons.deployServer', 'Deploy Server')}</span>
           </button>
@@ -435,7 +486,7 @@ export default function ASEServerManager() {
               <button onClick={() => setShowImport(true)} className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-colors border border-slate-700 focus:outline-none">
                 Import Existing Server
               </button>
-              <button onClick={() => setShowInstall(true)} className="px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl transition-all shadow-lg shadow-amber-500/20 font-medium focus:outline-none">
+              <button onClick={handleDeployServer} className="px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl transition-all shadow-lg shadow-amber-500/20 font-medium focus:outline-none">
                 Deploy ASE Server
               </button>
             </div>
@@ -554,6 +605,24 @@ export default function ASEServerManager() {
                           <Shield className="w-3.5 h-3.5 text-amber-500/70" />
                           <span className="text-xs">ASE Server</span>
                       </div>
+                      {serverVersions[srv.id] && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/40 rounded-lg shadow-inner border border-slate-700/30" title="Server Executable Build Timestamp">
+                            <GitBranch className="w-3.5 h-3.5 text-indigo-400" />
+                            <span className="font-mono text-xs text-indigo-300">{serverVersions[srv.id]}</span>
+                        </div>
+                      )}
+                      {(() => {
+                        if (!srv.clusterId || !serverVersions[srv.id]) return null;
+                        const clusterServers = servers.filter(s => s.clusterId === srv.clusterId && s.id !== srv.id);
+                        const hasMismatch = clusterServers.some(other => serverVersions[other.id] && serverVersions[other.id] !== serverVersions[srv.id]);
+                        if (!hasMismatch) return null;
+                        return (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-500/10 rounded-lg shadow-inner border border-red-500/20 text-red-400 font-bold" title="Version mismatch detected among clustered servers! Ensure all servers are updated.">
+                              <AlertTriangle className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+                              <span className="text-xs">Cluster Mismatch</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -581,6 +650,15 @@ export default function ASEServerManager() {
                       title="Server Settings"
                   >
                       <Settings className="w-5 h-5" />
+                  </button>
+
+                  <button
+                      onClick={async (e) => { e.stopPropagation(); try { await joinAseServer(srv.id); toast.success(t('serverManager.joiningServer', 'Launching ARK and connecting...')); } catch (err) { toast.error(`${err}`); } }}
+                      disabled={srv.status !== 'online' && srv.status !== 'running'}
+                      className="p-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Join Server (Direct Connect)"
+                  >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                   </button>
 
                   <button
@@ -727,6 +805,11 @@ export default function ASEServerManager() {
                                     <Download className={cn("w-4 h-4", srv.status === 'updating' && "animate-bounce")} />
                                 </button>
                             </div>
+                            {serverVersions[srv.id] && (
+                                <p className="text-[10px] text-slate-400 font-mono mt-1.5">
+                                    Build: <span className="text-slate-300">{serverVersions[srv.id]}</span>
+                                </p>
+                            )}
                         </div>
                       </div>
                     </div>
@@ -912,7 +995,6 @@ export default function ASEServerManager() {
         </DragDropContext>
       )}
 
-      {showInstall && <ASEInstallWizard onClose={() => { setShowInstall(false); refreshServers(); }} />}
       {showImport && <ASEImportServerDialog onClose={() => { setShowImport(false); refreshServers(); }} />}
       {showImportSave && <ASEImportSaveDialog onClose={() => { setShowImportSave(false); refreshServers(); }} servers={servers} />}
       {resetServer && <ASEResetDialog isOpen={true} serverId={resetServer.id} serverName={resetServer.name} onClose={() => setResetServer(null)} onSuccess={refreshServers} />}

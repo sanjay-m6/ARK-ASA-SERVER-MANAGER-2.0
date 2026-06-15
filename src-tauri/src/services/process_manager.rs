@@ -147,8 +147,38 @@ pub struct ServerLogEvent {
     pub is_stderr: bool,
 }
 
+pub fn find_game_server_pid_by_install_path(install_path: &str, server_type: &str) -> Option<u32> {
+    use sysinfo::System;
+    let mut sys = System::new();
+    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    let target_name = if server_type == "ASE" {
+        "ShooterGameServer.exe"
+    } else {
+        "ArkAscendedServer.exe"
+    };
+
+    let norm_install = install_path.replace('\\', "/").to_lowercase();
+
+    for (pid, process) in sys.processes() {
+        let name = process.name().to_string_lossy();
+        if name.eq_ignore_ascii_case(target_name) {
+            if let Some(exe_path) = process.exe() {
+                let exe_str = exe_path.to_string_lossy().replace('\\', "/").to_lowercase();
+                if exe_str.contains(&norm_install) {
+                    return Some(pid.as_u32());
+                }
+            }
+        }
+    }
+    None
+}
+
 struct ServerProcess {
-    child: Child,
+    child: Option<Child>,
+    pid: u32,
+    install_path: PathBuf,
+    server_type: String,
     stop_flag: Arc<AtomicBool>,
     query_port: u16,
     started_at: std::time::Instant,
@@ -205,54 +235,106 @@ impl ProcessManager {
                     let mut to_remove: Vec<(i64, i32, u16, Option<String>, bool, bool)> = Vec::new();
 
                     for (id, proc) in p_lock.iter_mut() {
-                        match proc.child.try_wait() {
-                            Ok(Some(status)) => {
-                                // Process has exited
-                                let exit_code = status.code().unwrap_or(-1);
-                                let uptime = proc.started_at.elapsed().as_secs();
+                        let mut has_exited = false;
+                        let mut status_code = -1;
 
-                                // Check if this was an authorized stop
-                                let stop_reason = {
-                                    let mut reasons = monitor_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
-                                    reasons.remove(id)
-                                };
-                                let is_authorized = stop_reason.is_some();
-                                let reason_str = stop_reason
-                                    .as_ref()
-                                    .map(|r| format!("{}", r))
-                                    .unwrap_or_else(|| "UNAUTHORIZED_TERMINATION".to_string());
+                        if let Some(ref mut child) = proc.child {
+                            match child.try_wait() {
+                                Ok(Some(status)) => {
+                                    // Parent exited. Check if handoff exists first.
+                                    if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type) {
+                                        println!("  🔄 [Handoff] Monitor: Handoff detected for server {}! Swapping tracking to PID {}.", id, new_pid);
+                                        proc.pid = new_pid;
+                                        proc.child = None;
 
-                                println!(
-                                    "  [LIFECYCLE] Server {} exited | code: {} | uptime: {}s | reason: {}",
-                                    id, exit_code, uptime, reason_str
-                                );
-
-                                // Emit lifecycle event for frontend audit trail
-                                let _ = monitor_handle.emit(
-                                    "server-lifecycle-event",
-                                    ServerLifecycleEvent {
-                                        server_id: *id,
-                                        event: if exit_code == 0 || is_authorized { "STOP".to_string() } else { "CRASH".to_string() },
-                                        reason: Some(reason_str),
-                                        exit_code: Some(exit_code),
-                                        uptime_seconds: Some(uptime),
-                                        timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                                    },
-                                );
-
-                                to_remove.push((*id, exit_code, proc.query_port, proc.ip_address.clone(), proc.has_been_online, is_authorized));
-
-                                // Signal log watcher to stop
-                                proc.stop_flag.store(true, Ordering::SeqCst);
+                                        // Update process_id in DB
+                                        if let Some(state) = monitor_handle.try_state::<AppState>() {
+                                            if let Ok(db) = state.db.lock() {
+                                                if let Ok(conn) = db.get_connection() {
+                                                    let table = if proc.server_type == "ASE" { "ase_servers" } else { "servers" };
+                                                    let _ = conn.execute(
+                                                        &format!("UPDATE {} SET process_id = ?1 WHERE id = ?2", table),
+                                                        rusqlite::params![new_pid, *id],
+                                                    );
+                                                }
+                                            }
+                                            // Update Guardian Watchdog
+                                            if let Some(guardian) = monitor_handle.try_state::<crate::services::guardian::GuardianState>() {
+                                                let guard = tauri::async_runtime::block_on(async { guardian.0.lock().await });
+                                                if proc.server_type == "ASE" {
+                                                    tauri::async_runtime::block_on(async {
+                                                        guard.register_ase_server(monitor_handle.clone(), *id, new_pid).await;
+                                                    });
+                                                } else {
+                                                    tauri::async_runtime::block_on(async {
+                                                        guard.register_server(monitor_handle.clone(), *id, new_pid).await;
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        has_exited = true;
+                                        status_code = status.code().unwrap_or(-1);
+                                    }
+                                }
+                                Ok(None) => {}
+                                Err(e) => {
+                                    println!("  ❌ Monitor failed to check server {}: {}", id, e);
+                                }
                             }
-                            Ok(None) => {
-                                // Process is running. Add to query list.
-                                let query_ip = proc.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string());
-                                servers_to_query.push((*id, query_ip, proc.query_port));
+                        } else {
+                            // Tracking by system PID (child is None)
+                            let is_alive = {
+                                let mut sys = sysinfo::System::new();
+                                sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+                                sys.process(sysinfo::Pid::from_u32(proc.pid)).is_some()
+                            };
+                            if !is_alive {
+                                has_exited = true;
+                                status_code = -1;
                             }
-                            Err(e) => {
-                                println!("  ❌ Monitor failed to check server {}: {}", id, e);
-                            }
+                        }
+
+                        if has_exited {
+                            let uptime = proc.started_at.elapsed().as_secs();
+
+                            // Check if this was an authorized stop
+                            let stop_reason = {
+                                let mut reasons = monitor_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
+                                reasons.remove(id)
+                            };
+                            let is_authorized = stop_reason.is_some();
+                            let reason_str = stop_reason
+                                .as_ref()
+                                .map(|r| format!("{}", r))
+                                .unwrap_or_else(|| "UNAUTHORIZED_TERMINATION".to_string());
+
+                            println!(
+                                "  [LIFECYCLE] Server {} exited | code: {} | uptime: {}s | reason: {}",
+                                id, status_code, uptime, reason_str
+                            );
+
+                            // Emit lifecycle event for frontend audit trail
+                            let _ = monitor_handle.emit(
+                                "server-lifecycle-event",
+                                ServerLifecycleEvent {
+                                    server_id: *id,
+                                    event: if status_code == 0 || is_authorized { "STOP".to_string() } else { "CRASH".to_string() },
+                                    reason: Some(reason_str),
+                                    exit_code: Some(status_code),
+                                    uptime_seconds: Some(uptime),
+                                    timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                                },
+                            );
+
+                            to_remove.push((*id, status_code, proc.query_port, proc.ip_address.clone(), proc.has_been_online, is_authorized));
+
+                            // Signal log watcher to stop
+                            proc.stop_flag.store(true, Ordering::SeqCst);
+                        } else {
+                            // Process is running. Add to query list.
+                            let query_ip = proc.ip_address.clone().unwrap_or_else(|| "127.0.0.1".to_string());
+                            servers_to_query.push((*id, query_ip, proc.query_port));
                         }
                     }
 
@@ -412,7 +494,17 @@ impl ProcessManager {
                                         reasons.insert(id, StopReason::StartupTimeout);
                                     }
                                     // Kill Process
-                                    let _ = proc.child.kill();
+                                    let pid = proc.pid;
+                                    #[cfg(target_os = "windows")]
+                                    {
+                                        let _ = Command::new("taskkill")
+                                            .args(["/F", "/T", "/PID", &pid.to_string()])
+                                            .creation_flags(CREATE_NO_WINDOW)
+                                            .output();
+                                    }
+                                    if let Some(ref mut child) = proc.child {
+                                        let _ = child.kill();
+                                    }
                                     
                                     // FORCE status update to 'startup_timeout' immediately so UI knows WHY it died
                                     if let Some(state) = monitor_handle.try_state::<AppState>() {
@@ -906,10 +998,9 @@ impl ProcessManager {
             .join("ShooterGame.log");
 
         // Build launch arguments
-        // BUG FIX 2: Sanitize session name — UE5 treats spaces as arg delimiters
-        let safe_session_name = session_name.replace(' ', "_");
+        // Wrap session name in quotes so spaces are preserved and parsed correctly by the engine
         let mut connection_url = format!("{}?listen", map_name);
-        connection_url.push_str(&format!("?SessionName={}", safe_session_name));
+        connection_url.push_str(&format!("?SessionName=\"{}\"", session_name));
         connection_url.push_str(&format!("?Port={}", game_port));
         connection_url.push_str(&format!("?QueryPort={}", query_port));
         connection_url.push_str(&format!("?RCONPort={}", rcon_port));
@@ -1234,7 +1325,10 @@ impl ProcessManager {
         {
             let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
             processes.insert(server_id, ServerProcess { 
-                child, 
+                child: Some(child), 
+                pid: child_pid,
+                install_path: install_path.clone(),
+                server_type: server_type.to_string(),
                 stop_flag,
                 query_port,
                 started_at: std::time::Instant::now(),
@@ -1496,16 +1590,16 @@ impl ProcessManager {
 
         let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
 
-        if let Some(mut server_proc) = processes.remove(&server_id) {
+        if let Some(server_proc) = processes.remove(&server_id) {
             let uptime = server_proc.started_at.elapsed().as_secs();
 
             // Signal log watcher to stop
             server_proc.stop_flag.store(true, Ordering::SeqCst);
 
             // Force kill the process tree on Windows
+            let pid = server_proc.pid;
             #[cfg(target_os = "windows")]
             {
-                let pid = server_proc.child.id();
                 let _ = Command::new("taskkill")
                     .args(["/F", "/T", "/PID", &pid.to_string()])
                     .creation_flags(CREATE_NO_WINDOW)
@@ -1513,8 +1607,10 @@ impl ProcessManager {
             }
 
             // Fallback
-            let _ = server_proc.child.kill();
-            let _ = server_proc.child.wait();
+            if let Some(mut child) = server_proc.child {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
 
             // Emit lifecycle event
             let _ = self.app_handle.emit(
@@ -1611,39 +1707,111 @@ impl ProcessManager {
         let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
 
         if let Some(server_proc) = processes.get_mut(&server_id) {
-            match server_proc.child.try_wait() {
-                Ok(Some(status)) => {
-                    let exit_code = status.code().unwrap_or(-1);
-                    let status_str = if exit_code == 0 { "stopped" } else { "crashed" };
+            if let Some(ref mut child) = server_proc.child {
+                match child.try_wait() {
+                    Ok(Some(status)) => {
+                        // Parent exited. Check if handoff exists first.
+                        if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type) {
+                            println!("  🔄 [Handoff] is_running: Handoff detected for server {}! Swapping tracking to PID {}.", server_id, new_pid);
+                            server_proc.pid = new_pid;
+                            server_proc.child = None;
 
+                            // Update process_id in DB
+                            if let Some(state) = self.app_handle.try_state::<AppState>() {
+                                if let Ok(db) = state.db.lock() {
+                                    if let Ok(conn) = db.get_connection() {
+                                        let table = if server_proc.server_type == "ASE" { "ase_servers" } else { "servers" };
+                                        let _ = conn.execute(
+                                            &format!("UPDATE {} SET process_id = ?1 WHERE id = ?2", table),
+                                            rusqlite::params![new_pid, server_id],
+                                        );
+                                    }
+                                }
+                                // Update Guardian
+                                if let Some(guardian) = self.app_handle.try_state::<crate::services::guardian::GuardianState>() {
+                                    let guard = tauri::async_runtime::block_on(async { guardian.0.lock().await });
+                                    if server_proc.server_type == "ASE" {
+                                        tauri::async_runtime::block_on(async {
+                                            guard.register_ase_server(self.app_handle.clone(), server_id, new_pid).await;
+                                        });
+                                    } else {
+                                        tauri::async_runtime::block_on(async {
+                                            guard.register_server(self.app_handle.clone(), server_id, new_pid).await;
+                                        });
+                                    }
+                                }
+                            }
+                            return true;
+                        }
+
+                        let exit_code = status.code().unwrap_or(-1);
+                        let status_str = if exit_code == 0 { "stopped" } else { "crashed" };
+
+                        println!(
+                            "  ⚠️ Server {} exited with status: {:?} (code: {}, status: {})",
+                            server_id, status, exit_code, status_str
+                        );
+                        server_proc.stop_flag.store(true, Ordering::SeqCst);
+                        let server_type = server_proc.server_type.clone();
+                        processes.remove(&server_id);
+
+                        // Emit crash/stop event
+                        self.emit_status_change(server_id, status_str);
+
+                        // Update database status
+                        if let Some(state) = self.app_handle.try_state::<AppState>() {
+                            if let Ok(db) = state.db.lock() {
+                                if let Ok(conn) = db.get_connection() {
+                                    let table = if server_type == "ASE" { "ase_servers" } else { "servers" };
+                                    let _ = conn.execute(
+                                        &format!("UPDATE {} SET status = ?1 WHERE id = ?2", table),
+                                        rusqlite::params![status_str, server_id],
+                                    );
+                                }
+                            }
+                        }
+
+                        false
+                    }
+                    Ok(None) => true,
+                    Err(e) => {
+                        println!("  ❌ Server {} error checking status: {:?}", server_id, e);
+                        false
+                    }
+                }
+            } else {
+                // Tracking by system PID
+                let is_alive = {
+                    let mut sys = sysinfo::System::new();
+                    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+                    sys.process(sysinfo::Pid::from_u32(server_proc.pid)).is_some()
+                };
+
+                if !is_alive {
                     println!(
-                        "  ⚠️ Server {} exited with status: {:?} (code: {}, status: {})",
-                        server_id, status, exit_code, status_str
+                        "  ⚠️ Server {} (PID {}) is no longer running",
+                        server_id, server_proc.pid
                     );
                     server_proc.stop_flag.store(true, Ordering::SeqCst);
+                    let server_type = server_proc.server_type.clone();
                     processes.remove(&server_id);
 
-                    // Emit crash/stop event
-                    self.emit_status_change(server_id, status_str);
+                    self.emit_status_change(server_id, "stopped");
 
-                    // Update database status
                     if let Some(state) = self.app_handle.try_state::<AppState>() {
                         if let Ok(db) = state.db.lock() {
                             if let Ok(conn) = db.get_connection() {
+                                let table = if server_type == "ASE" { "ase_servers" } else { "servers" };
                                 let _ = conn.execute(
-                                    "UPDATE servers SET status = 'stopped' WHERE id = ?1",
+                                    &format!("UPDATE {} SET status = 'stopped' WHERE id = ?1", table),
                                     [server_id],
                                 );
                             }
                         }
                     }
-
                     false
-                }
-                Ok(None) => true,
-                Err(e) => {
-                    println!("  ❌ Server {} error checking status: {:?}", server_id, e);
-                    false
+                } else {
+                    true
                 }
             }
         } else {
@@ -1704,15 +1872,19 @@ impl ProcessManager {
     pub fn show_server_window(&self, server_id: i64) -> Result<()> {
         let processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(server_proc) = processes.get(&server_id) {
-            let pid = server_proc.child.id();
+            let pid = server_proc.pid;
             println!("  🖥️ Attempting to show console window for server {} (PID: {})", server_id, pid);
             #[cfg(target_os = "windows")]
             {
                 // First try: show by exact PID
                 window_hider::show_process_window(pid);
-                // Second try: find all ArkAscendedServer.exe processes and show their windows
+                // Second try: find all ArkAscendedServer.exe / ShooterGameServer.exe processes and show their windows
                 // This handles UE5 spawning child processes with different PIDs
-                window_hider::show_windows_by_exe_name("ArkAscendedServer.exe");
+                if server_proc.server_type == "ASE" {
+                    window_hider::show_windows_by_exe_name("ShooterGameServer.exe");
+                } else {
+                    window_hider::show_windows_by_exe_name("ArkAscendedServer.exe");
+                }
             }
             Ok(())
         } else {

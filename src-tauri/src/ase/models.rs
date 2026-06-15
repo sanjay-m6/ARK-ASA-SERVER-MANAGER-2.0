@@ -339,6 +339,7 @@ pub struct AseGameConfig {
     pub use_all_available_cores: bool,
     pub use_low_memory: bool,
     pub no_battle_eye: bool,
+    pub enable_automanaged_mods: bool,
 
     // ── Ragnarok-specific ──
     pub ragnarok_volcano_intensity: f64,
@@ -429,6 +430,9 @@ pub struct AseGameConfig {
     pub epic_store_players_only: bool,
     pub alternate_save_directory_name: String,
     pub cluster_directory_override: String,
+    
+    // ── Additional ──
+    pub server_language: String,
     pub use_cluster_directory_override: bool,
     pub harvest_resource_item_amount_class_multipliers: String,
     pub backup_quantity: u32,
@@ -605,6 +609,7 @@ impl Default for AseGameConfig {
             use_all_available_cores: true,
             use_low_memory: false,
             no_battle_eye: false,
+            enable_automanaged_mods: false,
             ragnarok_volcano_intensity: 1.0,
             ragnarok_volcano_interval: 0.0,
             enable_ragnarok_settings: false,
@@ -679,6 +684,7 @@ impl Default for AseGameConfig {
             epic_store_players_only: false,
             alternate_save_directory_name: String::new(),
             cluster_directory_override: String::new(),
+            server_language: String::new(),
             use_cluster_directory_override: false,
             harvest_resource_item_amount_class_multipliers: String::new(),
             dino_character_stamina_drain_multiplier: 1.0,

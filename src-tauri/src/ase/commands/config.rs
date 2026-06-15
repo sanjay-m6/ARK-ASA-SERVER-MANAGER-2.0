@@ -161,10 +161,9 @@ fn get_config_path(install_path: &str) -> PathBuf {
         .join("WindowsServer")
 }
 
-#[tauri::command]
-pub async fn read_ase_config(
+pub async fn read_ase_config_internal(
     server_id: i64,
-    state: State<'_, AppState>,
+    state: &AppState,
 ) -> Result<AseGameConfig, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -516,6 +515,7 @@ pub async fn read_ase_config(
             ini_get_bool(&sections, "ASM2", "UseAllAvailableCores", true);
         config.use_low_memory = ini_get_bool(&sections, "ASM2", "UseLowMemory", false);
         config.no_battle_eye = ini_get_bool(&sections, "ASM2", "NoBattlEye", false);
+        config.enable_automanaged_mods = ini_get_bool(&sections, "ASM2", "EnableAutomanagedMods", false);
         config.backup_quantity = ini_get_u32(&sections, "ASM2", "BackupQuantity", 20);
         config.new_save_game_format = ini_get_bool(&sections, "ASM2", "NewSaveGameFormat", false);
         config.use_store = ini_get_bool(&sections, "ASM2", "UseStore", false);
@@ -587,6 +587,7 @@ pub async fn read_ase_config(
         config.alternate_save_directory_name = ini_get_str(&sections, "ASM2", "AlternateSaveDirectoryName", "");
         config.cluster_directory_override = ini_get_str(&sections, "ASM2", "ClusterDirectoryOverride", "");
         config.use_cluster_directory_override = ini_get_bool(&sections, "ASM2", "UseClusterDirectoryOverride", false);
+        config.server_language = ini_get_str(&sections, "ASM2", "ServerLanguage", "");
     }
 
     // Parse Game.ini for breeding settings
@@ -748,6 +749,14 @@ pub async fn read_ase_config(
 }
 
 #[tauri::command]
+pub async fn read_ase_config(
+    server_id: i64,
+    state: State<'_, AppState>,
+) -> Result<AseGameConfig, String> {
+    read_ase_config_internal(server_id, &state).await
+}
+
+#[tauri::command]
 pub async fn write_ase_config(
     server_id: i64,
     config: AseGameConfig,
@@ -763,6 +772,19 @@ pub async fn write_ase_config(
             |row| row.get(0),
         )
         .map_err(|e| format!("Server not found: {}", e))?;
+
+    let db_values: Option<(String, String, String, String)> = conn
+        .query_row(
+            "SELECT session_name, active_mods, server_password, admin_password FROM ase_servers WHERE id = ?1",
+            [server_id],
+            |row| Ok((
+                row.get::<_, String>(0).unwrap_or_default(),
+                row.get::<_, String>(1).unwrap_or_default(),
+                row.get::<_, String>(2).unwrap_or_default(),
+                row.get::<_, String>(3).unwrap_or_default(),
+            ))
+        )
+        .ok();
 
     let config_dir = get_config_path(&install_path);
 
@@ -796,16 +818,70 @@ pub async fn write_ase_config(
         doc.set_value_opt(sec, key, &val);
     };
 
+    // Preprocess and validate
+    let mut final_session_name = config.session_name.trim().to_string();
+    if final_session_name.is_empty() {
+        let existing = ini_get_str(&gus_doc, "ServerSettings", "SessionName", "");
+        if !existing.trim().is_empty() {
+            final_session_name = existing;
+        } else if let Some(ref db_val) = db_values {
+            if !db_val.0.trim().is_empty() {
+                final_session_name = db_val.0.clone();
+            }
+        }
+    }
+    if final_session_name.is_empty() {
+        final_session_name = "My ASE Server".to_string();
+    }
+    final_session_name = final_session_name.replace('"', "").replace('\\', "");
+
+    let mut final_server_password = config.server_password.trim().to_string();
+    if final_server_password.is_empty() {
+        let existing = ini_get_str(&gus_doc, "ServerSettings", "ServerPassword", "");
+        if !existing.trim().is_empty() {
+            final_server_password = existing;
+        } else if let Some(ref db_val) = db_values {
+            final_server_password = db_val.2.clone();
+        }
+    }
+    final_server_password = final_server_password.replace('"', "").replace('\\', "");
+
+    let mut final_server_admin_password = config.server_admin_password.trim().to_string();
+    if final_server_admin_password.is_empty() {
+        let existing = ini_get_str(&gus_doc, "ServerSettings", "ServerAdminPassword", "");
+        if !existing.trim().is_empty() {
+            final_server_admin_password = existing;
+        } else if let Some(ref db_val) = db_values {
+            final_server_admin_password = db_val.3.clone();
+        }
+    }
+    if final_server_admin_password.is_empty() {
+        final_server_admin_password = "admin123".to_string();
+    }
+    final_server_admin_password = final_server_admin_password.replace('"', "").replace('\\', "");
+
+    let mut final_active_mods = config.active_mods.trim().to_string();
+    if final_active_mods.is_empty() {
+        let existing = ini_get_str(&gus_doc, "ServerSettings", "ActiveMods", "");
+        if !existing.trim().is_empty() {
+            final_active_mods = existing;
+        } else if let Some(ref db_val) = db_values {
+            final_active_mods = db_val.1.clone();
+        }
+    }
+    final_active_mods = final_active_mods
+        .split(',')
+        .map(|s| s.trim())
+        .filter(|s| s.chars().all(|c| c.is_ascii_digit()))
+        .collect::<Vec<_>>()
+        .join(",");
 
     // Identity
-    ini_set(ss, "SessionName", config.session_name.clone());
-    ini_set(ss, "ServerPassword", config.server_password.clone());
-    ini_set(
-        ss,
-        "ServerAdminPassword",
-        config.server_admin_password.clone(),
-    );
-    ini_set(ss, "MaxPlayers", config.max_players.to_string());
+    ini_set("ServerSettings", "SessionName", final_session_name.clone());
+    ini_set("SessionSettings", "SessionName", final_session_name.clone());
+    ini_set("ServerSettings", "ServerPassword", final_server_password.clone());
+    ini_set("ServerSettings", "ServerAdminPassword", final_server_admin_password.clone());
+    ini_set("ServerSettings", "MaxPlayers", config.max_players.to_string());
 
     // Difficulty
     ini_set(
@@ -1361,7 +1437,7 @@ pub async fn write_ase_config(
     ini_set(ss, "SpectatorPassword", config.spectator_password.clone());
 
     // Mods
-    ini_set_opt(ss, "ActiveMods", config.active_mods.clone());
+    ini_set_opt(ss, "ActiveMods", final_active_mods.clone());
 
     // Auto-save
     ini_set(
@@ -1619,6 +1695,7 @@ pub async fn write_ase_config(
     );
     ini_set("ASM2", "UseLowMemory", config.use_low_memory.to_string());
     ini_set("ASM2", "NoBattlEye", config.no_battle_eye.to_string());
+    ini_set("ASM2", "EnableAutomanagedMods", config.enable_automanaged_mods.to_string());
     ini_set("ASM2", "BackupQuantity", config.backup_quantity.to_string());
     ini_set("ASM2", "NewSaveGameFormat", config.new_save_game_format.to_string());
     ini_set("ASM2", "UseStore", config.use_store.to_string());
@@ -1657,11 +1734,22 @@ pub async fn write_ase_config(
     ini_set_opt("ASM2", "AlternateSaveDirectoryName", config.alternate_save_directory_name.clone());
     ini_set_opt("ASM2", "ClusterDirectoryOverride", config.cluster_directory_override.clone());
     ini_set("ASM2", "UseClusterDirectoryOverride", config.use_cluster_directory_override.to_string());
+    ini_set_opt("ASM2", "ServerLanguage", config.server_language.clone());
 
-    // Save GameUserSettings.ini
+    // Save GameUserSettings.ini atomically
     let gus_content = gus_doc.serialize();
-    std::fs::write(config_dir.join("GameUserSettings.ini"), gus_content)
-        .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
+    let gus_tmp_path = config_dir.join("GameUserSettings.ini.tmp");
+    if let Err(e) = std::fs::write(&gus_tmp_path, &gus_content) {
+        println!("[WARNING] [ASE Config] Failed to write temporary GameUserSettings.ini: {}. Falling back to direct write.", e);
+        std::fs::write(config_dir.join("GameUserSettings.ini"), &gus_content)
+            .map_err(|err| format!("Failed to write GameUserSettings.ini: {}", err))?;
+    } else {
+        if let Err(e) = std::fs::rename(&gus_tmp_path, config_dir.join("GameUserSettings.ini")) {
+            println!("[WARNING] [ASE Config] Failed to rename GameUserSettings.ini.tmp: {}. Falling back to direct write.", e);
+            std::fs::write(config_dir.join("GameUserSettings.ini"), &gus_content)
+                .map_err(|err| format!("Failed to write GameUserSettings.ini: {}", err))?;
+        }
+    }
 
     // Now write Game.ini
     let game_ini_path = config_dir.join("Game.ini");
@@ -1839,10 +1927,20 @@ pub async fn write_ase_config(
         game_set!("OverrideMaxExperiencePointsDino", config.override_max_experience_points_dino.clone());
     }
 
-    // Save Game.ini
+    // Save Game.ini atomically
     let game_content = game_doc.serialize();
-    std::fs::write(&game_ini_path, game_content)
-        .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
+    let game_tmp_path = config_dir.join("Game.ini.tmp");
+    if let Err(e) = std::fs::write(&game_tmp_path, &game_content) {
+        println!("[WARNING] [ASE Config] Failed to write temporary Game.ini: {}. Falling back to direct write.", e);
+        std::fs::write(&game_ini_path, &game_content)
+            .map_err(|err| format!("Failed to write Game.ini: {}", err))?;
+    } else {
+        if let Err(e) = std::fs::rename(&game_tmp_path, &game_ini_path) {
+            println!("[WARNING] [ASE Config] Failed to rename Game.ini.tmp: {}. Falling back to direct write.", e);
+            std::fs::write(&game_ini_path, &game_content)
+                .map_err(|err| format!("Failed to write Game.ini: {}", err))?;
+        }
+    }
 
     // Sync values back to database to maintain integrity
     conn.execute(
@@ -1857,12 +1955,12 @@ pub async fn write_ase_config(
             updated_at = CURRENT_TIMESTAMP
          WHERE id = ?7",
         rusqlite::params![
-            config.session_name,
+            final_session_name,
             config.max_players,
-            config.server_password,
-            config.server_admin_password,
+            final_server_password,
+            final_server_admin_password,
             config.rcon_port,
-            config.active_mods,
+            final_active_mods,
             server_id
         ],
     )

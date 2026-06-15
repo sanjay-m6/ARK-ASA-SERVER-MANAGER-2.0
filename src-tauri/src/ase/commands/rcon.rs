@@ -149,8 +149,7 @@ pub async fn connect_ase_rcon(server_id: i64, state: State<'_, AppState>) -> Res
     Ok(format!("Connected to RCON on port {}. Response: {}", rcon_port, result))
 }
 
-#[tauri::command]
-pub async fn send_ase_rcon(server_id: i64, command: String, state: State<'_, AppState>) -> Result<String, String> {
+pub async fn send_ase_rcon_internal(server_id: i64, command: &str, state: &AppState) -> Result<String, String> {
     if command.trim().eq_ignore_ascii_case("DoExit") {
         use tauri::Manager;
         if let Some(guardian) = state.app_handle.try_state::<crate::services::guardian::GuardianState>() {
@@ -171,5 +170,10 @@ pub async fn send_ase_rcon(server_id: i64, command: String, state: State<'_, App
         )
         .map_err(|e| format!("Server not found: {}", e))?;
 
-    rcon_exec("127.0.0.1", rcon_port, &admin_password, &command)
+    rcon_exec("127.0.0.1", rcon_port, &admin_password, command)
+}
+
+#[tauri::command]
+pub async fn send_ase_rcon(server_id: i64, command: String, state: State<'_, AppState>) -> Result<String, String> {
+    send_ase_rcon_internal(server_id, &command, &state).await
 }

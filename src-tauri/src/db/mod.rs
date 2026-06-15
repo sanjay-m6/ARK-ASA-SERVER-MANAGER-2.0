@@ -1248,6 +1248,31 @@ impl Database {
             }
         }
 
+        // Ensure unique index on (server_id, workshop_id) — deduplicate first
+        let has_unique_idx: bool = {
+            let mut stmt = conn.prepare(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_ase_mods_unique_server_workshop'"
+            )?;
+            let count: i64 = stmt.query_row([], |row| row.get(0))?;
+            count > 0
+        };
+
+        if !has_unique_idx {
+            println!("📦 ASE Migration: Deduplicating ase_mods and creating unique index");
+            // Remove duplicate rows, keeping the one with the highest id per (server_id, workshop_id)
+            conn.execute(
+                "DELETE FROM ase_mods WHERE id NOT IN (
+                    SELECT MAX(id) FROM ase_mods GROUP BY server_id, workshop_id
+                )",
+                [],
+            )?;
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_ase_mods_unique_server_workshop ON ase_mods(server_id, workshop_id)",
+                [],
+            )?;
+            println!("  ✅ ase_mods unique index created");
+        }
+
         Ok(())
     }
 }

@@ -475,37 +475,37 @@ impl IniDocument {
             match line {
                 IniLine::Blank(raw) => {
                     out.push_str(raw);
-                    out.push('\n');
+                    out.push_str("\r\n");
                 }
                 IniLine::Comment(raw) => {
                     out.push_str(raw);
-                    out.push('\n');
+                    out.push_str("\r\n");
                 }
                 IniLine::SectionHeader { raw, .. } => {
                     out.push_str(raw);
-                    out.push('\n');
+                    out.push_str("\r\n");
                 }
                 IniLine::Entry { raw, .. } => {
                     out.push_str(raw);
-                    out.push('\n');
+                    out.push_str("\r\n");
                 }
                 IniLine::Continuation(raw) => {
                     out.push_str(raw);
-                    out.push('\n');
+                    out.push_str("\r\n");
                 }
                 IniLine::Unknown(raw) => {
                     out.push_str(raw);
-                    out.push('\n');
+                    out.push_str("\r\n");
                 }
             }
         }
 
-        // Trim trailing newlines and add exactly one
-        let trimmed = out.trim_end_matches('\n');
+        // Trim trailing newlines and add exactly one CRLF
+        let trimmed = out.trim_end_matches("\r\n");
         if trimmed.is_empty() {
             String::new()
         } else {
-            format!("{}\n", trimmed)
+            format!("{}\r\n", trimmed)
         }
     }
 
@@ -610,20 +610,25 @@ impl IniData {
 
         for section in &self.sections {
             if section.name != "__root__" {
-                out.push_str(&format!("[{}]\n", section.name));
+                out.push_str(&format!("[{}]\r\n", section.name));
             }
             for entry in &section.entries {
                 if let Some(ref comment) = entry.comment {
                     for line in comment.lines() {
-                        out.push_str(&format!("{}\n", line));
+                        out.push_str(&format!("{}\r\n", line));
                     }
                 }
-                out.push_str(&format!("{}={}\n", entry.key, entry.value));
+                out.push_str(&format!("{}={}\r\n", entry.key, entry.value));
             }
-            out.push('\n');
+            out.push_str("\r\n");
         }
 
-        out.trim_end().to_string() + "\n"
+        let trimmed = out.trim_end_matches("\r\n");
+        if trimmed.is_empty() {
+            String::new()
+        } else {
+            format!("{}\r\n", trimmed)
+        }
     }
 
     pub fn get_section_mut(&mut self, name: &str) -> Option<&mut IniSection> {

@@ -374,7 +374,8 @@ CREATE TABLE IF NOT EXISTS ase_mods (
     time_updated TEXT,
     time_created TEXT,
     tags TEXT,
-    FOREIGN KEY(server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
+    FOREIGN KEY(server_id) REFERENCES ase_servers(id) ON DELETE CASCADE,
+    UNIQUE(server_id, workshop_id)
 );
 
 CREATE TABLE IF NOT EXISTS ase_backups (

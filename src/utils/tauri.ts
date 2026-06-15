@@ -242,10 +242,7 @@ export interface UpdateServerSettingsParams {
 }
 
 export async function updateServerSettings(params: UpdateServerSettingsParams): Promise<void> {
-    return await invoke('update_server_settings', {
-        ...params,
-        custom_args: params.customArgs
-    });
+    return await invoke('update_server_settings', { ...params });
 }
 
 export async function checkServerReachability(port: number, protocol: string): Promise<'Public' | 'LAN' | 'Unknown' | 'Offline'> {

@@ -61,9 +61,11 @@ pub struct AseUPnPForwardResult {
 }
 
 // Helper to get local IP address (best guess)
-fn get_local_ip() -> std::net::Ipv4Addr {
+fn get_local_ip_internal() -> std::net::Ipv4Addr {
     use std::net::UdpSocket;
-    UdpSocket::bind("0.0.0.0:0")
+    
+    // 1. Try UDP connection to a public DNS (most reliable for active gateway interface)
+    if let Some(ip) = UdpSocket::bind("0.0.0.0:0")
         .and_then(|socket| {
             socket.connect("8.8.8.8:80")?;
             socket.local_addr()
@@ -73,7 +75,17 @@ fn get_local_ip() -> std::net::Ipv4Addr {
             std::net::SocketAddr::V4(v4) => Some(*v4.ip()),
             _ => None,
         })
-        .unwrap_or(std::net::Ipv4Addr::new(192, 168, 1, 100))
+    {
+        return ip;
+    }
+
+    // 2. Fallback: Use local_ip_address crate to scan active local network adapters
+    if let Ok(std::net::IpAddr::V4(v4)) = local_ip_address::local_ip() {
+        return v4;
+    }
+
+    // 3. Fallback: Default to loopback
+    std::net::Ipv4Addr::new(127, 0, 0, 1)
 }
 
 // Helper to strip rich color tags from log lines
@@ -179,6 +191,12 @@ fn parse_tribe_log_line(line: &str) -> Option<AseTribeLogEntry> {
 }
 
 // ─── Tauri Commands ─────────────────────────────────────────────────────────
+
+/// Gets the local IP address of the machine
+#[tauri::command]
+pub fn get_local_ip() -> Result<String, String> {
+    Ok(get_local_ip_internal().to_string())
+}
 
 /// Checks if ASE server has ARK Server API or uMod installed
 #[tauri::command]
@@ -438,7 +456,7 @@ pub async fn forward_ase_server_ports(
         .map(|ip| ip.to_string())
         .unwrap_or_else(|_| "Unknown".to_string());
 
-    let local_ip = get_local_ip();
+    let local_ip = get_local_ip_internal();
     let lease = lease_duration.unwrap_or(86400);
 
     let ports_to_forward = vec![
@@ -554,4 +572,326 @@ pub async fn remove_ase_server_port_forwards(
     }
 
     Ok(results)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortStatus {
+    pub name: String,
+    pub port: u16,
+    pub protocol: String,
+    pub is_bound: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigFileStatus {
+    pub name: String,
+    pub path: String,
+    pub exists: bool,
+    pub size_bytes: u64,
+    pub md5_hash: String,
+    pub validation_issues: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModHealthStatus {
+    pub workshop_id: String,
+    pub name: String,
+    pub is_installed: bool,
+    pub is_valid: bool,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemResources {
+    pub total_memory_gb: u64,
+    pub free_memory_gb: u64,
+    pub cpu_usage_pct: f32,
+    pub disk_free_space_gb: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AseDiagnosticsReport {
+    pub server_id: i64,
+    pub server_name: String,
+    pub status: String,
+    pub process_id: Option<u32>,
+    pub is_process_running: bool,
+    pub local_ip: String,
+    pub public_ip: String,
+    pub ports: Vec<PortStatus>,
+    pub config_files: Vec<ConfigFileStatus>,
+    pub mods: Vec<ModHealthStatus>,
+    pub system_resources: SystemResources,
+}
+
+#[tauri::command]
+pub async fn generate_diagnostics_report(
+    server_id: i64,
+    state: State<'_, AppState>,
+) -> Result<AseDiagnosticsReport, String> {
+    use sha2::{Sha256, Digest};
+    use sysinfo::Disks;
+
+    println!("[INFO] [ASE Diagnostics] Generating diagnostics report for server {}", server_id);
+
+    // 1. IP Addresses (Fetch public IP BEFORE acquiring DB connection locks to keep future Send)
+    let local_ip = get_local_ip_internal().to_string();
+    
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(1))
+        .build()
+        .ok();
+        
+    let public_ip = if let Some(ref c) = client {
+        match c.get("https://api.ipify.org").send().await {
+            Ok(resp) => resp.text().await.unwrap_or_else(|_| "Unknown".to_string()),
+            Err(_) => "Unknown".to_string(),
+        }
+    } else {
+        "Unknown".to_string()
+    };
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let (server_name, install_path, port, query_port, rcon_port, current_status, process_id) = conn
+        .query_row(
+            "SELECT name, install_path, port, query_port, rcon_port, status, process_id FROM ase_servers WHERE id = ?1",
+            [server_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, u16>(2)?,
+                    row.get::<_, u16>(3)?,
+                    row.get::<_, u16>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, Option<u32>>(6)?,
+                ))
+            },
+        )
+        .map_err(|e| format!("Server not found in database: {}", e))?;
+
+    // 2. Process Status
+    let mut is_process_running = false;
+    if let Some(pid) = process_id {
+        if let Ok(mut sys) = state.sys.lock() {
+            sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+            is_process_running = sys.process(sysinfo::Pid::from_u32(pid)).is_some();
+        }
+    }
+
+    // 3. Port Bindings
+    let check_port_bound_udp = |p: u16| -> bool {
+        std::net::UdpSocket::bind(("0.0.0.0", p)).is_err()
+    };
+    let check_port_bound_tcp = |p: u16| -> bool {
+        std::net::TcpListener::bind(("0.0.0.0", p)).is_err()
+    };
+
+    let ports = vec![
+        PortStatus {
+            name: "Game Port".to_string(),
+            port,
+            protocol: "UDP".to_string(),
+            is_bound: check_port_bound_udp(port),
+            error: None,
+        },
+        PortStatus {
+            name: "Peer Port (RawPort)".to_string(),
+            port: port + 1,
+            protocol: "UDP".to_string(),
+            is_bound: check_port_bound_udp(port + 1),
+            error: None,
+        },
+        PortStatus {
+            name: "Query Port".to_string(),
+            port: query_port,
+            protocol: "UDP".to_string(),
+            is_bound: check_port_bound_udp(query_port),
+            error: None,
+        },
+        PortStatus {
+            name: "RCON Port".to_string(),
+            port: rcon_port,
+            protocol: "TCP".to_string(),
+            is_bound: check_port_bound_tcp(rcon_port),
+            error: None,
+        },
+    ];
+
+    // 4. Config Files Status
+    let config_dir = PathBuf::from(&install_path)
+        .join("ShooterGame")
+        .join("Saved")
+        .join("Config")
+        .join("WindowsServer");
+        
+    let gus_path = config_dir.join("GameUserSettings.ini");
+    let game_ini_path = config_dir.join("Game.ini");
+
+    let compute_hash = |p: &std::path::Path| -> String {
+        if let Ok(data) = std::fs::read(p) {
+            let mut hasher = Sha256::new();
+            hasher.update(&data);
+            let result = hasher.finalize();
+            result.iter().map(|b| format!("{:02x}", b)).collect::<String>()
+        } else {
+            "N/A".to_string()
+        }
+    };
+
+    let validate_file_simple = |p: &std::path::Path| -> Vec<String> {
+        let mut issues = Vec::new();
+        if p.exists() {
+            if let Ok(content) = std::fs::read_to_string(p) {
+                for (idx, line) in content.lines().enumerate() {
+                    let open_parens = line.chars().filter(|&c| c == '(').count();
+                    let close_parens = line.chars().filter(|&c| c == ')').count();
+                    if open_parens != close_parens {
+                        issues.push(format!("Line {}: Unbalanced parentheses", idx + 1));
+                    }
+                    let quotes = line.chars().filter(|&c| c == '"').count();
+                    if quotes % 2 != 0 {
+                        issues.push(format!("Line {}: Unbalanced quotes", idx + 1));
+                    }
+                }
+            }
+        }
+        issues
+    };
+
+    let mut config_files = Vec::new();
+    
+    let gus_exists = gus_path.exists();
+    let gus_size = if gus_exists {
+        std::fs::metadata(&gus_path).map(|m| m.len()).unwrap_or(0)
+    } else {
+        0
+    };
+    config_files.push(ConfigFileStatus {
+        name: "GameUserSettings.ini".to_string(),
+        path: gus_path.to_string_lossy().to_string(),
+        exists: gus_exists,
+        size_bytes: gus_size,
+        md5_hash: compute_hash(&gus_path),
+        validation_issues: validate_file_simple(&gus_path),
+    });
+
+    let game_exists = game_ini_path.exists();
+    let game_size = if game_exists {
+        std::fs::metadata(&game_ini_path).map(|m| m.len()).unwrap_or(0)
+    } else {
+        0
+    };
+    config_files.push(ConfigFileStatus {
+        name: "Game.ini".to_string(),
+        path: game_ini_path.to_string_lossy().to_string(),
+        exists: game_exists,
+        size_bytes: game_size,
+        md5_hash: compute_hash(&game_ini_path),
+        validation_issues: validate_file_simple(&game_ini_path),
+    });
+
+    // 5. Mods Status
+    let mut mods = Vec::new();
+    let mut stmt = conn
+        .prepare("SELECT workshop_id, name FROM ase_mods WHERE server_id = ?1")
+        .map_err(|e| e.to_string())?;
+        
+    let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+    
+    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        let workshop_id: String = row.get(0).map_err(|e| e.to_string())?;
+        let mod_name: String = row.get(1).map_err(|e| e.to_string())?;
+        
+        let mods_dir = PathBuf::from(&install_path).join("ShooterGame").join("Content").join("Mods");
+        let mod_file = mods_dir.join(format!("{}.mod", workshop_id));
+        let mod_folder = mods_dir.join(&workshop_id);
+        
+        let mut errors = Vec::new();
+        let is_installed = mod_file.exists() && mod_folder.exists();
+        
+        if !mod_file.exists() {
+            errors.push(format!("Missing .mod file"));
+        }
+        if !mod_folder.exists() {
+            errors.push(format!("Missing mod assets directory"));
+        } else if mod_folder.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&mod_folder) {
+                if entries.count() == 0 {
+                    errors.push(format!("Mod folder is empty"));
+                }
+            }
+        }
+
+        mods.push(ModHealthStatus {
+            workshop_id,
+            name: mod_name,
+            is_installed,
+            is_valid: errors.is_empty(),
+            errors,
+        });
+    }
+
+    // 6. System Resources
+    let (cpu_usage_pct, ram_total, ram_free) = {
+        if let Ok(mut sys) = state.sys.lock() {
+            sys.refresh_cpu_all();
+            sys.refresh_memory();
+            let cpus = sys.cpus();
+            let cpu = if cpus.is_empty() {
+                sys.global_cpu_usage()
+            } else {
+                let total: f32 = cpus.iter().map(|c| c.cpu_usage()).sum();
+                total / cpus.len() as f32
+            };
+            (
+                cpu,
+                sys.total_memory() / (1024 * 1024 * 1024),
+                sys.free_memory() / (1024 * 1024 * 1024),
+            )
+        } else {
+            (0.0, 0, 0)
+        }
+    };
+
+    let disks = Disks::new_with_refreshed_list();
+    let mut disk_free_space_gb = 0;
+    let install_path_buf = PathBuf::from(&install_path);
+    if let Some(component) = install_path_buf.components().next() {
+        let install_drive = component.as_os_str().to_string_lossy().to_string().to_lowercase();
+        for disk in disks.list() {
+            let mount_point = disk.mount_point().to_string_lossy().to_string().to_lowercase();
+            if mount_point.starts_with(&install_drive) || install_drive.starts_with(&mount_point) {
+                disk_free_space_gb = disk.available_space() / (1024 * 1024 * 1024);
+                break;
+            }
+        }
+    }
+
+    Ok(AseDiagnosticsReport {
+        server_id,
+        server_name,
+        status: current_status,
+        process_id,
+        is_process_running,
+        local_ip,
+        public_ip,
+        ports,
+        config_files,
+        mods,
+        system_resources: SystemResources {
+            total_memory_gb: ram_total,
+            free_memory_gb: ram_free,
+            cpu_usage_pct,
+            disk_free_space_gb,
+        },
+    })
 }

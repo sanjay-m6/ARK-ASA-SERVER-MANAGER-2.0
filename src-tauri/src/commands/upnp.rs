@@ -223,9 +223,10 @@ pub async fn remove_server_port_forwards(
 
 /// Get the local IPv4 address (best guess)
 fn get_local_ip() -> std::net::Ipv4Addr {
-    // Try to determine local IP by creating a UDP socket
     use std::net::UdpSocket;
-    UdpSocket::bind("0.0.0.0:0")
+    
+    // 1. Try UDP connection to a public DNS (most reliable for active gateway interface)
+    if let Some(ip) = UdpSocket::bind("0.0.0.0:0")
         .and_then(|socket| {
             socket.connect("8.8.8.8:80")?;
             socket.local_addr()
@@ -235,5 +236,15 @@ fn get_local_ip() -> std::net::Ipv4Addr {
             std::net::SocketAddr::V4(v4) => Some(*v4.ip()),
             _ => None,
         })
-        .unwrap_or(std::net::Ipv4Addr::new(192, 168, 1, 100))
+    {
+        return ip;
+    }
+
+    // 2. Fallback: Use local_ip_address crate to scan active local network adapters
+    if let Ok(std::net::IpAddr::V4(v4)) = local_ip_address::local_ip() {
+        return v4;
+    }
+
+    // 3. Fallback: Default to loopback
+    std::net::Ipv4Addr::new(127, 0, 0, 1)
 }

@@ -349,3 +349,13 @@ export async function extractAseSaveData(sourceServerId: number, targetServerId:
     return invoke('extract_ase_save_data', { sourceServerId, targetServerId });
 }
 
+// ─── LAN Discovery Fix Commands ─────────────────────────────────────
+
+export async function joinAseServer(serverId: number): Promise<void> {
+    return invoke('join_ase_server', { serverId });
+}
+
+export async function getAseServerVersion(serverId: number): Promise<string> {
+    return invoke('get_ase_server_version', { serverId });
+}
+

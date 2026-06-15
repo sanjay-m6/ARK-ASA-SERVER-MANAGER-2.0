@@ -95,14 +95,14 @@ export default function Sidebar() {
     { name: 'Server Manager', path: '/ase/servers', icon: Server },
     { name: 'RCON Console', path: '/ase/rcon', icon: Terminal },
     { name: 'Scheduler', path: '/ase/scheduler', icon: Clock },
-    { name: 'Mod Manager', path: '/ase/mods', icon: Puzzle },
-    { name: 'Config Editor', path: '/ase/config', icon: FileEdit },
+    { name: 'Mod Management', path: '/ase/mods', icon: Puzzle },
+    { name: 'Server Configuration', path: '/ase/config', icon: FileEdit },
     { name: 'Cluster Manager', path: '/ase/clusters', icon: Network },
     { name: 'Backups', path: '/ase/backups', icon: Database },
     { name: 'Auto-Saves', path: '/ase/autosaves', icon: History },
-    { name: 'Logs Console', path: '/ase/logs', icon: ScrollText },
+    { name: 'Diagnostics & Logs', path: '/ase/logs', icon: ScrollText },
     {
-      name: 'Tools',
+      name: 'Server Utilities',
       icon: Wrench,
       children: [
         { name: 'AI Assistant', path: '/ase/tools/ai', icon: Bot },

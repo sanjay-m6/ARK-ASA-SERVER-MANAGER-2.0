@@ -8,7 +8,7 @@ import {
   CheckCircle2, AlertCircle, Loader2, X, Copy, ArrowUp, ArrowDown, 
   CheckSquare, Square, ChevronUp, ChevronDown, Sparkles, PlusCircle, RefreshCw,
   GripVertical, Undo, Redo, Pin, Wrench, Globe, Flame,
-  User, HardDrive, Users, FolderOpen
+  User, HardDrive, Users, FolderOpen, Terminal
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -123,7 +123,24 @@ export default function ASEModManager() {
   const [selectedServer, setSelectedServer] = useState<number | null>(servers[0]?.id || null);
   const [selectedModDetail, setSelectedModDetail] = useState<any | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'available' | 'installed'>('available');
+  const [activeTab, setActiveTab] = useState<'available' | 'installed' | 'logs'>('available');
+  const { downloadLogs } = useAseModStore();
+  const [selectedLogModId, setSelectedLogModId] = useState<string>('');
+
+  // Auto-select active downloading mod or first mod with logs
+  useEffect(() => {
+    const logKeys = Object.keys(downloadLogs);
+    if (logKeys.length > 0 && (!selectedLogModId || !logKeys.includes(selectedLogModId))) {
+      const activeDownloading = Object.values(installingQueue).find(
+        m => m.status === 'downloading' || m.status === 'extracting'
+      );
+      if (activeDownloading) {
+        setSelectedLogModId(activeDownloading.workshopId);
+      } else {
+        setSelectedLogModId(logKeys[0]);
+      }
+    }
+  }, [downloadLogs, installingQueue, selectedLogModId]);
   
   // Selection & Manual Mod installation states
   const [selectedModIds, setSelectedModIds] = useState<string[]>([]);
@@ -361,11 +378,11 @@ export default function ASEModManager() {
     }
   };
 
-  const handleInstallSingle = (workshopId: string, modName: string) => {
+  const handleInstallSingle = (workshopId: string, modName: string, modImage?: string) => {
     if (!selectedServer) { toast.error('Select a server first'); return; }
     if (isInstalled(workshopId)) { toast.error('Mod is already installed'); return; }
     
-    addToQueue(workshopId, modName);
+    addToQueue(workshopId, modName, modImage);
     toast.success(`Added "${modName}" to download queue!`);
   };
 
@@ -376,9 +393,10 @@ export default function ASEModManager() {
     let addedCount = 0;
     selectedModIds.forEach(id => {
       if (isInstalled(id)) return;
-      const mod = searchResults.find(m => m.workshopId === id);
+      const mod = searchResults.find(m => m.workshopId === id) || storefrontMods.find(m => m.workshopId === id);
       const modName = mod ? mod.name : `Workshop Mod #${id}`;
-      addToQueue(id, modName);
+      const modImage = mod ? (mod.previewUrl || mod.cachedImageUrl) : undefined;
+      addToQueue(id, modName, modImage);
       addedCount++;
     });
 
@@ -407,6 +425,19 @@ export default function ASEModManager() {
     addToQueue(cleanId, `Workshop Mod #${cleanId}`);
     toast.success(`Added Mod ID ${cleanId} to download queue!`);
     setManualModId('');
+
+    // Fetch details asynchronously
+    import('../utils/aseCommands').then(async ({ getAseWorkshopDetails }) => {
+      try {
+        const details = await getAseWorkshopDetails([cleanId]);
+        if (details && details.length > 0) {
+          const d = details[0];
+          useAseModStore.getState().updateQueueModDetails(cleanId, d.name, d.previewUrl);
+        }
+      } catch (e) {
+        console.error("Failed to fetch workshop details for manually queued mod:", e);
+      }
+    });
   };
 
   const handleRemove = async (workshopId: string) => {
@@ -781,6 +812,21 @@ export default function ASEModManager() {
                 {installedMods.length}
               </span>
             </button>
+            <button 
+              onClick={() => setActiveTab('logs')} 
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-2 ${
+                activeTab === 'logs' 
+                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20' 
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Download Logs
+              {activeDownloadsCount > 0 && (
+                <span className={`w-1.5 h-1.5 rounded-full animate-ping ${
+                  activeTab === 'logs' ? 'bg-slate-950' : 'bg-amber-400'
+                }`} />
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -1130,7 +1176,7 @@ export default function ASEModManager() {
                                 </div>
                               ) : (
                                 <button 
-                                  onClick={() => handleInstallSingle(workshopId, mod.name)} 
+                                  onClick={() => handleInstallSingle(workshopId, mod.name, mod.previewUrl)} 
                                   className="px-4 py-1.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/5 hover:border-amber-500"
                                 >
                                   <Download className="w-3.5 h-3.5 animate-pulse" />
@@ -1157,7 +1203,7 @@ export default function ASEModManager() {
                 )}
               </div>
             </motion.div>
-          ) : (
+          ) : activeTab === 'installed' ? (
             <motion.div 
               key="installed"
               initial={{ opacity: 0, y: 15 }}
@@ -1296,7 +1342,7 @@ export default function ASEModManager() {
                 <Droppable droppableId="ase-mod-list" isDropDisabled={sortOrder !== 'load_order'} renderClone={renderClone}>
                   {(provided) => (
                     <div 
-                      className="flex flex-col gap-3.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin"
+                      className="max-h-[500px] overflow-y-auto pr-1 scrollbar-thin"
                       {...provided.droppableProps}
                       ref={provided.innerRef}
                     >
@@ -1326,7 +1372,7 @@ export default function ASEModManager() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               style={{ ...provided.draggableProps.style, zIndex: snapshot.isDragging ? 50 : 'auto' }}
-                              className={`bg-slate-900/40 border rounded-2xl overflow-hidden relative group backdrop-blur-sm shadow-md transition-[border-color,background-color,box-shadow,opacity] duration-200 ${
+                              className={`bg-slate-900/40 border rounded-2xl overflow-hidden relative group backdrop-blur-sm shadow-md transition-[border-color,background-color,box-shadow,opacity] duration-200 mb-3.5 ${
                                 !mod.enabled ? 'opacity-65 hover:opacity-100' : ''
                               } ${
                                 snapshot.isDragging 
@@ -1585,6 +1631,104 @@ export default function ASEModManager() {
                 </div>
               )}
             </motion.div>
+          ) : (
+            <motion.div
+              key="logs"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.25 }}
+              className="glass-panel rounded-2xl p-6 border-amber-500/10 flex flex-col space-y-4"
+            >
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Terminal className="w-5 h-5 text-amber-400" />
+                    SteamCMD Mod Downloader Logs
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Real-time console output from SteamCMD workshop downloader wrapper</p>
+                </div>
+                
+                {Object.keys(downloadLogs).length > 0 && (
+                  <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold shrink-0">Select Mod</span>
+                    <select
+                      value={selectedLogModId}
+                      onChange={(e) => setSelectedLogModId(e.target.value)}
+                      className="bg-slate-950/60 border border-slate-700/50 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 font-medium transition-all cursor-pointer w-full sm:w-64"
+                    >
+                      {Object.keys(downloadLogs).map(id => {
+                        const queueItem = installingQueue[id];
+                        const label = queueItem ? queueItem.modName : `Workshop Mod #${id}`;
+                        return (
+                          <option key={id} value={id}>
+                            {label} ({id})
+                          </option>
+                        );
+                      })}
+                    </select>
+
+                    <button
+                      onClick={() => {
+                        if (selectedLogModId) {
+                          useAseModStore.getState().clearDownloadLogs(selectedLogModId);
+                        }
+                      }}
+                      className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-white/5 hover:border-white/10 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all shrink-0"
+                      title="Clear console window"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Console Window */}
+              {(!selectedLogModId || !downloadLogs[selectedLogModId] || downloadLogs[selectedLogModId].length === 0) ? (
+                <div className="flex flex-col items-center justify-center py-32 text-slate-500 text-center border-2 border-dashed border-white/5 rounded-2xl bg-slate-950/20">
+                  <Terminal className="w-12 h-12 text-slate-800 mb-4 animate-pulse" />
+                  <p className="font-bold text-slate-400">No active download logs</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed">
+                    Start enqueuing or downloading Steam Workshop mods from the Discover tab, and their installation progress console logs will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                    <span>Active Session Log ID: {selectedLogModId}</span>
+                    <span>{downloadLogs[selectedLogModId].length} lines received</span>
+                  </div>
+                  
+                  <div 
+                    ref={(el) => {
+                      if (el) {
+                        el.scrollTop = el.scrollHeight;
+                      }
+                    }}
+                    className="bg-slate-950/90 rounded-2xl p-5 font-mono text-[11px] h-96 overflow-y-auto border border-white/5 shadow-inner space-y-1.5 scrollbar-thin select-text"
+                  >
+                    {downloadLogs[selectedLogModId].map((log, index) => {
+                      const isError = log.line.toLowerCase().includes('error') || log.line.toLowerCase().includes('failed');
+                      const isSuccess = log.line.toLowerCase().includes('success') || log.line.toLowerCase().includes('completed') || log.line.toLowerCase().includes('success.');
+                      const isProgress = log.line.includes('progress:');
+                      return (
+                        <div key={index} className="flex gap-3.5 items-start leading-relaxed animate-in fade-in duration-150">
+                          <span className="text-slate-600 select-none shrink-0">{log.timestamp}</span>
+                          <span className={`break-all ${
+                            isError ? 'text-rose-400 font-semibold' :
+                            isSuccess ? 'text-emerald-400 font-semibold' :
+                            isProgress ? 'text-blue-400' :
+                            'text-slate-300'
+                          }`}>
+                            {log.line}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
@@ -1748,10 +1892,15 @@ export default function ASEModManager() {
                       {activeQueueList.map((item) => {
                         return (
                           <div key={item.workshopId} className="space-y-1.5 text-xs border-b border-white/5 pb-2.5 last:border-b-0 last:pb-0">
-                            <div className="flex items-center justify-between">
-                              <div className="min-w-0 pr-4">
-                                <p className="font-bold text-slate-200 truncate">{item.modName}</p>
-                                <p className="text-[9px] text-slate-500 font-mono mt-0.5">ID: {item.workshopId}</p>
+                            <div className="flex items-center gap-3 justify-between">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className="w-9 h-9 rounded-lg border border-white/10 bg-slate-950 overflow-hidden shrink-0 flex items-center justify-center relative shadow-sm">
+                                  <ModImage mod={{ workshopId: item.workshopId, name: item.modName, previewUrl: item.modImage }} className="w-full h-full object-cover" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-bold text-slate-200 truncate" title={item.modName}>{item.modName}</p>
+                                  <p className="text-[9px] text-slate-500 font-mono mt-0.5">ID: {item.workshopId}</p>
+                                </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
@@ -1989,7 +2138,7 @@ export default function ASEModManager() {
                   ) : (
                     <button 
                       onClick={() => {
-                        handleInstallSingle(selectedModDetail.workshopId, selectedModDetail.name);
+                        handleInstallSingle(selectedModDetail.workshopId, selectedModDetail.name, selectedModDetail.previewUrl || selectedModDetail.cachedImageUrl);
                         setSelectedModDetail(null);
                       }}
                       className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-amber-500/25"

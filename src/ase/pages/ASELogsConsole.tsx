@@ -17,7 +17,11 @@ export default function ASELogsConsole() {
     let unsub: () => void;
     listen<{ server_id: number; line: string }>('ase-log-line', (e) => {
       if (!selectedServer || e.payload.server_id === selectedServer) {
-        setLogs(prev => { const n = [...prev, e.payload.line]; return n.length > 2000 ? n.slice(-2000) : n; });
+        if (e.payload.line === '__CLEAR_LOGS_SIGNAL__') {
+          setLogs([]);
+        } else {
+          setLogs(prev => { const n = [...prev, e.payload.line]; return n.length > 2000 ? n.slice(-2000) : n; });
+        }
       }
     }).then(u => { unsub = u; });
     return () => { if (unsub) unsub(); };

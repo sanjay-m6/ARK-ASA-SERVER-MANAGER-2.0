@@ -77,5 +77,7 @@ pub fn get_all_handlers() -> Vec<&'static str> {
         "discover_ase_upnp_gateway",
         "forward_ase_server_ports",
         "remove_ase_server_port_forwards",
+        "get_local_ip",
+        "generate_diagnostics_report",
     ]
 }

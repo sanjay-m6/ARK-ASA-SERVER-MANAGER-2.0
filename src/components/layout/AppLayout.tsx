@@ -6,6 +6,7 @@ import GameTransitionHero from './GameTransitionHero';
 import { optimizeMemory } from '../../utils/tauri';
 import FloatingInstallCenter from '../server/FloatingInstallCenter';
 import InstallServerDialog from '../server/InstallServerDialog';
+import ASEInstallWizard from '../../ase/components/install/ASEInstallWizard';
 import { useInstallStore } from '../../stores/installStore';
 import { useGameStore } from '../../stores/gameStore';
 import { cn } from '../../utils/helpers';
@@ -14,8 +15,11 @@ import { cn } from '../../utils/helpers';
 const InfinityCopilot = lazy(() => import('../ai/InfinityCopilot'));
 
 export default function AppLayout() {
-    const { activeInstalls, currentlyViewingPath, setViewingPath, isDraftOpen, setDraftOpen } = useInstallStore();
+    const { activeInstalls, currentlyViewingPath, setViewingPath, isDraftOpen, setDraftOpen, draftSetup } = useInstallStore();
     const hasViewingTask = currentlyViewingPath && activeInstalls[currentlyViewingPath];
+    const isAseTask = hasViewingTask && activeInstalls[currentlyViewingPath].serverType === 'ASE';
+    const isAseDraft = isDraftOpen && draftSetup?.formData?.serverType === 'ASE';
+    const isAseRestore = isAseTask || isAseDraft;
     const { activeGame } = useGameStore();
     const isASE = activeGame === 'ASE';
 
@@ -55,10 +59,17 @@ export default function AppLayout() {
 
             {/* Global restore dialog when clicking 'View Logs' from background tasks OR setup drafts */}
             {(hasViewingTask || isDraftOpen) && (
-                <InstallServerDialog onClose={() => {
-                    setViewingPath(null);
-                    setDraftOpen(false);
-                }} />
+                isAseRestore ? (
+                    <ASEInstallWizard onClose={() => {
+                        setViewingPath(null);
+                        setDraftOpen(false);
+                    }} />
+                ) : (
+                    <InstallServerDialog onClose={() => {
+                        setViewingPath(null);
+                        setDraftOpen(false);
+                    }} />
+                )
             )}
         </div>
     );

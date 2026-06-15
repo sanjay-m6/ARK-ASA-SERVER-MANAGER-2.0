@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.4.8] — 2026-06-15
+
+### Added
+- **🦕 Full ARK: Survival Evolved (ASE) Support Engine**: Added comprehensive native integration for managing ASE server instances, config parameters, sequential boots, backups, and automatic mod updates.
+- **🔌 Rebuilt RCON Console**: Rewrote the RCON interface to feature tabbed layout for multi-server management, dynamic command history, and ANSI-colored output logs.
+- **⚙️ Advanced Configuration Panels**: Added new multiplier slider inputs, masked password fields for security, and Event Profile configurations.
+- **🪄 Installation Recovery Wizard**: Added interactive troubleshooting checklists, SteamCMD repair/cache cleaning tools, and clear error recovery dialogs.
+
+---
+
 ## [2.4.0-beta] — 2026-05-19
 
 ### Added

@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::net::UdpSocket;
 use sysinfo::{System, Disks, Networks};
 use serde::{Serialize, Deserialize};
 
@@ -29,7 +28,10 @@ pub struct ValidationResult {
 
 /// Helper to get local IPv4 address by connecting to public DNS
 fn get_local_ip() -> std::net::Ipv4Addr {
-    UdpSocket::bind("0.0.0.0:0")
+    use std::net::UdpSocket;
+    
+    // 1. Try UDP connection to a public DNS (most reliable for active gateway interface)
+    if let Some(ip) = UdpSocket::bind("0.0.0.0:0")
         .and_then(|socket| {
             socket.connect("8.8.8.8:80")?;
             socket.local_addr()
@@ -39,7 +41,17 @@ fn get_local_ip() -> std::net::Ipv4Addr {
             std::net::SocketAddr::V4(v4) => Some(*v4.ip()),
             _ => None,
         })
-        .unwrap_or(std::net::Ipv4Addr::new(127, 0, 0, 1))
+    {
+        return ip;
+    }
+
+    // 2. Fallback: Use local_ip_address crate to scan active local network adapters
+    if let Ok(std::net::IpAddr::V4(v4)) = local_ip_address::local_ip() {
+        return v4;
+    }
+
+    // 3. Fallback: Default to loopback
+    std::net::Ipv4Addr::new(127, 0, 0, 1)
 }
 
 /// Retrieves all physical system specifications and disk details for the installation path

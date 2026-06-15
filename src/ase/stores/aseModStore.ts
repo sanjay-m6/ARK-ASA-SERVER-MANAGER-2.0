@@ -8,6 +8,7 @@ export interface InstallingModState {
     status: 'queued' | 'downloading' | 'extracting' | 'completed' | 'failed';
     progress: number;
     error?: string;
+    modImage?: string;
 }
 
 interface AseModStore {
@@ -16,17 +17,23 @@ interface AseModStore {
     isSearching: boolean;
     isInstalling: string | null; // workshopId being installed
     installingQueue: Record<string, InstallingModState>;
+    downloadLogs: Record<string, { timestamp: string; line: string }[]>;
     setInstalledMods: (mods: AseInstalledMod[]) => void;
     setSearchResults: (mods: AseWorkshopMod[]) => void;
     setIsSearching: (val: boolean) => void;
     setIsInstalling: (workshopId: string | null) => void;
     
     // Queue Actions
-    addToQueue: (workshopId: string, modName: string) => void;
+    addToQueue: (workshopId: string, modName: string, modImage?: string) => void;
     updateQueueStatus: (workshopId: string, status: InstallingModState['status'], error?: string) => void;
     updateQueueProgress: (workshopId: string, progress: number, status?: InstallingModState['status'], error?: string) => void;
+    updateQueueModDetails: (workshopId: string, modName: string, modImage?: string) => void;
     removeFromQueue: (workshopId: string) => void;
     clearQueue: () => void;
+
+    // Logs Actions
+    addDownloadLog: (workshopId: string, line: string, timestamp?: string) => void;
+    clearDownloadLogs: (workshopId: string) => void;
 
     addInstalledMod: (mod: AseInstalledMod) => void;
     removeInstalledMod: (modId: number) => void;
@@ -39,13 +46,14 @@ export const useAseModStore = create<AseModStore>((set) => ({
     isSearching: false,
     isInstalling: null,
     installingQueue: {},
+    downloadLogs: {},
 
     setInstalledMods: (mods) => set({ installedMods: mods }),
     setSearchResults: (mods) => set({ searchResults: mods }),
     setIsSearching: (val) => set({ isSearching: val }),
     setIsInstalling: (workshopId) => set({ isInstalling: workshopId }),
 
-    addToQueue: (workshopId, modName) => set((state) => ({
+    addToQueue: (workshopId, modName, modImage) => set((state) => ({
         installingQueue: {
             ...state.installingQueue,
             [workshopId]: {
@@ -53,6 +61,7 @@ export const useAseModStore = create<AseModStore>((set) => ({
                 modName,
                 status: 'queued',
                 progress: 10,
+                modImage,
             }
         }
     })),
@@ -97,6 +106,21 @@ export const useAseModStore = create<AseModStore>((set) => ({
         };
     }),
 
+    updateQueueModDetails: (workshopId, modName, modImage) => set((state) => {
+        const item = state.installingQueue[workshopId];
+        if (!item) return {};
+        return {
+            installingQueue: {
+                ...state.installingQueue,
+                [workshopId]: {
+                    ...item,
+                    modName,
+                    modImage: modImage || item.modImage,
+                }
+            }
+        };
+    }),
+
     removeFromQueue: (workshopId) => set((state) => {
         const newQueue = { ...state.installingQueue };
         delete newQueue[workshopId];
@@ -104,6 +128,23 @@ export const useAseModStore = create<AseModStore>((set) => ({
     }),
 
     clearQueue: () => set({ installingQueue: {} }),
+
+    addDownloadLog: (workshopId, line, timestamp) => set((state) => {
+        const time = timestamp || new Date().toLocaleTimeString();
+        const logs = state.downloadLogs[workshopId] || [];
+        return {
+            downloadLogs: {
+                ...state.downloadLogs,
+                [workshopId]: [...logs, { timestamp: time, line }]
+            }
+        };
+    }),
+
+    clearDownloadLogs: (workshopId) => set((state) => {
+        const newLogs = { ...state.downloadLogs };
+        delete newLogs[workshopId];
+        return { downloadLogs: newLogs };
+    }),
 
     addInstalledMod: (mod) => set((state) => ({
         installedMods: [...state.installedMods, mod],
@@ -137,6 +178,16 @@ export const initializeAseModListeners = () => {
             if (workshopId) {
                 const error = status === 'failed' ? message : undefined;
                 useAseModStore.getState().updateQueueProgress(workshopId, progress, status, error);
+            }
+        }
+    ).catch(console.error);
+
+    listen<{ workshopId: string; timestamp: string; line: string }>(
+        'ase-mod-download-log',
+        (event) => {
+            const { workshopId, timestamp, line } = event.payload;
+            if (workshopId) {
+                useAseModStore.getState().addDownloadLog(workshopId, line, timestamp);
             }
         }
     ).catch(console.error);
