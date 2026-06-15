@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
+import ServerStatusBar from '../../components/server/ServerStatusBar';
 
 export default function ASEServerManager() {
   const { servers, setServers, updateServerStatus, refreshServers, removeServer } = useAseServerStore();
@@ -982,6 +983,7 @@ export default function ASEServerManager() {
                       </div>
                     </div>
                   </div>
+                  <ServerStatusBar serverId={srv.id} serverType="ASE" />
                 </div>
                     )}
                       </div>

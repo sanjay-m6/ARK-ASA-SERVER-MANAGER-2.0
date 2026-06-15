@@ -119,7 +119,14 @@ mod window_hider {
     pub fn show_windows_by_exe_name(exe_name: &str) {
 
         // Use WMIC/tasklist to find all PIDs matching the exe name
-        let output = std::process::Command::new("tasklist")
+        let mut cmd = std::process::Command::new("tasklist");
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000);
+        }
+
+        let output = cmd
             .args(["/FI", &format!("IMAGENAME eq {}", exe_name), "/FO", "CSV", "/NH"])
             .output();
 
@@ -159,13 +166,19 @@ pub fn find_game_server_pid_by_install_path(install_path: &str, server_type: &st
     };
 
     let norm_install = install_path.replace('\\', "/").to_lowercase();
+    let install_parts: Vec<&str> = norm_install.split('/').filter(|s| !s.is_empty()).collect();
+    if install_parts.is_empty() {
+        return None;
+    }
 
     for (pid, process) in sys.processes() {
         let name = process.name().to_string_lossy();
         if name.eq_ignore_ascii_case(target_name) {
             if let Some(exe_path) = process.exe() {
                 let exe_str = exe_path.to_string_lossy().replace('\\', "/").to_lowercase();
-                if exe_str.contains(&norm_install) {
+                let exe_parts: Vec<&str> = exe_str.split('/').filter(|s| !s.is_empty()).collect();
+
+                if exe_parts.len() >= install_parts.len() && exe_parts[..install_parts.len()] == install_parts[..] {
                     return Some(pid.as_u32());
                 }
             }
@@ -1000,7 +1013,9 @@ impl ProcessManager {
         // Build launch arguments
         // Wrap session name in quotes so spaces are preserved and parsed correctly by the engine
         let mut connection_url = format!("{}?listen", map_name);
-        connection_url.push_str(&format!("?SessionName=\"{}\"", session_name));
+        if server_type == "ASE" {
+            connection_url.push_str(&format!("?SessionName=\"{}\"", session_name));
+        }
         connection_url.push_str(&format!("?Port={}", game_port));
         connection_url.push_str(&format!("?QueryPort={}", query_port));
         connection_url.push_str(&format!("?RCONPort={}", rcon_port));
@@ -1112,9 +1127,9 @@ impl ProcessManager {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        // Spawn in a new process group so the server survives if the manager exits
+        // Spawn in a new process group so the server survives if the manager exits without showing a console window
         #[cfg(target_os = "windows")]
-        command.creation_flags(CREATE_NEW_PROCESS_GROUP);
+        command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
 
         let mut child = command.spawn().context("Failed to start server process")?;
                 let child_pid = child.id();

@@ -694,10 +694,9 @@ impl ConfigGenerator {
             base
         } else {
             format!(
-                "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={}?RCONPort={}?MaxPlayers={}",
+                "\"{}\" {}?listen?Port={}?QueryPort={}?RCONPort={}?MaxPlayers={}",
                 exe_path.display(),
                 config.map_name,
-                config.session_name,
                 config.game_port,
                 config.query_port,
                 config.rcon_port,

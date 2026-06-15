@@ -51,13 +51,15 @@ jobs:
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This release brings full native support for ARK: Survival Evolved (ASE) server management alongside core stability and console interface upgrades.
+            This release includes critical bug fixes for process launching, server configurations, mod downloads, firewall automation, and advanced visibility diagnostics.
 
-            ### ✨ What's New
-            - **🦕 Full ARK: Survival Evolved (ASE) Support Engine**: Added comprehensive native integration for managing ASE server instances, config parameters, sequential boots, backups, and automatic mod updates.
-            - **🔌 Rebuilt RCON Console**: Rewrote the RCON interface to feature tabbed layout for multi-server management, dynamic command history, and ANSI-colored output logs.
-            - **⚙️ Advanced Configuration Panels**: Added new multiplier slider inputs, masked password fields for security, and Event Profile configurations.
-            - **🪄 Installation Recovery Wizard**: Added interactive troubleshooting checklists, SteamCMD repair/cache cleaning tools, and clear error recovery dialogs.
+            ### 🛠️ Key Improvements & Fixes
+            - **🚫 Suppress PowerShell Windows**: Spawning game servers and running check commands on Windows now uses `CREATE_NO_WINDOW` unconditionally, preventing flashing conhost consoles and popups.
+            - **🗂️ Steam Library Discovery for ASE Mods**: Resolved the "no .mod file found" error by automatically querying the Steam registry and library configuration files to locate local client mod descriptors.
+            - **🏷️ Preservation of Spaces in Server Name**: Removed redundant connection CLI arguments to prevent Unreal Engine from converting space characters into underscores (`_`) on ASA server boots.
+            - **📊 Live Visibility Diagnostics**: Integrated a 4-step real-time diagnostics checker in the status bar covering: active processes, UDP port bindings, local LAN responsiveness (A2S), and global WAN visibility.
+            - **🛡️ Smart Firewall Automation**: Rewrote the firewall rule configurator to perform read-only queries. If rules match, admin UAC checks are bypassed, prompting users only when changes are actually required.
+            - **💡 In-Game Search Troubleshooting Guide**: Added a collapsible settings walkthrough next to the Server Manager page header, complete with an annotated in-game screenshot illustrating how to configure search parameters and filters.
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, 'beta') }}
           includeUpdaterJson: true

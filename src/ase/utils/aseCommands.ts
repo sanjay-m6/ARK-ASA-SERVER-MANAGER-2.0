@@ -359,3 +359,24 @@ export async function getAseServerVersion(serverId: number): Promise<string> {
     return invoke('get_ase_server_version', { serverId });
 }
 
+// ─── Firewall Rules Management ──────────────────────────────────────
+
+export interface AseFirewallPorts {
+    game: number;
+    peer: number;
+    query: number;
+    rcon: number;
+}
+
+export interface ConfigureAseFirewallResult {
+    success: boolean;
+    rulesCreated: boolean;
+    ports: AseFirewallPorts;
+    alreadyConfigured: boolean;
+    message: string;
+}
+
+export async function configureAseFirewall(serverId: number): Promise<ConfigureAseFirewallResult> {
+    return invoke('configure_ase_firewall', { serverId });
+}
+

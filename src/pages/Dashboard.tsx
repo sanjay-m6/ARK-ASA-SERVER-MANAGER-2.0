@@ -129,9 +129,22 @@ export default function Dashboard() {
   const handleToggleStartupSetting = async (key: string, value: boolean) => {
     const updatedConfig = { ...startupConfig, [key]: value };
     
-    // Default silentHeadlessStartup to match windowsStartupShortcut value to bypass UAC by default
+    // Check if the user is running as Administrator
+    let isAdmin = false;
+    try {
+      isAdmin = await invoke<boolean>('check_is_admin');
+    } catch (e) {
+      console.error('Failed to check admin status:', e);
+    }
+
+    // Default silentHeadlessStartup to match windowsStartupShortcut value to bypass UAC by default (only if Admin)
     if (key === 'windowsStartupShortcut') {
-      updatedConfig.silentHeadlessStartup = value;
+      updatedConfig.silentHeadlessStartup = value ? isAdmin : false;
+    }
+
+    if (key === 'silentHeadlessStartup' && value === true && !isAdmin) {
+      toast.error(t('settings.startup.adminRequired', 'Administrator privileges are required to enable Bypass UAC (Task Scheduler). Please restart the application as Administrator.'));
+      return;
     }
     
     setStartupConfig(updatedConfig);

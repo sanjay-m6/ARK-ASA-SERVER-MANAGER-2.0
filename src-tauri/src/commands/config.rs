@@ -205,96 +205,123 @@ pub async fn save_config(
             .or_else(|| IniParser::get_value(&content, "ServerSettings", "IPAddress"))
             .map(|s| s.trim_matches('"').trim_matches('\'').to_string());
 
-        // Perform the update
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        // Perform the update in a nested scope to drop the lock before firewall call
+        {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        let mut query = if server_type == "ASE" {
-            "UPDATE ase_servers SET ".to_string()
-        } else {
-            "UPDATE servers SET ".to_string()
-        };
-        let mut updates = Vec::new();
-        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-
-        if let Some(v) = session_name {
-            updates.push("session_name = ?");
-            params.push(Box::new(v));
-        }
-        if let Some(v) = map_name {
-            updates.push("map_name = ?");
-            params.push(Box::new(v));
-        }
-        if let Some(v) = max_players {
-            updates.push("max_players = ?");
-            params.push(Box::new(v));
-        }
-        // Handle password specially - empty string means remove it (set to null in DB context usually, but here we might wrap)
-        // But for strings we usually just overwrite.
-        if let Some(v) = server_password {
-            updates.push("server_password = ?");
-            if server_type == "ASE" {
-                params.push(Box::new(v));
+            let mut query = if server_type == "ASE" {
+                "UPDATE ase_servers SET ".to_string()
             } else {
-                if v.is_empty() {
-                    params.push(Box::new(None::<String>));
-                } else {
-                    params.push(Box::new(Some(v)));
-                }
-            }
-        }
-        if let Some(v) = admin_password {
-            updates.push("admin_password = ?");
-            params.push(Box::new(v));
-        }
-        if server_type != "ASE" {
-            if let Some(v) = rcon_enabled {
-                updates.push("rcon_enabled = ?");
+                "UPDATE servers SET ".to_string()
+            };
+            let mut updates = Vec::new();
+            let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+            if let Some(v) = session_name {
+                updates.push("session_name = ?");
                 params.push(Box::new(v));
             }
-        }
-        if let Some(v) = rcon_port {
-            updates.push("rcon_port = ?");
-            params.push(Box::new(v));
-        }
-        if let Some(v) = game_port {
-            if server_type == "ASE" {
-                updates.push("port = ?");
-            } else {
-                updates.push("game_port = ?");
+            if let Some(v) = map_name {
+                updates.push("map_name = ?");
+                params.push(Box::new(v));
             }
-            params.push(Box::new(v));
-        }
-        if let Some(v) = query_port {
-            updates.push("query_port = ?");
-            params.push(Box::new(v));
-        }
-        if server_type != "ASE" {
-            if let Some(v) = ip_address {
-                updates.push("ip_address = ?");
-                if v.is_empty() {
-                    params.push(Box::new(None::<String>));
+            if let Some(v) = max_players {
+                updates.push("max_players = ?");
+                params.push(Box::new(v));
+            }
+            if let Some(v) = server_password {
+                updates.push("server_password = ?");
+                if server_type == "ASE" {
+                    params.push(Box::new(v));
                 } else {
-                    params.push(Box::new(Some(v)));
+                    if v.is_empty() {
+                        params.push(Box::new(None::<String>));
+                    } else {
+                        params.push(Box::new(Some(v)));
+                    }
                 }
             }
+            if let Some(v) = admin_password {
+                updates.push("admin_password = ?");
+                params.push(Box::new(v));
+            }
+            if server_type != "ASE" {
+                if let Some(v) = rcon_enabled {
+                    updates.push("rcon_enabled = ?");
+                    params.push(Box::new(v));
+                }
+            }
+            if let Some(v) = rcon_port {
+                updates.push("rcon_port = ?");
+                params.push(Box::new(v));
+            }
+            if let Some(v) = game_port {
+                if server_type == "ASE" {
+                    updates.push("port = ?");
+                } else {
+                    updates.push("game_port = ?");
+                }
+                params.push(Box::new(v));
+            }
+            if let Some(v) = query_port {
+                updates.push("query_port = ?");
+                params.push(Box::new(v));
+            }
+            if server_type != "ASE" {
+                if let Some(v) = ip_address {
+                    updates.push("ip_address = ?");
+                    if v.is_empty() {
+                        params.push(Box::new(None::<String>));
+                    } else {
+                        params.push(Box::new(Some(v)));
+                    }
+                }
+            }
+
+            if !updates.is_empty() {
+                query.push_str(&updates.join(", "));
+                query.push_str(" WHERE id = ?");
+                params.push(Box::new(server_id));
+
+                let params_refs: Vec<&dyn rusqlite::ToSql> =
+                    params.iter().map(|p| p.as_ref()).collect();
+
+                conn.execute(&query, params_refs.as_slice())
+                    .map_err(|e| format!("Failed to update database: {}", e))?;
+
+                println!(
+                    "✅ Synced settings from INI to Database for server {}",
+                    server_id
+                );
+            }
         }
 
-        if !updates.is_empty() {
-            query.push_str(&updates.join(", "));
-            query.push_str(" WHERE id = ?");
-            params.push(Box::new(server_id));
-
-            let params_refs: Vec<&dyn rusqlite::ToSql> =
-                params.iter().map(|p| p.as_ref()).collect();
-
-            conn.execute(&query, params_refs.as_slice())
-                .map_err(|e| format!("Failed to update database: {}", e))?;
-
-            println!(
-                "✅ Synced settings from INI to Database for server {}",
-                server_id
-            );
+        if server_type == "ASE" {
+            match crate::commands::firewall::configure_ase_firewall_raw(&state, server_id) {
+                Ok(res) => {
+                    let msg = if res.already_configured {
+                        format!("[INFO] [FIREWALL] Firewall rules already correct for ASE server.")
+                    } else {
+                        format!("[INFO] [FIREWALL] Firewall rules successfully updated for ASE server.")
+                    };
+                    println!("  🔥 {}", msg);
+                    use tauri::Emitter;
+                    let _ = state.app_handle.emit("ase-log-line", serde_json::json!({
+                        "server_id": server_id,
+                        "line": msg
+                    }));
+                }
+                Err(e) => {
+                    let msg = format!("[ERROR] [FIREWALL] Auto-firewall configuration on port save failed: {}", e);
+                    println!("  ⚠️ {}", msg);
+                    use tauri::Emitter;
+                    let _ = state.app_handle.emit("ase-log-line", serde_json::json!({
+                        "server_id": server_id,
+                        "line": msg
+                    }));
+                }
+            }
         }
     }
 

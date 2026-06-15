@@ -15,6 +15,8 @@ interface ServerFirewallStatus {
     gamePortStatus: 'open' | 'closed' | 'unknown';
     queryPortStatus: 'open' | 'closed' | 'unknown';
     rconPortStatus: 'open' | 'closed' | 'unknown';
+    peerPort?: number;
+    peerPortStatus?: 'open' | 'closed' | 'unknown';
 }
 
 interface FirewallOperationResult {
@@ -151,6 +153,7 @@ export default function FirewallSettings({ mode = 'asa' }: { mode?: 'asa' | 'ase
     const allPortsOpen = (server: ServerFirewallStatus) => {
         return server.gamePortStatus === 'open' &&
             server.queryPortStatus === 'open' &&
+            (!server.peerPort || server.peerPortStatus === 'open') &&
             (!server.rconEnabled || server.rconPortStatus === 'open');
     };
 
@@ -319,6 +322,7 @@ export default function FirewallSettings({ mode = 'asa' }: { mode?: 'asa' | 'ase
                                 <tr className="border-b border-slate-700">
                                     <th className="text-left py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.server', 'Server')}</th>
                                     <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.gamePort', 'Game Port')}</th>
+                                    <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.peerPort', 'Peer Port')}</th>
                                     <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.queryPort', 'Query Port')}</th>
                                     <th className="text-center py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.rconPort', 'RCON Port')}</th>
                                     <th className="text-right py-3 px-4 text-sm font-medium text-slate-400">{t('settings.firewallAutomation.headers.actions', 'Actions')}</th>
@@ -349,6 +353,17 @@ export default function FirewallSettings({ mode = 'asa' }: { mode?: 'asa' | 'ase
                                                 <StatusBadge status={server.gamePortStatus} />
                                                 <span className="text-[10px] text-slate-500">UDP</span>
                                             </div>
+                                        </td>
+                                        <td className="py-4 px-4 text-center">
+                                            {server.peerPort ? (
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className="font-mono text-sm text-slate-300">{server.peerPort}</span>
+                                                    <StatusBadge status={server.peerPortStatus || 'unknown'} />
+                                                    <span className="text-[10px] text-slate-500">UDP</span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-slate-500">-</span>
+                                            )}
                                         </td>
                                         <td className="py-4 px-4 text-center">
                                             <div className="flex flex-col items-center gap-1">
@@ -506,6 +521,7 @@ export default function FirewallSettings({ mode = 'asa' }: { mode?: 'asa' | 'ase
                 </h3>
                 <div className="space-y-2 text-sm text-slate-400">
                     <p>• <strong className="text-sky-400">{t('settings.firewallAutomation.about.game', 'Game Port')}</strong>: {t('settings.firewallAutomation.about.gameDesc', 'The primary port players use to connect to your server. (UDP)')}</p>
+                    <p>• <strong className="text-amber-400">{t('settings.firewallAutomation.about.peer', 'Peer Port')}</strong>: {t('settings.firewallAutomation.about.peerDesc', 'Used for peer-to-peer connections and Steam query traffic (Game Port + 1). (UDP)')}</p>
                     <p>• <strong className="text-violet-400">{t('settings.firewallAutomation.about.query', 'Query Port')}</strong>: {t('settings.firewallAutomation.about.queryDesc', 'Used by Steam/Epic to list your server in the server browser. (UDP)')}</p>
                     <p>• <strong className="text-emerald-400">{t('settings.firewallAutomation.about.rcon', 'RCON Port')}</strong>: {t('settings.firewallAutomation.about.rconDesc', 'Remote Console port for sending administrative commands. (TCP)')}</p>
                     <p className="pt-2 text-slate-500">{t('settings.firewallAutomation.about.note', 'These ports must be open in your firewall and port-forwarded on your router for players outside your local network to connect.')}</p>

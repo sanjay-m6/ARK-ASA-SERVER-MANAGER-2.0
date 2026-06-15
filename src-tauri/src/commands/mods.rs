@@ -486,7 +486,7 @@ pub async fn generate_mod_config(
     println!("📄 Generating mod config preview for server {}", server_id);
 
     // Single DB access to get all needed data
-    let (install_path, session_name, map_name, game_port, query_port, mod_ids) = {
+    let (install_path, _session_name, map_name, game_port, query_port, mod_ids) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         
@@ -525,19 +525,17 @@ pub async fn generate_mod_config(
 
     let startup_command = if mod_ids.is_empty() {
         format!(
-            "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={} -NoBattlEye",
+            "\"{}\" {}?listen?Port={}?QueryPort={} -NoBattlEye",
             exe_path.display(),
             map_name,
-            session_name,
             game_port,
             query_port
         )
     } else {
         format!(
-            "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={} -NoBattlEye -mods=\"{}\"",
+            "\"{}\" {}?listen?Port={}?QueryPort={} -NoBattlEye -mods=\"{}\"",
             exe_path.display(),
             map_name,
-            session_name,
             game_port,
             query_port,
             mod_ids.join(",")

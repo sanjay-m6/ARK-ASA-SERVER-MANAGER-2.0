@@ -1,6 +1,12 @@
 use std::process::Command;
 use std::env;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 /// Configure Windows Registry Run key for standard startup.
 /// Registers "ASAServerManager" under HKCU\Software\Microsoft\Windows\CurrentVersion\Run.
 pub fn set_windows_registry_run(enabled: bool, minimized: bool) -> Result<(), String> {
@@ -16,7 +22,11 @@ pub fn set_windows_registry_run(enabled: bool, minimized: bool) -> Result<(), St
 
     if enabled {
         println!("🚀 Setting Registry Run entry: {} (minimized: {})", exe_path, minimized);
-        let status = Command::new("reg")
+        let mut cmd = Command::new("reg");
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        let status = cmd
             .args(&[
                 "add",
                 "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
@@ -38,7 +48,11 @@ pub fn set_windows_registry_run(enabled: bool, minimized: bool) -> Result<(), St
         }
     } else {
         println!("🚀 Removing Registry Run entry for ASAServerManager");
-        let _ = Command::new("reg")
+        let mut cmd = Command::new("reg");
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        let _ = cmd
             .args(&[
                 "delete",
                 "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
@@ -61,7 +75,11 @@ pub fn set_windows_task_scheduler(enabled: bool) -> Result<(), String> {
 
     if enabled {
         println!("🚀 Registering elevated Task Scheduler task for {}", exe_path);
-        let status = Command::new("schtasks")
+        let mut cmd = Command::new("schtasks");
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        let status = cmd
             .args(&[
                 "/create",
                 "/tn",
@@ -84,7 +102,11 @@ pub fn set_windows_task_scheduler(enabled: bool) -> Result<(), String> {
         }
     } else {
         println!("🚀 Unregistering Task Scheduler task ASAServerManager");
-        let _ = Command::new("schtasks")
+        let mut cmd = Command::new("schtasks");
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        let _ = cmd
             .args(&[
                 "/delete",
                 "/tn",

@@ -11,6 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import './i18n'; // Initialize i18n
 import { initializeInstallListeners } from './stores/installStore';
 import { initializeAseModListeners } from './ase/stores/aseModStore';
+import { useGameStore } from './stores/gameStore';
 
 
 // Lazy load pages for performance optimization
@@ -68,6 +69,11 @@ const PageLoader = () => (
     </div>
 );
 
+const IndexRedirect = () => {
+    const { activeGame } = useGameStore();
+    return <Navigate to={activeGame === 'ASE' ? "/ase/dashboard" : "/dashboard"} replace />;
+};
+
 function App() {
     const [appState, setAppState] = useState<'welcome' | 'app'>('welcome');
 
@@ -106,7 +112,7 @@ function App() {
                     <Suspense fallback={<PageLoader />}>
                         <Routes>
                             <Route path="/" element={<AppLayout />}>
-                                <Route index element={<Navigate to="/dashboard" replace />} />
+                                <Route index element={<IndexRedirect />} />
                                 <Route path="dashboard" element={<Dashboard />} />
                                 <Route path="servers" element={<ServerManager />} />
                                 <Route path="mods" element={<ModManager />} />

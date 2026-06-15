@@ -370,70 +370,31 @@ impl AseLauncher {
         let public_ip = if config.enable_public_ip_for_epic { Self::resolve_public_ip().await } else { None };
         let args = Self::build_arguments(&server, &config, public_ip, &active_mods);
 
-        // Auto-create firewall rules in a background thread.
-        // We inline the DB query + elevated call here instead of calling the
-        // `#[tauri::command]` handler, because Tauri `State<'_, AppState>` carries
-        // a lifetime tied to the caller and cannot escape into a spawned thread.
-        let server_port = server.port;
-        let server_query_port = server.query_port;
-        let server_rcon_port = server.rcon_port;
-        let server_name_fw = server.session_name.clone();
-        let exe_path_for_fw = PathBuf::from(&server.install_path)
-            .join("ShooterGame").join("Binaries").join("Win64")
-            .join("ShooterGameServer.exe")
-            .to_string_lossy().to_string();
-        let battleye_enabled = server.battleye;
-        let install_path_for_fw = server.install_path.clone();
+        // Auto-configure firewall rules in a background thread silently.
+        let app_clone = _app.clone();
         std::thread::spawn(move || {
-            // Inbound rules (existing)
-            let mut rules: Vec<(u16, &str, String)> = vec![
-                (server_port, "UDP", format!("ARK Server - {} - Game (UDP {})", server_name_fw, server_port)),
-                (server_port, "TCP", format!("ARK Server - {} - Game (TCP {})", server_name_fw, server_port)),
-                (server_port + 1, "UDP", format!("ARK Server - {} - Raw (UDP {})", server_name_fw, server_port + 1)),
-                (server_query_port, "UDP", format!("ARK Server - {} - Query (UDP {})", server_name_fw, server_query_port)),
-            ];
-            if server_rcon_port > 0 {
-                rules.push((server_rcon_port, "TCP", format!("ARK Server - {} - RCON (TCP {})", server_name_fw, server_rcon_port)));
-            }
-            match crate::commands::firewall::create_firewall_rules_elevated(rules) {
-                Ok(_) => println!("  🔥 Firewall inbound rules verified/created for ASE server {}", server_id),
-                Err(e) => println!("  ⚠️ Firewall inbound rule creation failed (non-blocking): {}", e),
-            }
-
-            // Outbound rules — required for Steam LAN broadcast discovery responses
-            let outbound_rules: Vec<(u16, &str, String)> = vec![
-                (server_port, "UDP", format!("ARK Server - {} - Game Out (UDP {})", server_name_fw, server_port)),
-                (server_port + 1, "UDP", format!("ARK Server - {} - Raw Out (UDP {})", server_name_fw, server_port + 1)),
-                (server_query_port, "UDP", format!("ARK Server - {} - Query Out (UDP {})", server_name_fw, server_query_port)),
-            ];
-            match crate::commands::firewall::create_outbound_firewall_rules_elevated(outbound_rules) {
-                Ok(_) => println!("  🔥 Firewall outbound rules verified/created for ASE server {}", server_id),
-                Err(e) => println!("  ⚠️ Firewall outbound rule creation failed (non-blocking): {}", e),
-            }
-
-            // Program-based rule for ShooterGameServer.exe — allows all UDP traffic
-            // from the exe regardless of port, covering broadcast discovery packets
-            match crate::commands::firewall::create_program_firewall_rule_elevated(
-                &exe_path_for_fw,
-                &format!("ARK Server - {} - Program Allow", server_name_fw),
-            ) {
-                Ok(_) => println!("  🔥 Program-based firewall rule verified for ASE server {}", server_id),
-                Err(e) => println!("  ⚠️ Program-based firewall rule failed (non-blocking): {}", e),
-            }
-
-            // BattlEye service rule — BEService_x64.exe needs UDP access for anti-cheat
-            if battleye_enabled {
-                let be_exe = std::path::PathBuf::from(&install_path_for_fw)
-                    .join("ShooterGame").join("Binaries").join("Win64")
-                    .join("BattlEye").join("BEService_x64.exe");
-                if be_exe.exists() {
-                    match crate::commands::firewall::create_program_firewall_rule_elevated(
-                        &be_exe.to_string_lossy(),
-                        &format!("ARK Server - {} - BattlEye Service", server_name_fw),
-                    ) {
-                        Ok(_) => println!("  🔥 BattlEye firewall rule verified for ASE server {}", server_id),
-                        Err(e) => println!("  ⚠️ BattlEye firewall rule failed (non-blocking): {}", e),
-                    }
+            use tauri::Manager;
+            let state = app_clone.state::<AppState>();
+            match crate::commands::firewall::configure_ase_firewall_raw(&state, server_id) {
+                Ok(res) => {
+                    let msg = if res.already_configured {
+                        format!("[INFO] [FIREWALL] Firewall rules already correctly configured.")
+                    } else {
+                        format!("[INFO] [FIREWALL] Firewall rules successfully configured.")
+                    };
+                    println!("  🔥 {}", msg);
+                    let _ = app_clone.emit("ase-log-line", serde_json::json!({
+                        "server_id": server_id,
+                        "line": msg
+                    }));
+                }
+                Err(e) => {
+                    let msg = format!("[ERROR] [FIREWALL] Firewall configuration failed: {}", e);
+                    println!("  ⚠️ {}", msg);
+                    let _ = app_clone.emit("ase-log-line", serde_json::json!({
+                        "server_id": server_id,
+                        "line": msg
+                    }));
                 }
             }
         });
@@ -463,9 +424,7 @@ impl AseLauncher {
         {
             use std::os::windows::process::CommandExt;
             let mut flags = 0x00000200; // CREATE_NEW_PROCESS_GROUP
-            if !config.output_server_log_to_console {
-                flags |= 0x08000000; // CREATE_NO_WINDOW
-            }
+            flags |= 0x08000000; // CREATE_NO_WINDOW
             cmd.creation_flags(flags);
         }
 

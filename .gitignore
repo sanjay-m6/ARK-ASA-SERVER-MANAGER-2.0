@@ -94,3 +94,6 @@ ENV/
 # Antigravity Agent
 .agent/
 .agent
+
+# Temporary / Scratch
+scratch/

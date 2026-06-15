@@ -4,6 +4,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use sysinfo::Disks;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileEntry {
     pub name: String,
@@ -142,8 +145,10 @@ pub fn open_in_explorer(path: String) -> Result<(), String> {
         if !path_obj.exists() {
             return Err(format!("Path does not exist: {}", normalized));
         }
-        Command::new("explorer")
-            .arg(&normalized)
+        let mut cmd = Command::new("explorer");
+        #[cfg(target_os = "windows")]
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        cmd.arg(&normalized)
             .spawn()
             .map_err(|e| e.to_string())?;
     }

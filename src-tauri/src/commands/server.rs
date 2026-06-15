@@ -3397,3 +3397,114 @@ pub async fn check_port_conflicts(
         conflicts,
     })
 }
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerVisibilityReport {
+    pub status: String,
+    pub availability: String,
+    pub local_ip: String,
+    pub public_ip: Option<String>,
+    pub query_port: u16,
+}
+
+#[tauri::command]
+pub async fn get_server_visibility_status(
+    state: State<'_, AppState>,
+    server_id: i64,
+    server_type: String,
+) -> Result<ServerVisibilityReport, String> {
+    let (install_path_str, query_port, db_status): (String, u16, String) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        if server_type.to_uppercase() == "ASE" {
+            let mut stmt = conn
+                .prepare("SELECT install_path, query_port, status FROM ase_servers WHERE id = ?1")
+                .map_err(|e| e.to_string())?;
+            stmt.query_row([server_id], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)? as u16, row.get::<_, String>(2)?))
+            })
+            .map_err(|e| e.to_string())?
+        } else {
+            let mut stmt = conn
+                .prepare("SELECT install_path, query_port, status FROM servers WHERE id = ?1")
+                .map_err(|e| e.to_string())?;
+            stmt.query_row([server_id], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)? as u16, row.get::<_, String>(2)?))
+            })
+            .map_err(|e| e.to_string())?
+        }
+    };
+
+    let install_path = PathBuf::from(&install_path_str);
+    
+    // Check if uninstalled
+    let exe_subpath = if server_type.to_uppercase() == "ASE" {
+        "ShooterGame/Binaries/Win64/ShooterGameServer.exe"
+    } else {
+        "ShooterGame/Binaries/Win64/ArkAscendedServer.exe"
+    };
+    let exe_path = install_path.join(exe_subpath);
+    let exe_exists = exe_path.exists();
+
+    // Check if process is running
+    let running_pid = crate::services::process_manager::find_game_server_pid_by_install_path(&install_path_str, &server_type.to_uppercase());
+    let is_running = running_pid.is_some();
+
+    // Determine base status
+    let mut status = if !is_running {
+        if !exe_exists {
+            "uninstalled".to_string()
+        } else if db_status == "crashed" || db_status == "updating" || db_status == "restarting" {
+            db_status
+        } else {
+            "stopped".to_string()
+        }
+    } else {
+        if db_status == "restarting" || db_status == "updating" {
+            db_status
+        } else {
+            "starting".to_string()
+        }
+    };
+
+    // Get local and public IPs
+    let local_ip = if let Ok(std::net::IpAddr::V4(v4)) = local_ip_address::local_ip() {
+        v4.to_string()
+    } else {
+        "127.0.0.1".to_string()
+    };
+    let public_ip = crate::services::network::get_public_ip().await.ok();
+
+    // Check availability
+    let mut availability = "unavailable".to_string();
+
+    if is_running {
+        // Check local query
+        let local_reachable = crate::services::network::query_server("127.0.0.1", query_port)
+            || crate::services::network::query_server(&local_ip, query_port);
+
+        if local_reachable {
+            availability = "lan".to_string();
+            if status == "starting" {
+                status = "online".to_string();
+            }
+
+            // Check public query
+            if let Some(ref pub_ip) = public_ip {
+                if crate::services::network::query_server(pub_ip, query_port) {
+                    availability = "global".to_string();
+                }
+            }
+        }
+    }
+
+    Ok(ServerVisibilityReport {
+        status,
+        availability,
+        local_ip,
+        public_ip,
+        query_port,
+    })
+}

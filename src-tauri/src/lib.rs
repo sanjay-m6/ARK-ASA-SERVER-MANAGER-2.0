@@ -518,6 +518,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::clear_steamcmd_cache,
             commands::server::get_steamcmd_health,
             commands::server::check_port_conflicts,
+            commands::server::get_server_visibility_status,
             commands::import::import_non_dedicated_save, // <-- New Command
             // Mod commands
             commands::mods::search_mods,
@@ -647,6 +648,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::firewall::create_ase_firewall_rules,
             commands::firewall::remove_ase_firewall_rules,
             commands::firewall::create_all_ase_firewall_rules,
+            commands::firewall::configure_ase_firewall,
+            commands::firewall::configure_firewall,
             // Manual port commands
             commands::firewall::check_manual_port_status,
             commands::firewall::create_manual_firewall_rule,
