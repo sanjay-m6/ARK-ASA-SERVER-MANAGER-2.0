@@ -38,7 +38,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
-import { useRconStore, RconPlayer } from '../stores/rconStore';
+import { useRconStore, RconPlayer, CommandHistoryEntry } from '../stores/rconStore';
 import RconHelpModal from '../components/ui/RconHelpModal';
 import ServerSelect from '../components/ui/ServerSelect';
 
@@ -269,6 +269,9 @@ function classifyError(errMsg: string): { category: string; icon: typeof AlertTr
     return { category: 'Error', icon: AlertTriangle, colorClass: 'text-red-400 border-red-500/20 bg-red-950/20' };
 }
 
+const EMPTY_PLAYERS: RconPlayer[] = [];
+const EMPTY_HISTORY: CommandHistoryEntry[] = [];
+
 export default function RconConsole() {
     const { t } = useTranslation();
     const { servers } = useServerStore();
@@ -297,26 +300,38 @@ export default function RconConsole() {
     const [isResolvingIds, setIsResolvingIds] = useState(false);
 
     // Zustand global state for RCON
-    const rconStore = useRconStore();
-    const selectedServerId = rconStore.selectedServerId;
-    const setSelectedServerId = rconStore.setSelectedServerId;
+    const selectedServerId = useRconStore(state => state.selectedServerId);
+    const setSelectedServerId = useRconStore(state => state.setSelectedServerId);
 
-    const serverState = selectedServerId ? rconStore.serverStates[selectedServerId] : null;
+    // Select stable action references to avoid dependency re-triggers
+    const setConnected = useRconStore(state => state.setConnected);
+    const setConnecting = useRconStore(state => state.setConnecting);
+    const addHistory = useRconStore(state => state.addHistory);
+    const setPlayers = useRconStore(state => state.setPlayers);
+    const setLastError = useRconStore(state => state.setLastError);
+    const setConnectionInfo = useRconStore(state => state.setConnectionInfo);
+    const clearServerState = useRconStore(state => state.clearServerState);
+
+    const serverState = useRconStore(state => selectedServerId ? state.serverStates[selectedServerId] : undefined);
     const isConnected = serverState?.isConnected || false;
     const isConnecting = serverState?.isConnecting || false;
-    const commandHistory = serverState?.commandHistory || [];
-    const onlinePlayers = serverState?.players || [];
+    const commandHistory = serverState?.commandHistory || EMPTY_HISTORY;
+    const onlinePlayers = serverState?.players || EMPTY_PLAYERS;
     const connectionInfo = serverState?.connectionInfo || null;
 
     // Resolve Player IDs automatically
     useEffect(() => {
         if (!selectedServerId || onlinePlayers.length === 0) {
-            setResolvedPlayerIds({});
+            Promise.resolve().then(() => {
+                setResolvedPlayerIds(prev => Object.keys(prev).length === 0 ? prev : {});
+            });
             return;
         }
 
         const platformIds = onlinePlayers.map(p => p.steamId);
-        setIsResolvingIds(true);
+        Promise.resolve().then(() => {
+            setIsResolvingIds(true);
+        });
         invoke<Record<string, number>>('rcon_resolve_player_ids', {
             serverId: selectedServerId,
             platformIds
@@ -339,7 +354,9 @@ export default function RconConsole() {
     // Default selected player when player list refreshes
     useEffect(() => {
         if (onlinePlayers.length > 0 && !giveSelectedPlayerId) {
-            setGiveSelectedPlayerId(onlinePlayers[0].steamId);
+            Promise.resolve().then(() => {
+                setGiveSelectedPlayerId(onlinePlayers[0].steamId);
+            });
         }
     }, [onlinePlayers, giveSelectedPlayerId]);
 
@@ -396,7 +413,9 @@ export default function RconConsole() {
     // Set cluster servers selection default
     useEffect(() => {
         if (servers.length > 0 && clusterSelectedServers.length === 0) {
-            setClusterSelectedServers(servers.map(s => s.id));
+            Promise.resolve().then(() => {
+                setClusterSelectedServers(servers.map(s => s.id));
+            });
         }
     }, [servers, clusterSelectedServers.length]);
 
@@ -449,11 +468,41 @@ export default function RconConsole() {
         };
     }, [selectedServerId, isStreamingLogs]);
 
+    const addToHistory = useCallback((cmd: string, response: string, success: boolean) => {
+        if (!selectedServerId) return;
+        addHistory(selectedServerId, {
+            command: cmd,
+            response,
+            timestamp: new Date(),
+            success,
+        });
+    }, [selectedServerId, addHistory]);
+
+    const refreshPlayers = useCallback(async () => {
+        if (!selectedServerId || !isConnected) return;
+
+        try {
+            const playerList = await invoke<RconPlayer[]>('rcon_get_players', {
+                serverId: selectedServerId,
+            });
+            setPlayers(selectedServerId, playerList);
+        } catch (error) {
+            const errMsg = String(error);
+            console.error('Failed to get players:', errMsg);
+
+            if (errMsg.toLowerCase().includes('connection lost') || errMsg.includes('No active RCON connection') || errMsg.toLowerCase().includes('reconnect')) {
+                setConnected(selectedServerId, false);
+                setPlayers(selectedServerId, []);
+                setConnectionInfo(selectedServerId, null);
+            }
+        }
+    }, [selectedServerId, isConnected, setPlayers, setConnected, setConnectionInfo]);
+
     const connect = useCallback(async () => {
         if (!selectedServer) return;
 
-        rconStore.setConnecting(selectedServer.id, true);
-        rconStore.setLastError(selectedServer.id, null);
+        setConnecting(selectedServer.id, true);
+        setLastError(selectedServer.id, null);
         try {
             const address = selectedServer.ipAddress || '127.0.0.1';
             const port = selectedServer.ports.rconPort;
@@ -467,8 +516,8 @@ export default function RconConsole() {
 
             if (response.success) {
                 console.log('[RCON] Connected successfully!');
-                rconStore.setConnected(selectedServer.id, true);
-                rconStore.setConnectionInfo(selectedServer.id, {
+                setConnected(selectedServer.id, true);
+                setConnectionInfo(selectedServer.id, {
                     address,
                     port,
                     connectedSince: new Date(),
@@ -480,23 +529,23 @@ export default function RconConsole() {
         } catch (error) {
             const errMsg = String(error);
             console.error('[RCON] Connection failed:', errMsg);
-            rconStore.setLastError(selectedServer.id, errMsg);
+            setLastError(selectedServer.id, errMsg);
             toast.error(t('rcon.connectFailed', { error: errMsg, defaultValue: `Connection failed: ${errMsg}` }));
             addToHistory('connect', `Failed: ${errMsg}`, false);
         } finally {
-            rconStore.setConnecting(selectedServer.id, false);
+            setConnecting(selectedServer.id, false);
         }
-    }, [selectedServer, rconStore, t]);
+    }, [selectedServer, setConnecting, setLastError, setConnected, setConnectionInfo, t, addToHistory, refreshPlayers]);
 
-    const disconnect = async () => {
+    const disconnect = useCallback(async () => {
         if (!selectedServerId) return;
 
         try {
             await invoke<RconResponse>('rcon_disconnect', { serverId: selectedServerId });
-            rconStore.setConnected(selectedServerId, false);
-            rconStore.setPlayers(selectedServerId, []);
-            rconStore.setConnectionInfo(selectedServerId, null);
-            rconStore.setLastError(selectedServerId, null);
+            setConnected(selectedServerId, false);
+            setPlayers(selectedServerId, []);
+            setConnectionInfo(selectedServerId, null);
+            setLastError(selectedServerId, null);
             setIsStreamingLogs(false);
             setLogStream([]);
             toast.success(t('rcon.disconnectedMsg', 'Disconnected from RCON'));
@@ -504,9 +553,9 @@ export default function RconConsole() {
         } catch (error) {
             const errMsg = String(error);
             if (errMsg.includes('No active RCON connection')) {
-                rconStore.setConnected(selectedServerId, false);
-                rconStore.setPlayers(selectedServerId, []);
-                rconStore.setConnectionInfo(selectedServerId, null);
+                setConnected(selectedServerId, false);
+                setPlayers(selectedServerId, []);
+                setConnectionInfo(selectedServerId, null);
                 setIsStreamingLogs(false);
                 setLogStream([]);
                 toast.success(t('rcon.disconnectedMsg', 'Disconnected from RCON'));
@@ -514,19 +563,9 @@ export default function RconConsole() {
             }
             toast.error(t('rcon.disconnectFailed', { error: errMsg, defaultValue: `Disconnect failed: ${errMsg}` }));
         }
-    };
+    }, [selectedServerId, setConnected, setPlayers, setConnectionInfo, setLastError, t, addToHistory]);
 
-    const addToHistory = (cmd: string, response: string, success: boolean) => {
-        if (!selectedServerId) return;
-        rconStore.addHistory(selectedServerId, {
-            command: cmd,
-            response,
-            timestamp: new Date(),
-            success,
-        });
-    };
-
-    const sendCommand = async (cmd?: string) => {
+    const sendCommand = useCallback(async (cmd?: string) => {
         const cmdToSend = cmd || command;
         if (!cmdToSend.trim() || !selectedServerId || !isConnected) return;
 
@@ -537,7 +576,7 @@ export default function RconConsole() {
             });
 
             addToHistory(cmdToSend, response.data || response.message, response.success);
-            rconStore.setLastError(selectedServerId, null);
+            setLastError(selectedServerId, null);
 
             if (!cmd) {
                 setCommand('');
@@ -547,36 +586,16 @@ export default function RconConsole() {
         } catch (error) {
             const errMsg = String(error);
             addToHistory(cmdToSend, errMsg, false);
-            rconStore.setLastError(selectedServerId, errMsg);
+            setLastError(selectedServerId, errMsg);
 
             if (errMsg.toLowerCase().includes('connection lost') || errMsg.includes('No active RCON connection') || errMsg.toLowerCase().includes('reconnect')) {
-                rconStore.setConnected(selectedServerId, false);
-                rconStore.setPlayers(selectedServerId, []);
-                rconStore.setConnectionInfo(selectedServerId, null);
+                setConnected(selectedServerId, false);
+                setPlayers(selectedServerId, []);
+                setConnectionInfo(selectedServerId, null);
                 setIsStreamingLogs(false);
             }
         }
-    };
-
-    const refreshPlayers = async () => {
-        if (!selectedServerId || !isConnected) return;
-
-        try {
-            const playerList = await invoke<RconPlayer[]>('rcon_get_players', {
-                serverId: selectedServerId,
-            });
-            rconStore.setPlayers(selectedServerId, playerList);
-        } catch (error) {
-            const errMsg = String(error);
-            console.error('Failed to get players:', errMsg);
-
-            if (errMsg.toLowerCase().includes('connection lost') || errMsg.includes('No active RCON connection') || errMsg.toLowerCase().includes('reconnect')) {
-                rconStore.setConnected(selectedServerId, false);
-                rconStore.setPlayers(selectedServerId, []);
-                rconStore.setConnectionInfo(selectedServerId, null);
-            }
-        }
-    };
+    }, [command, selectedServerId, isConnected, addToHistory, setLastError, setConnected, setPlayers, setConnectionInfo]);
 
     // Connection Heartbeat: Verify connection is still alive every 15 seconds
     useEffect(() => {
@@ -590,9 +609,9 @@ export default function RconConsole() {
 
                 if (!connected) {
                     console.log('[RCON] Heartbeat detected lost connection');
-                    rconStore.setConnected(selectedServerId, false);
-                    rconStore.setPlayers(selectedServerId, []);
-                    rconStore.setConnectionInfo(selectedServerId, null);
+                    setConnected(selectedServerId, false);
+                    setPlayers(selectedServerId, []);
+                    setConnectionInfo(selectedServerId, null);
                     setIsStreamingLogs(false);
                     addToHistory('system', t('rcon.connectionLost', 'Connection to RCON was lost'), false);
                 }
@@ -602,9 +621,9 @@ export default function RconConsole() {
         }, 15000);
 
         return () => clearInterval(interval);
-    }, [isConnected, selectedServerId, rconStore, t]);
+    }, [isConnected, selectedServerId, setConnected, setPlayers, setConnectionInfo, addToHistory, t]);
 
-    const kickPlayer = async (steamId: string, reason?: string) => {
+    const kickPlayer = useCallback(async (steamId: string, reason?: string) => {
         if (!selectedServerId) return;
 
         try {
@@ -618,9 +637,9 @@ export default function RconConsole() {
         } catch (error) {
             toast.error(t('rcon.kickFailed', { error: String(error), defaultValue: `Kick failed: ${error}` }));
         }
-    };
+    }, [selectedServerId, refreshPlayers, t]);
 
-    const banPlayer = async (steamId: string) => {
+    const banPlayer = useCallback(async (steamId: string) => {
         if (!selectedServerId) return;
 
         try {
@@ -633,9 +652,9 @@ export default function RconConsole() {
         } catch (error) {
             toast.error(t('rcon.banFailed', { error: String(error), defaultValue: `Ban failed: ${error}` }));
         }
-    };
+    }, [selectedServerId, refreshPlayers, t]);
 
-    const broadcastMessage = async () => {
+    const broadcastMessage = useCallback(async () => {
         const message = prompt(t('rcon.broadcastPrompt', 'Enter the global announcement text:'));
         if (!message || !selectedServerId) return;
 
@@ -649,7 +668,7 @@ export default function RconConsole() {
         } catch (error) {
             toast.error(t('rcon.broadcastFailed', { error: String(error), defaultValue: `Broadcast failed: ${error}` }));
         }
-    };
+    }, [selectedServerId, addToHistory, t]);
 
     // Filter autocomplete suggestions based on user typing
     const suggestions = useMemo(() => {
@@ -660,12 +679,14 @@ export default function RconConsole() {
     }, [command]);
 
     useEffect(() => {
-        if (suggestions.length > 0) {
-            setAutocompleteVisible(true);
-        } else {
-            setAutocompleteVisible(false);
-        }
-        setAutocompleteIndex(0);
+        Promise.resolve().then(() => {
+            if (suggestions.length > 0) {
+                setAutocompleteVisible(true);
+            } else {
+                setAutocompleteVisible(false);
+            }
+            setAutocompleteIndex(0);
+        });
     }, [suggestions]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1045,9 +1066,9 @@ export default function RconConsole() {
                                     {t('rcon.quickCommands.broadcast', 'Broadcast')}
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        if (selectedServerId) rconStore.clearServerState(selectedServerId);
-                                    }}
+                                onClick={() => {
+                                    if (selectedServerId) clearServerState(selectedServerId);
+                                }}
                                     className="flex items-center gap-2 px-3.5 py-2 bg-slate-950 text-slate-400 hover:text-slate-300 border border-slate-850 rounded-xl text-xs ml-auto transition-all active:scale-95"
                                     title="Clear output console log buffer"
                                 >
@@ -1765,11 +1786,11 @@ export default function RconConsole() {
                                         <div className="flex-1 flex flex-col space-y-3 min-h-0">
                                             {/* Category pill filters */}
                                             <div className="flex flex-wrap gap-1.5 p-1 bg-slate-900/25 border border-slate-900/40 rounded-xl shadow-inner">
-                                                {['All', 'Resources', 'Ammo', 'Gear', 'Structures'].map((cat) => (
+                                                {(['All', 'Resources', 'Ammo', 'Gear', 'Structures'] as const).map((cat) => (
                                                     <button
                                                         key={cat}
                                                         type="button"
-                                                        onClick={() => setGiveSelectedCategory(cat as any)}
+                                                        onClick={() => setGiveSelectedCategory(cat)}
                                                         className={cn(
                                                             "px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all duration-200 active:scale-95",
                                                             giveSelectedCategory === cat

@@ -153,7 +153,26 @@ fn ini_get_str(
         .unwrap_or_else(|| default.to_string())
 }
 
-fn get_config_path(install_path: &str) -> PathBuf {
+
+/// Get ASE config directory path, optionally using a user-specified override folder.
+fn get_config_path(install_path: &str, user_config_folder: Option<&str>) -> PathBuf {
+    if let Some(folder) = user_config_folder {
+        let user_dir = PathBuf::from(folder);
+        // Check if INI files exist directly in the user folder
+        if user_dir.join("GameUserSettings.ini").exists() || user_dir.join("Game.ini").exists() {
+            return user_dir;
+        }
+        // Also check mirrored sub-directory structure
+        let sub_path = user_dir
+            .join("ShooterGame")
+            .join("Saved")
+            .join("Config")
+            .join("WindowsServer");
+        if sub_path.exists() {
+            return sub_path;
+        }
+        println!("  ℹ️ ASE config files not found in user folder '{}', using server install path", folder);
+    }
     PathBuf::from(install_path)
         .join("ShooterGame")
         .join("Saved")
@@ -165,18 +184,33 @@ pub async fn read_ase_config_internal(
     server_id: i64,
     state: &AppState,
 ) -> Result<AseGameConfig, String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let (install_path, user_folder) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-    let install_path: String = conn
-        .query_row(
-            "SELECT install_path FROM ase_servers WHERE id = ?1",
-            [server_id],
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("Server not found: {}", e))?;
+        let install_path: String = conn
+            .query_row(
+                "SELECT install_path FROM ase_servers WHERE id = ?1",
+                [server_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Server not found: {}", e))?;
 
-    let config_dir = get_config_path(&install_path);
+        // Read user config folder override directly from connection to avoid deadlocking db.conn
+        let user_folder_raw: String = conn.query_row(
+            "SELECT value FROM settings WHERE key = 'ase_user_config_folder'",
+            [],
+            |row| row.get(0)
+        ).unwrap_or_default();
+        let user_folder = if !user_folder_raw.is_empty() {
+            let p = PathBuf::from(&user_folder_raw);
+            if p.exists() && p.is_dir() { Some(user_folder_raw) } else { None }
+        } else { None };
+
+        (install_path, user_folder)
+    };
+
+    let config_dir = get_config_path(&install_path, user_folder.as_deref());
     let gus_path = config_dir.join("GameUserSettings.ini");
     let game_ini_path = config_dir.join("Game.ini");
 
@@ -464,6 +498,8 @@ pub async fn read_ase_config_internal(
             ini_get_bool(&sections, ss, "AllowCryoCooldownOnPvE", false);
         config.disable_cryopod_enemy_check =
             ini_get_bool(&sections, ss, "DisableCryopodEnemyCheck", false);
+        config.enable_cryo_sickness_pvp =
+            ini_get_bool(&sections, ss, "EnableCryoSicknessPVP", true);
         config.pvp_zone_structure_damage_multiplier =
             ini_get_f64(&sections, ss, "PVPZoneStructureDamageMultiplier", 6.0);
         config.structure_damage_repair_cooldown =
@@ -762,31 +798,46 @@ pub async fn write_ase_config(
     config: AseGameConfig,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let (install_path, db_values, user_folder) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-    let install_path: String = conn
-        .query_row(
-            "SELECT install_path FROM ase_servers WHERE id = ?1",
-            [server_id],
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("Server not found: {}", e))?;
+        let install_path: String = conn
+            .query_row(
+                "SELECT install_path FROM ase_servers WHERE id = ?1",
+                [server_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Server not found: {}", e))?;
 
-    let db_values: Option<(String, String, String, String)> = conn
-        .query_row(
-            "SELECT session_name, active_mods, server_password, admin_password FROM ase_servers WHERE id = ?1",
-            [server_id],
-            |row| Ok((
-                row.get::<_, String>(0).unwrap_or_default(),
-                row.get::<_, String>(1).unwrap_or_default(),
-                row.get::<_, String>(2).unwrap_or_default(),
-                row.get::<_, String>(3).unwrap_or_default(),
-            ))
-        )
-        .ok();
+        let db_values: Option<(String, String, String, String)> = conn
+            .query_row(
+                "SELECT session_name, active_mods, server_password, admin_password FROM ase_servers WHERE id = ?1",
+                [server_id],
+                |row| Ok((
+                    row.get::<_, String>(0).unwrap_or_default(),
+                    row.get::<_, String>(1).unwrap_or_default(),
+                    row.get::<_, String>(2).unwrap_or_default(),
+                    row.get::<_, String>(3).unwrap_or_default(),
+                ))
+            )
+            .ok();
 
-    let config_dir = get_config_path(&install_path);
+        // Read user config folder override directly from connection to avoid deadlocking db.conn
+        let user_folder_raw: String = conn.query_row(
+            "SELECT value FROM settings WHERE key = 'ase_user_config_folder'",
+            [],
+            |row| row.get(0)
+        ).unwrap_or_default();
+        let user_folder = if !user_folder_raw.is_empty() {
+            let p = PathBuf::from(&user_folder_raw);
+            if p.exists() && p.is_dir() { Some(user_folder_raw) } else { None }
+        } else { None };
+
+        (install_path, db_values, user_folder)
+    };
+
+    let config_dir = get_config_path(&install_path, user_folder.as_deref());
 
     // Create config directory if it doesn't exist
     if !config_dir.exists() {
@@ -1561,6 +1612,11 @@ pub async fn write_ase_config(
     );
     ini_set(
         ss,
+        "EnableCryoSicknessPVP",
+        config.enable_cryo_sickness_pvp.to_string(),
+    );
+    ini_set(
+        ss,
         "PVPZoneStructureDamageMultiplier",
         format!("{:.6}", config.pvp_zone_structure_damage_multiplier),
     );
@@ -1942,29 +1998,56 @@ pub async fn write_ase_config(
         }
     }
 
+    // If custom config folder is active, also sync/dual-write GameUserSettings.ini and Game.ini to the default server config directory
+    if user_folder.is_some() {
+        let default_config_dir = get_config_path(&install_path, None);
+        if let Err(e) = std::fs::create_dir_all(&default_config_dir) {
+            println!("  ⚠️ [WARNING] [ASE] Failed to create default config directory: {}", e);
+        } else {
+            let default_gus_path = default_config_dir.join("GameUserSettings.ini");
+            let default_game_path = default_config_dir.join("Game.ini");
+            
+            if let Err(e) = std::fs::write(&default_gus_path, &gus_content) {
+                println!("  ⚠️ [WARNING] [ASE] Failed to dual-write GameUserSettings.ini to default path: {}", e);
+            } else {
+                println!("  🔄 [Sync] [ASE] Dual-wrote GameUserSettings.ini to default path {:?}", default_gus_path);
+            }
+            
+            if let Err(e) = std::fs::write(&default_game_path, &game_content) {
+                println!("  ⚠️ [WARNING] [ASE] Failed to dual-write Game.ini to default path: {}", e);
+            } else {
+                println!("  🔄 [Sync] [ASE] Dual-wrote Game.ini to default path {:?}", default_game_path);
+            }
+        }
+    }
+
     // Sync values back to database to maintain integrity
-    conn.execute(
-        "UPDATE ase_servers SET 
-            session_name = ?1,
-            name = ?1,
-            max_players = ?2,
-            server_password = ?3,
-            admin_password = ?4,
-            rcon_port = ?5,
-            active_mods = ?6,
-            updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?7",
-        rusqlite::params![
-            final_session_name,
-            config.max_players,
-            final_server_password,
-            final_server_admin_password,
-            config.rcon_port,
-            final_active_mods,
-            server_id
-        ],
-    )
-    .map_err(|e| format!("Failed to sync config to database: {}", e))?;
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE ase_servers SET 
+                session_name = ?1,
+                name = ?1,
+                max_players = ?2,
+                server_password = ?3,
+                admin_password = ?4,
+                rcon_port = ?5,
+                active_mods = ?6,
+                updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?7",
+            rusqlite::params![
+                final_session_name,
+                config.max_players,
+                final_server_password,
+                final_server_admin_password,
+                config.rcon_port,
+                final_active_mods,
+                server_id
+            ],
+        )
+        .map_err(|e| format!("Failed to sync config to database: {}", e))?;
+    }
 
     Ok(())
 }
@@ -2077,7 +2160,7 @@ pub async fn get_ase_config_diagnostics(
     server_id: i64,
     state: State<'_, AppState>,
 ) -> Result<AseDiagnostics, String> {
-    let (install_path, db_updated_at_str) = {
+    let (install_path, db_updated_at_str, user_folder) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         let row: Result<(String, String), _> = conn.query_row(
@@ -2085,10 +2168,20 @@ pub async fn get_ase_config_diagnostics(
             [server_id],
             |r| Ok((r.get(0)?, r.get(1)?))
         );
-        row.map_err(|e| format!("Server not found in DB: {}", e))?
+        let user_folder_raw: String = conn.query_row(
+            "SELECT value FROM settings WHERE key = 'ase_user_config_folder'",
+            [],
+            |row| row.get(0)
+        ).unwrap_or_default();
+        let user_folder = if !user_folder_raw.is_empty() {
+            let p = PathBuf::from(&user_folder_raw);
+            if p.exists() && p.is_dir() { Some(user_folder_raw) } else { None }
+        } else { None };
+        let (install_path, updated_at) = row.map_err(|e| format!("Server not found in DB: {}", e))?;
+        (install_path, updated_at, user_folder)
     };
 
-    let config_dir = get_config_path(&install_path);
+    let config_dir = get_config_path(&install_path, user_folder.as_deref());
     let gus_path = config_dir.join("GameUserSettings.ini");
     let game_ini_path = config_dir.join("Game.ini");
 

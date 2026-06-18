@@ -40,7 +40,7 @@ export default function ServerManager() {
     const [serverLogs, setServerLogs] = useState<Record<number, string[]>>({});
     const [expandedConsoles, setExpandedConsoles] = useState<Record<number, boolean>>({});
     const consoleRefs = useRef<Record<number, HTMLDivElement | null>>({});
-    const [appVersion] = useState<string>('4.4.9');
+    const [appVersion] = useState<string>('4.5.0');
     const [cloneModalServer, setCloneModalServer] = useState<Server | null>(null);
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
     const [forceStopServerId, setForceStopServerId] = useState<number | null>(null);

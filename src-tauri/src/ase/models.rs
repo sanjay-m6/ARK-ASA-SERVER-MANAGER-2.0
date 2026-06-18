@@ -366,6 +366,7 @@ pub struct AseGameConfig {
     pub prevent_diseases: bool,
     pub allow_cryo_cooldown_on_pve: bool,
     pub disable_cryopod_enemy_check: bool,
+    pub enable_cryo_sickness_pvp: bool,
     pub pvp_zone_structure_damage_multiplier: f64,
     pub structure_damage_repair_cooldown: f64,
 
@@ -626,6 +627,7 @@ impl Default for AseGameConfig {
             prevent_diseases: false,
             allow_cryo_cooldown_on_pve: false,
             disable_cryopod_enemy_check: false,
+            enable_cryo_sickness_pvp: true,
             pvp_zone_structure_damage_multiplier: 6.0,
             structure_damage_repair_cooldown: 180.0,
             clamp_resource_harvest_damage: false,

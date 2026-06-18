@@ -392,6 +392,7 @@ export interface AseGameConfig {
   preventDiseases: boolean;
   allowCryoCooldownOnPvE: boolean;
   disableCryopodEnemyCheck: boolean;
+  enableCryoSicknessPvp: boolean;
   pvpZoneStructureDamageMultiplier: number;
   structureDamageRepairCooldown: number;
 

@@ -1382,6 +1382,13 @@ export default function ConfigEditor() {
 
                 const parsedGus = parseIniContent(gusContent);
                 const parsedGame = parseIniContent(gameContent);
+
+                // Migrate legacy ServerName to SessionName if present
+                const serverSettings = parsedGus.get('ServerSettings');
+                if (serverSettings && serverSettings.has('ServerName') && !serverSettings.has('SessionName')) {
+                    serverSettings.set('SessionName', serverSettings.get('ServerName')!);
+                }
+
                 setConfigs({
                     GameUserSettings: parsedGus,
                     Game: parsedGame
@@ -1563,8 +1570,13 @@ export default function ConfigEditor() {
                 }
             }
 
+            // Clean up legacy/incorrect ServerName key in GameUserSettings.ini to avoid conflicts
+            if (serverSettings) {
+                serverSettings.delete('ServerName');
+            }
+
             // Session name
-            const sessionName = serverSettings?.get('ServerName') || serverSettings?.get('SessionName');
+            const sessionName = serverSettings?.get('SessionName');
             if (sessionName) updateParams.sessionName = sessionName;
 
             // Max players

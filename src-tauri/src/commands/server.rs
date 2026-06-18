@@ -1865,7 +1865,19 @@ pub async fn update_server_settings(
     conn.execute(&query, params_refs.as_slice())
         .map_err(|e: rusqlite::Error| e.to_string())?;
 
-    println!("  ✅ Server {} settings updated", server_id);
+    println!("  ✅ Server {} settings updated in database", server_id);
+
+    // Sync updated settings to INI files on disk immediately
+    if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config(
+        &state.app_handle,
+        &conn,
+        server_id,
+    ) {
+        println!("⚠️ Failed to write synced database settings to INI: {}", e);
+    } else {
+        println!("  ✅ Synced server {} database settings to INI files", server_id);
+    }
+
     Ok(())
 }
 

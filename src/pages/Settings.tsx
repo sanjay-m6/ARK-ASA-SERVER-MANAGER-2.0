@@ -46,6 +46,9 @@ export default function Settings() {
     const [windowsStartupShortcut, setWindowsStartupShortcut] = useState(false);
     const [silentHeadlessStartup, setSilentHeadlessStartup] = useState(false);
 
+    // User Config Folder state
+    const [userConfigFolder, setUserConfigFolder] = useState('');
+
     const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language' | 'cloud' | 'startup'>('api');
     const { setServers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
@@ -126,7 +129,7 @@ export default function Settings() {
         try {
             const [
                 curseforgeKey, steamKey, timeout, nvidiaKey,
-                gasEnabled, gbDelay, minTray, maxCrash, timeWindow, winShortcut, headless
+                gasEnabled, gbDelay, minTray, maxCrash, timeWindow, winShortcut, headless, ucf
             ] = await Promise.all([
                 getSetting('curseforge_api_key'),
                 getSetting('steam_api_key'),
@@ -138,7 +141,8 @@ export default function Settings() {
                 getSetting('loop_prevention_max_crashes'),
                 getSetting('loop_prevention_time_window_mins'),
                 getSetting('windows_startup_shortcut'),
-                getSetting('silent_headless_startup')
+                getSetting('silent_headless_startup'),
+                getSetting('user_config_folder')
             ]);
             if (curseforgeKey) setCurseforgeApiKey(curseforgeKey);
             if (steamKey) setSteamApiKey(steamKey);
@@ -152,6 +156,7 @@ export default function Settings() {
             setLoopPreventionTimeWindowMins(timeWindow || '15');
             setWindowsStartupShortcut(winShortcut === 'true');
             setSilentHeadlessStartup(headless === 'true');
+            if (ucf) setUserConfigFolder(ucf);
 
             // Load update settings
             setUpdateSettingsState(getUpdateSettings());
@@ -262,6 +267,7 @@ export default function Settings() {
                 setSetting('loop_prevention_time_window_mins', loopPreventionTimeWindowMins),
                 setSetting('windows_startup_shortcut', windowsStartupShortcut ? 'true' : 'false'),
                 setSetting('silent_headless_startup', silentHeadlessStartup ? 'true' : 'false'),
+                setSetting('user_config_folder', userConfigFolder),
             ]);
 
             // Sync OS startup configuration
@@ -394,6 +400,62 @@ export default function Settings() {
                 </div>
             ) : activeTab === 'api' ? (
                 <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
+                    {/* User Config Folder */}
+                    <div className="glass-panel rounded-2xl p-8">
+                        <div className="flex items-start space-x-4 mb-6">
+                            <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                                <FolderOpen className="w-6 h-6 text-amber-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h2 className="text-lg font-bold text-white mb-1">{t('settings.userConfigFolder.title', 'User Config Folder')}</h2>
+                                <p className="text-sm text-slate-400 leading-relaxed">
+                                    {t('settings.userConfigFolder.desc', 'Point to a custom folder containing your server configuration files (GameUserSettings.ini, Game.ini). When set, the app reads and writes configs from this folder instead of the server install directory. Useful for managing ASM-exported configurations.')}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={userConfigFolder}
+                                onChange={(e) => setUserConfigFolder(e.target.value)}
+                                placeholder={t('settings.userConfigFolder.placeholder', 'Not set — using default server install path')}
+                                className="flex-1 px-4 py-3 bg-slate-800/50 border border-white/10 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500/30 placeholder-slate-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    try {
+                                        const path = await invoke<string | null>('select_folder', { title: 'Select User Config Folder' });
+                                        if (path) setUserConfigFolder(path);
+                                    } catch (error) {
+                                        console.error('Failed to select folder:', error);
+                                        toast.error(t('settings.userConfigFolder.browseFailed', 'Failed to open folder picker'));
+                                    }
+                                }}
+                                className="px-3 py-3 bg-slate-800/50 hover:bg-slate-700/50 border border-white/10 rounded-xl text-slate-400 hover:text-white transition-colors focus:outline-none"
+                                title={t('common.browse', 'Browse')}
+                            >
+                                <FolderOpen className="w-4 h-4" />
+                            </button>
+                            {userConfigFolder && (
+                                <button
+                                    type="button"
+                                    onClick={() => setUserConfigFolder('')}
+                                    className="px-3 py-3 bg-slate-800/50 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 rounded-xl text-slate-400 hover:text-red-400 transition-all focus:outline-none"
+                                    title={t('settings.userConfigFolder.clear', 'Clear and use default')}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                        {userConfigFolder && (
+                            <p className="mt-3 text-xs text-amber-400/70 flex items-center gap-1.5">
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                {t('settings.userConfigFolder.activeNote', 'Config files will be read from and saved to this folder')}
+                            </p>
+                        )}
+                    </div>
+
                     {/* Steam Web API Key */}
                     <div className="glass-panel rounded-2xl p-8">
                         <div className="flex items-start space-x-4 mb-6">

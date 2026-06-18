@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, FolderOpen, Save, ExternalLink, Shield, Terminal, FileText, Search, Copy, Check, X, RefreshCw } from 'lucide-react';
+import { Settings, FolderOpen, Save, ExternalLink, Shield, Terminal, FileText, Search, Copy, Check, X, RefreshCw, Trash2 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
@@ -14,6 +14,7 @@ export default function ASESettings() {
   const [defaultInstallPath, setDefaultInstallPath] = useState('');
   const [steamcmdPath, setSteamcmdPath] = useState('');
   const [autoUpdate, setAutoUpdate] = useState(true);
+  const [aseUserConfigFolder, setAseUserConfigFolder] = useState('');
   const [discordToken, setDiscordToken] = useState('');
   const [discordClientId, setDiscordClientId] = useState('');
   const [activeTab, setActiveTab] = useState<'general' | 'api' | 'firewall'>('general');
@@ -78,6 +79,9 @@ export default function ASESettings() {
         if (autoUpd) setAutoUpdate(autoUpd === 'true');
         if (dToken) setDiscordToken(dToken);
         if (dClient) setDiscordClientId(dClient);
+
+        const ucf = await invoke<string | null>('get_setting', { key: 'ase_user_config_folder' });
+        if (ucf) setAseUserConfigFolder(ucf);
       } catch (err) {
         console.error('Failed to load ASE settings', err);
       } finally {
@@ -94,6 +98,7 @@ export default function ASESettings() {
       await invoke('set_setting', { key: 'ase_auto_update', value: autoUpdate ? 'true' : 'false' });
       await invoke('set_setting', { key: 'ase_discord_bot_token', value: discordToken });
       await invoke('set_setting', { key: 'ase_discord_client_id', value: discordClientId });
+      await invoke('set_setting', { key: 'ase_user_config_folder', value: aseUserConfigFolder });
       toast.success('ASE settings saved successfully'); 
     } catch (err) {
       console.error('Failed to save settings:', err);
@@ -216,6 +221,42 @@ export default function ASESettings() {
                     <FolderOpen className="w-4 h-4" />
                   </button>
                 </div>
+              </label>
+              <label className="block">
+                <span className="text-sm text-slate-300 mb-1 block">User Config Folder</span>
+                <p className="text-xs text-slate-500 mb-2">Point to a custom folder containing your server INI files (GameUserSettings.ini, Game.ini). When set, configs are read/written from here instead of the server install directory.</p>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={aseUserConfigFolder} 
+                    onChange={e => setAseUserConfigFolder(e.target.value)} 
+                    placeholder="Not set — using default server install path"
+                    className="flex-1 px-4 py-3 bg-slate-800/50 border border-white/10 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500/30 placeholder-slate-500" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => handleSelectFolder(setAseUserConfigFolder, 'Select User Config Folder')} 
+                    className="px-3 py-3 bg-slate-800/50 hover:bg-slate-700/50 border border-white/10 rounded-xl text-slate-400 hover:text-white transition-colors focus:outline-none"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                  </button>
+                  {aseUserConfigFolder && (
+                    <button 
+                      type="button" 
+                      onClick={() => setAseUserConfigFolder('')} 
+                      className="px-3 py-3 bg-slate-800/50 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 rounded-xl text-slate-400 hover:text-red-400 transition-all focus:outline-none"
+                      title="Clear and use default"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {aseUserConfigFolder && (
+                  <p className="mt-2 text-xs text-amber-400/70 flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" />
+                    Config files will be read from and saved to this folder
+                  </p>
+                )}
               </label>
             </div>
 

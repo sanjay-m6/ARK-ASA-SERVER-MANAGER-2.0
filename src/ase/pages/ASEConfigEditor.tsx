@@ -129,7 +129,7 @@ const defaultConfig: AseGameConfig = {
   // Chat & Voice
   globalVoiceChat: false, proximityVoiceChat: false, alwaysNotifyPlayerJoined: false, alwaysNotifyPlayerLeft: false, serverAdminCommandLogging: false,
   // PvP & PvE Advanced
-  bDisableFriendlyFire: false, allowCryoCooldownOnPvE: false, disableCryopodEnemyCheck: false, pvpZoneStructureDamageMultiplier: 6.0, structureDamageRepairCooldown: 180.0,
+  bDisableFriendlyFire: false, allowCryoCooldownOnPvE: false, disableCryopodEnemyCheck: false, enableCryoSicknessPvp: true, pvpZoneStructureDamageMultiplier: 6.0, structureDamageRepairCooldown: 180.0,
   // Player Stats / Diseases / Food / Flyer
   nonPermanentDiseases: false, preventDiseases: false, tamedDinoCharacterFoodDrainMultiplier: 1.0, wildDinoCharacterFoodDrainMultiplier: 1.0, allowFlyingStaminaRecovery: false,
   // Core Rates
@@ -1455,6 +1455,7 @@ export default function ASEConfigEditor() {
     { file: 'Game.ini', tab: 'general', type: 'toggle', key: 'bDisableFriendlyFire', label: 'Disable Friendly Fire', desc: 'Prevents damaging tribe members and owned tames' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'allowCryoCooldownOnPvE', label: 'Allow Cryo Cooldown on PvE', desc: 'Enables cryo sickness cooldown on PvE' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'disableCryopodEnemyCheck', label: 'Disable Cryopod Enemy Check', desc: 'Allows deploying cryopods even if enemies are nearby' },
+    { file: 'GameUserSettings.ini', tab: 'pvp', type: 'toggle', key: 'enableCryoSicknessPvp', label: 'Enable Cryo Sickness (PvP)', desc: 'Enables cryo sickness cooldown effects on PvP' },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'number', key: 'pvpZoneStructureDamageMultiplier', label: 'PvP Zone Structure Damage', desc: 'Damage multiplier for structures inside PvP zones', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'pvp', type: 'number', key: 'structureDamageRepairCooldown', label: 'Structure Repair Cooldown (s)', desc: 'Cooldown in seconds after structure is damaged before it can be repaired', step: 1.0 },
 

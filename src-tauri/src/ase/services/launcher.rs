@@ -350,6 +350,24 @@ impl AseLauncher {
     }
 
     pub async fn spawn_server(_app: AppHandle, server_id: i64, state: &State<'_, AppState>) -> Result<(), String> {
+        // Sync database configurations to disk before starting the server
+        {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config(
+                &_app,
+                &conn,
+                server_id,
+            ) {
+                println!(
+                    "⚠️ Failed to sync config files for ASE server {} on startup: {}",
+                    server_id, e
+                );
+            } else {
+                println!("✅ Configuration synced successfully for ASE server {}.", server_id);
+            }
+        }
+
         let (server, config, active_mods) = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -366,6 +384,50 @@ impl AseLauncher {
             let active_mods = Self::fetch_active_mod_ids(&conn, server_id, &server.active_mods)?;
             (server, config, active_mods)
         };
+
+        // If user config folder is active, copy the INI files from the custom folder to the default directory before starting the server
+        let user_folder_raw: String = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            db.get_setting("ase_user_config_folder").ok().flatten().unwrap_or_default()
+        };
+        if !user_folder_raw.is_empty() {
+            let user_dir = PathBuf::from(&user_folder_raw);
+            if user_dir.exists() && user_dir.is_dir() {
+                let default_config_dir = PathBuf::from(&server.install_path)
+                    .join("ShooterGame")
+                    .join("Saved")
+                    .join("Config")
+                    .join("WindowsServer");
+                
+                let _ = std::fs::create_dir_all(&default_config_dir);
+                
+                // Copy GameUserSettings.ini
+                let user_gus = user_dir.join("GameUserSettings.ini");
+                if user_gus.exists() {
+                    let _ = std::fs::copy(&user_gus, default_config_dir.join("GameUserSettings.ini"));
+                    println!("  🔄 [ASE Startup Sync] Copied GameUserSettings.ini from custom folder to default config dir");
+                } else {
+                    let user_sub_gus = user_dir.join("ShooterGame/Saved/Config/WindowsServer/GameUserSettings.ini");
+                    if user_sub_gus.exists() {
+                        let _ = std::fs::copy(&user_sub_gus, default_config_dir.join("GameUserSettings.ini"));
+                        println!("  🔄 [ASE Startup Sync] Copied GameUserSettings.ini (sub-path) from custom folder to default config dir");
+                    }
+                }
+
+                // Copy Game.ini
+                let user_game = user_dir.join("Game.ini");
+                if user_game.exists() {
+                    let _ = std::fs::copy(&user_game, default_config_dir.join("Game.ini"));
+                    println!("  🔄 [ASE Startup Sync] Copied Game.ini from custom folder to default config dir");
+                } else {
+                    let user_sub_game = user_dir.join("ShooterGame/Saved/Config/WindowsServer/Game.ini");
+                    if user_sub_game.exists() {
+                        let _ = std::fs::copy(&user_sub_game, default_config_dir.join("Game.ini"));
+                        println!("  🔄 [ASE Startup Sync] Copied Game.ini (sub-path) from custom folder to default config dir");
+                    }
+                }
+            }
+        }
 
         let public_ip = if config.enable_public_ip_for_epic { Self::resolve_public_ip().await } else { None };
         let args = Self::build_arguments(&server, &config, public_ip, &active_mods);

@@ -63,7 +63,7 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         fields: [
             {
                 section: 'ServerSettings',
-                key: 'ServerName',
+                key: 'SessionName',
                 label: 'Server Name',
                 type: 'text',
                 defaultValue: 'ARK Server',

@@ -953,19 +953,118 @@ impl ConfigGenerator {
         db_conn: &rusqlite::Connection,
         server_id: i64,
     ) -> Result<(), String> {
-        // 1. Get install path
-        let (install_path_str, server_type): (String, String) = {
-            db_conn
-                .query_row(
-                    "SELECT install_path, server_type FROM servers WHERE id = ?1",
+        // 1. Get install path and server type from servers or ase_servers
+        let (install_path_str, server_type) = match db_conn.query_row(
+            "SELECT install_path, server_type FROM servers WHERE id = ?1",
+            [server_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string()))),
+        ) {
+            Ok(info) => info,
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                db_conn.query_row(
+                    "SELECT install_path FROM ase_servers WHERE id = ?1",
                     [server_id],
-                    |row| Ok((row.get(0)?, row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string()))),
+                    |row| Ok((row.get::<_, String>(0)?, "ASE".to_string())),
                 )
-                .map_err(|e| e.to_string())?
+                .map_err(|e| format!("Server not found in servers or ase_servers: {}", e))?
+            }
+            Err(e) => return Err(e.to_string()),
         };
         let install_path = PathBuf::from(install_path_str);
         let sub_dir = Self::get_config_subdirectory(&install_path, Some(&server_type));
         let config_dir = install_path.join("ShooterGame").join("Saved").join("Config").join(sub_dir);
+
+        // Fetch settings from DB to sync into GameUserSettings.ini
+        let mut session_name = String::new();
+        let mut server_password: Option<String> = None;
+        let mut admin_password = String::new();
+        let mut max_players = 70;
+        let mut game_port = 7777;
+        let mut query_port = 27015;
+        let mut rcon_port = 32330;
+        let mut rcon_enabled = true;
+        let mut ip_address: Option<String> = None;
+
+        if server_type == "ASE" {
+            db_conn.query_row(
+                "SELECT session_name, server_password, admin_password, max_players, port, query_port, rcon_port FROM ase_servers WHERE id = ?1",
+                [server_id],
+                |row| {
+                    session_name = row.get(0)?;
+                    let pwd = row.get::<_, String>(1)?;
+                    server_password = if pwd.is_empty() { None } else { Some(pwd) };
+                    admin_password = row.get(2)?;
+                    max_players = row.get(3)?;
+                    game_port = row.get(4)?;
+                    query_port = row.get(5)?;
+                    rcon_port = row.get(6)?;
+                    rcon_enabled = rcon_port > 0;
+                    Ok(())
+                }
+            ).map_err(|e| format!("Failed to query ase_servers: {}", e))?;
+        } else {
+            db_conn.query_row(
+                "SELECT session_name, server_password, admin_password, max_players, game_port, query_port, rcon_port, rcon_enabled, ip_address FROM servers WHERE id = ?1",
+                [server_id],
+                |row| {
+                    session_name = row.get(0)?;
+                    server_password = row.get(1)?;
+                    admin_password = row.get(2)?;
+                    max_players = row.get(3)?;
+                    game_port = row.get(4)?;
+                    query_port = row.get(5)?;
+                    rcon_port = row.get(6)?;
+                    rcon_enabled = row.get(7)?;
+                    ip_address = row.get(8)?;
+                    Ok(())
+                }
+            ).map_err(|e| format!("Failed to query servers: {}", e))?;
+        }
+
+        // If user config folder is active, copy the INI files from the custom folder to the default directory before reading
+        let key = if server_type == "ASE" {
+            "ase_user_config_folder"
+        } else {
+            "user_config_folder"
+        };
+        let user_folder_raw: String = db_conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            [key],
+            |row| row.get(0)
+        ).unwrap_or_default();
+
+        if !user_folder_raw.is_empty() {
+            let user_dir = PathBuf::from(&user_folder_raw);
+            if user_dir.exists() && user_dir.is_dir() {
+                let _ = fs::create_dir_all(&config_dir);
+                
+                // Copy GameUserSettings.ini
+                let user_gus = user_dir.join("GameUserSettings.ini");
+                if user_gus.exists() {
+                    let _ = fs::copy(&user_gus, config_dir.join("GameUserSettings.ini"));
+                    println!("  🔄 [Startup Sync] Copied GameUserSettings.ini from custom folder to default config dir");
+                } else {
+                    let user_sub_gus = user_dir.join(format!("ShooterGame/Saved/Config/{}/GameUserSettings.ini", sub_dir));
+                    if user_sub_gus.exists() {
+                        let _ = fs::copy(&user_sub_gus, config_dir.join("GameUserSettings.ini"));
+                        println!("  🔄 [Startup Sync] Copied GameUserSettings.ini (sub-path) from custom folder to default config dir");
+                    }
+                }
+
+                // Copy Game.ini
+                let user_game = user_dir.join("Game.ini");
+                if user_game.exists() {
+                    let _ = fs::copy(&user_game, config_dir.join("Game.ini"));
+                    println!("  🔄 [Startup Sync] Copied Game.ini from custom folder to default config dir");
+                } else {
+                    let user_sub_game = user_dir.join(format!("ShooterGame/Saved/Config/{}/Game.ini", sub_dir));
+                    if user_sub_game.exists() {
+                        let _ = fs::copy(&user_sub_game, config_dir.join("Game.ini"));
+                        println!("  🔄 [Startup Sync] Copied Game.ini (sub-path) from custom folder to default config dir");
+                    }
+                }
+            }
+        }
 
         // 2. Read existing Configs (as Base)
         let gus_path = config_dir.join("GameUserSettings.ini");
@@ -983,7 +1082,86 @@ impl ConfigGenerator {
 
         let mut final_gus = initial_gus_content.clone();
 
-        // 4. Update/Override Values (Event Profile)
+        // 4. Update identity/network settings from database
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "ServerSettings",
+            "SessionName",
+            &session_name,
+        );
+
+        let pwd = server_password.unwrap_or_default();
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "ServerSettings",
+            "ServerPassword",
+            &pwd,
+        );
+
+        let clean_admin = admin_password
+            .split("?ServerPassword=")
+            .next()
+            .unwrap_or(&admin_password);
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "ServerSettings",
+            "ServerAdminPassword",
+            clean_admin,
+        );
+
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "ServerSettings",
+            "MaxPlayers",
+            &max_players.to_string(),
+        );
+
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "ServerSettings",
+            "RCONEnabled",
+            if rcon_enabled { "True" } else { "False" },
+        );
+
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "ServerSettings",
+            "RCONPort",
+            &rcon_port.to_string(),
+        );
+
+        if let Some(ref ip) = ip_address {
+            if !ip.is_empty() {
+                final_gus = crate::services::ini_parser::IniParser::update_key(
+                    &final_gus,
+                    "ServerSettings",
+                    "IPAddress",
+                    ip,
+                );
+                final_gus = crate::services::ini_parser::IniParser::update_key(
+                    &final_gus,
+                    "URL",
+                    "MultiHome",
+                    ip,
+                );
+            }
+        }
+
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "URL",
+            "Port",
+            &game_port.to_string(),
+        );
+
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "URL",
+            "QueryPort",
+            &query_port.to_string(),
+        );
+
+        // 5. Update/Override Values (Event Profile)
         if let Some(p) = profile {
             println!("📅 Applying Event Profile: {}", p.profile_name);
 

@@ -57,12 +57,62 @@ fn get_server_info(state: &State<'_, AppState>, server_id: i64) -> Result<(Strin
     }
 }
 
-/// Get config file path
-fn get_config_path(install_path: &str, config_type: &str, server_type: &str) -> PathBuf {
+/// Resolve user config folder override from DB settings.
+/// Returns Some(path) if set and the folder exists, None otherwise.
+fn resolve_user_config_folder(state: &State<'_, AppState>, server_type: &str) -> Option<String> {
+    let db = state.db.lock().ok()?;
+    let key = if server_type == "ASE" {
+        "ase_user_config_folder"
+    } else {
+        "user_config_folder"
+    };
+    let folder = db.get_setting(key).ok().flatten()?;
+    if folder.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(&folder);
+    if path.exists() && path.is_dir() {
+        Some(folder)
+    } else {
+        println!("⚠️ User config folder '{}' does not exist or is not a directory, falling back to install path", folder);
+        None
+    }
+}
+
+/// Get config file path, optionally using a user-specified config folder override.
+fn get_config_path(install_path: &str, config_type: &str, server_type: &str, user_config_folder: Option<&str>) -> PathBuf {
+    if let Some(folder) = user_config_folder {
+        // User override: look for the INI directly in the user folder
+        let user_path = PathBuf::from(folder).join(format!("{}.ini", config_type));
+        if user_path.exists() {
+            return user_path;
+        }
+        // Also check sub-directory structure (some users mirror the server layout)
+        let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(install_path), Some(server_type));
+        let user_sub_path = PathBuf::from(folder)
+            .join(format!("ShooterGame/Saved/Config/{}", sub_dir))
+            .join(format!("{}.ini", config_type));
+        if user_sub_path.exists() {
+            return user_sub_path;
+        }
+        // Fall through to default path if nothing found in user folder
+        println!("  ℹ️ Config '{}' not found in user folder '{}', using server install path", config_type, folder);
+    }
     let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(install_path), Some(server_type));
     PathBuf::from(install_path)
         .join(format!("ShooterGame/Saved/Config/{}", sub_dir))
         .join(format!("{}.ini", config_type))
+}
+
+/// Get the directory where configs are written to (for save operations).
+/// If user_config_folder is set, writes go there; otherwise uses install path.
+fn get_config_write_dir(install_path: &str, server_type: &str, user_config_folder: Option<&str>) -> PathBuf {
+    if let Some(folder) = user_config_folder {
+        PathBuf::from(folder)
+    } else {
+        let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(install_path), Some(server_type));
+        PathBuf::from(install_path).join(format!("ShooterGame/Saved/Config/{}", sub_dir))
+    }
 }
 
 /// Get backup directory path
@@ -78,7 +128,8 @@ pub async fn read_config(
     config_type: String,
 ) -> Result<String, String> {
     let (install_path, server_type) = get_server_info(&state, server_id)?;
-    let path = get_config_path(&install_path, &config_type, &server_type);
+    let user_folder = resolve_user_config_folder(&state, &server_type);
+    let path = get_config_path(&install_path, &config_type, &server_type, user_folder.as_deref());
 
     if path.exists() {
         println!("📖 Reading config from: {:?}", path);
@@ -112,8 +163,8 @@ pub async fn save_config(
     content: String,
 ) -> Result<(), String> {
     let (install_path, server_type) = get_server_info(&state, server_id)?;
-    let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(&install_path), Some(&server_type));
-    let dir_path = PathBuf::from(&install_path).join(format!("ShooterGame/Saved/Config/{}", sub_dir));
+    let user_folder = resolve_user_config_folder(&state, &server_type);
+    let dir_path = get_config_write_dir(&install_path, &server_type, user_folder.as_deref());
 
     fs::create_dir_all(&dir_path).map_err(|e| e.to_string())?;
 
@@ -149,6 +200,21 @@ pub async fn save_config(
 
     fs::write(&file_path, &final_content).map_err(|e| e.to_string())?;
     println!("  ✅ Saved {} to {:?}", config_type, file_path);
+
+    // If custom config folder is active, also sync/dual-write to the default server config directory
+    if user_folder.is_some() {
+        let default_dir = get_config_write_dir(&install_path, &server_type, None);
+        if let Err(e) = fs::create_dir_all(&default_dir) {
+            println!("  ⚠️ [WARNING] Failed to create default config directory: {}", e);
+        } else {
+            let default_file_path = default_dir.join(format!("{}.ini", config_type));
+            if let Err(e) = fs::write(&default_file_path, &final_content) {
+                println!("  ⚠️ [WARNING] Failed to dual-write config to default path: {}", e);
+            } else {
+                println!("  🔄 [Sync] Dual-wrote config to default path {:?}", default_file_path);
+            }
+        }
+    }
     if config_type == "Game" {
         println!(
             "  🔍 [Debug] Game.ini content snippet:\n{}",
@@ -336,8 +402,17 @@ pub async fn load_server_config(
     server_id: i64,
 ) -> Result<ServerConfig, String> {
     let (install_path, server_type) = get_server_info(&state, server_id)?;
-    let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(&install_path), Some(&server_type));
-    let config_dir = PathBuf::from(&install_path).join(format!("ShooterGame/Saved/Config/{}", sub_dir));
+    let user_folder = resolve_user_config_folder(&state, &server_type);
+    let config_dir = if let Some(ref folder) = user_folder {
+        let p = PathBuf::from(folder);
+        if p.exists() && p.is_dir() { p } else {
+            let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(&install_path), Some(&server_type));
+            PathBuf::from(&install_path).join(format!("ShooterGame/Saved/Config/{}", sub_dir))
+        }
+    } else {
+        let sub_dir = ConfigGenerator::get_config_subdirectory(&PathBuf::from(&install_path), Some(&server_type));
+        PathBuf::from(&install_path).join(format!("ShooterGame/Saved/Config/{}", sub_dir))
+    };
 
     // Start with DB values for identity/network fields
     let mut config = {
@@ -522,7 +597,8 @@ pub async fn backup_config(
     config_type: String,
 ) -> Result<String, String> {
     let (install_path, server_type) = get_server_info(&state, server_id)?;
-    let config_path = get_config_path(&install_path, &config_type, &server_type);
+    let user_folder = resolve_user_config_folder(&state, &server_type);
+    let config_path = get_config_path(&install_path, &config_type, &server_type, user_folder.as_deref());
 
     if !config_path.exists() {
         return Ok("No config file to backup".to_string());
@@ -557,7 +633,8 @@ pub async fn restore_config(
         return Err(format!("Backup file not found: {}", backup_filename));
     }
 
-    let config_path = get_config_path(&install_path, &config_type, &server_type);
+    let user_folder = resolve_user_config_folder(&state, &server_type);
+    let config_path = get_config_path(&install_path, &config_type, &server_type, user_folder.as_deref());
 
     fs::copy(&backup_path, &config_path).map_err(|e| e.to_string())?;
 

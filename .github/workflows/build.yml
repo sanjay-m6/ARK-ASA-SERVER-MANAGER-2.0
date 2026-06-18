@@ -51,15 +51,14 @@ jobs:
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This release includes critical bug fixes for process launching, server configurations, mod downloads, firewall automation, and advanced visibility diagnostics.
+            This release includes custom configuration folder overrides, stable RCON console optimizations, cryo sickness toggles, and critical bug fixes for settings database deadlocks and server name saving.
 
             ### 🛠️ Key Improvements & Fixes
-            - **🚫 Suppress PowerShell Windows**: Spawning game servers and running check commands on Windows now uses `CREATE_NO_WINDOW` unconditionally, preventing flashing conhost consoles and popups.
-            - **🗂️ Steam Library Discovery for ASE Mods**: Resolved the "no .mod file found" error by automatically querying the Steam registry and library configuration files to locate local client mod descriptors.
-            - **🏷️ Preservation of Spaces in Server Name**: Removed redundant connection CLI arguments to prevent Unreal Engine from converting space characters into underscores (`_`) on ASA server boots.
-            - **📊 Live Visibility Diagnostics**: Integrated a 4-step real-time diagnostics checker in the status bar covering: active processes, UDP port bindings, local LAN responsiveness (A2S), and global WAN visibility.
-            - **🛡️ Smart Firewall Automation**: Rewrote the firewall rule configurator to perform read-only queries. If rules match, admin UAC checks are bypassed, prompting users only when changes are actually required.
-            - **💡 In-Game Search Troubleshooting Guide**: Added a collapsible settings walkthrough next to the Server Manager page header, complete with an annotated in-game screenshot illustrating how to configure search parameters and filters.
+            - **🗂️ Custom User Config Folder Override**: Point to custom folders containing server INI configuration files (GameUserSettings.ini, Game.ini) for both ASA and ASE. The manager reads/writes configs from this folder instead of the server install directory.
+            - **🔒 RCON Tab Page Locking**: Resolved UI locking on the RCON console page by implementing stable Zustand state selectors and avoiding side-effects during render loops.
+            - **🏷️ Server Name Saving & Migration**: Fixed server name saving on the ASA side (where names would revert to random default names like `ARK#824565` or old names persist) by migrating legacy `ServerName` references to `SessionName` and cleaning up obsolete config keys.
+            - **🔄 Settings Loading Loop Fix**: Re-scoped SQLite DB connection lock acquisitions to small, synchronous blocks during INI read/write and startup configurations to prevent deadlocking Settings pages.
+            - **❄️ CryoSickness PvP Toggle Option**: Added a native toggle under the visual PvP rules tab in ASE settings to enable or disable cryo sickness on PvP servers.
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, 'beta') }}
           includeUpdaterJson: true
