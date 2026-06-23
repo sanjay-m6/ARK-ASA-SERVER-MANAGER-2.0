@@ -656,19 +656,56 @@ impl SerenityEventHandler for GatewayHandler {
             return;
         }
 
-        let admin_channel_id = {
+        let config = {
             let cfg = self.config.lock().await;
-            if let Some(c) = cfg.as_ref() {
-                if c.admin_channel_id.is_empty() {
-                    return;
-                }
-                c.admin_channel_id.clone()
-            } else {
-                return;
-            }
+            cfg.clone()
+        };
+        let config = match config {
+            Some(c) => c,
+            None => return,
         };
 
-        if msg.channel_id.to_string() != admin_channel_id {
+        if !config.enabled {
+            return;
+        }
+
+        if !config.admin_channel_id.is_empty() && msg.channel_id.to_string() == config.admin_channel_id {
+            if !msg.content.starts_with('!') {
+                return;
+            }
+        } else if !config.channel_id.is_empty() && msg.channel_id.to_string() == config.channel_id {
+            let state = self.app_handle.state::<AppState>();
+            let service = state.discord_bridge.clone();
+            
+            if service.should_relay_from_discord(&msg.author.id.to_string(), &msg.content, msg.author.bot).await {
+                let formatted = DiscordBridgeService::format_for_game(&msg.author.name, &msg.content);
+                
+                let servers = match service.fetch_cluster_servers(config.cluster_id) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        log::error!("Failed to fetch cluster servers for Discord relay: {}", e);
+                        return;
+                    }
+                };
+
+                let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
+                let rcon_service = &rcon_state.0;
+
+                for server in servers {
+                    if server.status == "online" || server.status == "running" {
+                        let server_id = server.id;
+                        let rcon = rcon_service.clone();
+                        let msg_content = formatted.clone();
+                        tokio::spawn(async move {
+                            if let Err(e) = rcon.broadcast(server_id, &msg_content).await {
+                                log::error!("Failed to relay Discord message to server {}: {}", server_id, e);
+                            }
+                        });
+                    }
+                }
+            }
+            return;
+        } else {
             return;
         }
 

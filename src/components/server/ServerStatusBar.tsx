@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { Globe, Wifi, Terminal, AlertTriangle, Loader2, Copy, Check, Activity, Cpu } from 'lucide-react';
+import { Globe, Wifi, Terminal, AlertTriangle, Loader2, Copy, Check, Activity, Cpu, HelpCircle, GraduationCap } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 
 interface ServerStatusBarProps {
@@ -24,6 +24,7 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [copiedType, setCopiedType] = useState<'lan' | 'wan' | null>(null);
+    const [showGuide, setShowGuide] = useState(false);
 
     const fetchStatus = async () => {
         try {
@@ -218,61 +219,77 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                     </div>
                 </div>
 
-                {/* Connection Address Cards */}
-                {report && (currentStatus === 'online' || currentStatus === 'starting') && (
-                    <div className="flex flex-wrap items-center gap-3 pr-3">
-                        {/* LAN Address Card */}
-                        <div className="group/card flex items-center bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-xl p-1.5 px-3 hover:border-amber-500/30 transition-all duration-300 shadow-inner">
-                            <div className="flex flex-col font-mono text-[10px] text-slate-400 select-text pr-4">
-                                <span className="text-[8px] font-sans font-bold text-slate-600 uppercase tracking-wider select-none">Local Network (LAN)</span>
-                                <span className="font-semibold text-slate-200">{report.localIp}:{report.queryPort}</span>
-                            </div>
-                            <button
-                                onClick={() => handleCopy(`${report.localIp}:${report.queryPort}`, 'lan')}
-                                className="p-1.5 bg-white/[0.02] hover:bg-amber-500/10 hover:text-amber-400 border border-white/5 hover:border-amber-500/25 rounded-lg transition-all focus:outline-none"
-                                title={t('common.copyAddress', 'Copy LAN Address')}
-                            >
-                                {copiedType === 'lan' ? (
-                                    <Check className="w-3.5 h-3.5 text-green-400 animate-in zoom-in duration-200" />
-                                ) : (
-                                    <Copy className="w-3.5 h-3.5 text-slate-500 transition-colors group-hover/card:text-slate-300" />
-                                )}
-                            </button>
-                        </div>
+                {/* Actions & Connections Panel */}
+                <div className="flex flex-wrap items-center gap-3 pr-3 ml-auto">
+                    <button
+                        type="button"
+                        onClick={() => setShowGuide(!showGuide)}
+                        className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all duration-300 hover:scale-[1.03] active:scale-95 focus:outline-none backdrop-blur-md cursor-pointer",
+                            showGuide
+                                ? "bg-sky-500/15 border-sky-500/40 text-sky-400 shadow-[0_0_10px_rgba(14,165,233,0.15)]"
+                                : "bg-slate-950/40 border-white/5 hover:border-white/15 text-slate-400 hover:text-slate-200"
+                        )}
+                    >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                        <span>{showGuide ? "Hide Guide" : "Troubleshoot"}</span>
+                    </button>
 
-                        {/* WAN Address Card */}
-                        {report.publicIp && (
-                            <div className="group/card flex items-center bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-xl p-1.5 px-3 hover:border-cyan-500/30 transition-all duration-300 shadow-inner">
+                    {report && (currentStatus === 'online' || currentStatus === 'starting') && (
+                        <>
+                            {/* LAN Address Card */}
+                            <div className="group/card flex items-center bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-xl p-1.5 px-3 hover:border-amber-500/30 transition-all duration-300 shadow-inner">
                                 <div className="flex flex-col font-mono text-[10px] text-slate-400 select-text pr-4">
-                                    <span className="text-[8px] font-sans font-bold text-slate-600 uppercase tracking-wider select-none">Public Internet (WAN)</span>
-                                    <span className={cn(
-                                        "font-semibold",
-                                        isWanVisible ? "text-cyan-300" : "text-slate-500 line-through opacity-70"
-                                    )}>
-                                        {report.publicIp}:{report.queryPort}
-                                    </span>
+                                    <span className="text-[8px] font-sans font-bold text-slate-600 uppercase tracking-wider select-none">Local Network (LAN)</span>
+                                    <span className="font-semibold text-slate-200">{report.localIp}:{report.queryPort}</span>
                                 </div>
                                 <button
-                                    onClick={() => isWanVisible && handleCopy(`${report.publicIp}:${report.queryPort}`, 'wan')}
-                                    disabled={!isWanVisible}
-                                    className={cn(
-                                        "p-1.5 border rounded-lg transition-all focus:outline-none",
-                                        isWanVisible 
-                                            ? "bg-white/[0.02] hover:bg-cyan-500/10 hover:text-cyan-400 border-white/5 hover:border-cyan-500/25 cursor-pointer" 
-                                            : "bg-transparent border-transparent text-slate-600 cursor-not-allowed opacity-30"
-                                    )}
-                                    title={isWanVisible ? t('common.copyAddress', 'Copy WAN Address') : t('serverManager.statusBar.wanUnavailable', 'Public IP queries blocked')}
+                                    onClick={() => handleCopy(`${report.localIp}:${report.queryPort}`, 'lan')}
+                                    className="p-1.5 bg-white/[0.02] hover:bg-amber-500/10 hover:text-amber-400 border border-white/5 hover:border-amber-500/25 rounded-lg transition-all focus:outline-none"
+                                    title={t('common.copyAddress', 'Copy LAN Address')}
                                 >
-                                    {copiedType === 'wan' ? (
+                                    {copiedType === 'lan' ? (
                                         <Check className="w-3.5 h-3.5 text-green-400 animate-in zoom-in duration-200" />
                                     ) : (
                                         <Copy className="w-3.5 h-3.5 text-slate-500 transition-colors group-hover/card:text-slate-300" />
                                     )}
                                 </button>
                             </div>
-                        )}
-                    </div>
-                )}
+
+                            {/* WAN Address Card */}
+                            {report.publicIp && (
+                                <div className="group/card flex items-center bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-xl p-1.5 px-3 hover:border-cyan-500/30 transition-all duration-300 shadow-inner">
+                                    <div className="flex flex-col font-mono text-[10px] text-slate-400 select-text pr-4">
+                                        <span className="text-[8px] font-sans font-bold text-slate-600 uppercase tracking-wider select-none">Public Internet (WAN)</span>
+                                        <span className={cn(
+                                            "font-semibold",
+                                            isWanVisible ? "text-cyan-300" : "text-slate-500 line-through opacity-70"
+                                        )}>
+                                            {report.publicIp}:{report.queryPort}
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={() => isWanVisible && handleCopy(`${report.publicIp}:${report.queryPort}`, 'wan')}
+                                        disabled={!isWanVisible}
+                                        className={cn(
+                                            "p-1.5 border rounded-lg transition-all focus:outline-none",
+                                            isWanVisible 
+                                                ? "bg-white/[0.02] hover:bg-cyan-500/10 hover:text-cyan-400 border-white/5 hover:border-cyan-500/25 cursor-pointer" 
+                                                : "bg-transparent border-transparent text-slate-600 cursor-not-allowed opacity-30"
+                                        )}
+                                        title={isWanVisible ? t('common.copyAddress', 'Copy WAN Address') : t('serverManager.statusBar.wanUnavailable', 'Public IP queries blocked')}
+                                    >
+                                        {copiedType === 'wan' ? (
+                                            <Check className="w-3.5 h-3.5 text-green-400 animate-in zoom-in duration-200" />
+                                        ) : (
+                                            <Copy className="w-3.5 h-3.5 text-slate-500 transition-colors group-hover/card:text-slate-300" />
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Diagnostic Grid - Timeline layout */}
@@ -361,6 +378,77 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                     </div>
                 </div>
             </div>
+
+            {/* Troubleshooting Guide Panel */}
+            {showGuide && (
+                <div className="border-t border-white/[0.03] bg-slate-950/40 p-6 text-left animate-fadeIn relative z-10 space-y-4">
+                    <div className="flex items-center gap-2 mb-1">
+                        <GraduationCap className="w-4.5 h-4.5 text-sky-400" />
+                        <h4 className="font-bold text-xs text-white uppercase tracking-wider">Troubleshooting & Diagnostics Guide</h4>
+                    </div>
+                    <p className="text-xs text-slate-400 max-w-4xl leading-relaxed">
+                        The diagnostics pipeline runs tests sequentially (left to right) to assess the status of your server instance. Use this guide to resolve failures indicated in red.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                        {/* Guide 1 */}
+                        <div className="bg-slate-900/30 border border-slate-800/40 rounded-xl p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                                <Cpu className="w-3.5 h-3.5" />
+                                <span>1. Game Process</span>
+                            </div>
+                            <p className="text-xs text-slate-300 leading-normal">
+                                Detects if the server executable process is currently running on the server host machine.
+                            </p>
+                            <div className="text-[11px] bg-slate-950/50 border border-white/5 rounded-lg p-2.5 text-slate-400 leading-normal">
+                                <span className="text-emerald-400 font-semibold">Fix:</span> Click the <strong>Start</strong> button in the main control panel to launch your server.
+                            </div>
+                        </div>
+
+                        {/* Guide 2 */}
+                        <div className="bg-slate-900/30 border border-slate-800/40 rounded-xl p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                                <Terminal className="w-3.5 h-3.5" />
+                                <span>2. UDP Port Binding</span>
+                            </div>
+                            <p className="text-xs text-slate-300 leading-normal">
+                                Checks if the server executable has successfully locked and started listening on the game/query port.
+                            </p>
+                            <div className="text-[11px] bg-slate-950/50 border border-white/5 rounded-lg p-2.5 text-slate-400 leading-normal">
+                                <span className="text-emerald-400 font-semibold">Fix:</span> Ensure no other server instance or app is running on the same port (e.g. 7777 or 27015).
+                            </div>
+                        </div>
+
+                        {/* Guide 3 */}
+                        <div className="bg-slate-900/30 border border-slate-800/40 rounded-xl p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
+                                <Wifi className="w-3.5 h-3.5" />
+                                <span>3. LAN Reachability</span>
+                            </div>
+                            <p className="text-xs text-slate-300 leading-normal">
+                                Pings the query port locally using the Steam/Epic A2S protocol to ensure the server responds to players on the local network.
+                            </p>
+                            <div className="text-[11px] bg-slate-950/50 border border-white/5 rounded-lg p-2.5 text-slate-400 leading-normal">
+                                <span className="text-amber-400 font-semibold">Fix:</span> Ensure Windows Firewall is not blocking the server app. Click <strong>Allow access</strong> or add inbound rules for UDP/TCP.
+                            </div>
+                        </div>
+
+                        {/* Guide 4 */}
+                        <div className="bg-slate-900/30 border border-slate-800/40 rounded-xl p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-cyan-400 text-xs font-bold uppercase tracking-wider">
+                                <Globe className="w-3.5 h-3.5" />
+                                <span>4. Global Visibility</span>
+                            </div>
+                            <p className="text-xs text-slate-300 leading-normal">
+                                Queries the server query port from external nodes to test if players from the public internet can join.
+                            </p>
+                            <div className="text-[11px] bg-slate-950/50 border border-white/5 rounded-lg p-2.5 text-slate-400 leading-normal">
+                                <span className="text-cyan-400 font-semibold">Fix:</span> Set up <strong>Port Forwarding</strong> (NAT) on your router for ports 7777 and 27015 (UDP/TCP) to your PC's IP, or enable <strong>UPnP</strong> in the tools section.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
 
 

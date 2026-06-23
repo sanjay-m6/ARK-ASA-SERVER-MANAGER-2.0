@@ -1013,9 +1013,7 @@ impl ProcessManager {
         // Build launch arguments
         // Wrap session name in quotes so spaces are preserved and parsed correctly by the engine
         let mut connection_url = format!("{}?listen", map_name);
-        if server_type == "ASE" {
-            connection_url.push_str(&format!("?SessionName=\"{}\"", session_name));
-        }
+        connection_url.push_str(&format!("?SessionName=\"{}\"", session_name));
         connection_url.push_str(&format!("?Port={}", game_port));
         connection_url.push_str(&format!("?QueryPort={}", query_port));
         connection_url.push_str(&format!("?RCONPort={}", rcon_port));
@@ -1032,6 +1030,7 @@ impl ProcessManager {
         let mut args = vec![connection_url];
 
         args.push("-log".to_string());
+        args.push("-servergamelog".to_string());
         if !battleye_enabled {
             args.push("-NoBattlEye".to_string());
         }
@@ -1105,13 +1104,25 @@ impl ProcessManager {
             }
         }
 
-        // Add custom launch arguments
+        // Add custom launch arguments — strip -mods= to prevent conflicts with manager-generated list
         if let Some(custom) = custom_args {
             if !custom.is_empty() {
-                // Split by whitespace but respect basic quoting if possible,
-                // for now simple split is safer than nothing.
-                let custom_parts: Vec<String> =
-                    custom.split_whitespace().map(|s| s.to_string()).collect();
+                let custom_parts: Vec<String> = custom
+                    .split_whitespace()
+                    .filter(|s| {
+                        let lower = s.to_lowercase();
+                        if lower.starts_with("-mods=") {
+                            println!(
+                                "  ⚠️ Stripped conflicting -mods= from custom_args for server {} (mods are managed automatically)",
+                                server_id
+                            );
+                            false
+                        } else {
+                            true
+                        }
+                    })
+                    .map(|s| s.to_string())
+                    .collect();
                 args.extend(custom_parts);
             }
         }

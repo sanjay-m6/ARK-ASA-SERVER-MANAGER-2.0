@@ -212,7 +212,7 @@ impl AseLauncher {
         server: &AseServer,
         _config: &AseGameConfig,
         _public_ip: Option<String>,
-        active_mod_ids: &[String],
+        _active_mod_ids: &[String],
     ) -> Vec<String> {
         let mut args = Vec::new();
         // ASE uses "TheIsland", NOT "TheIsland_WP" (that's ASA)
@@ -248,9 +248,9 @@ impl AseLauncher {
         
         args.push(launch_string);
         
-        if !active_mod_ids.is_empty() {
-            args.push(format!("-mods={}", active_mod_ids.join(",")));
-        }
+        // Note: Dedicated servers for ASE do not support the -mods= command line parameter.
+        // Instead, the active mods list must be written to GameUserSettings.ini under [ServerSettings] -> ActiveMods,
+        // which is managed automatically on launch in config_generator.rs.
 
         if !server.battleye {
             args.push("-NoBattlEye".to_string());
@@ -258,7 +258,15 @@ impl AseLauncher {
 
         if !server.extra_args.is_empty() {
             for arg in Self::split_arguments(&server.extra_args) {
-                args.push(arg);
+                let lower = arg.to_lowercase();
+                if lower.starts_with("-mods=") {
+                    println!(
+                        "  ⚠️ Stripped conflicting -mods= from extra_args for ASE server {} (mods are managed automatically)",
+                        server.id
+                    );
+                } else {
+                    args.push(arg);
+                }
             }
         }
         

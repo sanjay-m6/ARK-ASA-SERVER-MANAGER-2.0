@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import {
     Plus, Play, Square, RotateCw, Trash2, Download, Settings, Terminal, Globe, Shield,
     ChevronDown, ChevronUp, Copy, AppWindow, RefreshCw,
-    Check, XCircle, GripVertical, Network, FolderOpen, Users, PenLine, Cpu, HelpCircle
+    Check, XCircle, GripVertical, Network, FolderOpen, Users, PenLine, Cpu, HelpCircle,
+    Loader2, AlertTriangle, GitBranch
 } from 'lucide-react';
 import { useServerStore } from '../stores/serverStore';
-import { useInstallStore } from '../stores/installStore';
+import { useInstallStore, normalizePath } from '../stores/installStore';
 import { cn } from '../utils/helpers';
 import ImportServerDialog from '../components/server/ImportServerDialog';
 import ImportNonDedicatedDialog from '../components/server/ImportNonDedicatedDialog';
@@ -17,7 +18,7 @@ import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, getServerVersion, getLatestServerVersion } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
 
@@ -36,11 +37,12 @@ export default function ServerManager() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const { servers, setServers, removeServer, updateServerStatus, refreshServers } = useServerStore();
-    const { setDraftOpen } = useInstallStore();
+    const { activeInstalls, removeInstall, setDraftOpen } = useInstallStore();
     const [serverLogs, setServerLogs] = useState<Record<number, string[]>>({});
     const [expandedConsoles, setExpandedConsoles] = useState<Record<number, boolean>>({});
+    const [showUpdateConsole, setShowUpdateConsole] = useState<Record<number, boolean>>({});
     const consoleRefs = useRef<Record<number, HTMLDivElement | null>>({});
-    const [appVersion] = useState<string>('4.5.0');
+    const [appVersion] = useState<string>('4.5.1');
     const [cloneModalServer, setCloneModalServer] = useState<Server | null>(null);
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
     const [forceStopServerId, setForceStopServerId] = useState<number | null>(null);
@@ -55,6 +57,8 @@ export default function ServerManager() {
     const [editingServerId, setEditingServerId] = useState<number | null>(null);
     const [editServerName, setEditServerName] = useState("");
     const [collapsedServers, setCollapsedServers] = useState<Record<number, boolean>>({});
+    const [serverVersions, setServerVersions] = useState<Record<number, string>>({});
+    const [latestVersion, setLatestVersion] = useState<string | null>(null);
 
     const [serverOrder, setServerOrder] = useState<number[]>(() => {
         const saved = localStorage.getItem('arkServerOrder');
@@ -278,6 +282,47 @@ export default function ServerManager() {
             clearInterval(interval);
         };
     }, [setServers, updateServerStatus, refreshServers, t]);
+
+    // Fetch latest public version on mount
+    useEffect(() => {
+        const fetchLatest = async () => {
+            try {
+                const latest = await getLatestServerVersion();
+                setLatestVersion(latest);
+            } catch (err) {
+                console.error('Failed to fetch latest ASA version:', err);
+            }
+        };
+        fetchLatest();
+    }, []);
+
+    // Fetch local versions for servers
+    useEffect(() => {
+        const fetchLocalVersions = async () => {
+            const targets = servers.filter(s => !serverVersions[s.id]);
+            if (targets.length === 0) return;
+
+            for (const server of targets) {
+                try {
+                    const ver = await getServerVersion(server.id);
+                    setServerVersions(prev => ({ ...prev, [server.id]: ver }));
+                } catch (err) {
+                    console.error(`Failed to get version for server ${server.id}:`, err);
+                    setServerVersions(prev => ({ ...prev, [server.id]: 'Unknown' }));
+                }
+            }
+        };
+        fetchLocalVersions();
+    }, [servers, serverVersions]);
+
+    const isServerOutdated = (serverId: number) => {
+        const localVer = serverVersions[serverId];
+        if (!localVer || !latestVersion) return false;
+        if (localVer.startsWith('Build ')) {
+            return !localVer.includes(latestVersion);
+        }
+        return false;
+    };
 
     // Subscribe to server log events
     useEffect(() => {
@@ -520,6 +565,9 @@ export default function ServerManager() {
 
     const handleUpdateServer = async (serverId: number) => {
         try {
+            // Auto-expand the card details when starting an update
+            setCollapsedServers(prev => ({ ...prev, [serverId]: false }));
+
             updateServerStatus(serverId, 'updating');
             await updateServer(serverId);
             toast.success(t('serverManager.serverUpdated'));
@@ -685,7 +733,14 @@ export default function ServerManager() {
                             <HelpCircle className="w-5 h-5" />
                         </button>
                     </div>
-                    <p className="text-slate-400 mt-2 text-lg">{t('serverManager.subtitle')}</p>
+                    <p className="text-slate-400 mt-2 text-lg">
+                        {t('serverManager.subtitle')}
+                        {latestVersion && (
+                            <span className="ml-3 inline-flex items-center gap-1.5 px-3 py-0.5 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-full text-xs font-bold font-mono">
+                                Latest Public Build: {latestVersion}
+                            </span>
+                        )}
+                    </p>
                 </div>
                 <div className="flex items-center gap-4">
                     <button
@@ -1025,6 +1080,18 @@ export default function ServerManager() {
                                                                          <Shield className="w-3.5 h-3.5 text-emerald-400/80" />
                                                                          <span>v{appVersion}</span>
                                                                      </div>
+                                                                     {serverVersions[server.id] && (
+                                                                         <div className="flex items-center gap-1 px-2.5 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300" title={t('serverManager.tooltips.serverVersion', 'Local Server Version')}>
+                                                                             <GitBranch className="w-3.5 h-3.5 text-sky-400/80" />
+                                                                             <span className="font-mono text-xs">{serverVersions[server.id]}</span>
+                                                                         </div>
+                                                                     )}
+                                                                     {isServerOutdated(server.id) && (
+                                                                         <div className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-md text-xs font-bold animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version is available! Click the download button to update.')}>
+                                                                             <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                                                                             <span>{t('serverManager.status.updateAvailable', 'Update Available')}</span>
+                                                                         </div>
+                                                                     )}
                                                                  </div>
                                                              </div>
                                                          </div>
@@ -1117,14 +1184,19 @@ export default function ServerManager() {
                                                                  <button
                                                                      onClick={() => handleUpdateServer(server.id)}
                                                                      className={cn(
-                                                                         "p-2 rounded-full transition-all flex items-center justify-center",
-                                                                         updateOnStart 
-                                                                             ? "text-green-400 hover:text-green-300 hover:bg-green-500/10 bg-green-500/5 shadow-[0_0_10px_rgba(34,197,94,0.1)]" 
-                                                                             : "text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                                                                         "p-2 rounded-full transition-all flex items-center justify-center relative",
+                                                                         isServerOutdated(server.id)
+                                                                             ? "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 bg-amber-500/5 shadow-[0_0_10px_rgba(245,158,11,0.15)] border border-amber-500/30"
+                                                                             : updateOnStart 
+                                                                                 ? "text-green-400 hover:text-green-300 hover:bg-green-500/10 bg-green-500/5 shadow-[0_0_10px_rgba(34,197,94,0.1)]" 
+                                                                                 : "text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
                                                                      )}
-                                                                     title={t('serverManager.tooltips.update')}
+                                                                     title={isServerOutdated(server.id) ? t('serverManager.tooltips.updateRequired', 'New update available! Click to install.') : t('serverManager.tooltips.update')}
                                                                  >
                                                                      <Download className="w-5 h-5" />
+                                                                     {isServerOutdated(server.id) && (
+                                                                         <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                                                                     )}
                                                                  </button>
                                                                  
                                                                  {/* Update Options Dropdown */}
@@ -1341,6 +1413,124 @@ export default function ServerManager() {
                                 </label>
                             </div>
                             </div>
+
+                            {/* Real-time Update Progress Panel */}
+                            {(() => {
+                                const normalizedPath = normalizePath(server.installPath);
+                                const activeInstall = activeInstalls[normalizedPath];
+                                const showUpdatePanel = server.status === 'updating' || (activeInstall && (!activeInstall.isComplete || activeInstall.isError));
+                                
+                                if (!showUpdatePanel) return null;
+
+                                return (
+                                    <div className="mt-5 bg-slate-900/60 backdrop-blur-sm rounded-xl border border-blue-500/20 p-5 shadow-inner animate-in slide-in-from-top-2 duration-300">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+                                                <span className="text-sm font-bold text-white uppercase tracking-wider">
+                                                    {t('serverManager.statusBar.updateMode', 'SteamCMD Update Mode')}: {activeInstall?.stage || 'Connecting'}
+                                                </span>
+                                            </div>
+                                            <span className="text-xs font-mono font-bold text-blue-400">
+                                                {activeInstall ? `${Math.round(activeInstall.progress)}%` : '0%'}
+                                            </span>
+                                        </div>
+                                        
+                                        {/* Premium animated progress bar */}
+                                        <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800 shadow-inner">
+                                            <div 
+                                                className="bg-gradient-to-r from-blue-500 to-cyan-500 h-full transition-all duration-300 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                                                style={{ width: `${activeInstall?.progress || 0}%` }}
+                                            />
+                                        </div>
+
+                                        <p className="text-xs text-slate-400 mt-2 italic">
+                                            {activeInstall?.message || t('serverManager.statusBar.startingUpdate', 'Starting SteamCMD wrapper process...')}
+                                        </p>
+
+                                        {/* Error state with recovery actions */}
+                                        {activeInstall?.isError && (
+                                            <div className="mt-4 p-4 bg-red-950/20 border border-red-500/20 rounded-xl space-y-4">
+                                                <p className="text-sm text-red-400 font-semibold flex items-center gap-2">
+                                                    <AlertTriangle className="w-4 h-4" />
+                                                    <span>Update Failed: {activeInstall.message || 'Unknown error'}</span>
+                                                </p>
+                                                <div className="flex flex-wrap gap-3">
+                                                    <button
+                                                        onClick={() => {
+                                                            removeInstall(server.installPath);
+                                                            handleUpdateServer(server.id);
+                                                        }}
+                                                        className="px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold transition-all hover:scale-105 active:scale-95"
+                                                    >
+                                                        {t('dialogs.installServer.tryAgain', 'Try Again')}
+                                                    </button>
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                const { repairSteamcmd } = await import('../utils/tauri');
+                                                                toast.loading('Repairing SteamCMD...', { id: 'repair' });
+                                                                await repairSteamcmd();
+                                                                toast.success('SteamCMD repaired! Try updating again.', { id: 'repair' });
+                                                            } catch (e) {
+                                                                toast.error(`Repair failed: ${e}`, { id: 'repair' });
+                                                            }
+                                                        }}
+                                                        className="px-4 py-2 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-semibold transition-all hover:scale-105 active:scale-95"
+                                                    >
+                                                        {t('dialogs.installServer.repairSteamcmd', 'Repair SteamCMD')}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => removeInstall(server.installPath)}
+                                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-all"
+                                                    >
+                                                        {t('common.dismiss', 'Dismiss')}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Collapsible Console View */}
+                                        <div className="mt-3 border-t border-slate-800/50 pt-3">
+                                            <button
+                                                onClick={() => setShowUpdateConsole(prev => ({ ...prev, [server.id]: !prev[server.id] }))}
+                                                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors select-none font-semibold uppercase tracking-wider"
+                                            >
+                                                <Terminal className="w-3.5 h-3.5" />
+                                                <span>{showUpdateConsole[server.id] ? t('serverManager.statusBar.hideLogs', 'Hide Console Logs') : t('serverManager.statusBar.showLogs', 'Show Console Logs')}</span>
+                                                <span className="text-[10px] bg-slate-850 border border-slate-800/80 px-1.5 py-0.5 rounded text-slate-400 font-mono">
+                                                    {activeInstall?.logs?.length || 0} lines
+                                                </span>
+                                            </button>
+
+                                            {showUpdateConsole[server.id] && (
+                                                <div className="mt-2.5 bg-black/85 rounded-lg p-3 font-mono text-[11px] h-48 overflow-y-auto border border-slate-800/80 shadow-inner space-y-1 scrollbar-thin select-text">
+                                                    {!activeInstall || activeInstall.logs.length === 0 ? (
+                                                        <div className="text-slate-600 italic">{t('serverManager.statusBar.waitingOutput', 'Waiting for SteamCMD stream output...')}</div>
+                                                    ) : (
+                                                        activeInstall.logs.map((log, i) => (
+                                                            <div key={i} className="flex gap-2.5 items-start leading-relaxed">
+                                                                <span className="text-slate-600 select-none shrink-0">{log.timestamp}</span>
+                                                                <span className={cn(
+                                                                    "break-all",
+                                                                    log.lineType === 'error' && 'text-red-400 font-bold',
+                                                                    log.lineType === 'success' && 'text-green-400 font-bold',
+                                                                    log.lineType === 'warning' && 'text-yellow-400',
+                                                                    log.lineType === 'progress' && 'text-blue-400',
+                                                                    log.lineType === 'info' && 'text-slate-300'
+                                                                )}>
+                                                                    {log.line}
+                                                                </span>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             <ServerStatusBar serverId={server.id} serverType="ASA" />
                                     </motion.div>
                                 )}

@@ -199,28 +199,58 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                     }
                 };
 
-                if active_server_ids.is_empty() {
-                    println!("[LIFECYCLE] No active servers found on startup, skipping recovery.");
-                } else {
-                    // Check which ArkAscendedServer.exe processes are still running
+                let active_ase_server_ids: Vec<i64> = {
+                    let stmt_result = conn.prepare(
+                        "SELECT id FROM ase_servers WHERE status IN ('running', 'starting', 'online', 'restarting', 'updating', 'stopping')"
+                    );
+                    if let Ok(mut stmt) = stmt_result {
+                        stmt.query_map([], |row| row.get(0))
+                            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    }
+                };
+
+                if !active_server_ids.is_empty() || !active_ase_server_ids.is_empty() {
                     let mut check_sys = sysinfo::System::new();
                     check_sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
-                    let ark_alive: bool = check_sys.processes().values().any(|p| {
-                        let name = p.name().to_string_lossy().to_lowercase();
-                        name.contains("arkascendedserver")
-                    });
+                    if !active_server_ids.is_empty() {
+                        let ark_alive: bool = check_sys.processes().values().any(|p| {
+                            let name = p.name().to_string_lossy().to_lowercase();
+                            name.contains("arkascendedserver")
+                        });
 
-                    if ark_alive {
-                        println!("[LIFECYCLE] Found running ArkAscendedServer processes on startup. Keeping active server status.");
-                        // Don't reset — allow the manager to re-detect these processes
-                    } else {
-                        println!("[LIFECYCLE] No ArkAscendedServer processes found. Resetting {} servers to stopped.", active_server_ids.len());
-                        let _ = conn.execute(
-                            "UPDATE servers SET status = 'stopped' WHERE status IN ('running', 'starting', 'online', 'restarting', 'updating', 'stopping')",
-                            [],
-                        );
+                        if ark_alive {
+                            println!("[LIFECYCLE] Found running ArkAscendedServer processes on startup. Keeping active server status.");
+                        } else {
+                            println!("[LIFECYCLE] No ArkAscendedServer processes found. Resetting {} servers to stopped.", active_server_ids.len());
+                            let _ = conn.execute(
+                                "UPDATE servers SET status = 'stopped' WHERE status IN ('running', 'starting', 'online', 'restarting', 'updating', 'stopping')",
+                                [],
+                            );
+                        }
                     }
+
+                    if !active_ase_server_ids.is_empty() {
+                        let ase_alive: bool = check_sys.processes().values().any(|p| {
+                            let name = p.name().to_string_lossy().to_lowercase();
+                            name.contains("shootergameserver")
+                        });
+
+                        if ase_alive {
+                            println!("[LIFECYCLE] Found running ShooterGameServer processes on startup. Keeping active ASE server status.");
+                        } else {
+                            println!("[LIFECYCLE] No ShooterGameServer processes found. Resetting {} ASE servers to stopped.", active_ase_server_ids.len());
+                            let _ = conn.execute(
+                                "UPDATE ase_servers SET status = 'stopped' WHERE status IN ('running', 'starting', 'online', 'restarting', 'updating', 'stopping')",
+                                [],
+                            );
+                        }
+                    }
+                } else {
+                    println!("[LIFECYCLE] No active servers found on startup, skipping recovery.");
                 }
             }
 
@@ -496,6 +526,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::get_all_servers,
             commands::server::update_server_status_in_db,
             commands::server::get_server_by_id,
+            commands::server::get_server_version,
+            commands::server::get_latest_server_version,
             commands::server::install_server,
             commands::server::start_server,
             commands::server::start_server_no_mods,

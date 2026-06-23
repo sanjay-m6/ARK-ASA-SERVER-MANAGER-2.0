@@ -159,7 +159,7 @@ impl CrossChatService {
         println!("🔄 Starting cross-chat relay for cluster {}", cluster_id);
 
         let chat_regex = match Regex::new(
-            r"(\d{4}\.\d{2}\.\d{2}_\d{2}\.\d{2}\.\d{2}): (?:[A-Za-z0-9_]+): ([^:]+): (.*)",
+            r"^\[?(\d{4}[.-]\d{2}[.-]\d{2}[_-]\d{2}[.-]\d{2}[.-]\d{2}(?::\d{3})?)\]?(?:\[\s*\d+\s*\])?\s*(?:[A-Za-z0-9_]+)?:\s*Chat:\s*([^:]+?):\s*(.*)$",
         ) {
             Ok(r) => r,
             Err(e) => {

@@ -230,7 +230,8 @@ pub async fn save_config(
     // If we're saving GameUserSettings.ini, we need to sync critical values to the database
     // because the start_server command reads from the DB, not the INI files
     if config_type == "GameUserSettings" {
-        let session_name = IniParser::get_value(&content, "ServerSettings", "SessionName")
+        let session_name = IniParser::get_value(&content, "SessionSettings", "SessionName")
+            .or_else(|| IniParser::get_value(&content, "ServerSettings", "SessionName"))
             .or_else(|| IniParser::get_value(&content, "ServerSettings", "ServerName"))
             .map(|s| s.trim_matches('"').trim_matches('\'').to_string());
         
@@ -553,7 +554,9 @@ pub async fn load_server_config(
         config.friendly_fire = !get_bool(ss, "DisableFriendlyFire", true);
 
         // Session name from INI overrides DB if present
-        if let Some(name) = IniParser::get_value(&gus_content, ss, "SessionName") {
+        if let Some(name) = IniParser::get_value(&gus_content, "SessionSettings", "SessionName")
+            .or_else(|| IniParser::get_value(&gus_content, ss, "SessionName"))
+        {
             if !name.is_empty() {
                 config.session_name = name;
             }

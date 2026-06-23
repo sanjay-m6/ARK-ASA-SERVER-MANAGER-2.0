@@ -159,6 +159,7 @@ function App() {
                                  <Route path="ase/tools/tribe-logs" element={<ASETribeLogViewer />} />
                                  <Route path="ase/tools/upnp" element={<ASEUPnPPanel />} />
                                  <Route path="ase/tools/organization" element={<ASEServerOrganization />} />
+                                 <Route path="ase/tools/infinity-damage" element={<InfinityDamage />} />
                             </Route>
                         </Routes>
                     </Suspense>

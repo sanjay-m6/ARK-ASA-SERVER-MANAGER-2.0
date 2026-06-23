@@ -3,7 +3,7 @@ import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Termina
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
-import { useInstallStore } from '../../stores/installStore';
+import { useInstallStore, normalizePath } from '../../stores/installStore';
 import { suggestNextAsePorts } from '../utils/aseLaunchArgs';
 import { cn } from '../../utils/helpers';
 import { startAseServer, stopAseServer, deleteAseServer, updateAseServer, updateAseServerInstall, cloneAseServer, transferAseSettings, extractAseSaveData, joinAseServer, getAseServerVersion } from '../utils/aseCommands';
@@ -123,7 +123,7 @@ export default function ASEServerManager() {
       const unlistenProgress = await listen<any>('install-progress', (event) => {
         const payload = event.payload;
         const currentServers = useAseServerStore.getState().servers;
-        const server = currentServers.find(s => s.installPath === payload.installPath);
+        const server = currentServers.find(s => normalizePath(s.installPath) === normalizePath(payload.installPath));
         if (server) {
           setActiveUpdates(prev => ({
             ...prev,
@@ -151,7 +151,7 @@ export default function ASEServerManager() {
       const unlistenConsole = await listen<any>('install-console', (event) => {
         const payload = event.payload;
         const currentServers = useAseServerStore.getState().servers;
-        const server = currentServers.find(s => s.installPath === payload.installPath);
+        const server = currentServers.find(s => normalizePath(s.installPath) === normalizePath(payload.installPath));
         if (server) {
           setUpdateConsoleLogs(prev => {
             const logs = prev[server.id] || [];

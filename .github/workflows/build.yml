@@ -51,9 +51,16 @@ jobs:
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This release includes custom configuration folder overrides, stable RCON console optimizations, cryo sickness toggles, and critical bug fixes for settings database deadlocks and server name saving.
+            This release includes the major v4.5.1 update integrating full ARK: Survival Evolved (ASE) server support and an advanced diagnostics pipeline, alongside the features introduced in the v4.5.0 release (custom config folders, RCON stability fixes, and settings deadlock mitigations).
 
-            ### 🛠️ Key Improvements & Fixes
+            ### 🆕 New Features & Improvements in v4.5.1
+            - **🦕 Full ARK: Survival Evolved (ASE) Support**: Complete management pipeline for ASE servers, including ShooterGameServer execution monitoring, environment layout configurations, in-app configuration editor pages, map listings, and seamless sidebar layout integration.
+            - **🌐 Advanced Diagnostics Pipeline**: Real-time diagnostic verification system checks process status, UDP port binding availability, LAN query status (Steam A2S protocol), and global public WAN accessibility.
+            - **🎓 Setup & Troubleshooting Guides**: Interactive troubleshooting dashboard built directly into the server status bar offering clear instructions to resolve local firewalls, port forwarding (NAT), and UPnP setup issues.
+            - **📂 Log Capture & Failsafe Debugging**: Added persistent logging for installation stages, written directly to the user AppData directory (`debug_events.log`) for streamlined debugging.
+            - **⚡ Layout Overhauls**: Optimized interactive settings sliders, grids, and UI layout on Config Editor and Infinity Damage pages.
+
+            ### 🛠️ Key Previous Improvements & Fixes (v4.5.0)
             - **🗂️ Custom User Config Folder Override**: Point to custom folders containing server INI configuration files (GameUserSettings.ini, Game.ini) for both ASA and ASE. The manager reads/writes configs from this folder instead of the server install directory.
             - **🔒 RCON Tab Page Locking**: Resolved UI locking on the RCON console page by implementing stable Zustand state selectors and avoiding side-effects during render loops.
             - **🏷️ Server Name Saving & Migration**: Fixed server name saving on the ASA side (where names would revert to random default names like `ARK#824565` or old names persist) by migrating legacy `ServerName` references to `SessionName` and cleaning up obsolete config keys.

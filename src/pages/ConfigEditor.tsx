@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useMemo, memo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { createPortal } from 'react-dom';
 import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3, Shield, X, ChevronDown, ChevronUp, MapPin, Compass, Clock, Sparkles, Globe } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { readConfig, saveConfig, updateServerSettings } from '../utils/tauri';
@@ -697,6 +698,422 @@ const TextAreaFieldInput = ({
     );
 };
 
+const MapSelectorDropdown = ({
+    value,
+    dropdownValue,
+    selectedMapMeta,
+    selectedOption,
+    groupedOptions,
+    isCustomValue,
+    handleChange,
+    labelContent,
+    containerClassName
+}: {
+    value: string;
+    dropdownValue: string;
+    selectedMapMeta: MapInfo | undefined;
+    selectedOption: any;
+    groupedOptions: Record<string, any[]>;
+    isCustomValue: boolean;
+    handleChange: (val: string) => void;
+    labelContent: React.ReactNode;
+    containerClassName: string;
+}) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+    const mapButtonRef = useRef<HTMLButtonElement>(null);
+    const mapListRef = useRef<HTMLDivElement>(null);
+    const [mapDropdownPos, setMapDropdownPos] = useState({ top: 0, left: 0, width: 0 });
+
+    // Close dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as Node;
+            const insideButton = dropdownRef.current?.contains(target);
+            const insideList = mapListRef.current?.contains(target);
+            if (!insideButton && !insideList) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isOpen]);
+
+    // Recalculate dropdown position whenever isOpen becomes true or window resizes/scrolls
+    useEffect(() => {
+        if (isOpen && mapButtonRef.current) {
+            const updatePosition = () => {
+                const rect = mapButtonRef.current!.getBoundingClientRect();
+                setMapDropdownPos({
+                    top: rect.bottom + 8,
+                    left: rect.left,
+                    width: rect.width
+                });
+            };
+            updatePosition();
+            window.addEventListener('resize', updatePosition);
+            window.addEventListener('scroll', updatePosition, true);
+            return () => {
+                window.removeEventListener('resize', updatePosition);
+                window.removeEventListener('scroll', updatePosition, true);
+            };
+        }
+    }, [isOpen]);
+
+    return (
+        <div
+            className={cn(
+                containerClassName.replace('overflow-hidden', 'overflow-visible'),
+                isOpen ? "z-30" : "z-10"
+            )}
+        >
+            {labelContent}
+
+            {/* Custom Select Button */}
+            <div ref={dropdownRef} className="relative z-20">
+                <button
+                    ref={mapButtonRef}
+                    type="button"
+                    onClick={() => {
+                        setIsOpen(!isOpen);
+                    }}
+                    className="w-full flex items-center justify-between bg-[#1a1a2e] border-2 border-[#2d2d44] hover:border-violet-500/50 rounded-xl px-4 py-3 text-white transition-all focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] text-left cursor-pointer"
+                >
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-xl">
+                            {selectedMapMeta ? selectedMapMeta.icon : (dropdownValue === '__CUSTOM__' ? '✏️' : '🗺️')}
+                        </span>
+                        <div>
+                            <div className="font-semibold text-slate-100 leading-tight">
+                                {selectedMapMeta ? selectedMapMeta.name : (selectedOption ? selectedOption.label.replace(/^[^\s]+\s+/, '') : value || 'Custom Map')}
+                            </div>
+                            <div className="text-[10px] text-violet-400 font-medium tracking-wider uppercase mt-0.5">
+                                {selectedMapMeta ? (selectedMapMeta.author ? `${selectedMapMeta.dlcType} • By ${selectedMapMeta.author}` : selectedMapMeta.dlcType) : (dropdownValue === '__CUSTOM__' ? 'Custom ID' : 'Custom Mod Map')}
+                            </div>
+                        </div>
+                    </div>
+                    {isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+                </button>
+
+                {/* Grouped Dropdown Options List — fixed so it escapes overflow:hidden/scroll ancestors */}
+                {isOpen && createPortal(
+                    <div
+                        ref={mapListRef}
+                        className="fixed bg-[#0e0e1a]/98 border-2 border-[#2d2d44] rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200 z-[150] custom-scrollbar p-1.5 space-y-3"
+                        style={{ top: mapDropdownPos.top, left: mapDropdownPos.left, width: mapDropdownPos.width }}
+                    >
+
+                        {/* Released/Official Maps */}
+                        {groupedOptions.released && groupedOptions.released.length > 0 && (
+                            <div className="space-y-1">
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border border-[#2d2d44]/30 rounded-lg flex items-center gap-1.5 select-none">
+                                    <Globe className="w-3 h-3 text-emerald-400" /> Official Release Maps
+                                </div>
+                                <div className="space-y-1">
+                                    {groupedOptions.released.map(opt => {
+                                        const isSelected = dropdownValue === opt.value;
+                                        const meta = MAP_METADATA[opt.value];
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    handleChange(opt.value);
+                                                    setIsOpen(false);
+                                                }}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
+                                                    isSelected
+                                                        ? "bg-violet-600/25 border-violet-500/60 text-white font-medium shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+                                                        : "text-slate-300 hover:bg-[#1c1c38]/80 border-transparent hover:text-white hover:border-[#2d2d44]"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    {meta?.image && (
+                                                        <div className="w-14 h-9 rounded-md overflow-hidden relative border border-slate-700/40 flex-shrink-0 bg-slate-950">
+                                                            <img
+                                                                src={meta.image}
+                                                                alt={meta.name}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                                                        </div>
+                                                    )}
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-1.5 font-semibold text-slate-100">
+                                                            <span className="text-base flex-shrink-0">{meta?.icon || '🏝️'}</span>
+                                                            <span className="truncate">{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1.5">
+                                                            <span>{meta?.size || 'Unknown Size'}</span>
+                                                            {meta?.author && (
+                                                                <>
+                                                                    <span className="w-1 h-1 rounded-full bg-slate-650" />
+                                                                    <span className="text-violet-400 font-semibold">By {meta.author}</span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    {meta?.dlcType && (
+                                                        <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 border border-white/5 text-slate-350">
+                                                            {meta.dlcType}
+                                                        </span>
+                                                    )}
+                                                    {isSelected && <Check className="w-4 h-4 text-violet-400" />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Premium Mod Maps */}
+                        {groupedOptions.premium && groupedOptions.premium.length > 0 && (
+                            <div className="space-y-1">
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border border-[#2d2d44]/30 rounded-lg flex items-center gap-1.5 select-none">
+                                    <Sparkles className="w-3 h-3 text-pink-400" /> Premium Mod Maps
+                                </div>
+                                <div className="space-y-1">
+                                    {groupedOptions.premium.map(opt => {
+                                        const isSelected = dropdownValue === opt.value;
+                                        const meta = MAP_METADATA[opt.value];
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    handleChange(opt.value);
+                                                    setIsOpen(false);
+                                                }}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
+                                                    isSelected
+                                                        ? "bg-violet-600/25 border-violet-500/60 text-white font-medium shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+                                                        : "text-slate-300 hover:bg-[#1c1c38]/80 border-transparent hover:text-white hover:border-[#2d2d44]"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    {meta?.image && (
+                                                        <div className="w-14 h-9 rounded-md overflow-hidden relative border border-slate-700/40 flex-shrink-0 bg-slate-950">
+                                                            <img
+                                                                src={meta.image}
+                                                                alt={meta.name}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                                                        </div>
+                                                    )}
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-1.5 font-semibold text-slate-100">
+                                                            <span className="text-base flex-shrink-0">{meta?.icon || '✨'}</span>
+                                                            <span className="truncate">{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1.5">
+                                                            <span>{meta?.size || 'Unknown Size'}</span>
+                                                            {meta?.author && (
+                                                                <>
+                                                                    <span className="w-1 h-1 rounded-full bg-slate-650" />
+                                                                    <span className="text-pink-400 font-semibold">By {meta.author}</span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    {meta?.dlcType && (
+                                                        <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 border border-white/5 text-slate-350">
+                                                            {meta.dlcType}
+                                                        </span>
+                                                    )}
+                                                    {isSelected && <Check className="w-4 h-4 text-violet-400" />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Modded Expansion Maps */}
+                        {groupedOptions.modded && groupedOptions.modded.length > 0 && (
+                            <div className="space-y-1">
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border border-[#2d2d44]/30 rounded-lg flex items-center gap-1.5 select-none">
+                                    <Compass className="w-3 h-3 text-orange-400" /> Modded Expansion Maps
+                                </div>
+                                <div className="space-y-1">
+                                    {groupedOptions.modded.map(opt => {
+                                        const isSelected = dropdownValue === opt.value;
+                                        const meta = MAP_METADATA[opt.value];
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    handleChange(opt.value);
+                                                    setIsOpen(false);
+                                                }}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
+                                                    isSelected
+                                                        ? "bg-violet-600/25 border-violet-500/60 text-white font-medium shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+                                                        : "text-slate-300 hover:bg-[#1c1c38]/80 border-transparent hover:text-white hover:border-[#2d2d44]"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    {meta?.image && (
+                                                        <div className="w-14 h-9 rounded-md overflow-hidden relative border border-slate-700/40 flex-shrink-0 bg-slate-950">
+                                                            <img
+                                                                src={meta.image}
+                                                                alt={meta.name}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                                                        </div>
+                                                    )}
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-1.5 font-semibold text-slate-100">
+                                                            <span className="text-base flex-shrink-0">{meta?.icon || '🔥'}</span>
+                                                            <span className="truncate">{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1.5">
+                                                            <span>{meta?.size || 'Unknown Size'}</span>
+                                                            {meta?.author && (
+                                                                <>
+                                                                    <span className="w-1 h-1 rounded-full bg-slate-650" />
+                                                                    <span className="text-orange-400 font-semibold">By {meta.author}</span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    {meta?.dlcType && (
+                                                        <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 border border-white/5 text-slate-355">
+                                                            {meta.dlcType}
+                                                        </span>
+                                                    )}
+                                                    {isSelected && <Check className="w-4 h-4 text-violet-400" />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Upcoming Maps */}
+                        {groupedOptions.upcoming && groupedOptions.upcoming.length > 0 && (
+                            <div className="space-y-1">
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border border-[#2d2d44]/30 rounded-lg flex items-center gap-1.5 select-none">
+                                    <Clock className="w-3 h-3 text-amber-400 animate-pulse" /> Upcoming Maps (Soon)
+                                </div>
+                                <div className="space-y-1">
+                                    {groupedOptions.upcoming.map(opt => {
+                                        const isSelected = dropdownValue === opt.value;
+                                        const meta = MAP_METADATA[opt.value];
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    handleChange(opt.value);
+                                                    setIsOpen(false);
+                                                }}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
+                                                    isSelected
+                                                        ? "bg-violet-600/25 border-violet-500/60 text-white font-medium shadow-[0_0_12px_rgba(139,92,246,0.15)]"
+                                                        : "text-slate-300 hover:bg-[#1c1c38]/80 border-transparent hover:text-white hover:border-[#2d2d44]"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    {meta?.image && (
+                                                        <div className="w-14 h-9 rounded-md overflow-hidden relative border border-slate-700/40 flex-shrink-0 bg-slate-950">
+                                                            <img
+                                                                src={meta.image}
+                                                                alt={meta.name}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                                                        </div>
+                                                    )}
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-1.5 font-semibold text-slate-100">
+                                                            <span className="text-base flex-shrink-0">{meta?.icon || '🧬'}</span>
+                                                            <span className="truncate">{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1.5">
+                                                            <span>{meta?.size || 'Unknown Size'}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    {meta?.dlcType && (
+                                                        <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 border border-white/5 text-slate-355">
+                                                            {meta.dlcType}
+                                                        </span>
+                                                    )}
+                                                    {isSelected && <Check className="w-4 h-4 text-violet-400" />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Custom option */}
+                        {groupedOptions.custom && groupedOptions.custom.length > 0 && (
+                            <div className="border-t border-[#2d2d44]/35 pt-2">
+                                <div className="space-y-1">
+                                    {groupedOptions.custom.map(opt => {
+                                        const isSelected = dropdownValue === opt.value;
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    handleChange(isCustomValue ? value : '');
+                                                    setIsOpen(false);
+                                                }}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
+                                                    isSelected
+                                                        ? "bg-amber-600/25 border-amber-500/60 text-white font-medium shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                                                        : "text-slate-300 hover:bg-[#1c1c38]/80 border-transparent hover:text-white hover:border-[#2d2d44]"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="w-14 h-9 rounded-md border border-slate-700/40 flex-shrink-0 bg-slate-950 flex items-center justify-center text-slate-500">
+                                                        <span className="text-base">✏️</span>
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="font-semibold text-slate-100 truncate">{opt.label}</div>
+                                                        <div className="text-[10px] text-slate-400 mt-0.5">Specify a custom map argument</div>
+                                                    </div>
+                                                </div>
+                                                {isSelected && <Check className="w-4 h-4 text-amber-500" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>,
+                    document.body
+                )}
+            </div>
+        </div>
+    );
+};
+
 // Field Render Component
 // Field Render Component - Memoized to prevent re-renders of all fields on single keypress
 const ConfigInput = memo(({
@@ -836,285 +1253,41 @@ const ConfigInput = memo(({
             const dropdownValue = isCustomValue ? '__CUSTOM__' : value;
 
             if (field.key === 'MapName') {
-                const [isOpen, setIsOpen] = useState(false);
-                const dropdownRef = useRef<HTMLDivElement>(null);
-                const mapButtonRef = useRef<HTMLButtonElement>(null);
-                const mapListRef = useRef<HTMLDivElement>(null);
-                const [mapDropdownPos, setMapDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-
-                // Close dropdown on click outside — must check both the button wrapper and the fixed list panel
-                useEffect(() => {
-                    const handleClickOutside = (event: MouseEvent) => {
-                        const target = event.target as Node;
-                        const insideButton = dropdownRef.current?.contains(target);
-                        const insideList = mapListRef.current?.contains(target);
-                        if (!insideButton && !insideList) {
-                            setIsOpen(false);
-                        }
-                    };
-                    if (isOpen) {
-                        document.addEventListener('mousedown', handleClickOutside);
-                    }
-                    return () => {
-                        document.removeEventListener('mousedown', handleClickOutside);
-                    };
-                }, [isOpen]);
-
                 // Find currently selected map metadata
                 const selectedMapMeta = MAP_METADATA[value];
                 const selectedOption = field.options?.find(o => o.value === dropdownValue);
 
                 // Group options by their group property for premium organization
                 // Groups: released, premium, modded, upcoming, custom
-                const groupedOptions = useMemo(() => {
-                    const groups: Record<string, typeof field.options> = {
-                        released: [],
-                        premium: [],
-                        modded: [],
-                        upcoming: [],
-                        custom: []
-                    };
-                    field.options?.forEach(opt => {
-                        const g = opt.group || 'released';
-                        if (groups[g]) {
-                            groups[g].push(opt);
-                        } else {
-                            groups[g] = [opt];
-                        }
-                    });
-                    return groups;
-                }, [field.options]);
+                const groupedOptions: Record<string, any[]> = {
+                    released: [],
+                    premium: [],
+                    modded: [],
+                    upcoming: [],
+                    custom: []
+                };
+                field.options?.forEach(opt => {
+                    const g = opt.group || 'released';
+                    if (groupedOptions[g]) {
+                        groupedOptions[g].push(opt);
+                    } else {
+                        groupedOptions[g] = [opt];
+                    }
+                });
 
                 return (
-                    <div
-                        className={cn(
-                            containerClassName.replace('overflow-hidden', 'overflow-visible'),
-                            isOpen ? "z-30" : "z-10"
-                        )}
-                    >
-                        {labelContent}
-
-                        {/* Custom Select Button */}
-                        <div ref={dropdownRef} className="relative z-20">
-                            <button
-                                ref={mapButtonRef}
-                                type="button"
-                                onClick={() => {
-                                    if (!isOpen && mapButtonRef.current) {
-                                        const rect = mapButtonRef.current.getBoundingClientRect();
-                                        setMapDropdownPos({ top: rect.bottom + 8, left: rect.left, width: rect.width });
-                                    }
-                                    setIsOpen(!isOpen);
-                                }}
-                                className="w-full flex items-center justify-between bg-[#1a1a2e] border-2 border-[#2d2d44] hover:border-violet-500/50 rounded-xl px-4 py-3 text-white transition-all focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] text-left cursor-pointer"
-                            >
-                                <div className="flex items-center gap-2.5">
-                                    <span className="text-xl">
-                                        {selectedMapMeta ? selectedMapMeta.icon : (dropdownValue === '__CUSTOM__' ? '✏️' : '🗺️')}
-                                    </span>
-                                    <div>
-                                        <div className="font-semibold text-slate-100 leading-tight">
-                                            {selectedMapMeta ? selectedMapMeta.name : (selectedOption ? selectedOption.label.replace(/^[^\s]+\s+/, '') : value || 'Custom Map')}
-                                        </div>
-                                        <div className="text-[10px] text-violet-400 font-medium tracking-wider uppercase mt-0.5">
-                                            {selectedMapMeta ? (selectedMapMeta.author ? `${selectedMapMeta.dlcType} • By ${selectedMapMeta.author}` : selectedMapMeta.dlcType) : (dropdownValue === '__CUSTOM__' ? 'Custom ID' : 'Custom Mod Map')}
-                                        </div>
-                                    </div>
-                                </div>
-                                {isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
-                            </button>
-
-                            {/* Grouped Dropdown Options List — fixed so it escapes overflow:hidden/scroll ancestors */}
-                            {isOpen && (
-                                <div
-                                    ref={mapListRef}
-                                    className="fixed bg-[#121225]/95 border-2 border-[#2d2d44] rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200 z-[150]"
-                                    style={{ top: mapDropdownPos.top, left: mapDropdownPos.left, width: mapDropdownPos.width }}
-                                >
-
-                                    {/* Released/Official Maps */}
-                                    {groupedOptions.released && groupedOptions.released.length > 0 && (
-                                        <div>
-                                            <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border-b border-[#2d2d44]/50 flex items-center gap-1.5">
-                                                <Globe className="w-3 h-3 text-emerald-400" /> Official Release Maps
-                                            </div>
-                                            <div className="p-1.5 space-y-0.5">
-                                                {groupedOptions.released.map(opt => {
-                                                    const isSelected = dropdownValue === opt.value;
-                                                    const meta = MAP_METADATA[opt.value];
-                                                    return (
-                                                        <button
-                                                            key={opt.value}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                handleChange(opt.value);
-                                                                setIsOpen(false);
-                                                            }}
-                                                            className={cn(
-                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                                                                isSelected
-                                                                    ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
-                                                                    : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
-                                                            )}
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-base">{meta?.icon || '🏝️'}</span>
-                                                                <span>{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
-                                                            </div>
-                                                            {isSelected && <Check className="w-4 h-4 text-violet-400" />}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Premium Mod Maps */}
-                                    {groupedOptions.premium && groupedOptions.premium.length > 0 && (
-                                        <div className="border-t border-[#2d2d44]/50">
-                                            <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border-b border-[#2d2d44]/50 flex items-center gap-1.5">
-                                                <Sparkles className="w-3 h-3 text-pink-400" /> Premium Mod Maps
-                                            </div>
-                                            <div className="p-1.5 space-y-0.5">
-                                                {groupedOptions.premium.map(opt => {
-                                                    const isSelected = dropdownValue === opt.value;
-                                                    const meta = MAP_METADATA[opt.value];
-                                                    return (
-                                                        <button
-                                                            key={opt.value}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                handleChange(opt.value);
-                                                                setIsOpen(false);
-                                                            }}
-                                                            className={cn(
-                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                                                                isSelected
-                                                                    ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
-                                                                    : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
-                                                            )}
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-base">{meta?.icon || '✨'}</span>
-                                                                <span>{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
-                                                            </div>
-                                                            {isSelected && <Check className="w-4 h-4 text-violet-400" />}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Modded Expansion Maps */}
-                                    {groupedOptions.modded && groupedOptions.modded.length > 0 && (
-                                        <div className="border-t border-[#2d2d44]/50">
-                                            <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border-b border-[#2d2d44]/50 flex items-center gap-1.5">
-                                                <Compass className="w-3 h-3 text-orange-400" /> Modded Expansion Maps
-                                            </div>
-                                            <div className="p-1.5 space-y-0.5">
-                                                {groupedOptions.modded.map(opt => {
-                                                    const isSelected = dropdownValue === opt.value;
-                                                    const meta = MAP_METADATA[opt.value];
-                                                    return (
-                                                        <button
-                                                            key={opt.value}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                handleChange(opt.value);
-                                                                setIsOpen(false);
-                                                            }}
-                                                            className={cn(
-                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                                                                isSelected
-                                                                    ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
-                                                                    : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
-                                                            )}
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-base">{meta?.icon || '🔥'}</span>
-                                                                <span>{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
-                                                            </div>
-                                                            {isSelected && <Check className="w-4 h-4 text-violet-400" />}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Upcoming Maps */}
-                                    {groupedOptions.upcoming && groupedOptions.upcoming.length > 0 && (
-                                        <div className="border-t border-[#2d2d44]/50">
-                                            <div className="px-4 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border-b border-[#2d2d44]/50 flex items-center gap-1.5">
-                                                <Clock className="w-3 h-3 text-amber-400 animate-pulse" /> Upcoming Maps (Soon)
-                                            </div>
-                                            <div className="p-1.5 space-y-0.5">
-                                                {groupedOptions.upcoming.map(opt => {
-                                                    const isSelected = dropdownValue === opt.value;
-                                                    const meta = MAP_METADATA[opt.value];
-                                                    return (
-                                                        <button
-                                                            key={opt.value}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                handleChange(opt.value);
-                                                                setIsOpen(false);
-                                                            }}
-                                                            className={cn(
-                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                                                                isSelected
-                                                                    ? "bg-violet-600/30 border border-violet-500/50 text-white font-medium shadow-[0_0_10px_rgba(139,92,246,0.1)]"
-                                                                    : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
-                                                            )}
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-base">{meta?.icon || '🧬'}</span>
-                                                                <span>{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
-                                                            </div>
-                                                            {isSelected && <Check className="w-4 h-4 text-violet-400" />}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Custom option */}
-                                    {groupedOptions.custom && groupedOptions.custom.length > 0 && (
-                                        <div className="border-t border-[#2d2d44]/50">
-                                            <div className="p-1.5">
-                                                {groupedOptions.custom.map(opt => {
-                                                    const isSelected = dropdownValue === opt.value;
-                                                    return (
-                                                        <button
-                                                            key={opt.value}
-                                                            type="button"
-                                                            onClick={() => {
-                                                                handleChange(isCustomValue ? value : '');
-                                                                setIsOpen(false);
-                                                            }}
-                                                            className={cn(
-                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                                                                isSelected
-                                                                    ? "bg-amber-600/30 border border-amber-500/50 text-white font-medium"
-                                                                    : "text-slate-300 hover:bg-[#1c1c38] border border-transparent hover:text-white"
-                                                            )}
-                                                        >
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-base">✏️</span>
-                                                                <span>{opt.label}</span>
-                                                            </div>
-                                                            {isSelected && <Check className="w-4 h-4 text-amber-500" />}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                    <div className={containerClassName}>
+                        <MapSelectorDropdown
+                            value={value}
+                            dropdownValue={dropdownValue}
+                            selectedMapMeta={selectedMapMeta}
+                            selectedOption={selectedOption}
+                            groupedOptions={groupedOptions}
+                            isCustomValue={isCustomValue}
+                            handleChange={handleChange}
+                            labelContent={labelContent}
+                            containerClassName={containerClassName}
+                        />
 
                         {/* Custom Map Text Input when custom selection or non-predefined map name */}
                         {(dropdownValue === '__CUSTOM__') && (

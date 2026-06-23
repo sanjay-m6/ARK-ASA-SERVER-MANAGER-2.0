@@ -34,13 +34,26 @@ pub struct ServerInstaller {
     install_path: String,
 }
 
+fn log_to_file(msg: &str) {
+    if let Ok(mut file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("C:\\Users\\sanja\\AppData\\Roaming\\com.ark.asaservermanager\\rust_debug.log")
+    {
+        use std::io::Write;
+        let _ = writeln!(file, "[{}] {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), msg);
+    }
+}
+
 impl ServerInstaller {
     pub fn new(app_handle: AppHandle, install_path: String) -> Self {
+        log_to_file(&format!("New ServerInstaller created with install_path: {}", install_path));
         Self { app_handle, install_path }
     }
 
     fn emit_progress(&self, stage: &str, progress: f32, message: &str) {
-        let _ = self.app_handle.emit(
+        log_to_file(&format!("emit_progress: Stage={}, Progress={}, Msg={}, Path={}", stage, progress, message, self.install_path));
+        let res = self.app_handle.emit(
             "install-progress",
             InstallProgress {
                 install_path: self.install_path.clone(),
@@ -51,12 +64,16 @@ impl ServerInstaller {
                 is_error: false,
             },
         );
+        if let Err(e) = res {
+            log_to_file(&format!("  ERROR emitting install-progress: {:?}", e));
+        }
     }
 
     pub fn emit_console(&self, line: &str, line_type: &str) {
         let timestamp = chrono::Local::now().format("%H:%M:%S").to_string();
+        log_to_file(&format!("emit_console: Type={}, Line={}", line_type, line));
 
-        let _ = self.app_handle.emit(
+        let res = self.app_handle.emit(
             "install-console",
             ConsoleOutput {
                 install_path: self.install_path.clone(),
@@ -65,6 +82,9 @@ impl ServerInstaller {
                 timestamp,
             },
         );
+        if let Err(e) = res {
+            log_to_file(&format!("  ERROR emitting install-console: {:?}", e));
+        }
     }
 
     pub fn emit_complete(&self, message: &str) {

@@ -106,6 +106,14 @@ export async function getServerById(serverId: number): Promise<Server | null> {
     return await invoke('get_server_by_id', { serverId });
 }
 
+export async function getServerVersion(serverId: number): Promise<string> {
+    return await invoke('get_server_version', { serverId });
+}
+
+export async function getLatestServerVersion(): Promise<string> {
+    return await invoke('get_latest_server_version');
+}
+
 export interface InstallServerParams {
     serverType: ServerType;
     installPath: string;

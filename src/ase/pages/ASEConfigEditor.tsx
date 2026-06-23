@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from '
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
-import { Save, RotateCcw, ChevronDown, ChevronUp, Check, Sparkles, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Download, FileText, Database, Loader2, Sliders, AlertTriangle, X, ExternalLink, Copy, GraduationCap, BarChart3, RefreshCw, TerminalSquare, Lock, Unlock } from 'lucide-react';
+import { Save, RotateCcw, ChevronDown, ChevronUp, Check, CheckSquare, Settings2, Users, Flame, Hammer, MonitorPlay, Search, Shield, Globe, Cpu, Map, Compass, Download, FileText, Database, Loader2, Sliders, AlertTriangle, X, ExternalLink, Copy, GraduationCap, BarChart3, RefreshCw, TerminalSquare, Lock, Unlock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
@@ -1013,7 +1013,7 @@ export default function ASEConfigEditor() {
           >
             <div className="flex items-center gap-2.5">
               <span className="text-xl">
-                {selectedMapMeta ? (selectedMapMeta.isModded ? '🏝️' : '🗺️') : (dropdownValue === '__CUSTOM__' ? '✏️' : '🗺️')}
+                {selectedMapMeta ? selectedMapMeta.icon : (dropdownValue === '__CUSTOM__' ? '✏️' : '🗺️')}
               </span>
               <div>
                 <div className="font-semibold text-slate-100 leading-tight">
@@ -1029,95 +1029,161 @@ export default function ASEConfigEditor() {
 
           {/* Options Dropdown */}
           {isMapOpen && (
-            <div className="absolute left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200 z-30">
+            <div className="absolute left-0 right-0 mt-2 bg-slate-900/98 border border-slate-800 rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200 z-30 p-1.5 space-y-3 custom-scrollbar">
               
               {/* Official Maps */}
-              <div className="px-4 py-2 text-[10px] font-bold text-slate-450 uppercase tracking-widest bg-slate-950/40 border-b border-white/5 flex items-center gap-1.5 select-none">
-                <Globe className="w-3 h-3 text-amber-500" /> Official Maps
-              </div>
-              <div className="p-1.5 space-y-0.5">
-                {groupedMaps.official.map(m => {
-                  const isSelected = mapName === m.serverArg;
-                  return (
-                    <button
-                      key={m.serverArg}
-                      type="button"
-                      onClick={() => {
-                        handleMapChange(m.serverArg);
-                        setIsMapOpen(false);
-                      }}
-                      className={cn(
-                        "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                        isSelected 
-                          ? "bg-amber-500/10 border border-amber-500/20 text-amber-400 font-medium"
-                          : "text-slate-355 hover:bg-slate-800/40 border border-transparent hover:text-white"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">🏝️</span>
-                        <span>{m.name}</span>
-                      </div>
-                      {isSelected && <Check className="w-4 h-4 text-amber-500" />}
-                    </button>
-                  );
-                })}
+              <div className="space-y-1">
+                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-450 uppercase tracking-widest bg-slate-950/45 border border-slate-800/40 rounded-lg flex items-center gap-1.5 select-none">
+                  <Globe className="w-3 h-3 text-amber-500" /> Official Maps
+                </div>
+                <div className="space-y-1">
+                  {groupedMaps.official.map(m => {
+                    const isSelected = mapName === m.serverArg;
+                    return (
+                      <button
+                        key={m.serverArg}
+                        type="button"
+                        onClick={() => {
+                          handleMapChange(m.serverArg);
+                          setIsMapOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
+                          isSelected 
+                            ? "bg-amber-500/15 border-amber-500/50 text-amber-400 font-medium shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                            : "text-slate-355 hover:bg-slate-800/40 border-transparent hover:text-white hover:border-slate-700/50"
+                        )}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {m.image && (
+                            <div className="w-14 h-9 rounded-md overflow-hidden relative border border-slate-700/40 flex-shrink-0 bg-slate-950">
+                              <img
+                                src={m.image}
+                                alt={m.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 font-semibold text-slate-100">
+                              <span className="text-base flex-shrink-0">{m.icon || '🏝️'}</span>
+                              <span className="truncate">{m.name}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-450 truncate mt-0.5 flex items-center gap-1.5">
+                              <span>{m.size || 'Unknown Size'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {m.dlcType && (
+                            <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 border border-white/5 text-slate-355">
+                              {m.dlcType}
+                            </span>
+                          )}
+                          {isSelected && <Check className="w-4 h-4 text-amber-500" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Modded Maps */}
-              <div className="px-4 py-2 text-[10px] font-bold text-slate-450 uppercase tracking-widest bg-slate-950/40 border-t border-b border-white/5 flex items-center gap-1.5 select-none">
-                <Sparkles className="w-3 h-3 text-amber-500" /> Workshop Modded Maps
-              </div>
-              <div className="p-1.5 space-y-0.5">
-                {groupedMaps.modded.map(m => {
-                  const isSelected = mapName === m.serverArg;
-                  return (
-                    <button
-                      key={m.serverArg}
-                      type="button"
-                      onClick={() => {
-                        handleMapChange(m.serverArg);
-                        setIsMapOpen(false);
-                      }}
-                      className={cn(
-                        "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                        isSelected 
-                          ? "bg-amber-500/10 border border-amber-500/20 text-amber-400 font-medium"
-                          : "text-slate-355 hover:bg-slate-800/40 border border-transparent hover:text-white"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">⚙️</span>
-                        <span>{m.name} {m.author && <span className="text-[10px] text-slate-500 font-normal">by {m.author}</span>}</span>
-                      </div>
-                      {isSelected && <Check className="w-4 h-4 text-amber-500" />}
-                    </button>
-                  );
-                })}
-              </div>
+              {groupedMaps.modded && groupedMaps.modded.length > 0 && (
+                <div className="space-y-1">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-slate-450 uppercase tracking-widest bg-slate-950/45 border border-slate-800/40 rounded-lg flex items-center gap-1.5 select-none">
+                    <Compass className="w-3 h-3 text-amber-500" /> Workshop Modded Maps
+                  </div>
+                  <div className="space-y-1">
+                    {groupedMaps.modded.map(m => {
+                      const isSelected = mapName === m.serverArg;
+                      return (
+                        <button
+                          key={m.serverArg}
+                          type="button"
+                          onClick={() => {
+                            handleMapChange(m.serverArg);
+                            setIsMapOpen(false);
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
+                            isSelected 
+                              ? "bg-amber-500/15 border-amber-500/50 text-amber-400 font-medium shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                              : "text-slate-355 hover:bg-slate-800/40 border-transparent hover:text-white hover:border-slate-700/50"
+                          )}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {m.image && (
+                              <div className="w-14 h-9 rounded-md overflow-hidden relative border border-slate-700/40 flex-shrink-0 bg-slate-950">
+                                <img
+                                  src={m.image}
+                                  alt={m.name}
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 font-semibold text-slate-100">
+                                <span className="text-base flex-shrink-0">{m.icon || '⚙️'}</span>
+                                <span className="truncate">{m.name}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-450 truncate mt-0.5 flex items-center gap-1.5">
+                                <span>{m.size || 'Unknown Size'}</span>
+                                {m.author && (
+                                  <>
+                                    <span className="w-1 h-1 rounded-full bg-slate-650" />
+                                    <span className="text-amber-500 font-semibold">By {m.author}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {m.dlcType && (
+                              <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-slate-800 border border-white/5 text-slate-355">
+                                {m.dlcType}
+                              </span>
+                            )}
+                            {isSelected && <Check className="w-4 h-4 text-amber-500" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Custom Selector */}
-              <div className="border-t border-white/5 p-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleMapChange(isCustomValue ? mapName : '');
-                    setIsMapOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left text-sm transition-all duration-150",
-                    dropdownValue === '__CUSTOM__' 
-                      ? "bg-amber-500/10 border border-amber-500/20 text-amber-400 font-medium"
-                      : "text-slate-355 hover:bg-slate-800/40 border border-transparent hover:text-white"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">✏️</span>
-                    <span>Custom Map / Mod ID</span>
-                  </div>
-                  {dropdownValue === '__CUSTOM__' && <Check className="w-4 h-4 text-amber-500" />}
-                </button>
+              <div className="border-t border-slate-800/60 pt-2">
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleMapChange(isCustomValue ? mapName : '');
+                      setIsMapOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
+                      dropdownValue === '__CUSTOM__' 
+                        ? "bg-amber-500/15 border-amber-500/50 text-amber-400 font-medium shadow-[0_0_12px_rgba(245,158,11,0.15)]"
+                        : "text-slate-355 hover:bg-slate-800/40 border-transparent hover:text-white hover:border-slate-700/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-14 h-9 rounded-md border border-slate-700/40 flex-shrink-0 bg-slate-950 flex items-center justify-center text-slate-500">
+                        <span className="text-base">✏️</span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-slate-100 truncate">Custom Map / Mod ID</div>
+                        <div className="text-[10px] text-slate-450 mt-0.5">Specify custom identifier launch arguments</div>
+                      </div>
+                    </div>
+                    {dropdownValue === '__CUSTOM__' && <Check className="w-4 h-4 text-amber-500" />}
+                  </button>
+                </div>
               </div>
-
             </div>
           )}
         </div>
@@ -1165,7 +1231,7 @@ export default function ASEConfigEditor() {
               {/* Card Contents */}
               <div className="relative p-4 z-10">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-lg">🏝️</span>
+                  <span className="text-lg">{selectedMapMeta.icon || '🏝️'}</span>
                   <h4 className="font-black text-white text-base leading-tight drop-shadow-md">{selectedMapMeta.name}</h4>
                 </div>
                 {selectedMapMeta.author && (
@@ -2604,6 +2670,17 @@ export default function ASEConfigEditor() {
                                           <input type="number" value={config.maxPlayers || 70} onChange={e => { setConfig({...config, maxPlayers: parseInt(e.target.value) || 70}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                       </div>
+
+                                      {adminState.localIp && (
+                                        <div className="mt-4 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                                          <div className="flex items-start gap-2">
+                                            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                            <div className="text-[11px] text-slate-400 leading-relaxed">
+                                              <span className="font-bold text-amber-400">Warning:</span> Specifying a Local IP forces the server to bind strictly to that address (<code className="text-slate-200 bg-slate-950 px-1 py-0.5 rounded font-mono text-[10px]">-MultiHome</code>). This is required for LAN play or complex multi-homing setups, but **prevents the server from registering with the Steam Master Server**, making it invisible on the public internet server list. **Leave this field blank** if you want your server to be visible on the public web.
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
 
                                     {/* RCON */}

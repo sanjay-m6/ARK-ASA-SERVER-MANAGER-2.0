@@ -112,6 +112,7 @@ export default function Sidebar() {
         { name: 'Discord Bot', path: '/ase/discord', icon: MessageSquare },
         { name: 'Profile Sync', path: '/ase/profile-sync', icon: RefreshCw },
         { name: 'Plugins Manager', path: '/ase/tools/plugins', icon: Plug },
+        { name: 'Infinity Damage', path: '/ase/tools/infinity-damage', icon: Flame },
         { name: 'Tribe Logs', path: '/ase/tools/tribe-logs', icon: ScrollText },
         { name: 'UPnP Ports', path: '/ase/tools/upnp', icon: Wifi },
         { name: 'Server Organization', path: '/ase/tools/organization', icon: Folder },

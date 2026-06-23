@@ -5,7 +5,7 @@ import {
   Server, Activity, Zap, Terminal, Copy, Puzzle,
   Play, Square, RotateCw, Clock, Database, FileEdit,
   Folder, FolderOpen, Heart, Bookmark, Search,
-  ShieldCheck
+  ShieldCheck, GitBranch, AlertTriangle
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -13,7 +13,7 @@ import { useServerStore } from '../stores/serverStore';
 import { useUIStore } from '../stores/uiStore';
 import { useInstallStore } from '../stores/installStore';
 import { cn } from '../utils/helpers';
-import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData } from '../utils/tauri';
+import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData, getServerVersion, getLatestServerVersion } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../components/performance/PerformanceMonitor';
@@ -48,6 +48,8 @@ export default function Dashboard() {
   const [snapshot, setSnapshot] = useState<any>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [serverVersions, setServerVersions] = useState<Record<number, string>>({});
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
 
   // Autostart States
   const [startupConfig, setStartupConfig] = useState<any>({
@@ -277,6 +279,47 @@ export default function Dashboard() {
     } catch (error) {
       toast.error(t('dashboard.failedExtract', { error }));
     }
+  };
+
+  // Fetch latest version from SteamCMD
+  useEffect(() => {
+    const fetchLatest = async () => {
+      try {
+        const latest = await getLatestServerVersion();
+        setLatestVersion(latest);
+      } catch (err) {
+        console.error('Failed to fetch latest ASA version on dashboard:', err);
+      }
+    };
+    fetchLatest();
+  }, []);
+
+  // Fetch local server versions
+  useEffect(() => {
+    const fetchLocalVersions = async () => {
+      const targets = servers.filter(s => !serverVersions[s.id]);
+      if (targets.length === 0) return;
+
+      for (const server of targets) {
+        try {
+          const ver = await getServerVersion(server.id);
+          setServerVersions(prev => ({ ...prev, [server.id]: ver }));
+        } catch (err) {
+          console.error(`Failed to get local version for server ${server.id}:`, err);
+          setServerVersions(prev => ({ ...prev, [server.id]: 'Unknown' }));
+        }
+      }
+    };
+    fetchLocalVersions();
+  }, [servers, serverVersions]);
+
+  const isServerOutdated = (serverId: number) => {
+    const localVer = serverVersions[serverId];
+    if (!localVer || !latestVersion) return false;
+    if (localVer.startsWith('Build ')) {
+      return !localVer.includes(latestVersion);
+    }
+    return false;
   };
 
   // Effects (Keep existing logic)
@@ -633,28 +676,34 @@ export default function Dashboard() {
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
                   <input
                     type="text"
+                    id="asa-server-search"
+                    name="searchQuery"
+                    aria-label="Search servers"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Search server..."
-                    className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500/30 w-48"
+                    className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-violet-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 w-48 transition-all"
                   />
                 </div>
                 <button
                   onClick={() => setDraftOpen(true)}
-                  className="text-xs font-bold px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl transition-all flex items-center gap-1.5"
+                  className="text-xs font-bold px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl transition-all flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.03] active:scale-[0.97]"
+                  aria-label="Deploy Server"
                 >
                   <Zap className="w-3.5 h-3.5 fill-current" />
                   Deploy Server
                 </button>
                 <button
                   onClick={() => navigate('/tools/organization')}
-                  className="text-xs font-semibold px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all"
+                  className="text-xs font-semibold px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.03] active:scale-[0.97]"
+                  aria-label="Organize Nodes"
                 >
                   Organize Nodes
                 </button>
                 <button
                   onClick={() => navigate('/servers')}
-                  className="text-xs font-medium text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 focus:outline-none"
+                  className="text-xs font-medium text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-lg"
+                  aria-label="Manage all servers"
                 >
                   {t('dashboard.manageAll', 'Manage All →')}
                 </button>
@@ -667,11 +716,12 @@ export default function Dashboard() {
                 <button
                   onClick={() => setSelectedFolderId(null)}
                   className={cn(
-                    'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none',
+                    'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.02] active:scale-[0.98]',
                     selectedFolderId === null
                       ? 'bg-sky-500 text-slate-900'
                       : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
                   )}
+                  aria-label="Filter servers: show all nodes"
                 >
                   <FolderOpen className="w-3.5 h-3.5" />
                   <span>All Nodes</span>
@@ -683,12 +733,13 @@ export default function Dashboard() {
                       key={folder.id}
                       onClick={() => setSelectedFolderId(folder.id)}
                       className={cn(
-                        'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none border border-transparent',
+                        'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 border border-transparent hover:scale-[1.02] active:scale-[0.98]',
                         isActive
-                          ? 'text-slate-900'
+                          ? 'text-slate-900 font-semibold'
                           : 'bg-white/5 hover:bg-white/10 text-slate-300'
                       )}
                       style={isActive ? { backgroundColor: folder.color } : { borderLeft: `3px solid ${folder.color}` }}
+                      aria-label={`Filter servers by folder: ${folder.name}`}
                     >
                       <Folder className="w-3.5 h-3.5" />
                       <span>{folder.name}</span>
@@ -826,7 +877,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key={server.id}
-                        className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all group gap-4 lg:gap-0 relative overflow-hidden"
+                        className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] hover:border-violet-500/20 hover:scale-[1.01] hover:shadow-[0_0_15px_rgba(139,92,246,0.05)] transition-all duration-300 group gap-4 lg:gap-0 relative overflow-hidden"
                       >
                         {/* Custom Brand line indicator */}
                         {hasColor && (
@@ -837,15 +888,19 @@ export default function Dashboard() {
                         )}
 
                         <div className="flex items-center gap-4 pl-2">
-                          <div className={cn(
-                            'w-2.5 h-2.5 rounded-full',
-                            server.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
-                            server.status === 'running' && 'bg-sky-500 animate-pulse',
-                            server.status === 'stopped' && 'bg-slate-500',
-                            server.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
-                            server.status === 'starting' && 'bg-sky-500 animate-pulse',
-                            server.status === 'updating' && 'bg-blue-500 animate-pulse'
-                          )} />
+                          <div
+                            className={cn(
+                              'w-2.5 h-2.5 rounded-full transition-all duration-300',
+                              server.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
+                              server.status === 'running' && 'bg-sky-500 animate-pulse',
+                              server.status === 'stopped' && 'bg-slate-500',
+                              server.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
+                              server.status === 'starting' && 'bg-sky-500 animate-pulse',
+                              server.status === 'updating' && 'bg-blue-500 animate-pulse'
+                            )}
+                            role="img"
+                            aria-label={`Status: ${server.status}`}
+                          />
                           <div>
                             <div className="flex items-center gap-2">
                               <h3 className="font-semibold text-slate-200">{displayName}</h3>
@@ -861,6 +916,18 @@ export default function Dashboard() {
                               <p className="text-xs text-slate-400">
                                 {server.config.mapName} • Game: {server.ports.gamePort} • Query: {server.ports.queryPort}
                               </p>
+                              {serverVersions[server.id] && (
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] text-slate-300 font-medium font-mono animate-in fade-in" title={t('serverManager.tooltips.serverVersion', 'Local Server Version')}>
+                                  <GitBranch className="w-3 h-3 text-sky-400/80" />
+                                  <span>{serverVersions[server.id]}</span>
+                                </span>
+                              )}
+                              {isServerOutdated(server.id) && (
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded text-[9px] font-bold animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version is available!')}>
+                                  <AlertTriangle className="w-3 h-3 text-amber-400" />
+                                  <span>{t('serverManager.status.updateAvailable', 'Update Available')}</span>
+                                </span>
+                              )}
                               {server.reachability && (
                                 <span className={cn(
                                   "text-[10px] px-1.5 py-0.5 rounded font-medium font-mono",
@@ -885,23 +952,26 @@ export default function Dashboard() {
                           {(server.status === 'stopped' || server.status === 'crashed') ? (
                             <button
                               onClick={() => handleStartServer(server.id)}
-                              className="w-[34px] h-[34px] flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl transition-all focus:outline-none"
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
                               title="Start Server"
+                              aria-label={`Start Server ${displayName}`}
                             >
                               <Play className="w-4 h-4 fill-current ml-0.5" />
                             </button>
                           ) : (server.status === 'running' || server.status === 'online') ? (
                             <button
                               onClick={() => handleStopServer(server.id)}
-                              className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none"
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
                               title="Stop Server"
+                              aria-label={`Stop Server ${displayName}`}
                             >
                               <Square className="w-4 h-4 fill-current" />
                             </button>
                           ) : (
                             <button
                               disabled
-                              className="w-[34px] h-[34px] flex items-center justify-center bg-slate-500/10 text-slate-400 border border-slate-500/20 rounded-xl opacity-50 cursor-not-allowed focus:outline-none"
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-slate-500/10 text-slate-400 border border-slate-500/20 rounded-xl opacity-50 cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                              aria-label={`Server ${displayName} status updating`}
                             >
                               <RotateCw className="w-4 h-4 animate-spin" />
                             </button>
@@ -910,32 +980,36 @@ export default function Dashboard() {
                           <button
                             onClick={() => handleRestartServer(server.id)}
                             disabled={server.status === 'stopped'}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
                             title="Restart Server"
+                            aria-label={`Restart Server ${displayName}`}
                           >
                             <RotateCw className="w-4 h-4" />
                           </button>
 
                           <button
                             onClick={() => handleCopyIp(server.ipAddress, server.ports.gamePort)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none"
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
                             title="Copy IP Address"
+                            aria-label={`Copy IP address for Server ${displayName}`}
                           >
                             <Copy className="w-3.5 h-3.5" />
                           </button>
 
                           <button
                             onClick={() => openCloneModal(server)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all focus:outline-none"
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
                             title="Clone/Transfer Options"
+                            aria-label={`Clone or transfer Server ${displayName}`}
                           >
                             <Puzzle className="w-4 h-4" />
                           </button>
 
                           <button
                             onClick={() => navigate('/config', { state: { serverId: server.id } })}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none"
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
                             title="Config Editor"
+                            aria-label={`Open Config Editor for Server ${displayName}`}
                           >
                             <FileEdit className="w-4 h-4" />
                           </button>

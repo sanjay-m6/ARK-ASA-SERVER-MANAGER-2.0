@@ -44,6 +44,7 @@ const RESOURCE_DATABASE: ResourceEntry[] = [
   { className: 'PrimalItemResource_Charcoalite_C', displayName: 'Charcoal', category: 'Core', icon: '🖤' },
   { className: 'PrimalItemResource_Sap_C', displayName: 'Sap', category: 'Core', icon: '🍯' },
   { className: 'PrimalItemResource_Sand_C', displayName: 'Sand', category: 'Core', icon: '🏖️' },
+  { className: 'PrimalItemResource_BlackPearl_C', displayName: 'Black Pearl', category: 'Core', icon: '🖤' },
 
   // Consumables
   { className: 'PrimalItemConsumable_RawMeat_C', displayName: 'Raw Meat', category: 'Consumables', icon: '🥩' },

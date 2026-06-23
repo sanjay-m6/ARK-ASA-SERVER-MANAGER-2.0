@@ -1,4 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useGameStore } from '../../stores/gameStore';
+import { useServerStore } from '../../stores/serverStore';
+import { useAseServerStore } from '../../ase/stores/aseServerStore';
 import { 
     Flame, 
     Shield, 
@@ -24,7 +28,6 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { 
-    getAllServers,
     getInfinityDamageConfig, 
     saveInfinityDamageConfig, 
     installInfinityDamagePlugin, 
@@ -165,7 +168,7 @@ function CustomSelect({ value, onChange, options, className }: CustomSelectProps
                             className={cn(
                                 "w-full text-left px-2.5 py-1.5 rounded text-[11px] font-bold uppercase transition-all cursor-pointer",
                                 opt.value === value
-                                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/10"
+                                    ? "bg-${isASE ? 'amber-500' : 'cyan-500'}/10 text-${isASE ? 'amber-400' : 'cyan-400'} border border-${isASE ? 'amber-500' : 'cyan-500'}/10"
                                     : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                             )}
                         >
@@ -185,12 +188,15 @@ interface CustomColorPickerProps {
 }
 
 function CustomColorPicker({ value, onChange, className }: CustomColorPickerProps) {
+    const { activeGame } = useGameStore();
+    const location = useLocation();
+    const isASE = location.pathname.startsWith('/ase') || activeGame === 'ASE';
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
     const presets = [
         '#EF4444', '#F97316', '#F59E0B', '#10B981', 
-        '#06B6D4', '#3B82F6', '#0EA5E9', '#14B8A6', 
+        isASE ? '#F59E0B' : '#06B6D4', '#3B82F6', '#0EA5E9', '#14B8A6', 
         '#EC4899', '#F43F5E', '#FFFFFF', '#94A3B8',
         '#64748B', '#475569', '#334155', '#1E293B'
     ];
@@ -263,7 +269,7 @@ function CustomColorPicker({ value, onChange, className }: CustomColorPickerProp
                                     }}
                                     className={cn(
                                         "w-4 h-4 rounded border border-white/5 cursor-pointer transition-transform hover:scale-110 active:scale-90",
-                                        p === value.toUpperCase() && "ring-1 ring-cyan-500 border-white/20 scale-105"
+                                        p === value.toUpperCase() && "ring-1 ring-${isASE ? 'amber-500' : 'cyan-500'} border-white/20 scale-105"
                                     )}
                                     style={{ backgroundColor: p }}
                                 />
@@ -301,14 +307,14 @@ function CustomColorPicker({ value, onChange, className }: CustomColorPickerProp
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] font-bold text-blue-500 w-2.5 font-mono">B</span>
+                            <span className={`text-[9px] font-bold text-${isASE ? 'orange-500' : 'blue-500'} w-2.5 font-mono`}>B</span>
                             <input
                                 type="range"
                                 min="0"
                                 max="255"
                                 value={b}
                                 onChange={(e) => handleRgbChange('b', parseInt(e.target.value))}
-                                className="flex-1 h-1 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                className={`flex-1 h-1 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'orange-500' : 'blue-500'}`}
                             />
                             <span className="text-[9px] text-slate-400 w-5 text-right font-mono">{b}</span>
                         </div>
@@ -320,7 +326,7 @@ function CustomColorPicker({ value, onChange, className }: CustomColorPickerProp
                             type="text"
                             value={value}
                             onChange={(e) => onChange(e.target.value.toUpperCase())}
-                            className="w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-white uppercase font-mono focus:outline-none focus:border-cyan-500"
+                            className={`w-full bg-slate-900 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-white uppercase font-mono focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}`}
                         />
                     </div>
                 </div>
@@ -330,6 +336,12 @@ function CustomColorPicker({ value, onChange, className }: CustomColorPickerProp
 }
 
 export default function InfinityDamage() {
+    const location = useLocation();
+    const { activeGame } = useGameStore();
+    const isASE = location.pathname.startsWith('/ase') || activeGame === 'ASE';
+    const { servers: asaServers, refreshServers: refreshAsaServers } = useServerStore();
+    const { servers: aseServers, refreshServers: refreshAseServers } = useAseServerStore();
+    const serversList = isASE ? aseServers : asaServers;
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const [isInstalled, setIsInstalled] = useState<boolean>(false);
     const [config, setConfig] = useState<DamageConfig | null>(null);
@@ -356,8 +368,22 @@ export default function InfinityDamage() {
 
     // Load servers
     useEffect(() => {
-        loadServers();
-    }, []);
+        if (isASE) {
+            refreshAseServers();
+        } else {
+            refreshAsaServers();
+        }
+    }, [isASE]);
+
+    useEffect(() => {
+        if (serversList.length > 0) {
+            if (!selectedServerId || !serversList.some(s => s.id === selectedServerId)) {
+                setSelectedServerId(serversList[0].id);
+            }
+        } else {
+            setSelectedServerId(null);
+        }
+    }, [serversList, selectedServerId]);
 
     // Load plugin config when server selection changes
     useEffect(() => {
@@ -449,17 +475,7 @@ export default function InfinityDamage() {
         toast.success('Backup profile deleted');
     };
 
-    const loadServers = async () => {
-        try {
-            const list = await getAllServers();
-            if (list.length > 0 && !selectedServerId) {
-                setSelectedServerId(list[0].id);
-            }
-        } catch (error) {
-            console.error('Failed to load servers:', error);
-            toast.error('Failed to load servers');
-        }
-    };
+
 
     const checkPluginInstallation = async () => {
         if (!selectedServerId) return;
@@ -766,8 +782,8 @@ export default function InfinityDamage() {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/5 pb-6">
                 <div>
-                    <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 font-display flex items-center gap-3">
-                        <Flame className="w-9 h-9 text-cyan-400 animate-pulse" />
+                    <h1 className={`text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-${isASE ? 'amber-400' : 'cyan-400'} to-${isASE ? 'orange-500' : 'blue-500'} font-display flex items-center gap-3`}>
+                        <Flame className={`w-9 h-9 text-${isASE ? 'amber-400' : 'cyan-400'} animate-pulse`} />
                         Infinity Floating Damage System
                     </h1>
                     <p className="text-slate-400 mt-2 text-base">Premium customization, visual effects, and analytics framework for floating damage</p>
@@ -777,14 +793,15 @@ export default function InfinityDamage() {
                     <ServerSelect 
                         value={selectedServerId} 
                         onChange={setSelectedServerId} 
-                        accentColor="cyan" 
+                        servers={serversList}
+                        accentColor={isASE ? 'amber' : 'cyan'} 
                     />
                     
                     {isInstalled && (
                         <button
                             onClick={handleSaveConfig}
                             disabled={isSaving || !config}
-                            className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 font-bold"
+                            className={`flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-${isASE ? 'amber-600' : 'cyan-600'} to-${isASE ? 'orange-600' : 'blue-600'} hover:from-${isASE ? 'amber-500' : 'cyan-500'} hover:to-${isASE ? 'orange-500' : 'blue-500'} text-white rounded-xl transition-all shadow-lg shadow-${isASE ? 'amber-500' : 'cyan-500'}/20 disabled:opacity-50 font-bold`}
                         >
                             {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
                             <span>Save Configuration</span>
@@ -796,7 +813,7 @@ export default function InfinityDamage() {
             {/* Load State */}
             {isLoading && (
                 <div className="flex flex-col items-center justify-center py-40 gap-4">
-                    <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
+                    <Loader2 className={`w-12 h-12 text-${isASE ? 'amber-500' : 'cyan-500'} animate-spin`} />
                     <p className="text-slate-400 font-medium">Loading settings...</p>
                 </div>
             )}
@@ -827,7 +844,7 @@ export default function InfinityDamage() {
                         <button
                             onClick={handleInstallPlugin}
                             disabled={isInstalling}
-                            className="flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl transition-all shadow-lg shadow-cyan-500/20 font-bold disabled:opacity-50"
+                            className={`flex items-center space-x-2 px-8 py-3 bg-gradient-to-r from-${isASE ? 'amber-600' : 'cyan-600'} to-${isASE ? 'orange-600' : 'blue-600'} hover:from-${isASE ? 'amber-500' : 'cyan-500'} hover:to-${isASE ? 'orange-500' : 'blue-500'} text-white rounded-xl transition-all shadow-lg shadow-${isASE ? 'amber-500' : 'cyan-500'}/20 font-bold disabled:opacity-50`}
                         >
                             {isInstalling ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
                             <span>Install & Register Module</span>
@@ -850,7 +867,7 @@ export default function InfinityDamage() {
                                     className={cn(
                                         "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-sm font-medium transition-all",
                                         activeTab === tab.id
-                                            ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-bold"
+                                            ? "bg-${isASE ? 'amber-500' : 'cyan-500'}/10 text-${isASE ? 'amber-400' : 'cyan-400'} border border-${isASE ? 'amber-500' : 'cyan-500'}/20 font-bold"
                                             : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
                                     )}
                                 >
@@ -861,8 +878,8 @@ export default function InfinityDamage() {
                         </div>
 
                         {/* Licensing Info widget */}
-                        <div className="glass-panel p-4 rounded-xl border border-white/5 bg-gradient-to-br from-cyan-950/20 to-slate-950/20 text-xs space-y-2.5">
-                            <div className="flex items-center gap-2 text-cyan-400 font-bold">
+                        <div className={`glass-panel p-4 rounded-xl border border-white/5 bg-gradient-to-br from-${isASE ? 'amber-950/20' : 'cyan-950/20'} to-slate-950/20 text-xs space-y-2.5`}>
+                            <div className={`flex items-center gap-2 text-${isASE ? 'amber-400' : 'cyan-400'} font-bold`}>
                                 <Shield className="w-4 h-4" />
                                 <span>Exclusive ASM License</span>
                             </div>
@@ -884,7 +901,7 @@ export default function InfinityDamage() {
                     {/* Right Configuration Panels */}
                     <div className="xl:col-span-3 space-y-8">
                         {/* Live Preview Engine (Stays floating/visible on top of editing) */}
-                        <div className="glass-panel p-5 rounded-2xl border border-cyan-500/20 bg-[#060B13]/85 relative overflow-hidden shadow-2xl h-80 flex flex-col justify-between">
+                        <div className={`glass-panel p-5 rounded-2xl border border-${isASE ? 'amber-500' : 'cyan-500'}/20 bg-[#060B13]/85 relative overflow-hidden shadow-2xl h-80 flex flex-col justify-between`}>
                             {/* Watermark Branding */}
                             <div className="absolute inset-0 pointer-events-none select-none flex flex-col items-center justify-center opacity-[0.03]">
                                 <div className="text-5xl font-black tracking-widest text-white uppercase font-display">Infinity</div>
@@ -894,7 +911,7 @@ export default function InfinityDamage() {
                             {/* Top Controls */}
                             <div className="flex items-center justify-between border-b border-white/5 pb-3 relative z-10">
                                 <div className="flex items-center gap-2">
-                                    <Eye className="w-4 h-4 text-cyan-400" />
+                                    <Eye className={`w-4 h-4 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                     <span className="text-xs font-bold text-white uppercase tracking-wider">Live Preview Engine</span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -907,11 +924,11 @@ export default function InfinityDamage() {
                                         type="number"
                                         value={previewValue}
                                         onChange={e => setPreviewValue(e.target.value)}
-                                        className="w-20 bg-slate-950 border border-slate-700/60 rounded px-2 py-1 text-xs text-center text-white focus:outline-none focus:border-cyan-500"
+                                        className={`w-20 bg-slate-950 border border-slate-700/60 rounded px-2 py-1 text-xs text-center text-white focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}`}
                                     />
                                     <button
                                         onClick={triggerHit}
-                                        className="px-3.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-bold transition-colors"
+                                        className={`px-3.5 py-1 bg-${isASE ? 'amber-600' : 'cyan-600'} hover:bg-${isASE ? 'amber-500' : 'cyan-500'} text-white rounded text-xs font-bold transition-colors`}
                                     >
                                         Test Hit
                                     </button>
@@ -967,7 +984,7 @@ export default function InfinityDamage() {
                                     {/* Enable Panel */}
                                     <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-4">
                                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                            <Gauge className="w-5 h-5 text-cyan-400" />
+                                            <Gauge className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                             System Status
                                         </h3>
                                         <p className="text-sm text-slate-400">Enable or disable the custom damage configuration globally on this server.</p>
@@ -981,13 +998,13 @@ export default function InfinityDamage() {
                                                         checked={config.General.EnablePlugin}
                                                         onChange={(e) => updateConfigField('General', 'EnablePlugin', e.target.checked)}
                                                     />
-                                                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                                                    <div className={`w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-${isASE ? 'amber-500' : 'cyan-500'}`}></div>
                                                 </div>
                                             </label>
                                         </div>
 
                                         <div className="p-4 bg-slate-950/20 rounded-xl border border-white/5 space-y-2 text-xs text-slate-400">
-                                            <p className="flex justify-between"><span>Active Preset:</span> <span className="text-cyan-400 font-bold">Infinity Premium</span></p>
+                                            <p className="flex justify-between"><span>Active Preset:</span> <span className={`text-${isASE ? 'amber-400' : 'cyan-400'} font-bold`}>Infinity Premium</span></p>
                                             <p className="flex justify-between"><span>API Hook State:</span> <span className="text-emerald-400 font-semibold">Registered (Ok)</span></p>
                                             <p className="flex justify-between"><span>Diagnostics Status:</span> <span className="text-emerald-400 font-semibold">0 Errors detected</span></p>
                                         </div>
@@ -996,7 +1013,7 @@ export default function InfinityDamage() {
                                     {/* Quick Preset Card */}
                                     <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-4">
                                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                            <Layers className="w-5 h-5 text-cyan-400" />
+                                            <Layers className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                             Active Preset Quick Apply
                                         </h3>
                                         <p className="text-sm text-slate-400">Quickly apply curated settings matching your gameplay style.</p>
@@ -1024,7 +1041,7 @@ export default function InfinityDamage() {
                                 <div className="border-b border-white/5 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div>
                                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                            <Palette className="w-5 h-5 text-cyan-400" />
+                                            <Palette className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                             Category Colors & Customization
                                         </h3>
                                         <p className="text-sm text-slate-400">Configure custom colors, glow filters, fonts, animations, sounds, and particles per damage category.</p>
@@ -1037,7 +1054,7 @@ export default function InfinityDamage() {
                                             onChange={(e) => setCategorySearchQuery(e.target.value)}
                                             onKeyDown={(e) => e.stopPropagation()}
                                             onMouseDown={(e) => e.stopPropagation()}
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                                            className={`w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}`}
                                         />
                                     </div>
                                 </div>
@@ -1050,7 +1067,7 @@ export default function InfinityDamage() {
                                             return (
                                                 <div key={catKey} className="p-5 bg-slate-950/40 rounded-xl border border-white/5 space-y-4">
                                                     <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                                                        <span className="text-sm font-bold text-cyan-400">{catKey.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                                        <span className={`text-sm font-bold text-${isASE ? 'amber-400' : 'cyan-400'}`}>{catKey.replace(/([A-Z])/g, ' $1').trim()}</span>
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-3.5 h-3.5 rounded-full border border-white/10" style={{ backgroundColor: cat.Color }} />
                                                         </div>
@@ -1087,7 +1104,7 @@ export default function InfinityDamage() {
                                                                 step="0.1"
                                                                 value={cat.Size}
                                                                 onChange={(e) => updateCategoryField(catKey, 'Size', parseFloat(e.target.value))}
-                                                                className="w-full h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-cyan-500 mt-2.5"
+                                                                className={`w-full h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'} mt-2.5`}
                                                             />
                                                         </div>
 
@@ -1133,7 +1150,7 @@ export default function InfinityDamage() {
                                                                 step="0.1"
                                                                 value={cat.Lifetime}
                                                                 onChange={(e) => updateCategoryField(catKey, 'Lifetime', parseFloat(e.target.value))}
-                                                                className="w-full h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-cyan-500 mt-2.5"
+                                                                className={`w-full h-1.5 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'} mt-2.5`}
                                                             />
                                                         </div>
 
@@ -1163,7 +1180,7 @@ export default function InfinityDamage() {
                                                                 onKeyDown={(e) => e.stopPropagation()}
                                                                 onMouseDown={(e) => e.stopPropagation()}
                                                                 placeholder="e.g. hit_impact"
-                                                                className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-500"
+                                                                className={`w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}`}
                                                             />
                                                         </div>
 
@@ -1177,7 +1194,7 @@ export default function InfinityDamage() {
                                                                 onKeyDown={(e) => e.stopPropagation()}
                                                                 onMouseDown={(e) => e.stopPropagation()}
                                                                 placeholder="e.g. blood_spurt"
-                                                                className="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-500"
+                                                                className={`w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}`}
                                                             />
                                                         </div>
                                                     </div>
@@ -1188,7 +1205,7 @@ export default function InfinityDamage() {
                                                                 type="checkbox"
                                                                 checked={cat.Glow}
                                                                 onChange={(e) => updateCategoryField(catKey, 'Glow', e.target.checked)}
-                                                                className="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-0 focus:ring-offset-0"
+                                                                className={`rounded bg-slate-900 border-slate-700 text-${isASE ? 'amber-500' : 'cyan-500'} focus:ring-0 focus:ring-offset-0`}
                                                             />
                                                             <span className="text-xs text-slate-400">Glow Filter</span>
                                                         </label>
@@ -1198,7 +1215,7 @@ export default function InfinityDamage() {
                                                                 type="checkbox"
                                                                 checked={cat.Outline}
                                                                 onChange={(e) => updateCategoryField(catKey, 'Outline', e.target.checked)}
-                                                                className="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-0 focus:ring-offset-0"
+                                                                className={`rounded bg-slate-900 border-slate-700 text-${isASE ? 'amber-500' : 'cyan-500'} focus:ring-0 focus:ring-offset-0`}
                                                             />
                                                             <span className="text-xs text-slate-400">Black Outline</span>
                                                         </label>
@@ -1214,7 +1231,7 @@ export default function InfinityDamage() {
                             <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-6">
                                 <div className="border-b border-white/5 pb-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <Type className="w-5 h-5 text-cyan-400" />
+                                        <Type className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Text Appearance & Global Rates
                                     </h3>
                                     <p className="text-sm text-slate-400">Modify global multipliers, number formatting rules, and visual preview options.</p>
@@ -1226,7 +1243,7 @@ export default function InfinityDamage() {
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-300 font-semibold">Global Size Multiplier</span>
-                                                <span className="text-cyan-400 font-bold">{config.General.GlobalTextSizeMultiplier.toFixed(1)}x</span>
+                                                <span className={`text-${isASE ? 'amber-400' : 'cyan-400'} font-bold`}>{config.General.GlobalTextSizeMultiplier.toFixed(1)}x</span>
                                             </div>
                                             <input
                                                 type="range"
@@ -1235,14 +1252,14 @@ export default function InfinityDamage() {
                                                 step="0.1"
                                                 value={config.General.GlobalTextSizeMultiplier}
                                                 onChange={(e) => updateConfigField('General', 'GlobalTextSizeMultiplier', parseFloat(e.target.value))}
-                                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                                className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                         </div>
 
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-300 font-semibold">Global Lifetime Multiplier</span>
-                                                <span className="text-cyan-400 font-bold">{config.General.GlobalLifetimeMultiplier.toFixed(1)}x</span>
+                                                <span className={`text-${isASE ? 'amber-400' : 'cyan-400'} font-bold`}>{config.General.GlobalLifetimeMultiplier.toFixed(1)}x</span>
                                             </div>
                                             <input
                                                 type="range"
@@ -1251,7 +1268,7 @@ export default function InfinityDamage() {
                                                 step="0.1"
                                                 value={config.General.GlobalLifetimeMultiplier}
                                                 onChange={(e) => updateConfigField('General', 'GlobalLifetimeMultiplier', parseFloat(e.target.value))}
-                                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                                className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                         </div>
                                     </div>
@@ -1272,7 +1289,7 @@ export default function InfinityDamage() {
                                                     className={cn(
                                                         "p-3 rounded-lg border text-center transition-all",
                                                         config.General.NumberFormat === opt.id
-                                                            ? "bg-cyan-500/10 border-cyan-500/40 text-cyan-400 font-bold"
+                                                            ? "bg-${isASE ? 'amber-500' : 'cyan-500'}/10 border-${isASE ? 'amber-500' : 'cyan-500'}/40 text-${isASE ? 'amber-400' : 'cyan-400'} font-bold"
                                                             : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
                                                     )}
                                                 >
@@ -1290,7 +1307,7 @@ export default function InfinityDamage() {
                             <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-6">
                                 <div className="border-b border-white/5 pb-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <Activity className="w-5 h-5 text-cyan-400" />
+                                        <Activity className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Custom Animations Engine
                                     </h3>
                                     <p className="text-sm text-slate-400">Define motion behaviors, bounce coefficients, and transition times globally.</p>
@@ -1300,7 +1317,7 @@ export default function InfinityDamage() {
                                     <div className="space-y-2">
                                         <div className="flex justify-between text-sm">
                                             <span className="text-slate-300 font-semibold">Global Animation Speed</span>
-                                            <span className="text-cyan-400 font-bold">{config.Animations.GlobalSpeed.toFixed(1)}x</span>
+                                            <span className={`text-${isASE ? 'amber-400' : 'cyan-400'} font-bold`}>{config.Animations.GlobalSpeed.toFixed(1)}x</span>
                                         </div>
                                         <input
                                             type="range"
@@ -1309,14 +1326,14 @@ export default function InfinityDamage() {
                                             step="0.1"
                                             value={config.Animations.GlobalSpeed}
                                             onChange={(e) => updateConfigField('Animations', 'GlobalSpeed', parseFloat(e.target.value))}
-                                            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                            className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'}`}
                                         />
                                     </div>
 
                                     <div className="space-y-2">
                                         <div className="flex justify-between text-sm">
                                             <span className="text-slate-300 font-semibold">Bounce Strength</span>
-                                            <span className="text-cyan-400 font-bold">{config.Animations.BounceStrength.toFixed(1)}</span>
+                                            <span className={`text-${isASE ? 'amber-400' : 'cyan-400'} font-bold`}>{config.Animations.BounceStrength.toFixed(1)}</span>
                                         </div>
                                         <input
                                             type="range"
@@ -1325,14 +1342,14 @@ export default function InfinityDamage() {
                                             step="0.1"
                                             value={config.Animations.BounceStrength}
                                             onChange={(e) => updateConfigField('Animations', 'BounceStrength', parseFloat(e.target.value))}
-                                            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                            className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'}`}
                                         />
                                     </div>
 
                                     <div className="space-y-2">
                                         <div className="flex justify-between text-sm">
                                             <span className="text-slate-300 font-semibold">Fade Duration</span>
-                                            <span className="text-cyan-400 font-bold">{config.Animations.FadeDuration.toFixed(2)}s</span>
+                                            <span className={`text-${isASE ? 'amber-400' : 'cyan-400'} font-bold`}>{config.Animations.FadeDuration.toFixed(2)}s</span>
                                         </div>
                                         <input
                                             type="range"
@@ -1341,14 +1358,14 @@ export default function InfinityDamage() {
                                             step="0.05"
                                             value={config.Animations.FadeDuration}
                                             onChange={(e) => updateConfigField('Animations', 'FadeDuration', parseFloat(e.target.value))}
-                                            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                            className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'}`}
                                         />
                                     </div>
 
                                     <div className="space-y-2">
                                         <div className="flex justify-between text-sm">
                                             <span className="text-slate-300 font-semibold">Scale Duration</span>
-                                            <span className="text-cyan-400 font-bold">{config.Animations.ScaleDuration.toFixed(2)}s</span>
+                                            <span className={`text-${isASE ? 'amber-400' : 'cyan-400'} font-bold`}>{config.Animations.ScaleDuration.toFixed(2)}s</span>
                                         </div>
                                         <input
                                             type="range"
@@ -1357,7 +1374,7 @@ export default function InfinityDamage() {
                                             step="0.05"
                                             value={config.Animations.ScaleDuration}
                                             onChange={(e) => updateConfigField('Animations', 'ScaleDuration', parseFloat(e.target.value))}
-                                            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                            className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'}`}
                                         />
                                     </div>
                                 </div>
@@ -1368,7 +1385,7 @@ export default function InfinityDamage() {
                             <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-6">
                                 <div className="border-b border-white/5 pb-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <AlertOctagon className="w-5 h-5 text-cyan-400" />
+                                        <AlertOctagon className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Critical Hit Customization
                                     </h3>
                                     <p className="text-sm text-slate-400">Trigger advanced text scaling and particle triggers when damage exceeds set bounds.</p>
@@ -1382,7 +1399,7 @@ export default function InfinityDamage() {
                                                 type="number"
                                                 value={config.CriticalHits.Threshold}
                                                 onChange={(e) => updateConfigField('CriticalHits', 'Threshold', parseInt(e.target.value) || 0)}
-                                                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-mono"
+                                                className={`w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'} font-mono`}
                                             />
                                         </div>
 
@@ -1395,7 +1412,7 @@ export default function InfinityDamage() {
                                                 step="0.1"
                                                 value={config.CriticalHits.SizeMultiplier}
                                                 onChange={(e) => updateConfigField('CriticalHits', 'SizeMultiplier', parseFloat(e.target.value))}
-                                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500 mt-4"
+                                                className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'} mt-4`}
                                             />
                                             <span className="text-xs text-slate-500 mt-1 block">Current multiplier: {config.CriticalHits.SizeMultiplier.toFixed(1)}x</span>
                                         </div>
@@ -1412,7 +1429,7 @@ export default function InfinityDamage() {
                                                     type="text"
                                                     value={config.CriticalHits.Color}
                                                     onChange={(e) => updateConfigField('CriticalHits', 'Color', e.target.value)}
-                                                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white uppercase focus:outline-none focus:border-cyan-500"
+                                                    className={`w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white uppercase focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}`}
                                                 />
                                             </div>
                                         </div>
@@ -1424,7 +1441,7 @@ export default function InfinityDamage() {
                                                 value={config.CriticalHits.SoundEffect}
                                                 onChange={(e) => updateConfigField('CriticalHits', 'SoundEffect', e.target.value)}
                                                 placeholder="e.g. crit_heavy"
-                                                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                                                className={`w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                         </div>
 
@@ -1435,7 +1452,7 @@ export default function InfinityDamage() {
                                                 value={config.CriticalHits.ParticleEffect}
                                                 onChange={(e) => updateConfigField('CriticalHits', 'ParticleEffect', e.target.value)}
                                                 placeholder="e.g. explosion_red"
-                                                className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500"
+                                                className={`w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                         </div>
                                     </div>
@@ -1446,7 +1463,7 @@ export default function InfinityDamage() {
                                                 type="checkbox"
                                                 checked={config.CriticalHits.ScreenFlash}
                                                 onChange={(e) => updateConfigField('CriticalHits', 'ScreenFlash', e.target.checked)}
-                                                className="rounded bg-slate-900 border-slate-700 text-cyan-500"
+                                                className={`rounded bg-slate-900 border-slate-700 text-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                             <div>
                                                 <p className="text-sm font-bold text-white">Screen Flash</p>
@@ -1459,7 +1476,7 @@ export default function InfinityDamage() {
                                                 type="checkbox"
                                                 checked={config.CriticalHits.ScreenShake}
                                                 onChange={(e) => updateConfigField('CriticalHits', 'ScreenShake', e.target.checked)}
-                                                className="rounded bg-slate-900 border-slate-700 text-cyan-500"
+                                                className={`rounded bg-slate-900 border-slate-700 text-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                             <div>
                                                 <p className="text-sm font-bold text-white">Screen Shake</p>
@@ -1475,7 +1492,7 @@ export default function InfinityDamage() {
                             <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-6">
                                 <div className="border-b border-white/5 pb-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <Flame className="w-5 h-5 text-cyan-400" />
+                                        <Flame className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Boss Damage Customization
                                     </h3>
                                     <p className="text-sm text-slate-400">Configure visual modifiers specifically for epic encounters with wild Bosses.</p>
@@ -1483,7 +1500,7 @@ export default function InfinityDamage() {
 
                                 <div className="p-5 bg-slate-950/40 rounded-xl border border-white/5 space-y-4">
                                     <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                                        <span className="text-sm font-bold text-cyan-400">Bosses Category Settings</span>
+                                        <span className={`text-sm font-bold text-${isASE ? 'amber-400' : 'cyan-400'}`}>Bosses Category Settings</span>
                                         <span className="text-xs text-slate-500 font-mono">Categories.Bosses</span>
                                     </div>
 
@@ -1516,7 +1533,7 @@ export default function InfinityDamage() {
                                                 step="0.1"
                                                 value={config.Categories.Bosses.Size}
                                                 onChange={(e) => updateCategoryField('Bosses', 'Size', parseFloat(e.target.value))}
-                                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500 mt-4"
+                                                className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'} mt-4`}
                                             />
                                         </div>
 
@@ -1578,7 +1595,7 @@ export default function InfinityDamage() {
                                                 step="0.1"
                                                 value={config.Categories.Bosses.Lifetime}
                                                 onChange={(e) => updateCategoryField('Bosses', 'Lifetime', parseFloat(e.target.value))}
-                                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500 mt-4"
+                                                className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'} mt-4`}
                                             />
                                         </div>
 
@@ -1613,7 +1630,7 @@ export default function InfinityDamage() {
                                                 type="checkbox"
                                                 checked={config.Categories.Bosses.Glow}
                                                 onChange={(e) => updateCategoryField('Bosses', 'Glow', e.target.checked)}
-                                                className="rounded bg-slate-900 border-slate-700 text-cyan-500"
+                                                className={`rounded bg-slate-900 border-slate-700 text-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                             <span className="text-xs text-slate-400">Glow Filter</span>
                                         </label>
@@ -1623,7 +1640,7 @@ export default function InfinityDamage() {
                                                 type="checkbox"
                                                 checked={config.Categories.Bosses.Outline}
                                                 onChange={(e) => updateCategoryField('Bosses', 'Outline', e.target.checked)}
-                                                className="rounded bg-slate-900 border-slate-700 text-cyan-500"
+                                                className={`rounded bg-slate-900 border-slate-700 text-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                             <span className="text-xs text-slate-400">Black Outline</span>
                                         </label>
@@ -1636,7 +1653,7 @@ export default function InfinityDamage() {
                             <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-6">
                                 <div className="border-b border-white/5 pb-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <Heart className="w-5 h-5 text-cyan-400" />
+                                        <Heart className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Healing & XP Indicators
                                     </h3>
                                     <p className="text-sm text-slate-400">Configure distinct visual settings for player restoration and leveling notifications.</p>
@@ -1673,7 +1690,7 @@ export default function InfinityDamage() {
                                                     step="0.1"
                                                     value={config.Categories.Healing.Size}
                                                     onChange={(e) => updateCategoryField('Healing', 'Size', parseFloat(e.target.value))}
-                                                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500 mt-2.5"
+                                                    className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'} mt-2.5`}
                                                 />
                                             </div>
 
@@ -1724,7 +1741,7 @@ export default function InfinityDamage() {
                                                     step="0.1"
                                                     value={config.Categories.Xp.Size}
                                                     onChange={(e) => updateCategoryField('Xp', 'Size', parseFloat(e.target.value))}
-                                                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500 mt-2.5"
+                                                    className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'} mt-2.5`}
                                                 />
                                             </div>
 
@@ -1752,7 +1769,7 @@ export default function InfinityDamage() {
                             <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-6">
                                 <div className="border-b border-white/5 pb-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <Sparkles className="w-5 h-5 text-cyan-400" />
+                                        <Sparkles className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Harvesting & Loot Drops
                                     </h3>
                                     <p className="text-sm text-slate-400">Configure visual settings when collecting resources or looting items, including individual resource and rarity tiers.</p>
@@ -1798,7 +1815,7 @@ export default function InfinityDamage() {
 
                                     {/* Resource Colors Sub-section */}
                                     <div className="p-5 bg-slate-950/20 rounded-xl border border-white/5 space-y-4">
-                                        <span className="text-sm font-bold text-cyan-400 block border-b border-white/5 pb-1">Resource Type Custom Colors</span>
+                                        <span className={`text-sm font-bold text-${isASE ? 'amber-400' : 'cyan-400'} block border-b border-white/5 pb-1`}>Resource Type Custom Colors</span>
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                             {Object.entries(config.ResourceColors || {
                                                 Wood: '#8B5A2B', Stone: '#808080', Fiber: '#228B22', Metal: '#B0C4DE',
@@ -1832,7 +1849,7 @@ export default function InfinityDamage() {
 
                                     {/* Loot Rarity Colors Sub-section */}
                                     <div className="p-5 bg-slate-950/20 rounded-xl border border-white/5 space-y-4">
-                                        <span className="text-sm font-bold text-cyan-400 block border-b border-white/5 pb-1">Loot Rarity Tier Colors</span>
+                                        <span className={`text-sm font-bold text-${isASE ? 'amber-400' : 'cyan-400'} block border-b border-white/5 pb-1`}>Loot Rarity Tier Colors</span>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                             {Object.entries(config.RarityColors || {
                                                 Primitive: '#FFFFFF', Ramshackle: '#22C55E', Apprentice: '#3B82F6',
@@ -1871,7 +1888,7 @@ export default function InfinityDamage() {
                             <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-8">
                                 <div className="border-b border-white/5 pb-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <Layers className="w-5 h-5 text-cyan-400" />
+                                        <Layers className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Curated Presets Library
                                     </h3>
                                     <p className="text-sm text-slate-400">Select an existing preset or save your current customizations to a user-defined preset slot.</p>
@@ -1908,12 +1925,12 @@ export default function InfinityDamage() {
                                             placeholder="New preset name..."
                                             value={newPresetName}
                                             onChange={(e) => setNewPresetName(e.target.value)}
-                                            className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                                            className={`flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}`}
                                         />
                                         <button
                                             onClick={() => saveCustomPreset(newPresetName)}
                                             disabled={!newPresetName.trim()}
-                                            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all"
+                                            className={`px-4 py-2 bg-${isASE ? 'amber-600' : 'cyan-600'} hover:bg-${isASE ? 'amber-500' : 'cyan-500'} disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all`}
                                         >
                                             Save Current Config
                                         </button>
@@ -1958,7 +1975,7 @@ export default function InfinityDamage() {
                             <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-6">
                                 <div className="border-b border-white/5 pb-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <Settings className="w-5 h-5 text-cyan-400" />
+                                        <Settings className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Performance Sizing Controls
                                     </h3>
                                     <p className="text-sm text-slate-400">Protect client rendering performance during heavy combat scenarios.</p>
@@ -1969,7 +1986,7 @@ export default function InfinityDamage() {
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-300 font-semibold">Maximum Visible Numbers</span>
-                                                <span className="text-cyan-400 font-bold">{config.Performance.MaxVisibleNumbers}</span>
+                                                <span className={`text-${isASE ? 'amber-400' : 'cyan-400'} font-bold`}>{config.Performance.MaxVisibleNumbers}</span>
                                             </div>
                                             <input
                                                 type="range"
@@ -1978,14 +1995,14 @@ export default function InfinityDamage() {
                                                 step="5"
                                                 value={config.Performance.MaxVisibleNumbers}
                                                 onChange={(e) => updateConfigField('Performance', 'MaxVisibleNumbers', parseInt(e.target.value))}
-                                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                                className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                         </div>
 
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-sm">
                                                 <span className="text-slate-300 font-semibold">Distance Culling Range</span>
-                                                <span className="text-cyan-400 font-bold">{config.Performance.DistanceCullingRange}m</span>
+                                                <span className={`text-${isASE ? 'amber-400' : 'cyan-400'} font-bold`}>{config.Performance.DistanceCullingRange}m</span>
                                             </div>
                                             <input
                                                 type="range"
@@ -1994,7 +2011,7 @@ export default function InfinityDamage() {
                                                 step="250"
                                                 value={config.Performance.DistanceCullingRange}
                                                 onChange={(e) => updateConfigField('Performance', 'DistanceCullingRange', parseFloat(e.target.value))}
-                                                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                                className={`w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                         </div>
                                     </div>
@@ -2005,7 +2022,7 @@ export default function InfinityDamage() {
                                                 type="checkbox"
                                                 checked={config.Performance.DynamicScalingEnabled}
                                                 onChange={(e) => updateConfigField('Performance', 'DynamicScalingEnabled', e.target.checked)}
-                                                className="rounded bg-slate-900 border-slate-700 text-cyan-500"
+                                                className={`rounded bg-slate-900 border-slate-700 text-${isASE ? 'amber-500' : 'cyan-500'}`}
                                             />
                                             <div>
                                                 <p className="text-sm font-semibold text-white">Dynamic Sizing Squeeze</p>
@@ -2070,7 +2087,7 @@ export default function InfinityDamage() {
                             <div className="glass-panel p-6 rounded-xl border border-white/5 space-y-6">
                                 <div className="border-b border-white/5 pb-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <BarChart3 className="w-5 h-5 text-cyan-400" />
+                                        <BarChart3 className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Floating Damage Analytics
                                     </h3>
                                     <p className="text-sm text-slate-400">Historical performance trends and combat diagnostics gathered on this server.</p>
@@ -2145,7 +2162,7 @@ export default function InfinityDamage() {
                                 {/* Local configuration backups */}
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <RefreshCw className="w-5 h-5 text-cyan-400" />
+                                        <RefreshCw className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Client-Side Config Backups
                                     </h3>
                                     <p className="text-sm text-slate-400">Save and manage localized historical configuration snapshot profiles on this server instance.</p>
@@ -2156,11 +2173,11 @@ export default function InfinityDamage() {
                                             placeholder="Backup snapshot profile name..."
                                             value={newBackupName}
                                             onChange={(e) => setNewBackupName(e.target.value)}
-                                            className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                                            className={`flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}`}
                                         />
                                         <button
                                             onClick={() => createBackup(newBackupName)}
-                                            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold transition-all"
+                                            className={`px-4 py-2 bg-${isASE ? 'amber-600' : 'cyan-600'} hover:bg-${isASE ? 'amber-500' : 'cyan-500'} text-white rounded-lg text-xs font-bold transition-all`}
                                         >
                                             Take Snapshot
                                         </button>
@@ -2199,7 +2216,7 @@ export default function InfinityDamage() {
                                 {/* Import Export section */}
                                 <div className="space-y-4 pt-6 border-t border-white/5">
                                     <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                        <FileJson className="w-5 h-5 text-cyan-400" />
+                                        <FileJson className={`w-5 h-5 text-${isASE ? 'amber-400' : 'cyan-400'}`} />
                                         Configuration Import & Export
                                     </h3>
                                     <p className="text-sm text-slate-400">Share or backup settings using multiple standard formats.</p>
@@ -2244,7 +2261,7 @@ export default function InfinityDamage() {
                                                 <button
                                                     onClick={handleImport}
                                                     disabled={!importContent.trim()}
-                                                    className="flex-1 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                                    className={`flex-1 py-2 bg-${isASE ? 'amber-600' : 'cyan-600'} hover:bg-${isASE ? 'amber-500' : 'cyan-500'} text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50`}
                                                 >
                                                     Apply Import
                                                 </button>
@@ -2259,7 +2276,7 @@ export default function InfinityDamage() {
                                             value={importContent}
                                             onChange={e => setImportContent(e.target.value)}
                                             placeholder={`Paste exported ${importFormat.toUpperCase()} config text here...`}
-                                            className="w-full h-32 bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 font-mono text-xs text-white focus:outline-none focus:border-cyan-500/50"
+                                            className={`w-full h-32 bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 font-mono text-xs text-white focus:outline-none focus:border-${isASE ? 'amber-500' : 'cyan-500'}/50`}
                                         />
                                     </div>
                                 </div>

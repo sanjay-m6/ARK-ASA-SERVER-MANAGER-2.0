@@ -26,22 +26,23 @@ export interface AseMapInfo {
   author?: string;
   mapModId?: string;
   isModded?: boolean;
+  icon?: string;
 }
 
 export const ASE_MAPS: AseMapInfo[] = [
-  { name: 'The Island', serverArg: 'TheIsland', dlcType: 'Free', description: 'The original ARK map — tropical island with diverse biomes.', image: islandImg, size: '~8 GB' },
-  { name: 'Scorched Earth', serverArg: 'ScorchedEarth_P', dlcType: 'Paid DLC', description: 'Desert survival with extreme heat and electrical storms.', image: scorchedImg, size: '~5 GB' },
-  { name: 'Aberration', serverArg: 'Aberration_P', dlcType: 'Paid DLC', description: 'Underground caverns with bioluminescence and radiation zones.', image: aberrationImg, size: '~6 GB' },
-  { name: 'Extinction', serverArg: 'Extinction', dlcType: 'Paid DLC', description: 'Ruined Earth with Titans, orbital supply drops, and element veins.', image: extinctionImg, size: '~7 GB' },
-  { name: 'Genesis Part 1', serverArg: 'Genesis', dlcType: 'Paid DLC', description: 'Simulation with five unique biomes and mission-based gameplay.', image: gen1Img, size: '~8 GB' },
-  { name: 'Genesis Part 2', serverArg: 'Gen2', dlcType: 'Paid DLC', description: 'Colony ship with Rockwell as the main antagonist.', image: gen2Img, size: '~9 GB' },
-  { name: 'The Center', serverArg: 'TheCenter', dlcType: 'Free DLC', description: 'Massive island map with floating islands and underwater caves.', image: centerImg, size: '~5 GB' },
-  { name: 'Ragnarok', serverArg: 'Ragnarok', dlcType: 'Free DLC', description: 'Huge map with multiple biomes including a volcanic region.', image: ragnarockImg, size: '~7 GB' },
-  { name: 'Valguero', serverArg: 'Valguero_P', dlcType: 'Free DLC', description: 'Diverse landscape with a chalk cliff biome and Deinonychus.', image: valgueroImg, size: '~5 GB' },
-  { name: 'Crystal Isles', serverArg: 'CrystalIsles', dlcType: 'Free DLC', description: 'Beautiful crystalline landscape with Crystal Wyverns.', image: crystalImg, size: '~6 GB' },
-  { name: 'Lost Island', serverArg: 'LostIsland', dlcType: 'Free DLC', description: 'Community-created map with unique creatures.', image: lostIslandImg, size: '~5 GB' },
-  { name: 'Fjordur', serverArg: 'Fjordur', dlcType: 'Free DLC', description: 'Norse-themed map with multiple realms and Andrewsarchus.', image: fjordurImg, size: '~6 GB' },
-  { name: 'Pre-Aquatica (Aquatic)', serverArg: 'Aquatic', dlcType: 'Free DLC', description: 'Special aquatic mod or custom map before the update.', image: aquaticImg, size: '~6 GB' },
+  { name: 'The Island', serverArg: 'TheIsland', dlcType: 'Free', description: 'The original ARK map — tropical island with diverse biomes.', image: islandImg, size: '~8 GB', icon: '🏝️' },
+  { name: 'Scorched Earth', serverArg: 'ScorchedEarth_P', dlcType: 'Paid DLC', description: 'Desert survival with extreme heat and electrical storms.', image: scorchedImg, size: '~5 GB', icon: '🏜️' },
+  { name: 'Aberration', serverArg: 'Aberration_P', dlcType: 'Paid DLC', description: 'Underground caverns with bioluminescence and radiation zones.', image: aberrationImg, size: '~6 GB', icon: '🍄' },
+  { name: 'Extinction', serverArg: 'Extinction', dlcType: 'Paid DLC', description: 'Ruined Earth with Titans, orbital supply drops, and element veins.', image: extinctionImg, size: '~7 GB', icon: '🏚️' },
+  { name: 'Genesis Part 1', serverArg: 'Genesis', dlcType: 'Paid DLC', description: 'Simulation with five unique biomes and mission-based gameplay.', image: gen1Img, size: '~8 GB', icon: '🧬' },
+  { name: 'Genesis Part 2', serverArg: 'Gen2', dlcType: 'Paid DLC', description: 'Colony ship with Rockwell as the main antagonist.', image: gen2Img, size: '~9 GB', icon: '🛸' },
+  { name: 'The Center', serverArg: 'TheCenter', dlcType: 'Free DLC', description: 'Massive island map with floating islands and underwater caves.', image: centerImg, size: '~5 GB', icon: '🌊' },
+  { name: 'Ragnarok', serverArg: 'Ragnarok', dlcType: 'Free DLC', description: 'Huge map with multiple biomes including a volcanic region.', image: ragnarockImg, size: '~7 GB', icon: '⚔️' },
+  { name: 'Valguero', serverArg: 'Valguero_P', dlcType: 'Free DLC', description: 'Diverse landscape with a chalk cliff biome and Deinonychus.', image: valgueroImg, size: '~5 GB', icon: '🦖' },
+  { name: 'Crystal Isles', serverArg: 'CrystalIsles', dlcType: 'Free DLC', description: 'Beautiful crystalline landscape with Crystal Wyverns.', image: crystalImg, size: '~6 GB', icon: '💎' },
+  { name: 'Lost Island', serverArg: 'LostIsland', dlcType: 'Free DLC', description: 'Community-created map with unique creatures.', image: lostIslandImg, size: '~5 GB', icon: '🌋' },
+  { name: 'Fjordur', serverArg: 'Fjordur', dlcType: 'Free DLC', description: 'Norse-themed map with multiple realms and Andrewsarchus.', image: fjordurImg, size: '~6 GB', icon: '❄️' },
+  { name: 'Pre-Aquatica (Aquatic)', serverArg: 'Aquatic', dlcType: 'Free DLC', description: 'Special aquatic mod or custom map before the update.', image: aquaticImg, size: '~6 GB', icon: '🐙' },
   // Modded presets mapped to AseMapInfo dynamically
   ...MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASE').map(p => ({
     name: p.name,
@@ -52,7 +53,8 @@ export const ASE_MAPS: AseMapInfo[] = [
     author: p.author,
     mapModId: p.mapModId,
     isModded: true,
-    image: p.mapArgument === 'ScorchedEarth_P' ? scorchedImg : islandImg
+    image: p.mapArgument === 'ScorchedEarth_P' ? scorchedImg : islandImg,
+    icon: p.icon || '⚙️'
   }))
 ];
 

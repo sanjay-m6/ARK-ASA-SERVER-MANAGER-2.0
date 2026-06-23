@@ -457,28 +457,34 @@ export default function ASEDashboard() {
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
                   <input
                     type="text"
+                    id="ase-server-search"
+                    name="searchQuery"
+                    aria-label="Search servers"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Search server..."
-                    className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/30 w-48"
+                    className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50 focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 w-48 transition-all"
                   />
                 </div>
                 <button
                   onClick={() => navigate('/ase/servers')}
-                  className="text-xs font-bold px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition-all flex items-center gap-1.5"
+                  className="text-xs font-bold px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl transition-all flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.03] active:scale-[0.97]"
+                  aria-label="Deploy Server"
                 >
                   <Zap className="w-3.5 h-3.5 fill-current" />
                   Deploy Server
                 </button>
                 <button
                   onClick={() => navigate('/ase/tools/organization')}
-                  className="text-xs font-semibold px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl transition-all"
+                  className="text-xs font-semibold px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.03] active:scale-[0.97]"
+                  aria-label="Organize Nodes"
                 >
                   Organize Nodes
                 </button>
                 <button
                   onClick={() => navigate('/ase/servers')}
-                  className="text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 focus:outline-none"
+                  className="text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-lg"
+                  aria-label="Manage all servers"
                 >
                   Manage All →
                 </button>
@@ -491,11 +497,12 @@ export default function ASEDashboard() {
                 <button
                   onClick={() => setSelectedFolderId(null)}
                   className={cn(
-                    'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none',
+                    'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.02] active:scale-[0.98]',
                     selectedFolderId === null
                       ? 'bg-amber-500 text-slate-900'
                       : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
                   )}
+                  aria-label="Filter servers: show all nodes"
                 >
                   <FolderOpen className="w-3.5 h-3.5" />
                   <span>All Nodes</span>
@@ -507,12 +514,13 @@ export default function ASEDashboard() {
                       key={folder.id}
                       onClick={() => setSelectedFolderId(folder.id)}
                       className={cn(
-                        'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none border border-transparent',
+                        'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 border border-transparent hover:scale-[1.02] active:scale-[0.98]',
                         isActive
-                          ? 'text-slate-900'
+                          ? 'text-slate-900 font-semibold'
                           : 'bg-white/5 hover:bg-white/10 text-slate-300'
                       )}
                       style={isActive ? { backgroundColor: folder.color } : { borderLeft: `3px solid ${folder.color}` }}
+                      aria-label={`Filter servers by folder: ${folder.name}`}
                     >
                       <Folder className="w-3.5 h-3.5" />
                       <span>{folder.name}</span>
@@ -649,7 +657,7 @@ export default function ASEDashboard() {
                   return (
                     <div
                       key={srv.id}
-                      className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all gap-4 lg:gap-0 relative overflow-hidden"
+                      className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] hover:border-amber-500/20 hover:scale-[1.01] hover:shadow-[0_0_15px_rgba(245,158,11,0.05)] transition-all duration-300 group gap-4 lg:gap-0 relative overflow-hidden"
                     >
                       {/* Custom Brand line indicator */}
                       {hasColor && (
@@ -660,15 +668,19 @@ export default function ASEDashboard() {
                       )}
 
                       <div className="flex items-center gap-4 pl-2">
-                        <div className={cn(
-                          'w-2.5 h-2.5 rounded-full',
-                          srv.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
-                          srv.status === 'running' && 'bg-amber-500 animate-pulse',
-                          srv.status === 'stopped' && 'bg-slate-500',
-                          srv.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
-                          srv.status === 'starting' && 'bg-amber-500 animate-pulse',
-                          srv.status === 'updating' && 'bg-blue-500 animate-pulse'
-                        )} />
+                        <div
+                          className={cn(
+                            'w-2.5 h-2.5 rounded-full transition-all duration-300',
+                            srv.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
+                            srv.status === 'running' && 'bg-amber-500 animate-pulse',
+                            srv.status === 'stopped' && 'bg-slate-500',
+                            srv.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
+                            srv.status === 'starting' && 'bg-amber-500 animate-pulse',
+                            srv.status === 'updating' && 'bg-blue-500 animate-pulse'
+                          )}
+                          role="img"
+                          aria-label={`Status: ${srv.status}`}
+                        />
                         <div>
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-slate-200">{displayName}</h3>
@@ -694,23 +706,26 @@ export default function ASEDashboard() {
                         {(srv.status === 'stopped' || srv.status === 'crashed') ? (
                           <button
                             onClick={() => handleStart(srv.id)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl transition-all focus:outline-none"
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
                             title="Start Server"
+                            aria-label={`Start Server ${displayName}`}
                           >
                             <Play className="w-4 h-4 fill-current ml-0.5" />
                           </button>
                         ) : (srv.status === 'running' || srv.status === 'online') ? (
                           <button
                             onClick={() => handleStop(srv.id)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none"
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
                             title="Stop Server"
+                            aria-label={`Stop Server ${displayName}`}
                           >
                             <Square className="w-4 h-4 fill-current" />
                           </button>
                         ) : (
                           <button
                             disabled
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-slate-500/10 text-slate-400 border border-slate-500/20 rounded-xl opacity-50 cursor-not-allowed focus:outline-none"
+                            className="w-[34px] h-[34px] flex items-center justify-center bg-slate-500/10 text-slate-400 border border-slate-500/20 rounded-xl opacity-50 cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                            aria-label={`Server ${displayName} status updating`}
                           >
                             <RotateCw className="w-4 h-4 animate-spin" />
                           </button>
@@ -718,16 +733,18 @@ export default function ASEDashboard() {
 
                         <button
                           onClick={() => handleCopyIp(srv.port)}
-                          className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none"
+                          className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
                           title="Copy IP Address"
+                          aria-label={`Copy IP address for Server ${displayName}`}
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
 
                         <button
                           onClick={() => navigate('/ase/config', { state: { serverId: srv.id } })}
-                          className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none"
+                          className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
                           title="Config Editor"
+                          aria-label={`Open Config Editor for Server ${displayName}`}
                         >
                           <FileEdit className="w-4 h-4" />
                         </button>
@@ -735,8 +752,9 @@ export default function ASEDashboard() {
                         <button
                           onClick={(e) => { e.stopPropagation(); window.location.href = `steam://connect/127.0.0.1:${srv.queryPort || 27015}`; }}
                           disabled={srv.status !== 'online'}
-                          className="w-[34px] h-[34px] flex items-center justify-center bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl transition-all focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-[34px] h-[34px] flex items-center justify-center bg-[#5c6ac4]/10 hover:bg-[#5c6ac4]/20 text-[#5c6ac4] border border-[#5c6ac4]/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
                           title="Join Server via Steam"
+                          aria-label={`Join Server ${displayName} via Steam`}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4c7 0 11 8 11 8a18.6 18.6 0 0 1-3.2 4.6"/><path d="M18.8 18.8A18.6 18.6 0 0 1 12 20c-7 0-11-8-11-8a18.6 18.6 0 0 1 5.3-6.4"/><circle cx="12" cy="12" r="3"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
                         </button>

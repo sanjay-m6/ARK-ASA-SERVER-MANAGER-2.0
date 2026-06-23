@@ -138,6 +138,19 @@ export default function ASEAdvancedPage() {
                                 <p className="text-xs text-slate-500">
                                     Arguments will be appended directly to the server command line.
                                 </p>
+                                {customArgs.toLowerCase().includes('-mods=') && (
+                                    <div className="flex items-start gap-2 mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                        <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                                        <div>
+                                            <p className="text-xs font-semibold text-amber-300">
+                                                Conflicting -mods= detected
+                                            </p>
+                                            <p className="text-xs text-amber-400/80 mt-0.5">
+                                                Mods are managed automatically by the Mod Manager. Any <code className="font-mono bg-amber-500/10 px-1 rounded">-mods=</code> arguments here will be stripped at launch to prevent conflicts.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Active Arguments Preview */}

@@ -553,6 +553,11 @@ impl ConfigGenerator {
 
         content.push_str("\r\n");
 
+        // SessionSettings section
+        content.push_str("[SessionSettings]\r\n");
+        content.push_str(&format!("SessionName={}\r\n", config.session_name));
+        content.push_str("\r\n");
+
         // URL section - Port and QueryPort for network binding
         content.push_str("[URL]\r\n");
         content.push_str(&format!("Port={}\r\n", config.game_port));
@@ -694,9 +699,10 @@ impl ConfigGenerator {
             base
         } else {
             format!(
-                "\"{}\" {}?listen?Port={}?QueryPort={}?RCONPort={}?MaxPlayers={}",
+                "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={}?RCONPort={}?MaxPlayers={}",
                 exe_path.display(),
                 config.map_name,
+                config.session_name,
                 config.game_port,
                 config.query_port,
                 config.rcon_port,
@@ -1089,6 +1095,12 @@ impl ConfigGenerator {
             "SessionName",
             &session_name,
         );
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "SessionSettings",
+            "SessionName",
+            &session_name,
+        );
 
         let pwd = server_password.unwrap_or_default();
         final_gus = crate::services::ini_parser::IniParser::update_key(
@@ -1224,6 +1236,26 @@ impl ConfigGenerator {
                     "True",
                 );
             }
+        }
+
+        // 5.5. For ASE, automatically sync enabled mods to ActiveMods inside [ServerSettings]
+        if server_type == "ASE" {
+            let mut stmt = db_conn.prepare("SELECT workshop_id FROM ase_mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC")
+                .map_err(|e| e.to_string())?;
+            let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+            let mut ids = Vec::new();
+            while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+                let id: String = row.get(0).map_err(|e| e.to_string())?;
+                ids.push(id);
+            }
+            let active_mods_val = ids.join(",");
+            println!("  📝 [Startup Mod Sync] Syncing {} active mods to GameUserSettings.ini for server {}", ids.len(), server_id);
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "ActiveMods",
+                &active_mods_val,
+            );
         }
 
         // 6. Write GUS

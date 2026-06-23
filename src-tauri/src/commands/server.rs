@@ -201,6 +201,111 @@ pub async fn show_server_console(state: State<'_, AppState>, server_id: i64) -> 
 }
 
 #[tauri::command]
+pub async fn get_server_version(server_id: i64, state: State<'_, AppState>) -> Result<String, String> {
+    let server = get_server_by_id(state.clone(), server_id).await?
+        .ok_or_else(|| "Server not found.".to_string())?;
+
+    let manifest_path = server.install_path
+        .join("steamapps")
+        .join("appmanifest_2430930.acf");
+
+    let mut build_id = None;
+    if manifest_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+            for line in content.lines() {
+                if line.contains("\"buildid\"") {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 2 {
+                        let id = parts[parts.len() - 1].replace("\"", "");
+                        build_id = Some(id);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    let exe_path = server.install_path
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64")
+        .join("ArkAscendedServer.exe");
+
+    if !exe_path.exists() {
+        if let Some(id) = build_id {
+            return Ok(format!("Build {}", id));
+        }
+        return Err("Server executable not found.".to_string());
+    }
+
+    let metadata = std::fs::metadata(&exe_path)
+        .map_err(|e| format!("Failed to read exe metadata: {}", e))?;
+
+    let modified = metadata.modified()
+        .map_err(|e| format!("Failed to read modified time: {}", e))?;
+
+    let datetime: chrono::DateTime<chrono::Utc> = modified.into();
+    let time_string = datetime.format("%Y.%m.%d-%H%M").to_string();
+    let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
+
+    match build_id {
+        Some(id) => Ok(format!("Build {} ({} - {:.1} MB)", id, time_string, size_mb)),
+        None => Ok(format!("{} ({:.1} MB)", time_string, size_mb)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_latest_server_version() -> Result<String, String> {
+    let url = "https://api.steamcmd.net/v1/info/2430930";
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let resp = client.get(url)
+        .header("User-Agent", "ARK-ASA-Server-Manager")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch latest version: {}", e))?;
+
+    let json: serde_json::Value = resp.json()
+        .await
+        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
+
+    if let Some(data) = json.get("data").and_then(|d| d.get("2430930")) {
+        // Try Option A: depots -> branches -> public -> buildid
+        if let Some(buildid) = data
+            .get("depots")
+            .and_then(|d| d.get("branches"))
+            .and_then(|b| b.get("public"))
+            .and_then(|p| p.get("buildid"))
+        {
+            if let Some(id_str) = buildid.as_str() {
+                return Ok(id_str.to_string());
+            }
+            if let Some(id_u64) = buildid.as_u64() {
+                return Ok(id_u64.to_string());
+            }
+        }
+        // Try Option B: branches -> public -> buildid
+        if let Some(buildid) = data
+            .get("branches")
+            .and_then(|b| b.get("public"))
+            .and_then(|p| p.get("buildid"))
+        {
+            if let Some(id_str) = buildid.as_str() {
+                return Ok(id_str.to_string());
+            }
+            if let Some(id_u64) = buildid.as_u64() {
+                return Ok(id_u64.to_string());
+            }
+        }
+    }
+
+    Err("Could not find buildid in response".to_string())
+}
+
+#[tauri::command]
 pub async fn install_server(
     app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
@@ -907,8 +1012,56 @@ pub async fn start_server(
     perform_server_startup(&app_handle, server_id, update_on_start).await
 }
 
-// Extracted logic for readability and better error handling in the async block
 async fn perform_server_startup(
+    app_handle: &tauri::AppHandle,
+    server_id: i64,
+    update_on_start: bool,
+) -> Result<(), String> {
+    let state = app_handle.state::<AppState>();
+
+    // Emit initial status change so UI updates immediately
+    if update_on_start {
+        let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "updating" }));
+    } else {
+        let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "starting" }));
+    }
+
+    let result = perform_server_startup_inner(app_handle, server_id, update_on_start).await;
+    if let Err(ref e) = result {
+        // Reset status back to stopped (non-blocking)
+        let _ = state.db.lock().map(|db| {
+            let _ = db.get_connection().map(|conn| {
+                let _ = conn.execute("UPDATE servers SET status = 'stopped' WHERE id = ?1", [server_id]);
+            });
+        });
+        let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "stopped" }));
+        
+        // Also emit an install-progress error so any open installer progress UI gets closed or shows the error
+        let install_path_opt = state.db.lock().ok().and_then(|db| {
+            db.get_connection().ok().and_then(|conn| {
+                conn.query_row(
+                    "SELECT install_path FROM servers WHERE id = ?1",
+                    [server_id],
+                    |row| row.get::<_, String>(0)
+                ).ok()
+            })
+        });
+        if let Some(path) = install_path_opt {
+            let _ = app_handle.emit("install-progress", crate::services::server_installer::InstallProgress {
+                install_path: path,
+                stage: "error".to_string(),
+                progress: 0.0,
+                message: e.clone(),
+                is_complete: false,
+                is_error: true,
+            });
+        }
+    }
+    result
+}
+
+// Extracted logic for readability and better error handling in the async block
+async fn perform_server_startup_inner(
     app_handle: &tauri::AppHandle,
     server_id: i64,
     update_on_start: bool,
@@ -1887,71 +2040,156 @@ pub async fn update_server(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<(), String> {
-    println!("📥 Updating server {}", server_id);
-
-    // Get server install path
-    let (install_path, server_type) = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        let conn = db
-            .get_connection()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-
-        conn.query_row(
-            "SELECT install_path, server_type FROM servers WHERE id = ?1",
-            [server_id],
-            |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string())
-                ))
-            },
-        )
-        .map_err(|e| format!("Server not found: {}", e))?
+    let log_path = "C:\\Users\\sanja\\AppData\\Roaming\\com.ark.asaservermanager\\rust_debug.log";
+    let log_msg = |msg: &str| {
+        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
+            use std::io::Write;
+            let _ = writeln!(file, "[{}] [update_server_cmd] {}", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"), msg);
+        }
     };
 
-    // Update status to updating
+    log_msg(&format!("📥 update_server called for server_id {}", server_id));
+
+    // Emit initial status change so UI updates immediately
+    let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "updating" }));
+
+    // Run the actual update inside an async block so we can catch any error and safely reset database status
+    let res = async {
+        // Get server install path
+        let (install_path, server_type) = {
+            log_msg("Locking state.db to fetch server details...");
+            let db = state
+                .db
+                .lock()
+                .map_err(|e: std::sync::PoisonError<_>| {
+                    let err = e.to_string();
+                    log_msg(&format!("Failed to lock state.db: {}", err));
+                    err
+                })?;
+            log_msg("Acquiring connection...");
+            let conn = db
+                .get_connection()
+                .map_err(|e: std::sync::PoisonError<_>| {
+                    let err = e.to_string();
+                    log_msg(&format!("Failed to acquire connection: {}", err));
+                    err
+                })?;
+
+            log_msg("Querying servers table...");
+            conn.query_row(
+                "SELECT install_path, server_type FROM servers WHERE id = ?1",
+                [server_id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string())
+                    ))
+                },
+            )
+            .map_err(|e| {
+                let err = format!("Server not found: {}", e);
+                log_msg(&err);
+                err
+            })?
+        };
+
+        log_msg(&format!("Fetched: install_path='{}', server_type='{}'", install_path, server_type));
+
+        // Update status to updating
+        {
+            log_msg("Locking state.db to update status to updating...");
+            let db = state
+                .db
+                .lock()
+                .map_err(|e: std::sync::PoisonError<_>| {
+                    let err = e.to_string();
+                    log_msg(&format!("Failed to lock state.db for status update: {}", err));
+                    err
+                })?;
+            log_msg("Acquiring connection for status update...");
+            let conn = db
+                .get_connection()
+                .map_err(|e: std::sync::PoisonError<_>| {
+                    let err = e.to_string();
+                    log_msg(&format!("Failed to acquire connection for status update: {}", err));
+                    err
+                })?;
+            log_msg("Executing UPDATE status = 'updating'...");
+            conn.execute(
+                "UPDATE servers SET status = 'updating' WHERE id = ?1",
+                [server_id],
+            )
+            .map_err(|e: rusqlite::Error| {
+                let err = e.to_string();
+                log_msg(&format!("Failed to execute UPDATE status = 'updating': {}", err));
+                err
+            })?;
+        }
+
+        log_msg("Status updated to 'updating' in DB. Initializing ServerInstaller...");
+
+        // Run the update
+        let installer = ServerInstaller::new(app_handle.clone(), install_path.clone());
+        log_msg("Invoking installer.update_server...");
+        installer
+            .update_server(&PathBuf::from(install_path.clone()), &server_type)
+            .await?;
+
+        // Emit final install-progress completion event
+        let _ = app_handle.emit("install-progress", crate::services::server_installer::InstallProgress {
+            install_path: install_path.clone(),
+            stage: "complete".to_string(),
+            progress: 100.0,
+            message: "Server files updated successfully!".to_string(),
+            is_complete: true,
+            is_error: false,
+        });
+
+        Ok::<(), String>(())
+    }.await;
+
+    // Reset status back to stopped (on both success and failure)
     {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        let conn = db
-            .get_connection()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        conn.execute(
-            "UPDATE servers SET status = 'updating' WHERE id = ?1",
-            [server_id],
-        )
-        .map_err(|e: rusqlite::Error| e.to_string())?;
+        let _ = state.db.lock().map(|db| {
+            let _ = db.get_connection().map(|conn| {
+                let _ = conn.execute("UPDATE servers SET status = 'stopped' WHERE id = ?1", [server_id]);
+            });
+        });
     }
 
-    // Run the update
-    let installer = ServerInstaller::new(app_handle, install_path.clone());
-    installer
-        .update_server(&PathBuf::from(install_path), &server_type)
-        .await?;
+    let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "stopped" }));
 
-    // Update status back to stopped
-    {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        let conn = db
-            .get_connection()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        conn.execute(
-            "UPDATE servers SET status = 'stopped' WHERE id = ?1",
-            [server_id],
-        )
-        .map_err(|e: rusqlite::Error| e.to_string())?;
+    match res {
+        Ok(_) => {
+            log_msg("  ✅ Server updated successfully.");
+            println!("  ✅ Server {} updated", server_id);
+            Ok(())
+        }
+        Err(e) => {
+            log_msg(&format!("  ❌ Server update failed: {}", e));
+            // Emit install-progress error event to let progress panel display/handle error
+            let install_path_opt = state.db.lock().ok().and_then(|db| {
+                db.get_connection().ok().and_then(|conn| {
+                    conn.query_row(
+                        "SELECT install_path FROM servers WHERE id = ?1",
+                        [server_id],
+                        |row| row.get::<_, String>(0)
+                    ).ok()
+                })
+            });
+            if let Some(path) = install_path_opt {
+                let _ = app_handle.emit("install-progress", crate::services::server_installer::InstallProgress {
+                    install_path: path,
+                    stage: "error".to_string(),
+                    progress: 0.0,
+                    message: e.clone(),
+                    is_complete: false,
+                    is_error: true,
+                });
+            }
+            Err(e)
+        }
     }
-
-    println!("  ✅ Server {} updated", server_id);
-    Ok(())
 }
 
 #[tauri::command]
