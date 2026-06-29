@@ -1,0 +1,7 @@
+{
+  "FullName": "AsaCombatMetrics",
+  "Description": "Hooks game combat actions and streams damage events to ARK Server Manager via localhost TCP sockets.",
+  "Version": "1.0.0",
+  "MinApiVersion": "1.0",
+  "UpdateUrl": ""
+}

@@ -14,6 +14,7 @@ import {
   Trash2,
   RotateCw,
   Square,
+  HardDrive,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useServerOrganizationStore } from '../../stores/serverOrganizationStore';
@@ -31,6 +32,7 @@ interface EnhancedServerCardProps {
   onDeleteServer?: (serverId: number) => void;
   onArchive?: (serverId: number) => void;
   onRestore?: (serverId: number) => void;
+  onMoveServer?: (server: Server) => void;
 }
 
 export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
@@ -44,6 +46,7 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
   onDeleteServer,
   onArchive,
   onRestore,
+  onMoveServer,
 }) => {
   const { customizations, updateServerCustomization } = useServerOrganizationStore();
   const customization = customizations.get(server.id);
@@ -347,6 +350,16 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
                     >
                       <FileText className="h-4 w-4" />
                       Edit Notes
+                    </button>
+                    <button
+                      onClick={() => {
+                        onMoveServer?.(server);
+                        setIsMenuOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-blue-400 transition-colors"
+                    >
+                      <HardDrive className="h-4 w-4" />
+                      Move Server
                     </button>
                     <div className="my-1 border-t border-slate-700" />
                     <button

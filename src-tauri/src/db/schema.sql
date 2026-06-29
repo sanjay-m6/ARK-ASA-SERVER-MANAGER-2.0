@@ -532,3 +532,36 @@ CREATE TABLE IF NOT EXISTS server_activity_log (
 CREATE INDEX IF NOT EXISTS idx_server_activity_log_server_id ON server_activity_log(server_id);
 CREATE INDEX IF NOT EXISTS idx_server_activity_log_created_at ON server_activity_log(created_at);
 
+-- Chat Translator tables
+CREATE TABLE IF NOT EXISTS translator_config (
+    server_id INTEGER NOT NULL,
+    server_type TEXT NOT NULL,
+    enabled INTEGER DEFAULT 0,
+    default_language TEXT DEFAULT 'en',
+    translation_api TEXT DEFAULT 'Google',
+    api_key TEXT,
+    translate_system_messages INTEGER DEFAULT 1,
+    cache_translations INTEGER DEFAULT 1,
+    PRIMARY KEY (server_id, server_type)
+);
+
+CREATE TABLE IF NOT EXISTS translator_player_prefs (
+    steam_id TEXT NOT NULL,
+    player_name TEXT NOT NULL,
+    selected_language TEXT NOT NULL,
+    server_id INTEGER NOT NULL,
+    server_type TEXT NOT NULL,
+    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (steam_id, server_id, server_type)
+);
+
+CREATE TABLE IF NOT EXISTS translator_stats (
+    server_id INTEGER NOT NULL,
+    server_type TEXT NOT NULL,
+    total_chars_translated INTEGER DEFAULT 0,
+    total_requests INTEGER DEFAULT 0,
+    cache_hits INTEGER DEFAULT 0,
+    PRIMARY KEY (server_id, server_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_translator_player_prefs_server ON translator_player_prefs(server_id, server_type);

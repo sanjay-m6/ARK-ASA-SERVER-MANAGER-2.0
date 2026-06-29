@@ -28,3 +28,4 @@ pub mod server_organization;
 pub mod system_analyzer;
 
 pub mod ase_discord_bridge;
+pub mod combat_metrics_server;

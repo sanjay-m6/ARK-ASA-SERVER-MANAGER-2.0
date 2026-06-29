@@ -2274,5 +2274,9 @@ pub async fn get_ase_config_diagnostics(
     })
 }
 
-pub use crate::ase::ini_validator::{validate_ase_config, __cmd__validate_ase_config};
+pub use crate::ase::ini_validator::{
+    validate_ase_config,
+    __cmd__validate_ase_config,
+    __tauri_command_name_validate_ase_config,
+};
 

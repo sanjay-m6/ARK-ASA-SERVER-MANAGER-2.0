@@ -202,6 +202,20 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
     } else {
       newDinoRamp = rampString;
       updatedConfig.overrideMaxExperiencePointsDino = maxExperience;
+
+      // If we are setting dino ramp but player ramp is empty, we must generate a default player ramp 
+      // or else it will be saved as the first element and interpreted as a player ramp by ARK.
+      if (!newPlayerRamp) {
+        const defaultPlayerLevels = [];
+        let total = 0;
+        for (let i = 0; i < 105; i++) {
+          const xp = Math.floor(10 * Math.pow(i, 2.2));
+          total += xp;
+          defaultPlayerLevels.push(`ExperiencePointsForLevel[${i}]=${xp}`);
+        }
+        newPlayerRamp = `(${defaultPlayerLevels.join(',')})`;
+        updatedConfig.overrideMaxExperiencePointsPlayer = total.toString();
+      }
     }
 
     // Combine player and dino overrides separated by newline

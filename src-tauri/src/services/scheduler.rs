@@ -1055,7 +1055,7 @@ impl SchedulerService {
                                 );
                                 let state = app.state::<AppState>();
                                 let restart_result =
-                                    crate::commands::server::restart_server(state, server_id).await;
+                                    crate::commands::server::restart_server(state, server_id, None).await;
 
                                 // 7. If restart failed and we have a backup, attempt automatic rollback
                                 if let Err(e) = restart_result {
@@ -1183,7 +1183,7 @@ async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
 
     // Call restart command from server module
     let state = app_handle.state::<AppState>();
-    match crate::commands::server::restart_server(state, task.server_id).await {
+    match crate::commands::server::restart_server(state, task.server_id, None).await {
         Ok(_) => {
             log::info!(
                 "  Ok Scheduled restart initiated for server {}",

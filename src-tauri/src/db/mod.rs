@@ -75,6 +75,29 @@ impl Database {
         // Backup system migrations
         Self::run_backup_system_migration(conn)?;
 
+        // Fix accidental ShooterGame install paths
+        Self::run_install_path_migration(conn)?;
+
+        Ok(())
+    }
+
+    fn run_install_path_migration(conn: &Connection) -> Result<()> {
+        let mut stmt = conn.prepare("SELECT id, install_path FROM servers")?;
+        let servers: Vec<(i64, String)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        for (id, path_str) in servers {
+            let path = PathBuf::from(&path_str);
+            if path.file_name() == Some(std::ffi::OsStr::new("ShooterGame")) {
+                println!("📦 Migration: Fixing nested ShooterGame path for server {}", id);
+                if let Some(parent) = path.parent() {
+                    let sanitized = parent.to_string_lossy().to_string();
+                    let _ = conn.execute("UPDATE servers SET install_path = ?1 WHERE id = ?2", rusqlite::params![sanitized, id]);
+                }
+            }
+        }
         Ok(())
     }
 

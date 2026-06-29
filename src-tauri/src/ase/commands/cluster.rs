@@ -577,7 +577,7 @@ fn update_ase_cluster_config(install_path: &str, cluster_dir: &str) {
             for line in content.lines() {
                 result.push_str(line);
                 result.push('\n');
-                if line.starts_with("[ase_serversettings]") && !added {
+                if line.starts_with("[ServerSettings]") && !added {
                     result.push_str(&cluster_line);
                     result.push('\n');
                     added = true;

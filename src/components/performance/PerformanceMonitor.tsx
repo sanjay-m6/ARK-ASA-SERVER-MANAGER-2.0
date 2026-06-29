@@ -101,7 +101,7 @@ export default function PerformanceMonitor({ data }: PerformanceMonitorProps) {
                                     boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
                                 }}
                                 itemStyle={{ padding: '2px 0' }}
-                                formatter={(value: number) => `${value.toFixed(1)}`}
+                                formatter={(value: any) => typeof value === 'number' ? value.toFixed(1) : String(value)}
                             />
                             <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} iconType="circle" />
                             <Area type="monotone" dataKey="cpu" stroke="#38bdf8" name={t('performance.chart.cpu', 'CPU Usage (%)')} strokeWidth={2} fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />

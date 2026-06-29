@@ -212,7 +212,8 @@ impl AseLauncher {
         server: &AseServer,
         _config: &AseGameConfig,
         _public_ip: Option<String>,
-        _active_mod_ids: &[String],
+        active_mod_ids: &[String],
+        cluster_dir: Option<String>,
     ) -> Vec<String> {
         let mut args = Vec::new();
         // ASE uses "TheIsland", NOT "TheIsland_WP" (that's ASA)
@@ -244,6 +245,10 @@ impl AseLauncher {
         if server.rcon_port > 0 {
             launch_string.push_str("?RCONEnabled=True");
             launch_string.push_str(&format!("?RCONPort={}", server.rcon_port));
+        }
+        
+        if !active_mod_ids.is_empty() {
+            launch_string.push_str(&format!("?GameModIds={}", active_mod_ids.join(",")));
         }
         
         args.push(launch_string);
@@ -319,6 +324,10 @@ impl AseLauncher {
             args.push(format!("-clusterid={}", server.cluster_id));
             if _config.use_cluster_directory_override && !_config.cluster_directory_override.is_empty() {
                 args.push(format!("-ClusterDirOverride={}", _config.cluster_directory_override));
+            } else if let Some(ref path) = cluster_dir {
+                if !path.is_empty() {
+                    args.push(format!("-ClusterDirOverride={}", path));
+                }
             }
         }
         
@@ -357,7 +366,7 @@ impl AseLauncher {
         final_args
     }
 
-    pub async fn spawn_server(_app: AppHandle, server_id: i64, state: &State<'_, AppState>) -> Result<(), String> {
+    pub async fn spawn_server(_app: AppHandle, server_id: i64, state: &State<'_, AppState>, wipe_dinos: Option<bool>) -> Result<(), String> {
         // Sync database configurations to disk before starting the server
         {
             let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -376,7 +385,7 @@ impl AseLauncher {
             }
         }
 
-        let (server, config, active_mods) = {
+        let (server, config, active_mods, cluster_dir) = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let conn = db.get_connection().map_err(|e| e.to_string())?;
             let mut stmt = conn.prepare("SELECT id, name, install_path, map_name, port, query_port, rcon_port, rcon_password, max_players, server_password, admin_password, session_name, active_mods, cluster_id, battleye, extra_args, status, process_id, created_at, updated_at, auto_start, auto_stop, intelligent_mode, startup_delay, startup_priority, branch FROM ase_servers WHERE id = ?1").map_err(|e| e.to_string())?;
@@ -390,7 +399,18 @@ impl AseLauncher {
             let config: AseGameConfig = serde_json::from_str(&config_json).unwrap_or_default();
             
             let active_mods = Self::fetch_active_mod_ids(&conn, server_id, &server.active_mods)?;
-            (server, config, active_mods)
+            
+            let cluster_dir: Option<String> = if !server.cluster_id.is_empty() {
+                conn.query_row(
+                    "SELECT cluster_dir FROM ase_clusters WHERE id = ?1",
+                    [&server.cluster_id],
+                    |row| row.get(0)
+                ).ok()
+            } else {
+                None
+            };
+            
+            (server, config, active_mods, cluster_dir)
         };
 
         // If user config folder is active, copy the INI files from the custom folder to the default directory before starting the server
@@ -438,7 +458,10 @@ impl AseLauncher {
         }
 
         let public_ip = if config.enable_public_ip_for_epic { Self::resolve_public_ip().await } else { None };
-        let args = Self::build_arguments(&server, &config, public_ip, &active_mods);
+        let mut args = Self::build_arguments(&server, &config, public_ip, &active_mods, cluster_dir);
+        if wipe_dinos.unwrap_or(false) {
+            args.push("-ForceRespawnDinos".to_string());
+        }
 
         // Auto-configure firewall rules in a background thread silently.
         let app_clone = _app.clone();

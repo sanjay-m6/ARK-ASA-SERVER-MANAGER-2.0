@@ -6,7 +6,7 @@ import { useAseServerStore } from '../stores/aseServerStore';
 import { useInstallStore, normalizePath } from '../../stores/installStore';
 import { suggestNextAsePorts } from '../utils/aseLaunchArgs';
 import { cn } from '../../utils/helpers';
-import { startAseServer, stopAseServer, deleteAseServer, updateAseServer, updateAseServerInstall, cloneAseServer, transferAseSettings, extractAseSaveData, joinAseServer, getAseServerVersion } from '../utils/aseCommands';
+import { startAseServer, stopAseServer, restartAseServer, deleteAseServer, updateAseServer, updateAseServerInstall, cloneAseServer, transferAseSettings, extractAseSaveData, joinAseServer, getAseServerVersion } from '../utils/aseCommands';
 import { getAseMapDisplayName, ASE_BRANCHES } from '../data/aseMaps';
 import ASEResetDialog from '../components/server/ASEResetDialog';
 import ASEImportServerDialog from '../components/server/ASEImportServerDialog';
@@ -18,6 +18,9 @@ import { useTranslation } from 'react-i18next';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import ConfirmDialog from '../../components/ui/ConfirmDialog';
 import ServerStatusBar from '../../components/server/ServerStatusBar';
+import MoveServerDialog from '../../components/server/MoveServerDialog';
+import { moveServer } from '../../utils/tauri';
+import { open } from '@tauri-apps/plugin-dialog';
 
 export default function ASEServerManager() {
   const { servers, setServers, updateServerStatus, refreshServers, removeServer } = useAseServerStore();
@@ -56,6 +59,13 @@ export default function ASEServerManager() {
   const [editingServerId, setEditingServerId] = useState<number | null>(null);
   const [editServerName, setEditServerName] = useState('');
   const [serverVersions, setServerVersions] = useState<Record<number, string>>({});
+  
+  // Move Server State
+  const [showMoveDialog, setShowMoveDialog] = useState(false);
+  const [moveServerTarget, setMoveServerTarget] = useState<AseServer | null>(null);
+  const [moveServerPath, setMoveServerPath] = useState<string>('');
+  const [isBulkMove, setIsBulkMove] = useState(false);
+  
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -230,6 +240,16 @@ export default function ASEServerManager() {
     } 
   };
 
+  const handleRestartAseServer = async (id: number, wipeDinos?: boolean) => {
+    try {
+      updateServerStatus(id, 'starting');
+      await restartAseServer(id, wipeDinos);
+      toast.success(wipeDinos ? 'ASE server restarting with dino wipe...' : 'ASE server restarting...');
+    } catch (e) {
+      toast.error(`${e}`);
+    }
+  };
+
   const handleDelete = (id: number, name: string) => {
     setServerToDelete({id, name});
   };
@@ -316,6 +336,85 @@ export default function ASEServerManager() {
     }
   };
 
+  const handleMoveServer = async (serverId: number) => {
+    try {
+      const server = servers.find(s => s.id === serverId);
+      if (!server) return;
+      
+      if (server.status !== 'stopped' && server.status !== 'crashed') {
+        toast.error(t('serverManager.move.mustBeStopped', 'Server must be stopped before moving.'));
+        return;
+      }
+
+      const selectedPath = await open({
+        directory: true,
+        multiple: false,
+        title: t('serverManager.move.selectFolder', 'Select New Server Directory')
+      });
+
+      if (selectedPath && !Array.isArray(selectedPath)) {
+        setMoveServerTarget(server);
+        setMoveServerPath(selectedPath as string);
+        setIsBulkMove(false);
+        setShowMoveDialog(true);
+      }
+    } catch (error) {
+      console.error('Failed to prepare move server:', error);
+      toast.error(t('serverManager.move.failed', 'Failed to prepare move server.'));
+    }
+  };
+
+  const confirmMoveServer = async () => {
+    if (!moveServerPath) return;
+
+    if (isBulkMove) {
+      try {
+        toast.success(t('serverManager.move.startedBulk', { count: selectedServers.length, defaultValue: `Moving ${selectedServers.length} servers...` }));
+        
+        let successCount = 0;
+        for (const serverId of selectedServers) {
+          try {
+            const server = servers.find(s => s.id === serverId);
+            if (server) {
+              toast.loading(t('serverManager.move.movingServer', { name: server.name, defaultValue: `Moving ${server.name}...` }), { id: 'bulk-move-ase' });
+              await moveServer(serverId, moveServerPath, true); // true for isAse
+              successCount++;
+            }
+          } catch (err) {
+            console.error(`Failed to move server ${serverId}:`, err);
+            toast.error(t('serverManager.move.bulkFailedOne', { defaultValue: 'Failed to move a server.' }));
+          }
+        }
+        
+        if (successCount > 0) {
+          toast.success(t('serverManager.move.bulkSuccess', { count: successCount, defaultValue: `Successfully moved ${successCount} servers!` }), { id: 'bulk-move-ase' });
+        } else {
+          toast.dismiss('bulk-move-ase');
+        }
+        
+        refreshServers();
+        setSelectedServers([]);
+      } catch (error) {
+        console.error('Failed to bulk move servers:', error);
+        toast.error(t('serverManager.move.failed', 'Failed to move servers.'));
+        toast.dismiss('bulk-move-ase');
+      }
+    } else if (moveServerTarget) {
+      try {
+        toast.success(t('serverManager.move.started', 'Moving server...'));
+        
+        await moveServer(moveServerTarget.id, moveServerPath, true); // true for isAse
+        
+        toast.success(t('serverManager.move.success', 'Server moved successfully!'));
+        refreshServers();
+      } catch (error) {
+        console.error('Failed to move server:', error);
+        toast.error(t('serverManager.move.failed', 'Failed to move server.'));
+        refreshServers();
+      }
+    }
+  };
+
   const handleSelectServer = (serverId: number) => {
     setSelectedServers(prev =>
       prev.includes(serverId) ? prev.filter(id => id !== serverId) : [...prev, serverId]
@@ -370,6 +469,36 @@ export default function ASEServerManager() {
     if (runnings.length === 0) return toast.error('No running servers to stop');
     toast.success(`Stopping ${runnings.length} servers...`);
     for (const s of runnings) { handleStop(s.id); await new Promise(r => setTimeout(r, 500)); }
+  };
+
+  const handleBulkMoveServers = async () => {
+    try {
+      if (selectedServers.length === 0) return;
+
+      // Validate that all selected servers are stopped
+      const selectedServerObjs = servers.filter(s => selectedServers.includes(s.id));
+      const runningServers = selectedServerObjs.filter(s => s.status !== 'stopped' && s.status !== 'crashed');
+      
+      if (runningServers.length > 0) {
+        toast.error(t('serverManager.move.bulkMustBeStopped', 'All selected servers must be stopped before moving.'));
+        return;
+      }
+
+      const selectedPath = await open({
+        directory: true,
+        multiple: false,
+        title: t('serverManager.move.selectFolder', 'Select New Server Directory')
+      });
+
+      if (selectedPath && !Array.isArray(selectedPath)) {
+        setMoveServerPath(selectedPath as string);
+        setIsBulkMove(true);
+        setShowMoveDialog(true);
+      }
+    } catch (error) {
+      console.error('Failed to bulk move servers:', error);
+      toast.error(t('serverManager.move.failed', 'Failed to prepare move servers.'));
+    }
   };
 
   const filtered = orderedServers.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.mapName.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -468,6 +597,18 @@ export default function ASEServerManager() {
             >
               <Square className="w-4 h-4 fill-current" />
               <span>Stop All</span>
+            </button>
+
+            <div className="w-px h-6 bg-slate-700/50 hidden sm:block mx-1"></div>
+            
+            <button
+              onClick={handleBulkMoveServers}
+              disabled={selectedServers.length === 0}
+              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-purple-500/20 text-purple-400 rounded-full transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              title={t('serverManager.move.bulkTitle', 'Move selected servers to a new directory')}
+            >
+              <FolderOpen className="w-4 h-4 fill-current" />
+              <span>Move Selected</span>
             </button>
           </div>
         </div>
@@ -639,9 +780,36 @@ export default function ASEServerManager() {
                       <Play className="w-5 h-5 fill-current" />
                     </button>
                   ) : (
-                    <button onClick={()=>handleStop(srv.id)} className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner" title="Stop Server">
-                      <Square className="w-5 h-5 fill-current" />
-                    </button>
+                    <>
+                      <button onClick={()=>handleStop(srv.id)} className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner" title="Stop Server">
+                        <Square className="w-5 h-5 fill-current" />
+                      </button>
+
+                      <div className="relative group/dropdown">
+                        <button className="p-2.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner" title="Restart Options">
+                          <RotateCw className="w-5 h-5" />
+                        </button>
+                        
+                        {/* Dropdown Menu */}
+                        <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
+                          <button
+                            onClick={() => handleRestartAseServer(srv.id)}
+                            className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 text-xs"
+                          >
+                            <RotateCw className="w-4 h-4" />
+                            <span>{t('serverManager.buttons.normalRestart', 'Normal Restart')}</span>
+                          </button>
+                          <button
+                            onClick={() => handleRestartAseServer(srv.id, true)}
+                            className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs"
+                            title="Gracefully restart the server and wipe all wild dinosaurs"
+                          >
+                            <RefreshCw className="w-4 h-4 text-amber-400" />
+                            <span>{t('serverManager.buttons.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
                   )}
 
                   <button
@@ -678,6 +846,15 @@ export default function ASEServerManager() {
                       title="Clone Server"
                   >
                       <Copy className="w-5 h-5" />
+                  </button>
+
+                  <button
+                      onClick={(e) => { e.stopPropagation(); handleMoveServer(srv.id); }}
+                      disabled={srv.status !== 'stopped' && srv.status !== 'crashed'}
+                      className="p-2.5 bg-slate-700/30 hover:bg-purple-500/20 text-slate-300 hover:text-purple-400 border border-slate-600/30 hover:border-purple-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={t('serverManager.move.buttonTitle', 'Move Server to New Directory')}
+                  >
+                      <FolderOpen className="w-5 h-5" />
                   </button>
 
                   <div className="w-px h-8 bg-slate-700/50 mx-1"></div>
@@ -1023,6 +1200,15 @@ export default function ASEServerManager() {
           onExtractData={handleExtractData}
         />
       )}
+
+      <MoveServerDialog
+        isOpen={showMoveDialog}
+        onClose={() => setShowMoveDialog(false)}
+        onConfirm={confirmMoveServer}
+        isBulk={isBulkMove}
+        serverCount={selectedServers.length}
+        serverName={moveServerTarget?.name}
+      />
     </motion.div>
   );
 }

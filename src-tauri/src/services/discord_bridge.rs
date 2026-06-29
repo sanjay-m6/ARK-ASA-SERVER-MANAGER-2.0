@@ -467,7 +467,7 @@ impl SerenityEventHandler for GatewayHandler {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
                             let state = app.state::<AppState>();
-                            let _ = crate::commands::server::restart_server(state, id).await;
+                            let _ = crate::commands::server::restart_server(state, id, None).await;
                         });
                         format!("🔄 Initiated RESTART for server `#{}`.", id)
                     } else {
@@ -623,7 +623,7 @@ impl SerenityEventHandler for GatewayHandler {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
                             let state = app.state::<AppState>();
-                            let _ = crate::commands::server::restart_server(state, id).await;
+                            let _ = crate::commands::server::restart_server(state, id, None).await;
                         });
                     }
                     "🔄 Initiated RESTART for all servers in the cluster."
@@ -848,7 +848,7 @@ impl SerenityEventHandler for GatewayHandler {
                     let channel_id = msg.channel_id;
                     tauri::async_runtime::spawn(async move {
                         let state = app.state::<AppState>();
-                        match crate::commands::server::restart_server(state, id).await {
+                        match crate::commands::server::restart_server(state, id, None).await {
                             Ok(_) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(build_embed("✅ Server Restarted", &format!("Server `{}` restarted.", id), 0x22C55E))).await; }
                             Err(e) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed(&format!("Failed to restart server {}: {}", id, e)))).await; }
                         }

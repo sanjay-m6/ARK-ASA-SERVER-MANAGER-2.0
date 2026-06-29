@@ -694,7 +694,7 @@ impl ConfigGenerator {
                 config.max_players
             );
             if !config.active_mods.is_empty() {
-                base.push_str(&format!("?ActiveMods={}", config.active_mods.join(",")));
+                base.push_str(&format!("?GameModIds={}", config.active_mods.join(",")));
             }
             base
         } else {

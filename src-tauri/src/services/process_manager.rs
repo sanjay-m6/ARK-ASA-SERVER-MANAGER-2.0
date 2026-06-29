@@ -1104,26 +1104,45 @@ impl ProcessManager {
             }
         }
 
-        // Add custom launch arguments — strip -mods= to prevent conflicts with manager-generated list
+        // Add custom launch arguments — strip -mods= to prevent conflicts with manager-generated list,
+        // parse quotes correctly, and append URL parameters (?) to the map connection string.
         if let Some(custom) = custom_args {
             if !custom.is_empty() {
-                let custom_parts: Vec<String> = custom
-                    .split_whitespace()
-                    .filter(|s| {
-                        let lower = s.to_lowercase();
-                        if lower.starts_with("-mods=") {
-                            println!(
-                                "  ⚠️ Stripped conflicting -mods= from custom_args for server {} (mods are managed automatically)",
-                                server_id
-                            );
-                            false
-                        } else {
-                            true
+                let mut custom_parts = Vec::new();
+                let mut current_arg = String::new();
+                let mut in_quotes = false;
+                
+                for c in custom.chars() {
+                    match c {
+                        '"' | '\'' => in_quotes = !in_quotes,
+                        ' ' | '\t' if !in_quotes => {
+                            if !current_arg.is_empty() {
+                                custom_parts.push(current_arg.clone());
+                                current_arg.clear();
+                            }
                         }
-                    })
-                    .map(|s| s.to_string())
-                    .collect();
-                args.extend(custom_parts);
+                        _ => current_arg.push(c),
+                    }
+                }
+                if !current_arg.is_empty() {
+                    custom_parts.push(current_arg);
+                }
+
+                for s in custom_parts {
+                    let lower = s.to_lowercase();
+                    if lower.starts_with("-mods=") {
+                        println!(
+                            "  ⚠️ Stripped conflicting -mods= from custom_args for server {} (mods are managed automatically)",
+                            server_id
+                        );
+                    } else if s.starts_with('?') {
+                        // Append URL parameters to the connection URL (args[0])
+                        args[0].push_str(&s);
+                        println!("  🔗 Appended URL parameter to connection string: {}", s);
+                    } else {
+                        args.push(s);
+                    }
+                }
             }
         }
 

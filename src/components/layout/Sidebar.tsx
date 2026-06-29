@@ -25,7 +25,8 @@ import {
   FileText,
   RefreshCw,
   Search,
-  Flame
+  Languages,
+  Swords
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence } from 'framer-motion';
@@ -79,7 +80,8 @@ export default function Sidebar() {
         { name: 'Hardware Allocation', path: '/hardware', icon: Cpu },
         { name: t('sidebar.discordBot'), path: '/tools/discord', icon: MessageSquare },
         { name: t('sidebar.plugins'), path: '/tools/plugins', icon: Plug },
-        { name: 'Infinity Damage', path: '/tools/infinity-damage', icon: Flame },
+        { name: t('sidebar.chatTranslator', 'Chat Translator'), path: '/tools/chat-translator', icon: Languages },
+        { name: t('sidebar.combatMetrics', 'Combat Metrics'), path: '/tools/combat-metrics', icon: Swords },
         { name: t('sidebar.fileManager'), path: '/tools/files', icon: Folder },
         { name: t('sidebar.tribeLogs', 'Tribe Logs'), path: '/tools/tribe-logs', icon: ScrollText },
         { name: t('sidebar.upnp', 'UPnP Ports'), path: '/tools/upnp', icon: Wifi },
@@ -112,7 +114,7 @@ export default function Sidebar() {
         { name: 'Discord Bot', path: '/ase/discord', icon: MessageSquare },
         { name: 'Profile Sync', path: '/ase/profile-sync', icon: RefreshCw },
         { name: 'Plugins Manager', path: '/ase/tools/plugins', icon: Plug },
-        { name: 'Infinity Damage', path: '/ase/tools/infinity-damage', icon: Flame },
+        { name: 'Chat Translator', path: '/ase/tools/chat-translator', icon: Languages },
         { name: 'Tribe Logs', path: '/ase/tools/tribe-logs', icon: ScrollText },
         { name: 'UPnP Ports', path: '/ase/tools/upnp', icon: Wifi },
         { name: 'Server Organization', path: '/ase/tools/organization', icon: Folder },
@@ -183,7 +185,7 @@ export default function Sidebar() {
   }).filter(Boolean) as NavigationItem[];
 
   return (
-    <div className="w-72 glass-panel static-panel border-r-0 border-r-white/5 flex flex-col h-screen relative z-50">
+    <div className="w-72 glass-panel static-panel border-r-0 border-r-white/5 flex flex-col h-full relative z-50">
       {/* Logo */}
       <div className="p-8 pb-6">
         <div className="flex items-center space-x-4">

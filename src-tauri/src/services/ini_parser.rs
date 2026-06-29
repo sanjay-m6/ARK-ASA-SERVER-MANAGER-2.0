@@ -2,8 +2,7 @@
 // Handles parsing, merging, and serializing INI files while preserving unknown keys
 // and duplicate/array-style ARK keys (e.g. OverridePlayerLevelEngramPoints repeated 30+ times).
 
-use std::collections::BTreeMap;
-
+use std::collections::{BTreeMap, HashMap, HashSet};
 /// Internal section representation as an ordered list of (key, value) pairs.
 /// Using Vec instead of BTreeMap is critical: ARK uses repeated key names for arrays
 /// (e.g. OverridePlayerLevelEngramPoints=800 appearing 30+ times).
@@ -33,7 +32,7 @@ impl IniParser {
             if line.starts_with('[') && line.ends_with(']') {
                 current_section = line[1..line.len() - 1].to_string();
                 // Add section if not yet present
-                if !result.iter().any(|(s, _)| s == &current_section) {
+                if !result.iter().any(|(s, _)| s.eq_ignore_ascii_case(&current_section)) {
                     result.push((current_section.clone(), Vec::new()));
                 }
                 continue;
@@ -43,7 +42,7 @@ impl IniParser {
             if let Some((key, value)) = line.split_once('=') {
                 let key = key.trim().to_string();
                 let value = value.trim().to_string();
-                if let Some((_, entries)) = result.iter_mut().find(|(s, _)| s == &current_section) {
+                if let Some((_, entries)) = result.iter_mut().find(|(s, _)| s.eq_ignore_ascii_case(&current_section)) {
                     entries.push((key, value));
                 }
             }
@@ -94,13 +93,13 @@ impl IniParser {
 
         for (section_name, update_entries) in &update_sections {
             // Build a frequency map for keys in updates for this section
-            let mut update_key_freq: BTreeMap<&str, usize> = BTreeMap::new();
+            let mut update_key_freq: HashMap<String, usize> = HashMap::new();
             for (k, _) in update_entries {
-                *update_key_freq.entry(k.as_str()).or_insert(0) += 1;
+                *update_key_freq.entry(k.to_ascii_lowercase()).or_insert(0) += 1;
             }
 
             // Find or create the section in base
-            let base_section_idx = base_sections.iter().position(|(s, _)| s == section_name);
+            let base_section_idx = base_sections.iter().position(|(s, _)| s.eq_ignore_ascii_case(section_name));
             let base_section_idx = match base_section_idx {
                 Some(i) => i,
                 None => {
@@ -112,31 +111,32 @@ impl IniParser {
 
             let base_entries = &mut base_sections[base_section_idx].1;
 
-            // For each key in updates, decide how to merge
-            for (k, freq) in &update_key_freq {
-                if *freq > 1 {
-                    // Array-style key: remove all base entries for this key, will re-add below
-                    base_entries.retain(|(bk, _)| bk.as_str() != *k);
-                } else {
-                    // Single-value key: update-in-place if exists
-                    let update_val = update_entries
-                        .iter()
-                        .find(|(uk, _)| uk.as_str() == *k)
-                        .map(|(_, v)| v.as_str())
-                        .unwrap_or("");
-                    if let Some(entry) = base_entries.iter_mut().find(|(bk, _)| bk.as_str() == *k) {
-                        entry.1 = update_val.to_string();
-                    } else {
-                        // New single key not in base — append
-                        base_entries.push((k.to_string(), update_val.to_string()));
-                    }
-                }
-            }
+            let mut cleared_array_keys = HashSet::new();
+            let mut processed_single_keys = HashSet::new();
 
-            // Append all entries for array-style keys from updates (in order)
-            for (k, v) in update_entries {
-                if update_key_freq.get(k.as_str()).copied().unwrap_or(0) > 1 {
-                    base_entries.push((k.clone(), v.clone()));
+            // For each key in updates, decide how to merge
+            for (k, update_val) in update_entries {
+                let k_lower = k.to_ascii_lowercase();
+                let freq = *update_key_freq.get(&k_lower).unwrap_or(&0);
+
+                if freq > 1 {
+                    // Array-style key
+                    if cleared_array_keys.insert(k_lower) {
+                        // First time seeing this array key in updates: clear all from base
+                        base_entries.retain(|(bk, _)| !bk.eq_ignore_ascii_case(k));
+                    }
+                    // Append this array entry
+                    base_entries.push((k.clone(), update_val.clone()));
+                } else {
+                    // Single-value key
+                    if processed_single_keys.insert(k_lower) {
+                        if let Some(entry) = base_entries.iter_mut().find(|(bk, _)| bk.eq_ignore_ascii_case(k)) {
+                            entry.1 = update_val.to_string();
+                        } else {
+                            // New single key not in base — append
+                            base_entries.push((k.clone(), update_val.clone()));
+                        }
+                    }
                 }
             }
         }
@@ -151,7 +151,7 @@ impl IniParser {
         let mut sections = Self::parse_ordered(content);
 
         // Find or create the section
-        let section_idx = sections.iter().position(|(s, _)| s == section);
+        let section_idx = sections.iter().position(|(s, _)| s.eq_ignore_ascii_case(section));
         let section_idx = match section_idx {
             Some(i) => i,
             None => {
@@ -162,7 +162,7 @@ impl IniParser {
         };
 
         let entries = &mut sections[section_idx].1;
-        if let Some(entry) = entries.iter_mut().find(|(k, _)| k == key) {
+        if let Some(entry) = entries.iter_mut().find(|(k, _)| k.eq_ignore_ascii_case(key)) {
             entry.1 = value.to_string();
         } else {
             entries.push((key.to_string(), value.to_string()));
@@ -178,9 +178,26 @@ impl IniParser {
         let sections = Self::parse_ordered(content);
         sections
             .iter()
-            .find(|(s, _)| s == section)
-            .and_then(|(_, entries)| entries.iter().find(|(k, _)| k == key))
+            .find(|(s, _)| s.eq_ignore_ascii_case(section))
+            .and_then(|(_, entries)| entries.iter().find(|(k, _)| k.eq_ignore_ascii_case(key)))
             .map(|(_, v)| v.clone())
+    }
+
+    /// Get all values for a given key in a section (for array-style keys).
+    #[allow(dead_code)]
+    pub fn get_all_values(content: &str, section: &str, key: &str) -> Vec<String> {
+        let sections = Self::parse_ordered(content);
+        sections
+            .iter()
+            .find(|(s, _)| s.eq_ignore_ascii_case(section))
+            .map(|(_, entries)| {
+                entries
+                    .iter()
+                    .filter(|(k, _)| k.eq_ignore_ascii_case(key))
+                    .map(|(_, v)| v.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     // -------------------------------------------------------------------------

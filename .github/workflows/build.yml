@@ -51,21 +51,36 @@ jobs:
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This release includes the major v4.5.1 update integrating full ARK: Survival Evolved (ASE) server support and an advanced diagnostics pipeline, alongside the features introduced in the v4.5.0 release (custom config folders, RCON stability fixes, and settings deadlock mitigations).
+            This release introduces a fully custom frameless title bar with Apple-style window controls, ASE mod management improvements, and new server administration tools for both ASA and ASE.
 
-            ### 🆕 New Features & Improvements in v4.5.1
-            - **🦕 Full ARK: Survival Evolved (ASE) Support**: Complete management pipeline for ASE servers, including ShooterGameServer execution monitoring, environment layout configurations, in-app configuration editor pages, map listings, and seamless sidebar layout integration.
-            - **🌐 Advanced Diagnostics Pipeline**: Real-time diagnostic verification system checks process status, UDP port binding availability, LAN query status (Steam A2S protocol), and global public WAN accessibility.
-            - **🎓 Setup & Troubleshooting Guides**: Interactive troubleshooting dashboard built directly into the server status bar offering clear instructions to resolve local firewalls, port forwarding (NAT), and UPnP setup issues.
-            - **📂 Log Capture & Failsafe Debugging**: Added persistent logging for installation stages, written directly to the user AppData directory (`debug_events.log`) for streamlined debugging.
-            - **⚡ Layout Overhauls**: Optimized interactive settings sliders, grids, and UI layout on Config Editor and Infinity Damage pages.
+            ### 🆕 New Features & Improvements in v4.5.2
+            - **🎨 Custom Frameless Title Bar**: Replaced the native OS title bar with a fully custom, premium dark-themed title bar featuring live server status, clock display, game badge, and app version — all in a sleek gradient layout.
+            - **🍎 Apple-Style Traffic Light Controls**: macOS-inspired minimize (yellow), maximize (green), and close (red) buttons with always-visible colors, spring-animated hover icons, and click-pulse ripple effects. Controls are positioned on the right side for easy access.
+            - **🖱️ Native Drag & Double-Click**: Window dragging and double-click-to-maximize/restore handled natively via Tauri's `data-tauri-drag-region`, eliminating conflicts between JavaScript drag handlers and OS-level mouse capture.
+            - **🦕 DestroyWildDinos & Server Restart**: Added a one-click "Wipe Wild Dinos" action (via RCON `DestroyWildDinos` cheat) with automatic server restart option, available in both ASA and ASE server management tabs.
+            - **🧩 ASE Mod Loading Fixes**: Resolved issues where mods installed via the Mod Manager were not loading on ASE servers — corrected mod ID injection into `GameUserSettings.ini` ActiveMods line.
+            - **📐 Enlarged Window Controls**: Traffic light buttons increased to 16px for better accessibility and easier click targets.
 
-            ### 🛠️ Key Previous Improvements & Fixes (v4.5.0)
-            - **🗂️ Custom User Config Folder Override**: Point to custom folders containing server INI configuration files (GameUserSettings.ini, Game.ini) for both ASA and ASE. The manager reads/writes configs from this folder instead of the server install directory.
-            - **🔒 RCON Tab Page Locking**: Resolved UI locking on the RCON console page by implementing stable Zustand state selectors and avoiding side-effects during render loops.
-            - **🏷️ Server Name Saving & Migration**: Fixed server name saving on the ASA side (where names would revert to random default names like `ARK#824565` or old names persist) by migrating legacy `ServerName` references to `SessionName` and cleaning up obsolete config keys.
-            - **🔄 Settings Loading Loop Fix**: Re-scoped SQLite DB connection lock acquisitions to small, synchronous blocks during INI read/write and startup configurations to prevent deadlocking Settings pages.
-            - **❄️ CryoSickness PvP Toggle Option**: Added a native toggle under the visual PvP rules tab in ASE settings to enable or disable cryo sickness on PvP servers.
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.5.1 — ASE Support & Diagnostics Pipeline</summary>
+
+            - **🦕 Full ASE Server Support**: Complete management pipeline for ASE servers including ShooterGameServer execution, config editor, map listings, and sidebar integration.
+            - **🌐 Advanced Diagnostics Pipeline**: Real-time checks for process status, UDP port binding, LAN query (Steam A2S), and WAN accessibility.
+            - **🎓 Setup & Troubleshooting Guides**: Interactive troubleshooting dashboard for firewalls, port forwarding, and UPnP.
+            - **📂 Log Capture & Debugging**: Persistent logging to AppData `debug_events.log`.
+            - **⚡ Layout Overhauls**: Optimized settings sliders, grids, and Config Editor layouts.
+            </details>
+
+            <details>
+            <summary>v4.5.0 — Custom Config Folders & RCON Fixes</summary>
+
+            - **🗂️ Custom Config Folder Override**: Point to custom folders for server INI files.
+            - **🔒 RCON Tab Page Locking Fix**: Stable Zustand selectors to prevent UI locking.
+            - **🏷️ Server Name Saving & Migration**: Fixed `ServerName` → `SessionName` migration.
+            - **🔄 Settings Loading Loop Fix**: Scoped SQLite lock acquisitions to prevent deadlocks.
+            - **❄️ CryoSickness PvP Toggle**: Native toggle for cryo sickness on PvP servers.
+            </details>
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, 'beta') }}
           includeUpdaterJson: true

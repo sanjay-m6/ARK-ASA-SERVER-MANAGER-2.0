@@ -5,7 +5,7 @@ import {
   Server, Activity, Zap, Terminal, Copy, Puzzle,
   Play, Square, RotateCw, Clock, Database, FileEdit,
   Folder, FolderOpen, Heart, Bookmark, Search,
-  ShieldCheck, GitBranch, AlertTriangle
+  ShieldCheck, GitBranch, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -232,12 +232,12 @@ export default function Dashboard() {
     }
   };
 
-  const handleRestartServer = async (serverId: number) => {
+  const handleRestartServer = async (serverId: number, wipeDinos?: boolean) => {
     try {
       updateServerStatus(serverId, 'starting');
-      await restartServer(serverId);
+      await restartServer(serverId, wipeDinos);
       // Don't set to 'running' — keep 'starting' until detection confirms 'online'
-      toast.success(t('dashboard.serverRestarted'));
+      toast.success(wipeDinos ? t('dashboard.serverRestartedWipeDinos', 'Server restart initiated with wild dino wipe') : t('dashboard.serverRestarted', 'Server restarted successfully'));
     } catch (error) {
       toast.error(t('dashboard.failed', { error }));
     }
@@ -977,15 +977,35 @@ export default function Dashboard() {
                             </button>
                           )}
 
-                          <button
-                            onClick={() => handleRestartServer(server.id)}
-                            disabled={server.status === 'stopped'}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
-                            title="Restart Server"
-                            aria-label={`Restart Server ${displayName}`}
-                          >
-                            <RotateCw className="w-4 h-4" />
-                          </button>
+                          <div className="relative group/dropdown">
+                            <button
+                              disabled={server.status === 'stopped'}
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                              title="Restart Options"
+                              aria-label={`Restart options for Server ${displayName}`}
+                            >
+                              <RotateCw className="w-4 h-4" />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            <div className="absolute top-full right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
+                              <button
+                                onClick={() => handleRestartServer(server.id)}
+                                className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 text-xs"
+                              >
+                                <RotateCw className="w-3.5 h-3.5" />
+                                <span>{t('dashboard.normalRestart', 'Normal Restart')}</span>
+                              </button>
+                              <button
+                                onClick={() => handleRestartServer(server.id, true)}
+                                className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs"
+                                title="Gracefully restart the server and wipe all wild dinosaurs"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                                <span>{t('dashboard.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
+                              </button>
+                            </div>
+                          </div>
 
                           <button
                             onClick={() => handleCopyIp(server.ipAddress, server.ports.gamePort)}

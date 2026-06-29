@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Server, Activity, Zap, Terminal, Puzzle,
   Play, Square, RotateCw, Clock, Database, FileEdit,
-  Folder, FolderOpen, Heart, Bookmark, Search, Globe, ShieldCheck, Copy
+  Folder, FolderOpen, Heart, Bookmark, Search, Globe, ShieldCheck, Copy, RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -12,7 +12,7 @@ import { useAseServerStore } from '../stores/aseServerStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../utils/helpers';
 import { getSystemInfo } from '../../utils/tauri';
-import { startAseServer, stopAseServer } from '../utils/aseCommands';
+import { startAseServer, stopAseServer, restartAseServer } from '../utils/aseCommands';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../../components/performance/PerformanceMonitor';
@@ -199,6 +199,16 @@ export default function ASEDashboard() {
   const handleStop = async (id: number) => {
     try { await stopAseServer(id); updateServerStatus(id, 'stopped'); toast.success('Server stopped'); }
     catch (e) { toast.error(`Failed: ${e}`); }
+  };
+
+  const handleRestart = async (id: number, wipeDinos?: boolean) => {
+    try {
+      updateServerStatus(id, 'starting');
+      await restartAseServer(id, wipeDinos);
+      toast.success(wipeDinos ? 'ASE server restarting with dino wipe...' : 'ASE server restarting...');
+    } catch (e) {
+      toast.error(`Failed: ${e}`);
+    }
   };
 
   useEffect(() => {
@@ -713,14 +723,45 @@ export default function ASEDashboard() {
                             <Play className="w-4 h-4 fill-current ml-0.5" />
                           </button>
                         ) : (srv.status === 'running' || srv.status === 'online') ? (
-                          <button
-                            onClick={() => handleStop(srv.id)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
-                            title="Stop Server"
-                            aria-label={`Stop Server ${displayName}`}
-                          >
-                            <Square className="w-4 h-4 fill-current" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleStop(srv.id)}
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
+                              title="Stop Server"
+                              aria-label={`Stop Server ${displayName}`}
+                            >
+                              <Square className="w-4 h-4 fill-current" />
+                            </button>
+
+                            <div className="relative group/dropdown">
+                              <button
+                                className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
+                                title="Restart Options"
+                                aria-label={`Restart options for Server ${displayName}`}
+                              >
+                                <RotateCw className="w-4 h-4" />
+                              </button>
+
+                              {/* Dropdown Menu */}
+                              <div className="absolute top-full right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
+                                <button
+                                  onClick={() => handleRestart(srv.id)}
+                                  className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 text-xs"
+                                >
+                                  <RotateCw className="w-3.5 h-3.5" />
+                                  <span>{t('dashboard.normalRestart', 'Normal Restart')}</span>
+                                </button>
+                                <button
+                                  onClick={() => handleRestart(srv.id, true)}
+                                  className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs"
+                                  title="Gracefully restart the server and wipe all wild dinosaurs"
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                                  <span>{t('dashboard.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
+                                </button>
+                              </div>
+                            </div>
+                          </>
                         ) : (
                           <button
                             disabled

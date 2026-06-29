@@ -27,6 +27,7 @@ interface EnhancedDashboardProps {
   onDeleteServer?: (serverId: number) => void;
   onArchiveServer?: (serverId: number) => void;
   onRestoreServer?: (serverId: number) => void;
+  onMoveServer?: (server: Server) => void;
 }
 
 export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
@@ -37,6 +38,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
   onDeleteServer,
   onArchiveServer,
   onRestoreServer,
+  onMoveServer,
 }) => {
   const { servers } = useServerStore();
   const {
@@ -359,6 +361,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
                         onDeleteServer={onDeleteServer}
                         onArchive={handleArchiveServer}
                         onRestore={handleRestoreServer}
+                        onMoveServer={onMoveServer}
                       />
                     </motion.div>
                   ))}
@@ -407,6 +410,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
                         onDeleteServer={onDeleteServer}
                         onArchive={handleArchiveServer}
                         onRestore={handleRestoreServer}
+                        onMoveServer={onMoveServer}
                       />
                     </motion.div>
                   ))}

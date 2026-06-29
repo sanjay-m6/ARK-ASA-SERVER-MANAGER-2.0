@@ -30,7 +30,8 @@ const DiscordBot = lazy(() => import('./pages/DiscordBot'));
 const DiscordControlPanel = lazy(() => import('./pages/DiscordControlPanel'));
 const AdvancedPage = lazy(() => import('./pages/tools/AdvancedPage'));
 const PluginManager = lazy(() => import('./pages/PluginManager'));
-const InfinityDamage = lazy(() => import('./pages/tools/InfinityDamage'));
+const ChatTranslator = lazy(() => import('./pages/tools/ChatTranslator'));
+const CombatMetrics = lazy(() => import('./pages/tools/CombatMetrics'));
 const FileManager = lazy(() => import('./pages/FileManager'));
 const AIAssistant = lazy(() => import('./pages/AIAssistant'));
 const TribeLogViewer = lazy(() => import('./pages/tools/TribeLogViewer'));
@@ -127,7 +128,8 @@ function App() {
                                 <Route path="tools/discord" element={<DiscordBot />} />
                                 <Route path="tools/discord-control" element={<DiscordControlPanel />} />
                                 <Route path="tools/plugins" element={<PluginManager />} />
-                                <Route path="tools/infinity-damage" element={<InfinityDamage />} />
+                                <Route path="tools/chat-translator" element={<ChatTranslator />} />
+                                <Route path="tools/combat-metrics" element={<CombatMetrics />} />
                                 <Route path="tools/files" element={<FileManager />} />
                                 <Route path="tools/ai" element={<AIAssistant />} />
                                 <Route path="tools/tribe-logs" element={<TribeLogViewer />} />
@@ -159,7 +161,7 @@ function App() {
                                  <Route path="ase/tools/tribe-logs" element={<ASETribeLogViewer />} />
                                  <Route path="ase/tools/upnp" element={<ASEUPnPPanel />} />
                                  <Route path="ase/tools/organization" element={<ASEServerOrganization />} />
-                                 <Route path="ase/tools/infinity-damage" element={<InfinityDamage />} />
+                                 <Route path="ase/tools/chat-translator" element={<ChatTranslator />} />
                             </Route>
                         </Routes>
                     </Suspense>

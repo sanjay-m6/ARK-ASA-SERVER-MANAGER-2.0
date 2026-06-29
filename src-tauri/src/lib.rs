@@ -43,6 +43,7 @@ pub struct AppState {
     pub advanced_config: Arc<AdvancedConfigService>,
     pub cloud_backup: Arc<CloudBackupService>,
     pub mod_watchdog: Arc<ModWatchdogService>,
+    pub combat_metrics: Arc<services::combat_metrics_server::CombatMetricsServerService>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -279,6 +280,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             let advanced_config = Arc::new(AdvancedConfigService::new(app_handle.clone()));
             let cloud_backup = Arc::new(CloudBackupService::new());
             let mod_watchdog = Arc::new(ModWatchdogService::new(app_handle.clone()));
+            let combat_metrics = Arc::new(services::combat_metrics_server::CombatMetricsServerService::new(app_handle.clone()));
 
             // 1. Manage AppState BEFORE starting any background tasks
             app.manage(AppState {
@@ -298,6 +300,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 advanced_config,
                 cloud_backup: cloud_backup.clone(),
                 mod_watchdog: mod_watchdog.clone(),
+                combat_metrics: combat_metrics.clone(),
             });
 
             // 2. Initialize RCON and Guardian state
@@ -315,6 +318,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 ase_discord_bridge.start();
                 rcon_service.spawn_heartbeat(app_handle.clone());
                 mod_watchdog.start_worker();
+                combat_metrics.start();
 
                 // Start Guardian Watchdog!
                 let app_handle_for_guardian = app_handle.clone();
@@ -551,6 +555,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::get_steamcmd_health,
             commands::server::check_port_conflicts,
             commands::server::get_server_visibility_status,
+            commands::server::move_server, // <-- New Command
             commands::import::import_non_dedicated_save, // <-- New Command
             // Mod commands
             commands::mods::search_mods,
@@ -652,13 +657,16 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::plugin::uninstall_plugin,
              commands::plugin::toggle_plugin,
              commands::plugin::create_default_plugin,
-             commands::plugin::get_infinity_damage_config,
-             commands::plugin::save_infinity_damage_config,
-             commands::plugin::install_infinity_damage_plugin,
-             commands::plugin::uninstall_infinity_damage_plugin,
-             commands::plugin::export_infinity_damage_config,
-             commands::plugin::import_infinity_damage_config,
-             commands::plugin::get_infinity_damage_analytics,
+                 // Chat Translator Commands
+              commands::chat_translator::get_translator_config,
+              commands::chat_translator::save_translator_config,
+              commands::chat_translator::get_translator_player_prefs,
+              commands::chat_translator::save_translator_player_pref,
+              commands::chat_translator::delete_translator_player_pref,
+              commands::chat_translator::get_translator_stats,
+              commands::chat_translator::reset_translator_stats,
+              commands::chat_translator::install_translator_plugin,
+              commands::chat_translator::uninstall_translator_plugin,
             // File Manager commands
             commands::file_manager::read_directory,
             commands::file_manager::read_file_content,

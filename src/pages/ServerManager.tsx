@@ -12,15 +12,17 @@ import { cn } from '../utils/helpers';
 import ImportServerDialog from '../components/server/ImportServerDialog';
 import ImportNonDedicatedDialog from '../components/server/ImportNonDedicatedDialog';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
+import MoveServerDialog from '../components/server/MoveServerDialog';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import PortConflictModal from '../components/server/PortConflictModal';
 import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, getServerVersion, getLatestServerVersion } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, getServerVersion, getLatestServerVersion, moveServer } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
+import { open } from '@tauri-apps/plugin-dialog';
 
 import { useNavigate } from 'react-router-dom';
 import { Server, ServerStartupProgressEvent } from '../types';
@@ -42,7 +44,7 @@ export default function ServerManager() {
     const [expandedConsoles, setExpandedConsoles] = useState<Record<number, boolean>>({});
     const [showUpdateConsole, setShowUpdateConsole] = useState<Record<number, boolean>>({});
     const consoleRefs = useRef<Record<number, HTMLDivElement | null>>({});
-    const [appVersion] = useState<string>('4.5.1');
+    const [appVersion] = useState<string>('4.5.2');
     const [cloneModalServer, setCloneModalServer] = useState<Server | null>(null);
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
     const [forceStopServerId, setForceStopServerId] = useState<number | null>(null);
@@ -51,6 +53,12 @@ export default function ServerManager() {
     const [updateOnStart, setUpdateOnStart] = useState(false);
     const [selectedServers, setSelectedServers] = useState<number[]>([]);
     const [showGuide, setShowGuide] = useState(false);
+    
+    // Move Server State
+    const [showMoveDialog, setShowMoveDialog] = useState(false);
+    const [moveServerTarget, setMoveServerTarget] = useState<Server | null>(null);
+    const [moveServerPath, setMoveServerPath] = useState<string>('');
+    const [isBulkMove, setIsBulkMove] = useState(false);
     
     // UI QoL State
     const { customizations, updateServerCustomization } = useServerOrganizationStore();
@@ -131,6 +139,9 @@ export default function ServerManager() {
 
     // Startup Progress State
     const [startupProgress, setStartupProgress] = useState<Record<number, { elapsed: number, confirmed: boolean }>>({});
+    
+    // Move Progress State
+    const [moveProgress, setMoveProgress] = useState<Record<number, { status: string, progress: number }>>({});
 
     // Port Conflict State
     const [showConflictModal, setShowConflictModal] = useState(false);
@@ -210,10 +221,90 @@ export default function ServerManager() {
         }
     };
 
+    const handleMoveServer = async (serverId: number) => {
+        try {
+            const server = servers.find(s => s.id === serverId);
+            if (!server) return;
+            
+            if (server.status !== 'stopped' && server.status !== 'crashed') {
+                toast.error(t('serverManager.move.mustBeStopped', 'Server must be stopped before moving.'));
+                return;
+            }
+
+            const selectedPath = await open({
+                directory: true,
+                multiple: false,
+                title: t('serverManager.move.selectFolder', 'Select New Server Directory')
+            });
+
+            if (selectedPath && !Array.isArray(selectedPath)) {
+                setMoveServerTarget(server);
+                setMoveServerPath(selectedPath as string);
+                setIsBulkMove(false);
+                setShowMoveDialog(true);
+            }
+        } catch (error) {
+            console.error('Failed to prepare move server:', error);
+            toast.error(t('serverManager.move.failed', 'Failed to prepare move server.'));
+        }
+    };
+
+    const confirmMoveServer = async () => {
+        if (!moveServerPath) return;
+
+        if (isBulkMove) {
+            try {
+                toast.success(t('serverManager.move.startedBulk', { count: selectedServers.length, defaultValue: `Moving ${selectedServers.length} servers...` }));
+                
+                let successCount = 0;
+                for (const serverId of selectedServers) {
+                    try {
+                        const server = servers.find(s => s.id === serverId);
+                        if (server) {
+                            toast.loading(t('serverManager.move.movingServer', { name: server.name, defaultValue: `Moving ${server.name}...` }), { id: 'bulk-move' });
+                            await moveServer(serverId, moveServerPath, false);
+                            successCount++;
+                        }
+                    } catch (err) {
+                        console.error(`Failed to move server ${serverId}:`, err);
+                        toast.error(t('serverManager.move.bulkFailedOne', { defaultValue: 'Failed to move a server.' }));
+                    }
+                }
+                
+                if (successCount > 0) {
+                    toast.success(t('serverManager.move.bulkSuccess', { count: successCount, defaultValue: `Successfully moved ${successCount} servers!` }), { id: 'bulk-move' });
+                } else {
+                    toast.dismiss('bulk-move');
+                }
+                
+                refreshServers();
+                setSelectedServers([]);
+            } catch (error) {
+                console.error('Failed to bulk move servers:', error);
+                toast.error(t('serverManager.move.failed', 'Failed to move servers.'));
+                toast.dismiss('bulk-move');
+            }
+        } else if (moveServerTarget) {
+            try {
+                toast.success(t('serverManager.move.started', 'Moving server...'));
+                
+                await moveServer(moveServerTarget.id, moveServerPath, false);
+                
+                toast.success(t('serverManager.move.success', 'Server moved successfully!'));
+                refreshServers();
+            } catch (error) {
+                console.error('Failed to move server:', error);
+                toast.error(t('serverManager.move.failed', 'Failed to move server.'));
+                refreshServers();
+            }
+        }
+    };
+
 
     useEffect(() => {
         let unlistenStatus: (() => void) | undefined;
         let unlistenProgress: (() => void) | undefined;
+        let unlistenMove: (() => void) | undefined;
         let isMounted = true;
 
         const setupListeners = async () => {
@@ -232,6 +323,22 @@ export default function ServerManager() {
                 u1();
             } else {
                 unlistenProgress = u1;
+            }
+
+            const uMove = await listen<{ server_id: number, status: string, progress: number }>('server-move-progress', (event) => {
+                if (!isMounted) return;
+                setMoveProgress(prev => ({
+                    ...prev,
+                    [event.payload.server_id]: {
+                        status: event.payload.status,
+                        progress: event.payload.progress
+                    }
+                }));
+            });
+            if (!isMounted) {
+                uMove();
+            } else {
+                unlistenMove = uMove;
             }
 
             const u2 = await listen<{ server_id: number, status: any }>('server-status-change', (event) => {
@@ -279,6 +386,7 @@ export default function ServerManager() {
             isMounted = false;
             if (unlistenStatus) unlistenStatus();
             if (unlistenProgress) unlistenProgress();
+            if (unlistenMove) unlistenMove();
             clearInterval(interval);
         };
     }, [setServers, updateServerStatus, refreshServers, t]);
@@ -538,14 +646,14 @@ export default function ServerManager() {
         }
     };
 
-    const handleRestartServer = async (serverId: number) => {
+    const handleRestartServer = async (serverId: number, wipeDinos?: boolean) => {
         try {
             updateServerStatus(serverId, 'starting');
             setLogBaseline(prev => ({ ...prev, [serverId]: 0 }));
             setLogsFetched(prev => ({ ...prev, [serverId]: false }));
-            await restartServer(serverId);
+            await restartServer(serverId, wipeDinos);
             // Don't set to 'running' — keep 'starting' until detection confirms 'online'
-            toast.success(t('serverManager.serverRestarted'));
+            toast.success(wipeDinos ? t('serverManager.serverRestartedWipeDinos', 'Server restart initiated with wild dino wipe') : t('serverManager.serverRestarted'));
         } catch (error) {
             toast.error(t('serverManager.restartFailed', { error }));
         }
@@ -696,6 +804,36 @@ export default function ServerManager() {
             await new Promise(resolve => setTimeout(resolve, 500)); // stagger stops
         }
         setSelectedServers([]); // Clear selection after stopping
+    };
+
+    const handleBulkMoveServers = async () => {
+        try {
+            if (selectedServers.length === 0) return;
+
+            // Validate that all selected servers are stopped
+            const selectedServerObjs = servers.filter(s => selectedServers.includes(s.id));
+            const runningServers = selectedServerObjs.filter(s => s.status !== 'stopped' && s.status !== 'crashed');
+            
+            if (runningServers.length > 0) {
+                toast.error(t('serverManager.move.bulkMustBeStopped', 'All selected servers must be stopped before moving.'));
+                return;
+            }
+
+            const selectedPath = await open({
+                directory: true,
+                multiple: false,
+                title: t('serverManager.move.selectFolder', 'Select New Server Directory')
+            });
+
+            if (selectedPath && !Array.isArray(selectedPath)) {
+                setMoveServerPath(selectedPath as string);
+                setIsBulkMove(true);
+                setShowMoveDialog(true);
+            }
+        } catch (error) {
+            console.error('Failed to bulk move servers:', error);
+            toast.error(t('serverManager.move.failed', 'Failed to prepare move servers.'));
+        }
     };
 
     const handleStopAll = async () => {
@@ -878,6 +1016,15 @@ export default function ServerManager() {
                             <Square className="w-4 h-4 fill-current" />
                             <span>{t('serverManager.buttons.stopSelected', 'Stop Selected')}</span>
                         </button>
+                        <button
+                            onClick={handleBulkMoveServers}
+                            disabled={selectedServers.length === 0}
+                            className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-amber-500/10 text-amber-400 rounded-lg transition-all text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <FolderOpen className="w-4 h-4" />
+                            <span>{t('serverManager.buttons.moveSelected', 'Move Selected')}</span>
+                        </button>
+                        <div className="w-px h-6 bg-white/10 hidden sm:block mx-1"></div>
                         <button
                             onClick={handleStopAll}
                             className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-rose-500/10 text-rose-400 rounded-lg transition-all text-sm font-medium"
@@ -1149,13 +1296,21 @@ export default function ServerManager() {
                                                                  </button>
 
                                                                  {/* Dropdown Menu */}
-                                                                 <div className="absolute top-full right-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
+                                                                 <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
                                                                      <button
                                                                          onClick={() => handleRestartServer(server.id)}
                                                                          className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
                                                                      >
                                                                          <RotateCw className="w-4 h-4" />
-                                                                         <span>{t('serverManager.buttons.normalRestart')}</span>
+                                                                         <span>{t('serverManager.buttons.normalRestart', 'Normal Restart')}</span>
+                                                                     </button>
+                                                                     <button
+                                                                         onClick={() => handleRestartServer(server.id, true)}
+                                                                         className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                                                         title="Gracefully restart the server and wipe all wild dinosaurs"
+                                                                     >
+                                                                         <RefreshCw className="w-4 h-4 text-amber-400" />
+                                                                         <span>{t('serverManager.buttons.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
                                                                      </button>
                                                                      <button
                                                                          onClick={() => handleHardcoreRetry(server.id)}
@@ -1240,6 +1395,13 @@ export default function ServerManager() {
                                                                          <span>{t('serverManager.tooltips.settings')}</span>
                                                                      </button>
                                                                      <button
+                                                                         onClick={() => handleMoveServer(server.id)}
+                                                                         className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                                                     >
+                                                                         <FolderOpen className="w-4 h-4" />
+                                                                         <span>{t('serverManager.tooltips.move', 'Move Server')}</span>
+                                                                     </button>
+                                                                     <button
                                                                          onClick={() => openCloneModal(server)}
                                                                          className="w-full text-left px-4 py-3 hover:bg-sky-500/10 text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-2 border-t border-slate-800"
                                                                      >
@@ -1308,6 +1470,25 @@ export default function ServerManager() {
                                         </p>
                                     </div>
                                 </div>
+                                {moveProgress[server.id] && (
+                                    <div className="mt-4 p-4 bg-slate-900 rounded-lg border border-slate-800">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-sm font-semibold text-slate-300">Moving Server...</span>
+                                            <span className="text-xs text-slate-400 truncate max-w-[50%]">
+                                                {moveProgress[server.id].status}
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-slate-800 rounded-full h-2.5 mb-1 overflow-hidden">
+                                            <div 
+                                                className="bg-sky-500 h-2.5 rounded-full transition-all duration-300 shadow-[0_0_10px_rgba(14,165,233,0.5)]" 
+                                                style={{ width: `${Math.max(5, moveProgress[server.id].progress)}%` }}
+                                            ></div>
+                                        </div>
+                                        <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+                                            <span>{Math.round(moveProgress[server.id].progress)}%</span>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Automation Controls */}
                                 <div className="mt-5 pt-5 border-t border-slate-800/50 flex flex-wrap items-center gap-x-8 gap-y-4">
@@ -1727,6 +1908,15 @@ export default function ServerManager() {
                     }
                 }}
                 result={conflictResult}
+            />
+
+            <MoveServerDialog
+                isOpen={showMoveDialog}
+                onClose={() => setShowMoveDialog(false)}
+                onConfirm={confirmMoveServer}
+                isBulk={isBulkMove}
+                serverCount={selectedServers.length}
+                serverName={moveServerTarget?.name}
             />
         </div>
     );

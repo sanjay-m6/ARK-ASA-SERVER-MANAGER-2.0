@@ -325,10 +325,18 @@ pub async fn install_server(
 ) -> Result<Server, String> {
     println!("🚀 Installing server: {} at {}", name, install_path);
 
-    let path = PathBuf::from(&install_path);
+    // Sanitize install path if the user selected the ShooterGame folder by mistake
+    let mut path = PathBuf::from(&install_path);
+    if path.file_name() == Some(std::ffi::OsStr::new("ShooterGame")) {
+        println!("⚠️  User selected ShooterGame folder for install, correcting to parent folder...");
+        if let Some(parent) = path.parent() {
+            path = parent.to_path_buf();
+        }
+    }
+    let sanitized_install_path = path.to_string_lossy().to_string();
 
     // Create the installer early so we can emit console logs during pre-flight
-    let installer = ServerInstaller::new(app_handle, path.to_string_lossy().to_string());
+    let installer = ServerInstaller::new(app_handle, sanitized_install_path.clone());
 
     // ---------------------------------------------------------
     // PRE-FLIGHT: System specs analysis and validation
@@ -465,7 +473,7 @@ pub async fn install_server(
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             (
                 &unique_name,
-                &install_path,
+                &sanitized_install_path,
                 "stopped",
                 game_port,
                 query_port,
@@ -1730,8 +1738,8 @@ pub async fn stop_server(state: State<'_, AppState>, server_id: i64) -> Result<(
 }
 
 #[tauri::command]
-pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Result<(), String> {
-    println!("🔄 Restarting server {} (graceful stop first)", server_id);
+pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_dinos: Option<bool>) -> Result<(), String> {
+    println!("🔄 Restarting server {} (graceful stop first, wipe_dinos: {:?})", server_id, wipe_dinos);
 
     // Graceful stop before restart — ensures SaveWorld is called
     graceful_stop(&state, server_id).await?;
@@ -1832,6 +1840,14 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
         Some(enabled_mods.as_slice())
     };
 
+    let mut temp_custom_args = custom_args.clone().unwrap_or_default();
+    if wipe_dinos.unwrap_or(false) {
+        if !temp_custom_args.is_empty() {
+            temp_custom_args.push_str(" ");
+        }
+        temp_custom_args.push_str("-ForceRespawnDinos");
+    }
+
     // Server was already gracefully stopped above — just start fresh
     state
         .process_manager
@@ -1851,7 +1867,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64) -> Resul
             cluster_name.as_deref() as Option<&str>,
             cluster_path.as_deref() as Option<&str>,
             mods_option,
-            custom_args.as_deref() as Option<&str>,
+            if temp_custom_args.is_empty() { None } else { Some(temp_custom_args.as_str()) },
             battleye,
         )
         .map_err(|e: AnyhowError| e.to_string())?;
@@ -3302,14 +3318,22 @@ pub async fn preview_import_settings(
 #[tauri::command]
 pub async fn import_server(
     state: State<'_, AppState>,
-    install_path: String,
+    mut install_path: String,
     name: String,
     overrides: Option<ImportPreview>,
 ) -> Result<Server, String> {
 
-    println!("📥 Importing server from: {}", install_path);
+    // Sanitize install path if the user selected the ShooterGame folder by mistake
+    let mut path = PathBuf::from(&install_path);
+    if path.file_name() == Some(std::ffi::OsStr::new("ShooterGame")) {
+        println!("⚠️  User selected ShooterGame folder for import, correcting to parent folder...");
+        if let Some(parent) = path.parent() {
+            path = parent.to_path_buf();
+            install_path = path.to_string_lossy().to_string();
+        }
+    }
 
-    let path = PathBuf::from(&install_path);
+    println!("📥 Importing server from: {}", install_path);
 
     // Validate that this looks like an ARK server installation
     let exe_path = path
@@ -3757,4 +3781,161 @@ pub async fn get_server_visibility_status(
         public_ip,
         query_port,
     })
+}
+
+#[derive(serde::Serialize, Clone)]
+struct MoveProgressPayload {
+    server_id: i64,
+    status: String,
+    progress: f32,
+}
+
+#[tauri::command]
+pub async fn move_server(
+    state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+    server_id: i64,
+    new_install_path: String,
+    is_ase: bool,
+) -> Result<(), String> {
+    use std::fs;
+    use walkdir::WalkDir;
+
+    // 1. Validate inputs and get server install path
+    let (old_path, new_path) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        
+        let table = if is_ase { "ase_servers" } else { "servers" };
+
+        let old_path_str: String = conn.query_row(
+            &format!("SELECT install_path FROM {} WHERE id = ?1", table),
+            [server_id],
+            |row| row.get(0),
+        ).map_err(|e| format!("Server not found: {}", e))?;
+        
+        let old_path = PathBuf::from(&old_path_str);
+        let mut new_path = PathBuf::from(&new_install_path);
+        
+        // Sanitize like import/create: prevent nested ShooterGame
+        if new_path.file_name() == Some(std::ffi::OsStr::new("ShooterGame")) {
+            if let Some(parent) = new_path.parent() {
+                new_path = parent.to_path_buf();
+            }
+        }
+        
+        if old_path == new_path {
+            return Err("The new path is exactly the same as the old path.".to_string());
+        }
+        
+        // Check if server is running by querying status
+        let status: String = conn.query_row(
+            &format!("SELECT status FROM {} WHERE id = ?1", table),
+            [server_id],
+            |row| row.get(0),
+        ).unwrap_or_else(|_| "stopped".to_string());
+        
+        if status == "running" || status == "starting" || status == "restarting" || status == "updating" {
+            return Err("Cannot move a server while it is running, starting, or updating. Please stop it first.".to_string());
+        }
+
+        (old_path, new_path)
+    };
+    
+    // Spawn task to prevent blocking the Tauri main thread, but await its completion
+    let handle = tokio::task::spawn_blocking(move || -> Result<(), String> {
+        let emit_progress = |progress: f32, status_msg: &str| {
+            let _ = app_handle.emit("server-move-progress", MoveProgressPayload {
+                server_id,
+                status: status_msg.to_string(),
+                progress,
+            });
+        };
+        
+        emit_progress(5.0, "Calculating total file size...");
+        
+        // Ensure new path exists
+        fs::create_dir_all(&new_path).map_err(|e| format!("Failed to create destination directory: {}", e))?;
+        
+        // Count total items
+        let walker = WalkDir::new(&old_path).into_iter();
+        let mut total_files = 0;
+        let mut total_size = 0u64;
+        for entry in walker.filter_map(|e| e.ok()) {
+            if entry.file_type().is_file() {
+                total_files += 1;
+                total_size += entry.metadata().map(|m| m.len()).unwrap_or(0);
+            }
+        }
+        
+        if total_files == 0 {
+            return Err("No files found in the source directory.".to_string());
+        }
+        
+        emit_progress(10.0, "Starting copy process...");
+        
+        // Copy files
+        let mut copied_files = 0;
+        let mut copied_size = 0u64;
+        let mut last_percent = 0.0;
+        
+        let walker = WalkDir::new(&old_path).into_iter();
+        for entry in walker.filter_map(|e| e.ok()) {
+            let src_path = entry.path();
+            let relative_path = src_path.strip_prefix(&old_path).map_err(|e| e.to_string())?;
+            let dst_path = new_path.join(relative_path);
+            
+            if entry.file_type().is_dir() {
+                fs::create_dir_all(&dst_path).map_err(|e| format!("Failed to create dir {}: {}", dst_path.display(), e))?;
+            } else if entry.file_type().is_file() {
+                let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                if let Err(e) = fs::copy(&src_path, &dst_path) {
+                    return Err(format!("Failed to copy file {}: {}", src_path.display(), e));
+                }
+                
+                copied_files += 1;
+                copied_size += size;
+                
+                // Calculate progress (10% to 90%)
+                let size_progress = if total_size > 0 {
+                    (copied_size as f32 / total_size as f32) * 80.0
+                } else {
+                    80.0
+                };
+                let current_percent = 10.0 + size_progress;
+                
+                if current_percent - last_percent >= 1.0 { // Emit every 1%
+                    emit_progress(current_percent, &format!("Copied {} / {} files...", copied_files, total_files));
+                    last_percent = current_percent;
+                }
+            }
+        }
+        
+        emit_progress(90.0, "Verifying and cleaning up old files...");
+        
+        // Cleanup old directory
+        fs::remove_dir_all(&old_path).map_err(|e| format!("Successfully copied, but failed to delete old directory: {}", e))?;
+        
+        emit_progress(95.0, "Updating database...");
+        
+        // Update database
+        let state = app_handle.state::<AppState>();
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                let sanitized_str = new_path.to_string_lossy().to_string();
+                let table_name = if is_ase { "ase_servers" } else { "servers" };
+                let _ = conn.execute(&format!("UPDATE {} SET install_path = ?1 WHERE id = ?2", table_name), rusqlite::params![sanitized_str, server_id]);
+            }
+        }
+        
+        emit_progress(100.0, "Migration Complete!");
+        
+        Ok(())
+    });
+    
+    match handle.await {
+        Ok(Ok(_)) => Ok(()),
+        Ok(Err(e)) => Err(e),
+        Err(e) => Err(format!("Task failed: {}", e))
+    }
 }

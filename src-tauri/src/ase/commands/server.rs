@@ -265,18 +265,28 @@ pub async fn get_ase_launch_arguments(server_id: i64, state: State<'_, AppState>
         None
     };
 
-    let active_mod_ids = {
+    let (active_mod_ids, cluster_dir) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
-        AseLauncher::fetch_active_mod_ids(&conn, server_id, &server.active_mods)?
+        let active_mods = AseLauncher::fetch_active_mod_ids(&conn, server_id, &server.active_mods)?;
+        let cluster_dir: Option<String> = if !server.cluster_id.is_empty() {
+            conn.query_row(
+                "SELECT cluster_dir FROM ase_clusters WHERE id = ?1",
+                [&server.cluster_id],
+                |row| row.get(0)
+            ).ok()
+        } else {
+            None
+        };
+        (active_mods, cluster_dir)
     };
 
-    Ok(AseLauncher::build_arguments(&server, &config, public_ip, &active_mod_ids))
+    Ok(AseLauncher::build_arguments(&server, &config, public_ip, &active_mod_ids, cluster_dir))
 }
 
 #[tauri::command]
 pub async fn start_ase_server(app: AppHandle, server_id: i64, state: State<'_, AppState>) -> Result<(), String> {
-    AseLauncher::spawn_server(app, server_id, &state).await
+    AseLauncher::spawn_server(app, server_id, &state, None).await
 }
 
 #[tauri::command]
@@ -285,10 +295,10 @@ pub async fn stop_ase_server(server_id: i64, state: State<'_, AppState>) -> Resu
 }
 
 #[tauri::command]
-pub async fn restart_ase_server(app: AppHandle, server_id: i64, state: State<'_, AppState>) -> Result<(), String> {
-    println!("🔄 Restarting ASE server {} (graceful stop first)", server_id);
+pub async fn restart_ase_server(app: AppHandle, server_id: i64, wipe_dinos: Option<bool>, state: State<'_, AppState>) -> Result<(), String> {
+    println!("🔄 Restarting ASE server {} (graceful stop first, wipe_dinos: {:?})", server_id, wipe_dinos);
     let _ = AseLauncher::stop_server(server_id, &state).await;
-    AseLauncher::spawn_server(app, server_id, &state).await
+    AseLauncher::spawn_server(app, server_id, &state, wipe_dinos).await
 }
 
 #[tauri::command]

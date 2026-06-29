@@ -2,6 +2,7 @@ import { useEffect, lazy, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
+import TitleBar from './TitleBar';
 import GameTransitionHero from './GameTransitionHero';
 import { optimizeMemory } from '../../utils/tauri';
 import FloatingInstallCenter from '../server/FloatingInstallCenter';
@@ -35,19 +36,22 @@ export default function AppLayout() {
     }, []);
 
     return (
-        <div className={cn("flex h-screen overflow-hidden bg-dark-950 transition-colors duration-500", isASE ? "theme-ase" : "theme-asa")}>
-            <Sidebar />
-            <main className="flex-1 flex flex-col overflow-hidden bg-[#020617] relative">
-                <TopBar />
-                <div className="flex-1 overflow-y-auto relative theme-scrollbar">
-                    {/* Dynamic Cinematic Hero & Background Transition Engine */}
-                    <GameTransitionHero />
-                    
-                    <div className="container mx-auto p-6 max-w-7xl relative z-10">
-                        <Outlet />
+        <div className={cn("flex flex-col h-screen overflow-hidden bg-dark-950 transition-colors duration-500", isASE ? "theme-ase" : "theme-asa")}>
+            <TitleBar />
+            <div className="flex flex-1 overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 flex flex-col overflow-hidden bg-[#020617] relative">
+                    <TopBar />
+                    <div className="flex-1 overflow-y-auto relative theme-scrollbar">
+                        {/* Dynamic Cinematic Hero & Background Transition Engine */}
+                        <GameTransitionHero />
+                        
+                        <div className="container mx-auto p-6 max-w-7xl relative z-10">
+                            <Outlet />
+                        </div>
                     </div>
-                </div>
-            </main>
+                </main>
+            </div>
 
             {/* Global AI Copilot — floating panel on every page */}
             <Suspense fallback={null}>

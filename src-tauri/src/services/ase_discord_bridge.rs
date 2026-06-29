@@ -470,7 +470,7 @@ impl SerenityEventHandler for GatewayHandler {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
                             if let Some(state) = app.try_state::<AppState>() {
-                                let _ = crate::ase::commands::server::restart_ase_server(app.clone(), id, state).await;
+                                let _ = crate::ase::commands::server::restart_ase_server(app.clone(), id, None, state).await;
                             }
                         });
                         format!("🔄 Initiated RESTART for server `#{}`.", id)
@@ -631,7 +631,7 @@ impl SerenityEventHandler for GatewayHandler {
                         let app = self.app_handle.clone();
                         tauri::async_runtime::spawn(async move {
                             if let Some(state) = app.try_state::<AppState>() {
-                                let _ = crate::ase::commands::server::restart_ase_server(app.clone(), id, state).await;
+                                let _ = crate::ase::commands::server::restart_ase_server(app.clone(), id, None, state).await;
                             }
                         });
                     }
@@ -865,7 +865,7 @@ impl SerenityEventHandler for GatewayHandler {
                     let channel_id = msg.channel_id;
                     tauri::async_runtime::spawn(async move {
                         if let Some(state) = app.try_state::<AppState>() {
-                            match crate::ase::commands::server::restart_ase_server(app.clone(), id, state).await {
+                            match crate::ase::commands::server::restart_ase_server(app.clone(), id, None, state).await {
                                 Ok(_) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(build_embed("✅ Server Restarted", &format!("Server `{}` restarted.", id), 0x22C55E))).await; }
                                 Err(e) => { let _ = channel_id.send_message(&http, CreateMessage::new().embed(error_embed(&format!("Failed to restart server {}: {}", id, e)))).await; }
                             }

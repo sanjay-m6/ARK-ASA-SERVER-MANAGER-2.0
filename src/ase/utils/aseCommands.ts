@@ -71,6 +71,10 @@ export async function stopAseServer(serverId: number): Promise<void> {
     return invoke('stop_ase_server', { serverId });
 }
 
+export async function restartAseServer(serverId: number, wipeDinos?: boolean): Promise<void> {
+    return invoke('restart_ase_server', { serverId, wipeDinos });
+}
+
 export async function getAseServerStatus(serverId: number): Promise<string> {
     return invoke('get_ase_server_status', { serverId });
 }
