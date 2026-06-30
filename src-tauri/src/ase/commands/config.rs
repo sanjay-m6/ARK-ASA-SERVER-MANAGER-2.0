@@ -441,6 +441,7 @@ pub async fn read_ase_config_internal(
         config.kick_idle_player_period = ini_get_f64(&sections, ss, "KickIdlePlayerPeriod", 3600.0);
         config.destroy_tames_over_level_clamp =
             ini_get_u32(&sections, ss, "DestroyTamesOverLevelClamp", 0);
+        config.rcon_server_log_buffer = ini_get_u32(&sections, ss, "RCONServerLogBuffer", 600);
         config.max_difficulty = ini_get_bool(&sections, ss, "MaxDifficulty", false);
         config.prevent_offline_pvp = ini_get_bool(&sections, ss, "PreventOfflinePvP", false);
         config.prevent_offline_pvp_interval = ini_get_u32(&sections, ss, "PreventOfflinePvPInterval", 900);
@@ -1478,6 +1479,7 @@ pub async fn write_ase_config(
         "DestroyTamesOverLevelClamp",
         config.destroy_tames_over_level_clamp.to_string(),
     );
+    ini_set(ss, "RCONServerLogBuffer", config.rcon_server_log_buffer.to_string());
     ini_set(ss, "MaxDifficulty", config.max_difficulty.to_string());
     ini_set(ss, "PreventOfflinePvP", config.prevent_offline_pvp.to_string());
     ini_set(ss, "PreventOfflinePvPInterval", config.prevent_offline_pvp_interval.to_string());

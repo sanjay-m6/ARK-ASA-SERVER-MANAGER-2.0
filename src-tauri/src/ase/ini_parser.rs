@@ -236,11 +236,8 @@ impl IniDocument {
             i += 1;
         }
 
-
-
         // Remove continuation lines after duplicates first (in reverse order)
         for &dup_idx in duplicates.iter().rev() {
-            // Remove continuation lines after this duplicate
             let j = dup_idx + 1;
             while j < self.lines.len() {
                 if let IniLine::Continuation(_) = &self.lines[j] {
@@ -251,6 +248,10 @@ impl IniDocument {
             }
             self.lines.remove(dup_idx);
         }
+
+        let mut val_lines = value.split('\n');
+        let first_val_line = val_lines.next().unwrap_or("").to_string();
+        let cont_val_lines: Vec<String> = val_lines.map(|s| s.to_string()).collect();
 
         if let Some(match_idx) = first_match {
             // Remove old continuation lines after first match
@@ -264,18 +265,25 @@ impl IniDocument {
             }
             // Update the entry in-place
             self.lines[match_idx] = IniLine::Entry {
-                raw: format!("{}={}", key, value),
+                raw: format!("{}={}", key, first_val_line),
                 key: key.to_string(),
-                value: value.to_string(),
+                value: first_val_line,
             };
+            // Insert new continuation lines
+            for (offset, cont_line) in cont_val_lines.into_iter().enumerate() {
+                self.lines.insert(match_idx + 1 + offset, IniLine::Continuation(cont_line));
+            }
         } else if section_found {
             // Find insertion point: end of section content (before next section or EOF)
             let insert_at = self.find_section_insert_point(section);
             self.lines.insert(insert_at, IniLine::Entry {
-                raw: format!("{}={}", key, value),
+                raw: format!("{}={}", key, first_val_line),
                 key: key.to_string(),
-                value: value.to_string(),
+                value: first_val_line,
             });
+            for (offset, cont_line) in cont_val_lines.into_iter().enumerate() {
+                self.lines.insert(insert_at + 1 + offset, IniLine::Continuation(cont_line));
+            }
         } else {
             // Section doesn't exist — create it
             // Add blank line separator if file isn't empty
@@ -287,10 +295,13 @@ impl IniDocument {
                 name: section.to_string(),
             });
             self.lines.push(IniLine::Entry {
-                raw: format!("{}={}", key, value),
+                raw: format!("{}={}", key, first_val_line),
                 key: key.to_string(),
-                value: value.to_string(),
+                value: first_val_line,
             });
+            for cont_line in cont_val_lines {
+                self.lines.push(IniLine::Continuation(cont_line));
+            }
         }
     }
 
@@ -364,15 +375,25 @@ impl IniDocument {
         if !values.is_empty() {
             // Ensure section exists
             self.ensure_section(section);
-            let final_insert = adjusted_insert.min(self.lines.len());
-            for (offset, val) in values.iter().enumerate() {
+            let mut insert_cursor = adjusted_insert.min(self.lines.len());
+            for val in values {
                 let trimmed = val.trim();
                 if !trimmed.is_empty() {
-                    self.lines.insert(final_insert + offset, IniLine::Entry {
-                        raw: format!("{}={}", key, trimmed),
+                    let mut val_lines = trimmed.split('\n');
+                    let first_val_line = val_lines.next().unwrap_or("").to_string();
+                    let cont_val_lines: Vec<String> = val_lines.map(|s| s.to_string()).collect();
+
+                    self.lines.insert(insert_cursor, IniLine::Entry {
+                        raw: format!("{}={}", key, first_val_line),
                         key: key.to_string(),
-                        value: trimmed.to_string(),
+                        value: first_val_line,
                     });
+                    insert_cursor += 1;
+
+                    for cont_line in cont_val_lines {
+                        self.lines.insert(insert_cursor, IniLine::Continuation(cont_line));
+                        insert_cursor += 1;
+                    }
                 }
             }
         }
@@ -515,10 +536,12 @@ impl IniDocument {
         let mut current_section: Option<&mut IniSection> = None;
         let mut pending_comments: Vec<String> = Vec::new();
 
-        for line in &self.lines {
-            match line {
+        let mut i = 0;
+        while i < self.lines.len() {
+            match &self.lines[i] {
                 IniLine::Comment(raw) => {
                     pending_comments.push(raw.trim().to_string());
+                    i += 1;
                 }
                 IniLine::SectionHeader { name, .. } => {
                     data.sections.push(IniSection {
@@ -527,6 +550,7 @@ impl IniDocument {
                     });
                     current_section = data.sections.last_mut();
                     pending_comments.clear();
+                    i += 1;
                 }
                 IniLine::Entry { key, value, .. } => {
                     let comment = if !pending_comments.is_empty() {
@@ -537,9 +561,21 @@ impl IniDocument {
                         None
                     };
 
+                    let mut full_value = value.clone();
+                    let mut j = i + 1;
+                    while j < self.lines.len() {
+                        if let IniLine::Continuation(cont) = &self.lines[j] {
+                            full_value.push('\n');
+                            full_value.push_str(cont);
+                            j += 1;
+                        } else {
+                            break;
+                        }
+                    }
+
                     let entry = IniEntry {
                         key: key.clone(),
-                        value: value.clone(),
+                        value: full_value,
                         comment,
                     };
 
@@ -552,8 +588,11 @@ impl IniDocument {
                         });
                         current_section = data.sections.last_mut();
                     }
+                    i = j;
                 }
-                _ => {}
+                _ => {
+                    i += 1;
+                }
             }
         }
 
@@ -618,7 +657,15 @@ impl IniData {
                         out.push_str(&format!("{}\r\n", line));
                     }
                 }
-                out.push_str(&format!("{}={}\r\n", entry.key, entry.value));
+                let mut lines = entry.value.split('\n');
+                if let Some(first_line) = lines.next() {
+                    out.push_str(&format!("{}={}\r\n", entry.key, first_line));
+                    for cont_line in lines {
+                        out.push_str(&format!("{}\r\n", cont_line));
+                    }
+                } else {
+                    out.push_str(&format!("{}=\r\n", entry.key));
+                }
             }
             out.push_str("\r\n");
         }

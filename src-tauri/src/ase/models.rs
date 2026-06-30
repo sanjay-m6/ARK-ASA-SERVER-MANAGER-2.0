@@ -296,18 +296,24 @@ pub struct AseGameConfig {
     // ── Network / Admin ──
     pub rcon_enabled: bool,
     pub rcon_port: u16,
+    #[serde(rename = "RCONServerLogBuffer")]
+    pub rcon_server_log_buffer: u32,
     pub battle_eye_enforcer: bool,
     pub enable_creative_mode: bool,
     pub server_force_no_hud: bool,
     pub kick_idle_player_period: f64,
     pub destroy_tames_over_level_clamp: u32,
+    #[serde(rename = "MaxDifficulty")]
     pub max_difficulty: bool,
+    #[serde(rename = "PreventOfflinePvP")]
     pub prevent_offline_pvp: bool,
+    #[serde(rename = "PreventOfflinePvPInterval")]
     pub prevent_offline_pvp_interval: u32,
     pub b_disable_structure_placement_collision: bool,
     pub b_use_corpse_locator: bool,
     pub b_show_status_types: bool,
     pub b_allow_unlimited_respecs: bool,
+    #[serde(rename = "SpectatorPassword")]
     pub spectator_password: String,
 
     // ── Mods ──
@@ -579,6 +585,7 @@ impl Default for AseGameConfig {
             config_override_item_crafting_costs: String::new(),
             rcon_enabled: true,
             rcon_port: 27020,
+            rcon_server_log_buffer: 600,
             battle_eye_enforcer: true,
             enable_creative_mode: false,
             server_force_no_hud: false,

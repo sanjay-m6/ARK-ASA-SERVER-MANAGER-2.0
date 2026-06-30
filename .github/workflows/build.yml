@@ -51,35 +51,31 @@ jobs:
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This release introduces a fully custom frameless title bar with Apple-style window controls, ASE mod management improvements, and new server administration tools for both ASA and ASE.
+            This release resolves configuration saving issues on the ASE side, adds the missing RCONServerLogBuffer option, and optimizes the INI parser for multi-line parenthesized overrides.
 
-            ### 🆕 New Features & Improvements in v4.5.2
-            - **🎨 Custom Frameless Title Bar**: Replaced the native OS title bar with a fully custom, premium dark-themed title bar featuring live server status, clock display, game badge, and app version — all in a sleek gradient layout.
-            - **🍎 Apple-Style Traffic Light Controls**: macOS-inspired minimize (yellow), maximize (green), and close (red) buttons with always-visible colors, spring-animated hover icons, and click-pulse ripple effects. Controls are positioned on the right side for easy access.
-            - **🖱️ Native Drag & Double-Click**: Window dragging and double-click-to-maximize/restore handled natively via Tauri's `data-tauri-drag-region`, eliminating conflicts between JavaScript drag handlers and OS-level mouse capture.
-            - **🦕 DestroyWildDinos & Server Restart**: Added a one-click "Wipe Wild Dinos" action (via RCON `DestroyWildDinos` cheat) with automatic server restart option, available in both ASA and ASE server management tabs.
-            - **🧩 ASE Mod Loading Fixes**: Resolved issues where mods installed via the Mod Manager were not loading on ASE servers — corrected mod ID injection into `GameUserSettings.ini` ActiveMods line.
-            - **📐 Enlarged Window Controls**: Traffic light buttons increased to 16px for better accessibility and easier click targets.
+            ### 🆕 New Features & Improvements in v4.5.3
+            - **⚙️ Fixed ASE Config Page & Saving Issues**: Resolved serialization casing mismatches between the React frontend and Rust backend (for fields like `Max Difficulty`, `Prevent Offline PvP`, `Prevent Offline PvP Interval`, and `Spectator Password`).
+            - **🔧 INI Parser Multi-Line Continuation Fix**: Rewrote the INI parser's multi-line continuation logic so that parenthesized settings (such as engram overrides or crafting costs) are preserved and saved correctly without formatting corruption.
+            - **💬 Added RCONServerLogBuffer Support**: Added full support for reading, writing, and editing the `RCONServerLogBuffer` configuration option.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.5.2 — Custom Titlebar & Apple Window Controls</summary>
+
+            - **🎨 Custom Frameless Title Bar**: Replaced the native OS title bar with a custom title bar featuring live server status, clock, and version.
+            - **🍎 Apple-Style Traffic Light Controls**: macOS-inspired yellow, green, and red window buttons with hover/spring effects.
+            - **🖱️ Native Drag & Double-Click**: Smooth dragging and double-click maximizing.
+            - **🦕 DestroyWildDinos & Server Restart**: Added a quick "Wipe Wild Dinos" action.
+            - **🧩 ASE Mod Loading Fixes**: Corrected mod ID injection into `GameUserSettings.ini` ActiveMods.
+            </details>
+
             <details>
             <summary>v4.5.1 — ASE Support & Diagnostics Pipeline</summary>
 
             - **🦕 Full ASE Server Support**: Complete management pipeline for ASE servers including ShooterGameServer execution, config editor, map listings, and sidebar integration.
             - **🌐 Advanced Diagnostics Pipeline**: Real-time checks for process status, UDP port binding, LAN query (Steam A2S), and WAN accessibility.
-            - **🎓 Setup & Troubleshooting Guides**: Interactive troubleshooting dashboard for firewalls, port forwarding, and UPnP.
             - **📂 Log Capture & Debugging**: Persistent logging to AppData `debug_events.log`.
             - **⚡ Layout Overhauls**: Optimized settings sliders, grids, and Config Editor layouts.
-            </details>
-
-            <details>
-            <summary>v4.5.0 — Custom Config Folders & RCON Fixes</summary>
-
-            - **🗂️ Custom Config Folder Override**: Point to custom folders for server INI files.
-            - **🔒 RCON Tab Page Locking Fix**: Stable Zustand selectors to prevent UI locking.
-            - **🏷️ Server Name Saving & Migration**: Fixed `ServerName` → `SessionName` migration.
-            - **🔄 Settings Loading Loop Fix**: Scoped SQLite lock acquisitions to prevent deadlocks.
-            - **❄️ CryoSickness PvP Toggle**: Native toggle for cryo sickness on PvP servers.
             </details>
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, 'beta') }}

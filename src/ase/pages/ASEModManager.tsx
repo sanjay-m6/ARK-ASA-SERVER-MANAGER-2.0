@@ -412,32 +412,54 @@ export default function ASEModManager() {
     if (!selectedServer) { toast.error('Select a server first'); return; }
     if (!manualModId.trim()) return;
     
-    const cleanId = manualModId.trim();
-    if (isNaN(Number(cleanId))) {
-      toast.error('Workshop ID must be a numeric value');
-      return;
-    }
-    if (isInstalled(cleanId)) {
-      toast.error('Mod is already installed');
-      return;
-    }
+    const idParts = manualModId.split(/[\s,]+/);
+    const invalidIds: string[] = [];
+    const alreadyInstalledIds: string[] = [];
+    const addedIds: string[] = [];
 
-    addToQueue(cleanId, `Workshop Mod #${cleanId}`);
-    toast.success(`Added Mod ID ${cleanId} to download queue!`);
-    setManualModId('');
-
-    // Fetch details asynchronously
-    import('../utils/aseCommands').then(async ({ getAseWorkshopDetails }) => {
-      try {
-        const details = await getAseWorkshopDetails([cleanId]);
-        if (details && details.length > 0) {
-          const d = details[0];
-          useAseModStore.getState().updateQueueModDetails(cleanId, d.name, d.previewUrl);
-        }
-      } catch (e) {
-        console.error("Failed to fetch workshop details for manually queued mod:", e);
+    idParts.forEach(id => {
+      const cleanId = id.trim();
+      if (!cleanId) return;
+      if (!/^\d+$/.test(cleanId)) {
+        invalidIds.push(cleanId);
+        return;
       }
+
+      if (isInstalled(cleanId)) {
+        alreadyInstalledIds.push(cleanId);
+        return;
+      }
+
+      addToQueue(cleanId, `Workshop Mod #${cleanId}`);
+      addedIds.push(cleanId);
     });
+
+    if (invalidIds.length > 0) {
+      toast.error(`Invalid Workshop ID(s): ${invalidIds.join(', ')}. Must be numeric values.`);
+    }
+
+    if (alreadyInstalledIds.length > 0) {
+      toast(`Mod ID(s) already installed: ${alreadyInstalledIds.join(', ')}`, { icon: 'ℹ️' });
+    }
+
+    if (addedIds.length > 0) {
+      toast.success(`Added ${addedIds.length} mod(s) to download queue!`);
+      setManualModId('');
+
+      // Fetch details asynchronously in a batch
+      import('../utils/aseCommands').then(async ({ getAseWorkshopDetails }) => {
+        try {
+          const details = await getAseWorkshopDetails(addedIds);
+          if (details && details.length > 0) {
+            details.forEach(d => {
+              useAseModStore.getState().updateQueueModDetails(d.workshopId, d.name, d.previewUrl);
+            });
+          }
+        } catch (e) {
+          console.error("Failed to fetch workshop details for manually queued mods:", e);
+        }
+      });
+    }
   };
 
   const handleRemove = async (workshopId: string) => {
@@ -990,7 +1012,8 @@ export default function ASEModManager() {
                       slicedDisplayMods.map((mod: any) => {
                         const workshopId = mod.workshopId;
                         const installed = isInstalled(workshopId);
-                        const isQueuedOrDownloading = activeQueueList.some(item => item.workshopId === workshopId);
+                        const queueItem = activeQueueList.find(item => item.workshopId === workshopId);
+                        const isQueuedOrDownloading = !!queueItem;
                         const isSelected = selectedModIds.includes(workshopId);
 
                         return (
@@ -1044,12 +1067,29 @@ export default function ASEModManager() {
                                   <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md">
                                     Installed
                                   </span>
-                                ) : isQueuedOrDownloading ? (
+                                ) : isQueuedOrDownloading && queueItem ? (
                                   <span className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md animate-pulse">
-                                    Queued
+                                    {queueItem.status === 'queued' ? 'Queued' :
+                                     queueItem.status === 'downloading' ? `Downloading (${Math.round(queueItem.progress)}%)` :
+                                     queueItem.status === 'extracting' ? `Extracting (${Math.round(queueItem.progress)}%)` :
+                                     queueItem.status === 'failed' ? 'Failed' : 'Installing'}
                                   </span>
                                 ) : null}
                               </div>
+
+                              {/* Progress bar overlay at the bottom of the image */}
+                              {isQueuedOrDownloading && queueItem && (
+                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950/80 z-20">
+                                  <div 
+                                    className={`h-full transition-all duration-300 ${
+                                      queueItem.status === 'downloading' ? 'bg-blue-500 animate-pulse' :
+                                      queueItem.status === 'extracting' ? 'bg-cyan-400 animate-pulse' :
+                                      queueItem.status === 'failed' ? 'bg-rose-500' : 'bg-slate-700'
+                                    }`}
+                                    style={{ width: `${queueItem.progress}%` }}
+                                  />
+                                </div>
+                              )}
                             </div>
 
                             <div className="p-5 flex flex-col flex-grow">
@@ -1078,7 +1118,8 @@ export default function ASEModManager() {
                   searchResults.map((mod: any) => {
                     const workshopId = mod.workshopId || mod.id;
                     const installed = isInstalled(workshopId);
-                    const isQueuedOrDownloading = activeQueueList.some(item => item.workshopId === workshopId);
+                    const queueItem = activeQueueList.find(item => item.workshopId === workshopId);
+                    const isQueuedOrDownloading = !!queueItem;
                     const isSelected = selectedModIds.includes(workshopId);
                     
                     return (
@@ -1132,6 +1173,20 @@ export default function ASEModManager() {
                             </h3>
                             <p className="text-[10px] text-slate-400 mt-1 font-mono">ID: {workshopId}</p>
                           </div>
+
+                          {/* Progress bar overlay at the bottom of the image */}
+                          {isQueuedOrDownloading && queueItem && (
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950/80 z-20">
+                              <div 
+                                className={`h-full transition-all duration-300 ${
+                                  queueItem.status === 'downloading' ? 'bg-blue-500 animate-pulse' :
+                                  queueItem.status === 'extracting' ? 'bg-cyan-400 animate-pulse' :
+                                  queueItem.status === 'failed' ? 'bg-rose-500' : 'bg-slate-700'
+                                }`}
+                                style={{ width: `${queueItem.progress}%` }}
+                              />
+                            </div>
+                          )}
                         </div>
                         
                         <div className="p-5 flex-1 flex flex-col justify-between">
@@ -1170,9 +1225,13 @@ export default function ASEModManager() {
                                 <div className="px-3.5 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold flex items-center gap-1">
                                   <AlertCircle className="w-3.5 h-3.5" /> Key Required
                                 </div>
-                              ) : isQueuedOrDownloading ? (
+                              ) : isQueuedOrDownloading && queueItem ? (
                                 <div className="px-3.5 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold flex items-center gap-1.5 animate-pulse">
-                                  <RefreshCw className="w-3.5 h-3.5 animate-spin" /> In Queue
+                                  <RefreshCw className={`w-3.5 h-3.5 ${queueItem.status !== 'queued' && queueItem.status !== 'failed' ? 'animate-spin' : ''}`} />
+                                  {queueItem.status === 'queued' ? 'In Queue' :
+                                   queueItem.status === 'downloading' ? `Downloading (${Math.round(queueItem.progress)}%)` :
+                                   queueItem.status === 'extracting' ? `Extracting (${Math.round(queueItem.progress)}%)` :
+                                   queueItem.status === 'failed' ? 'Failed' : 'Installing'}
                                 </div>
                               ) : (
                                 <button 

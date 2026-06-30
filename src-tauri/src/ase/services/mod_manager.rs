@@ -1,10 +1,13 @@
-use tauri::{AppHandle, State, Manager};
+use tauri::{AppHandle, State, Manager, Emitter};
 use crate::AppState;
 use crate::ase::models::AseInstalledMod;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use crate::ase::ini_parser::IniDocument;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
+use std::io::{Read as _, Write as _};
+use tokio::io::{AsyncBufReadExt, BufReader as TokioBufReader};
+use std::process::Stdio;
 
 /// Result of searching Steam libraries for an ASE mod's .mod file and assets folder.
 struct SteamModSource {
@@ -23,19 +26,232 @@ pub struct ModValidationReport {
 
 pub struct AseModManager;
 
-// Helper to copy directory contents recursively
-fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> std::io::Result<()> {
-    std::fs::create_dir_all(&dst)?;
+// Helper to recursively sum the size of all files in a folder
+fn get_dir_size(path: &Path) -> std::io::Result<u64> {
+    let mut total_size = 0;
+    if path.is_dir() {
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            let metadata = entry.metadata()?;
+            if metadata.is_dir() {
+                total_size += get_dir_size(&entry.path()).unwrap_or(0);
+            } else {
+                total_size += metadata.len();
+            }
+        }
+    } else {
+        total_size = path.metadata()?.len();
+    }
+    Ok(total_size)
+}
+
+// Helper to copy directory contents recursively while emitting progress updates
+fn copy_dir_all_with_progress(
+    src: &Path,
+    dst: &Path,
+    total_bytes: u64,
+    copied_bytes: &mut u64,
+    app_handle: &AppHandle,
+    workshop_id: &str,
+) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
         if ty.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+            copy_dir_all_with_progress(&src_path, &dst_path, total_bytes, copied_bytes, app_handle, workshop_id)?;
         } else {
-            std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+            let size = entry.metadata()?.len();
+            std::fs::copy(&src_path, &dst_path)?;
+            *copied_bytes += size;
+            
+            if total_bytes > 0 {
+                // Scale extraction progress dynamically from 95.0% to 99.5%
+                let progress = 95.0 + ((*copied_bytes as f32 / total_bytes as f32) * 4.5);
+                let percentage = (progress * 10.0).round() / 10.0;
+                emit_mod_progress(app_handle, workshop_id, "extracting", percentage, &format!("Extracting/Copying assets... {:.1}%", percentage));
+            }
         }
     }
     Ok(())
+}
+
+fn read_ue4_string<R: std::io::Read>(reader: &mut R) -> std::io::Result<String> {
+    let mut len_buf = [0u8; 4];
+    reader.read_exact(&mut len_buf)?;
+    let length = i32::from_le_bytes(len_buf);
+
+    if length == 0 {
+        return Ok(String::new());
+    }
+
+    if length > 0 {
+        let mut buf = vec![0u8; length as usize];
+        reader.read_exact(&mut buf)?;
+        let str_len = if buf.last() == Some(&0) { buf.len() - 1 } else { buf.len() };
+        String::from_utf8(buf[..str_len].to_vec())
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    } else {
+        let char_count = -length;
+        let byte_count = (char_count * 2) as usize;
+        let mut buf = vec![0u8; byte_count];
+        reader.read_exact(&mut buf)?;
+        let u16_len = if byte_count >= 2 && buf[byte_count - 1] == 0 && buf[byte_count - 2] == 0 {
+            (byte_count - 2) / 2
+        } else {
+            byte_count / 2
+        };
+        let u16_chars: Vec<u16> = (0..u16_len)
+            .map(|i| u16::from_le_bytes([buf[i * 2], buf[i * 2 + 1]]))
+            .collect();
+        String::from_utf16(&u16_chars)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    }
+}
+
+fn write_ue4_string<W: std::io::Write>(writer: &mut W, val: &str) -> std::io::Result<()> {
+    let bytes = val.as_bytes();
+    let length = (bytes.len() + 1) as i32;
+    writer.write_all(&length.to_le_bytes())?;
+    writer.write_all(bytes)?;
+    writer.write_all(&[0u8])?;
+    Ok(())
+}
+
+fn generate_mod_file(
+    workshop_id: &str,
+    download_dir: &Path,
+    target_mod_file: &Path,
+) -> Result<(), String> {
+    let mut base_dir = download_dir.to_path_buf();
+    if !download_dir.join("mod.info").exists() && download_dir.join("WindowsNoEditor").exists() {
+        base_dir = download_dir.join("WindowsNoEditor");
+    }
+
+    let mod_info_path = base_dir.join("mod.info");
+    if !mod_info_path.exists() {
+        return Err(format!("mod.info not found at {:?}", mod_info_path));
+    }
+
+    let mut map_names = Vec::new();
+    {
+        let file = std::fs::File::open(&mod_info_path)
+            .map_err(|e| format!("Failed to open mod.info: {}", e))?;
+        let mut reader = std::io::BufReader::new(file);
+
+        let _ = read_ue4_string(&mut reader)
+            .map_err(|e| format!("Failed to read header in mod.info: {}", e))?;
+
+        let mut map_count_buf = [0u8; 4];
+        reader.read_exact(&mut map_count_buf)
+            .map_err(|e| format!("Failed to read map count in mod.info: {}", e))?;
+        let map_count = i32::from_le_bytes(map_count_buf);
+
+        for _ in 0..map_count {
+            let map_name = read_ue4_string(&mut reader)
+                .map_err(|e| format!("Failed to read map name in mod.info: {}", e))?;
+            if !map_name.is_empty() {
+                map_names.push(map_name);
+            }
+        }
+    }
+
+    let mod_meta_path = base_dir.join("modmeta.info");
+    if !mod_meta_path.exists() {
+        return Err(format!("modmeta.info not found at {:?}", mod_meta_path));
+    }
+
+    let mut meta_data = std::collections::BTreeMap::new();
+    {
+        let file = std::fs::File::open(&mod_meta_path)
+            .map_err(|e| format!("Failed to open modmeta.info: {}", e))?;
+        let mut reader = std::io::BufReader::new(file);
+
+        let mut total_pairs_buf = [0u8; 4];
+        reader.read_exact(&mut total_pairs_buf)
+            .map_err(|e| format!("Failed to read total pairs in modmeta.info: {}", e))?;
+        let total_pairs = i32::from_le_bytes(total_pairs_buf);
+
+        for _ in 0..total_pairs {
+            let key = read_ue4_string(&mut reader)
+                .map_err(|e| format!("Failed to read meta key: {}", e))?;
+            let value = read_ue4_string(&mut reader)
+                .map_err(|e| format!("Failed to read meta value: {}", e))?;
+            if !key.is_empty() && !value.is_empty() {
+                meta_data.insert(key, value);
+            }
+        }
+    }
+
+    let file = std::fs::File::create(target_mod_file)
+        .map_err(|e| format!("Failed to create .mod file: {}", e))?;
+    let mut writer = std::io::BufWriter::new(file);
+
+    let mod_id_num: u32 = workshop_id.parse::<u32>()
+        .map_err(|e| format!("Invalid workshop ID integer: {}", e))?;
+    writer.write_all(&mod_id_num.to_le_bytes())
+        .map_err(|e| format!("Failed to write mod ID: {}", e))?;
+    writer.write_all(&[0u8; 4])
+        .map_err(|e| format!("Failed to write padding: {}", e))?;
+
+    write_ue4_string(&mut writer, "ModName")
+        .map_err(|e| format!("Failed to write 'ModName': {}", e))?;
+
+    write_ue4_string(&mut writer, "")
+        .map_err(|e| format!("Failed to write empty string: {}", e))?;
+
+    let map_count = map_names.len() as i32;
+    writer.write_all(&map_count.to_le_bytes())
+        .map_err(|e| format!("Failed to write map count: {}", e))?;
+
+    for map_name in &map_names {
+        write_ue4_string(&mut writer, map_name)
+            .map_err(|e| format!("Failed to write map name: {}", e))?;
+    }
+
+    writer.write_all(&4280483635u32.to_le_bytes())
+        .map_err(|e| format!("Failed to write constant 4280483635: {}", e))?;
+
+    writer.write_all(&2i32.to_le_bytes())
+        .map_err(|e| format!("Failed to write constant 2: {}", e))?;
+
+    writer.write_all(&[0u8])
+        .map_err(|e| format!("Failed to write mod type byte: {}", e))?;
+
+    let meta_len = meta_data.len() as i32;
+    writer.write_all(&meta_len.to_le_bytes())
+        .map_err(|e| format!("Failed to write meta data length: {}", e))?;
+
+    for (k, v) in &meta_data {
+        write_ue4_string(&mut writer, k)
+            .map_err(|e| format!("Failed to write meta key: {}", e))?;
+        write_ue4_string(&mut writer, v)
+            .map_err(|e| format!("Failed to write meta value: {}", e))?;
+    }
+
+    Ok(())
+}
+
+fn emit_mod_log(app_handle: &AppHandle, workshop_id: &str, line: &str) {
+    let timestamp = chrono::Local::now().format("%H:%M:%S").to_string();
+    let payload = serde_json::json!({
+        "workshopId": workshop_id,
+        "timestamp": timestamp,
+        "line": line.to_string(),
+    });
+    let _ = app_handle.emit("ase-mod-download-log", payload);
+}
+
+fn emit_mod_progress(app_handle: &AppHandle, workshop_id: &str, status: &str, progress: f32, message: &str) {
+    let payload = serde_json::json!({
+        "workshopId": workshop_id,
+        "status": status.to_string(),
+        "progress": progress,
+        "message": message.to_string(),
+    });
+    let _ = app_handle.emit("ase-mod-download-progress", payload);
 }
 
 // Helper to check case-insensitive value in parsed INI document
@@ -197,7 +413,9 @@ impl AseModManager {
         let app_dir = _app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
         let steamcmd_exe = app_dir.join("steamcmd").join("steamcmd.exe");
         if !steamcmd_exe.exists() {
-            return Err("steamcmd.exe not found. Please install SteamCMD in settings.".to_string());
+            let err_msg = "steamcmd.exe not found. Please install SteamCMD in settings.".to_string();
+            emit_mod_progress(_app_handle, workshop_id, "failed", 0.0, &err_msg);
+            return Err(err_msg);
         }
 
         let install_path: String = {
@@ -217,129 +435,249 @@ impl AseModManager {
             .join("346110")
             .join(workshop_id);
 
+        // Clear any leftover download/lock files to prevent "failed (Locking Failed)" errors
+        let downloads_dir = app_dir.join("steamcmd")
+            .join("steamapps")
+            .join("workshop")
+            .join("downloads");
+        let mod_downloads_dir = downloads_dir.join("346110").join(workshop_id);
+        if mod_downloads_dir.exists() {
+            let _ = std::fs::remove_dir_all(&mod_downloads_dir);
+        }
+        let patch_file = downloads_dir.join(format!("state_346110_346110_{}.patch", workshop_id));
+        if patch_file.exists() {
+            let _ = std::fs::remove_file(&patch_file);
+        }
+
         let mut success = false;
         let mut last_err = String::new();
 
         for attempt in 1..=(_retries.max(1)) {
             println!("[INFO] [ASE Mod Manager] Downloading mod {} (attempt {}/{})", workshop_id, attempt, _retries);
             
-            let output = tokio::process::Command::new(&steamcmd_exe)
+            emit_mod_progress(_app_handle, workshop_id, "downloading", 0.0, &format!("Starting download (attempt {}/{})...", attempt, _retries));
+            emit_mod_log(_app_handle, workshop_id, &format!("Starting download for Mod ID: {} (attempt {}/{})", workshop_id, attempt, _retries));
+
+            let child = tokio::process::Command::new(&steamcmd_exe)
                 .args(&[
                     "+login", "anonymous",
                     "+workshop_download_item", "346110", workshop_id, "validate",
                     "+quit"
                 ])
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
                 .creation_flags(0x08000000) // CREATE_NO_WINDOW
-                .output()
-                .await;
+                .spawn();
 
-            // Check if download directory exists and has any content (SteamCMD never puts .mod files here)
-            if download_dir.exists() {
-                let has_content = std::fs::read_dir(&download_dir)
-                    .map(|rd| rd.flatten().next().is_some())
-                    .unwrap_or(false);
-                
-                if has_content {
-                    println!("[INFO] [ASE Mod Manager] Found downloaded mod content for workshop id {}", workshop_id);
-                    success = true;
-                    break;
+            let mut child = match child {
+                Ok(c) => c,
+                Err(e) => {
+                    last_err = format!("Failed to spawn SteamCMD: {}", e);
+                    emit_mod_log(_app_handle, workshop_id, &format!("Error: Failed to spawn SteamCMD: {}", e));
+                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                    continue;
+                }
+            };
+
+            let stdout = child.stdout.take().unwrap();
+            let mut reader = TokioBufReader::new(stdout).lines();
+
+            let stderr = child.stderr.take().unwrap();
+            let mut err_reader = TokioBufReader::new(stderr).lines();
+
+            let app_handle_clone = _app_handle.clone();
+            let w_id = workshop_id.to_string();
+            let err_task = tokio::spawn(async move {
+                while let Ok(Some(line)) = err_reader.next_line().await {
+                    let trimmed = line.trim();
+                    if !trimmed.is_empty() {
+                        emit_mod_log(&app_handle_clone, &w_id, &format!("[SteamCMD stderr] {}", trimmed));
+                    }
+                }
+            });
+
+            let mut stdout_stuck = false;
+            loop {
+                let next_line = tokio::time::timeout(
+                    tokio::time::Duration::from_secs(180),
+                    reader.next_line()
+                ).await;
+
+                match next_line {
+                    Ok(Ok(Some(line))) => {
+                        let trimmed = line.trim();
+                        if trimmed.is_empty() {
+                            continue;
+                        }
+
+                        emit_mod_log(_app_handle, workshop_id, trimmed);
+
+                        if trimmed.contains("Update state") {
+                            if let Some(progress_str) = trimmed.split("progress:").nth(1) {
+                                if let Some(pct) = progress_str.split_whitespace().next() {
+                                    if let Ok(pct_float) = pct.parse::<f32>() {
+                                        emit_mod_progress(_app_handle, workshop_id, "downloading", pct_float, &format!("Downloading... {:.1}%", pct_float));
+                                    }
+                                }
+                            }
+                        } else if trimmed.contains("Logging in") {
+                            emit_mod_progress(_app_handle, workshop_id, "downloading", 10.0, "Logging into Steam anonymously...");
+                        } else if trimmed.contains("Downloading") {
+                            emit_mod_progress(_app_handle, workshop_id, "downloading", 20.0, "Downloading workshop content...");
+                        } else if trimmed.contains("Validating") || trimmed.contains("verifying") {
+                            emit_mod_progress(_app_handle, workshop_id, "downloading", 85.0, "Validating mod files...");
+                        }
+                    }
+                    Ok(Ok(None)) => {
+                        break;
+                    }
+                    Ok(Err(e)) => {
+                        emit_mod_log(_app_handle, workshop_id, &format!("[WARNING] Error reading SteamCMD output: {}", e));
+                        break;
+                    }
+                    Err(_) => {
+                        emit_mod_log(_app_handle, workshop_id, "[WARNING] No download activity detected for 3 minutes. Restarting download command to resume from cache...");
+                        stdout_stuck = true;
+                        break;
+                    }
                 }
             }
 
-            match output {
-                Ok(out) => {
-                    if out.status.success() {
-                        let stdout_str = String::from_utf8_lossy(&out.stdout);
-                        if stdout_str.contains("Success. Downloaded item") || stdout_str.contains("Finished Downloading Item") {
-                            println!("[INFO] [ASE Mod Manager] SteamCMD reported success for mod {}", workshop_id);
-                            if download_dir.exists() {
+            if stdout_stuck {
+                let _ = child.start_kill();
+                let _ = child.wait().await;
+                let _ = err_task.await;
+                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                continue;
+            }
+
+            let _ = err_task.await;
+            let status = child.wait().await;
+
+            match status {
+                Ok(stat) => {
+                    if stat.success() {
+                        emit_mod_log(_app_handle, workshop_id, "SteamCMD reported success.");
+                        if download_dir.exists() {
+                            let has_content = std::fs::read_dir(&download_dir)
+                                .map(|rd| rd.flatten().next().is_some())
+                                .unwrap_or(false);
+                            if has_content {
+                                println!("[INFO] [ASE Mod Manager] Found downloaded mod content for workshop id {}", workshop_id);
+                                emit_mod_log(_app_handle, workshop_id, "Workshop content verification passed.");
                                 success = true;
                                 break;
                             }
                         }
-                        last_err = format!("SteamCMD reported success but files were not found: {}", stdout_str);
+                        last_err = "SteamCMD reported success but files were not found in download folder.".to_string();
                     } else {
-                        last_err = format!("SteamCMD exited with status {}", out.status);
+                        last_err = format!("SteamCMD exited with status {}", stat);
                     }
                 }
                 Err(e) => {
                     last_err = format!("Failed to execute SteamCMD: {}", e);
                 }
             }
+
+            emit_mod_log(_app_handle, workshop_id, &format!("Attempt failed. Error: {}. Retrying in 2 seconds...", last_err));
             
-            // Wait 2 seconds before retrying
+            // Clear lock/download files for the next retry attempt
+            let downloads_dir = app_dir.join("steamcmd")
+                .join("steamapps")
+                .join("workshop")
+                .join("downloads");
+            let mod_downloads_dir = downloads_dir.join("346110").join(workshop_id);
+            if mod_downloads_dir.exists() {
+                let _ = std::fs::remove_dir_all(&mod_downloads_dir);
+            }
+            let patch_file = downloads_dir.join(format!("state_346110_346110_{}.patch", workshop_id));
+            if patch_file.exists() {
+                let _ = std::fs::remove_file(&patch_file);
+            }
+
             tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
         }
 
         if !success {
-            return Err(format!("Failed to download mod {} after {} retries: {}", workshop_id, _retries, last_err));
+            let err_msg = format!("Failed to download mod {} after {} retries: {}", workshop_id, _retries, last_err);
+            emit_mod_progress(_app_handle, workshop_id, "failed", 100.0, &err_msg);
+            return Err(err_msg);
         }
 
-        // Ensure target directory exists
         let mods_parent_dir = PathBuf::from(&install_path).join("ShooterGame").join("Content").join("Mods");
         if !mods_parent_dir.exists() {
             std::fs::create_dir_all(&mods_parent_dir).map_err(|e| format!("Failed to create mods parent dir: {}", e))?;
         }
 
-        // --- Source .mod file and assets from the Steam game client installation ---
-        // SteamCMD only downloads raw workshop content. The .mod descriptor file is
-        // generated exclusively by the Steam game client (ARK: Survival Evolved) and
-        // lives in: <SteamLibrary>/steamapps/common/ARK/ShooterGame/Content/Mods/
+        emit_mod_progress(_app_handle, workshop_id, "extracting", 95.0, "Extracting mod assets & preparing .mod file...");
+
         let steam_source = find_ase_mod_in_steam_libraries(workshop_id);
+        let target_mod_file = mods_parent_dir.join(format!("{}.mod", workshop_id));
+        let target_assets_dir = mods_parent_dir.join(workshop_id);
 
         if let Some(ref source) = steam_source {
-            // Copy .mod file from the Steam client path
-            let target_mod_file = mods_parent_dir.join(format!("{}.mod", workshop_id));
+            emit_mod_log(_app_handle, workshop_id, &format!("Found local Steam library installation: {:?}", source.mod_file));
             std::fs::copy(&source.mod_file, &target_mod_file)
                 .map_err(|e| format!("Failed to copy .mod file to server: {}", e))?;
             println!("[INFO] [ASE Mod Manager] Copied .mod file from Steam client: {:?} -> {:?}", source.mod_file, target_mod_file);
+            emit_mod_log(_app_handle, workshop_id, "Copied .mod descriptor file successfully.");
 
-            // Copy assets folder from the Steam client path if it exists
-            let target_assets_dir = mods_parent_dir.join(workshop_id);
             if target_assets_dir.exists() {
                 let _ = std::fs::remove_dir_all(&target_assets_dir);
             }
 
             if source.assets_dir.exists() && source.assets_dir.is_dir() {
+                emit_mod_log(_app_handle, workshop_id, "Copying assets from local Steam client...");
                 std::fs::create_dir_all(&target_assets_dir)
                     .map_err(|e| format!("Failed to create target assets dir: {}", e))?;
-                copy_dir_all(&source.assets_dir, &target_assets_dir)
+                let total_bytes = get_dir_size(&source.assets_dir).unwrap_or(0);
+                let mut copied_bytes = 0;
+                copy_dir_all_with_progress(&source.assets_dir, &target_assets_dir, total_bytes, &mut copied_bytes, _app_handle, workshop_id)
                     .map_err(|e| format!("Failed to copy mod assets from Steam client: {}", e))?;
                 println!("[INFO] [ASE Mod Manager] Copied mod assets from Steam client: {:?}", source.assets_dir);
             } else {
-                // Steam client has the .mod file but no separate assets folder;
-                // fall back to copying from the SteamCMD workshop download.
+                emit_mod_log(_app_handle, workshop_id, "Local Steam assets folder missing. Falling back to copy from SteamCMD workshop download...");
                 std::fs::create_dir_all(&target_assets_dir)
                     .map_err(|e| format!("Failed to create target assets dir: {}", e))?;
-                Self::copy_workshop_assets(&download_dir, &target_assets_dir, workshop_id)?;
+                Self::copy_workshop_assets(_app_handle, &download_dir, &target_assets_dir, workshop_id)?;
             }
         } else {
-            // No .mod file found in any Steam library.
-            // Still copy workshop assets so the user only needs to provide the .mod file later.
-            let target_assets_dir = mods_parent_dir.join(workshop_id);
+            emit_mod_log(_app_handle, workshop_id, "Local Steam library installation not found. Auto-generating .mod file from downloaded workshop content...");
+            
+            let mut base_dir = download_dir.clone();
+            if !download_dir.join("mod.info").exists() && !download_dir.join("modmeta.info").exists() {
+                if download_dir.join("WindowsNoEditor").exists() {
+                    base_dir = download_dir.join("WindowsNoEditor");
+                }
+            }
+
+            if !base_dir.join("mod.info").exists() || !base_dir.join("modmeta.info").exists() {
+                let err_msg = "Missing mod.info or modmeta.info in downloaded content. Cannot generate .mod file.".to_string();
+                emit_mod_progress(_app_handle, workshop_id, "failed", 100.0, &err_msg);
+                emit_mod_log(_app_handle, workshop_id, &format!("Error: {}", err_msg));
+                return Err(err_msg);
+            }
+
+            if let Err(e) = generate_mod_file(workshop_id, &download_dir, &target_mod_file) {
+                let err_msg = format!("Failed to generate .mod file: {}", e);
+                emit_mod_progress(_app_handle, workshop_id, "failed", 100.0, &err_msg);
+                emit_mod_log(_app_handle, workshop_id, &format!("Error: {}", err_msg));
+                return Err(err_msg);
+            }
+
+            emit_mod_log(_app_handle, workshop_id, "Successfully generated .mod file.");
+
             if target_assets_dir.exists() {
                 let _ = std::fs::remove_dir_all(&target_assets_dir);
             }
             std::fs::create_dir_all(&target_assets_dir)
                 .map_err(|e| format!("Failed to create target assets dir: {}", e))?;
-            Self::copy_workshop_assets(&download_dir, &target_assets_dir, workshop_id)?;
-
-            return Err(format!(
-                "Mod workshop content downloaded successfully, but no .mod descriptor file was found.\n\
-                 \n\
-                 This file is generated by the ARK game client, not by SteamCMD.\n\
-                 \n\
-                 To fix this:\n\
-                 1. Open Steam and subscribe to this mod (Workshop ID: {})\n\
-                 2. Launch ARK: Survival Evolved on this PC at least once (Host/Local)\n\
-                 3. Wait for the mod to finish downloading in the Steam client\n\
-                 4. Retry the mod installation in this manager\n\
-                 \n\
-                 The .mod file should appear in your Steam library at:\n\
-                 <SteamLibrary>\\steamapps\\common\\ARK\\ShooterGame\\Content\\Mods\\{}.mod",
-                workshop_id, workshop_id
-            ));
+            emit_mod_log(_app_handle, workshop_id, "Copying workshop assets to server mods folder...");
+            Self::copy_workshop_assets(_app_handle, &download_dir, &target_assets_dir, workshop_id)?;
         }
+
+        emit_mod_progress(_app_handle, workshop_id, "completed", 100.0, "Installation complete!");
+        emit_mod_log(_app_handle, workshop_id, "Installation complete!");
 
         // Insert/update in database
         let now = chrono::Utc::now().to_rfc3339();
@@ -405,35 +743,52 @@ impl AseModManager {
 
     /// Copy mod assets from the SteamCMD workshop download folder to the target directory.
     /// Handles WindowsNoEditor layout and flat/mixed folder structures.
-    fn copy_workshop_assets(download_dir: &PathBuf, target_assets_dir: &PathBuf, workshop_id: &str) -> Result<(), String> {
+    fn copy_workshop_assets(app_handle: &AppHandle, download_dir: &PathBuf, target_assets_dir: &PathBuf, workshop_id: &str) -> Result<(), String> {
         let windows_no_editor_dir = download_dir.join("WindowsNoEditor");
         if windows_no_editor_dir.exists() && windows_no_editor_dir.is_dir() {
             // Correct ASE layout: The contents of WindowsNoEditor go directly into the mod ID folder.
-            copy_dir_all(&windows_no_editor_dir, target_assets_dir)
+            let total_bytes = get_dir_size(&windows_no_editor_dir).unwrap_or(0);
+            let mut copied_bytes = 0;
+            copy_dir_all_with_progress(&windows_no_editor_dir, target_assets_dir, total_bytes, &mut copied_bytes, app_handle, workshop_id)
                 .map_err(|e| format!("Failed to copy mod assets from WindowsNoEditor: {}", e))?;
         } else {
             // Fallback for differently structured mods
             if let Ok(entries) = std::fs::read_dir(download_dir) {
+                let mut total_bytes = 0;
+                let mut paths_to_copy = Vec::new();
+
                 for entry in entries.flatten() {
                     let path = entry.path();
                     if path.extension().map(|ext| ext == "mod").unwrap_or(false) {
                         continue;
                     }
-                    let file_name = entry.file_name();
+                    total_bytes += get_dir_size(&path).unwrap_or(0);
+                    paths_to_copy.push((path, entry.file_name()));
+                }
+
+                let mut copied_bytes = 0;
+                for (path, file_name) in paths_to_copy {
                     // If there's a folder named exactly like the workshop ID, copy its contents
                     if path.is_dir() && file_name.to_string_lossy() == workshop_id {
-                        copy_dir_all(&path, target_assets_dir)
+                        copy_dir_all_with_progress(&path, target_assets_dir, total_bytes, &mut copied_bytes, app_handle, workshop_id)
                             .map_err(|e| format!("Failed to copy mod subdirectory assets: {}", e))?;
                         continue;
                     }
 
                     let dest = target_assets_dir.join(&file_name);
                     if path.is_dir() {
-                        copy_dir_all(&path, &dest)
+                        copy_dir_all_with_progress(&path, &dest, total_bytes, &mut copied_bytes, app_handle, workshop_id)
                             .map_err(|e| format!("Failed to copy mod assets folder {:?}: {}", file_name, e))?;
                     } else {
+                        let size = path.metadata().map(|m| m.len()).unwrap_or(0);
                         std::fs::copy(&path, &dest)
                             .map_err(|e| format!("Failed to copy mod asset file {:?}: {}", file_name, e))?;
+                        copied_bytes += size;
+                        if total_bytes > 0 {
+                            let progress = 95.0 + ((copied_bytes as f32 / total_bytes as f32) * 4.5);
+                            let percentage = (progress * 10.0).round() / 10.0;
+                            emit_mod_progress(app_handle, workshop_id, "extracting", percentage, &format!("Extracting/Copying assets... {:.1}%", percentage));
+                        }
                     }
                 }
             }
