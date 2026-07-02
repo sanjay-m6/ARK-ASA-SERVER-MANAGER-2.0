@@ -245,11 +245,17 @@ fn emit_mod_log(app_handle: &AppHandle, workshop_id: &str, line: &str) {
 }
 
 fn emit_mod_progress(app_handle: &AppHandle, workshop_id: &str, status: &str, progress: f32, message: &str) {
+    emit_mod_progress_bytes(app_handle, workshop_id, status, progress, message, 0, 0);
+}
+
+fn emit_mod_progress_bytes(app_handle: &AppHandle, workshop_id: &str, status: &str, progress: f32, message: &str, downloaded_bytes: u64, total_bytes: u64) {
     let payload = serde_json::json!({
         "workshopId": workshop_id,
         "status": status.to_string(),
         "progress": progress,
         "message": message.to_string(),
+        "downloadedBytes": downloaded_bytes,
+        "totalBytes": total_bytes,
     });
     let _ = app_handle.emit("ase-mod-download-progress", payload);
 }
@@ -498,8 +504,10 @@ impl AseModManager {
 
             let mut stdout_stuck = false;
             loop {
+                // 10-minute timeout for large mods — SteamCMD can be silent for
+                // extended periods while validating multi-GB workshop content
                 let next_line = tokio::time::timeout(
-                    tokio::time::Duration::from_secs(180),
+                    tokio::time::Duration::from_secs(600),
                     reader.next_line()
                 ).await;
 
@@ -512,20 +520,47 @@ impl AseModManager {
 
                         emit_mod_log(_app_handle, workshop_id, trimmed);
 
+                        // Parse real byte-level progress from SteamCMD output:
+                        // "Update state (0x61) downloading, progress: 45.23 (156789012 / 346789012)"
                         if trimmed.contains("Update state") {
                             if let Some(progress_str) = trimmed.split("progress:").nth(1) {
+                                let progress_str = progress_str.trim();
+                                // Try parsing byte counts: "45.23 (downloaded / total)"
+                                let mut pct_float: f32 = 0.0;
+                                let mut dl_bytes: u64 = 0;
+                                let mut total_b: u64 = 0;
+
                                 if let Some(pct) = progress_str.split_whitespace().next() {
-                                    if let Ok(pct_float) = pct.parse::<f32>() {
-                                        emit_mod_progress(_app_handle, workshop_id, "downloading", pct_float, &format!("Downloading... {:.1}%", pct_float));
+                                    pct_float = pct.parse::<f32>().unwrap_or(0.0);
+                                }
+
+                                // Extract byte counts from parentheses: (downloaded / total)
+                                if let Some(paren_start) = progress_str.find('(') {
+                                    if let Some(paren_end) = progress_str.find(')') {
+                                        let inner = &progress_str[paren_start + 1..paren_end];
+                                        let parts: Vec<&str> = inner.split('/').collect();
+                                        if parts.len() == 2 {
+                                            dl_bytes = parts[0].trim().parse::<u64>().unwrap_or(0);
+                                            total_b = parts[1].trim().parse::<u64>().unwrap_or(0);
+                                        }
                                     }
                                 }
+
+                                let msg = if total_b > 0 {
+                                    let dl_mb = dl_bytes as f64 / 1_048_576.0;
+                                    let total_mb = total_b as f64 / 1_048_576.0;
+                                    format!("Downloading... {:.1}% ({:.1} MB / {:.1} MB) [Attempt {}/{}]", pct_float, dl_mb, total_mb, attempt, _retries)
+                                } else {
+                                    format!("Downloading... {:.1}% [Attempt {}/{}]", pct_float, attempt, _retries)
+                                };
+                                emit_mod_progress_bytes(_app_handle, workshop_id, "downloading", pct_float, &msg, dl_bytes, total_b);
                             }
                         } else if trimmed.contains("Logging in") {
-                            emit_mod_progress(_app_handle, workshop_id, "downloading", 10.0, "Logging into Steam anonymously...");
+                            emit_mod_progress(_app_handle, workshop_id, "downloading", 10.0, &format!("Logging into Steam anonymously... [Attempt {}/{}]", attempt, _retries));
                         } else if trimmed.contains("Downloading") {
-                            emit_mod_progress(_app_handle, workshop_id, "downloading", 20.0, "Downloading workshop content...");
+                            emit_mod_progress(_app_handle, workshop_id, "downloading", 20.0, &format!("Downloading workshop content... [Attempt {}/{}]", attempt, _retries));
                         } else if trimmed.contains("Validating") || trimmed.contains("verifying") {
-                            emit_mod_progress(_app_handle, workshop_id, "downloading", 85.0, "Validating mod files...");
+                            emit_mod_progress(_app_handle, workshop_id, "downloading", 85.0, &format!("Validating mod files... [Attempt {}/{}]", attempt, _retries));
                         }
                     }
                     Ok(Ok(None)) => {
@@ -536,7 +571,7 @@ impl AseModManager {
                         break;
                     }
                     Err(_) => {
-                        emit_mod_log(_app_handle, workshop_id, "[WARNING] No download activity detected for 3 minutes. Restarting download command to resume from cache...");
+                        emit_mod_log(_app_handle, workshop_id, &format!("[WARNING] No download activity detected for 10 minutes (attempt {}/{}). Restarting SteamCMD to resume from cache...", attempt, _retries));
                         stdout_stuck = true;
                         break;
                     }
@@ -579,7 +614,9 @@ impl AseModManager {
                 }
             }
 
-            emit_mod_log(_app_handle, workshop_id, &format!("Attempt failed. Error: {}. Retrying in 2 seconds...", last_err));
+            // Exponential backoff: 2s → 4s → 8s → 10s (capped)
+            let delay_secs = std::cmp::min(2u64.pow(attempt), 10);
+            emit_mod_log(_app_handle, workshop_id, &format!("Attempt {}/{} failed. Error: {}. Retrying in {} seconds...", attempt, _retries, last_err, delay_secs));
             
             // Clear lock/download files for the next retry attempt
             let downloads_dir = app_dir.join("steamcmd")
@@ -595,7 +632,18 @@ impl AseModManager {
                 let _ = std::fs::remove_file(&patch_file);
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+            // Clean stale ACF manifest to prevent "Content Servers Unreachable" or
+            // "Locking Failed" errors on subsequent SteamCMD invocations
+            let workshop_dir = app_dir.join("steamcmd")
+                .join("steamapps")
+                .join("workshop");
+            let acf_file = workshop_dir.join("appworkshop_346110.acf");
+            if acf_file.exists() {
+                let _ = std::fs::remove_file(&acf_file);
+                emit_mod_log(_app_handle, workshop_id, "Cleared stale ACF manifest for clean retry.");
+            }
+
+            tokio::time::sleep(tokio::time::Duration::from_secs(delay_secs)).await;
         }
 
         if !success {

@@ -19,7 +19,7 @@ import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, getServerVersion, getLatestServerVersion, moveServer } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, getServerVersion, getLatestServerVersion, moveServer, clearModCache } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -246,6 +246,25 @@ export default function ServerManager() {
         } catch (error) {
             console.error('Failed to prepare move server:', error);
             toast.error(t('serverManager.move.failed', 'Failed to prepare move server.'));
+        }
+    };
+
+    const handleClearModCache = async (serverId: number) => {
+        try {
+            const server = servers.find(s => s.id === serverId);
+            if (!server) return;
+
+            if (server.status !== 'stopped' && server.status !== 'crashed') {
+                toast.error(t('serverManager.modCache.mustBeStopped', 'Server must be stopped before clearing mod cache.'));
+                return;
+            }
+
+            toast.loading(t('serverManager.modCache.clearing', 'Clearing mod cache...'), { id: 'clear-mod-cache' });
+            const result = await clearModCache(serverId);
+            toast.success(result, { id: 'clear-mod-cache', duration: 6000, icon: 'Ã°Å¸Â§Â¹' });
+        } catch (error) {
+            console.error('Failed to clear mod cache:', error);
+            toast.error(t('serverManager.modCache.failed', 'Failed to clear mod cache.'), { id: 'clear-mod-cache' });
         }
     };
 
@@ -503,15 +522,15 @@ export default function ServerManager() {
 
                         // If we started this server THIS session, record current line count as baseline
                         // so the poll only checks NEW lines. If no baseline exists, the server was
-                        // already running from DB — check ALL lines for startup.
+                        // already running from DB Ã¢â‚¬â€ check ALL lines for startup.
                         if (logBaseline[server.id] !== undefined) {
-                            // Baseline already set by handleStartServer — update to actual line count
+                            // Baseline already set by handleStartServer Ã¢â‚¬â€ update to actual line count
                             setLogBaseline(prev => ({
                                 ...prev,
                                 [server.id]: logLines.length
                             }));
                         } else if (server.status === 'running' || server.status === 'starting') {
-                            // Server loaded as 'running' from DB — check all lines now
+                            // Server loaded as 'running' from DB Ã¢â‚¬â€ check all lines now
                             const hasStartupLine = logLines.some((line: string) =>
                                 line.toLowerCase().includes('advertising for join')
                             );
@@ -584,7 +603,7 @@ export default function ServerManager() {
 
         try {
             updateServerStatus(serverId, 'starting');
-            // Set baseline marker — will be updated to actual line count after initial fetch
+            // Set baseline marker Ã¢â‚¬â€ will be updated to actual line count after initial fetch
             setLogBaseline(prev => ({ ...prev, [serverId]: 0 }));
             setLogsFetched(prev => ({ ...prev, [serverId]: false }));
             setExpandedConsoles(prev => ({ ...prev, [serverId]: true })); // Auto-expand console
@@ -592,7 +611,7 @@ export default function ServerManager() {
 
             await startServer(serverId, updateOnStart);
 
-            // Don't set to 'running' — keep 'starting' until STDERR/STDOUT detection confirms 'online'
+            // Don't set to 'running' Ã¢â‚¬â€ keep 'starting' until STDERR/STDOUT detection confirms 'online'
             toast.success(updateOnStart ? t('serverManager.updatingAndStarting') : t('serverManager.serverStarted'));
             setUpdateOnStart(false); // Reset toggle
         } catch (error: any) {
@@ -601,7 +620,7 @@ export default function ServerManager() {
             const errorMsg = String(error);
             setServerLogs(prev => ({
                 ...prev,
-                [serverId]: [...(prev[serverId] || []), `❌ STARTUP FAILED: ${errorMsg}`]
+                [serverId]: [...(prev[serverId] || []), `Ã¢ÂÅ’ STARTUP FAILED: ${errorMsg}`]
             }));
 
             // Show long-duration toast
@@ -625,7 +644,7 @@ export default function ServerManager() {
             setExpandedConsoles(prev => ({ ...prev, [serverId]: true }));
             setServerLogs(prev => ({ ...prev, [serverId]: [] }));
             await startServerNoMods(serverId);
-            // Don't set to 'running' — keep 'starting' until detection confirms 'online'
+            // Don't set to 'running' Ã¢â‚¬â€ keep 'starting' until detection confirms 'online'
             toast.success(t('serverManager.serverStartedNoMods'));
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
@@ -652,7 +671,7 @@ export default function ServerManager() {
             setLogBaseline(prev => ({ ...prev, [serverId]: 0 }));
             setLogsFetched(prev => ({ ...prev, [serverId]: false }));
             await restartServer(serverId, wipeDinos);
-            // Don't set to 'running' — keep 'starting' until detection confirms 'online'
+            // Don't set to 'running' Ã¢â‚¬â€ keep 'starting' until detection confirms 'online'
             toast.success(wipeDinos ? t('serverManager.serverRestartedWipeDinos', 'Server restart initiated with wild dino wipe') : t('serverManager.serverRestarted'));
         } catch (error) {
             toast.error(t('serverManager.restartFailed', { error }));
@@ -702,7 +721,7 @@ export default function ServerManager() {
             updateServerStatus(serverId, 'starting');
             setExpandedConsoles(prev => ({ ...prev, [serverId]: true }));
             await hardcoreRetryMods(serverId);
-            // Don't set to 'running' — keep 'starting' until detection confirms 'online'
+            // Don't set to 'running' Ã¢â‚¬â€ keep 'starting' until detection confirms 'online'
             toast.success(t('serverManager.deepRepairStarted'));
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
@@ -1407,6 +1426,14 @@ export default function ServerManager() {
                                                                      >
                                                                          <Copy className="w-4 h-4" />
                                                                          <span>{t('serverManager.tooltips.clone')}</span>
+                                                                     </button>
+                                                                     <button
+                                                                         onClick={() => handleClearModCache(server.id)}
+                                                                         className="w-full text-left px-4 py-3 hover:bg-orange-500/10 text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                                                         title={t('serverManager.modCache.tooltip', 'Clear cached mod files to fix mod loading issues')}
+                                                                     >
+                                                                         <RefreshCw className="w-4 h-4" />
+                                                                         <span>{t('serverManager.modCache.button', 'Clear Mod Cache')}</span>
                                                                      </button>
                                                                      <button
                                                                          onClick={() => setDeleteConfirmServer(server)}

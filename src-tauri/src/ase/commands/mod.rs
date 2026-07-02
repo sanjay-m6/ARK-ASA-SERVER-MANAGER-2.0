@@ -10,6 +10,7 @@ pub mod profile_sync;
 pub mod config_advanced;
 pub mod tools;
 pub mod import;
+pub mod players;
 
 /// Collect all ASE command handler names for registration in lib.rs
 pub fn get_all_handlers() -> Vec<&'static str> {
@@ -70,6 +71,9 @@ pub fn get_all_handlers() -> Vec<&'static str> {
         "list_ase_profiles",
         "copy_ase_profiles",
         "sync_ase_lists",
+        // Players
+        "get_ase_players",
+        "save_ase_players",
         // Tools
         "check_ase_api_installed",
         "get_installed_ase_plugins",

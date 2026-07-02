@@ -165,26 +165,51 @@ impl RconService {
         server_id: i64,
         command: &str,
     ) -> Result<RconResponse, String> {
+        let mut command_owned = command.to_string();
+
+        // Sanitize broadcast command syntax (wrap message in quotes if it has spaces or is not quoted)
+        let trimmed = command_owned.trim();
+        let lower = trimmed.to_lowercase();
+        if lower.starts_with("broadcast ") {
+            let msg = &trimmed[10..];
+            let msg_trimmed = msg.trim();
+            if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+                command_owned = format!("Broadcast \"{}\"", msg_trimmed);
+            }
+        } else if lower.starts_with("cheat broadcast ") {
+            let msg = &trimmed[16..];
+            let msg_trimmed = msg.trim();
+            if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+                command_owned = format!("Broadcast \"{}\"", msg_trimmed);
+            }
+        } else if lower.starts_with("admincheat broadcast ") {
+            let msg = &trimmed[21..];
+            let msg_trimmed = msg.trim();
+            if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+                command_owned = format!("Broadcast \"{}\"", msg_trimmed);
+            }
+        }
+
         let mut sessions = self.sessions.lock().await;
 
         if let Some(session) = sessions.get_mut(&server_id) {
             log::info!(
                 "[RCON] Sending command to server {}: '{}'",
                 server_id,
-                command
+                command_owned
             );
 
-            match session.connection.send_command(command).await {
+            match session.connection.send_command(&command_owned).await {
                 Ok(response) => {
                     log::info!(
                         "[RCON] Command '{}' executed on server {}, response length: {} bytes",
-                        command,
+                        command_owned,
                         server_id,
                         response.len()
                     );
                     log::debug!(
                         "[RCON] Response body for '{}' on server {}: {:?}",
-                        command,
+                        command_owned,
                         server_id,
                         &response[..response.len().min(500)]
                     );
@@ -198,7 +223,7 @@ impl RconService {
                     // Command returned an error — connection is likely dead
                     log::warn!(
                         "[RCON] Command '{}' failed on server {}: {}. Attempting auto-reconnect...",
-                        command,
+                        command_owned,
                         server_id,
                         e
                     );
@@ -207,14 +232,14 @@ impl RconService {
                     let password = session.password.clone();
                     drop(sessions);
 
-                    self.try_reconnect_and_retry(server_id, &addr, &password, command)
+                    self.try_reconnect_and_retry(server_id, &addr, &password, &command_owned)
                         .await
                 }
             }
         } else {
             log::warn!(
                 "[RCON] Command '{}' rejected — no active connection for server {}",
-                command,
+                command_owned,
                 server_id
             );
             Err("No active RCON connection for this server".to_string())
@@ -295,7 +320,12 @@ impl RconService {
 
     /// Broadcast a message to all players
     pub async fn broadcast(&self, server_id: i64, message: &str) -> Result<RconResponse, String> {
-        let command = format!("ServerChat {}", message);
+        let trimmed = message.trim();
+        let command = if trimmed.starts_with('"') && trimmed.ends_with('"') {
+            format!("Broadcast {}", trimmed)
+        } else {
+            format!("Broadcast \"{}\"", trimmed)
+        };
         self.send_command(server_id, &command).await
     }
 

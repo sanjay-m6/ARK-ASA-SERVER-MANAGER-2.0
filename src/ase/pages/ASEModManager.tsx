@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { createPortal } from 'react-dom';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { 
   Puzzle, Search, Download, ExternalLink, Trash2, 
   CheckCircle2, AlertCircle, Loader2, X, Copy, ArrowUp, ArrowDown, 
   CheckSquare, Square, ChevronUp, ChevronDown, Sparkles, PlusCircle, RefreshCw,
   GripVertical, Undo, Redo, Pin, Wrench, Globe, Flame,
-  User, HardDrive, Users, FolderOpen, Terminal
+  User, HardDrive, Users, FolderOpen, Terminal, ShieldCheck
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -127,6 +127,11 @@ export default function ASEModManager() {
   const { downloadLogs } = useAseModStore();
   const [selectedLogModId, setSelectedLogModId] = useState<string>('');
 
+  // Diagnostics state
+  const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [diagnosticResult, setDiagnosticResult] = useState<any>(null);
+
   // Auto-select active downloading mod or first mod with logs
   useEffect(() => {
     const logKeys = Object.keys(downloadLogs);
@@ -211,6 +216,22 @@ export default function ASEModManager() {
       toast.error('Failed to repair/reinstall mod.');
     } finally {
       setIsRepairing(false);
+    }
+  };
+
+  const handleValidateSpawns = async () => {
+    if (!selectedServer) return;
+    setIsDiagnosing(true);
+    setShowDiagnosticModal(true);
+    try {
+      const result = await invoke('diagnose_spawn_issues', { serverId: selectedServer });
+      setDiagnosticResult(result);
+    } catch (error) {
+      console.error('Failed to run diagnostics:', error);
+      toast.error('Failed to run spawn diagnostics.');
+      setShowDiagnosticModal(false);
+    } finally {
+      setIsDiagnosing(false);
     }
   };
 
@@ -1070,7 +1091,11 @@ export default function ASEModManager() {
                                 ) : isQueuedOrDownloading && queueItem ? (
                                   <span className="px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md animate-pulse">
                                     {queueItem.status === 'queued' ? 'Queued' :
-                                     queueItem.status === 'downloading' ? `Downloading (${Math.round(queueItem.progress)}%)` :
+                                     queueItem.status === 'downloading' ? (
+                                       queueItem.totalBytes && queueItem.totalBytes > 0
+                                         ? `${Math.round(queueItem.progress)}% (${(( queueItem.downloadedBytes || 0) / 1048576).toFixed(0)} / ${(queueItem.totalBytes / 1048576).toFixed(0)} MB)`
+                                         : `Downloading (${Math.round(queueItem.progress)}%)`
+                                     ) :
                                      queueItem.status === 'extracting' ? `Extracting (${Math.round(queueItem.progress)}%)` :
                                      queueItem.status === 'failed' ? 'Failed' : 'Installing'}
                                   </span>
@@ -1229,7 +1254,11 @@ export default function ASEModManager() {
                                 <div className="px-3.5 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold flex items-center gap-1.5 animate-pulse">
                                   <RefreshCw className={`w-3.5 h-3.5 ${queueItem.status !== 'queued' && queueItem.status !== 'failed' ? 'animate-spin' : ''}`} />
                                   {queueItem.status === 'queued' ? 'In Queue' :
-                                   queueItem.status === 'downloading' ? `Downloading (${Math.round(queueItem.progress)}%)` :
+                                   queueItem.status === 'downloading' ? (
+                                     queueItem.totalBytes && queueItem.totalBytes > 0
+                                       ? `${Math.round(queueItem.progress)}% (${((queueItem.downloadedBytes || 0) / 1048576).toFixed(0)} / ${(queueItem.totalBytes / 1048576).toFixed(0)} MB)`
+                                       : `Downloading (${Math.round(queueItem.progress)}%)`
+                                   ) :
                                    queueItem.status === 'extracting' ? `Extracting (${Math.round(queueItem.progress)}%)` :
                                    queueItem.status === 'failed' ? 'Failed' : 'Installing'}
                                 </div>
@@ -1307,6 +1336,14 @@ export default function ASEModManager() {
                       </button>
                     </div>
 
+                    <button
+                      onClick={handleValidateSpawns}
+                      disabled={isDiagnosing}
+                      className="px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      {isDiagnosing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                      Validate Spawns
+                    </button>
                     <button
                       onClick={() => handleBulkInstalledAction('enable_all')}
                       className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold transition-all"
@@ -2007,10 +2044,31 @@ export default function ASEModManager() {
                               />
                             </div>
 
-                            {item.error && (
-                              <p className="text-[9px] text-rose-400 leading-normal max-h-12 overflow-y-auto font-mono mt-1">
-                                Error: {item.error}
+                            {/* Download size info */}
+                            {item.status === 'downloading' && (item.totalBytes || 0) > 0 && (
+                              <p className="text-[9px] text-slate-500 mt-0.5">
+                                {((item.downloadedBytes || 0) / 1048576).toFixed(1)} MB / {((item.totalBytes || 0) / 1048576).toFixed(1)} MB
                               </p>
+                            )}
+
+                            {item.error && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <p className="text-[9px] text-rose-400 leading-normal max-h-12 overflow-y-auto font-mono flex-1">
+                                  Error: {item.error}
+                                </p>
+                                {item.status === 'failed' && (
+                                  <button
+                                    onClick={() => {
+                                      removeFromQueue(item.workshopId);
+                                      addToQueue(item.workshopId, item.modName, item.modImage);
+                                      toast.success(`Re-queued "${item.modName}" for download`);
+                                    }}
+                                    className="px-2 py-0.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded text-[9px] font-bold shrink-0 transition-colors"
+                                  >
+                                    Retry
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         );
@@ -2207,6 +2265,110 @@ export default function ASEModManager() {
                     </button>
                   )}
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Diagnostics Modal */}
+      <AnimatePresence>
+        {showDiagnosticModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => !isDiagnosing && setShowDiagnosticModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-white/5 bg-slate-950/50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/20 rounded-xl">
+                    <ShieldCheck className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-slate-200">Spawn Validation Diagnostics</h3>
+                    <p className="text-xs text-slate-400">Checking for modded creature spawn issues</p>
+                  </div>
+                </div>
+                {!isDiagnosing && (
+                  <button 
+                    onClick={() => setShowDiagnosticModal(false)}
+                    className="p-2 hover:bg-white/5 rounded-xl text-slate-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="p-4 overflow-y-auto custom-scrollbar flex-1">
+                {isDiagnosing ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+                    <p className="text-slate-400 text-sm">Analyzing Game.ini configuration...</p>
+                  </div>
+                ) : diagnosticResult ? (
+                  <div className="space-y-4">
+                    <div className={`p-4 rounded-xl border flex gap-3 ${
+                      diagnosticResult.issues_found 
+                        ? 'bg-amber-500/10 border-amber-500/20' 
+                        : 'bg-emerald-500/10 border-emerald-500/20'
+                    }`}>
+                      {diagnosticResult.issues_found ? (
+                        <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                      ) : (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                      )}
+                      <div>
+                        <h4 className={`font-bold ${diagnosticResult.issues_found ? 'text-amber-400' : 'text-emerald-400'}`}>
+                          {diagnosticResult.issues_found ? 'Issues Detected' : 'No Issues Found'}
+                        </h4>
+                        <p className="text-sm mt-1 text-slate-300">
+                          {diagnosticResult.issues_found 
+                            ? 'The server configuration is missing required spawn container entries for some active mods.'
+                            : 'All active mods have their spawn containers properly registered in Game.ini.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {diagnosticResult.missing_spawn_entries && diagnosticResult.missing_spawn_entries.length > 0 && (
+                      <div className="bg-slate-950/50 rounded-xl border border-white/5 overflow-hidden">
+                        <div className="px-4 py-2 border-b border-white/5 bg-slate-900/50">
+                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Missing Config Entries</h4>
+                        </div>
+                        <ul className="divide-y divide-white/5">
+                          {diagnosticResult.missing_spawn_entries.map((entry: string, idx: number) => (
+                            <li key={idx} className="p-3 text-sm text-amber-300 font-mono text-xs break-all">
+                              {entry}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4 text-rose-400">
+                    <AlertCircle className="w-12 h-12" />
+                    <p>Failed to retrieve diagnostic data.</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-4 border-t border-white/5 bg-slate-950/80 flex justify-end">
+                <button 
+                  onClick={() => setShowDiagnosticModal(false)}
+                  disabled={isDiagnosing}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-colors disabled:opacity-50"
+                >
+                  Close
+                </button>
               </div>
             </motion.div>
           </div>

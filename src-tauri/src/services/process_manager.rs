@@ -154,6 +154,14 @@ pub struct ServerLogEvent {
     pub is_stderr: bool,
 }
 
+#[derive(Clone, Serialize)]
+pub struct ModLoadFailureEvent {
+    pub server_id: i64,
+    pub error_type: String,
+    pub details: String,
+    pub suggestions: Vec<String>,
+}
+
 pub fn find_game_server_pid_by_install_path(install_path: &str, server_type: &str) -> Option<u32> {
     use sysinfo::System;
     let mut sys = System::new();
@@ -1057,9 +1065,47 @@ impl ProcessManager {
             }
         }
 
-        // Add mods if any are enabled
+        // Pre-flight: Clean corrupt mod cache directories before launch
         if let Some(mod_list) = mods {
             if !mod_list.is_empty() {
+                let mods_dir = install_path
+                    .join("ShooterGame")
+                    .join("Binaries")
+                    .join("Win64")
+                    .join("ShooterGame")
+                    .join("Content")
+                    .join("Mods");
+                for mod_id in mod_list {
+                    let mod_path = mods_dir.join(mod_id);
+                    if mod_path.exists() && mod_path.is_dir() {
+                        // Check if the mod directory has any .pak files and is not suspiciously tiny
+                        let has_pak = std::fs::read_dir(&mod_path)
+                            .map(|entries| {
+                                entries.filter_map(|e| e.ok()).any(|e| {
+                                    e.path().extension().map_or(false, |ext| ext == "pak")
+                                })
+                            })
+                            .unwrap_or(false);
+                        let total_size: u64 = std::fs::read_dir(&mod_path)
+                            .map(|entries| {
+                                entries
+                                    .filter_map(|e| e.ok())
+                                    .filter_map(|e| e.metadata().ok())
+                                    .map(|m| m.len())
+                                    .sum()
+                            })
+                            .unwrap_or(0);
+
+                        if !has_pak || total_size < 1024 {
+                            println!(
+                                "  🧹 Cleaning corrupt mod cache for {} (has_pak={}, size={}B) — CFCore will re-download",
+                                mod_id, has_pak, total_size
+                            );
+                            let _ = std::fs::remove_dir_all(&mod_path);
+                        }
+                    }
+                }
+
                 let mods_string = mod_list.join(",");
                 args.push(format!("-mods={}", mods_string));
                 println!(
@@ -1293,6 +1339,41 @@ impl ProcessManager {
                                 }
                             }
                         }
+                    }
+
+                    // CFCore mod loading failure detection (real-time)
+                    if lower_line.contains("not all mods were installed") {
+                        println!("  ❌ [CFCore] Mod loading failure detected for server {}", server_id_stdout);
+                        let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
+                            server_id: server_id_stdout,
+                            error_type: "CFCore_ModLoadFailed".to_string(),
+                            details: l.clone(),
+                            suggestions: vec![
+                                "Accept CurseForge Terms & Conditions in the ARK game client (Main Menu → Mod List)".to_string(),
+                                "Clear the mod cache using Server Actions → Clear Mod Cache, then restart".to_string(),
+                                "If using crossplay, check that no PC-only mods are in the mod list".to_string(),
+                                "Try running the Server Manager as Administrator for the first launch".to_string(),
+                            ],
+                        });
+                    } else if lower_line.contains("no machine id was found") {
+                        let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
+                            server_id: server_id_stdout,
+                            error_type: "CFCore_NoMachineId".to_string(),
+                            details: l.clone(),
+                            suggestions: vec![
+                                "Run the Server Manager as Administrator once to register CFCore's machine ID".to_string(),
+                            ],
+                        });
+                    } else if lower_line.contains("couldn't load mods library from disk") {
+                        let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
+                            server_id: server_id_stdout,
+                            error_type: "CFCore_LibraryLoadFailed".to_string(),
+                            details: l.clone(),
+                            suggestions: vec![
+                                "Accept CurseForge Terms & Conditions in the ARK game client".to_string(),
+                                "Clear the mod cache and let CFCore re-download all mods".to_string(),
+                            ],
+                        });
                     }
                 }
             }

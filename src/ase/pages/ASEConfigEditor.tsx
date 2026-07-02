@@ -13,19 +13,30 @@ import { EngramOverridesEditor } from '../../components/config/EngramOverridesEd
 import { CraftingCostEditor } from '../../components/config/CraftingCostEditor';
 import { PresetSelector } from '../../components/config/PresetSelector';
 import { ArrayEditor } from '../../components/config/ArrayEditor';
+import { LootCrateEditor } from '../../components/config/LootCrateEditor';
+import { DinoSpawnEditor } from '../../components/config/DinoSpawnEditor';
 import { ConfigPreset, saveCustomPreset } from '../../data/presets';
 import { AseStatMultiplierEditor } from '../components/config/AseStatMultiplierEditor';
 import { AseLevelGenerator } from '../components/config/AseLevelGenerator';
 import ASEEnvironmentManager from './ASEEnvironmentManager';
+import { ASEDinoSpawnControl } from '../components/config/ASEDinoSpawnControl';
 import { CodeEditor } from '../../components/ui/CodeEditor';
 import { cn } from '../../utils/helpers';
 import aseLogo from '../../assets/ASE.png';
 import { ASE_MAPS } from '../data/aseMaps';
 import { getModdedMapByMapArg, buildLaunchArgs } from '../../data/moddedMapRegistry';
 
+const MANUAL_KEYS = [
+  'sessionName', 'serverPassword', 'serverAdminPassword', 'SpectatorPassword',
+  'maxPlayers', 'rconPort', 'RCONServerLogBuffer', 'autoSavePeriodMinutes',
+  'backupQuantity', 'newSaveGameFormat', 'useStore', 'backupTransferPlayerDatas',
+  'motd', 'motdDuration', 'motdInterval', 'motdIntervalEnabled',
+  'enableExtinctionEvent', 'extinctionEventTimeInterval'
+];
+
 const defaultConfig: AseGameConfig = {
   // Identity
-  sessionName: 'My ASE Server', serverPassword: '', serverAdminPassword: 'admin123', maxPlayers: 70, RCONServerLogBuffer: 600,
+  sessionName: 'My ASE Server', serverPassword: '', serverAdminPassword: 'admin123', maxPlayers: 70, RCONServerLogBuffer: 600, enableExclusiveJoin: false,
   // Difficulty
   difficultyOffset: 1.0, overrideOfficialDifficulty: 5.0, MaxDifficulty: false,
   // Core Rates
@@ -65,6 +76,9 @@ const defaultConfig: AseGameConfig = {
   npcReplacements: [],
   preventDinoTameClassNames: [],
   excludeDinoClasses: [],
+  configAddNpcSpawnEntriesContainer: [],
+  configSubtractNpcSpawnEntriesContainer: [],
+  configOverrideNpcSpawnEntriesContainer: [],
   // Breeding
   eggHatchSpeedMultiplier: 1.0, babyMatureSpeedMultiplier: 1.0, babyCuddleIntervalMultiplier: 1.0,
   babyImprintAmountMultiplier: 1.0, matingIntervalMultiplier: 1.0, babyFoodConsumptionSpeedMultiplier: 1.0,
@@ -96,8 +110,10 @@ const defaultConfig: AseGameConfig = {
   itemDecompositionTimeMultiplier: 1.0, corpseDecompositionTimeMultiplier: 1.0, cropGrowthSpeedMultiplier: 1.0,
   cropDecaySpeedMultiplier: 1.0, layEggIntervalMultiplier: 1.0, poopIntervalMultiplier: 1.0, hairGrowthSpeedMultiplier: 1.0,
   customRecipeEffectivenessMultiplier: 1.0, customRecipeSkillMultiplier: 1.0, fishingLootQualityMultiplier: 1.0,
-  supplyCrateLootQualityMultiplier: 1.0, globalSpoilingTimeMultiplier: 1.0, globalItemDecompositionTimeMultiplier: 1.0,
-  globalCorpseDecompositionTimeMultiplier: 1.0, killXpMultiplier: 1.0, harvestXpMultiplier: 1.0, craftXpMultiplier: 1.0,
+  supplyCrateLootQualityMultiplier: 1.0,  globalSpoilingTimeMultiplier: 1.0,
+  globalItemDecompositionTimeMultiplier: 1.0,
+  globalCorpseDecompositionTimeMultiplier: 1.0,
+  killXpMultiplier: 1.0, harvestXpMultiplier: 1.0, craftXpMultiplier: 1.0,
   genericXpMultiplier: 1.0, specialXpMultiplier: 1.0,
   // Hexagons
   maxHexagonsPerCharacter: 2000000.0, hexagonRewardMultiplier: 1.0,
@@ -116,6 +132,7 @@ const defaultConfig: AseGameConfig = {
   motdInterval: 60,
   enableExtinctionEvent: false,
   extinctionEventTimeInterval: 30,
+  preventSpawnAnimations: false,
   // Events
   activeEvent: '', eventColorsChanceOverride: 0.0,
   // Administration
@@ -163,19 +180,35 @@ const defaultConfig: AseGameConfig = {
   perLevelStatsMultiplierDinoTamedAffinity: [0.44, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.44, 1.0, 1.0, 1.0],
   mutagenLevelBoostArray: [5, 5, 0, 0, 0, 0, 0, 5, 5, 0, 0, 0],
   mutagenLevelBoostBredArray: [1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0],
+  configOverrideSupplyCrateItems: [],
 };
 
 type ConfigFile = 'GameUserSettings.ini' | 'Game.ini';
-type TabType = 'administration' | 'general' | 'rates' | 'player' | 'breeding' | 'structures' | 'pvp' | 'tribe' | 'transfer' | 'environment' | 'engrams' | 'admin' | 'advanced' | 'server_options' | 'search' | 'diagnostics' | 'stats' | 'levels';
+type TabType = 'administration' | 'general' | 'rates' | 'player' | 'breeding' | 'structures' | 'pvp' | 'tribe' | 'transfer' | 'environment' | 'engrams' | 'admin' | 'advanced' | 'server_options' | 'search' | 'diagnostics' | 'stats' | 'levels' | 'dino_control' | 'players';
 
-const FieldWrapper = memo(({ label, description, children, file, layout = 'vertical' }: { label: string; description?: string; children: React.ReactNode; file?: string; layout?: 'horizontal' | 'vertical' }) => {
+const FieldWrapper = memo(({ label, description, children, file, layout = 'vertical', configKey }: { label: string; description?: string; children: React.ReactNode; file?: string; layout?: 'horizontal' | 'vertical', configKey?: string }) => {
   return (
     <div className={cn(
       "p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:scale-[1.01] hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] group relative flex flex-col justify-between gap-4 w-full min-h-[120px]",
       layout === 'horizontal' ? "sm:flex-row sm:items-start" : "flex-col"
     )}>
       <div className="flex-1 min-w-0 z-10 text-left">
-        <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1.5 text-sm group-hover:text-white transition-colors">{label}</div>
+        <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1.5 text-sm group-hover:text-white transition-colors">
+          {label}
+          {configKey && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(`https://ark.wiki.gg/wiki/Server_configuration#${configKey}`, '_blank');
+              }}
+              className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800"
+              title={`Search Wiki for ${configKey}`}
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
         {description && <div className="text-xs text-slate-400 leading-relaxed font-medium">{description}</div>}
         {file && (
           <div className="mt-3 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 text-[9px] uppercase font-black text-slate-400 border border-slate-800/80">
@@ -194,8 +227,8 @@ const FieldWrapper = memo(({ label, description, children, file, layout = 'verti
 });
 FieldWrapper.displayName = 'FieldWrapper';
 
-const Toggle = memo(({ label, value, onChange, desc, file }: { label: string; value: boolean; onChange: (v: boolean) => void; desc?: string; file?: string }) => (
-  <FieldWrapper label={label} description={desc} file={file} layout="horizontal">
+const Toggle = memo(({ label, value, onChange, desc, file, configKey }: { label: string; value: boolean; onChange: (v: boolean) => void; desc?: string; file?: string; configKey?: string }) => (
+  <FieldWrapper label={label} description={desc} file={file} layout="horizontal" configKey={configKey}>
     <button
       type="button"
       onClick={(e) => { e.preventDefault(); onChange(!value); }}
@@ -217,7 +250,7 @@ const Toggle = memo(({ label, value, onChange, desc, file }: { label: string; va
 ));
 Toggle.displayName = 'Toggle';
 
-const NumberInput = memo(({ label, value, onChange, desc, step = 1, file }: { label: string; value: number; onChange: (v: number) => void; desc?: string; step?: number; file?: string }) => {
+const NumberInput = memo(({ label, value, onChange, desc, step = 1, file, configKey }: { label: string; value: number; onChange: (v: number) => void; desc?: string; step?: number; file?: string; configKey?: string }) => {
   const [localValue, setLocalValue] = useState<string>(String(value));
 
   useEffect(() => {
@@ -238,7 +271,7 @@ const NumberInput = memo(({ label, value, onChange, desc, step = 1, file }: { la
   };
 
   return (
-    <FieldWrapper label={label} description={desc} file={file} layout="vertical">
+    <FieldWrapper label={label} description={desc} file={file} layout="vertical" configKey={configKey}>
       <input
         type="number"
         step={step}
@@ -253,7 +286,7 @@ const NumberInput = memo(({ label, value, onChange, desc, step = 1, file }: { la
 });
 NumberInput.displayName = 'NumberInput';
 
-const TextInput = memo(({ label, value, onChange, desc, placeholder, file }: { label: string; value: string; onChange: (v: string) => void; desc?: string; placeholder?: string; file?: string }) => {
+const TextInput = memo(({ label, value, onChange, desc, placeholder, file, configKey }: { label: string; value: string; onChange: (v: string) => void; desc?: string; placeholder?: string; file?: string; configKey?: string }) => {
   const [localValue, setLocalValue] = useState<string>(value || '');
 
   useEffect(() => {
@@ -268,7 +301,7 @@ const TextInput = memo(({ label, value, onChange, desc, placeholder, file }: { l
   };
 
   return (
-    <FieldWrapper label={label} description={desc} file={file} layout="vertical">
+    <FieldWrapper label={label} description={desc} file={file} layout="vertical" configKey={configKey}>
       <input
         type="text"
         value={localValue}
@@ -283,7 +316,7 @@ const TextInput = memo(({ label, value, onChange, desc, placeholder, file }: { l
 });
 TextInput.displayName = 'TextInput';
 
-const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, idKey }: { label: string; value: string; onChange: (v: string) => void; desc?: string; placeholder?: string; file?: string; idKey: string }) => {
+const TextAreaInput = memo(({ idKey, label, value, onChange, desc, file }: { idKey: string, label: string; value: string; onChange: (v: string) => void; desc?: string; file?: string }) => {
   const [localValue, setLocalValue] = useState<string>(value || '');
 
   useEffect(() => {
@@ -304,23 +337,22 @@ const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, i
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const currentText = localValue;
-    const selectedText = currentText.substring(start, end);
+    const selectedText = localValue.substring(start, end);
+    const newText = selectedText
+        ? `${localValue.substring(0, start)}<RichColor Color="${colorStr}">${selectedText}</>${localValue.substring(end)}`
+        : `${localValue.substring(0, start)}<RichColor Color="${colorStr}">TEXT</>${localValue.substring(end)}`;
 
-    const replacement = `<RichColor Color="${colorStr}">${selectedText || 'Text'}</>`;
-    const newText = currentText.substring(0, start) + replacement + currentText.substring(end);
-    
     setLocalValue(newText);
     onChange(newText);
 
     setTimeout(() => {
-      textarea.focus();
-      const newCursorPos = start + `<RichColor Color="${colorStr}">`.length + (selectedText ? selectedText.length : 4);
-      textarea.setSelectionRange(
-        selectedText ? newCursorPos : start + `<RichColor Color="${colorStr}">`.length,
-        selectedText ? newCursorPos : start + `<RichColor Color="${colorStr}">`.length + 4
-      );
-    }, 50);
+        textarea.focus();
+        if (selectedText) {
+            textarea.setSelectionRange(start + `<RichColor Color="${colorStr}">`.length + selectedText.length + 3, start + `<RichColor Color="${colorStr}">`.length + selectedText.length + 3);
+        } else {
+            textarea.setSelectionRange(start + `<RichColor Color="${colorStr}">`.length, start + `<RichColor Color="${colorStr}">`.length + 4);
+        }
+    }, 0);
   };
 
   const insertNewline = () => {
@@ -329,54 +361,56 @@ const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, i
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const currentText = localValue;
-
-    const newText = currentText.substring(0, start) + '\\n' + currentText.substring(end);
+    
+    const newText = `${localValue.substring(0, start)}\\n${localValue.substring(end)}`;
+    
     setLocalValue(newText);
     onChange(newText);
-
+    
     setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + 2, start + 2);
-    }, 50);
+        textarea.focus();
+        textarea.setSelectionRange(start + 2, start + 2);
+    }, 0);
   };
 
   return (
-    <FieldWrapper label={label} description={desc} file={file} layout="vertical">
+    <FieldWrapper label={label} description={desc} file={file} layout="vertical" configKey={idKey}>
       <div className="w-full flex flex-col">
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-2 bg-slate-950/80 p-2.5 rounded-t-xl border border-slate-800/85 border-b-0">
-          <span className="text-[10px] uppercase font-bold text-slate-500 select-none mr-1">MOTD Colors:</span>
-          {[
-            { name: 'Red', color: '1,0,0,1', bg: 'bg-red-500' },
-            { name: 'Green', color: '0,1,0,1', bg: 'bg-emerald-500' },
-            { name: 'Blue', color: '0,0.5,1,1', bg: 'bg-blue-500' },
-            { name: 'Yellow', color: '1,1,0,1', bg: 'bg-amber-400' },
-            { name: 'Orange', color: '1,0.65,0,1', bg: 'bg-orange-500' },
-            { name: 'Cyan', color: '0,1,1,1', bg: 'bg-cyan-400' },
-            { name: 'White', color: '1,1,1,1', bg: 'bg-white' },
-          ].map(c => (
+        {idKey === 'motd' && (
+          <div className="flex flex-wrap items-center gap-2 bg-slate-950/80 p-2.5 rounded-t-xl border border-slate-800/85 border-b-0">
+            <span className="text-[10px] uppercase font-bold text-slate-500 select-none mr-1">MOTD Colors:</span>
+            {[
+              { name: 'Red', color: '1,0,0,1', bg: 'bg-red-500' },
+              { name: 'Green', color: '0,1,0,1', bg: 'bg-emerald-500' },
+              { name: 'Blue', color: '0,0.5,1,1', bg: 'bg-blue-500' },
+              { name: 'Yellow', color: '1,1,0,1', bg: 'bg-amber-400' },
+              { name: 'Orange', color: '1,0.65,0,1', bg: 'bg-orange-500' },
+              { name: 'Cyan', color: '0,1,1,1', bg: 'bg-cyan-400' },
+              { name: 'White', color: '1,1,1,1', bg: 'bg-white' },
+            ].map(c => (
+              <button
+                key={c.name}
+                type="button"
+                onClick={() => insertColorTag(c.color)}
+                className={cn(
+                  "w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm",
+                  c.bg
+                )}
+                title={`Format selection to ${c.name}`}
+              />
+            ))}
+            <div className="h-4 w-px bg-slate-850 mx-1" />
             <button
-              key={c.name}
               type="button"
-              onClick={() => insertColorTag(c.color)}
-              className={cn(
-                "w-5 h-5 rounded-full border border-white/10 hover:scale-110 active:scale-95 transition-all shadow-sm",
-                c.bg
-              )}
-              title={`Format selection to ${c.name}`}
-            />
-          ))}
-          <div className="h-4 w-px bg-slate-850 mx-1" />
-          <button
-            type="button"
-            onClick={insertNewline}
-            className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800/80 text-[10px] font-bold transition-colors"
-            title="Insert literal newline \n tag"
-          >
-            + New Line (\n)
-          </button>
-        </div>
+              onClick={insertNewline}
+              className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800/80 text-[10px] font-bold transition-colors"
+              title="Insert literal newline \n tag"
+            >
+              + New Line (\n)
+            </button>
+          </div>
+        )}
 
         {/* Text Area */}
         <textarea
@@ -384,29 +418,34 @@ const TextAreaInput = memo(({ label, value, onChange, desc, placeholder, file, i
           value={localValue}
           onChange={handleChange}
           onBlur={handleBlur}
-          placeholder={placeholder || 'Enter server welcome message... Use \\n for line breaks, or color presets above.'}
+          placeholder={idKey === 'motd' ? 'Enter server welcome message... Use \\n for line breaks, or color presets above.' : 'Enter entries (one per line)...'}
           rows={4}
-          className="w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 rounded-b-xl px-4 py-3 text-slate-200 focus:outline-none font-mono transition-all text-sm placeholder-slate-650 shadow-inner resize-y min-h-[90px]"
+          className={cn(
+            "w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 px-4 py-3 text-slate-200 focus:outline-none font-mono transition-all text-sm placeholder-slate-650 shadow-inner resize-y min-h-[90px]",
+            idKey === 'motd' ? "rounded-b-xl" : "rounded-xl"
+          )}
         />
 
         {/* Real-time Game Preview */}
-        <div className="mt-2.5 flex flex-col gap-1.5 bg-slate-950/40 border border-white/5 rounded-2xl p-4">
-          <div className="text-[10px] uppercase font-black text-slate-500 tracking-wider flex items-center justify-between">
-            <span>In-Game Broadcast Preview</span>
-            <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">Real-Time</span>
+        {idKey === 'motd' && (
+          <div className="mt-2.5 flex flex-col gap-1.5 bg-slate-950/40 border border-white/5 rounded-2xl p-4">
+            <div className="text-[10px] uppercase font-black text-slate-500 tracking-wider flex items-center justify-between">
+              <span>In-Game Broadcast Preview</span>
+              <span className="text-[8px] bg-amber-500/10 border border-amber-500/20 text-amber-400 font-bold px-1.5 py-0.5 rounded">Real-Time</span>
+            </div>
+            <div className="text-sm font-semibold tracking-wide leading-relaxed p-2.5 rounded-xl bg-black/30 border border-slate-900/60 font-sans break-words select-none max-h-[150px] overflow-y-auto custom-scrollbar text-left">
+              {renderMotdPreview(localValue)}
+            </div>
           </div>
-          <div className="text-sm font-semibold tracking-wide leading-relaxed p-2.5 rounded-xl bg-black/30 border border-slate-900/60 font-sans break-words select-none max-h-[150px] overflow-y-auto custom-scrollbar text-left">
-            {renderMotdPreview(localValue)}
-          </div>
-        </div>
+        )}
       </div>
     </FieldWrapper>
   );
 });
 TextAreaInput.displayName = 'TextAreaInput';
 
-const SelectInput = memo(({ label, value, onChange, desc, options, file }: { label: string; value: string; onChange: (v: string) => void; desc?: string; options: { label: string; value: string }[]; file?: string }) => (
-  <FieldWrapper label={label} description={desc} file={file} layout="vertical">
+const SelectInput = memo(({ label, value, onChange, desc, options, file, configKey }: { label: string; value: string; onChange: (v: string) => void; desc?: string; options: { label: string, value: string }[], file?: string; configKey?: string }) => (
+  <FieldWrapper label={label} description={desc} file={file} layout="vertical" configKey={configKey}>
     <div className="relative">
       <select
         value={value ?? ''}
@@ -1368,6 +1407,7 @@ export default function ASEConfigEditor() {
     { id: 'stats', label: 'Stat Multipliers', icon: <Sliders className="w-4 h-4" /> },
     { id: 'levels', label: 'Level Generator', icon: <Flame className="w-4 h-4" /> },
     { id: 'player', label: 'Player & Dino', icon: <Users className="w-4 h-4" /> },
+    { id: 'dino_control', label: 'Dino Spawn Control', icon: <Flame className="w-4 h-4" /> },
     { id: 'breeding', label: 'Breeding', icon: <CheckSquare className="w-4 h-4" /> },
     { id: 'structures', label: 'Structures', icon: <Hammer className="w-4 h-4" /> },
     { id: 'pvp', label: 'PvP Rules', icon: <Shield className="w-4 h-4" /> },
@@ -1384,6 +1424,27 @@ export default function ASEConfigEditor() {
     // GENERAL - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'serverPve', label: 'PvE Mode', desc: 'Disables player vs player combat and structure damage' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'battleEyeEnforcer', label: 'BattlEye Anti-Cheat', desc: 'Requires client restart if changed' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'preventSpawnAnimations', label: 'Prevent Spawn Animations', desc: 'Skips waking-up scratching animation when respawning' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'sessionName', label: 'Session Name', desc: 'The name of the server shown in the server list' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'serverPassword', label: 'Server Password', desc: 'Password required to join the server (leave blank for public)' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'serverAdminPassword', label: 'Admin Password', desc: 'Password required to gain administrator/cheat access' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'SpectatorPassword', label: 'Spectator Password', desc: 'Password required to use spectator mode' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'maxPlayers', label: 'Max Players', desc: 'Maximum number of player slots' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'rconPort', label: 'RCON Port', desc: 'Port used for remote console connection' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'RCONServerLogBuffer', label: 'RCON Server Log Buffer', desc: 'Buffer size for RCON logging history' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'autoSavePeriodMinutes', label: 'Auto Save Period (Mins)', desc: 'Interval in minutes between automatic world saves' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'backupQuantity', label: 'Backup Quantity', desc: 'Number of backup archives to keep before pruning' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'newSaveGameFormat', label: 'New Save Game Format', desc: 'Uses the optimized new save format structure' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'useStore', label: 'Use Store', desc: 'Enables in-game storefront/microtransaction systems if applicable' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'backupTransferPlayerDatas', label: 'Backup Transfer Player Datas', desc: 'Includes cross-server player transfer profiles in backups' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'textarea', key: 'motd', label: 'Message of the Day (MOTD)', desc: 'Welcome message shown to players when they connect' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'motdDuration', label: 'MOTD Duration', desc: 'Duration in seconds the welcome message stays on screen' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'motdInterval', label: 'MOTD Periodic Interval', desc: 'Interval in minutes between repeating MOTD broadcasts' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'motdIntervalEnabled', label: 'Enable Periodic MOTD', desc: 'Repeats the MOTD message periodically during gameplay' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'enableExtinctionEvent', label: 'Enable Extinction Event', desc: 'Enables automatic server wiping cycles' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'extinctionEventTimeInterval', label: 'Extinction Interval (Days)', desc: 'Number of days between automatic server wipes' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'allowHitMarkers', label: 'Allow Hit Markers', desc: 'Displays crosshair hit indicators when damaging targets' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'forceFlyerexplosives', label: 'Force Flyer Explosives', desc: 'Allows placing C4 explosives on flying tames' },
 
     // RATES - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'xpMultiplier', label: 'XP Multiplier', desc: 'Global experience gain rate', step: 0.1 },
@@ -1406,6 +1467,13 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'globalSpoilingTimeMultiplier', label: 'Global Spoiling Time', desc: 'Global multiplier for food spoiling speed', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'globalItemDecompositionTimeMultiplier', label: 'Global Item Decomposition Time', desc: 'Global multiplier for item decomposition time on floor', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'globalCorpseDecompositionTimeMultiplier', label: 'Global Corpse Decomposition Time', desc: 'Global multiplier for corpse decomposition time on floor', step: 0.1 },
+
+    // AGRICULTURE - Game.ini
+    { file: 'Game.ini', tab: 'rates', type: 'number', key: 'cropGrowthSpeedMultiplier', label: 'Crop Growth Speed', desc: 'Crop growth speed multiplier', step: 0.1 },
+    { file: 'Game.ini', tab: 'rates', type: 'number', key: 'cropDecaySpeedMultiplier', label: 'Crop Decay Speed', desc: 'Crop decay speed multiplier', step: 0.1 },
+    { file: 'Game.ini', tab: 'rates', type: 'number', key: 'poopIntervalMultiplier', label: 'Poop Interval', desc: 'How often dinos and players poop', step: 0.1 },
+    { file: 'Game.ini', tab: 'rates', type: 'number', key: 'layEggIntervalMultiplier', label: 'Lay Egg Interval', desc: 'How often dinos lay eggs', step: 0.1 },
+    { file: 'Game.ini', tab: 'rates', type: 'number', key: 'hairGrowthSpeedMultiplier', label: 'Hair Growth Speed', desc: 'How fast player hair grows', step: 0.1 },
 
     // PLAYER - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'allowThirdPersonPlayer', label: 'Allow Third Person' },
@@ -1467,9 +1535,9 @@ export default function ASEConfigEditor() {
     { file: 'Game.ini', tab: 'player', type: 'array', key: 'dinoClassResistanceMultipliers', label: 'Wild Dino Resistance Multipliers', desc: 'Adjust resistance (damage taken) for specific wild dino classes (lower = more resistant).', template: { ClassName: { label: 'Dino Class Name', placeholder: 'Dodo_Character_BP_C' }, Multiplier: { label: 'Resistance Multiplier', placeholder: '1.0' } } },
     { file: 'Game.ini', tab: 'player', type: 'array', key: 'tamedDinoClassDamageMultipliers', label: 'Tamed Dino Damage Multipliers', desc: 'Adjust damage dealt by specific tamed dino classes.', template: { ClassName: { label: 'Dino Class Name', placeholder: 'Dodo_Character_BP_C' }, Multiplier: { label: 'Damage Multiplier', placeholder: '1.0' } } },
     { file: 'Game.ini', tab: 'player', type: 'array', key: 'tamedDinoClassResistanceMultipliers', label: 'Tamed Dino Resistance Multipliers', desc: 'Adjust resistance (damage taken) for specific tamed dino classes (lower = more resistant).', template: { ClassName: { label: 'Dino Class Name', placeholder: 'Dodo_Character_BP_C' }, Multiplier: { label: 'Resistance Multiplier', placeholder: '1.0' } } },
-    { file: 'Game.ini', tab: 'player', type: 'array', key: 'npcReplacements', label: 'NPC Replacements', desc: 'Replace or disable specific dinosaur spawn classes.', template: { FromClassName: { label: 'From Class Name', placeholder: 'Dodo_Character_BP_C' }, ToClassName: { label: 'To Class Name (Empty to disable)', placeholder: 'Saber_Character_BP_C' } } },
+    { file: 'Game.ini', tab: 'dino_control', type: 'dino_spawns', key: 'npcReplacements', label: 'NPC Replacements', desc: 'Visual editor for overriding dinosaur spawns.' },
+    { file: 'Game.ini', tab: 'advanced', type: 'loot_crates', key: 'configOverrideSupplyCrateItems', label: 'Supply Crate Overrides', desc: 'Visual editor for customizing loot crate drops.' },
     { file: 'Game.ini', tab: 'player', type: 'textarea', key: 'preventDinoTameClassNames', label: 'Prevent Dino Taming Classes', desc: 'List of dino class names that cannot be tamed. Enter one class name per line.' },
-    { file: 'Game.ini', tab: 'player', type: 'textarea', key: 'excludeDinoClasses', label: 'Exclude Dino Spawn Classes', desc: 'List of dino class names to prevent from spawning entirely. Enter one class name per line.' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'useSingleplayerSettings', label: 'Use Singleplayer Settings', desc: 'Applies singleplayer stat/rate overrides to scale for solo play' },
 
     // BREEDING - Game.ini
@@ -1549,14 +1617,16 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'dayCycleSpeedScale', label: 'Day Cycle Speed', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'dayTimeSpeedScale', label: 'Day Time Speed', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'nightTimeSpeedScale', label: 'Night Time Speed', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'spoilingTimeMultiplier', label: 'Spoiling Time Multiplier', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'itemDecompositionTimeMultiplier', label: 'Item Decomposition Time', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'corpseDecompositionTimeMultiplier', label: 'Corpse Decomposition Time', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'cropGrowthSpeedMultiplier', label: 'Crop Growth Speed', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'cropDecaySpeedMultiplier', label: 'Crop Decay Speed', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'layEggIntervalMultiplier', label: 'Lay Egg Interval', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'poopIntervalMultiplier', label: 'Poop Interval', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'hairGrowthSpeedMultiplier', label: 'Hair Growth Speed', step: 0.1 },
+    { file: 'Game.ini', tab: 'environment', type: 'number', key: 'spoilingTimeMultiplier', label: 'Spoiling Time Multiplier', step: 0.1 },
+    { file: 'Game.ini', tab: 'environment', type: 'number', key: 'itemDecompositionTimeMultiplier', label: 'Item Decomposition Time', step: 0.1 },
+    { file: 'Game.ini', tab: 'environment', type: 'number', key: 'corpseDecompositionTimeMultiplier', label: 'Corpse Decomposition Time', step: 0.1 },
+    { file: 'Game.ini', tab: 'environment', type: 'number', key: 'cropGrowthSpeedMultiplier', label: 'Crop Growth Speed', step: 0.1 },
+    { file: 'Game.ini', tab: 'environment', type: 'number', key: 'cropDecaySpeedMultiplier', label: 'Crop Decay Speed', step: 0.1 },
+    { file: 'Game.ini', tab: 'environment', type: 'number', key: 'layEggIntervalMultiplier', label: 'Lay Egg Interval', step: 0.1 },
+    { file: 'Game.ini', tab: 'environment', type: 'number', key: 'poopIntervalMultiplier', label: 'Poop Interval', step: 0.1 },
+    { file: 'Game.ini', tab: 'environment', type: 'number', key: 'hairGrowthSpeedMultiplier', label: 'Hair Growth Speed', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'resourceNoReplenishRadiusPlayers', label: 'Resource No Replenish Radius (Players)', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'resourceNoReplenishRadiusStructures', label: 'Resource No Replenish Radius (Structures)', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'killXpMultiplier', label: 'Kill XP Multiplier', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'harvestXpMultiplier', label: 'Harvest XP Multiplier', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'environment', type: 'number', key: 'craftXpMultiplier', label: 'Craft XP Multiplier', step: 0.1 },
@@ -1575,6 +1645,7 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'text', key: 'adminList', label: 'Admin Steam IDs', desc: 'Comma separated' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'text', key: 'badWordFilter', label: 'Bad Word Filter', desc: 'Comma separated' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'enableCreativeMode', label: 'Enable Creative Mode' },
+    { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'enableExclusiveJoin', label: 'Enable Exclusive Join Mode', desc: 'Launches the server with -exclusivejoin. Only players in the Exclusive Join list will be allowed to join.' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'serverForceNoHud', label: 'Force No HUD' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'number', key: 'kickIdlePlayerPeriod', label: 'Kick Idle Player Period (Secs)' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'number', key: 'destroyTamesOverLevelClamp', label: 'Destroy Tames Over Level Clamp', desc: '0 = disabled' },
@@ -1685,6 +1756,11 @@ export default function ASEConfigEditor() {
       ]
     },
     { file: 'GameUserSettings.ini', tab: 'advanced', type: 'toggle', key: 'useClusterDirectoryOverride', label: 'Enable Cluster Directory Override', desc: 'Uses ClusterDirectoryOverride instead of default Save directory' },
+
+    // SPAWN OVERRIDES - Game.ini
+    { file: 'Game.ini', tab: 'advanced', type: 'textarea', key: 'configAddNpcSpawnEntriesContainer', label: 'Add NPC Spawn Entries Container', desc: 'Adds custom spawn entries. One entry per line.' },
+    { file: 'Game.ini', tab: 'advanced', type: 'textarea', key: 'configSubtractNpcSpawnEntriesContainer', label: 'Subtract NPC Spawn Entries Container', desc: 'Removes specific spawn entries. One entry per line.' },
+    { file: 'Game.ini', tab: 'advanced', type: 'textarea', key: 'configOverrideNpcSpawnEntriesContainer', label: 'Override NPC Spawn Entries Container', desc: 'Overrides specific spawn entries. One entry per line.' },
   ], []);
   const handleSaveCurrentAsPreset = useCallback((name: string, description: string) => {
     const gusSettings: Record<string, string> = {};
@@ -1720,25 +1796,32 @@ export default function ASEConfigEditor() {
     toast.success('Preset saved successfully');
   }, [config, schema]);
 
-  const tabMatchCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    if (!searchQuery) return counts;
-    const query = searchQuery.toLowerCase();
-    schema.forEach(field => {
-      if (field.file !== activeFile) return;
-      const matchLabel = field.label?.toLowerCase().includes(query);
-      const matchKey = field.key.toLowerCase().includes(query);
-      const matchDesc = field.desc?.toLowerCase().includes(query);
-      if (matchLabel || matchKey || matchDesc) {
-        counts[field.tab] = (counts[field.tab] || 0) + 1;
-      }
-    });
-    return counts;
-  }, [searchQuery, schema, activeFile]);
-
   const getMatchCount = useCallback((tabId: string, file: string) => {
     if (!searchQuery) return 0;
     const query = searchQuery.toLowerCase();
+
+    // Support smart keywords for custom/utility tabs not present in schema
+    if (tabId === 'dino_control') {
+      const dinoKeywords = ['spawn', 'dino', 'creature', 'npc', 'replace', 'tame', 'breed', 'multiplier', 'damage', 'resistance'];
+      const matches = dinoKeywords.some(k => k.includes(query) || query.includes(k));
+      return matches ? 1 : 0;
+    }
+    if (tabId === 'levels') {
+      const levelKeywords = ['level', 'xp', 'experience', 'dino level', 'player level', 'max level'];
+      const matches = levelKeywords.some(k => k.includes(query) || query.includes(k));
+      return matches ? 1 : 0;
+    }
+    if (tabId === 'stats') {
+      const statsKeywords = ['stat', 'multiplier', 'health', 'stamina', 'oxygen', 'food', 'water', 'weight', 'damage', 'speed', 'temperature', 'fortitude', 'crafting'];
+      const matches = statsKeywords.some(k => k.includes(query) || query.includes(k));
+      return matches ? 1 : 0;
+    }
+    if (tabId === 'diagnostics') {
+      const diagKeywords = ['diagnostic', 'issue', 'validator', 'error', 'warning', 'validation'];
+      const matches = diagKeywords.some(k => k.includes(query) || query.includes(k));
+      return matches ? 1 : 0;
+    }
+
     return schema.filter(field => 
       field.tab === tabId && 
       field.file === file && 
@@ -1748,6 +1831,39 @@ export default function ASEConfigEditor() {
     ).length;
   }, [searchQuery, schema]);
 
+  const tabMatchCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    if (!searchQuery) return counts;
+    
+    // 1. Count fields in schema
+    schema.forEach(field => {
+      const query = searchQuery.toLowerCase();
+      const matchLabel = field.label?.toLowerCase().includes(query);
+      const matchKey = field.key.toLowerCase().includes(query);
+      const matchDesc = field.desc?.toLowerCase().includes(query);
+      if (matchLabel || matchKey || matchDesc) {
+        const key = `${field.tab}::${field.file}`;
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    });
+
+    // 2. Add counts for custom/utility tabs
+    const customTabs = [
+      { id: 'dino_control', file: 'Game.ini' },
+      { id: 'levels', file: 'Game.ini' },
+      { id: 'stats', file: 'Game.ini' },
+      { id: 'diagnostics', file: 'Utilities' }
+    ];
+    customTabs.forEach(t => {
+      const count = getMatchCount(t.id, t.file);
+      if (count > 0) {
+        counts[`${t.id}::${t.file}`] = count;
+      }
+    });
+
+    return counts;
+  }, [searchQuery, schema, getMatchCount]);
+
   // Show all tabs in visual mode regardless of activeFile, so the user can configure everything seamlessly!
   const activeFileTabs = useMemo(() => {
     const validTabIds = new Set(schema.map(f => f.tab));
@@ -1755,20 +1871,22 @@ export default function ASEConfigEditor() {
     const list = tabs.filter(t => 
       validTabIds.has(t.id) || 
       t.id === 'stats' ||
-      t.id === 'levels'
+      t.id === 'levels' ||
+      t.id === 'dino_control'
     );
     list.push({ id: 'diagnostics', label: 'Diagnostics', icon: <Database className="w-4 h-4" /> });
+    list.push({ id: 'players', label: 'Player Management', icon: <Users className="w-4 h-4" /> });
     return list;
   }, [schema, tabs]);
 
   useEffect(() => {
-    // If the current tab isn't valid for the new activeFile, or if we switched to GameUserSettings.ini while on levels/stats, switch to the first valid one
+    // If the current tab isn't valid for the new activeFile, or if we switched to GameUserSettings.ini while on levels/stats/dino_control, switch to the first valid one
     const isInvalidTab = !activeFileTabs.some(t => t.id === activeTab);
-    const isGameIniSpecificTab = (activeTab === 'levels' || activeTab === 'stats') && activeFile === 'GameUserSettings.ini';
+    const isGameIniSpecificTab = (activeTab === 'levels' || activeTab === 'stats' || activeTab === 'dino_control') && activeFile === 'GameUserSettings.ini';
 
     if (isInvalidTab || isGameIniSpecificTab) {
       if (activeFileTabs.length > 0) {
-        const fallbackTab = activeFileTabs.find(t => t.id !== 'levels' && t.id !== 'stats') || activeFileTabs[0];
+        const fallbackTab = activeFileTabs.find(t => t.id !== 'levels' && t.id !== 'stats' && t.id !== 'dino_control') || activeFileTabs[0];
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setActiveTab(fallbackTab.id);
       }
@@ -1782,9 +1900,16 @@ export default function ASEConfigEditor() {
     }
     if (field.type === 'textarea') {
       const isArrayField = Array.isArray(config[field.key as keyof AseGameConfig]);
-      const valStr = isArrayField
-        ? (config[field.key as keyof AseGameConfig] as string[] || []).join('\n')
-        : config[field.key as keyof AseGameConfig] as string || '';
+      let valStr = '';
+      if (isArrayField) {
+        let lines = (config[field.key as keyof AseGameConfig] as string[] || []);
+        if (field.key === 'preventDinoTameClassNames') {
+          lines = lines.map(s => s.replace(/^"+|"+$/g, ''));
+        }
+        valStr = lines.join('\n');
+      } else {
+        valStr = config[field.key as keyof AseGameConfig] as string || '';
+      }
 
       return (
         <TextAreaInput
@@ -1796,7 +1921,14 @@ export default function ASEConfigEditor() {
           onChange={v => {
             if (isArrayField) {
               const lines = v.split('\n').map(s => s.trim()).filter(s => s !== '');
-              update(field.key as keyof AseGameConfig, lines);
+              if (field.key === 'preventDinoTameClassNames') {
+                update(field.key as keyof AseGameConfig, lines.map(line => {
+                  const cleaned = line.replace(/^"+|"+$/g, '');
+                  return `"${cleaned}"`;
+                }));
+              } else {
+                update(field.key as keyof AseGameConfig, lines);
+              }
             } else {
               update(field.key as keyof AseGameConfig, v);
             }
@@ -1809,8 +1941,14 @@ export default function ASEConfigEditor() {
       const arrayVal = config[field.key as keyof AseGameConfig] as string[] || [];
       return (
         <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
+          <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">
+            {field.label}
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#${field.key}`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={`Search Wiki for ${field.key}`}>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <ArrayEditor
-            label={field.label}
+            label=""
             value={arrayVal.join(',')}
             onChange={v => {
               const items = v.match(/\(([^)]+)\)/g) || [];
@@ -1823,18 +1961,63 @@ export default function ASEConfigEditor() {
       );
     }
     if (field.type === 'number') {
-      return <NumberInput key={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as number} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} step={field.step} />;
+      return <NumberInput key={field.key} configKey={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as number} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} step={field.step} />;
     }
     if (field.type === 'toggle') {
-      return <Toggle key={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as boolean} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} />;
+      return <Toggle key={field.key} configKey={field.key} file={field.file} label={field.label} value={config[field.key as keyof AseGameConfig] as boolean} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} />;
     }
     if (field.type === 'select') {
-      return <SelectInput key={field.key} file={field.file} label={field.label!} value={config[field.key as keyof AseGameConfig] as string} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} options={field.options || []} />;
+      return <SelectInput key={field.key} configKey={field.key} file={field.file} label={field.label!} value={config[field.key as keyof AseGameConfig] as string} onChange={v => update(field.key as keyof AseGameConfig, v)} desc={field.desc} options={field.options || []} />;
+    }
+    if (field.type === 'loot_crates') {
+      const arrayVal = config[field.key as keyof AseGameConfig] as string[] || [];
+      return (
+        <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
+          <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">
+            {field.label}
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#${field.key}`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={`Search Wiki for ${field.key}`}>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <LootCrateEditor
+            value={arrayVal.join('\n')}
+            onChange={v => {
+              update(field.key as keyof AseGameConfig, v.split('\n'));
+            }}
+          />
+          {field.desc && <div className="text-xs text-slate-400 leading-relaxed font-medium px-1 italic">{field.desc}</div>}
+        </div>
+      );
+    }
+    if (field.type === 'dino_spawns') {
+      const arrayVal = config[field.key as keyof AseGameConfig] as string[] || [];
+      return (
+        <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
+          <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">
+            {field.label}
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#${field.key}`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title={`Search Wiki for ${field.key}`}>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <DinoSpawnEditor
+            value={arrayVal.join('\n')}
+            onChange={v => {
+              update(field.key as keyof AseGameConfig, v.split('\n'));
+            }}
+          />
+          {field.desc && <div className="text-xs text-slate-400 leading-relaxed font-medium px-1 italic">{field.desc}</div>}
+        </div>
+      );
     }
     if (field.type === 'engram_entries') {
       return (
         <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
-          <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">{field.label}</div>
+          <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">
+            {field.label}
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#OverrideNamedEngramEntries`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title="Search Wiki for OverrideNamedEngramEntries">
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <EngramOverridesEditor value={config.overrideNamedEngramEntries} onChange={(v: string) => update('overrideNamedEngramEntries', v)} />
         </div>
       );
@@ -1842,7 +2025,12 @@ export default function ASEConfigEditor() {
     if (field.type === 'crafting_costs') {
       return (
         <div className="col-span-1 md:col-span-2 p-5 rounded-2xl border border-slate-800/80 bg-slate-950/20 hover:bg-slate-950/40 transition-all duration-300 hover:border-amber-500/35 hover:shadow-[0_4px_25px_rgba(245,158,11,0.05)] flex flex-col gap-4 text-left" key={field.key}>
-          <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">{field.label}</div>
+          <div className="text-slate-200 font-bold tracking-wide flex items-center gap-2 mb-1 text-sm">
+            {field.label}
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(`https://ark.wiki.gg/wiki/Server_configuration#ConfigOverrideItemCraftingCosts`, '_blank'); }} className="text-slate-500 hover:text-amber-400 transition-colors p-1 rounded hover:bg-slate-800" title="Search Wiki for ConfigOverrideItemCraftingCosts">
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <CraftingCostEditor value={config.configOverrideItemCraftingCosts} onChange={(v: string) => update('configOverrideItemCraftingCosts', v)} />
         </div>
       );
@@ -2015,16 +2203,24 @@ export default function ASEConfigEditor() {
                       },
                       {
                         title: 'Game.ini Settings',
-                        ids: ['breeding', 'engrams', 'levels', 'stats', 'player', 'pvp'],
+                        ids: ['breeding', 'engrams', 'environment', 'levels', 'stats', 'player', 'dino_control'],
                         fileType: 'Game.ini',
                       },
                       {
                         title: 'Utilities',
-                        ids: ['diagnostics'],
+                        ids: ['diagnostics', 'players'],
                         fileType: 'Utilities',
                       }
                     ].map(group => {
-                      const groupTabs = activeFileTabs.filter(t => group.ids.includes(t.id as string));
+                      const groupTabs = activeFileTabs.filter(t => {
+                        if (!group.ids.includes(t.id as string)) return false;
+                        if (!searchQuery) return true;
+                        const matchCount = group.fileType === 'Utilities' 
+                          ? getMatchCount(t.id, 'Utilities') 
+                          : getMatchCount(t.id, group.fileType);
+                        if (matchCount > 0) return true;
+                        return t.label.toLowerCase().includes(searchQuery.toLowerCase());
+                      });
                       if (groupTabs.length === 0) return null;
                       return (
                         <div key={group.title} className="flex flex-col gap-1.5 text-left animate-fadeIn">
@@ -2036,13 +2232,15 @@ export default function ASEConfigEditor() {
                               (group.fileType === 'Game.ini' && activeFile === 'Game.ini') ||
                               group.fileType === 'Utilities'
                             );
-                            const matchCount = group.fileType === 'Utilities' ? 0 : getMatchCount(tab.id, group.fileType);
+                            const matchCount = getMatchCount(tab.id, group.fileType);
                             return (
                               <button
                                 key={tab.id}
                                 onClick={() => {
                                   if (tab.id === 'levels' || tab.id === 'stats' || tab.id === 'diagnostics') {
                                     handleSwitchViewMode(tab.id);
+                                  } else if (tab.id === 'players') {
+                                    navigate('/ase/players', { state: { serverId: selectedServer } });
                                   } else {
                                     handleSwitchViewMode('visual');
                                     setActiveTab(tab.id);
@@ -2519,10 +2717,20 @@ export default function ASEConfigEditor() {
                           setConfig(updated);
                           setIsDirty(true);
                         }}
+                        externalSearchQuery={searchQuery}
+                      />
+                    ) : activeTab === 'dino_control' ? (
+                      <ASEDinoSpawnControl
+                        config={config}
+                        onChange={(updated) => {
+                          setConfig(updated);
+                          setIsDirty(true);
+                        }}
+                        externalSearchQuery={searchQuery}
                       />
                     ) : (
                       (() => {
-                        if (['administration', 'diagnostics', 'stats', 'levels', 'environment'].includes(activeTab)) return null;
+                        if (['administration', 'diagnostics', 'stats', 'levels', 'environment', 'dino_control'].includes(activeTab)) return null;
 
                         const tabFields = schema.filter(f => f.tab === activeTab && f.file === activeFile);
                         if (tabFields.length === 0) return null;
@@ -2542,14 +2750,25 @@ export default function ASEConfigEditor() {
                               <h3 className="text-base font-bold text-white">No matches in "{tabs.find(t => t.id === activeTab)?.label}"</h3>
                               <p className="text-xs text-slate-400 mt-1 max-w-sm">No settings match your search in this category. However, matches were found in these sections:</p>
                               <div className="flex flex-wrap justify-center gap-2 mt-4">
-                                {Object.entries(tabMatchCounts).map(([tabId, count]) => {
+                                {Object.entries(tabMatchCounts).map(([key, count]) => {
+                                  const [tabId, file] = key.split('::');
                                   const targetTab = tabs.find(t => t.id === tabId);
                                   if (!targetTab || count === 0) return null;
                                   return (
                                     <button
-                                      key={tabId}
+                                      key={key}
                                       type="button"
-                                      onClick={() => setActiveTab(tabId as TabType)}
+                                      onClick={() => {
+                                        if (tabId === 'levels' || tabId === 'stats' || tabId === 'diagnostics') {
+                                          handleSwitchViewMode(tabId);
+                                        } else {
+                                          handleSwitchViewMode('visual');
+                                          setActiveTab(tabId as TabType);
+                                          if (file === 'Game.ini' || file === 'GameUserSettings.ini') {
+                                            setActiveFile(file);
+                                          }
+                                        }
+                                      }}
                                       className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
                                     >
                                       {targetTab.label}
@@ -2858,7 +3077,9 @@ export default function ASEConfigEditor() {
                               )}
 
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {filteredFields.map(field => renderField(field))}
+                                {filteredFields
+                                  .filter(field => searchQuery || !MANUAL_KEYS.includes(field.key))
+                                  .map(field => renderField(field))}
                               </div>
                             </div>
                           </div>

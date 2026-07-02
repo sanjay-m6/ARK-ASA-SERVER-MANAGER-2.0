@@ -137,7 +137,41 @@ impl LogWatcherService {
                                                     let _ = app_handle.emit("log_anomaly", LogAnomalyEvent {
                                                         server_id: server_id_clone,
                                                         anomaly_type: keyword,
-                                                        details: line_content,
+                                                        details: line_content.clone(),
+                                                    });
+                                                }
+
+                                                // 3. Check for CFCore mod loading failures
+                                                if lower_line.contains("not all mods were installed") {
+                                                    let _ = app_handle.emit("mod_load_failure", crate::services::process_manager::ModLoadFailureEvent {
+                                                        server_id: server_id_clone,
+                                                        error_type: "CFCore_ModLoadFailed".to_string(),
+                                                        details: line_content.clone(),
+                                                        suggestions: vec![
+                                                            "Accept CurseForge Terms & Conditions in the ARK game client (Main Menu → Mod List)".to_string(),
+                                                            "Clear the mod cache using Server Actions → Clear Mod Cache, then restart".to_string(),
+                                                            "If using crossplay, check that no PC-only mods are in the mod list".to_string(),
+                                                            "Try running the Server Manager as Administrator for the first launch".to_string(),
+                                                        ],
+                                                    });
+                                                } else if lower_line.contains("no machine id was found") {
+                                                    let _ = app_handle.emit("mod_load_failure", crate::services::process_manager::ModLoadFailureEvent {
+                                                        server_id: server_id_clone,
+                                                        error_type: "CFCore_NoMachineId".to_string(),
+                                                        details: line_content.clone(),
+                                                        suggestions: vec![
+                                                            "Run the Server Manager as Administrator once to register CFCore's machine ID".to_string(),
+                                                        ],
+                                                    });
+                                                } else if lower_line.contains("couldn't load mods library from disk") {
+                                                    let _ = app_handle.emit("mod_load_failure", crate::services::process_manager::ModLoadFailureEvent {
+                                                        server_id: server_id_clone,
+                                                        error_type: "CFCore_LibraryLoadFailed".to_string(),
+                                                        details: line_content.clone(),
+                                                        suggestions: vec![
+                                                            "Accept CurseForge Terms & Conditions in the ARK game client".to_string(),
+                                                            "Clear the mod cache and let CFCore re-download all mods".to_string(),
+                                                        ],
                                                     });
                                                 }
                                             }

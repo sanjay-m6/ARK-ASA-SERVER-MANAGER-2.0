@@ -150,7 +150,32 @@ pub async fn connect_ase_rcon(server_id: i64, state: State<'_, AppState>) -> Res
 }
 
 pub async fn send_ase_rcon_internal(server_id: i64, command: &str, state: &AppState) -> Result<String, String> {
-    if command.trim().eq_ignore_ascii_case("DoExit") {
+    let mut command_owned = command.to_string();
+
+    // Sanitize broadcast command syntax (wrap message in quotes if it has spaces or is not quoted)
+    let trimmed = command_owned.trim();
+    let lower = trimmed.to_lowercase();
+    if lower.starts_with("broadcast ") {
+        let msg = &trimmed[10..];
+        let msg_trimmed = msg.trim();
+        if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+            command_owned = format!("Broadcast \"{}\"", msg_trimmed);
+        }
+    } else if lower.starts_with("cheat broadcast ") {
+        let msg = &trimmed[16..];
+        let msg_trimmed = msg.trim();
+        if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+            command_owned = format!("Broadcast \"{}\"", msg_trimmed);
+        }
+    } else if lower.starts_with("admincheat broadcast ") {
+        let msg = &trimmed[21..];
+        let msg_trimmed = msg.trim();
+        if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+            command_owned = format!("Broadcast \"{}\"", msg_trimmed);
+        }
+    }
+
+    if command_owned.trim().eq_ignore_ascii_case("DoExit") {
         use tauri::Manager;
         if let Some(guardian) = state.app_handle.try_state::<crate::services::guardian::GuardianState>() {
             let guard = guardian.0.lock().await;
@@ -170,7 +195,7 @@ pub async fn send_ase_rcon_internal(server_id: i64, command: &str, state: &AppSt
         )
         .map_err(|e| format!("Server not found: {}", e))?;
 
-    rcon_exec("127.0.0.1", rcon_port, &admin_password, command)
+    rcon_exec("127.0.0.1", rcon_port, &admin_password, &command_owned)
 }
 
 #[tauri::command]

@@ -183,8 +183,14 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
   }, [xpData]);
 
   const handleApplyXpRamp = () => {
-    // Generate XP ramp string
-    const levels = xpData.map((d, i) => `ExperiencePointsForLevel[${i}]=${d.xpNeeded}`);
+    // Generate XP ramp overrides for levels 2 to maxLevel.
+    // There will be maxLevel - 1 entries in the ramp: index 0 to maxLevel - 2.
+    const levels = [];
+    for (let i = 0; i < maxLevel - 1; i++) {
+      // ExperiencePointsForLevel[i] is for Level i + 2.
+      // Its cumulative XP is xpData[i + 1].totalXp.
+      levels.push(`ExperiencePointsForLevel[${i}]=${xpData[i + 1].totalXp}`);
+    }
     const rampString = `(${levels.join(',')})`;
 
     const currentRamps = (config.levelExperienceRampOverrides || '').split('\n').map(l => l.trim()).filter(Boolean);
@@ -192,7 +198,8 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
     let newPlayerRamp = currentRamps[0] || '';
     let newDinoRamp = currentRamps[1] || '';
 
-    const maxExperience = xpData[xpData.length - 1].totalXp.toString();
+    // The max experience points is the cumulative XP for the max level + 1 (so we add 1 to the final level's total XP)
+    const maxExperience = (xpData[maxLevel - 1].totalXp + 1).toString();
 
     const updatedConfig = { ...config };
 
@@ -208,13 +215,13 @@ export function AseLevelGenerator({ config, onChange }: AseLevelGeneratorProps) 
       if (!newPlayerRamp) {
         const defaultPlayerLevels = [];
         let total = 0;
-        for (let i = 0; i < 105; i++) {
-          const xp = Math.floor(10 * Math.pow(i, 2.2));
+        for (let i = 0; i < 104; i++) {
+          const xp = Math.floor(10 * Math.pow(i + 1, 2.2));
           total += xp;
-          defaultPlayerLevels.push(`ExperiencePointsForLevel[${i}]=${xp}`);
+          defaultPlayerLevels.push(`ExperiencePointsForLevel[${i}]=${total}`);
         }
         newPlayerRamp = `(${defaultPlayerLevels.join(',')})`;
-        updatedConfig.overrideMaxExperiencePointsPlayer = total.toString();
+        updatedConfig.overrideMaxExperiencePointsPlayer = (total + 1).toString();
       }
     }
 

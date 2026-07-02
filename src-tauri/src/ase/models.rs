@@ -172,6 +172,10 @@ pub struct AseGameConfig {
     pub npc_replacements: Vec<String>,
     pub prevent_dino_tame_class_names: Vec<String>,
     pub exclude_dino_classes: Vec<String>,
+    pub config_add_npc_spawn_entries_container: Vec<String>,
+    pub config_subtract_npc_spawn_entries_container: Vec<String>,
+    pub config_override_npc_spawn_entries_container: Vec<String>,
+    pub config_override_supply_crate_items: Vec<String>,
     pub per_level_stats_multiplier_dino_wild: Vec<f64>,
     pub per_level_stats_multiplier_dino_tamed: Vec<f64>,
     pub per_level_stats_multiplier_dino_tamed_add: Vec<f64>,
@@ -450,6 +454,8 @@ pub struct AseGameConfig {
     pub motd_interval: u32,
     pub enable_extinction_event: bool,
     pub extinction_event_time_interval: u32,
+    pub prevent_spawn_animations: bool,
+    pub enable_exclusive_join: bool,
 }
 
 impl Default for AseGameConfig {
@@ -722,6 +728,10 @@ impl Default for AseGameConfig {
             npc_replacements: Vec::new(),
             prevent_dino_tame_class_names: Vec::new(),
             exclude_dino_classes: Vec::new(),
+            config_add_npc_spawn_entries_container: Vec::new(),
+            config_subtract_npc_spawn_entries_container: Vec::new(),
+            config_override_npc_spawn_entries_container: Vec::new(),
+            config_override_supply_crate_items: Vec::new(),
             per_level_stats_multiplier_dino_wild: vec![1.0; 12],
             per_level_stats_multiplier_dino_tamed: vec![1.0; 12],
             per_level_stats_multiplier_dino_tamed_add: vec![1.0; 12],
@@ -736,6 +746,8 @@ impl Default for AseGameConfig {
             motd_interval: 60,
             enable_extinction_event: false,
             extinction_event_time_interval: 30,
+            prevent_spawn_animations: false,
+            enable_exclusive_join: false,
         }
     }
 }

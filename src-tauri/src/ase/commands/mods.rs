@@ -196,7 +196,7 @@ pub async fn download_ase_workshop_mod(
     mod_name: String,
     state: State<'_, AppState>,
 ) -> Result<AseInstalledMod, String> {
-    AseModManager::download_mod_with_retry(&app_handle, server_id, &workshop_id, &mod_name, &state, 3).await
+    AseModManager::download_mod_with_retry(&app_handle, server_id, &workshop_id, &mod_name, &state, 10).await
 }
 
 #[tauri::command]
@@ -475,7 +475,7 @@ pub async fn force_download_ase_mod(
     let _ = AseModManager::clean_failed_download(&app_handle, &workshop_id, server_id, &state).await;
 
     let mod_name = format!("Workshop Mod {}", workshop_id);
-    AseModManager::download_mod_with_retry(&app_handle, server_id, &workshop_id, &mod_name, &state, 5).await
+    AseModManager::download_mod_with_retry(&app_handle, server_id, &workshop_id, &mod_name, &state, 10).await
 }
 
 #[tauri::command]

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Terminal as TerminalIcon,
@@ -26,7 +26,8 @@ import {
   History,
   RefreshCw,
   Gift,
-  Package
+  Package,
+  Sliders
 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { toast } from 'react-hot-toast';
@@ -36,12 +37,7 @@ import ServerSelect from '../../components/ui/ServerSelect';
 import { connectAseRcon, sendAseRcon } from '../utils/aseCommands';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-
-interface LogEntry {
-  type: 'cmd' | 'response' | 'error';
-  text: string;
-  time: string;
-}
+import { useAseRconStore, defaultAseServerState, LogEntry } from '../../stores/aseRconStore';
 
 interface SaveValidationInfo {
   exists: boolean;
@@ -249,8 +245,27 @@ const PRESET_ITEMS = [
 export default function ASERconConsole() {
   const { t } = useTranslation();
   const { servers } = useAseServerStore();
-  const [selectedServerId, setSelectedServerId] = useState<number | null>(servers[0]?.id || null);
-  
+  const { selectedServerId, setSelectedServerId, serverStates } = useAseRconStore();
+  const rconStore = useAseRconStore();
+
+  const serverRconState = selectedServerId ? serverStates[selectedServerId] || defaultAseServerState : defaultAseServerState;
+
+  const isConnected = serverRconState.isConnected;
+  const isConnecting = serverRconState.isConnecting;
+  const log = serverRconState.log;
+  const history = serverRconState.history;
+  const onlinePlayers = serverRconState.onlinePlayers;
+  const resolvedPlayerIds = serverRconState.resolvedPlayerIds;
+  const isStreamingLogs = serverRconState.isStreamingLogs;
+  const logStream = serverRconState.logStream;
+
+  // Sync default selected server
+  useEffect(() => {
+    if (servers.length > 0 && !selectedServerId) {
+      setSelectedServerId(servers[0].id);
+    }
+  }, [servers, selectedServerId, setSelectedServerId]);
+
   // Tab control: terminal, log_stream, cluster, save_manager, give_items
   const [activeTab, setActiveTab] = useState<'terminal' | 'log_stream' | 'cluster' | 'save_manager' | 'give_items'>('terminal');
 
@@ -268,28 +283,72 @@ export default function ASERconConsole() {
   const [isGivingItem, setIsGivingItem] = useState(false);
   const [giveSelectedCategory, setGiveSelectedCategory] = useState<'All' | 'Resources' | 'Consumables' | 'Apex Drops' | 'Artifacts' | 'Ammo' | 'Gear' | 'Structures'>('All');
 
+  // Auto-Broadcast settings
+  const [showAutoBroadcastSettings, setShowAutoBroadcastSettings] = useState(false);
+  const [dinoWipeBroadcastEnabled, setDinoWipeBroadcastEnabled] = useState(() => {
+    return localStorage.getItem('rcon_dino_wipe_broadcast_enabled') !== 'false'; // default true
+  });
+  const [dinoWipeBroadcastMsg, setDinoWipeBroadcastMsg] = useState(() => {
+    return localStorage.getItem('rcon_dino_wipe_broadcast_msg') || '[Server Alert] A wild dino wipe has been initiated. Expect brief server lag!';
+  });
+  const [dinoWipeBroadcastDelay, setDinoWipeBroadcastDelay] = useState(() => {
+    const val = localStorage.getItem('rcon_dino_wipe_broadcast_delay');
+    return val !== null ? parseInt(val, 10) : 5; // default 5 seconds
+  });
+
+  const [saveWorldBroadcastEnabled, setSaveWorldBroadcastEnabled] = useState(() => {
+    return localStorage.getItem('rcon_save_world_broadcast_enabled') === 'true'; // default false
+  });
+  const [saveWorldBroadcastMsg, setSaveWorldBroadcastMsg] = useState(() => {
+    return localStorage.getItem('rcon_save_world_broadcast_msg') || '[Server Alert] Saving world state...';
+  });
+  const [saveWorldBroadcastDelay, setSaveWorldBroadcastDelay] = useState(() => {
+    const val = localStorage.getItem('rcon_save_world_broadcast_delay');
+    return val !== null ? parseInt(val, 10) : 0; // default 0 seconds
+  });
+
+  useEffect(() => {
+    localStorage.setItem('rcon_dino_wipe_broadcast_enabled', String(dinoWipeBroadcastEnabled));
+  }, [dinoWipeBroadcastEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('rcon_dino_wipe_broadcast_msg', dinoWipeBroadcastMsg);
+  }, [dinoWipeBroadcastMsg]);
+
+  useEffect(() => {
+    localStorage.setItem('rcon_dino_wipe_broadcast_delay', String(dinoWipeBroadcastDelay));
+  }, [dinoWipeBroadcastDelay]);
+
+  useEffect(() => {
+    localStorage.setItem('rcon_save_world_broadcast_enabled', String(saveWorldBroadcastEnabled));
+  }, [saveWorldBroadcastEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('rcon_save_world_broadcast_msg', saveWorldBroadcastMsg);
+  }, [saveWorldBroadcastMsg]);
+
+  useEffect(() => {
+    localStorage.setItem('rcon_save_world_broadcast_delay', String(saveWorldBroadcastDelay));
+  }, [saveWorldBroadcastDelay]);
+
   const [command, setCommand] = useState('');
-  const [log, setLog] = useState<LogEntry[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [history, setHistory] = useState<string[]>([]);
   const [histIdx, setHistIdx] = useState(-1);
   const logRef = useRef<HTMLDivElement>(null);
   const logFeedRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Player Management State
-  const [onlinePlayers, setOnlinePlayers] = useState<{name: string, steamId: string}[]>([]);
   const [showPlayers, setShowPlayers] = useState(true);
   const playersInterval = useRef<any>(null);
 
+  // Local manual resolution states
+  const [resolvedManualId, setResolvedManualId] = useState<string | null>(null);
+  const [isResolvingManual, setIsResolvingManual] = useState(false);
+
   // Player ID resolution states
-  const [resolvedPlayerIds, setResolvedPlayerIds] = useState<Record<string, string>>({});
   const [isResolvingIds, setIsResolvingIds] = useState(false);
 
   // Live log streaming states
-  const [isStreamingLogs, setIsStreamingLogs] = useState(false);
-  const [logStream, setLogStream] = useState<{ line: string; timestamp: Date }[]>([]);
   const [logSearchQuery, setLogSearchQuery] = useState('');
   const [autoScrollLogs, setAutoScrollLogs] = useState(true);
 
@@ -349,7 +408,7 @@ export default function ASERconConsole() {
   // Resolve Player IDs automatically for ASE by passing negative selectedServerId
   useEffect(() => {
     if (!selectedServerId || onlinePlayers.length === 0) {
-      setResolvedPlayerIds({});
+      if (selectedServerId) rconStore.setResolvedPlayerIds(selectedServerId, {});
       return;
     }
 
@@ -364,7 +423,7 @@ export default function ASERconConsole() {
       for (const [k, v] of Object.entries(resolvedMap)) {
         stringifiedMap[k] = String(v);
       }
-      setResolvedPlayerIds(stringifiedMap);
+      rconStore.setResolvedPlayerIds(selectedServerId, stringifiedMap);
     })
     .catch(err => {
       console.error('Failed to resolve player IDs:', err);
@@ -373,6 +432,46 @@ export default function ASERconConsole() {
       setIsResolvingIds(false);
     });
   }, [selectedServerId, onlinePlayers]);
+
+  // Real-time manual ID resolution
+  useEffect(() => {
+    if (!selectedServerId || !/^\d{17}$/.test(giveManualPlayerId)) {
+      setResolvedManualId(null);
+      setIsResolvingManual(false);
+      return;
+    }
+
+    let active = true;
+    setIsResolvingManual(true);
+    setResolvedManualId(null);
+
+    const timer = setTimeout(() => {
+      invoke<Record<string, number>>('rcon_resolve_player_ids', {
+        serverId: -selectedServerId,
+        platformIds: [giveManualPlayerId]
+      })
+      .then(resolvedMap => {
+        if (!active) return;
+        if (resolvedMap[giveManualPlayerId]) {
+          setResolvedManualId(String(resolvedMap[giveManualPlayerId]));
+        } else {
+          setResolvedManualId('');
+        }
+      })
+      .catch(err => {
+        console.error('Manual resolve error:', err);
+        if (active) setResolvedManualId('');
+      })
+      .finally(() => {
+        if (active) setIsResolvingManual(false);
+      });
+    }, 500);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [selectedServerId, giveManualPlayerId]);
 
   // Default selected player when player list refreshes
   useEffect(() => {
@@ -408,10 +507,7 @@ export default function ASERconConsole() {
           if (!active) return;
           const { server_id, line } = event.payload;
           if (server_id === selectedServerId) {
-            setLogStream((prev) => {
-              const next = [...prev, { line, timestamp: new Date() }];
-              return next.slice(-1000); // Buffer limit
-            });
+            rconStore.addLogStreamLine(selectedServerId, line);
           }
         });
         unlistenFn = unlisten;
@@ -432,7 +528,7 @@ export default function ASERconConsole() {
 
   const parsePlayers = (response: string) => {
     if (response.toLowerCase().includes('no players')) {
-      setOnlinePlayers([]);
+      if (selectedServerId) rconStore.setOnlinePlayers(selectedServerId, []);
       return;
     }
     const lines = response.split('\n');
@@ -444,7 +540,7 @@ export default function ASERconConsole() {
       }
     }
     if (parsed.length > 0 || lines.length > 1) {
-      setOnlinePlayers(parsed);
+      if (selectedServerId) rconStore.setOnlinePlayers(selectedServerId, parsed);
     }
   };
 
@@ -458,32 +554,38 @@ export default function ASERconConsole() {
     }
   };
 
-  const addLog = (entry: LogEntry) => setLog(prev => [...prev, entry]);
+  const addLog = (entry: LogEntry) => {
+    if (selectedServerId) {
+      rconStore.addLog(selectedServerId, entry);
+    }
+  };
   const now = () => new Date().toLocaleTimeString();
 
   const handleConnect = async () => {
     if (!selectedServerId) return;
-    setIsConnecting(true);
+    rconStore.setConnecting(selectedServerId, true);
     try { 
       await connectAseRcon(selectedServerId); 
-      setIsConnected(true); 
+      rconStore.setConnected(selectedServerId, true); 
       addLog({ type: 'response', text: 'Connected to RCON. Authenticated successfully.', time: now() }); 
       toast.success('RCON connected'); 
       refreshPlayers();
     } catch (e) { 
       addLog({ type: 'error', text: `Connection failed: ${e}`, time: now() }); 
       toast.error(`${e}`); 
-      setIsConnected(false);
+      rconStore.setConnected(selectedServerId, false);
     } finally {
-      setIsConnecting(false);
+      rconStore.setConnecting(selectedServerId, false);
     }
   };
 
   const handleDisconnect = () => {
-    setIsConnected(false);
-    setIsStreamingLogs(false);
-    setLogStream([]);
-    addLog({ type: 'error', text: 'Disconnected from RCON.', time: now() });
+    if (selectedServerId) {
+      rconStore.setConnected(selectedServerId, false);
+      rconStore.setStreamingLogs(selectedServerId, false);
+      rconStore.clearLogStream(selectedServerId);
+      addLog({ type: 'error', text: 'Disconnected from RCON.', time: now() });
+    }
   };
 
   const handleSend = async (cmdString?: string) => {
@@ -492,9 +594,50 @@ export default function ASERconConsole() {
     
     if (!cmdString) {
       setCommand(''); 
-      setHistory(prev => [cmd, ...prev]); 
+      rconStore.setHistory(selectedServerId, prev => [cmd, ...prev]); 
       setHistIdx(-1);
     }
+
+    const normalized = cmd.trim().toLowerCase();
+    const isDinoWipe = normalized.endsWith('destroywilddinos');
+    const isSaveWorld = normalized.endsWith('saveworld');
+
+    if (isDinoWipe && dinoWipeBroadcastEnabled) {
+      const msg = dinoWipeBroadcastMsg.trim();
+      if (msg) {
+        try {
+          addLog({ type: 'cmd', text: `Broadcast "${msg}"`, time: now() });
+          const resp = await sendAseRcon(selectedServerId, `Broadcast "${msg}"`);
+          addLog({ type: 'response', text: resp || 'Broadcast sent successfully', time: now() });
+        } catch (e) {
+          console.error('Failed to broadcast before dino wipe:', e);
+          addLog({ type: 'error', text: `Broadcast failed: ${e}`, time: now() });
+        }
+      }
+      if (dinoWipeBroadcastDelay > 0) {
+        toast.loading(`Waiting ${dinoWipeBroadcastDelay}s before Dino Wipe...`, { id: 'dino_wipe_toast' });
+        await new Promise(resolve => setTimeout(resolve, dinoWipeBroadcastDelay * 1000));
+        toast.dismiss('dino_wipe_toast');
+      }
+    } else if (isSaveWorld && saveWorldBroadcastEnabled) {
+      const msg = saveWorldBroadcastMsg.trim();
+      if (msg) {
+        try {
+          addLog({ type: 'cmd', text: `Broadcast "${msg}"`, time: now() });
+          const resp = await sendAseRcon(selectedServerId, `Broadcast "${msg}"`);
+          addLog({ type: 'response', text: resp || 'Broadcast sent successfully', time: now() });
+        } catch (e) {
+          console.error('Failed to broadcast before save:', e);
+          addLog({ type: 'error', text: `Broadcast failed: ${e}`, time: now() });
+        }
+      }
+      if (saveWorldBroadcastDelay > 0) {
+        toast.loading(`Waiting ${saveWorldBroadcastDelay}s before World Save...`, { id: 'save_world_toast' });
+        await new Promise(resolve => setTimeout(resolve, saveWorldBroadcastDelay * 1000));
+        toast.dismiss('save_world_toast');
+      }
+    }
+
     addLog({ type: 'cmd', text: cmd, time: now() });
     
     try { 
@@ -505,7 +648,7 @@ export default function ASERconConsole() {
       }
     } catch (e) { 
       addLog({ type: 'error', text: `${e}`, time: now() }); 
-      setIsConnected(false);
+      rconStore.setConnected(selectedServerId, false);
     }
   };
 
@@ -617,6 +760,23 @@ export default function ASERconConsole() {
     setSaveValidationResult(null);
 
     try {
+      if (saveWorldBroadcastEnabled && saveWorldBroadcastMsg.trim()) {
+        const msg = saveWorldBroadcastMsg.trim();
+        try {
+          addLog({ type: 'cmd', text: `Broadcast "${msg}"`, time: now() });
+          const resp = await sendAseRcon(selectedServerId, `Broadcast "${msg}"`);
+          addLog({ type: 'response', text: resp || 'Broadcast sent successfully', time: now() });
+        } catch (e) {
+          console.error('Failed to send auto-broadcast before manual save:', e);
+          addLog({ type: 'error', text: `Broadcast failed: ${e}`, time: now() });
+        }
+        if (saveWorldBroadcastDelay > 0) {
+          toast.loading(`Waiting ${saveWorldBroadcastDelay}s before World Save...`, { id: 'save_world_toast' });
+          await new Promise(resolve => setTimeout(resolve, saveWorldBroadcastDelay * 1000));
+          toast.dismiss('save_world_toast');
+        }
+      }
+
       // Step 1: Send saveworld command
       await sendAseRcon(selectedServerId, 'saveworld');
       
@@ -662,9 +822,22 @@ export default function ASERconConsole() {
     }
 
     let targetId = giveTargetType === 'online' ? giveSelectedPlayerId : giveManualPlayerId;
-    if (giveTargetType === 'online' && resolvedPlayerIds[giveSelectedPlayerId]) {
-      targetId = resolvedPlayerIds[giveSelectedPlayerId];
+    if (giveTargetType === 'online') {
+      if (resolvedPlayerIds[giveSelectedPlayerId]) {
+        targetId = resolvedPlayerIds[giveSelectedPlayerId];
+      } else {
+        toast.error(t('rcon.giveItem.onlineResolutionFailed', 'Could not resolve selected player to their ARK Player ID. Make sure they are fully logged in.'));
+        return;
+      }
+    } else if (giveTargetType === 'manual' && /^\d{17}$/.test(giveManualPlayerId)) {
+      if (resolvedManualId) {
+        targetId = resolvedManualId;
+      } else {
+        toast.error(t('rcon.giveItem.manualResolutionFailed', 'Could not resolve manual Steam ID to their ARK Player ID. Make sure the player has joined the server, or enter the 9-digit Player ID directly.'));
+        return;
+      }
     }
+
     if (!targetId.trim()) {
         toast.error(t('rcon.giveItem.noTarget', 'Please select a player or enter a Player ID'));
         return;
@@ -682,16 +855,16 @@ export default function ASERconConsole() {
     const isBp = giveForceBlueprint ? 1 : 0;
     const formattedCmd = `GiveItemToPlayer ${targetId} "${blueprint}" ${giveItemQuantity} ${giveItemQuality} ${isBp}`;
 
-    const now = new Date().toLocaleTimeString();
-    setLog(prev => [...prev, { type: 'cmd', text: formattedCmd, time: now }]);
+    const timeStr = new Date().toLocaleTimeString();
+    addLog({ type: 'cmd', text: formattedCmd, time: timeStr });
 
     try {
         const resp = await sendAseRcon(selectedServerId, formattedCmd);
-        setLog(prev => [...prev, { type: 'response', text: resp || '(no response)', time: new Date().toLocaleTimeString() }]);
+        addLog({ type: 'response', text: resp || '(no response)', time: new Date().toLocaleTimeString() });
         toast.success(t('rcon.giveItem.success', 'Item command sent successfully!'));
     } catch (error) {
         const errMsg = String(error);
-        setLog(prev => [...prev, { type: 'error', text: errMsg, time: new Date().toLocaleTimeString() }]);
+        addLog({ type: 'error', text: errMsg, time: new Date().toLocaleTimeString() });
         toast.error(t('rcon.giveItem.failed', { error: errMsg, defaultValue: `Failed: ${errMsg}` }));
     } finally {
         setIsGivingItem(false);
@@ -736,10 +909,6 @@ export default function ASERconConsole() {
               value={selectedServerId}
               onChange={val => {
                 setSelectedServerId(val);
-                setIsConnected(false);
-                setLog([]);
-                setIsStreamingLogs(false);
-                setLogStream([]);
               }}
               servers={mappedServers}
               accentColor="amber"
@@ -855,7 +1024,14 @@ export default function ASERconConsole() {
                   return (
                     <button 
                       key={q.label} 
-                      onClick={() => handleSend(q.cmd)} 
+                      onClick={() => {
+                        if (q.cmd.endsWith(' ')) {
+                          setCommand(q.cmd);
+                          inputRef.current?.focus();
+                        } else {
+                          handleSend(q.cmd);
+                        }
+                      }}
                       disabled={!isConnected}
                       className={cn(
                         "px-4 py-2 border rounded-xl text-xs font-semibold flex items-center gap-2 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed",
@@ -868,6 +1044,16 @@ export default function ASERconConsole() {
                   ); 
                 })}
                 <button 
+                  onClick={() => setShowAutoBroadcastSettings(!showAutoBroadcastSettings)} 
+                  className={cn(
+                    "px-4 py-2 border rounded-xl text-xs font-semibold flex items-center gap-2 transition-all active:scale-95 focus:outline-none",
+                    showAutoBroadcastSettings ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-slate-900 border-white/5 text-slate-300 hover:text-white"
+                  )}
+                >
+                  <Sliders className="w-4 h-4" />
+                  Auto Broadcast Settings
+                </button>
+                <button 
                   onClick={() => setShowPlayers(!showPlayers)} 
                   disabled={!isConnected}
                   className={cn(
@@ -879,13 +1065,113 @@ export default function ASERconConsole() {
                   Players ({onlinePlayers.length})
                 </button>
                 <button 
-                  onClick={() => setLog([])} 
+                  onClick={() => { if (selectedServerId) rconStore.setLog(selectedServerId, []); }} 
                   className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/10 rounded-xl text-xs font-semibold text-rose-400 flex items-center gap-2 transition-all focus:outline-none active:scale-95"
                 >
                   <Trash2 className="w-4 h-4" />
                   Clear
                 </button>
               </div>
+
+              {/* Auto Broadcast Collapsible Settings Panel */}
+              <AnimatePresence>
+                {showAutoBroadcastSettings && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden mb-4 bg-slate-950/60 border border-white/5 rounded-xl p-4 space-y-4 text-xs text-slate-300 font-sans shadow-inner"
+                  >
+                    <div className="flex items-center justify-between pb-2 border-b border-white/5">
+                      <span className="font-bold text-white flex items-center gap-1.5">
+                        <Sliders className="w-4 h-4 text-amber-400" />
+                        Auto-Broadcast Action Alerts
+                      </span>
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider">
+                        Configure alerts sent to players before actions
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Dino Wipe Block */}
+                      <div className="space-y-3 bg-slate-900/40 p-3 rounded-lg border border-white/5">
+                        <div className="flex items-center justify-between">
+                          <label className="font-semibold text-slate-200 flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={dinoWipeBroadcastEnabled}
+                              onChange={(e) => setDinoWipeBroadcastEnabled(e.target.checked)}
+                              className="rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                            />
+                            Auto Broadcast on Dino Wipe
+                          </label>
+                        </div>
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] text-slate-500 font-sans">Alert Message</span>
+                          <input
+                            type="text"
+                            value={dinoWipeBroadcastMsg}
+                            onChange={(e) => setDinoWipeBroadcastMsg(e.target.value)}
+                            disabled={!dinoWipeBroadcastEnabled}
+                            placeholder="Message to display..."
+                            className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-700 focus:outline-none disabled:opacity-50"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 font-sans">
+                          <span className="text-[10px] text-slate-500">Execution Delay (Seconds):</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="60"
+                            value={dinoWipeBroadcastDelay}
+                            onChange={(e) => setDinoWipeBroadcastDelay(parseInt(e.target.value, 10) || 0)}
+                            disabled={!dinoWipeBroadcastEnabled}
+                            className="w-16 bg-slate-950 border border-white/5 rounded-lg px-2 py-1 text-center text-white focus:outline-none disabled:opacity-50"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Save World Block */}
+                      <div className="space-y-3 bg-slate-900/40 p-3 rounded-lg border border-white/5">
+                        <div className="flex items-center justify-between">
+                          <label className="font-semibold text-slate-200 flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={saveWorldBroadcastEnabled}
+                              onChange={(e) => setSaveWorldBroadcastEnabled(e.target.checked)}
+                              className="rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                            />
+                            Auto Broadcast on Save World
+                          </label>
+                        </div>
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] text-slate-500 font-sans">Alert Message</span>
+                          <input
+                            type="text"
+                            value={saveWorldBroadcastMsg}
+                            onChange={(e) => setSaveWorldBroadcastMsg(e.target.value)}
+                            disabled={!saveWorldBroadcastEnabled}
+                            placeholder="Message to display..."
+                            className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-700 focus:outline-none disabled:opacity-50"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 font-sans">
+                          <span className="text-[10px] text-slate-500">Execution Delay (Seconds):</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max="60"
+                            value={saveWorldBroadcastDelay}
+                            onChange={(e) => setSaveWorldBroadcastDelay(parseInt(e.target.value, 10) || 0)}
+                            disabled={!saveWorldBroadcastEnabled}
+                            className="w-16 bg-slate-950 border border-white/5 rounded-lg px-2 py-1 text-center text-white focus:outline-none disabled:opacity-50"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Console output shell scroll block */}
               <div ref={logRef} className="flex-1 overflow-y-auto font-mono text-[13px] space-y-2 mb-4 min-h-[420px] max-h-[60vh] bg-slate-950 p-4 rounded-xl border border-white/5 shadow-inner">
@@ -986,7 +1272,7 @@ export default function ASERconConsole() {
               <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/45 border border-white/5 p-4 rounded-xl mb-4">
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => setIsStreamingLogs(!isStreamingLogs)}
+                    onClick={() => { if (selectedServerId) rconStore.setStreamingLogs(selectedServerId, !isStreamingLogs); }}
                     className={cn(
                       "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border transition-all active:scale-95",
                       isStreamingLogs
@@ -1021,7 +1307,7 @@ export default function ASERconConsole() {
                   </button>
 
                   <button
-                    onClick={() => setLogStream([])}
+                    onClick={() => { if (selectedServerId) rconStore.clearLogStream(selectedServerId); }}
                     className="p-2 bg-slate-950 border border-white/5 hover:border-white/10 rounded-xl text-slate-500 hover:text-red-400 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1333,8 +1619,8 @@ export default function ASERconConsole() {
                   <div className="bg-amber-950/30 border border-amber-500/20 rounded-lg p-2.5 mb-4 flex items-start gap-2 text-amber-400/90 text-xs shadow-inner">
                       <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
                       <p className="leading-relaxed">
-                          <strong className="text-amber-500 font-medium">Vanilla ARK Warning:</strong> <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer</code> requires the internal <strong>UE4 Player ID</strong>. Steam IDs or EOS IDs from the Online list will result in <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer 0</code>.
-                          <br/>If you don't use API plugins, select <strong>Manual ID</strong> and enter the UE4 Player ID.
+                          <strong className="text-amber-500 font-medium">Player ID Resolution:</strong> The <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer</code> command requires the internal 9-digit <strong>UE4 Player ID</strong>.
+                          <br/>The Server Manager will automatically resolve Steam IDs (both from the online player list and manual entries) to their internal Player IDs in real-time by scanning the server's profiles.
                       </p>
                   </div>
 
@@ -1357,7 +1643,7 @@ export default function ASERconConsole() {
                       )}
                     >
                       <TerminalIcon className="w-4 h-4" />
-                      {t('rcon.giveItem.targetManual', 'Manual Steam ID')}
+                      {t('rcon.giveItem.targetManual', 'Manual ID / Steam ID')}
                     </button>
                   </div>
 
@@ -1417,10 +1703,41 @@ export default function ASERconConsole() {
                         type="text"
                         value={giveManualPlayerId}
                         onChange={e => setGiveManualPlayerId(e.target.value)}
-                        placeholder="e.g. 76561198000000000"
+                        placeholder="e.g. 76561198000000000 or 123456789"
                         className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50 font-mono"
                       />
-                      <p className="text-xs text-slate-500 mt-2">Enter the Steam64 ID of the target player.</p>
+                      <div className="text-[10px] mt-2 flex items-center gap-1.5 px-1 min-h-[16px]">
+                        {isResolvingManual ? (
+                          <span className="text-amber-400 animate-pulse flex items-center gap-1">
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            Resolving Steam ID to Player ID...
+                          </span>
+                        ) : resolvedManualId ? (
+                          <span className="text-emerald-400 font-medium flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            Resolved Player ID: <code className="bg-emerald-950/40 px-1 py-0.5 rounded font-mono text-emerald-300 text-[10px]">{resolvedManualId}</code>
+                          </span>
+                        ) : giveManualPlayerId.trim() ? (
+                          /^\d{17}$/.test(giveManualPlayerId) ? (
+                            <span className="text-rose-400 font-medium flex items-center gap-1 leading-normal">
+                              <XCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              Could not find player save profile for this Steam ID.
+                            </span>
+                          ) : /^\d{9}$/.test(giveManualPlayerId) ? (
+                            <span className="text-emerald-400 font-medium flex items-center gap-1">
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              Using 9-digit Player ID directly.
+                            </span>
+                          ) : (
+                            <span className="text-amber-400 font-medium flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                              Using custom ID directly. Make sure it is the 9-digit UE4 Player ID.
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-slate-500">Enter a 17-digit Steam ID (auto-resolves) or a 9-digit Player ID.</span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1476,6 +1793,9 @@ export default function ASERconConsole() {
                         >
                           <option value="All">All Categories</option>
                           <option value="Resources">Resources</option>
+                          <option value="Consumables">Consumables & Kibbles</option>
+                          <option value="Apex Drops">Apex Drops</option>
+                          <option value="Artifacts">Artifacts</option>
                           <option value="Ammo">Ammo</option>
                           <option value="Gear">Gear & Weapons</option>
                           <option value="Structures">Structures</option>

@@ -29,7 +29,9 @@ class ErrorBoundary extends Component<Props, State> {
     }
 
     public render() {
-        const { t } = this.props;
+        const t = (this.props.t && typeof this.props.t === 'function')
+            ? this.props.t
+            : (key: string, fallback?: string) => fallback || key;
 
         if (this.state.hasError) {
             return (

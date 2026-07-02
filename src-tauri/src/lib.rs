@@ -556,6 +556,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::check_port_conflicts,
             commands::server::get_server_visibility_status,
             commands::server::move_server, // <-- New Command
+            commands::server::clear_mod_cache,
+            commands::server::diagnose_mod_loading,
             commands::import::import_non_dedicated_save, // <-- New Command
             // Mod commands
             commands::mods::search_mods,
@@ -876,6 +878,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                ase::commands::config::validate_ase_config,
                ase::commands::config::sync_ase_server_from_ini,
               ase::commands::config::get_ase_config_diagnostics,
+              crate::services::mod_validator::diagnose_spawn_issues,
              ase::commands::config_advanced::read_ase_ini,
              ase::commands::config_advanced::write_ase_ini,
              ase::commands::config_advanced::read_ase_ini_raw,
@@ -928,6 +931,9 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               ase::commands::profile_sync::list_ase_profiles,
               ase::commands::profile_sync::copy_ase_profiles,
               ase::commands::profile_sync::sync_ase_lists,
+              // ASE Players commands
+              ase::commands::players::get_ase_players,
+              ase::commands::players::save_ase_players,
               // ASE Tools commands
               ase::commands::tools::check_ase_api_installed,
               ase::commands::tools::get_installed_ase_plugins,

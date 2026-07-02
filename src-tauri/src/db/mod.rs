@@ -1205,6 +1205,26 @@ impl Database {
                 UNIQUE(cluster_id, key)
             );
 
+            CREATE TABLE IF NOT EXISTS ase_scheduler_settings (
+                server_id INTEGER PRIMARY KEY,
+                mode TEXT NOT NULL DEFAULT 'disabled',
+                basic_interval_hours INTEGER DEFAULT 24,
+                basic_warning_minutes TEXT DEFAULT '30,15,10,5,1',
+                next_run_basic TIMESTAMP,
+                advanced_time TEXT,
+                advanced_days TEXT,
+                advanced_warning_minutes TEXT,
+                advanced_shutdown INTEGER DEFAULT 0,
+                advanced_update INTEGER DEFAULT 0,
+                advanced_restart INTEGER DEFAULT 0,
+                advanced_dino_wipe INTEGER DEFAULT 0,
+                watchdog_enabled INTEGER DEFAULT 0,
+                backup_on_restart INTEGER DEFAULT 0,
+                backup_on_update INTEGER DEFAULT 0,
+                include_cluster_backup INTEGER DEFAULT 0,
+                FOREIGN KEY(server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
+            );
+
             CREATE INDEX IF NOT EXISTS idx_ase_mods_server_id ON ase_mods(server_id);
             CREATE INDEX IF NOT EXISTS idx_ase_backups_server_id ON ase_backups(server_id);
             CREATE INDEX IF NOT EXISTS idx_ase_servers_status ON ase_servers(status);

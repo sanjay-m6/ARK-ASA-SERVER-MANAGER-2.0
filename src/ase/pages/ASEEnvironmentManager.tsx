@@ -154,10 +154,11 @@ interface ASEEnvironmentManagerProps {
   embedded?: boolean;
   config?: AseGameConfig;
   onChange?: (config: AseGameConfig) => void;
+  externalSearchQuery?: string;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────────
-export default function ASEEnvironmentManager({ embedded = false, config: propConfig, onChange }: ASEEnvironmentManagerProps = {}) {
+export default function ASEEnvironmentManager({ embedded = false, config: propConfig, onChange, externalSearchQuery }: ASEEnvironmentManagerProps = {}) {
   const { servers } = useAseServerStore();
   const selectedServer = servers[0];
 
@@ -173,6 +174,13 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
 
   // UI state
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Sync external search query from visual editor sidebar
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      setSearchQuery(externalSearchQuery);
+    }
+  }, [externalSearchQuery]);
   const [activeCategory, setActiveCategory] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
@@ -574,6 +582,59 @@ export default function ASEEnvironmentManager({ embedded = false, config: propCo
               <Info className="w-3 h-3 text-slate-600 group-hover:text-slate-400 transition-colors" />
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Agriculture & Farming Settings */}
+      <div className="glass-panel rounded-2xl p-6 mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Sprout className="w-5 h-5 text-emerald-400" />
+          <h2 className="text-base font-bold text-white">Agriculture & Ecosystem</h2>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[
+            { key: 'cropGrowthSpeedMultiplier' as keyof AseGameConfig, label: 'Crop Growth Speed', icon: <Sprout className="w-4 h-4 text-emerald-400" />, max: 20, step: 0.1, color: 'emerald' },
+            { key: 'cropDecaySpeedMultiplier' as keyof AseGameConfig, label: 'Crop Decay Speed', icon: <Droplets className="w-4 h-4 text-sky-400" />, max: 20, step: 0.1, color: 'sky' },
+            { key: 'poopIntervalMultiplier' as keyof AseGameConfig, label: 'Poop Interval', icon: <Mountain className="w-4 h-4 text-amber-600" />, max: 10, step: 0.1, color: 'amber' },
+            { key: 'layEggIntervalMultiplier' as keyof AseGameConfig, label: 'Lay Egg Interval', icon: <Gem className="w-4 h-4 text-fuchsia-400" />, max: 10, step: 0.1, color: 'fuchsia' },
+            { key: 'hairGrowthSpeedMultiplier' as keyof AseGameConfig, label: 'Hair Growth Speed', icon: <Sparkles className="w-4 h-4 text-yellow-400" />, max: 10, step: 0.1, color: 'yellow' },
+          ].map(slider => {
+            const val = config[slider.key] as number ?? 1.0;
+            return (
+              <div key={slider.key} className="bg-white/[0.02] border border-white/5 rounded-xl p-4 hover:border-white/10 transition-all">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    {slider.icon}
+                    <span className="text-xs font-medium text-slate-300">{slider.label}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      value={val}
+                      onChange={e => updateGlobal(slider.key, parseFloat(e.target.value) || 0)}
+                      min={0}
+                      max={slider.max}
+                      step={slider.step}
+                      className="w-16 bg-[#0A0F1C]/80 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center focus:outline-none focus:border-amber-500/40"
+                    />
+                    <span className="text-[10px] text-slate-500 font-mono">×</span>
+                  </div>
+                </div>
+                <input
+                  type="range"
+                  value={val}
+                  onChange={e => updateGlobal(slider.key, parseFloat(e.target.value))}
+                  min={0}
+                  max={slider.max}
+                  step={slider.step}
+                  className="w-full h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-amber-500"
+                  style={{
+                    background: `linear-gradient(to right, hsl(var(--accent-hue, 45) 80% 50%) 0%, hsl(var(--accent-hue, 45) 80% 50%) ${(val / slider.max) * 100}%, rgba(255,255,255,0.05) ${(val / slider.max) * 100}%, rgba(255,255,255,0.05) 100%)`,
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 

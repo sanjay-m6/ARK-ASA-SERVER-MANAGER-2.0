@@ -199,6 +199,9 @@ export interface AseGameConfig {
   npcReplacements: string[];
   preventDinoTameClassNames: string[];
   excludeDinoClasses: string[];
+  configAddNpcSpawnEntriesContainer: string[];
+  configSubtractNpcSpawnEntriesContainer: string[];
+  configOverrideNpcSpawnEntriesContainer: string[];
 
   // ── Breeding (Game.ini) ──
   eggHatchSpeedMultiplier: number;
@@ -319,6 +322,7 @@ export interface AseGameConfig {
   // ── Network / Admin ──
   rconEnabled: boolean;
   rconPort: number;
+  enableExclusiveJoin: boolean;
   battleEyeEnforcer: boolean;
   enableCreativeMode: boolean;
   serverForceNoHud: boolean;
@@ -471,6 +475,9 @@ export interface AseGameConfig {
   perLevelStatsMultiplierDinoTamedAffinity: number[];
   mutagenLevelBoostArray: number[];
   mutagenLevelBoostBredArray: number[];
+  preventSpawnAnimations: boolean;
+  configOverrideSupplyCrateItems: string[];
+  npcReplacements: string[];
 }
 
 export interface AseBackup {
@@ -541,5 +548,20 @@ export interface ValidationIssue {
 export interface ValidationResult {
   isValid: boolean;
   issues: ValidationIssue[];
+}
+
+export interface AsePlayer {
+  steamId: string;
+  epicId?: string | null;
+  playerName: string;
+  platform: string;
+  dateAdded: string;
+  notes?: string | null;
+}
+
+export interface AsePlayerLists {
+  admins: AsePlayer[];
+  whitelist: AsePlayer[];
+  exclusive: AsePlayer[];
 }
 

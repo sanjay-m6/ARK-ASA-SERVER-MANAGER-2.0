@@ -3939,3 +3939,181 @@ pub async fn move_server(
         Err(e) => Err(format!("Task failed: {}", e))
     }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Mod Cache Management & Diagnostics
+// ═══════════════════════════════════════════════════════════════
+
+/// Clear the CFCore mod cache directory for a server, forcing a clean re-download on next start.
+#[tauri::command]
+pub async fn clear_mod_cache(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<String, String> {
+    let install_path: String = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT install_path FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Server not found: {}", e))?
+    };
+
+    let mods_dir = PathBuf::from(&install_path)
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64")
+        .join("ShooterGame")
+        .join("Content")
+        .join("Mods");
+
+    if mods_dir.exists() {
+        let entry_count = std::fs::read_dir(&mods_dir)
+            .map(|entries| entries.count())
+            .unwrap_or(0);
+
+        std::fs::remove_dir_all(&mods_dir)
+            .map_err(|e| format!("Failed to clear mod cache: {}", e))?;
+
+        println!("  🧹 Cleared mod cache for server {} ({} entries removed)", server_id, entry_count);
+        Ok(format!("Cleared {} mod cache entries. Mods will be re-downloaded on next server start.", entry_count))
+    } else {
+        Ok("Mod cache directory does not exist — nothing to clear.".to_string())
+    }
+}
+
+/// Run diagnostics on the mod loading setup for a server.
+#[tauri::command]
+pub async fn diagnose_mod_loading(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<serde_json::Value, String> {
+    let (install_path, server_type): (String, String) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT install_path, server_type FROM servers WHERE id = ?1",
+            [server_id],
+            |row| Ok((row.get(0)?, row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string()))),
+        )
+        .map_err(|e| format!("Server not found: {}", e))?
+    };
+
+    // Get enabled mods
+    let enabled_mods: Vec<String> = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let mut stmt = conn.prepare(
+            "SELECT mod_id FROM mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC"
+        ).map_err(|e| e.to_string())?;
+        let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+        let mut mods = Vec::new();
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            if let Ok(mod_id) = row.get::<_, String>(0) {
+                mods.push(mod_id);
+            }
+        }
+        mods
+    };
+
+    let install_path_buf = PathBuf::from(&install_path);
+    let mods_dir = install_path_buf
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64")
+        .join("ShooterGame")
+        .join("Content")
+        .join("Mods");
+
+    let mut mod_diagnostics = Vec::new();
+
+    for mod_id in &enabled_mods {
+        let mod_path = mods_dir.join(mod_id);
+        let exists = mod_path.exists();
+        let mut has_pak = false;
+        let mut total_size: u64 = 0;
+        let mut file_count: usize = 0;
+
+        if exists && mod_path.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&mod_path) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    file_count += 1;
+                    if let Ok(meta) = entry.metadata() {
+                        total_size += meta.len();
+                    }
+                    if entry.path().extension().map_or(false, |ext| ext == "pak") {
+                        has_pak = true;
+                    }
+                }
+            }
+        }
+
+        let status = if !exists {
+            "missing"
+        } else if !has_pak || total_size < 1024 {
+            "corrupt"
+        } else {
+            "ok"
+        };
+
+        mod_diagnostics.push(serde_json::json!({
+            "mod_id": mod_id,
+            "status": status,
+            "exists": exists,
+            "has_pak": has_pak,
+            "total_size_bytes": total_size,
+            "file_count": file_count,
+        }));
+    }
+
+    // Check for cf-core log
+    let cf_core_log = install_path_buf
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64")
+        .join("cf-core.log");
+    let cf_log_exists = cf_core_log.exists();
+    let mut cf_log_errors = Vec::new();
+
+    if cf_log_exists {
+        if let Ok(content) = std::fs::read_to_string(&cf_core_log) {
+            for line in content.lines() {
+                let lower = line.to_lowercase();
+                if lower.contains("error") || lower.contains("fail") || lower.contains("not all mods") {
+                    cf_log_errors.push(line.to_string());
+                }
+            }
+        }
+    }
+
+    // Check crossplay setting
+    let is_crossplay = {
+        let gus_path = install_path_buf
+            .join("ShooterGame")
+            .join("Saved")
+            .join("Config")
+            .join("WindowsServer")
+            .join("GameUserSettings.ini");
+        if gus_path.exists() {
+            std::fs::read_to_string(&gus_path)
+                .map(|c| c.contains("ServerCrossplay=True") || c.contains("ServerCrossplay=true"))
+                .unwrap_or(false)
+        } else {
+            false
+        }
+    };
+
+    Ok(serde_json::json!({
+        "server_id": server_id,
+        "server_type": server_type,
+        "enabled_mods_count": enabled_mods.len(),
+        "mods_cache_dir": mods_dir.to_string_lossy(),
+        "mods_cache_exists": mods_dir.exists(),
+        "is_crossplay": is_crossplay,
+        "cf_core_log_exists": cf_log_exists,
+        "cf_core_log_errors": cf_log_errors,
+        "mods": mod_diagnostics,
+    }))
+}

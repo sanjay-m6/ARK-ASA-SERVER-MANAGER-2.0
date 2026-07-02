@@ -16,6 +16,8 @@ import { ConfigTooltip } from '../components/config/ConfigTooltip';
 import { ArrayEditor } from '../components/config/ArrayEditor';
 import { CraftingCostEditor } from '../components/config/CraftingCostEditor';
 import { EngramOverridesEditor } from '../components/config/EngramOverridesEditor';
+import { LootCrateEditor } from '../components/config/LootCrateEditor';
+import { DinoSpawnEditor } from '../components/config/DinoSpawnEditor';
 import { applyPreset, ConfigPreset, createPresetFromConfig, saveCustomPreset } from '../data/presets';
 import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
@@ -1427,9 +1429,37 @@ const ConfigInput = memo(({
                 <div className="col-span-1 md:col-span-2 lg:col-span-2">
                     <ArrayEditor
                         label={fieldLabel}
-                        value={value}
+                        value={value as string}
                         onChange={handleChange}
                         template={field.template || {}}
+                    />
+                    {fieldDescription && (
+                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                            {fieldDescription}
+                        </div>
+                    )}
+                </div>
+            );
+        case 'loot_crates':
+            return (
+                <div className="col-span-1 md:col-span-2 lg:col-span-2">
+                    <LootCrateEditor
+                        value={value as string}
+                        onChange={(val: string) => handleChange(val)}
+                    />
+                    {fieldDescription && (
+                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                            {fieldDescription}
+                        </div>
+                    )}
+                </div>
+            );
+        case 'dino_spawns':
+            return (
+                <div className="col-span-1 md:col-span-2 lg:col-span-2">
+                    <DinoSpawnEditor
+                        value={value as string}
+                        onChange={(val: string) => handleChange(val)}
                     />
                     {fieldDescription && (
                         <div className="mt-2 text-xs text-slate-500 px-1 italic">
@@ -1875,17 +1905,20 @@ export default function ConfigEditor() {
     const applyPlayerLevel = (maxLevel: number) => {
         setCustomPlayerLevel(maxLevel);
 
-        // Generate XP ramp
+        // Generate XP ramp using cumulative totals
         const levels = [];
-        for (let i = 0; i < maxLevel; i++) {
-            const xp = Math.floor(10 * Math.pow(i, 2.2));
-            levels.push(`ExperiencePointsForLevel[${i}]=${xp}`);
+        let total = 0;
+        for (let i = 0; i < maxLevel - 1; i++) {
+            // i = 0 represents the transition from Level 1 to Level 2.
+            const xp = Math.floor(10 * Math.pow(i + 1, 2.2));
+            total += xp;
+            levels.push(`ExperiencePointsForLevel[${i}]=${total}`);
         }
 
         const rampString = `(${levels.join(',')})`;
 
         handleUpdate('Game', '/Script/ShooterGame.ShooterGameMode', 'LevelExperienceRampOverrides', rampString);
-        handleUpdate('Game', '/Script/ShooterGame.ShooterGameMode', 'OverrideMaxExperiencePointsPlayer', Math.floor(10 * Math.pow(maxLevel, 2.2)).toString());
+        handleUpdate('Game', '/Script/ShooterGame.ShooterGameMode', 'OverrideMaxExperiencePointsPlayer', (total + 1).toString());
         toast.success(t('configEditor.toasts.playerLevelSet', { level: maxLevel }));
     };
 

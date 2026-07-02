@@ -18,6 +18,10 @@ fn is_array_key(key: &str) -> bool {
         || kl == "excludedinoclasses"
         || kl == "overridenamedengramentries"
         || kl == "configoverrideitemcraftingcosts"
+        || kl == "configaddnpcspawnentriescontainer"
+        || kl == "configsubtractnpcspawnentriescontainer"
+        || kl == "configoverridenpcspawnentriescontainer"
+        || kl == "configoverridesupplycrateitems"
 }
 
 /// Get a value from parsed INI document (case-insensitive and resilient to /Script/ prefixing)
@@ -495,6 +499,7 @@ pub async fn read_ase_config_internal(
 
         config.non_permanent_diseases = ini_get_bool(&sections, ss, "NonPermanentDiseases", false);
         config.prevent_diseases = ini_get_bool(&sections, ss, "PreventDiseases", false);
+        config.prevent_spawn_animations = ini_get_bool(&sections, ss, "PreventSpawnAnimations", false);
         config.allow_cryo_cooldown_on_pve =
             ini_get_bool(&sections, ss, "AllowCryoCooldownOnPvE", false);
         config.disable_cryopod_enemy_check =
@@ -599,6 +604,7 @@ pub async fn read_ase_config_internal(
         config.use_dynamic_config_url = ini_get_bool(&sections, "ASM2", "UseDynamicConfigUrl", false) || !config.custom_dynamic_config_url.is_empty();
         config.use_custom_live_tuning_url = ini_get_bool(&sections, "ASM2", "UseCustomLiveTuningUrl", false) || !config.custom_live_tuning_url.is_empty();
         config.no_playervac = ini_get_bool(&sections, "ASM2", "NoPlayerVAC", false);
+        config.enable_exclusive_join = ini_get_bool(&sections, "ASM2", "EnableExclusiveJoin", false);
         config.no_anti_speed_hack = ini_get_bool(&sections, "ASM2", "NoAntiSpeedHack", false);
         config.speed_hack_cpu_bias = ini_get_f64(&sections, "ASM2", "SpeedHackCpuBias", 1.0);
         config.disable_movement_validation = ini_get_bool(&sections, "ASM2", "DisableMovementValidation", false);
@@ -717,6 +723,10 @@ pub async fn read_ase_config_internal(
         config.npc_replacements = parse_array("NPCReplacements");
         config.prevent_dino_tame_class_names = parse_array("PreventDinoTameClassNames");
         config.exclude_dino_classes = parse_array("ExcludeDinoClasses");
+        config.config_add_npc_spawn_entries_container = parse_array("ConfigAddNPCSpawnEntriesContainer");
+        config.config_subtract_npc_spawn_entries_container = parse_array("ConfigSubtractNPCSpawnEntriesContainer");
+        config.config_override_npc_spawn_entries_container = parse_array("ConfigOverrideNPCSpawnEntriesContainer");
+        config.config_override_supply_crate_items = parse_array("ConfigOverrideSupplyCrateItems");
 
         config.max_fall_speed_multiplier = ini_get_f64(&sections, sgm, "MaxFallSpeedMultiplier", 1.0);
 
@@ -1604,6 +1614,11 @@ pub async fn write_ase_config(
     ini_set(ss, "PreventDiseases", config.prevent_diseases.to_string());
     ini_set(
         ss,
+        "PreventSpawnAnimations",
+        config.prevent_spawn_animations.to_string(),
+    );
+    ini_set(
+        ss,
         "AllowCryoCooldownOnPvE",
         config.allow_cryo_cooldown_on_pve.to_string(),
     );
@@ -1768,6 +1783,7 @@ pub async fn write_ase_config(
     ini_set("ASM2", "UseCustomLiveTuningUrl", config.use_custom_live_tuning_url.to_string());
     ini_set("ASM2", "EnableIdleTimeout", config.enable_idle_timeout.to_string());
     ini_set("ASM2", "NoPlayerVAC", config.no_playervac.to_string());
+    ini_set("ASM2", "EnableExclusiveJoin", config.enable_exclusive_join.to_string());
     ini_set("ASM2", "NoAntiSpeedHack", config.no_anti_speed_hack.to_string());
     ini_set("ASM2", "SpeedHackCpuBias", format!("{:.6}", config.speed_hack_cpu_bias));
     ini_set("ASM2", "DisableMovementValidation", config.disable_movement_validation.to_string());
@@ -1977,7 +1993,10 @@ pub async fn write_ase_config(
     game_doc.set_array_values(gm, "NPCReplacements", &config.npc_replacements);
     game_doc.set_array_values(gm, "PreventDinoTameClassNames", &config.prevent_dino_tame_class_names);
     game_doc.set_array_values(gm, "ExcludeDinoClasses", &config.exclude_dino_classes);
-
+    game_doc.set_array_values(gm, "ConfigAddNPCSpawnEntriesContainer", &config.config_add_npc_spawn_entries_container);
+    game_doc.set_array_values(gm, "ConfigSubtractNPCSpawnEntriesContainer", &config.config_subtract_npc_spawn_entries_container);
+    game_doc.set_array_values(gm, "ConfigOverrideNPCSpawnEntriesContainer", &config.config_override_npc_spawn_entries_container);
+    game_doc.set_array_values(gm, "ConfigOverrideSupplyCrateItems", &config.config_override_supply_crate_items);
     if !config.override_max_experience_points_player.is_empty() {
         game_set!("OverrideMaxExperiencePointsPlayer", config.override_max_experience_points_player.clone());
     }

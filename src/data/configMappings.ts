@@ -3,7 +3,7 @@
 
 import { MODDED_MAP_PRESETS } from './moddedMapRegistry';
 
-export type FieldType = 'text' | 'number' | 'boolean' | 'slider' | 'dropdown' | 'array' | 'textarea' | 'crafting_costs' | 'engram_entries';
+export type FieldType = 'text' | 'number' | 'boolean' | 'slider' | 'dropdown' | 'array' | 'textarea' | 'crafting_costs' | 'engram_entries' | 'loot_crates' | 'dino_spawns';
 
 export interface ConfigField {
     section: string;
@@ -26,7 +26,7 @@ export interface ConfigField {
 export interface ConfigGroup {
     title: string;
     description?: string;
-    category: 'server' | 'gameplay' | 'player' | 'dino' | 'breeding' | 'structure' | 'pvp' | 'rules' | 'chat' | 'transfers' | 'advanced' | 'engrams';
+    category: 'server' | 'gameplay' | 'player' | 'dino' | 'breeding' | 'structure' | 'pvp' | 'rules' | 'chat' | 'transfers' | 'advanced' | 'engrams' | 'environment';
     icon?: string;
     source?: 'GameUserSettings' | 'Game';
     fields: ConfigField[];
@@ -52,6 +52,7 @@ export const CATEGORY_INFO: Record<string, { label: string; icon: string; color:
     pvp: { label: 'PvP/PvE', icon: '⚔️', color: 'from-red-600 to-orange-600' },
     advanced: { label: 'Advanced', icon: '⚙️', color: 'from-slate-600 to-gray-600' },
     engrams: { label: 'Engrams & Crafting', icon: '🔨', color: 'from-yellow-500 to-amber-600' },
+    environment: { label: 'World & Environment', icon: '🌍', color: 'from-green-600 to-emerald-500' },
 };
 
 // GameUserSettings.ini schema - Enhanced with sliders and categories
@@ -544,6 +545,111 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         ]
     },
     {
+        title: 'Agriculture & Ecosystem',
+        description: 'Farming, pooping, egg laying, and hair growth',
+        category: 'gameplay',
+        fields: [
+            {
+                section: 'ServerSettings',
+                key: 'CropGrowthSpeedMultiplier',
+                label: 'Crop Growth Speed',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Crop growth speed multiplier'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'CropDecaySpeedMultiplier',
+                label: 'Crop Decay Speed',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'Crop decay speed multiplier'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'PoopIntervalMultiplier',
+                label: 'Poop Interval',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'How often dinos and players poop'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'LayEggIntervalMultiplier',
+                label: 'Lay Egg Interval',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'How often dinos lay eggs'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'HairGrowthSpeedMultiplier',
+                label: 'Hair Growth Speed',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'How fast player hair grows'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'GlobalSpoilingTimeMultiplier',
+                label: 'Global Spoiling Time',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'Global multiplier for item spoilage time'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'GlobalItemDecompositionTimeMultiplier',
+                label: 'Item Decomp Time',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'Global multiplier for item decomposition time on floor'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'GlobalCorpseDecompositionTimeMultiplier',
+                label: 'Corpse Decomp Time',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'Global multiplier for corpse decomposition time on floor'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'ResourceNoReplenishRadiusPlayers',
+                label: 'Resource No Replenish (Players)',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'Radius around players where resources do not respawn'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'ResourceNoReplenishRadiusStructures',
+                label: 'Resource No Replenish (Structures)',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'Radius around structures where resources do not respawn'
+            }
+        ]
+    },
+    {
         title: 'PvP / PvE Mode',
         description: 'Player vs Player settings',
         category: 'pvp',
@@ -779,6 +885,78 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         description: 'Baby care and imprinting mechanics',
         category: 'breeding',
         fields: [
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'MatingIntervalMultiplier',
+                label: 'Mating Interval',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'Lower means dinos can mate sooner'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'EggHatchSpeedMultiplier',
+                label: 'Egg Hatch Speed',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 50, step: 0.1,
+                description: 'Higher means faster hatching/gestation'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'BabyMatureSpeedMultiplier',
+                label: 'Baby Mature Speed',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 50, step: 0.1,
+                description: 'Higher means babies grow faster'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'BabyFoodConsumptionSpeedMultiplier',
+                label: 'Baby Food Consumption',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'Lower means babies eat less'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'BabyCuddleIntervalMultiplier',
+                label: 'Cuddle Interval',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'Lower means imprint requests happen sooner'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'BabyCuddleGracePeriodMultiplier',
+                label: 'Cuddle Grace Period',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'Grace period before imprinting decays'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'BabyCuddleLoseImprintQualitySpeedMultiplier',
+                label: 'Imprint Quality Loss Speed',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'How fast imprint is lost when overdue'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'BabyImprintingStatScaleMultiplier',
+                label: 'Imprint Stat Scale',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1, max: 10, step: 0.1,
+                description: 'Multiplier for the stat bonus from imprinting'
+            },
             {
                 section: 'ServerSettings',
                 key: 'AllowAnyoneBabyImprintCuddle',
@@ -1765,6 +1943,27 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 max: 10,
                 step: 0.5,
                 description: 'Fishing loot quality'
+            }
+        ]
+    },
+    {
+        title: 'World Overrides',
+        description: 'Configure custom loot crates and dino spawns',
+        category: 'environment',
+        fields: [
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'ConfigOverrideSupplyCrateItems',
+                label: 'Loot Crate Overrides',
+                type: 'loot_crates',
+                description: 'Override the contents of supply drops and loot crates.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'NPCReplacements',
+                label: 'Dino Spawn Replacements',
+                type: 'dino_spawns',
+                description: 'Replace or remove specific dinosaurs from spawning.'
             }
         ]
     }

@@ -9,6 +9,8 @@ export interface InstallingModState {
     progress: number;
     error?: string;
     modImage?: string;
+    downloadedBytes?: number;
+    totalBytes?: number;
 }
 
 interface AseModStore {
@@ -26,7 +28,7 @@ interface AseModStore {
     // Queue Actions
     addToQueue: (workshopId: string, modName: string, modImage?: string) => void;
     updateQueueStatus: (workshopId: string, status: InstallingModState['status'], error?: string) => void;
-    updateQueueProgress: (workshopId: string, progress: number, status?: InstallingModState['status'], error?: string) => void;
+    updateQueueProgress: (workshopId: string, progress: number, status?: InstallingModState['status'], error?: string, downloadedBytes?: number, totalBytes?: number) => void;
     updateQueueModDetails: (workshopId: string, modName: string, modImage?: string) => void;
     removeFromQueue: (workshopId: string) => void;
     clearQueue: () => void;
@@ -90,7 +92,7 @@ export const useAseModStore = create<AseModStore>((set) => ({
         };
     }),
 
-    updateQueueProgress: (workshopId, progress, status, error) => set((state) => {
+    updateQueueProgress: (workshopId, progress, status, error, downloadedBytes, totalBytes) => set((state) => {
         const item = state.installingQueue[workshopId];
         if (!item) return {};
         return {
@@ -101,6 +103,8 @@ export const useAseModStore = create<AseModStore>((set) => ({
                     progress,
                     status: status || item.status,
                     error: error !== undefined ? error : item.error,
+                    downloadedBytes: downloadedBytes !== undefined ? downloadedBytes : item.downloadedBytes,
+                    totalBytes: totalBytes !== undefined ? totalBytes : item.totalBytes,
                 }
             }
         };
@@ -171,13 +175,13 @@ export const initializeAseModListeners = () => {
     if (listenersInitialized) return;
     listenersInitialized = true;
 
-    listen<{ workshopId: string; status: InstallingModState['status']; progress: number; message: string }>(
+    listen<{ workshopId: string; status: InstallingModState['status']; progress: number; message: string; downloadedBytes?: number; totalBytes?: number }>(
         'ase-mod-download-progress',
         (event) => {
-            const { workshopId, status, progress, message } = event.payload;
+            const { workshopId, status, progress, message, downloadedBytes, totalBytes } = event.payload;
             if (workshopId) {
                 const error = status === 'failed' ? message : undefined;
-                useAseModStore.getState().updateQueueProgress(workshopId, progress, status, error);
+                useAseModStore.getState().updateQueueProgress(workshopId, progress, status, error, downloadedBytes, totalBytes);
             }
         }
     ).catch(console.error);

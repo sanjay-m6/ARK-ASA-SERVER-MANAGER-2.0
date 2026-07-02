@@ -56,6 +56,7 @@ const ASEFileManager = lazy(() => import('./ase/pages/ASEFileManager'));
 const ASESettings = lazy(() => import('./ase/pages/ASESettings'));
 const ASEDiscordBot = lazy(() => import('./ase/pages/ASEDiscordBot'));
 const ASEProfileSync = lazy(() => import('./ase/pages/ASEProfileSync'));
+const ASEPlayerManager = lazy(() => import('./ase/pages/ASEPlayerManager'));
 const ASEAIAssistant = lazy(() => import('./ase/pages/ASEAIAssistant'));
 const ASEAdvancedPage = lazy(() => import('./ase/pages/ASEAdvancedPage'));
 const ASEPluginManager = lazy(() => import('./ase/pages/ASEPluginManager'));
@@ -155,6 +156,7 @@ function App() {
                                 <Route path="ase/settings" element={<ASESettings />} />
                                 <Route path="ase/discord" element={<ASEDiscordBot />} />
                                 <Route path="ase/profile-sync" element={<ASEProfileSync />} />
+                                <Route path="ase/players" element={<ASEPlayerManager />} />
                                  <Route path="ase/tools/ai" element={<ASEAIAssistant />} />
                                  <Route path="ase/tools/advanced" element={<ASEAdvancedPage />} />
                                  <Route path="ase/tools/plugins" element={<ASEPluginManager />} />

@@ -168,6 +168,14 @@ export async function moveServer(serverId: number, newInstallPath: string, isAse
     return await invoke('move_server', { serverId, newInstallPath, isAse });
 }
 
+export async function clearModCache(serverId: number): Promise<string> {
+    return await invoke('clear_mod_cache', { serverId });
+}
+
+export async function diagnoseModLoading(serverId: number): Promise<any> {
+    return await invoke('diagnose_mod_loading', { serverId });
+}
+
 export async function deleteServer(serverId: number): Promise<void> {
     return await invoke('delete_server', { serverId });
 }

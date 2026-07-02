@@ -11,6 +11,8 @@ import type {
     AseSchedulerSettings,
     AseDiagnostics,
     ValidationResult,
+    AsePlayer,
+    AsePlayerLists,
 } from '../types/ase.types';
 
 // ─── Server Commands ────────────────────────────────────────────────
@@ -382,5 +384,18 @@ export interface ConfigureAseFirewallResult {
 
 export async function configureAseFirewall(serverId: number): Promise<ConfigureAseFirewallResult> {
     return invoke('configure_ase_firewall', { serverId });
+}
+
+export async function getAsePlayers(serverId: number): Promise<AsePlayerLists> {
+    return invoke('get_ase_players', { serverId });
+}
+
+export async function saveAsePlayers(
+    serverId: number,
+    admins: AsePlayer[],
+    whitelist: AsePlayer[],
+    exclusive: AsePlayer[],
+): Promise<void> {
+    return invoke('save_ase_players', { serverId, admins, whitelist, exclusive });
 }
 

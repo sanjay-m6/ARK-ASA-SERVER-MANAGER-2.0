@@ -285,6 +285,7 @@ impl AseLauncher {
 
         // Apply advanced launch parameters from config
         if _config.no_playervac { args.push("-insecure".to_string()); }
+        if _config.enable_exclusive_join { args.push("-exclusivejoin".to_string()); }
         if _config.disable_movement_validation { args.push("-DisablePhysX".to_string()); }
         if _config.no_hang_det { args.push("-NoHangDetection".to_string()); }
         if _config.no_dinos { args.push("-NoDinos".to_string()); }

@@ -8,6 +8,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { Download, X, RefreshCw, AlertCircle, Clock, Rocket, ExternalLink } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import toast from 'react-hot-toast';
+import { useServerStore } from '../stores/serverStore';
+import { useAseServerStore } from '../ase/stores/aseServerStore';
+import { getSetting } from '../utils/tauri';
 import {
     addUpdateHistory,
     updateLastCheck,
@@ -200,24 +203,112 @@ export default function UpdateChecker() {
     useEffect(() => { updateAvailableRef.current = updateAvailable; }, [updateAvailable]);
     useEffect(() => { currentAppVersionRef.current = currentAppVersion; }, [currentAppVersion]);
 
+    // Notification helper to broadcast updates to active servers and Discord
+    const notifyUsersOfUpdate = async (newVersion: string) => {
+        try {
+            console.log(`[UPDATER] Broadcasting update warning to all users for version v${newVersion}...`);
+            
+            // 1. Broadcast to ASA servers
+            const asaServers = useServerStore.getState().servers;
+            for (const s of asaServers) {
+                if (s.status === 'online' || s.status === 'running') {
+                    try {
+                        await invoke('rcon_send_command', {
+                            serverId: s.id,
+                            command: `Broadcast "Server Manager is updating to v${newVersion}..."`
+                        });
+                    } catch (e) {
+                        console.error(`Failed to send RCON update broadcast to ASA server #${s.id}:`, e);
+                    }
+                }
+            }
+
+            // 2. Broadcast to ASE servers
+            const aseServers = useAseServerStore.getState().servers;
+            const { sendAseRcon } = await import('../ase/utils/aseCommands');
+            for (const s of aseServers) {
+                if (s.status === 'online' || s.status === 'running') {
+                    try {
+                        await sendAseRcon(s.id, `Broadcast "Server Manager is updating to v${newVersion}..."`);
+                    } catch (e) {
+                        console.error(`Failed to send RCON update broadcast to ASE server #${s.id}:`, e);
+                    }
+                }
+            }
+
+            // 3. Post to Discord Webhooks
+            const payload = {
+                embeds: [
+                    {
+                        title: "⚙️ System Update Initiated",
+                        description: `The Server Manager is downloading and installing update **v${newVersion}**.\nActive game servers will remain online, but manager controls will temporarily restart.`,
+                        color: 5814783, // Cyan/Blue
+                        footer: { text: "ASA Server Manager 2.0" },
+                        timestamp: new Date().toISOString()
+                    }
+                ]
+            };
+
+            const globalWebhook = await getSetting('discord_webhook_url');
+            if (globalWebhook && globalWebhook.startsWith('http')) {
+                await fetch(globalWebhook, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(console.error);
+            }
+
+            const aseWebhook = await getSetting('ase_discord_webhook_url');
+            if (aseWebhook && aseWebhook.startsWith('http') && aseWebhook !== globalWebhook) {
+                await fetch(aseWebhook, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(console.error);
+            }
+        } catch (err) {
+            console.error('[UPDATER] Failed to send update notifications:', err);
+        }
+    };
+
     const downloadAndInstall = useCallback(async (
         updater?: Awaited<ReturnType<typeof check>> | null, 
         info?: {version: string} | null, 
         silent: boolean = false
     ) => {
         // Use refs as fallback to prevent stale closure reads
-        const resolvedUpdater = updater ?? updateObjRef.current;
+        let resolvedUpdater = updater ?? updateObjRef.current;
         const resolvedInfo = info ?? updateAvailableRef.current;
 
-        if (!resolvedUpdater || !resolvedInfo) return;
+        if (!resolvedInfo) return;
 
         if (!silent) {
             setUiState('downloading');
         }
         setError(null);
         setIsSignatureMismatch(false);
+        setDownloadProgress(0);
 
         try {
+            // If the updater object is not in state (e.g. we opened via event listener),
+            // run check() to fetch the active update object from tauri-plugin-updater.
+            if (!resolvedUpdater) {
+                console.log('[UPDATER] Updater object is null, fetching active update object...');
+                const freshUpdate = await check({ timeout: 30000 });
+                if (freshUpdate && freshUpdate.version === resolvedInfo.version) {
+                    resolvedUpdater = freshUpdate;
+                    setUpdateObj(freshUpdate);
+                } else {
+                    console.error('[UPDATER] Failed to resolve matching updater object. Returned:', freshUpdate);
+                    setError('Failed to initialize update download. Please restart the app and try again.');
+                    setUiState('prompt');
+                    return;
+                }
+            }
+
+            // Automatically notify active users/players before downloading
+            await notifyUsersOfUpdate(resolvedInfo.version);
+
             let downloaded = 0;
             let totalSize = 0;
 
@@ -283,6 +374,18 @@ export default function UpdateChecker() {
     useEffect(() => {
         getVersion().then(v => {
             setCurrentAppVersion(v);
+            
+            // Remember system: Check if the version has changed since the last run
+            const lastRunVersion = localStorage.getItem('last_run_version');
+            if (lastRunVersion && lastRunVersion !== v) {
+                // Relaunched after successful update!
+                toast.success(`Successfully updated to version v${v}!`, {
+                    duration: 6000,
+                    icon: '🚀'
+                });
+            }
+            localStorage.setItem('last_run_version', v);
+
             // Auto-prune skipped versions that are now irrelevant
             pruneSkippedVersions(v);
         }).catch(console.error);
@@ -362,6 +465,7 @@ export default function UpdateChecker() {
                 previousVersion: currentAppVersion,
             });
             setUiState('hidden');
+            toast.success(t('updateChecker.skippedToast', 'Version skipped. You can check for updates again in Settings.'));
         }
     };
 
@@ -457,7 +561,13 @@ export default function UpdateChecker() {
                 "animate-in zoom-in-95 duration-500 relative"
             )}>
                 {/* Header Graphic Background */}
-                <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-sky-500/20 to-transparent opacity-50 pointer-events-none"></div>
+                <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-sky-500/10 to-transparent opacity-50 pointer-events-none"></div>
+                <style dangerouslySetInnerHTML={{ __html: `
+                    @keyframes shimmer {
+                        0% { background-position: -200% 0; }
+                        100% { background-position: 200% 0; }
+                    }
+                `}} />
 
                 <div className="p-8 relative">
                     {/* Header */}
@@ -474,15 +584,15 @@ export default function UpdateChecker() {
                                 </div>
                             </div>
                             <div>
-                                <h3 className="text-2xl font-bold text-white tracking-tight">
+                                <h3 className="text-xl font-bold text-white tracking-tight">
                                     {uiState === 'ready' 
                                         ? t('updateChecker.readyTitle', 'Update Ready')
-                                        : t('updateChecker.title', 'Software Update')}
+                                        : t('updateChecker.title', 'Update Available')}
                                 </h3>
-                                <div className="flex items-center gap-2 mt-1.5 opacity-80">
-                                    <span className="px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-xs font-mono text-slate-400">v{currentAppVersion}</span>
-                                    <span className="text-slate-500">→</span>
-                                    <span className="px-2 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 text-xs font-mono text-sky-400 font-medium">v{updateAvailable?.version}</span>
+                                <div className="flex items-center gap-2 mt-2">
+                                    <span className="px-2.5 py-0.5 rounded-md bg-slate-950 border border-white/5 text-[10px] font-mono text-slate-400">v{currentAppVersion}</span>
+                                    <span className="text-slate-500 text-xs">→</span>
+                                    <span className="px-2.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 text-[10px] font-mono text-sky-400 font-medium">v{updateAvailable?.version}</span>
                                 </div>
                             </div>
                         </div>
@@ -500,15 +610,15 @@ export default function UpdateChecker() {
                     {/* Content */}
                     {uiState === 'ready' ? (
                         <div className="bg-slate-950/50 rounded-xl p-5 mb-8 border border-slate-800/80 shadow-inner text-center">
-                            <p className="text-slate-300 leading-relaxed">
+                            <p className="text-slate-350 text-sm leading-relaxed">
                                 {t('updateChecker.readyDesc', 'The update has been downloaded and is ready to install. Restart the application to apply the changes.')}
                             </p>
                         </div>
                     ) : (
-                        <div className="bg-slate-950/50 rounded-xl p-5 mb-6 border border-slate-800/80 max-h-48 overflow-y-auto custom-scrollbar shadow-inner">
-                            <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed font-medium">
+                        <div className="bg-slate-950/50 rounded-xl p-5 mb-6 border border-slate-800/80 max-h-48 overflow-y-auto custom-scrollbar shadow-inner text-slate-300">
+                            <div className="text-xs leading-relaxed whitespace-pre-wrap font-mono prose prose-invert max-w-none">
                                 {updateAvailable?.body}
-                            </p>
+                            </div>
                         </div>
                     )}
 
@@ -531,22 +641,22 @@ export default function UpdateChecker() {
                         </div>
                     )}
 
-                    {/* Progress Bar */}
+                    {/* Progress Bar with Realtime Animation */}
                     {uiState === 'downloading' && (
                         <div className="mb-8 space-y-3 bg-slate-950/30 p-5 rounded-xl border border-slate-800/50">
-                            <div className="flex justify-between text-sm font-medium text-sky-200/80">
+                            <div className="flex justify-between text-xs font-medium text-sky-200/85">
                                 <span className="flex items-center gap-2">
-                                    <RefreshCw className="w-4 h-4 animate-spin text-sky-400" />
-                                    {t('updateChecker.downloading', 'Downloading update...')}
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                                    {t('updateChecker.downloading', 'Downloading update files...')}
                                 </span>
-                                <span className="text-sky-400 font-mono text-lg">{Math.round(downloadProgress)}%</span>
+                                <span className="text-sky-400 font-mono text-base font-bold">{Math.round(downloadProgress)}%</span>
                             </div>
-                            <div className="relative h-3 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-700/50 shadow-inner">
+                            <div className="relative h-2.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800 shadow-inner">
                                 <div
-                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-300 ease-out shadow-[0_0_15px_rgba(56,189,248,0.6)]"
+                                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-300 ease-out shadow-[0_0_12px_rgba(56,189,248,0.5)]"
                                     style={{ width: `${downloadProgress}%` }}
                                 >
-                                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                                    <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.15)_50%,transparent_100%)] animate-[shimmer_1.5s_infinite] bg-[length:200%_100%]"></div>
                                 </div>
                             </div>
                         </div>
@@ -560,12 +670,12 @@ export default function UpdateChecker() {
                                 className={cn(
                                     "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl",
                                     "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500",
-                                    "text-white font-bold tracking-wider uppercase",
-                                    "transition-all duration-300 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 border border-emerald-400/20"
+                                    "text-white font-bold tracking-wider uppercase text-xs",
+                                    "transition-all duration-300 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 border border-emerald-400/20 cursor-pointer"
                                 )}
                             >
-                                <RefreshCw className="w-5 h-5" />
-                                {t('updateChecker.relaunch', 'Restart Now')}
+                                <RefreshCw className="w-4 h-4" />
+                                {t('updateChecker.relaunch', 'RESTART NOW')}
                             </button>
                         ) : isSignatureMismatch ? (
                             <button
@@ -573,12 +683,12 @@ export default function UpdateChecker() {
                                 className={cn(
                                     "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl",
                                     "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500",
-                                    "text-white font-bold tracking-wider uppercase",
-                                    "transition-all duration-300 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 border border-amber-400/20"
+                                    "text-white font-bold tracking-wider uppercase text-xs",
+                                    "transition-all duration-300 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 border border-amber-400/20 cursor-pointer"
                                 )}
                             >
-                                <ExternalLink className="w-5 h-5" />
-                                {t('updateChecker.openGitHub', 'Download from GitHub')}
+                                <ExternalLink className="w-4 h-4" />
+                                {t('updateChecker.openGitHub', 'DOWNLOAD FROM GITHUB')}
                             </button>
                         ) : (
                             <button
@@ -587,20 +697,20 @@ export default function UpdateChecker() {
                                 className={cn(
                                     "flex-1 flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl",
                                     "bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500",
-                                    "text-white font-bold tracking-wider uppercase",
+                                    "text-white font-bold tracking-wider uppercase text-xs",
                                     "disabled:opacity-50 disabled:cursor-not-allowed",
-                                    "transition-all duration-300 shadow-lg shadow-sky-500/20 hover:shadow-sky-500/40 border border-sky-400/20"
+                                    "transition-all duration-300 shadow-lg shadow-sky-500/20 hover:shadow-sky-500/40 border border-sky-400/20 cursor-pointer"
                                 )}
                             >
                                 {uiState === 'downloading' ? (
                                     <>
-                                        <RefreshCw className="w-5 h-5 animate-spin" />
-                                        {t('updateChecker.installing', 'Installing...')}
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                        {t('updateChecker.installing', 'INSTALLING...')}
                                     </>
                                 ) : (
                                     <>
-                                        <Download className="w-5 h-5" />
-                                        {t('updateChecker.updateNow', 'Download & Install')}
+                                        <Download className="w-4 h-4" />
+                                        {t('updateChecker.updateNow', 'UPDATE NOW')}
                                     </>
                                 )}
                             </button>
@@ -609,9 +719,9 @@ export default function UpdateChecker() {
                         {uiState !== 'downloading' && (
                             <button
                                 onClick={() => setUiState('hidden')}
-                                className="px-6 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all border border-slate-700 hover:border-slate-600 font-bold uppercase tracking-wider"
+                                className="px-6 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-350 hover:text-white transition-all border border-slate-700 hover:border-slate-650 font-bold uppercase tracking-wider text-xs cursor-pointer"
                             >
-                                {uiState === 'ready' ? t('updateChecker.later', 'Later') : t('updateChecker.later', 'Not Now')}
+                                {uiState === 'ready' ? t('updateChecker.later', 'LATER') : t('updateChecker.later', 'LATER')}
                             </button>
                         )}
                         
@@ -619,9 +729,9 @@ export default function UpdateChecker() {
                             <button
                                 onClick={handleSkipVersion}
                                 title={t('updateChecker.skip', 'Skip this version')}
-                                className="px-4 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-slate-700 hover:border-slate-600"
+                                className="px-4 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-slate-700 hover:border-slate-650 cursor-pointer"
                             >
-                                <Clock className="w-5 h-5" />
+                                <Clock className="w-4 h-4" />
                             </button>
                         )}
                     </div>

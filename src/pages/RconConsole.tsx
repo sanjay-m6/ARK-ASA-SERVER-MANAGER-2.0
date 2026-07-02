@@ -9,6 +9,7 @@ import {
     Save,
     Trash2,
     MessageSquare,
+    Megaphone,
     UserX,
     Ban,
     Clock,
@@ -37,6 +38,7 @@ import { cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import toast from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useServerStore } from '../stores/serverStore';
 import { useRconStore, RconPlayer, CommandHistoryEntry } from '../stores/rconStore';
 import RconHelpModal from '../components/ui/RconHelpModal';
@@ -360,6 +362,54 @@ export default function RconConsole() {
         }
     }, [onlinePlayers, giveSelectedPlayerId]);
 
+    // Auto-Broadcast settings
+    const [showAutoBroadcastSettings, setShowAutoBroadcastSettings] = useState(false);
+    const [dinoWipeBroadcastEnabled, setDinoWipeBroadcastEnabled] = useState(() => {
+        return localStorage.getItem('rcon_dino_wipe_broadcast_enabled') !== 'false'; // default true
+    });
+    const [dinoWipeBroadcastMsg, setDinoWipeBroadcastMsg] = useState(() => {
+        return localStorage.getItem('rcon_dino_wipe_broadcast_msg') || '[Server Alert] A wild dino wipe has been initiated. Expect brief server lag!';
+    });
+    const [dinoWipeBroadcastDelay, setDinoWipeBroadcastDelay] = useState(() => {
+        const val = localStorage.getItem('rcon_dino_wipe_broadcast_delay');
+        return val !== null ? parseInt(val, 10) : 5; // default 5 seconds
+    });
+
+    const [saveWorldBroadcastEnabled, setSaveWorldBroadcastEnabled] = useState(() => {
+        return localStorage.getItem('rcon_save_world_broadcast_enabled') === 'true'; // default false
+    });
+    const [saveWorldBroadcastMsg, setSaveWorldBroadcastMsg] = useState(() => {
+        return localStorage.getItem('rcon_save_world_broadcast_msg') || '[Server Alert] Saving world state...';
+    });
+    const [saveWorldBroadcastDelay, setSaveWorldBroadcastDelay] = useState(() => {
+        const val = localStorage.getItem('rcon_save_world_broadcast_delay');
+        return val !== null ? parseInt(val, 10) : 0; // default 0 seconds
+    });
+
+    useEffect(() => {
+        localStorage.setItem('rcon_dino_wipe_broadcast_enabled', String(dinoWipeBroadcastEnabled));
+    }, [dinoWipeBroadcastEnabled]);
+
+    useEffect(() => {
+        localStorage.setItem('rcon_dino_wipe_broadcast_msg', dinoWipeBroadcastMsg);
+    }, [dinoWipeBroadcastMsg]);
+
+    useEffect(() => {
+        localStorage.setItem('rcon_dino_wipe_broadcast_delay', String(dinoWipeBroadcastDelay));
+    }, [dinoWipeBroadcastDelay]);
+
+    useEffect(() => {
+        localStorage.setItem('rcon_save_world_broadcast_enabled', String(saveWorldBroadcastEnabled));
+    }, [saveWorldBroadcastEnabled]);
+
+    useEffect(() => {
+        localStorage.setItem('rcon_save_world_broadcast_msg', saveWorldBroadcastMsg);
+    }, [saveWorldBroadcastMsg]);
+
+    useEffect(() => {
+        localStorage.setItem('rcon_save_world_broadcast_delay', String(saveWorldBroadcastDelay));
+    }, [saveWorldBroadcastDelay]);
+
     const [command, setCommand] = useState('');
     const [historyIndex, setHistoryIndex] = useState(-1);
     const terminalRef = useRef<HTMLDivElement>(null);
@@ -470,9 +520,13 @@ export default function RconConsole() {
 
     const addToHistory = useCallback((cmd: string, response: string, success: boolean) => {
         if (!selectedServerId) return;
+        let cleanResponse = response;
+        if (cleanResponse && cleanResponse.trim() === 'Server received, But no response!!') {
+            cleanResponse = 'Command executed successfully';
+        }
         addHistory(selectedServerId, {
             command: cmd,
-            response,
+            response: cleanResponse,
             timestamp: new Date(),
             success,
         });
@@ -569,6 +623,50 @@ export default function RconConsole() {
         const cmdToSend = cmd || command;
         if (!cmdToSend.trim() || !selectedServerId || !isConnected) return;
 
+        const normalized = cmdToSend.trim().toLowerCase();
+        const isDinoWipe = normalized.endsWith('destroywilddinos');
+        const isSaveWorld = normalized.endsWith('saveworld');
+
+        if (isDinoWipe && dinoWipeBroadcastEnabled) {
+            const msg = dinoWipeBroadcastMsg.trim();
+            if (msg) {
+                try {
+                    await invoke<RconResponse>('rcon_send_command', {
+                        serverId: selectedServerId,
+                        command: `Broadcast "${msg}"`,
+                    });
+                    addToHistory(`Broadcast "${msg}"`, 'Broadcast sent successfully', true);
+                } catch (e) {
+                    console.error('Failed to send auto-broadcast before dino wipe:', e);
+                    addToHistory(`Broadcast "${msg}"`, String(e), false);
+                }
+            }
+            if (dinoWipeBroadcastDelay > 0) {
+                toast.loading(`Waiting ${dinoWipeBroadcastDelay}s before Dino Wipe...`, { id: 'dino_wipe_toast' });
+                await new Promise(resolve => setTimeout(resolve, dinoWipeBroadcastDelay * 1000));
+                toast.dismiss('dino_wipe_toast');
+            }
+        } else if (isSaveWorld && saveWorldBroadcastEnabled) {
+            const msg = saveWorldBroadcastMsg.trim();
+            if (msg) {
+                try {
+                    await invoke<RconResponse>('rcon_send_command', {
+                        serverId: selectedServerId,
+                        command: `Broadcast "${msg}"`,
+                    });
+                    addToHistory(`Broadcast "${msg}"`, 'Broadcast sent successfully', true);
+                } catch (e) {
+                    console.error('Failed to send auto-broadcast before save:', e);
+                    addToHistory(`Broadcast "${msg}"`, String(e), false);
+                }
+            }
+            if (saveWorldBroadcastDelay > 0) {
+                toast.loading(`Waiting ${saveWorldBroadcastDelay}s before World Save...`, { id: 'save_world_toast' });
+                await new Promise(resolve => setTimeout(resolve, saveWorldBroadcastDelay * 1000));
+                toast.dismiss('save_world_toast');
+            }
+        }
+
         try {
             const response = await invoke<RconResponse>('rcon_send_command', {
                 serverId: selectedServerId,
@@ -595,7 +693,22 @@ export default function RconConsole() {
                 setIsStreamingLogs(false);
             }
         }
-    }, [command, selectedServerId, isConnected, addToHistory, setLastError, setConnected, setPlayers, setConnectionInfo]);
+    }, [
+        command,
+        selectedServerId,
+        isConnected,
+        addToHistory,
+        setLastError,
+        setConnected,
+        setPlayers,
+        setConnectionInfo,
+        dinoWipeBroadcastEnabled,
+        dinoWipeBroadcastMsg,
+        dinoWipeBroadcastDelay,
+        saveWorldBroadcastEnabled,
+        saveWorldBroadcastMsg,
+        saveWorldBroadcastDelay
+    ]);
 
     // Connection Heartbeat: Verify connection is still alive every 15 seconds
     useEffect(() => {
@@ -664,9 +777,25 @@ export default function RconConsole() {
                 message,
             });
             toast.success(t('rcon.broadcastSent', 'Announcement sent'));
-            addToHistory(`ServerChat ${message}`, t('rcon.broadcastSent', 'Announcement sent'), true);
+            addToHistory(`Broadcast ${message}`, t('rcon.broadcastSent', 'Announcement sent'), true);
         } catch (error) {
             toast.error(t('rcon.broadcastFailed', { error: String(error), defaultValue: `Broadcast failed: ${error}` }));
+        }
+    }, [selectedServerId, addToHistory, t]);
+
+    const sendChatMessage = useCallback(async () => {
+        const message = prompt(t('rcon.chatPrompt', 'Enter the global chat message:'));
+        if (!message || !selectedServerId) return;
+
+        try {
+            const response = await invoke<RconResponse>('rcon_send_command', {
+                serverId: selectedServerId,
+                command: `ServerChat ${message}`,
+            });
+            toast.success(t('rcon.chatSent', 'Chat message sent'));
+            addToHistory(`ServerChat ${message}`, response.data || response.message, response.success);
+        } catch (error) {
+            toast.error(t('rcon.chatFailed', { error: String(error), defaultValue: `Failed to send chat: ${error}` }));
         }
     }, [selectedServerId, addToHistory, t]);
 
@@ -833,6 +962,25 @@ export default function RconConsole() {
         setSaveValidationResult(null);
 
         try {
+            if (saveWorldBroadcastEnabled && saveWorldBroadcastMsg.trim()) {
+                const msg = saveWorldBroadcastMsg.trim();
+                try {
+                    await invoke<RconResponse>('rcon_send_command', {
+                        serverId: selectedServerId,
+                        command: `Broadcast "${msg}"`,
+                    });
+                    addToHistory(`Broadcast "${msg}"`, 'Broadcast sent successfully', true);
+                } catch (e) {
+                    console.error('Failed to send auto-broadcast before manual save:', e);
+                    addToHistory(`Broadcast "${msg}"`, String(e), false);
+                }
+                if (saveWorldBroadcastDelay > 0) {
+                    toast.loading(`Waiting ${saveWorldBroadcastDelay}s before World Save...`, { id: 'save_world_toast' });
+                    await new Promise(resolve => setTimeout(resolve, saveWorldBroadcastDelay * 1000));
+                    toast.dismiss('save_world_toast');
+                }
+            }
+
             // Step 1: Send SaveWorld command via RCON
             await invoke<RconResponse>('rcon_save_world', { serverId: selectedServerId });
             
@@ -1062,8 +1210,26 @@ export default function RconConsole() {
                                     disabled={!isConnected}
                                     className="flex items-center gap-2 px-3.5 py-2 bg-amber-950/20 hover:bg-amber-900/20 border border-amber-800/30 rounded-xl text-xs text-amber-400 font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
-                                    <MessageSquare className="w-4 h-4" />
+                                    <Megaphone className="w-4 h-4" />
                                     {t('rcon.quickCommands.broadcast', 'Broadcast')}
+                                </button>
+                                <button
+                                    onClick={sendChatMessage}
+                                    disabled={!isConnected}
+                                    className="flex items-center gap-2 px-3.5 py-2 bg-blue-950/20 hover:bg-blue-900/20 border border-blue-800/30 rounded-xl text-xs text-blue-400 font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    <MessageSquare className="w-4 h-4" />
+                                    {t('rcon.quickCommands.serverChat', 'Send Chat')}
+                                </button>
+                                <button
+                                    onClick={() => setShowAutoBroadcastSettings(!showAutoBroadcastSettings)}
+                                    className={cn(
+                                        "flex items-center gap-2 px-3.5 py-2 border rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 focus:outline-none",
+                                        showAutoBroadcastSettings ? "bg-cyan-950/20 border-cyan-800/30 text-cyan-400" : "bg-slate-900/60 border-slate-800/85 text-slate-300 hover:text-white"
+                                    )}
+                                >
+                                    <Sliders className="w-4 h-4" />
+                                    <span>{t('rcon.quickCommands.autoBroadcast', 'Auto Broadcast Settings')}</span>
                                 </button>
                                 <button
                                 onClick={() => {
@@ -1076,6 +1242,106 @@ export default function RconConsole() {
                                     <span>{t('rcon.clearLogs', 'Clear')}</span>
                                 </button>
                             </div>
+
+                            {/* Auto Broadcast Collapsible Settings Panel */}
+                            <AnimatePresence>
+                                {showAutoBroadcastSettings && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        className="overflow-hidden mb-4 bg-slate-950/60 border border-slate-850 rounded-xl p-4 space-y-4 text-xs text-slate-300 font-sans shadow-inner"
+                                    >
+                                        <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
+                                            <span className="font-bold text-white flex items-center gap-1.5">
+                                                <Sliders className="w-4 h-4 text-cyan-400" />
+                                                Auto-Broadcast Action Alerts
+                                            </span>
+                                            <span className="text-[10px] text-slate-500 uppercase tracking-wider">
+                                                Configure alerts sent to players before actions
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* Dino Wipe Block */}
+                                            <div className="space-y-3 bg-slate-900/40 p-3 rounded-lg border border-slate-850">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="font-semibold text-slate-200 flex items-center gap-2 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={dinoWipeBroadcastEnabled}
+                                                            onChange={(e) => setDinoWipeBroadcastEnabled(e.target.checked)}
+                                                            className="rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                                                        />
+                                                        Auto Broadcast on Dino Wipe
+                                                    </label>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <span className="text-[10px] text-slate-500">Alert Message</span>
+                                                    <input
+                                                        type="text"
+                                                        value={dinoWipeBroadcastMsg}
+                                                        onChange={(e) => setDinoWipeBroadcastMsg(e.target.value)}
+                                                        disabled={!dinoWipeBroadcastEnabled}
+                                                        placeholder="Message to display..."
+                                                        className="w-full bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-700 focus:outline-none disabled:opacity-50"
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-slate-500">Execution Delay (Seconds):</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="60"
+                                                        value={dinoWipeBroadcastDelay}
+                                                        onChange={(e) => setDinoWipeBroadcastDelay(parseInt(e.target.value, 10) || 0)}
+                                                        disabled={!dinoWipeBroadcastEnabled}
+                                                        className="w-16 bg-slate-950 border border-slate-850 rounded-lg px-2 py-1 text-center text-white focus:outline-none disabled:opacity-50"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Save World Block */}
+                                            <div className="space-y-3 bg-slate-900/40 p-3 rounded-lg border border-slate-850">
+                                                <div className="flex items-center justify-between">
+                                                    <label className="font-semibold text-slate-200 flex items-center gap-2 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={saveWorldBroadcastEnabled}
+                                                            onChange={(e) => setSaveWorldBroadcastEnabled(e.target.checked)}
+                                                            className="rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                                                        />
+                                                        Auto Broadcast on Save World
+                                                    </label>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <span className="text-[10px] text-slate-500">Alert Message</span>
+                                                    <input
+                                                        type="text"
+                                                        value={saveWorldBroadcastMsg}
+                                                        onChange={(e) => setSaveWorldBroadcastMsg(e.target.value)}
+                                                        disabled={!saveWorldBroadcastEnabled}
+                                                        placeholder="Message to display..."
+                                                        className="w-full bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-700 focus:outline-none disabled:opacity-50"
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] text-slate-500">Execution Delay (Seconds):</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="60"
+                                                        value={saveWorldBroadcastDelay}
+                                                        onChange={(e) => setSaveWorldBroadcastDelay(parseInt(e.target.value, 10) || 0)}
+                                                        disabled={!saveWorldBroadcastEnabled}
+                                                        className="w-16 bg-slate-950 border border-slate-850 rounded-lg px-2 py-1 text-center text-white focus:outline-none disabled:opacity-50"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
 
                             {/* Terminal Shell scroll view */}
                             <div

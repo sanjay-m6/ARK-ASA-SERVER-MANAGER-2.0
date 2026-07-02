@@ -26,7 +26,8 @@ import {
   RefreshCw,
   Search,
   Languages,
-  Swords
+  Swords,
+  Users
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence } from 'framer-motion';
@@ -98,6 +99,7 @@ export default function Sidebar() {
     { name: 'RCON Console', path: '/ase/rcon', icon: Terminal },
     { name: 'Scheduler', path: '/ase/scheduler', icon: Clock },
     { name: 'Mod Management', path: '/ase/mods', icon: Puzzle },
+    { name: 'Player Management', path: '/ase/players', icon: Users },
     { name: 'Server Configuration', path: '/ase/config', icon: FileEdit },
     { name: 'Cluster Manager', path: '/ase/clusters', icon: Network },
     { name: 'Backups', path: '/ase/backups', icon: Database },

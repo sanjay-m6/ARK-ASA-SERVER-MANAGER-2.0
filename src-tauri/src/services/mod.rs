@@ -22,6 +22,7 @@ pub mod server_installer;
 pub mod steamcmd;
 pub mod cloud_backup_service;
 pub mod mod_watchdog;
+pub mod mod_validator;
 pub mod workshop_metadata;
 pub mod autosave;
 pub mod server_organization;

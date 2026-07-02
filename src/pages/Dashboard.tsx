@@ -370,11 +370,28 @@ export default function Dashboard() {
     // Subscribe to real-time status updates
     let unlistenStatus: () => void;
     let unlistenLogAnomaly: () => void;
+    let unlistenModFailure: () => void;
 
     const setupListener = async () => {
       unlistenStatus = await listen<{ server_id: number, status: any }>('server-status-change', (event) => {
         console.log('⚡ Server Status Update:', event.payload);
         updateServerStatus(event.payload.server_id, event.payload.status);
+      });
+
+      unlistenModFailure = await listen<{ server_id: number, error_type: string, details: string, suggestions: string[] }>('mod_load_failure', (event) => {
+        console.error('🧩 Mod Load Failure:', event.payload);
+        const { server_id, error_type, suggestions } = event.payload;
+
+        const title = error_type === 'CFCore_NoMachineId'
+          ? `Server ${server_id}: CFCore Machine ID Missing`
+          : error_type === 'CFCore_LibraryLoadFailed'
+            ? `Server ${server_id}: CFCore Library Load Failed`
+            : `Server ${server_id}: Mod Loading Failed`;
+
+        toast.error(
+          `${title}\n\n${suggestions.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`,
+          { duration: 15000, icon: '🧩', style: { whiteSpace: 'pre-line', maxWidth: '500px' } }
+        );
       });
 
       unlistenLogAnomaly = await listen<any>('log_anomaly', async (event) => {
@@ -440,6 +457,7 @@ export default function Dashboard() {
       clearInterval(serverInterval);
       if (unlistenStatus) unlistenStatus();
       if (unlistenLogAnomaly) unlistenLogAnomaly();
+      if (unlistenModFailure) unlistenModFailure();
     };
   }, [setServers, setSystemInfo, updateServerStatus, refreshServers]);
 

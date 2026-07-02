@@ -59,6 +59,11 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     { tab: 'rates', section: 'ServerSettings', type: 'number', key: 'ItemStackSizeMultiplier', label: 'Item Stack Size', step: 0.1, def: 1.0 },
     { tab: 'rates', section: 'ServerSettings', type: 'number', key: 'DifficultyOffset', label: 'Difficulty Offset', desc: 'Base difficulty scale (0.0 - 1.0)', step: 0.1, def: 1.0 },
     { tab: 'rates', section: 'ServerSettings', type: 'number', key: 'OverrideOfficialDifficulty', label: 'Override Official Difficulty', desc: 'Max wild dino level multiplier (e.g. 5.0 = lvl 150)', step: 0.1, def: 5.0 },
+    { tab: 'rates', section: '/Script/ShooterGame.ShooterGameMode', type: 'number', key: 'CropGrowthSpeedMultiplier', label: 'Crop Growth Speed', step: 0.1, def: 1.0 },
+    { tab: 'rates', section: '/Script/ShooterGame.ShooterGameMode', type: 'number', key: 'CropDecaySpeedMultiplier', label: 'Crop Decay Speed', step: 0.1, def: 1.0 },
+    { tab: 'rates', section: '/Script/ShooterGame.ShooterGameMode', type: 'number', key: 'PoopIntervalMultiplier', label: 'Poop Interval', step: 0.1, def: 1.0 },
+    { tab: 'rates', section: '/Script/ShooterGame.ShooterGameMode', type: 'number', key: 'LayEggIntervalMultiplier', label: 'Lay Egg Interval', step: 0.1, def: 1.0 },
+    { tab: 'rates', section: '/Script/ShooterGame.ShooterGameMode', type: 'number', key: 'HairGrowthSpeedMultiplier', label: 'Hair Growth Speed', step: 0.1, def: 1.0 },
 
     // PLAYER
     { tab: 'player', section: 'ServerSettings', type: 'toggle', key: 'AllowThirdPersonPlayer', label: 'Allow Third Person', def: true },

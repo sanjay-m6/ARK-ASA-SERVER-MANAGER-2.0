@@ -51,14 +51,23 @@ jobs:
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ github.ref_name }}
 
-            This release resolves configuration saving issues on the ASE side, adds the missing RCONServerLogBuffer option, and optimizes the INI parser for multi-line parenthesized overrides.
+            This release introduces major updates to configuration tools including a visual Loot Crate Editor, Dino Spawn controls, an advanced Mod Validator, and full ASE Player Management.
 
-            ### 🆕 New Features & Improvements in v4.5.3
-            - **⚙️ Fixed ASE Config Page & Saving Issues**: Resolved serialization casing mismatches between the React frontend and Rust backend (for fields like `Max Difficulty`, `Prevent Offline PvP`, `Prevent Offline PvP Interval`, and `Spectator Password`).
-            - **🔧 INI Parser Multi-Line Continuation Fix**: Rewrote the INI parser's multi-line continuation logic so that parenthesized settings (such as engram overrides or crafting costs) are preserved and saved correctly without formatting corruption.
-            - **💬 Added RCONServerLogBuffer Support**: Added full support for reading, writing, and editing the `RCONServerLogBuffer` configuration option.
+            ### 🆕 New Features & Improvements in v4.5.4
+            - **🦖 Dino Spawn Editor**: Added visual control over creature spawn weighting and limits.
+            - **🎁 Visual Loot Crate Editor**: Introduced a new visual editor to customize loot crate drops easily without touching raw INI files.
+            - **👥 ASE Player Manager**: Complete pipeline for managing players in ARK: Survival Evolved (kick, ban, whitelist).
+            - **🛡️ Mod Validator**: Added a robust Rust-based `mod_validator.rs` service for verifying mod file integrity.
+            - **📈 Log Watcher Optimization**: Enhanced the background watcher to better detect RCON state changes and crash conditions.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.5.3 — ASE Config Saving & RCON Fixes</summary>
+
+            - **⚙️ Fixed ASE Config Page & Saving Issues**: Resolved serialization casing mismatches.
+            - **🔧 INI Parser Multi-Line Continuation Fix**: Rewrote the INI parser's multi-line continuation logic for parenthesized overrides.
+            - **💬 Added RCONServerLogBuffer Support**: Added full support for reading, writing, and editing the `RCONServerLogBuffer` configuration option.
+            </details>
             <details>
             <summary>v4.5.2 — Custom Titlebar & Apple Window Controls</summary>
 
