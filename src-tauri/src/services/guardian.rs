@@ -488,6 +488,7 @@ impl GuardianService {
                                 }
 
                                 // Disable in DB & update status
+                                let mut intelligent_mode_enabled = false;
                                 if let Ok(db_guard) = state.db.lock() {
                                     if let Ok(conn) = db_guard.get_connection() {
                                         if server_id < 0 {
@@ -500,33 +501,65 @@ impl GuardianService {
                                                 [-server_id]
                                             );
                                         } else {
-                                            let _ = conn.execute(
-                                                "UPDATE servers SET auto_restart = 0, status = 'crashed' WHERE id = ?",
-                                                [server_id]
+                                            let result: Result<i32, _> = conn.query_row(
+                                                "SELECT intelligent_mode FROM servers WHERE id = ?1",
+                                                [server_id],
+                                                |row| row.get(0),
                                             );
+                                            if let Ok(im) = result {
+                                                if im != 0 {
+                                                    intelligent_mode_enabled = true;
+                                                }
+                                            }
+                                            
+                                            if !intelligent_mode_enabled {
+                                                let _ = conn.execute(
+                                                    "UPDATE servers SET auto_restart = 0, status = 'crashed' WHERE id = ?",
+                                                    [server_id]
+                                                );
+                                            }
                                         }
                                     }
                                 }
 
-                                // Log crash event (not restarted due to loop prevention)
-                                {
-                                    let service = self_service.lock().await;
-                                    service.log_crash(server_id, &server_name, "crashed (auto-restart aborted: crash loop prevention)", false).await;
+                                if intelligent_mode_enabled {
+                                    println!("🛡️ Guardian Watchdog: Escalating server {} to Intelligent Mode (mod cache clear + restart without mods)", server_id);
+                                    
+                                    // Log crash event
+                                    {
+                                        let service = self_service.lock().await;
+                                        service.log_crash(server_id, &server_name, "crash loop prevented (escalating to intelligent repair)", false).await;
+                                    }
+
+                                    // Trigger repair asynchronously
+                                    let app_clone = app_handle.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        let _ = crate::services::process_manager::trigger_intelligent_repair(app_clone, server_id).await;
+                                    });
+                                    
+                                    // Note: We don't re-enable auto-restart here. If repair fails, it stays off. 
+                                    // If repair succeeds, it stays running without watchdog (until the user manually stops/starts it or toggles watchdog).
+                                } else {
+                                    // Log crash event (not restarted due to loop prevention)
+                                    {
+                                        let service = self_service.lock().await;
+                                        service.log_crash(server_id, &server_name, "crashed (auto-restart aborted: crash loop prevention)", false).await;
+                                    }
+    
+                                    // Emit status change event for frontend
+                                    let _ = app_handle.emit("server-status-change", serde_json::json!({
+                                        "server_id": if server_id < 0 { -server_id } else { server_id },
+                                        "status": "crashed"
+                                    }));
+    
+                                    // Emit alert event to frontend
+                                    let _ = app_handle.emit("server-health-alert", serde_json::json!({
+                                        "server_id": if server_id < 0 { -server_id } else { server_id },
+                                        "serverName": server_name,
+                                        "type": "crash_loop_prevented",
+                                        "message": format!("Crash loop detected! Auto-restart disabled for '{}' to prevent system degradation.", server_name)
+                                    }));
                                 }
-
-                                // Emit status change event for frontend
-                                let _ = app_handle.emit("server-status-change", serde_json::json!({
-                                    "server_id": if server_id < 0 { -server_id } else { server_id },
-                                    "status": "crashed"
-                                }));
-
-                                // Emit alert event to frontend
-                                let _ = app_handle.emit("server-health-alert", serde_json::json!({
-                                    "server_id": if server_id < 0 { -server_id } else { server_id },
-                                    "serverName": server_name,
-                                    "type": "crash_loop_prevented",
-                                    "message": format!("Crash loop detected! Auto-restart disabled for '{}' to prevent system degradation.", server_name)
-                                }));
                             } else {
                                 // Safe to restart!
                                 println!("🛡️ Guardian Watchdog: Server '{}' restarting automatically.", server_name);

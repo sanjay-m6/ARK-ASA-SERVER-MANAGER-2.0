@@ -652,41 +652,12 @@ impl ProcessManager {
                         });
                     }
 
-                    // Check if intelligent_mode is enabled for auto-repair
-                    let mut should_auto_repair = false;
-                    let mut server_install_path: Option<String> = None;
-                    
-                    if exit_code != 0 {
-                        if let Some(state) = monitor_handle.try_state::<AppState>() {
-                            if let Ok(db) = state.db.lock() {
-                                if let Ok(conn) = db.get_connection() {
-                                    // Check if intelligent_mode is enabled
-                                    let result: Result<(i32, String), _> = conn.query_row(
-                                        "SELECT intelligent_mode, install_path FROM servers WHERE id = ?1",
-                                        [id],
-                                        |row| Ok((row.get::<usize, i32>(0)?, row.get::<usize, String>(1)?)),
-                                    );
-                                    if let Ok((intelligent_mode, install_path)) = result {
-                                        if intelligent_mode != 0 {
-                                            should_auto_repair = true;
-                                            server_install_path = Some(install_path);
-                                            println!(
-                                                "  🔧 Intelligent Mode enabled for server {} - will attempt auto-repair",
-                                                id
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
                     // Emit status change event
                     let _ = monitor_handle.emit(
                         "server-status-change",
                         ServerStatusEvent {
                             server_id: id,
-                            status: if should_auto_repair { "repairing".to_string() } else { status.to_string() },
+                            status: status.to_string(),
                         },
                     );
 
@@ -694,7 +665,7 @@ impl ProcessManager {
                     if let Some(state) = monitor_handle.try_state::<AppState>() {
                         if let Ok(db) = state.db.lock() {
                             if let Ok(conn) = db.get_connection() {
-                                let mut db_status = if should_auto_repair { "repairing".to_string() } else { status.to_string() };
+                                let mut db_status = status.to_string();
                                 
                                 // CRITICAL FIX: If the server was killed due to startup timeout, do NOT overwrite the status with "stopped" or "crashed".
                                 // We check the current status in DB first.
@@ -735,183 +706,14 @@ impl ProcessManager {
                         ServerLogEvent {
                             server_id: id,
                             line: format!(
-                                "[Manager] Server process exited with code {}. Status: {}{}",
+                                "[Manager] Server process exited with code {}. Status: {}",
                                 exit_code, 
-                                status,
-                                if should_auto_repair { " - Auto-repair initiating..." } else { "" }
+                                status
                             ),
                             is_stderr: exit_code != 0,
                         },
                     );
 
-                    // Auto-repair: Clear mod cache and restart without mods
-                    if should_auto_repair {
-                        let recovery_handle = monitor_handle.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let name = get_server_name(&recovery_handle, id);
-                            send_discord_webhook(
-                                &recovery_handle,
-                                "serverRecovery",
-                                DiscordEmbed::server_recovery(
-                                    &name,
-                                    true,
-                                    "Intelligent Mode auto-repair triggered. Clearing mod caches and restarting the server without mods...",
-                                ),
-                            ).await;
-                        });
-
-                        if let Some(install_path) = server_install_path {
-                            let repair_handle = monitor_handle.clone();
-                            let repair_id = id;
-                            
-                            // Spawn repair thread after releasing all locks
-                            std::thread::spawn(move || {
-                                println!("  🔧 Auto-repair: Starting repair process for server {}", repair_id);
-                                
-                                // Emit starting message
-                                let _ = repair_handle.emit(
-                                    "server_log",
-                                    ServerLogEvent {
-                                        server_id: repair_id,
-                                        line: "[Manager] Auto-repair: Waiting 3 seconds before repair...".to_string(),
-                                        is_stderr: false,
-                                    },
-                                );
-                                
-                                // Wait a moment before attempting repair
-                                std::thread::sleep(std::time::Duration::from_secs(3));
-                                
-                                // Clear mod cache (.temp folder)
-                                let temp_folder = std::path::PathBuf::from(&install_path)
-                                    .join("ShooterGame")
-                                    .join("Binaries")
-                                    .join("Win64")
-                                    .join("ShooterGame")
-                                    .join(".temp");
-                                
-                                if temp_folder.exists() {
-                                    println!("  🗑️ Auto-repair: Clearing mod cache at {:?}", temp_folder);
-                                    match std::fs::remove_dir_all(&temp_folder) {
-                                        Ok(_) => {
-                                            let _ = repair_handle.emit(
-                                                "server_log",
-                                                ServerLogEvent {
-                                                    server_id: repair_id,
-                                                    line: format!("[Manager] Cleared mod cache: {:?}", temp_folder),
-                                                    is_stderr: false,
-                                                },
-                                            );
-                                        }
-                                        Err(e) => {
-                                            println!("  ⚠️ Failed to clear mod cache: {}", e);
-                                        }
-                                    }
-                                }
-                                
-                                // Also try alternate temp location
-                                let alt_temp = std::path::PathBuf::from(&install_path)
-                                    .join("ShooterGame")
-                                    .join("Mods")
-                                    .join(".temp");
-                                if alt_temp.exists() {
-                                    println!("  🗑️ Auto-repair: Clearing alternate mod cache at {:?}", alt_temp);
-                                    let _ = std::fs::remove_dir_all(&alt_temp);
-                                }
-                                
-                                // Emit repair status
-                                let _ = repair_handle.emit(
-                                    "server_log",
-                                    ServerLogEvent {
-                                        server_id: repair_id,
-                                        line: "[Manager] Auto-repair: Starting server without mods...".to_string(),
-                                        is_stderr: false,
-                                    },
-                                );
-                                
-                                // Trigger restart without mods via Tauri command
-                                // Use runtime to call the async command
-                                match tokio::runtime::Runtime::new() {
-                                    Ok(rt) => {
-                                        rt.block_on(async {
-                                            // Get the state from the app handle
-                                            let state: tauri::State<'_, AppState> = repair_handle.state();
-                                            
-                                            // Import and call the start_server_no_mods command
-                                            if let Err(e) = crate::commands::server::start_server_no_mods(
-                                                repair_handle.clone(),
-                                                state,
-                                                repair_id,
-                                            ).await {
-                                                println!("  ❌ Auto-repair failed for server {}: {}", repair_id, e);
-                                                let _ = repair_handle.emit(
-                                                    "server_log",
-                                                    ServerLogEvent {
-                                                        server_id: repair_id,
-                                                        line: format!("[Manager] Auto-repair failed: {}. Please restart manually.", e),
-                                                        is_stderr: true,
-                                                    },
-                                                );
-
-                                                let fail_handle = repair_handle.clone();
-                                                let fail_err = e.clone();
-                                                tauri::async_runtime::spawn(async move {
-                                                    let name = get_server_name(&fail_handle, repair_id);
-                                                    send_discord_webhook(
-                                                        &fail_handle,
-                                                        "serverRecovery",
-                                                        DiscordEmbed::server_recovery(
-                                                            &name,
-                                                            false,
-                                                            &format!("Auto-repair failed: {}. Manual intervention is required.", fail_err),
-                                                        ),
-                                                    ).await;
-                                                });
-                                                
-                                                // Update status back to stopped
-                                                if let Some(state) = repair_handle.try_state::<AppState>() {
-                                                    if let Ok(db) = state.db.lock() {
-                                                        if let Ok(conn) = db.get_connection() {
-                                                            let _ = conn.execute(
-                                                                "UPDATE servers SET status = 'stopped' WHERE id = ?1",
-                                                                [repair_id],
-                                                            );
-                                                        }
-                                                    }
-                                                }
-                                            } else {
-                                                println!("  ✅ Auto-repair: Server {} restarted without mods", repair_id);
-                                                let _ = repair_handle.emit(
-                                                    "server_log",
-                                                    ServerLogEvent {
-                                                        server_id: repair_id,
-                                                        line: "[Manager] Auto-repair successful! Server restarted without mods.".to_string(),
-                                                        is_stderr: false,
-                                                    },
-                                                );
-
-                                                let success_handle = repair_handle.clone();
-                                                tauri::async_runtime::spawn(async move {
-                                                    let name = get_server_name(&success_handle, repair_id);
-                                                    send_discord_webhook(
-                                                        &success_handle,
-                                                        "serverRecovery",
-                                                        DiscordEmbed::server_recovery(
-                                                            &name,
-                                                            true,
-                                                            "Auto-repair successful! Mod caches cleared and server process restarted successfully.",
-                                                        ),
-                                                    ).await;
-                                                });
-                                            }
-                                        });
-                                    }
-                                    Err(e) => {
-                                        println!("  ❌ Failed to create tokio runtime for auto-repair: {}", e);
-                                    }
-                                }
-                            });
-                        }
-                    }
                 }
 
                 // Check for stuck servers (Running but not online for > 15 mins)
@@ -2017,6 +1819,152 @@ impl ProcessManager {
             Err(anyhow::anyhow!("Server is not running"))
         }
     }
+}
+
+/// Triggers intelligent repair for a server (clears mod caches and restarts without mods)
+pub async fn trigger_intelligent_repair(app_handle: tauri::AppHandle, server_id: i64) -> anyhow::Result<()> {
+    let state = app_handle.try_state::<crate::AppState>()
+        .ok_or_else(|| anyhow::anyhow!("Failed to get AppState"))?;
+        
+    let install_path = {
+        let db = state.db.lock().map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        let conn = db.get_connection().map_err(|_| anyhow::anyhow!("Failed to get DB connection"))?;
+        let path: String = conn.query_row(
+            "SELECT install_path FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        ).unwrap_or_default();
+        path
+    };
+
+    let name = crate::services::process_manager::get_server_name(&app_handle, server_id);
+    
+    // Notify Discord
+    crate::services::discord::send_discord_webhook(
+        &app_handle,
+        "serverRecovery",
+        crate::services::discord::DiscordEmbed::server_recovery(
+            &name,
+            true,
+            "Intelligent Mode auto-repair triggered. Clearing mod caches and restarting the server without mods...",
+        ),
+    ).await;
+
+    println!("  🔧 Auto-repair: Starting repair process for server {}", server_id);
+    
+    // Emit starting message
+    let _ = app_handle.emit(
+        "server_log",
+        ServerLogEvent {
+            server_id,
+            line: "[Manager] Auto-repair: Waiting 3 seconds before repair...".to_string(),
+            is_stderr: false,
+        },
+    );
+    
+    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+    
+    let temp_folder = std::path::PathBuf::from(&install_path)
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64")
+        .join("ShooterGame")
+        .join(".temp");
+    
+    if temp_folder.exists() {
+        println!("  🗑️ Auto-repair: Clearing mod cache at {:?}", temp_folder);
+        match std::fs::remove_dir_all(&temp_folder) {
+            Ok(_) => {
+                let _ = app_handle.emit(
+                    "server_log",
+                    ServerLogEvent {
+                        server_id,
+                        line: format!("[Manager] Cleared mod cache: {:?}", temp_folder),
+                        is_stderr: false,
+                    },
+                );
+            }
+            Err(e) => {
+                println!("  ⚠️ Failed to clear mod cache: {}", e);
+            }
+        }
+    }
+    
+    // Also try alternate temp location
+    let alt_temp = std::path::PathBuf::from(&install_path)
+        .join("ShooterGame")
+        .join("Mods")
+        .join(".temp");
+    if alt_temp.exists() {
+        println!("  🗑️ Auto-repair: Clearing alternate mod cache at {:?}", alt_temp);
+        let _ = std::fs::remove_dir_all(&alt_temp);
+    }
+    
+    let _ = app_handle.emit(
+        "server_log",
+        ServerLogEvent {
+            server_id,
+            line: "[Manager] Auto-repair: Starting server without mods...".to_string(),
+            is_stderr: false,
+        },
+    );
+    
+    if let Err(e) = crate::commands::server::start_server_no_mods(
+        app_handle.clone(),
+        state.clone(),
+        server_id,
+    ).await {
+        println!("  ❌ Auto-repair failed for server {}: {}", server_id, e);
+        let _ = app_handle.emit(
+            "server_log",
+            ServerLogEvent {
+                server_id,
+                line: format!("[Manager] Auto-repair failed: {}. Please restart manually.", e),
+                is_stderr: true,
+            },
+        );
+
+        crate::services::discord::send_discord_webhook(
+            &app_handle,
+            "serverRecovery",
+            crate::services::discord::DiscordEmbed::server_recovery(
+                &name,
+                false,
+                &format!("Auto-repair failed: {}. Manual intervention is required.", e),
+            ),
+        ).await;
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                let _ = conn.execute(
+                    "UPDATE servers SET status = ?1 WHERE id = ?2",
+                    rusqlite::params!["stopped", server_id],
+                );
+            }
+        }
+        return Err(anyhow::anyhow!("Auto-repair failed: {}", e));
+    }
+
+    println!("  ✅ Auto-repair: Server {} restarted without mods", server_id);
+    let _ = app_handle.emit(
+        "server_log",
+        ServerLogEvent {
+            server_id,
+            line: "[Manager] Auto-repair successful! Server restarted without mods.".to_string(),
+            is_stderr: false,
+        },
+    );
+
+    crate::services::discord::send_discord_webhook(
+        &app_handle,
+        "serverRecovery",
+        crate::services::discord::DiscordEmbed::server_recovery(
+            &name,
+            true,
+            "Auto-repair successful! Mod caches cleared and server process restarted successfully.",
+        ),
+    ).await;
+    
+    Ok(())
 }
 
 

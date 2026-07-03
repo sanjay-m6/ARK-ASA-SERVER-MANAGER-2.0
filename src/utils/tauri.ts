@@ -854,6 +854,7 @@ export interface SchedulerSettings {
     advancedUpdate?: boolean;
     advancedRestart?: boolean;
     advancedDinoWipe?: boolean;
+    watchdogEnabled?: boolean;
 }
 
 export interface ScheduledTask {

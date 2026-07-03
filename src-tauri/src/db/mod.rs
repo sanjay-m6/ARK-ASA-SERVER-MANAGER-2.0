@@ -260,6 +260,14 @@ impl Database {
             )?;
         }
 
+        if !columns.contains(&"watchdog_enabled".to_string()) {
+            println!("📦 Migration: Adding 'watchdog_enabled' to scheduler_settings");
+            conn.execute(
+                "ALTER TABLE scheduler_settings ADD COLUMN watchdog_enabled INTEGER DEFAULT 0",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -366,6 +374,7 @@ impl Database {
                 advanced_update INTEGER DEFAULT 0,
                 advanced_restart INTEGER DEFAULT 0,
                 advanced_dino_wipe INTEGER DEFAULT 0,
+                watchdog_enabled INTEGER DEFAULT 0,
                 FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
             )",
             [],
@@ -1000,6 +1009,7 @@ impl Database {
                         advanced_update INTEGER DEFAULT 0,
                         advanced_restart INTEGER DEFAULT 0,
                         advanced_dino_wipe INTEGER DEFAULT 0,
+                        watchdog_enabled INTEGER DEFAULT 0,
                         FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
                     )",
                     _ => "",

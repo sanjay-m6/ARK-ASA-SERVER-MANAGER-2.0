@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Plus, Trash2, ChevronDown, ChevronRight, PackageOpen, LayoutList, X } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, Trash2, ChevronDown, ChevronRight, PackageOpen, LayoutList, X } from 'lucide-react';
 import { arkItems, arkSupplyCrates } from '../../data/arkItems';
-import { parseLootCrateString, stringifyLootCrate, LootCrate, CrateItemSet, CrateItemEntry } from '../../utils/lootCrateParser';
-import { cn } from '../../utils/helpers';
+import { parseLootCrateString, stringifyLootCrate, LootCrate } from '../../utils/lootCrateParser';
 
 interface LootCrateEditorProps {
   value: string;
@@ -12,7 +11,6 @@ interface LootCrateEditorProps {
 export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
   const [expandedCrates, setExpandedCrates] = useState<Record<number, boolean>>({});
   const [expandedSets, setExpandedSets] = useState<Record<string, boolean>>({});
-  const [searchTerm, setSearchTerm] = useState('');
 
   const crates = useMemo(() => {
     const lines = typeof value === 'string' && value ? value.split('\n') : [];
@@ -54,11 +52,6 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
     const key = `${crateIdx}-${setIdx}`;
     setExpandedSets(prev => ({ ...prev, [key]: !prev[key] }));
   };
-
-  const filteredSupplyCrates = arkSupplyCrates.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="space-y-4">

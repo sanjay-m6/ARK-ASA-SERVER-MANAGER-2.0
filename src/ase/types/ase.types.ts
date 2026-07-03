@@ -477,7 +477,6 @@ export interface AseGameConfig {
   mutagenLevelBoostBredArray: number[];
   preventSpawnAnimations: boolean;
   configOverrideSupplyCrateItems: string[];
-  npcReplacements: string[];
 }
 
 export interface AseBackup {

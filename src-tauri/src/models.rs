@@ -398,6 +398,7 @@ pub struct SchedulerSettings {
     pub advanced_update: Option<bool>,
     pub advanced_restart: Option<bool>,
     pub advanced_dino_wipe: Option<bool>,
+    pub watchdog_enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

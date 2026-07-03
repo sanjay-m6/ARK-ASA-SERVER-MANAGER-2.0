@@ -59,6 +59,8 @@ jobs:
             - **👥 ASE Player Manager**: Complete pipeline for managing players in ARK: Survival Evolved (kick, ban, whitelist).
             - **🛡️ Mod Validator**: Added a robust Rust-based `mod_validator.rs` service for verifying mod file integrity.
             - **📈 Log Watcher Optimization**: Enhanced the background watcher to better detect RCON state changes and crash conditions.
+            - **🛡️ Guardian Watchdog for ASA**: Integrated Guardian Watchdog settings into the ASA Scheduler UI, bringing feature parity with ASE.
+            - **🤖 Intelligent Mode Auto-Escalation**: Guardian Watchdog now automatically escalates servers to Intelligent Repair mode (clears mod caches and restarts without mods) when an infinite crash loop is detected.
 
             ### 🛠️ Previous Releases
             <details>

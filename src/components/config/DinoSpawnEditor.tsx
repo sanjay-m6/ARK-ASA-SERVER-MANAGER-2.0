@@ -1,7 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Plus, Trash2, ShieldAlert, ArrowRight, Dna } from 'lucide-react';
 import { VANILLA_CREATURES } from '../../ase/data/creatures';
-import { cn } from '../../utils/helpers';
 
 interface DinoSpawnEditorProps {
   value: string;
@@ -31,8 +30,6 @@ const stringifyReplacements = (replacements: NPCReplacement[]): string => {
 };
 
 export function DinoSpawnEditor({ value, onChange }: DinoSpawnEditorProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  
   const replacements = useMemo(() => parseReplacements(value), [value]);
 
   const updateReplacement = (idx: number, newRep: NPCReplacement) => {

@@ -280,7 +280,8 @@ pub async fn get_scheduler_settings(
     let result = conn.query_row(
         "SELECT mode, basic_interval_hours, basic_warning_minutes, next_run_basic,
                 advanced_time, advanced_days, advanced_warning_minutes, 
-                advanced_shutdown, advanced_update, advanced_restart, advanced_dino_wipe
+                advanced_shutdown, advanced_update, advanced_restart, advanced_dino_wipe,
+                watchdog_enabled
          FROM scheduler_settings WHERE server_id = ?1",
         [server_id],
         |row| {
@@ -297,6 +298,7 @@ pub async fn get_scheduler_settings(
                 advanced_update: row.get(8).unwrap_or(Some(false)),
                 advanced_restart: row.get(9).unwrap_or(Some(false)),
                 advanced_dino_wipe: row.get(10).unwrap_or(Some(false)),
+                watchdog_enabled: row.get(11).unwrap_or(Some(false)),
             })
         },
     );
@@ -318,6 +320,7 @@ pub async fn get_scheduler_settings(
                 advanced_update: Some(false),
                 advanced_restart: Some(false),
                 advanced_dino_wipe: Some(false),
+                watchdog_enabled: Some(false),
             })
         }
         Err(e) => Err(e.to_string()),
@@ -328,6 +331,7 @@ pub async fn get_scheduler_settings(
 #[tauri::command]
 pub async fn save_scheduler_settings(
     state: State<'_, AppState>,
+    guardian: State<'_, crate::services::guardian::GuardianState>,
     settings: SchedulerSettings,
 ) -> Result<(), String> {
     println!(
@@ -335,44 +339,56 @@ pub async fn save_scheduler_settings(
         settings.server_id
     );
 
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-    conn.execute(
-        "INSERT INTO scheduler_settings (
-            server_id, mode, basic_interval_hours, basic_warning_minutes, next_run_basic,
-            advanced_time, advanced_days, advanced_warning_minutes,
-            advanced_shutdown, advanced_update, advanced_restart, advanced_dino_wipe
-         )
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
-         ON CONFLICT(server_id) DO UPDATE SET
-            mode = excluded.mode,
-            basic_interval_hours = excluded.basic_interval_hours,
-            basic_warning_minutes = excluded.basic_warning_minutes,
-            next_run_basic = excluded.next_run_basic,
-            advanced_time = excluded.advanced_time,
-            advanced_days = excluded.advanced_days,
-            advanced_warning_minutes = excluded.advanced_warning_minutes,
-            advanced_shutdown = excluded.advanced_shutdown,
-            advanced_update = excluded.advanced_update,
-            advanced_restart = excluded.advanced_restart,
-            advanced_dino_wipe = excluded.advanced_dino_wipe",
-        rusqlite::params![
-            settings.server_id,
-            settings.mode,
-            settings.basic_interval_hours,
-            settings.basic_warning_minutes,
-            settings.next_run_basic,
-            settings.advanced_time,
-            settings.advanced_days,
-            settings.advanced_warning_minutes,
-            settings.advanced_shutdown,
-            settings.advanced_update,
-            settings.advanced_restart,
-            settings.advanced_dino_wipe,
-        ],
+        conn.execute(
+            "INSERT INTO scheduler_settings (
+                server_id, mode, basic_interval_hours, basic_warning_minutes, next_run_basic,
+                advanced_time, advanced_days, advanced_warning_minutes,
+                advanced_shutdown, advanced_update, advanced_restart, advanced_dino_wipe, watchdog_enabled
+             )
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+             ON CONFLICT(server_id) DO UPDATE SET
+                mode = excluded.mode,
+                basic_interval_hours = excluded.basic_interval_hours,
+                basic_warning_minutes = excluded.basic_warning_minutes,
+                next_run_basic = excluded.next_run_basic,
+                advanced_time = excluded.advanced_time,
+                advanced_days = excluded.advanced_days,
+                advanced_warning_minutes = excluded.advanced_warning_minutes,
+                advanced_shutdown = excluded.advanced_shutdown,
+                advanced_update = excluded.advanced_update,
+                advanced_restart = excluded.advanced_restart,
+                advanced_dino_wipe = excluded.advanced_dino_wipe,
+                watchdog_enabled = excluded.watchdog_enabled",
+            rusqlite::params![
+                settings.server_id,
+                settings.mode,
+                settings.basic_interval_hours,
+                settings.basic_warning_minutes,
+                settings.next_run_basic,
+                settings.advanced_time,
+                settings.advanced_days,
+                settings.advanced_warning_minutes,
+                settings.advanced_shutdown,
+                settings.advanced_update,
+                settings.advanced_restart,
+                settings.advanced_dino_wipe,
+                settings.watchdog_enabled,
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    // Sync Guardian watchdog state
+    let _ = crate::services::guardian::set_auto_restart(
+        guardian,
+        settings.server_id,
+        settings.watchdog_enabled.unwrap_or(false),
     )
-    .map_err(|e| e.to_string())?;
+    .await;
 
     Ok(())
 }

@@ -12,7 +12,8 @@ import {
     Server as ServerIcon,
     CheckCircle,
     Download,
-    AlertTriangle
+    AlertTriangle,
+    Shield
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { toast } from 'react-hot-toast';
@@ -555,6 +556,71 @@ export default function Scheduler() {
                                 </>
                             )}
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Guardian Watchdog Section */}
+            <div className="border border-slate-800 rounded-xl p-6 bg-slate-900/40 relative overflow-hidden group shadow-xl">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_80%_80%,rgba(245,158,11,0.04),transparent)] pointer-events-none" />
+                
+                <div className="flex flex-col md:flex-row gap-8 items-center">
+                    <div className="flex-1 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Shield className="w-6 h-6 text-amber-400 shrink-0" />
+                                <h2 className="text-xl font-bold text-white">Guardian Watchdog</h2>
+                            </div>
+                            <button
+                                onClick={() => handleSave({ ...settings, watchdogEnabled: !settings.watchdogEnabled })}
+                                className={cn(
+                                    "relative w-14 h-7 rounded-full transition-all duration-300 flex-shrink-0 focus:outline-none hover:scale-105",
+                                    settings.watchdogEnabled
+                                        ? "bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
+                                        : "bg-slate-800 border border-white/10"
+                                )}
+                            >
+                                <span
+                                    className={cn(
+                                        "block w-5 h-5 rounded-full bg-white shadow transform transition-all duration-300",
+                                        settings.watchdogEnabled ? "translate-x-7" : "translate-x-1"
+                                    )}
+                                />
+                            </button>
+                        </div>
+                        <p className="text-sm text-slate-400 leading-relaxed font-medium">
+                            The **Watchdog Heartbeat** scans server connectivity and PID groups. If the server process crashes or terminates unexpectedly, it initiates a secure start sequence automatically, preventing infinite crash loops.
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[10px] font-mono text-slate-500 bg-slate-950/30 p-4 border border-white/5 rounded-xl">
+                            <div>CHECK SPEED: <span className="text-white font-bold block sm:inline">15 SECONDS</span></div>
+                            <div>SAFE-GUARDS: <span className="text-emerald-400 font-bold block sm:inline">ENABLED</span></div>
+                            <div>AUTORESTART: <span className={cn("font-bold block sm:inline", settings.watchdogEnabled ? "text-amber-400" : "text-slate-600")}>{settings.watchdogEnabled ? 'ON' : 'OFF'}</span></div>
+                            <div>LAST BEAT: <span className="text-white font-bold block sm:inline">JUST NOW</span></div>
+                        </div>
+                    </div>
+
+                    <div className="relative w-full md:w-64 h-44 bg-slate-950/50 border border-white/5 rounded-2xl flex flex-col items-center justify-center gap-3 overflow-hidden shrink-0">
+                        {settings.watchdogEnabled && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="absolute w-24 h-24 border border-amber-500/10 rounded-full animate-radar-ring" style={{ animationDelay: '0s' }} />
+                                <div className="absolute w-24 h-24 border border-amber-500/10 rounded-full animate-radar-ring" style={{ animationDelay: '1.2s' }} />
+                                <div className="absolute w-36 h-36 border border-amber-500/5 rounded-full" />
+                                <div className="absolute w-16 h-16 border border-amber-500/20 rounded-full" />
+                            </div>
+                        )}
+                        <div className="p-4 bg-slate-900/80 border border-white/10 rounded-full relative z-10 shadow-lg flex items-center justify-center">
+                            <Shield className={cn(
+                                "w-8 h-8 transition-transform duration-500",
+                                settings.watchdogEnabled ? "text-amber-400 scale-105 animate-pulse-subtle" : "text-slate-600"
+                            )} />
+                        </div>
+                        <div className="text-center relative z-10">
+                            <p className="text-xs font-bold text-white">Monitoring Service</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5 tracking-wider uppercase font-extrabold flex items-center gap-1.5 justify-center">
+                                <span className={cn("w-1.5 h-1.5 rounded-full inline-block shrink-0", settings.watchdogEnabled ? "bg-emerald-400 animate-ping" : "bg-slate-700")} />
+                                {settings.watchdogEnabled ? 'ACTIVE Heartbeat' : 'INACTIVE Standby'}
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
