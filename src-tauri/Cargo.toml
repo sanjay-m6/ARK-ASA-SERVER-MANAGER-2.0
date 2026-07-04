@@ -1,6 +1,6 @@
 [package]
 name = "asa-server-manager"
-version = "4.5.4"
+version = "4.5.5"
 description = "ASA Server Manager 2.0 - Professional ARK: Survival Ascended Server Management"
 authors = ["Sanjay"]
 edition = "2021"
@@ -64,6 +64,7 @@ urlencoding = "2"
 lazy_static = "1.4"
 hex = "0.4"
 local-ip-address = "0.6.13"
+indexmap = "2.14.0"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading", "Win32_UI_Shell", "Win32_Storage_FileSystem"] }

@@ -15,30 +15,43 @@ jobs:
     runs-on: windows-2025
     permissions:
       contents: write
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "version=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            echo "is_tag=true" >> "$GITHUB_OUTPUT"
+          else
+            VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+            echo "version=v${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "is_tag=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-      
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-      
+
       - name: Rust Cache
         uses: swatinem/rust-cache@v2.9.1
         with:
           workspaces: 'src-tauri -> target'
-      
+
       - name: Install Dependencies
         run: npm ci
-      
+
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0.5.15
         env:
@@ -46,23 +59,33 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'ARK Server Manager ${{ github.ref_name }}'
+          tagName: ${{ steps.version.outputs.version }}
+          releaseName: 'ARK Server Manager ${{ steps.version.outputs.version }}'
           releaseBody: |
-            ## 🚀 ARK Server Manager ${{ github.ref_name }}
+            ## 🚀 ARK Server Manager ${{ steps.version.outputs.version }}
 
-            This release introduces major updates to configuration tools including a visual Loot Crate Editor, Dino Spawn controls, an advanced Mod Validator, and full ASE Player Management.
+            ### Installation
+            - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
+            - **Fresh Install**: Download the `.exe` installer below and run it.
 
-            ### 🆕 New Features & Improvements in v4.5.4
+            ### 🆕 New Features & Improvements in v4.5.5
+            - **🔄 Rewritten Auto-Update System**: Completely overhauled the update checker with robust error handling, elevation detection, portable ZIP fallback, and direct download URLs when auto-update fails.
+            - **🦕 ASE Boolean Config Fix**: Fixed all boolean configuration values in the ASE (ARK: Survival Evolved) module. Booleans now correctly serialize as `True`/`False` (capitalized) instead of `true`/`false`, which ARK's INI parser requires.
+            - **🗺️ ASA Genesis Part 1 Map**: Added Genesis Part 1 map support for ASA with the correct `map_id: "Genesis"`.
+            - **⚙️ CI/CD Pipeline Rewrite**: Modernized the GitHub Actions build pipeline with automatic version extraction and reliable release publishing.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.5.4 — Dino Spawn Editor, Loot Crate Editor & Guardian Watchdog</summary>
+
             - **🦖 Dino Spawn Editor**: Added visual control over creature spawn weighting and limits.
             - **🎁 Visual Loot Crate Editor**: Introduced a new visual editor to customize loot crate drops easily without touching raw INI files.
             - **👥 ASE Player Manager**: Complete pipeline for managing players in ARK: Survival Evolved (kick, ban, whitelist).
             - **🛡️ Mod Validator**: Added a robust Rust-based `mod_validator.rs` service for verifying mod file integrity.
             - **📈 Log Watcher Optimization**: Enhanced the background watcher to better detect RCON state changes and crash conditions.
-            - **🛡️ Guardian Watchdog for ASA**: Integrated Guardian Watchdog settings into the ASA Scheduler UI, bringing feature parity with ASE.
-            - **🤖 Intelligent Mode Auto-Escalation**: Guardian Watchdog now automatically escalates servers to Intelligent Repair mode (clears mod caches and restarts without mods) when an infinite crash loop is detected.
-
-            ### 🛠️ Previous Releases
+            - **🛡️ Guardian Watchdog for ASA**: Integrated Guardian Watchdog settings into the ASA Scheduler UI.
+            - **🤖 Intelligent Mode Auto-Escalation**: Guardian Watchdog now automatically escalates servers to Intelligent Repair mode when an infinite crash loop is detected.
+            </details>
             <details>
             <summary>v4.5.3 — ASE Config Saving & RCON Fixes</summary>
 
@@ -89,5 +112,5 @@ jobs:
             - **⚡ Layout Overhauls**: Optimized settings sliders, grids, and Config Editor layouts.
             </details>
           releaseDraft: false
-          prerelease: ${{ contains(github.ref_name, 'beta') }}
+          prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}
           includeUpdaterJson: true

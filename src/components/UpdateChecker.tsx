@@ -5,7 +5,7 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getVersion } from '@tauri-apps/api/app';
 import { invoke } from '@tauri-apps/api/core';
-import { Download, X, RefreshCw, AlertCircle, Clock, Rocket, ExternalLink } from 'lucide-react';
+import { Download, X, RefreshCw, AlertCircle, Clock, Rocket, ExternalLink, Archive } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
@@ -74,6 +74,15 @@ function isTransientError(errorMsg: string): boolean {
            errorMsg.includes('Could not fetch a valid release JSON');
 }
 
+// Detect elevation / permission errors
+function isElevationError(errorMsg: string): boolean {
+    return errorMsg.includes('Access is denied') ||
+           errorMsg.includes('Permission denied') ||
+           errorMsg.includes('elevation') ||
+           errorMsg.includes('requires administrator') ||
+           errorMsg.includes('0x80070005');
+}
+
 // Retry helper with exponential backoff
 async function withRetry<T>(
     fn: () => Promise<T>,
@@ -106,14 +115,30 @@ async function withRetry<T>(
     throw lastError;
 }
 
+// Build the direct download URL for the latest release installer
+function getInstallerDownloadUrl(version: string): string {
+    const tag = version.startsWith('v') ? version : `v${version}`;
+    return `https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases/download/${tag}/ASA.Server.Manager_${version}_x64-setup.exe`;
+}
+
+// Build the portable ZIP download URL
+function getPortableDownloadUrl(version: string): string {
+    const tag = version.startsWith('v') ? version : `v${version}`;
+    return `https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases/download/${tag}/ASA-Server-Manager-Portable.zip`;
+}
+
+// Open a URL in the user's browser
+async function openUrl(url: string) {
+    try {
+        await invoke('plugin:opener|open_url', { url });
+    } catch {
+        window.open(url, '_blank');
+    }
+}
+
 // Open the releases page for manual download
 async function openReleasesPage() {
-    try {
-        await invoke('plugin:opener|open_url', { url: getReleasesUrl() });
-    } catch {
-        // Fallback: try window.open
-        window.open(getReleasesUrl(), '_blank');
-    }
+    await openUrl(getReleasesUrl());
 }
 
 // Export function for manual trigger from Settings
@@ -190,6 +215,7 @@ export default function UpdateChecker() {
     const [downloadProgress, setDownloadProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [isSignatureMismatch, setIsSignatureMismatch] = useState(false);
+    const [isElevationIssue, setIsElevationIssue] = useState(false);
     
     const [settingsRevision, setSettingsRevision] = useState(0); // Used to trigger interval restart
     const [currentAppVersion, setCurrentAppVersion] = useState<string>('');
@@ -287,6 +313,7 @@ export default function UpdateChecker() {
         }
         setError(null);
         setIsSignatureMismatch(false);
+        setIsElevationIssue(false);
         setDownloadProgress(0);
 
         try {
@@ -294,16 +321,37 @@ export default function UpdateChecker() {
             // run check() to fetch the active update object from tauri-plugin-updater.
             if (!resolvedUpdater) {
                 console.log('[UPDATER] Updater object is null, fetching active update object...');
-                const freshUpdate = await check({ timeout: 30000 });
-                if (freshUpdate && freshUpdate.version === resolvedInfo.version) {
-                    resolvedUpdater = freshUpdate;
-                    setUpdateObj(freshUpdate);
-                } else {
-                    console.error('[UPDATER] Failed to resolve matching updater object. Returned:', freshUpdate);
-                    setError('Failed to initialize update download. Please restart the app and try again.');
+                try {
+                    const freshUpdate = await withRetry(() => check({ timeout: 30000 }), 2, 3000);
+                    if (freshUpdate && freshUpdate.version === resolvedInfo.version) {
+                        resolvedUpdater = freshUpdate;
+                        setUpdateObj(freshUpdate);
+                    } else {
+                        console.warn('[UPDATER] Version mismatch on re-check. Expected:', resolvedInfo.version, 'Got:', freshUpdate?.version);
+                        // Even if versions don't match exactly, use what we got
+                        if (freshUpdate) {
+                            resolvedUpdater = freshUpdate;
+                            setUpdateObj(freshUpdate);
+                        }
+                    }
+                } catch (refetchErr) {
+                    console.error('[UPDATER] Failed to re-fetch updater object:', refetchErr);
+                    // If re-fetch fails, offer direct download instead of dead-ending
+                    setError(
+                        t('updateChecker.refetchFailed', 
+                          'Could not initialize the auto-updater. Please download the update manually.')
+                    );
                     setUiState('prompt');
+                    setIsSignatureMismatch(true); // triggers manual download button
                     return;
                 }
+            }
+
+            if (!resolvedUpdater) {
+                setError(t('updateChecker.noUpdater', 'Update check returned no data. Please try again or download manually.'));
+                setUiState('prompt');
+                setIsSignatureMismatch(true);
+                return;
             }
 
             // Automatically notify active users/players before downloading
@@ -338,12 +386,21 @@ export default function UpdateChecker() {
             console.error('Update failed:', err);
             const errorMsg = err instanceof Error ? err.message : String(err);
             const sigError = isSignatureError(errorMsg);
+            const elevError = isElevationError(errorMsg);
             
             setIsSignatureMismatch(sigError);
+            setIsElevationIssue(elevError);
 
-            const friendlyMsg = sigError
-                ? t('updateChecker.signatureError', 'The update signature does not match. This usually means the update was signed with a different key. Please download the latest version manually from GitHub Releases.')
-                : `${t('updateChecker.error', 'Update failed')}: ${errorMsg}`;
+            let friendlyMsg: string;
+            if (sigError) {
+                friendlyMsg = t('updateChecker.signatureError', 
+                    'The update signature does not match. This usually means the update was signed with a different key. Please download the latest version manually from GitHub Releases.');
+            } else if (elevError) {
+                friendlyMsg = t('updateChecker.elevationError',
+                    'The updater needs Administrator privileges to replace files. Please restart the app as Administrator, or download the update manually.');
+            } else {
+                friendlyMsg = `${t('updateChecker.error', 'Update failed')}: ${errorMsg}`;
+            }
 
             setError(friendlyMsg);
 
@@ -360,9 +417,11 @@ export default function UpdateChecker() {
                 setUiState('prompt'); // Revert to prompt to show error
             } else {
                 // For silent failures, show a toast so user knows something went wrong
-                if (sigError) {
+                if (sigError || elevError) {
                     toast.error(
-                        t('updateChecker.signatureToast', 'Update failed: signature mismatch. Check Settings → Updates for details.'),
+                        sigError
+                            ? t('updateChecker.signatureToast', 'Update failed: signature mismatch. Check Settings → Updates for details.')
+                            : t('updateChecker.elevationToast', 'Update failed: administrator privileges required. Right-click the app → Run as Administrator.'),
                         { duration: 8000, icon: '⚠️' }
                     );
                 }
@@ -471,14 +530,33 @@ export default function UpdateChecker() {
 
     const handleRelaunch = async () => {
         try {
+            // Small delay to ensure the NSIS installer process finishes file operations
+            await new Promise(resolve => setTimeout(resolve, 1500));
             await relaunch();
         } catch (err) {
             console.error("Failed to relaunch:", err);
+            toast.error(
+                t('updateChecker.relaunchFailed', 'Failed to restart. Please close and reopen the application manually.'),
+                { duration: 6000 }
+            );
         }
     };
 
     const handleManualDownload = async () => {
-        await openReleasesPage();
+        if (updateAvailable) {
+            // Try to open the specific installer download first
+            await openUrl(getInstallerDownloadUrl(updateAvailable.version));
+        } else {
+            await openReleasesPage();
+        }
+    };
+
+    const handlePortableDownload = async () => {
+        if (updateAvailable) {
+            await openUrl(getPortableDownloadUrl(updateAvailable.version));
+        } else {
+            await openReleasesPage();
+        }
     };
 
     // Listen for settings changes to restart interval
@@ -554,6 +632,8 @@ export default function UpdateChecker() {
 
     if (uiState === 'hidden') return null;
 
+    const showManualFallback = isSignatureMismatch || isElevationIssue;
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
             <div className={cn(
@@ -628,14 +708,23 @@ export default function UpdateChecker() {
                             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                             <div className="flex-1">
                                 <span className="leading-relaxed">{error}</span>
-                                {isSignatureMismatch && (
-                                    <button
-                                        onClick={handleManualDownload}
-                                        className="flex items-center gap-1.5 mt-3 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-red-300 hover:text-white transition-all text-xs font-semibold"
-                                    >
-                                        <ExternalLink className="w-3.5 h-3.5" />
-                                        {t('updateChecker.downloadManually', 'Download from GitHub Releases')}
-                                    </button>
+                                {showManualFallback && (
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                        <button
+                                            onClick={handleManualDownload}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-red-300 hover:text-white transition-all text-xs font-semibold cursor-pointer"
+                                        >
+                                            <ExternalLink className="w-3.5 h-3.5" />
+                                            {t('updateChecker.downloadInstaller', 'Download Installer')}
+                                        </button>
+                                        <button
+                                            onClick={handlePortableDownload}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 hover:text-white transition-all text-xs font-semibold cursor-pointer"
+                                        >
+                                            <Archive className="w-3.5 h-3.5" />
+                                            {t('updateChecker.downloadPortable', 'Portable ZIP')}
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -677,7 +766,7 @@ export default function UpdateChecker() {
                                 <RefreshCw className="w-4 h-4" />
                                 {t('updateChecker.relaunch', 'RESTART NOW')}
                             </button>
-                        ) : isSignatureMismatch ? (
+                        ) : showManualFallback ? (
                             <button
                                 onClick={handleManualDownload}
                                 className={cn(
@@ -725,7 +814,7 @@ export default function UpdateChecker() {
                             </button>
                         )}
                         
-                        {uiState === 'prompt' && !isSignatureMismatch && (
+                        {uiState === 'prompt' && !showManualFallback && (
                             <button
                                 onClick={handleSkipVersion}
                                 title={t('updateChecker.skip', 'Skip this version')}

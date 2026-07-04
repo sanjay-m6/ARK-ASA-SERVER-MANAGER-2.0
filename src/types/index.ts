@@ -57,6 +57,7 @@ export interface ServerConfig {
     harvest_amount_multiplier?: number;
     taming_speed_multiplier?: number;
     pve_mode?: boolean;
+    allow_tek_suit_powers_in_genesis?: boolean;
 }
 
 export interface SystemInfo {

@@ -137,7 +137,7 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                         group: 'modded'
                     })),
                     // Coming 2026
-                    { value: 'Genesis_WP', label: '🧬 Genesis Part 1', group: 'upcoming' },
+                    { value: 'Genesis_WP', label: '🧬 Genesis Part 1', group: 'released' },
                     { value: 'Genesis2_WP', label: '🛸 Genesis Part 2', group: 'upcoming' },
                     { value: 'CrystalIsles_WP', label: '💎 Crystal Isles', group: 'upcoming' },
                     { value: 'LostIsland_WP', label: '🗿 Lost Island', group: 'upcoming' },

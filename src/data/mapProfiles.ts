@@ -297,13 +297,13 @@ export function getMapProfile(mapId: string): MapProfile | undefined {
 export function getProfilesByCategory() {
     return {
         released: MAP_PROFILES.filter(p =>
-            ['TheIsland_WP', 'ScorchedEarth_WP', 'TheCenter_WP', 'Aberration_WP', 'Extinction_WP', 'Ragnarok_WP', 'Valguero_WP', 'LostColony_WP', 'ClubARK_WP'].includes(p.mapId)
+            ['TheIsland_WP', 'ScorchedEarth_WP', 'TheCenter_WP', 'Aberration_WP', 'Extinction_WP', 'Ragnarok_WP', 'Valguero_WP', 'LostColony_WP', 'ClubARK_WP', 'Genesis_WP'].includes(p.mapId)
         ),
         premiumMods: MAP_PROFILES.filter(p =>
             ['Astraeos_WP', 'Forglar_WP', 'Svartalfheim_WP', 'Amissa_WP', 'Insaluna_WP', 'TemptressLagoon_WP', 'Reverence_WP'].includes(p.mapId)
         ),
         upcoming: MAP_PROFILES.filter(p =>
-            ['Genesis_WP', 'Genesis2_WP'].includes(p.mapId)
+            ['Genesis2_WP'].includes(p.mapId)
         ),
         moddedExpansions: MAP_PROFILES.filter(p =>
             MODDED_MAP_PRESETS.filter(mp => mp.serverType === 'ASA').map(mp => mp.mapArgument).includes(p.mapId)

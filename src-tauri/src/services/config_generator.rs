@@ -112,6 +112,7 @@ pub struct ServerConfig {
     // Advanced Gameplay
     pub allow_flyer_speed_leveling: bool,
     pub allow_speed_leveling: bool, // General speed leveling
+    pub allow_tek_suit_powers_in_genesis: bool,
 
     // Per-Level Stat Multipliers (Indices: 0=Health... 9=Speed... 11=Crafting)
     pub per_level_stats_multiplier_player: Vec<f32>,
@@ -167,6 +168,7 @@ impl Default for ServerConfig {
             active_mods: vec![],
             allow_flyer_speed_leveling: false,
             allow_speed_leveling: false,
+            allow_tek_suit_powers_in_genesis: true,
             per_level_stats_multiplier_player: vec![1.0; 12],
             per_level_stats_multiplier_dino_tamed: vec![1.0; 12],
             per_level_stats_multiplier_dino_wild: vec![1.0; 12],
@@ -283,7 +285,7 @@ impl ConfigGenerator {
                 custom_settings: HashMap::new(),
             },
             MapProfile {
-                map_id: "Genesis_WP".to_string(),
+                map_id: "Genesis".to_string(),
                 map_name: "Genesis Part 1".to_string(),
                 difficulty_offset: 1.0,
                 xp_multiplier: 1.5,
@@ -545,6 +547,11 @@ impl ConfigGenerator {
             "DisableFriendlyFire={}\r\n",
             ark_bool(!config.friendly_fire)
         ));
+
+        // Genesis Specific
+        if config.map_name.starts_with("Genesis") {
+            content.push_str(&format!("AllowTekSuitPowersInGenesis={}\r\n", ark_bool(config.allow_tek_suit_powers_in_genesis)));
+        }
 
         // Mods
         if !config.active_mods.is_empty() {

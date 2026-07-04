@@ -215,12 +215,12 @@ const MAP_METADATA: Record<string, MapInfo> = {
     },
     'Genesis_WP': {
         name: 'Genesis Part 1',
-        description: 'Virtual simulation with extreme environments. Coming June 2026.',
+        description: 'Virtual simulation with extreme environments.',
         color: '#14b8a6',
         icon: '🧬',
         size: 'Medium (~7 GB)',
         image: mapGenesis,
-        dlcType: 'Upcoming (2026)'
+        dlcType: 'Official Expansion'
     },
     'Genesis2_WP': {
         name: 'Genesis Part 2',
@@ -1228,10 +1228,10 @@ const ConfigInput = memo(({
                             {fieldDescription && <div className="text-sm text-slate-400">{fieldDescription}</div>}
                         </div>
                         <button
-                            onClick={() => handleChange(value.toLowerCase() === 'true' ? 'False' : 'True')}
+                            onClick={() => handleChange(['true', '1'].includes(value.toLowerCase()) ? 'False' : 'True')}
                             className={cn(
                                 "relative w-14 h-7 rounded-full transition-all duration-300 focus:outline-none flex-shrink-0 mt-1",
-                                value.toLowerCase() === 'true'
+                                ['true', '1'].includes(value.toLowerCase())
                                     ? "bg-gradient-to-r from-violet-600 to-indigo-600 shadow-lg shadow-violet-500/30"
                                     : "bg-[#2d2d44]"
                             )}
@@ -1239,7 +1239,7 @@ const ConfigInput = memo(({
                             <span
                                 className={cn(
                                     "block w-5 h-5 rounded-full bg-white shadow-lg transform transition-all duration-300",
-                                    value.toLowerCase() === 'true'
+                                    ['true', '1'].includes(value.toLowerCase())
                                         ? "translate-x-8"
                                         : "translate-x-1"
                                 )}

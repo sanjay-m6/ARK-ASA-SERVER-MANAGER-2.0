@@ -62,6 +62,7 @@ export default function InstallServerDialog({ onClose }: Props) {
             { id: 'Extinction_WP', name: t('dialogs.installServer.maps.extinction', 'Extinction'), description: t('dialogs.installServer.mapDescriptions.postApoc', 'Post-apocalyptic Earth'), color: '#64748b', icon: '🏚️', size: 'Large', image: mapExtinction },
             { id: 'Ragnarok_WP', name: t('dialogs.installServer.maps.ragnarok', 'Ragnarok'), description: t('dialogs.installServer.mapDescriptions.viking', 'Viking-themed mega map'), color: '#ef4444', icon: '⚔️', size: 'Large', image: mapRagnarok },
             { id: 'Valguero_WP', name: t('dialogs.installServer.maps.valguero', 'Valguero'), description: t('dialogs.installServer.mapDescriptions.community', 'Diverse biomes & underground'), color: '#10b981', icon: '🦖', size: 'Large', image: mapValguero },
+            { id: 'Genesis_WP', name: t('dialogs.installServer.maps.genesis1', 'Genesis Part 1'), description: t('dialogs.installServer.mapDescriptions.genesis1', 'Simulation with unique biomes and missions'), color: '#14b8a6', icon: '🧬', size: 'Medium', image: mapGenesis },
             { id: 'ClubARK_WP', name: t('dialogs.installServer.maps.clubArk', 'Club ARK'), description: t('dialogs.installServer.mapDescriptions.clubArk', 'Social hub with mini-games'), color: '#e11d48', icon: '🌴', size: 'Large', image: mapArkClub },
         ],
         dlc: [
@@ -87,7 +88,6 @@ export default function InstallServerDialog({ onClose }: Props) {
             author: p.author
         })),
         upcoming: [
-            { id: 'Genesis_WP', name: t('dialogs.installServer.maps.genesis1', 'Genesis Part 1'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: 'June 2026', defaultValue: 'Coming June 2026' }), color: '#14b8a6', icon: '🧬', size: 'Medium', image: mapGenesis },
             { id: 'Genesis2_WP', name: t('dialogs.installServer.maps.genesis2', 'Genesis Part 2'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: '2026 TBC', defaultValue: 'Coming 2026' }), color: '#6366f1', icon: '🛸', size: 'Large', image: mapGenesis2 },
             { id: 'Fjordur_WP', name: t('dialogs.installServer.maps.fjordur', 'Fjordur'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: '2026 TBC', defaultValue: 'Coming 2026' }), color: '#0ea5e9', icon: '❄️', size: 'Large', image: mapFjordur },
             { id: 'CrystalIsles_WP', name: t('dialogs.installServer.maps.crystalIsles', 'Crystal Isles'), description: t('dialogs.installServer.mapDescriptions.comingSoon', { date: '2026-2027 TBC', defaultValue: 'Coming 2026-2027' }), color: '#c084fc', icon: '💎', size: 'Large', image: mapCrystalIsles },
