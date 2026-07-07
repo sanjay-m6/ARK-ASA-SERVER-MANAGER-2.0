@@ -181,3 +181,24 @@ export function formatRelativeTime(dateString: string): string {
 
     return date.toLocaleDateString();
 }
+
+// Track the current version on application start
+export function trackCurrentVersion(version: string): void {
+    if (!version) return;
+    const history = getUpdateHistory();
+    const exists = history.some(entry => entry.version === version && entry.action === 'installed');
+    if (!exists) {
+        addUpdateHistory({
+            version,
+            action: 'installed',
+            previousVersion: history.length > 0 ? history[0].version : undefined,
+        });
+    }
+}
+
+// Remove an entry from the update history by ID
+export function removeHistoryEntry(id: string): void {
+    const history = getUpdateHistory();
+    const updatedHistory = history.filter(entry => entry.id !== id);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistory));
+}

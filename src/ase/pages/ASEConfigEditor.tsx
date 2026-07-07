@@ -110,7 +110,7 @@ const defaultConfig: AseGameConfig = {
   itemDecompositionTimeMultiplier: 1.0, corpseDecompositionTimeMultiplier: 1.0, cropGrowthSpeedMultiplier: 1.0,
   cropDecaySpeedMultiplier: 1.0, layEggIntervalMultiplier: 1.0, poopIntervalMultiplier: 1.0, hairGrowthSpeedMultiplier: 1.0,
   customRecipeEffectivenessMultiplier: 1.0, customRecipeSkillMultiplier: 1.0, fishingLootQualityMultiplier: 1.0,
-  supplyCrateLootQualityMultiplier: 1.0,  globalSpoilingTimeMultiplier: 1.0,
+  supplyCrateLootQualityMultiplier: 1.0, globalSpoilingTimeMultiplier: 1.0,
   globalItemDecompositionTimeMultiplier: 1.0,
   globalCorpseDecompositionTimeMultiplier: 1.0,
   killXpMultiplier: 1.0, harvestXpMultiplier: 1.0, craftXpMultiplier: 1.0,
@@ -339,19 +339,19 @@ const TextAreaInput = memo(({ idKey, label, value, onChange, desc, file }: { idK
     const end = textarea.selectionEnd;
     const selectedText = localValue.substring(start, end);
     const newText = selectedText
-        ? `${localValue.substring(0, start)}<RichColor Color="${colorStr}">${selectedText}</>${localValue.substring(end)}`
-        : `${localValue.substring(0, start)}<RichColor Color="${colorStr}">TEXT</>${localValue.substring(end)}`;
+      ? `${localValue.substring(0, start)}<RichColor Color="${colorStr}">${selectedText}</>${localValue.substring(end)}`
+      : `${localValue.substring(0, start)}<RichColor Color="${colorStr}">TEXT</>${localValue.substring(end)}`;
 
     setLocalValue(newText);
     onChange(newText);
 
     setTimeout(() => {
-        textarea.focus();
-        if (selectedText) {
-            textarea.setSelectionRange(start + `<RichColor Color="${colorStr}">`.length + selectedText.length + 3, start + `<RichColor Color="${colorStr}">`.length + selectedText.length + 3);
-        } else {
-            textarea.setSelectionRange(start + `<RichColor Color="${colorStr}">`.length, start + `<RichColor Color="${colorStr}">`.length + 4);
-        }
+      textarea.focus();
+      if (selectedText) {
+        textarea.setSelectionRange(start + `<RichColor Color="${colorStr}">`.length + selectedText.length + 3, start + `<RichColor Color="${colorStr}">`.length + selectedText.length + 3);
+      } else {
+        textarea.setSelectionRange(start + `<RichColor Color="${colorStr}">`.length, start + `<RichColor Color="${colorStr}">`.length + 4);
+      }
     }, 0);
   };
 
@@ -361,15 +361,15 @@ const TextAreaInput = memo(({ idKey, label, value, onChange, desc, file }: { idK
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    
+
     const newText = `${localValue.substring(0, start)}\\n${localValue.substring(end)}`;
-    
+
     setLocalValue(newText);
     onChange(newText);
-    
+
     setTimeout(() => {
-        textarea.focus();
-        textarea.setSelectionRange(start + 2, start + 2);
+      textarea.focus();
+      textarea.setSelectionRange(start + 2, start + 2);
     }, 0);
   };
 
@@ -638,18 +638,18 @@ export default function ASEConfigEditor() {
         let localIp = '';
         let peerPort = serverObj.port + 1;
         let totalConversionId = '';
-        
+
         if (serverObj.extraArgs) {
           const multihomeMatch = serverObj.extraArgs.match(/-MultiHome=([\d.]+)/);
           if (multihomeMatch) localIp = multihomeMatch[1];
-          
+
           const peerPortMatch = serverObj.extraArgs.match(/\?PeerPort=(\d+)/);
           if (peerPortMatch) peerPort = parseInt(peerPortMatch[1], 10);
-          
+
           const tcMatch = serverObj.extraArgs.match(/-TotalConversionMod=(\d+)/);
           if (tcMatch) totalConversionId = tcMatch[1];
         }
-        
+
         setAdminState({
           localIp,
           port: serverObj.port || 7777,
@@ -706,7 +706,7 @@ export default function ASEConfigEditor() {
     try {
       const ip = await invoke<string>('get_local_ip');
       if (ip && ip !== '127.0.0.1') {
-        setAdminState(prev => ({...prev, localIp: ip}));
+        setAdminState(prev => ({ ...prev, localIp: ip }));
         setIsDirty(true);
         toast.success(`Detected IP: ${ip}`);
       } else {
@@ -729,8 +729,8 @@ export default function ASEConfigEditor() {
 
     const replacement = `<RichColor Color="${colorStr}">${selectedText || 'Text'}</>`;
     const newText = currentText.substring(0, start) + replacement + currentText.substring(end);
-    
-    setConfig({...config, motd: newText});
+
+    setConfig({ ...config, motd: newText });
     setIsDirty(true);
 
     setTimeout(() => {
@@ -752,7 +752,7 @@ export default function ASEConfigEditor() {
     const currentText = config.motd || '';
 
     const newText = currentText.substring(0, start) + '\\n' + currentText.substring(end);
-    setConfig({...config, motd: newText});
+    setConfig({ ...config, motd: newText });
     setIsDirty(true);
 
     setTimeout(() => {
@@ -779,27 +779,27 @@ export default function ASEConfigEditor() {
     try {
       if (editorMode === 'visual') {
         await writeAseConfig(selectedServer, config);
-        
+
         const server = servers.find(s => s.id === selectedServer);
         if (server) {
           let extraArgs = server.extraArgs || '';
-          
+
           extraArgs = extraArgs.replace(/-MultiHome=[\d.]+\s*/g, '');
           if (adminState.localIp) {
             extraArgs += ` -MultiHome=${adminState.localIp.trim()}`;
           }
-          
+
           extraArgs = extraArgs.replace(/\?PeerPort=\d+\s*/g, '');
           if (adminState.peerPort !== adminState.port + 1) {
             extraArgs += ` ?PeerPort=${adminState.peerPort}`;
           }
-          
+
           extraArgs = extraArgs.replace(/-TotalConversionMod=\d+\s*/g, '');
           if (adminState.totalConversionId) {
             extraArgs += ` -TotalConversionMod=${adminState.totalConversionId.trim()}`;
           }
-          
-          await updateAseServer(selectedServer, { 
+
+          await updateAseServer(selectedServer, {
             mapName,
             port: adminState.port,
             queryPort: adminState.queryPort,
@@ -1069,7 +1069,7 @@ export default function ASEConfigEditor() {
           {/* Options Dropdown */}
           {isMapOpen && (
             <div className="absolute left-0 right-0 mt-2 bg-slate-900/98 border border-slate-800 rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200 z-30 p-1.5 space-y-3 custom-scrollbar">
-              
+
               {/* Official Maps */}
               <div className="space-y-1">
                 <div className="px-3 py-1.5 text-[10px] font-bold text-slate-450 uppercase tracking-widest bg-slate-950/45 border border-slate-800/40 rounded-lg flex items-center gap-1.5 select-none">
@@ -1088,7 +1088,7 @@ export default function ASEConfigEditor() {
                         }}
                         className={cn(
                           "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
-                          isSelected 
+                          isSelected
                             ? "bg-amber-500/15 border-amber-500/50 text-amber-400 font-medium shadow-[0_0_12px_rgba(245,158,11,0.15)]"
                             : "text-slate-355 hover:bg-slate-800/40 border-transparent hover:text-white hover:border-slate-700/50"
                         )}
@@ -1147,7 +1147,7 @@ export default function ASEConfigEditor() {
                           }}
                           className={cn(
                             "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
-                            isSelected 
+                            isSelected
                               ? "bg-amber-500/15 border-amber-500/50 text-amber-400 font-medium shadow-[0_0_12px_rgba(245,158,11,0.15)]"
                               : "text-slate-355 hover:bg-slate-800/40 border-transparent hover:text-white hover:border-slate-700/50"
                           )}
@@ -1205,7 +1205,7 @@ export default function ASEConfigEditor() {
                     }}
                     className={cn(
                       "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
-                      dropdownValue === '__CUSTOM__' 
+                      dropdownValue === '__CUSTOM__'
                         ? "bg-amber-500/15 border-amber-500/50 text-amber-400 font-medium shadow-[0_0_12px_rgba(245,158,11,0.15)]"
                         : "text-slate-355 hover:bg-slate-800/40 border-transparent hover:text-white hover:border-slate-700/50"
                     )}
@@ -1246,21 +1246,21 @@ export default function ASEConfigEditor() {
           {selectedMapMeta ? (
             <>
               {selectedMapMeta.image && (
-                <img 
-                  src={selectedMapMeta.image} 
-                  alt={selectedMapMeta.name} 
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105" 
+                <img
+                  src={selectedMapMeta.image}
+                  alt={selectedMapMeta.name}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105"
                 />
               )}
               {/* overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent" />
-              
+
               {/* Badges */}
               <div className="absolute top-3 right-3 flex gap-1.5 items-center z-10">
                 <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-slate-950/80 border border-white/5 text-slate-300 backdrop-blur-md">
                   {selectedMapMeta.size}
                 </span>
-                <span 
+                <span
                   className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider text-slate-950 backdrop-blur-md font-black bg-amber-500"
                 >
                   {selectedMapMeta.dlcType}
@@ -1294,16 +1294,16 @@ export default function ASEConfigEditor() {
             </div>
           )}
         </div>
-        
+
         {/* Total Conversion and Mods */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-bold text-slate-300">Total Conversion ID</label>
-            <input type="text" value={adminState.totalConversionId} onChange={e => { setAdminState({...adminState, totalConversionId: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950/40 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Mod ID (e.g. 111111111)" />
+            <input type="text" value={adminState.totalConversionId} onChange={e => { setAdminState({ ...adminState, totalConversionId: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950/40 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Mod ID (e.g. 111111111)" />
           </div>
           <div className="flex flex-col gap-1.5 md:col-span-2">
             <label className="text-xs font-bold text-slate-300">Active Mod IDs</label>
-            <input type="text" value={adminState.activeMods} onChange={e => { setAdminState({...adminState, activeMods: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950/40 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Comma separated list (e.g. 123456, 789012)" />
+            <input type="text" value={adminState.activeMods} onChange={e => { setAdminState({ ...adminState, activeMods: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950/40 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Comma separated list (e.g. 123456, 789012)" />
             <p className="text-[10px] text-slate-500">List of workshop Mod IDs loaded on server startup. Multiple entries must be comma separated.</p>
           </div>
         </div>
@@ -1367,7 +1367,7 @@ export default function ASEConfigEditor() {
       setConfig(newConfig as AseGameConfig);
       setIsDirty(true);
       toast.success(`Imported ${importedCount} settings from INI`, { style: { background: '#10b981', color: '#fff' } });
-      
+
       // Warn user to check the map setting
       setTimeout(() => {
         toast('Please verify your Map setting. It may not sync perfectly from INI imports and might need to be set manually.', {
@@ -1462,8 +1462,8 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'dinoTurretDamageMultiplier', label: 'Dino Turret Damage Multiplier', desc: 'Multiplier for damage dealt to dinos by turrets', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'genericXpMultiplier', label: 'Generic XP Multiplier', desc: 'Multiplier for generic experience gain', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'specialXpMultiplier', label: 'Special XP Multiplier', desc: 'Multiplier for special action experience gain', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'fishingLootQualityMultiplier', label: 'Fishing Loot Quality', desc: 'Multiplier for fishing loot quality', step: 0.1 },
-    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'supplyCrateLootQualityMultiplier', label: 'Supply Crate Loot Quality', desc: 'Multiplier for supply crate loot quality', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'fishingLootQualityMultiplier', label: 'Fishing Loot Quality', desc: 'Multiplier for fishing loot quality. WARNING: High values can cause item requirements to overflow and break loot tables.', step: 0.1 },
+    { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'supplyCrateLootQualityMultiplier', label: 'Supply Crate Loot Quality', desc: 'Multiplier for supply crate loot quality. WARNING: Values above 2.0 can glitch beaver dams (no cementing paste), alphas (no loot), wyverns (no milk), and cause drops to despawn.', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'globalSpoilingTimeMultiplier', label: 'Global Spoiling Time', desc: 'Global multiplier for food spoiling speed', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'globalItemDecompositionTimeMultiplier', label: 'Global Item Decomposition Time', desc: 'Global multiplier for item decomposition time on floor', step: 0.1 },
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'globalCorpseDecompositionTimeMultiplier', label: 'Global Corpse Decomposition Time', desc: 'Global multiplier for corpse decomposition time on floor', step: 0.1 },
@@ -1736,7 +1736,7 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'epicStorePlayersOnly', label: 'Epic Store Players Only', desc: 'Blocks Steam connections completely' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'alternateSaveDirectoryName', label: 'Alternate Save Directory Name', desc: 'Alternate folder name for server savegames' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'text', key: 'clusterDirectoryOverride', label: 'Cluster Directory Override', desc: 'Absolute custom path for cluster data files' },
-    { 
+    {
       file: 'GameUserSettings.ini', tab: 'general', type: 'select', key: 'serverLanguage', label: 'Server Language', desc: 'Forces server language',
       options: [
         { label: 'Default', value: '' },
@@ -1822,19 +1822,19 @@ export default function ASEConfigEditor() {
       return matches ? 1 : 0;
     }
 
-    return schema.filter(field => 
-      field.tab === tabId && 
-      field.file === file && 
+    return schema.filter(field =>
+      field.tab === tabId &&
+      field.file === file &&
       (field.label?.toLowerCase().includes(query) ||
-       field.key.toLowerCase().includes(query) ||
-       field.desc?.toLowerCase().includes(query))
+        field.key.toLowerCase().includes(query) ||
+        field.desc?.toLowerCase().includes(query))
     ).length;
   }, [searchQuery, schema]);
 
   const tabMatchCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     if (!searchQuery) return counts;
-    
+
     // 1. Count fields in schema
     schema.forEach(field => {
       const query = searchQuery.toLowerCase();
@@ -1868,8 +1868,8 @@ export default function ASEConfigEditor() {
   const activeFileTabs = useMemo(() => {
     const validTabIds = new Set(schema.map(f => f.tab));
     validTabIds.add('environment');
-    const list = tabs.filter(t => 
-      validTabIds.has(t.id) || 
+    const list = tabs.filter(t =>
+      validTabIds.has(t.id) ||
       t.id === 'stats' ||
       t.id === 'levels' ||
       t.id === 'dino_control'
@@ -2215,8 +2215,8 @@ export default function ASEConfigEditor() {
                       const groupTabs = activeFileTabs.filter(t => {
                         if (!group.ids.includes(t.id as string)) return false;
                         if (!searchQuery) return true;
-                        const matchCount = group.fileType === 'Utilities' 
-                          ? getMatchCount(t.id, 'Utilities') 
+                        const matchCount = group.fileType === 'Utilities'
+                          ? getMatchCount(t.id, 'Utilities')
                           : getMatchCount(t.id, group.fileType);
                         if (matchCount > 0) return true;
                         return t.label.toLowerCase().includes(searchQuery.toLowerCase());
@@ -2739,8 +2739,8 @@ export default function ASEConfigEditor() {
                           if (!searchQuery) return true;
                           const q = searchQuery.toLowerCase();
                           return f.label?.toLowerCase().includes(q) ||
-                                 f.key.toLowerCase().includes(q) ||
-                                 f.desc?.toLowerCase().includes(q);
+                            f.key.toLowerCase().includes(q) ||
+                            f.desc?.toLowerCase().includes(q);
                         });
 
                         if (searchQuery && filteredFields.length === 0) {
@@ -2798,7 +2798,7 @@ export default function ASEConfigEditor() {
                                   {activeFile} Settings
                                 </h3>
                               </div>
-                              
+
                               {activeTab === 'general' && activeFile === 'GameUserSettings.ini' && !searchQuery && (
                                 <>
                                   <div className="space-y-8 mb-8 animate-fadeIn">
@@ -2810,19 +2810,19 @@ export default function ASEConfigEditor() {
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
                                           <label className="text-xs font-bold text-slate-300">Session Name</label>
-                                          <input type="text" value={config.sessionName || ''} onChange={e => { setConfig({...config, sessionName: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                          <input type="text" value={config.sessionName || ''} onChange={e => { setConfig({ ...config, sessionName: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                           <label className="text-xs font-bold text-slate-300">Server Password</label>
-                                          <input type="text" value={config.serverPassword || ''} onChange={e => { setConfig({...config, serverPassword: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Leave blank for public" />
+                                          <input type="text" value={config.serverPassword || ''} onChange={e => { setConfig({ ...config, serverPassword: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="Leave blank for public" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                           <label className="text-xs font-bold text-slate-300">Admin Password</label>
-                                          <input type="text" value={config.serverAdminPassword || ''} onChange={e => { setConfig({...config, serverAdminPassword: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                          <input type="text" value={config.serverAdminPassword || ''} onChange={e => { setConfig({ ...config, serverAdminPassword: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                           <label className="text-xs font-bold text-slate-300">Spectator Password</label>
-                                          <input type="text" value={config.SpectatorPassword || ''} onChange={e => { setConfig({...config, SpectatorPassword: e.target.value}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                          <input type="text" value={config.SpectatorPassword || ''} onChange={e => { setConfig({ ...config, SpectatorPassword: e.target.value }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                       </div>
                                     </div>
@@ -2844,7 +2844,7 @@ export default function ASEConfigEditor() {
                                         <div className="flex flex-col gap-1.5 lg:col-span-2">
                                           <label className="text-xs font-bold text-slate-300">Local IP</label>
                                           <div className="flex items-center gap-2">
-                                            <input type="text" value={adminState.localIp} onChange={e => { setAdminState({...adminState, localIp: e.target.value}); setIsDirty(true); }} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="e.g. 192.168.1.100" />
+                                            <input type="text" value={adminState.localIp} onChange={e => { setAdminState({ ...adminState, localIp: e.target.value }); setIsDirty(true); }} className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" placeholder="e.g. 192.168.1.100" />
                                             <button title="Detect Local IP" onClick={fetchLocalIp} className="p-2.5 bg-slate-950 hover:bg-amber-500/20 text-slate-400 hover:text-amber-500 rounded-xl border border-slate-800 transition-colors flex-shrink-0">
                                               <RefreshCw className="w-4 h-4" />
                                             </button>
@@ -2852,10 +2852,10 @@ export default function ASEConfigEditor() {
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                           <label className="text-xs font-bold text-slate-300">Server Port</label>
-                                          <input type="number" value={adminState.port} onChange={e => { 
+                                          <input type="number" value={adminState.port} onChange={e => {
                                             const newPort = parseInt(e.target.value) || 0;
-                                            setAdminState({...adminState, port: newPort, peerPort: isPeerPortLocked ? (newPort ? newPort + 1 : adminState.peerPort) : adminState.peerPort}); 
-                                            setIsDirty(true); 
+                                            setAdminState({ ...adminState, port: newPort, peerPort: isPeerPortLocked ? (newPort ? newPort + 1 : adminState.peerPort) : adminState.peerPort });
+                                            setIsDirty(true);
                                           }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
@@ -2863,14 +2863,14 @@ export default function ASEConfigEditor() {
                                             <label className="text-xs font-bold text-slate-300">Peer Port</label>
                                           </div>
                                           <div className="relative">
-                                            <input 
-                                              type="number" 
-                                              disabled={isPeerPortLocked} 
-                                              value={adminState.peerPort} 
-                                              onChange={e => { setAdminState({...adminState, peerPort: parseInt(e.target.value) || 0}); setIsDirty(true); }} 
-                                              className="w-full px-4 py-2.5 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                                            <input
+                                              type="number"
+                                              disabled={isPeerPortLocked}
+                                              value={adminState.peerPort}
+                                              onChange={e => { setAdminState({ ...adminState, peerPort: parseInt(e.target.value) || 0 }); setIsDirty(true); }}
+                                              className="w-full px-4 py-2.5 pr-10 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                             />
-                                            <button 
+                                            <button
                                               type="button"
                                               onClick={() => setIsPeerPortLocked(!isPeerPortLocked)}
                                               title={isPeerPortLocked ? "Unlock to edit manually" : "Lock to auto-calculate"}
@@ -2882,11 +2882,11 @@ export default function ASEConfigEditor() {
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                           <label className="text-xs font-bold text-slate-300">Query Port</label>
-                                          <input type="number" value={adminState.queryPort} onChange={e => { setAdminState({...adminState, queryPort: parseInt(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                          <input type="number" value={adminState.queryPort} onChange={e => { setAdminState({ ...adminState, queryPort: parseInt(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                           <label className="text-xs font-bold text-slate-300">Max Players</label>
-                                          <input type="number" value={config.maxPlayers || 70} onChange={e => { setConfig({...config, maxPlayers: parseInt(e.target.value) || 70}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                          <input type="number" value={config.maxPlayers || 70} onChange={e => { setConfig({ ...config, maxPlayers: parseInt(e.target.value) || 70 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                       </div>
 
@@ -2909,19 +2909,19 @@ export default function ASEConfigEditor() {
                                       </h3>
                                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                                         <label className="flex items-center gap-3 p-3 h-[42px] bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
-                                          <input type="checkbox" checked={adminState.rconPort > 0} onChange={e => { setAdminState({...adminState, rconPort: e.target.checked ? 27020 : 0}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                          <input type="checkbox" checked={adminState.rconPort > 0} onChange={e => { setAdminState({ ...adminState, rconPort: e.target.checked ? 27020 : 0 }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
                                           <span className="text-sm font-semibold text-slate-200">Enable RCON</span>
                                         </label>
                                         <div className="flex flex-col gap-1.5">
                                           <label className="text-xs font-bold text-slate-300">RCON Port</label>
-                                          <input type="number" disabled={adminState.rconPort === 0} value={adminState.rconPort > 0 ? adminState.rconPort : 27020} onChange={e => { setAdminState({...adminState, rconPort: parseInt(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
+                                          <input type="number" disabled={adminState.rconPort === 0} value={adminState.rconPort > 0 ? adminState.rconPort : 27020} onChange={e => { setAdminState({ ...adminState, rconPort: parseInt(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                           <label className="text-xs font-bold text-slate-300">Server Log Buffer</label>
-                                          <input type="number" value={config.RCONServerLogBuffer || 600} onChange={e => { setConfig({...config, RCONServerLogBuffer: parseInt(e.target.value) || 600}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                          <input type="number" value={config.RCONServerLogBuffer || 600} onChange={e => { setConfig({ ...config, RCONServerLogBuffer: parseInt(e.target.value) || 600 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                         </div>
                                         <div className="flex flex-col">
-                                          <button 
+                                          <button
                                             onClick={() => navigate('/ase/rcon', { state: { serverId: selectedServer } })}
                                             disabled={adminState.rconPort === 0}
                                             className="flex items-center justify-center gap-2 px-4 py-2.5 h-[42px] bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500 hover:text-slate-900 transition-all rounded-xl w-full font-bold disabled:opacity-50 disabled:cursor-not-allowed"
@@ -2941,31 +2941,31 @@ export default function ASEConfigEditor() {
                                         <div className="space-y-4">
                                           <div className="flex flex-col gap-1.5">
                                             <label className="text-xs font-bold text-slate-300">Auto Save Period (Mins)</label>
-                                            <input type="number" value={config.autoSavePeriodMinutes || 15} onChange={e => { setConfig({...config, autoSavePeriodMinutes: parseFloat(e.target.value) || 15}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                            <input type="number" value={config.autoSavePeriodMinutes || 15} onChange={e => { setConfig({ ...config, autoSavePeriodMinutes: parseFloat(e.target.value) || 15 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                           </div>
                                           <div className="flex flex-col gap-1.5">
                                             <label className="text-xs font-bold text-slate-300">Backup Quantity</label>
-                                            <input type="number" value={config.backupQuantity || 0} onChange={e => { setConfig({...config, backupQuantity: parseInt(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                            <input type="number" value={config.backupQuantity || 0} onChange={e => { setConfig({ ...config, backupQuantity: parseInt(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                             <p className="text-[10px] text-slate-500">Number of backup archives to keep. Oldest will be pruned.</p>
                                           </div>
                                         </div>
                                       </div>
-                                      
+
                                       <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6">
                                         <h3 className="text-amber-500 font-bold mb-4 uppercase tracking-wider text-sm flex items-center gap-2">
                                           <Database className="w-4 h-4" /> Official Save Settings
                                         </h3>
                                         <div className="space-y-3">
                                           <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
-                                            <input type="checkbox" checked={!!config.newSaveGameFormat} onChange={e => { setConfig({...config, newSaveGameFormat: e.target.checked}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                            <input type="checkbox" checked={!!config.newSaveGameFormat} onChange={e => { setConfig({ ...config, newSaveGameFormat: e.target.checked }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
                                             <span className="text-sm font-semibold text-slate-200">New Save Game Format</span>
                                           </label>
                                           <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
-                                            <input type="checkbox" checked={!!config.useStore} onChange={e => { setConfig({...config, useStore: e.target.checked}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                            <input type="checkbox" checked={!!config.useStore} onChange={e => { setConfig({ ...config, useStore: e.target.checked }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
                                             <span className="text-sm font-semibold text-slate-200">Use Store</span>
                                           </label>
                                           <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
-                                            <input type="checkbox" checked={!!config.backupTransferPlayerDatas} onChange={e => { setConfig({...config, backupTransferPlayerDatas: e.target.checked}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                            <input type="checkbox" checked={!!config.backupTransferPlayerDatas} onChange={e => { setConfig({ ...config, backupTransferPlayerDatas: e.target.checked }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
                                             <span className="text-sm font-semibold text-slate-200">Backup Transfer Player Datas</span>
                                           </label>
                                         </div>
@@ -3018,7 +3018,7 @@ export default function ASEConfigEditor() {
                                             <textarea
                                               id="motd-textarea"
                                               value={config.motd || ''}
-                                              onChange={e => { setConfig({...config, motd: e.target.value}); setIsDirty(true); }}
+                                              onChange={e => { setConfig({ ...config, motd: e.target.value }); setIsDirty(true); }}
                                               placeholder="Enter server welcome message... Use \n for line breaks, or color presets above."
                                               rows={4}
                                               className="w-full bg-slate-950/60 border border-slate-800 hover:border-slate-700 focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 rounded-b-xl px-4 py-3 text-slate-200 focus:outline-none font-mono transition-all text-sm placeholder-slate-600 shadow-inner resize-y min-h-[90px]"
@@ -3038,32 +3038,32 @@ export default function ASEConfigEditor() {
                                           <div className="grid grid-cols-2 gap-4">
                                             <div className="flex flex-col gap-1.5">
                                               <label className="text-xs font-bold text-slate-300">Duration</label>
-                                              <input type="number" value={config.motdDuration || 0} onChange={e => { setConfig({...config, motdDuration: parseFloat(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
+                                              <input type="number" value={config.motdDuration || 0} onChange={e => { setConfig({ ...config, motdDuration: parseFloat(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors" />
                                             </div>
                                             <div className="flex flex-col gap-1.5">
                                               <label className="text-xs font-bold text-slate-300">Interval (Mins)</label>
-                                              <input type="number" disabled={!config.motdIntervalEnabled} value={config.motdInterval || 0} onChange={e => { setConfig({...config, motdInterval: parseFloat(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
+                                              <input type="number" disabled={!config.motdIntervalEnabled} value={config.motdInterval || 0} onChange={e => { setConfig({ ...config, motdInterval: parseFloat(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
                                             </div>
                                           </div>
                                           <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
-                                            <input type="checkbox" checked={!!config.motdIntervalEnabled} onChange={e => { setConfig({...config, motdIntervalEnabled: e.target.checked}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                            <input type="checkbox" checked={!!config.motdIntervalEnabled} onChange={e => { setConfig({ ...config, motdIntervalEnabled: e.target.checked }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
                                             <span className="text-sm font-semibold text-slate-200">Enable Periodic MOTD</span>
                                           </label>
                                         </div>
                                       </div>
-                                      
+
                                       <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-6">
                                         <h3 className="text-amber-500 font-bold mb-4 uppercase tracking-wider text-sm flex items-center gap-2">
                                           <AlertTriangle className="w-4 h-4" /> Extinction Event
                                         </h3>
                                         <div className="space-y-4">
                                           <label className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-xl cursor-pointer hover:border-amber-500/30 transition-colors">
-                                            <input type="checkbox" checked={!!config.enableExtinctionEvent} onChange={e => { setConfig({...config, enableExtinctionEvent: e.target.checked}); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
+                                            <input type="checkbox" checked={!!config.enableExtinctionEvent} onChange={e => { setConfig({ ...config, enableExtinctionEvent: e.target.checked }); setIsDirty(true); }} className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/20 bg-slate-900 border-slate-700" />
                                             <span className="text-sm font-semibold text-slate-200">Enable Extinction Event</span>
                                           </label>
                                           <div className="flex flex-col gap-1.5">
                                             <label className="text-xs font-bold text-slate-300">Extinction Interval (Days)</label>
-                                            <input type="number" disabled={!config.enableExtinctionEvent} value={config.extinctionEventTimeInterval || 0} onChange={e => { setConfig({...config, extinctionEventTimeInterval: parseFloat(e.target.value) || 0}); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
+                                            <input type="number" disabled={!config.enableExtinctionEvent} value={config.extinctionEventTimeInterval || 0} onChange={e => { setConfig({ ...config, extinctionEventTimeInterval: parseFloat(e.target.value) || 0 }); setIsDirty(true); }} className="px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:border-amber-500/50 focus:outline-none transition-colors disabled:opacity-50" />
                                           </div>
                                         </div>
                                       </div>

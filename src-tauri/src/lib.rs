@@ -526,6 +526,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::system::set_server_startup_config,
             commands::system::get_player_counts,
             commands::system::get_app_logs_dir,
+            commands::system::rollback_to_version,
+            commands::system::uninstall_application,
             // Server commands
             commands::server::get_all_servers,
             commands::server::update_server_status_in_db,
@@ -611,6 +613,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::cluster::stop_cluster,
             commands::cluster::toggle_cluster_cross_chat,
             commands::cluster::get_cluster_cross_chat_status,
+            commands::cluster::get_cluster_cross_chat_config,
+            commands::cluster::save_cluster_cross_chat_config,
             commands::cluster::validate_cluster_configuration,
             commands::rcon::rcon_connect,
             commands::rcon::rcon_disconnect,

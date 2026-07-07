@@ -619,6 +619,24 @@ export async function getClusterCrossChatStatus(clusterId: number): Promise<bool
     return await invoke('get_cluster_cross_chat_status', { clusterId });
 }
 
+export interface ClusterCrossChatConfig {
+    host: string;
+    user: string;
+    pass: string;
+    dbName: string;
+    port: number;
+    fetchInterval: number;
+    debug: boolean;
+}
+
+export async function getClusterCrossChatConfig(clusterId: number): Promise<ClusterCrossChatConfig> {
+    return await invoke('get_cluster_cross_chat_config', { clusterId });
+}
+
+export async function saveClusterCrossChatConfig(clusterId: number, config: ClusterCrossChatConfig): Promise<void> {
+    return await invoke('save_cluster_cross_chat_config', { clusterId, config });
+}
+
 export interface ClusterValidationIssue {
     server_id: number;
     server_name: string;

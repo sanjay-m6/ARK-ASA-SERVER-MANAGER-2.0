@@ -124,40 +124,8 @@ impl SchedulerService {
             }
         }
 
-        // 2. Process Basic Tasks
-        let basic_settings = {
-            let db = match state.db.lock() {
-                Ok(g) => g,
-                Err(_) => return,
-            };
-            let conn = match db.get_connection() {
-                Ok(c) => c,
-                Err(_) => return,
-            };
-
-            let mut stmt = match conn.prepare("SELECT server_id, basic_interval_hours, basic_warning_minutes, next_run_basic FROM scheduler_settings WHERE mode = 'basic'") {
-                 Ok(s) => s,
-                 Err(_) => return,
-             };
-
-            let iter = stmt.query_map([], |row| {
-                Ok(BasicSetting {
-                    server_id: row.get(0)?,
-                    interval: row.get(1)?,
-                    warnings: row.get(2)?,
-                    next_run: row.get(3)?,
-                })
-            });
-
-            match iter {
-                Ok(rows) => rows.filter_map(|r| r.ok()).collect::<Vec<_>>(),
-                Err(_) => Vec::new(),
-            }
-        };
-
-        for setting in basic_settings {
-            Self::process_basic_mode(app_handle, setting).await;
-        }
+        // 2. Process ASA Scheduler Settings
+        Self::process_asa_scheduler_settings(app_handle, time).await;
 
         // 3. Process ASE Tasks
         Self::process_ase_tasks(app_handle, time).await;
@@ -377,6 +345,161 @@ impl SchedulerService {
                         dino_wipe,
                         time,
                     ).await;
+                }
+            }
+        }
+    }
+
+    async fn process_asa_scheduler_settings(app_handle: &AppHandle, time: DateTime<Local>) {
+        let state = app_handle.state::<AppState>();
+        
+        let settings_list = {
+            let db = match state.db.lock() {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+            let conn = match db.get_connection() {
+                Ok(conn) => conn,
+                Err(_) => return,
+            };
+
+            let mut stmt = match conn.prepare(
+                "SELECT server_id, mode, basic_interval_hours, basic_warning_minutes, next_run_basic, \
+                 advanced_time, advanced_days, advanced_warning_minutes, advanced_shutdown, advanced_update, \
+                 advanced_restart, advanced_dino_wipe \
+                 FROM scheduler_settings WHERE mode != 'disabled'"
+            ) {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+
+            let iter = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i32>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                    row.get::<_, Option<String>>(6)?,
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, i32>(8)? != 0,
+                    row.get::<_, i32>(9)? != 0,
+                    row.get::<_, i32>(10)? != 0,
+                    row.get::<_, i32>(11)? != 0,
+                ))
+            });
+
+            match iter {
+                Ok(rows) => rows.filter_map(|r| r.ok()).collect::<Vec<_>>(),
+                Err(_) => Vec::new(),
+            }
+        };
+
+        for s in settings_list {
+            let server_id = s.0;
+            let mode = s.1;
+            if mode == "basic" {
+                let interval = s.2;
+                let warnings = s.3;
+                let next_run = s.4;
+                Self::process_basic_mode(app_handle, BasicSetting {
+                    server_id,
+                    interval,
+                    warnings,
+                    next_run,
+                }).await;
+            } else if mode == "advanced" {
+                if let (Some(time_str), Some(days_str)) = (s.5, s.6) {
+                    let warnings_opt = s.7;
+                    let shutdown = s.8;
+                    let update = s.9;
+                    let restart = s.10;
+                    let dino_wipe = s.11;
+                    Self::process_asa_advanced_mode(
+                        app_handle,
+                        server_id,
+                        &time_str,
+                        &days_str,
+                        warnings_opt,
+                        shutdown,
+                        update,
+                        restart,
+                        dino_wipe,
+                        time,
+                    ).await;
+                }
+            }
+        }
+    }
+
+    async fn process_asa_advanced_mode(
+        app_handle: &AppHandle,
+        server_id: i64,
+        time_str: &str,
+        days_str: &str,
+        warning_str: Option<String>,
+        shutdown: bool,
+        update: bool,
+        restart: bool,
+        dino_wipe: bool,
+        time: DateTime<Local>,
+    ) {
+        let [hour, minute] = match time_str.split(':').map(|s| s.parse::<u32>().ok()).collect::<Vec<_>>().as_slice() {
+            [Some(h), Some(m)] => [*h, *m],
+            _ => return,
+        };
+
+        let enabled_days: Vec<u32> = days_str.split(',').filter_map(|s| s.trim().parse::<u32>().ok()).collect();
+        let current_day = time.weekday().num_days_from_sunday();
+
+        if !enabled_days.contains(&current_day) {
+            return;
+        }
+
+        if time.hour() == hour && time.minute() == minute {
+            log::info!("🚀 Advanced ASA Scheduler: Running execution chain for server {}", server_id);
+
+            let state = app_handle.state::<AppState>();
+            
+            if let Some(_) = warning_str {
+                let rcon_state = app_handle.state::<RconState>();
+                let rcon = &rcon_state.0;
+                let msg = "⚠️ SERVER MAINTENANCE CHAIN STARTING NOW!";
+                let _ = rcon.send_command(server_id, &format!("ServerChat {}", msg)).await;
+                let _ = rcon.send_command(server_id, &format!("Broadcast {}", msg)).await;
+            }
+
+            if shutdown {
+                log::info!("  [Advanced ASA] Step 1/4: Graceful Shutdown");
+                let _ = state.process_manager.stop_server_with_reason(
+                    server_id,
+                    crate::services::process_manager::StopReason::ScheduledRestart,
+                );
+                sleep(Duration::from_secs(5)).await;
+            }
+
+            if update {
+                log::info!("  [Advanced ASA] Step 2/4: Updating server");
+                let app = (*app_handle).clone();
+                let _ = crate::commands::server::update_server(app, state.clone(), server_id).await;
+            }
+
+            if restart {
+                log::info!("  [Advanced ASA] Step 3/4: Restarting server");
+                let app = (*app_handle).clone();
+                let _ = crate::commands::server::start_server(app, server_id, false).await;
+                
+                if dino_wipe {
+                    log::info!("  [Advanced ASA] Step 4/4: Queuing DestroyWildDinos command");
+                    let app = (*app_handle).clone();
+                    tauri::async_runtime::spawn(async move {
+                        sleep(Duration::from_secs(180)).await;
+                        if let Some(rcon_state) = app.try_state::<RconState>() {
+                            let rcon = &rcon_state.0;
+                            let _ = rcon.send_command(server_id, "DestroyWildDinos").await;
+                        }
+                    });
                 }
             }
         }
@@ -862,24 +985,49 @@ impl SchedulerService {
         let state = app_handle.state::<AppState>();
 
         match task.task_type.as_str() {
-            "Restart" => {
+            "restart" | "Restart" => {
                 let _ = commands_restart(app_handle, task).await;
             }
-            "Stop" => {
+            "stop" | "Stop" => {
                 let _ = state.process_manager.stop_server_with_reason(
                     task.server_id,
                     crate::services::process_manager::StopReason::ScheduledRestart,
                 );
             }
-            "Start" => {
-                // Placeholder
+            "start" | "Start" => {
+                let _ = crate::commands::server::start_server(
+                    app_handle.clone(),
+                    task.server_id,
+                    false,
+                ).await;
             }
-            "RconCommand" => {
+            "rcon-command" | "RconCommand" => {
                 if let Some(cmd) = &task.command {
                     let rcon_state = app_handle.state::<RconState>();
                     let rcon = &rcon_state.0;
                     let _ = rcon.send_command(task.server_id, cmd).await;
                 }
+            }
+            "announcement" | "Announcement" => {
+                if let Some(msg) = &task.message {
+                    let rcon_state = app_handle.state::<RconState>();
+                    let rcon = &rcon_state.0;
+                    let _ = rcon.send_command(task.server_id, &format!("ServerChat {}", msg)).await;
+                    let _ = rcon.send_command(task.server_id, &format!("Broadcast {}", msg)).await;
+                }
+            }
+            "save-world" | "SaveWorld" => {
+                let rcon_state = app_handle.state::<RconState>();
+                let rcon = &rcon_state.0;
+                let _ = rcon.send_command(task.server_id, "SaveWorld").await;
+            }
+            "destroy-wild-dinos" | "DestroyWildDinos" => {
+                let rcon_state = app_handle.state::<RconState>();
+                let rcon = &rcon_state.0;
+                let _ = rcon.send_command(task.server_id, "DestroyWildDinos").await;
+            }
+            "backup" | "Backup" => {
+                execute_backup(app_handle, task).await;
             }
             "BoostStart" => {
                 if let Some(cmd) = &task.command {
@@ -911,7 +1059,7 @@ impl SchedulerService {
                     log::info!("🚀 Boost Ended for server {}: {}", task.server_id, cmd);
                 }
             }
-            "AutoUpdateMods" => {
+            "AutoUpdateMods" | "auto-update-mods" => {
                 let server_id = task.server_id;
                 let app = (*app_handle).clone();
                 let pre_warning_minutes = if task.pre_warning_minutes > 0 {
@@ -1129,6 +1277,65 @@ impl SchedulerService {
             }
         }
     }
+
+    pub async fn run_online_tasks(app_handle: &AppHandle, server_id: i64) {
+        log::info!("📅 Scheduler: Running tasks on server online for server {}", server_id);
+        let state = app_handle.state::<AppState>();
+        let tasks = {
+            let db = match state.db.lock() {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+            let conn = match db.get_connection() {
+                Ok(conn) => conn,
+                Err(_) => return,
+            };
+
+            let mut stmt = match conn.prepare(
+                "SELECT t.id, t.server_id, t.task_type, t.cron_expression, t.command, t.message, t.pre_warning_minutes, t.last_run, t.task_name 
+                 FROM scheduled_tasks t 
+                 WHERE t.server_id = ?1 AND t.enabled = 1 AND t.cron_expression = '@online'"
+            ) {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+
+            let iter = stmt.query_map([server_id], |row| {
+                Ok(ScheduledTask {
+                    id: row.get(0)?,
+                    server_id: row.get(1)?,
+                    task_type: row.get(2)?,
+                    cron_expression: row.get(3)?,
+                    command: row.get(4)?,
+                    message: row.get(5)?,
+                    pre_warning_minutes: row.get(6)?,
+                    enabled: true,
+                    last_run: row.get(7)?,
+                    created_at: String::new(),
+                    task_name: row.get(8).unwrap_or(None),
+                })
+            });
+
+            match iter {
+                Ok(rows) => rows.filter_map(|r| r.ok()).collect::<Vec<_>>(),
+                Err(_) => Vec::new(),
+            }
+        };
+
+        for task in tasks {
+            log::info!("🚀 Executing On-Online Task {} ({})", task.id, task.task_type);
+            Self::execute_task(app_handle, &task).await;
+
+            if let Ok(db) = state.db.lock() {
+                if let Ok(conn) = db.get_connection() {
+                    let _ = conn.execute(
+                        "UPDATE scheduled_tasks SET last_run = CURRENT_TIMESTAMP WHERE id = ?1",
+                        [task.id],
+                    );
+                }
+            }
+        }
+    }
 }
 
 fn get_server_name(app_handle: &AppHandle, server_id: i64) -> String {
@@ -1225,4 +1432,102 @@ async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
             });
         }
     }
+}
+
+async fn execute_backup(app_handle: &AppHandle, task: &ScheduledTask) {
+    let app_handle_clone = app_handle.clone();
+    let server_id = task.server_id;
+    
+    tauri::async_runtime::spawn(async move {
+        let state = app_handle_clone.state::<AppState>();
+        log::info!("💾 Executing scheduled backup for server {}...", server_id);
+        
+        let paths_opt = {
+            if let Ok(db) = state.db.lock() {
+                if let Ok(conn) = db.get_connection() {
+                    if let Ok(install_path) = conn.query_row(
+                        "SELECT install_path FROM servers WHERE id = ?1",
+                        [server_id],
+                        |row| row.get::<_, String>(0),
+                    ) {
+                        Some((install_path, PathBuf::from("C:/ASA_Backups")))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        let (install_path, app_data_dir) = match paths_opt {
+            Some(val) => val,
+            None => {
+                log::error!("❌ Failed to retrieve server install path for backup");
+                return;
+            }
+        };
+
+        let backup_dir = BackupService::get_backup_dir(&app_data_dir, server_id);
+
+        let options = BackupOptions {
+            include_configs: true,
+            include_mods: true,
+            include_saves: true,
+            include_cluster: true,
+            compression_level: 6,
+        };
+
+        let mut backup = match BackupService::create_backup(
+            &PathBuf::from(&install_path),
+            &backup_dir,
+            server_id,
+            BackupType::Auto,
+            &options,
+        ) {
+            Ok(b) => b,
+            Err(e) => {
+                log::error!(
+                    "❌ Failed to create scheduled backup for server {}: {}",
+                    server_id,
+                    e
+                );
+                return;
+            }
+        };
+
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                if conn
+                    .execute(
+                        "INSERT INTO backups (server_id, backup_type, file_path, size, includes_configs, includes_mods, includes_saves, includes_cluster, verified, created_at) 
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                        params![
+                            backup.server_id,
+                            backup.backup_type.to_string(),
+                            backup.file_path.to_string_lossy().to_string(),
+                            backup.size,
+                            backup.includes_configs,
+                            backup.includes_mods,
+                            backup.includes_saves,
+                            backup.includes_cluster,
+                            backup.verified,
+                            backup.created_at,
+                        ],
+                    )
+                    .is_ok()
+                {
+                    backup.id = conn.last_insert_rowid();
+                    log::info!(
+                        "✅ Scheduled backup {} completed for server {} at {:?}",
+                        backup.id,
+                        server_id,
+                        backup.file_path
+                    );
+                }
+            }
+        };
+    });
 }

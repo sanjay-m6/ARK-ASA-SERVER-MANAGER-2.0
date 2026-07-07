@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Network, Trash2, Loader2, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, toggleClusterCrossChat, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, addServerToCluster, removeServerFromCluster, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
+import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, addServerToCluster, removeServerFromCluster, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
 import { startServer, stopServer } from '../utils/tauri';
 import { Cluster, Server } from '../types';
 import toast from 'react-hot-toast';
@@ -11,6 +11,7 @@ import ConfirmDialog from '../components/ui/ConfirmDialog';
 import DiscordBridgeSettings from '../components/cluster/DiscordBridgeSettings';
 import EditClusterDialog from '../components/cluster/EditClusterDialog';
 import VisualClusterBuilder from '../components/cluster/VisualClusterBuilder';
+import CrossChatConfigDialog from '../components/cluster/CrossChatConfigDialog';
 import { useTranslation } from 'react-i18next';
 
 export default function ClusterManager() {
@@ -97,6 +98,7 @@ export default function ClusterManager() {
     };
 
     const [deleteConfirmCluster, setDeleteConfirmCluster] = useState<Cluster | null>(null);
+    const [configuringCrossChat, setConfiguringCrossChat] = useState<Cluster | null>(null);
 
     const confirmDeleteCluster = async () => {
         if (!deleteConfirmCluster) return;
@@ -181,17 +183,7 @@ export default function ClusterManager() {
         return cluster.serverIds.filter(id => isServerActive(getServerStatus(id))).length;
     };
 
-    const handleToggleCrossChat = async (clusterId: number) => {
-        const currentStatus = crossChatStatus[clusterId] ?? false;
-        try {
-            await toggleClusterCrossChat(clusterId, !currentStatus);
-            setCrossChatStatus(prev => ({ ...prev, [clusterId]: !currentStatus }));
-            toast.success(t('clusterManager.crossChatToggled', { status: !currentStatus ? 'enabled' : 'disabled' }));
-        } catch (error) {
-            console.error('Failed to toggle cross-chat:', error);
-            toast.error(t('clusterManager.crossChatFailed'));
-        }
-    };
+
 
     const handleBrowseClusterPath = async () => {
         const selected = await selectFolder(t('clusterManager.selectClusterDir'));
@@ -402,14 +394,14 @@ export default function ClusterManager() {
 
                                     {/* Cross-Chat Toggle */}
                                     <button
-                                        onClick={() => handleToggleCrossChat(cluster.id)}
+                                        onClick={() => setConfiguringCrossChat(cluster)}
                                         className={cn(
                                             "flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors text-sm relative",
                                             crossChatStatus[cluster.id]
                                                 ? "bg-violet-600/20 hover:bg-violet-600/30 text-violet-400"
                                                 : "bg-slate-700/50 hover:bg-slate-600/50 text-slate-400"
                                         )}
-                                        title="Cross-Server Chat (Experimental)"
+                                        title="Cross-Server Chat Settings"
                                     >
                                         <MessageCircle className="w-4 h-4" />
                                         <span>{t('clusterManager.chat')}</span>
@@ -521,6 +513,20 @@ export default function ClusterManager() {
                     onSaved={() => {
                         fetchClusters();
                         refreshServers();
+                    }}
+                />
+            )}
+
+            {/* Cross-Server Chat Configuration Dialog */}
+            {configuringCrossChat && (
+                <CrossChatConfigDialog
+                    isOpen={configuringCrossChat !== null}
+                    cluster={configuringCrossChat}
+                    onClose={() => setConfiguringCrossChat(null)}
+                    onSaved={(enabled) => {
+                        if (configuringCrossChat) {
+                            setCrossChatStatus(prev => ({ ...prev, [configuringCrossChat.id]: enabled }));
+                        }
                     }}
                 />
             )}

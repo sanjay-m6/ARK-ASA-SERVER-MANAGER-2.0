@@ -143,10 +143,10 @@ export default function ASEAdvancedPage() {
                                         <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
                                         <div>
                                             <p className="text-xs font-semibold text-amber-300">
-                                                Conflicting -mods= detected
+                                                Conditional -mods= configuration
                                             </p>
                                             <p className="text-xs text-amber-400/80 mt-0.5">
-                                                Mods are managed automatically by the Mod Manager. Any <code className="font-mono bg-amber-500/10 px-1 rounded">-mods=</code> arguments here will be stripped at launch to prevent conflicts.
+                                                If there are active mods enabled in the Mod Manager, any <code className="font-mono bg-amber-500/10 px-1 rounded">-mods=</code> arguments here will be stripped at launch. Otherwise, your manual list will be preserved.
                                             </p>
                                         </div>
                                     </div>

@@ -205,7 +205,7 @@
     "goodMorning": "Good Morning",
     "goodAfternoon": "Good Afternoon",
     "goodEvening": "Good Evening",
-    "commander": "Commander",
+    "": "",
     "serversRunning": "{{count}} server running • System healthy",
     "serversRunning_plural": "{{count}} servers running • System healthy",
     "allStandby": "All systems standing by",
@@ -2518,7 +2518,7 @@
     },
     "welcome": {
       "title": "Welcome Back",
-      "subtitle": "Commander"
+      "subtitle": ""
     }
   },
   "adminBlocker": {

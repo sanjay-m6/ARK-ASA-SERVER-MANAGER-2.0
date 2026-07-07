@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, Cloud, FolderOpen, FileText, Search, Copy, Check, Terminal, X } from 'lucide-react';
 import { getSetting, setSetting, getAllServers } from '../utils/tauri';
 import toast from 'react-hot-toast';
@@ -21,6 +22,8 @@ import {
     resetUpdateCache,
     getReleasesUrl,
     formatRelativeTime,
+    trackCurrentVersion,
+    removeHistoryEntry,
     type UpdateSettings,
     type UpdateHistoryEntry
 } from '../utils/updateHistory';
@@ -171,7 +174,11 @@ export default function Settings() {
 
     useEffect(() => {
         loadSettings();
-        getVersion().then(setCurrentVersion).catch(console.error);
+        getVersion().then((v) => {
+            setCurrentVersion(v);
+            trackCurrentVersion(v);
+            setUpdateHistoryState(getUpdateHistory());
+        }).catch(console.error);
         getAllServers().then((s) => {
             setServers(s);
             if (s.length > 0 && !selectedServerId) setSelectedServerId(s[0].id);
@@ -250,6 +257,39 @@ export default function Settings() {
         // Notify UpdateChecker to restart its interval with fresh settings
         window.dispatchEvent(new Event('update-settings-changed'));
         toast.success(t('settings.updatesTab.cacheReset', 'Update cache cleared. The updater will re-check on next cycle.'));
+    };
+
+    const handleRollback = async (version: string) => {
+        if (!window.confirm(`Are you sure you want to roll back to v${version}? This will restart the application.`)) {
+            return;
+        }
+        
+        const rollbackToast = toast.loading(`Initiating rollback to v${version}... Downloading installer.`);
+        try {
+            await invoke('rollback_to_version', { version });
+        } catch (error) {
+            console.error('Rollback failed:', error);
+            toast.error(`Rollback failed: ${error}`, { id: rollbackToast });
+        }
+    };
+
+    const handleUninstall = async () => {
+        if (!window.confirm("Are you sure you want to uninstall the application? This will terminate the Server Manager and run the uninstaller.")) {
+            return;
+        }
+        
+        try {
+            await invoke('uninstall_application');
+        } catch (error) {
+            console.error('Uninstallation failed:', error);
+            toast.error(`Uninstallation failed: ${error}`);
+        }
+    };
+
+    const handleRemoveHistoryEntry = (id: string) => {
+        removeHistoryEntry(id);
+        setUpdateHistoryState(getUpdateHistory());
+        toast.success('Version entry removed from history');
     };
 
     const handleSave = async () => {
@@ -957,12 +997,33 @@ export default function Settings() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-sm font-medium text-slate-300">
-                                                {formatRelativeTime(entry.date)}
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-right">
+                                                <div className="text-sm font-medium text-slate-300">
+                                                    {formatRelativeTime(entry.date)}
+                                                </div>
+                                                <div className="text-xs text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    {new Date(entry.date).toLocaleDateString()}
+                                                </div>
                                             </div>
-                                            <div className="text-xs text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {new Date(entry.date).toLocaleDateString()}
+                                            <div className="flex items-center gap-2">
+                                                {entry.action === 'installed' && entry.version !== currentVersion && (
+                                                    <button
+                                                        onClick={() => handleRollback(entry.version)}
+                                                        className="px-2.5 py-1.5 bg-orange-500/10 text-orange-400 hover:bg-orange-500 hover:text-white border border-orange-500/20 rounded-lg transition-all text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 shadow-sm"
+                                                        title={`Rollback to v${entry.version}`}
+                                                    >
+                                                        <Undo2 className="w-3.5 h-3.5" />
+                                                        Rollback
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handleRemoveHistoryEntry(entry.id)}
+                                                    className="p-1.5 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-lg transition-all"
+                                                    title="Remove from history"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -982,13 +1043,22 @@ export default function Settings() {
                         <p className="text-slate-400 mb-4">
                             {t('settings.updatesTab.previousDesc', 'Need to roll back? View all previous releases and download older versions from our GitHub repository.')}
                         </p>
-                        <button
-                            onClick={() => openUrl(getReleasesUrl())}
-                            className="flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl transition-colors shadow-lg shadow-orange-500/20"
-                        >
-                            <ExternalLink className="w-5 h-5" />
-                            {t('settings.updatesTab.viewReleases', 'View Releases on GitHub')}
-                        </button>
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => openUrl(getReleasesUrl())}
+                                className="flex items-center gap-2 px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-xl transition-colors shadow-lg shadow-orange-500/20"
+                            >
+                                <ExternalLink className="w-5 h-5" />
+                                {t('settings.updatesTab.viewReleases', 'View Releases on GitHub')}
+                            </button>
+                            <button
+                                onClick={handleUninstall}
+                                className="flex items-center gap-2 px-6 py-3 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 hover:border-red-500 rounded-xl transition-all shadow-lg font-semibold"
+                            >
+                                <Trash2 className="w-5 h-5" />
+                                Uninstall Server Manager
+                            </button>
+                        </div>
                     </div>
 
                     {/* Troubleshooting & Log Diagnostics */}
@@ -1103,8 +1173,8 @@ export default function Settings() {
             ) : null}
 
             {/* Log Viewer Modal */}
-            {isViewLogOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+            {isViewLogOpen && createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="relative w-full max-w-5xl h-[85vh] flex flex-col bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md animate-in zoom-in-95 duration-200">
                         {/* Header */}
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 border-b border-slate-800 bg-slate-900/40">
@@ -1222,7 +1292,8 @@ export default function Settings() {
                             </span>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

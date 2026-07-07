@@ -50,7 +50,7 @@ export function parseLootCrateString(str: string): LootCrate | null {
     };
 
     const extractValue = (key: string, text: string, type: 'string' | 'number' | 'boolean') => {
-      const regex = new RegExp(`${key}=(.*?)(?:,|\\)$)`);
+      const regex = new RegExp(`${key}=(.*?)(?:,|\\))`);
       const match = text.match(regex);
       if (!match) return null;
       let val = match[1].trim();
@@ -133,11 +133,17 @@ export function parseLootCrateString(str: string): LootCrate | null {
                cleanEntryStr = cleanEntryStr.substring(1, cleanEntryStr.length - 1);
             }
 
-            const itemClassesMatch = cleanEntryStr.match(/ItemClassStrings=\("([^"]+)"\)/);
-            const itemClasses = itemClassesMatch ? [itemClassesMatch[1]] : [];
+            // Parse ALL item class strings: ItemClassStrings=("Class_A","Class_B","Class_C")
+            const itemClassesMatch = cleanEntryStr.match(/ItemClassStrings=\(([^)]+)\)/);
+            const itemClasses = itemClassesMatch
+              ? itemClassesMatch[1].split(',').map(s => s.trim().replace(/^"|"$/g, '')).filter(Boolean)
+              : [];
 
-            const itemWeightsMatch = cleanEntryStr.match(/ItemsWeights=\(([\d.]+)\)/);
-            const itemWeights = itemWeightsMatch ? [parseFloat(itemWeightsMatch[1])] : [];
+            // Parse ALL item weights: ItemsWeights=(1.0,0.5,0.3)
+            const itemWeightsMatch = cleanEntryStr.match(/ItemsWeights=\(([^)]+)\)/);
+            const itemWeights = itemWeightsMatch
+              ? itemWeightsMatch[1].split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v))
+              : [];
 
             set.ItemEntries.push({
               EntryWeight: extractValue('EntryWeight', cleanEntryStr, 'number') as number ?? 1.0,
@@ -164,16 +170,21 @@ export function parseLootCrateString(str: string): LootCrate | null {
   }
 }
 
+/** Guard against NaN/undefined before calling toFixed */
+const safeNum = (v: number, fallback = 0): number =>
+  (v == null || isNaN(v)) ? fallback : v;
+
 export function stringifyLootCrate(crate: LootCrate): string {
   const setsStrings = crate.ItemSets.map(set => {
     const entriesStrings = set.ItemEntries.map(entry => {
-      const classStr = `ItemClassStrings=("${entry.ItemClassStrings[0] || ''}")`;
-      const weightStr = `ItemsWeights=(${entry.ItemsWeights[0] || 1.0})`;
-      return `(EntryWeight=${entry.EntryWeight.toFixed(4)},${classStr},${weightStr},MinQuantity=${entry.MinQuantity.toFixed(4)},MaxQuantity=${entry.MaxQuantity.toFixed(4)},MinQuality=${entry.MinQuality.toFixed(4)},MaxQuality=${entry.MaxQuality.toFixed(4)},bForceBlueprint=${entry.bForceBlueprint ? 'True' : 'False'},ChanceToBeBlueprintOverride=${entry.ChanceToBeBlueprintOverride.toFixed(4)})`;
+      // Serialize ALL item classes and weights, not just the first
+      const classStr = `ItemClassStrings=(${(entry.ItemClassStrings.length > 0 ? entry.ItemClassStrings : ['']).map(c => `"${c}"`).join(',')})`;
+      const weightStr = `ItemsWeights=(${(entry.ItemsWeights.length > 0 ? entry.ItemsWeights : [1.0]).map(w => safeNum(w, 1.0)).join(',')})`;
+      return `(EntryWeight=${safeNum(entry.EntryWeight, 1.0).toFixed(4)},${classStr},${weightStr},MinQuantity=${safeNum(entry.MinQuantity, 1).toFixed(4)},MaxQuantity=${safeNum(entry.MaxQuantity, 1).toFixed(4)},MinQuality=${safeNum(entry.MinQuality, 1).toFixed(4)},MaxQuality=${safeNum(entry.MaxQuality, 1).toFixed(4)},bForceBlueprint=${entry.bForceBlueprint ? 'True' : 'False'},ChanceToBeBlueprintOverride=${safeNum(entry.ChanceToBeBlueprintOverride, 0).toFixed(4)})`;
     }).join(',');
 
-    return `(MinNumItems=${set.MinNumItems},MaxNumItems=${set.MaxNumItems},NumItemsPower=${set.NumItemsPower.toFixed(4)},SetWeight=${set.SetWeight.toFixed(4)},bItemsRandomWithoutReplacement=${set.bItemsRandomWithoutReplacement ? 'True' : 'False'},ItemEntries=(${entriesStrings}))`;
+    return `(MinNumItems=${safeNum(set.MinNumItems, 1)},MaxNumItems=${safeNum(set.MaxNumItems, 1)},NumItemsPower=${safeNum(set.NumItemsPower, 1).toFixed(4)},SetWeight=${safeNum(set.SetWeight, 1).toFixed(4)},bItemsRandomWithoutReplacement=${set.bItemsRandomWithoutReplacement ? 'True' : 'False'},ItemEntries=(${entriesStrings}))`;
   }).join(',');
 
-  return `ConfigOverrideSupplyCrateItems=(SupplyCrateClassString="${crate.SupplyCrateClassString}",MinItemSets=${crate.MinItemSets},MaxItemSets=${crate.MaxItemSets},NumItemSetsPower=${crate.NumItemSetsPower.toFixed(4)},bSetsRandomWithoutReplacement=${crate.bSetsRandomWithoutReplacement ? 'True' : 'False'},ItemSets=(${setsStrings}))`;
+  return `ConfigOverrideSupplyCrateItems=(SupplyCrateClassString="${crate.SupplyCrateClassString}",MinItemSets=${safeNum(crate.MinItemSets, 1)},MaxItemSets=${safeNum(crate.MaxItemSets, 1)},NumItemSetsPower=${safeNum(crate.NumItemSetsPower, 1).toFixed(4)},bSetsRandomWithoutReplacement=${crate.bSetsRandomWithoutReplacement ? 'True' : 'False'},ItemSets=(${setsStrings}))`;
 }

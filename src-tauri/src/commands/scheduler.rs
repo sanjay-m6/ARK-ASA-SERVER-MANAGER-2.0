@@ -38,6 +38,9 @@ pub struct CreateTaskRequest {
 /// Expects 5 fields: minute hour day month weekday (standard cron format)
 /// Each field can be *, a number, or a range/step expression
 fn validate_cron_expression(expr: &str) -> Result<(), String> {
+    if expr == "@online" {
+        return Ok(());
+    }
     let parts: Vec<&str> = expr.split_whitespace().collect();
 
     if parts.len() != 5 {

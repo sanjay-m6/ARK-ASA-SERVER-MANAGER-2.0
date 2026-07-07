@@ -384,6 +384,59 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         ]
     },
     {
+        title: 'Custom Dino Levels Mod',
+        description: 'Configure dinosaur level distribution (for the Custom Dino Levels mod)',
+        category: 'dino',
+        fields: [
+            {
+                section: 'CustomLevelDistrib',
+                key: 'WantsEqualLevels',
+                label: 'Wants Equal Levels',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Gives every level an equal chance to spawn. Recommended for custom Min/Max ranges.'
+            },
+            {
+                section: 'CustomLevelDistrib',
+                key: 'WantsRagLevels',
+                label: 'Wants Ragnarok Levels',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Mimics the Ragnarok level distribution (higher levels are more common than vanilla).'
+            },
+            {
+                section: 'CustomLevelDistrib',
+                key: 'WantsHighLevels',
+                label: 'Wants High Levels',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Skew spawns heavily towards higher levels.'
+            },
+            {
+                section: 'CustomLevelDistrib',
+                key: 'MinLevel',
+                label: 'Min Level (Base)',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 1,
+                max: 150,
+                step: 1,
+                description: 'Base minimum level. For standard level 150 servers (Difficulty 5), keep this at 1 to allow level 5 spawns (1 × 5 = 5). Set to 30 to only allow level 150 spawns (30 × 5 = 150).'
+            },
+            {
+                section: 'CustomLevelDistrib',
+                key: 'MaxLevel',
+                label: 'Max Level (Base)',
+                type: 'slider',
+                defaultValue: '30.0',
+                min: 1,
+                max: 150,
+                step: 1,
+                description: 'Base maximum level. For standard level 150 servers (Difficulty 5), this MUST be 30 (30 × 5 = 150). Setting this directly to 150 with Difficulty 5 will scale wild dino levels up to 750!'
+            }
+        ]
+    },
+    {
         title: 'Player Stats',
         description: 'Player stat multipliers',
         category: 'player',
@@ -1275,6 +1328,35 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 description: 'Multiply item stack sizes'
             }
         ]
+    },
+    {
+        title: 'Loot Quality',
+        description: 'Supply crate and loot settings',
+        category: 'gameplay',
+        fields: [
+            {
+                section: 'ServerSettings',
+                key: 'SupplyCrateLootQualityMultiplier',
+                label: 'Supply Crate Quality',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 1,
+                max: 10,
+                step: 0.5,
+                description: 'Supply crate loot quality. WARNING: Values above 2.0 can glitch beaver dams (no cementing paste), alphas (no loot), wyverns (no milk), and cause drops to despawn.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'FishingLootQualityMultiplier',
+                label: 'Fishing Loot Quality',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 1,
+                max: 10,
+                step: 0.5,
+                description: 'Fishing loot quality. WARNING: High values can cause item requirements to overflow and break loot tables.'
+            }
+        ]
     }
 ];
 
@@ -1914,35 +1996,6 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 defaultValue: '',
                 description: 'Engram points granted for each level up. Enter one value per line.',
                 wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#OverridePlayerLevelEngramPoints'
-            }
-        ]
-    },
-    {
-        title: 'Loot Quality',
-        description: 'Supply crate and loot settings',
-        category: 'gameplay',
-        fields: [
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'SupplyCrateLootQualityMultiplier',
-                label: 'Supply Crate Quality',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 1,
-                max: 10,
-                step: 0.5,
-                description: 'Supply crate loot quality'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'FishingLootQualityMultiplier',
-                label: 'Fishing Loot Quality',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 1,
-                max: 10,
-                step: 0.5,
-                description: 'Fishing loot quality'
             }
         ]
     },

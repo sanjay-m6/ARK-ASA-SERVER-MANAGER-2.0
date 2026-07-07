@@ -490,3 +490,64 @@ pub fn get_app_logs_dir(app: tauri::AppHandle) -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn rollback_to_version(version: String) -> Result<(), String> {
+    let url = format!(
+        "https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases/download/v{}/ASA.Server.Manager_{}_x64-setup.exe",
+        version, version
+    );
+    
+    let temp_dir = std::env::temp_dir();
+    let file_name = format!("ASA.Server.Manager_{}_setup.exe", version);
+    let file_path = temp_dir.join(file_name);
+    
+    println!("Downloading rollback installer from {} to {:?}", url, file_path);
+    
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(300))
+        .build()
+        .map_err(|e| e.to_string())?;
+        
+    let response = client.get(&url)
+        .header("User-Agent", "ARK-ASA-Server-Manager")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download update: {}", e))?;
+        
+    if !response.status().is_success() {
+        return Err(format!("Server returned error status: {}", response.status()));
+    }
+    
+    let bytes = response.bytes().await
+        .map_err(|e| format!("Failed to read update bytes: {}", e))?;
+        
+    std::fs::write(&file_path, bytes)
+        .map_err(|e| format!("Failed to write update file: {}", e))?;
+        
+    println!("Launching installer: {:?}", file_path);
+    
+    std::process::Command::new(&file_path)
+        .spawn()
+        .map_err(|e| format!("Failed to execute installer: {}", e))?;
+        
+    std::process::exit(0);
+}
+
+#[tauri::command]
+pub async fn uninstall_application() -> Result<(), String> {
+    let current_exe = std::env::current_exe()
+        .map_err(|e| format!("Failed to get current exe path: {}", e))?;
+    let install_dir = current_exe.parent()
+        .ok_or_else(|| "Failed to get install directory.".to_string())?;
+    
+    let uninstaller = install_dir.join("Uninstall.exe");
+    if uninstaller.exists() {
+        std::process::Command::new(uninstaller)
+            .spawn()
+            .map_err(|e| format!("Failed to run uninstaller: {}", e))?;
+        std::process::exit(0);
+    } else {
+        Err("Uninstall.exe not found in app directory. Please uninstall via Windows Control Panel / Settings.".to_string())
+    }
+}
+

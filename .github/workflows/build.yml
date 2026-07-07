@@ -68,13 +68,20 @@ jobs:
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
             - **Fresh Install**: Download the `.exe` installer below and run it.
 
-            ### 🆕 New Features & Improvements in v4.5.5
+            ### 🆕 New Features & Improvements in v4.6.0
+            - **💬 Native C++ CrossChat Plugin (AsaApi)**: Introduced a native C++ plugin (`AsaCrossChat.dll`) for Ark Server API (AsaApi) enabling cross-server cluster chat sync via a shared MySQL/MariaDB database.
+            - **⚡ Chat Persistence & Startup Safety**: Fixed the "lost chat messages on startup" bug. The native plugin now persists the last fetched message ID in a local file (`last_fetched_id.txt`) and delays DB querying until the game world is fully initialized (`GetWorld() != nullptr`).
+            - **👁️ Real-Time Log Streaming Fixes**: Overhauled the log tailing engine to use parent directory monitoring, resolving Windows file locking/flush delays. Added auto-initialization for already running servers on log stream startup.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.5.5 — Overhauled Auto-Update System & ASE Config Fixes</summary>
+
             - **🔄 Rewritten Auto-Update System**: Completely overhauled the update checker with robust error handling, elevation detection, portable ZIP fallback, and direct download URLs when auto-update fails.
             - **🦕 ASE Boolean Config Fix**: Fixed all boolean configuration values in the ASE (ARK: Survival Evolved) module. Booleans now correctly serialize as `True`/`False` (capitalized) instead of `true`/`false`, which ARK's INI parser requires.
             - **🗺️ ASA Genesis Part 1 Map**: Added Genesis Part 1 map support for ASA with the correct `map_id: "Genesis"`.
             - **⚙️ CI/CD Pipeline Rewrite**: Modernized the GitHub Actions build pipeline with automatic version extraction and reliable release publishing.
-
-            ### 🛠️ Previous Releases
+            </details>
             <details>
             <summary>v4.5.4 — Dino Spawn Editor, Loot Crate Editor & Guardian Watchdog</summary>
 
@@ -114,3 +121,6 @@ jobs:
           releaseDraft: false
           prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}
           includeUpdaterJson: true
+
+      - name: Verify Release Signatures
+        run: node scripts/verify-release-signatures.js

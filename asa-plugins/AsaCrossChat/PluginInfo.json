@@ -1,0 +1,7 @@
+{
+  "FullName": "AsaCrossChat",
+  "Description": "Asynchronous cross-server chat plugin for Ark Survival Ascended maps using a shared MySQL/MariaDB database.",
+  "Version": "1.0.0",
+  "MinApiVersion": "1.0",
+  "UpdateUrl": ""
+}

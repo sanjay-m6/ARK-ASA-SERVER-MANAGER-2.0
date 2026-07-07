@@ -578,7 +578,15 @@ impl ProcessManager {
                                     "UPDATE servers SET status = ?1 WHERE id = ?2",
                                     rusqlite::params![status, id],
                                 ) {
-                                    Ok(_) => println!("  ✅ DB Updated: Server {} -> {}", id, status),
+                                    Ok(_) => {
+                                        println!("  ✅ DB Updated: Server {} -> {}", id, status);
+                                        if status == "online" {
+                                            let app_handle_clone = monitor_handle.clone();
+                                            tauri::async_runtime::spawn(async move {
+                                                crate::services::scheduler::SchedulerService::run_online_tasks(&app_handle_clone, id).await;
+                                            });
+                                        }
+                                    }
                                     Err(e) => println!("  ❌ DB Update Failed for Server {}: {}", id, e),
                                 }
                             } else {
@@ -979,10 +987,22 @@ impl ProcessManager {
                 for s in custom_parts {
                     let lower = s.to_lowercase();
                     if lower.starts_with("-mods=") {
-                        println!(
-                            "  ⚠️ Stripped conflicting -mods= from custom_args for server {} (mods are managed automatically)",
-                            server_id
-                        );
+                        let has_managed_mods = match mods {
+                            Some(m) => !m.is_empty(),
+                            None => false,
+                        };
+                        if has_managed_mods {
+                            println!(
+                                "  ⚠️ Stripped conflicting -mods= from custom_args for server {} (mods are managed automatically)",
+                                server_id
+                            );
+                        } else {
+                            println!(
+                                "  🧩 Preserved custom -mods= from custom_args for server {} (no active mods in manager)",
+                                server_id
+                            );
+                            args.push(s);
+                        }
                     } else if s.starts_with('?') {
                         // Append URL parameters to the connection URL (args[0])
                         args[0].push_str(&s);

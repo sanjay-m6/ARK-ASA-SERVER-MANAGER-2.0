@@ -52,6 +52,11 @@ impl LogWatcherService {
         streaming.contains(&server_id)
     }
 
+    pub fn is_watching(&self, server_id: i64) -> bool {
+        let watchers = self.watchers.lock().unwrap_or_else(|p| p.into_inner());
+        watchers.contains_key(&server_id)
+    }
+
     pub fn start_watching(&self, server_id: i64, path: PathBuf) -> Result<(), String> {
         let app_handle = self.app_handle.clone();
         let (tx, rx) = std::sync::mpsc::channel();
@@ -60,17 +65,18 @@ impl LogWatcherService {
             .map_err(|e| format!("Failed to create log watcher: {}", e))?;
 
         let log_path = path.join("ShooterGame/Saved/Logs/ShooterGame.log");
+        let log_dir = log_path.parent().ok_or_else(|| "Failed to get log parent directory".to_string())?;
         
         // Ensure log directory and file exist so we can watch them
+        if !log_dir.exists() {
+            let _ = std::fs::create_dir_all(log_dir);
+        }
         if !log_path.exists() {
-            if let Some(parent) = log_path.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
             let _ = File::create(&log_path);
         }
 
-        let _ = watcher.watch(&log_path, RecursiveMode::NonRecursive);
-        println!("🤖 AI Automation: Watching log file: {:?}", log_path);
+        let _ = watcher.watch(log_dir, RecursiveMode::NonRecursive);
+        println!("🤖 AI Automation: Watching log directory: {:?}", log_dir);
 
         let server_id_clone = server_id;
         let mut last_pos = 0;
@@ -89,6 +95,14 @@ impl LogWatcherService {
                         if let Ok(e) = event {
                             // Only care about file modification
                             if !matches!(e.kind, notify::EventKind::Modify(_)) {
+                                continue;
+                            }
+
+                            // Filter events specifically for ShooterGame.log
+                            let is_log_modified = e.paths.iter().any(|p| {
+                                p.file_name() == Some(std::ffi::OsStr::new("ShooterGame.log"))
+                            });
+                            if !is_log_modified {
                                 continue;
                             }
 

@@ -610,14 +610,16 @@ pub async fn hardcore_retry_mods(
 ) -> Result<(), String> {
     println!("☢️ Hardcore Mod Retry initiated for server {}", server_id);
 
-    // 1. Fetch Server Details & Config
+    // 1. Fetch Server Details & Config (LEFT JOIN clusters for cluster_path)
     let (install_path, session_name, map_name, game_port, query_port, rcon_port, max_players, server_password, admin_password, ip_address, cluster_id, cluster_dir, custom_args, battleye) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         
         conn.query_row(
-            "SELECT install_path, session_name, map_name, game_port, query_port, rcon_port, max_players, server_password, admin_password, ip_address, cluster_id, cluster_dir, custom_args, battleye 
-             FROM servers WHERE id = ?1",
+            "SELECT s.install_path, s.session_name, s.map_name, s.game_port, s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address, s.cluster_id, c.cluster_path, s.custom_args, s.battleye 
+             FROM servers s
+             LEFT JOIN clusters c ON s.cluster_id = c.id
+             WHERE s.id = ?1",
             [server_id],
             |row| Ok((
                 row.get::<_, String>(0)?, // install_path
@@ -631,7 +633,7 @@ pub async fn hardcore_retry_mods(
                 row.get::<_, String>(8)?, // admin_password
                 row.get::<_, Option<String>>(9)?, // ip_address
                 row.get::<_, Option<String>>(10)?, // cluster_id
-                row.get::<_, Option<String>>(11)?, // cluster_dir
+                row.get::<_, Option<String>>(11)?, // cluster_path (from clusters table)
                 row.get::<_, Option<String>>(12)?, // custom_args
                 row.get::<_, i32>(13).unwrap_or(1) != 0, // battleye
             )),

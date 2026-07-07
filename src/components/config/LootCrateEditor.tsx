@@ -8,6 +8,12 @@ interface LootCrateEditorProps {
   onChange: (value: string) => void;
 }
 
+/** Safe parseFloat that falls back to a default instead of returning NaN */
+const safeFloat = (val: string, fallback: number): number => {
+  const parsed = parseFloat(val);
+  return isNaN(parsed) ? fallback : parsed;
+};
+
 export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
   const [expandedCrates, setExpandedCrates] = useState<Record<number, boolean>>({});
   const [expandedSets, setExpandedSets] = useState<Record<string, boolean>>({});
@@ -24,6 +30,9 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
     lines[idx] = stringifyLootCrate(newCrate);
     onChange(lines.join('\n'));
   };
+
+  /** Deep-clone a parsed crate so we never mutate the useMemo cache */
+  const cloneCrate = (crate: LootCrate): LootCrate => structuredClone(crate);
 
   const removeCrate = (idx: number) => {
     const lines = typeof value === 'string' && value ? value.split('\n') : [];
@@ -55,6 +64,14 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
 
   return (
     <div className="space-y-4">
+      {/* Render datalists ONCE at top level — not inside loops (Bug 4 fix) */}
+      <datalist id="supply-crates">
+        {arkSupplyCrates.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </datalist>
+      <datalist id="ark-items">
+        {arkItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </datalist>
+
       <div className="flex justify-between items-center bg-gray-800/50 p-3 rounded-lg border border-gray-700">
         <div>
           <h3 className="font-medium text-white flex items-center">
@@ -106,14 +123,12 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                       className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-primary-500"
                       value={parsed.SupplyCrateClassString}
                       onChange={(e) => {
-                        parsed.SupplyCrateClassString = e.target.value;
-                        updateCrate(idx, parsed);
+                        const clone = cloneCrate(parsed);
+                        clone.SupplyCrateClassString = e.target.value;
+                        updateCrate(idx, clone);
                       }}
                       list="supply-crates"
                     />
-                    <datalist id="supply-crates">
-                      {arkSupplyCrates.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </datalist>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -122,7 +137,7 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                         type="number"
                         className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-primary-500"
                         value={parsed.MinItemSets}
-                        onChange={(e) => { parsed.MinItemSets = parseFloat(e.target.value); updateCrate(idx, parsed); }}
+                        onChange={(e) => { const clone = cloneCrate(parsed); clone.MinItemSets = safeFloat(e.target.value, 1); updateCrate(idx, clone); }}
                       />
                     </div>
                     <div>
@@ -131,7 +146,7 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                         type="number"
                         className="w-full bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-primary-500"
                         value={parsed.MaxItemSets}
-                        onChange={(e) => { parsed.MaxItemSets = parseFloat(e.target.value); updateCrate(idx, parsed); }}
+                        onChange={(e) => { const clone = cloneCrate(parsed); clone.MaxItemSets = safeFloat(e.target.value, 1); updateCrate(idx, clone); }}
                       />
                     </div>
                   </div>
@@ -145,10 +160,11 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                     </h4>
                     <button
                       onClick={() => {
-                        parsed.ItemSets.push({
+                        const clone = cloneCrate(parsed);
+                        clone.ItemSets.push({
                           MinNumItems: 1, MaxNumItems: 1, NumItemsPower: 1.0, SetWeight: 1.0, bItemsRandomWithoutReplacement: true, ItemEntries: []
                         });
-                        updateCrate(idx, parsed);
+                        updateCrate(idx, clone);
                       }}
                       className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-200"
                     >
@@ -170,8 +186,9 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            parsed.ItemSets.splice(setIdx, 1);
-                            updateCrate(idx, parsed);
+                            const clone = cloneCrate(parsed);
+                            clone.ItemSets.splice(setIdx, 1);
+                            updateCrate(idx, clone);
                           }}
                           className="text-gray-500 hover:text-red-400 p-1"
                         >
@@ -188,7 +205,7 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                                   type="number" step="0.1"
                                   className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-gray-200"
                                   value={set.SetWeight}
-                                  onChange={(e) => { set.SetWeight = parseFloat(e.target.value); updateCrate(idx, parsed); }}
+                                  onChange={(e) => { const clone = cloneCrate(parsed); clone.ItemSets[setIdx].SetWeight = safeFloat(e.target.value, 1.0); updateCrate(idx, clone); }}
                                 />
                               </div>
                               <div>
@@ -197,7 +214,7 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                                   type="number"
                                   className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-gray-200"
                                   value={set.MinNumItems}
-                                  onChange={(e) => { set.MinNumItems = parseFloat(e.target.value); updateCrate(idx, parsed); }}
+                                  onChange={(e) => { const clone = cloneCrate(parsed); clone.ItemSets[setIdx].MinNumItems = safeFloat(e.target.value, 1); updateCrate(idx, clone); }}
                                 />
                               </div>
                               <div>
@@ -206,16 +223,17 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                                   type="number"
                                   className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1 text-sm text-gray-200"
                                   value={set.MaxNumItems}
-                                  onChange={(e) => { set.MaxNumItems = parseFloat(e.target.value); updateCrate(idx, parsed); }}
+                                  onChange={(e) => { const clone = cloneCrate(parsed); clone.ItemSets[setIdx].MaxNumItems = safeFloat(e.target.value, 1); updateCrate(idx, clone); }}
                                 />
                               </div>
                               <div className="flex flex-col justify-end">
                                 <button
                                   onClick={() => {
-                                    set.ItemEntries.push({
+                                    const clone = cloneCrate(parsed);
+                                    clone.ItemSets[setIdx].ItemEntries.push({
                                       EntryWeight: 1.0, ItemClassStrings: [''], ItemsWeights: [1.0], MinQuantity: 1, MaxQuantity: 1, MinQuality: 1.0, MaxQuality: 1.0, bForceBlueprint: false, ChanceToBeBlueprintOverride: 0.0
                                     });
-                                    updateCrate(idx, parsed);
+                                    updateCrate(idx, clone);
                                   }}
                                   className="px-2 py-1 bg-primary-600 hover:bg-primary-500 rounded text-xs text-white"
                                 >
@@ -230,8 +248,9 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                                  <div key={entryIdx} className="bg-gray-900 border border-gray-700 rounded p-2 flex flex-col gap-2 relative">
                                    <button
                                       onClick={() => {
-                                        set.ItemEntries.splice(entryIdx, 1);
-                                        updateCrate(idx, parsed);
+                                        const clone = cloneCrate(parsed);
+                                        clone.ItemSets[setIdx].ItemEntries.splice(entryIdx, 1);
+                                        updateCrate(idx, clone);
                                       }}
                                       className="absolute top-2 right-2 text-gray-500 hover:text-red-400"
                                    >
@@ -242,9 +261,10 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                                        <label className="block text-xs font-medium text-gray-400">Item Classes (Options)</label>
                                        <button
                                          onClick={() => {
-                                           entry.ItemClassStrings.push('');
-                                           entry.ItemsWeights.push(1.0);
-                                           updateCrate(idx, parsed);
+                                           const clone = cloneCrate(parsed);
+                                           clone.ItemSets[setIdx].ItemEntries[entryIdx].ItemClassStrings.push('');
+                                           clone.ItemSets[setIdx].ItemEntries[entryIdx].ItemsWeights.push(1.0);
+                                           updateCrate(idx, clone);
                                          }}
                                          className="text-[10px] bg-gray-800 hover:bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded border border-gray-600"
                                        >
@@ -259,7 +279,7 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                                                type="text"
                                                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-gray-200"
                                                value={itemClass}
-                                               onChange={(e) => { entry.ItemClassStrings[classIdx] = e.target.value; updateCrate(idx, parsed); }}
+                                               onChange={(e) => { const clone = cloneCrate(parsed); clone.ItemSets[setIdx].ItemEntries[entryIdx].ItemClassStrings[classIdx] = e.target.value; updateCrate(idx, clone); }}
                                                list="ark-items"
                                                placeholder="e.g. PrimalItemResource_Stone_C"
                                              />
@@ -271,15 +291,16 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                                                step="0.1"
                                                className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-sm text-gray-200"
                                                value={entry.ItemsWeights[classIdx] !== undefined ? entry.ItemsWeights[classIdx] : 1.0}
-                                               onChange={(e) => { entry.ItemsWeights[classIdx] = parseFloat(e.target.value) || 0; updateCrate(idx, parsed); }}
+                                               onChange={(e) => { const clone = cloneCrate(parsed); clone.ItemSets[setIdx].ItemEntries[entryIdx].ItemsWeights[classIdx] = safeFloat(e.target.value, 0); updateCrate(idx, clone); }}
                                              />
                                            </div>
                                            {entry.ItemClassStrings.length > 1 && (
                                              <button
                                                onClick={() => {
-                                                 entry.ItemClassStrings.splice(classIdx, 1);
-                                                 entry.ItemsWeights.splice(classIdx, 1);
-                                                 updateCrate(idx, parsed);
+                                                 const clone = cloneCrate(parsed);
+                                                 clone.ItemSets[setIdx].ItemEntries[entryIdx].ItemClassStrings.splice(classIdx, 1);
+                                                 clone.ItemSets[setIdx].ItemEntries[entryIdx].ItemsWeights.splice(classIdx, 1);
+                                                 updateCrate(idx, clone);
                                                }}
                                                className="text-gray-500 hover:text-red-400 p-1 shrink-0"
                                                title="Remove Option"
@@ -290,30 +311,27 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
                                          </div>
                                        ))}
                                      </div>
-                                     <datalist id="ark-items">
-                                        {arkItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-                                     </datalist>
                                    </div>
                                    <div className="grid grid-cols-5 gap-2">
                                      <div>
                                         <label className="block text-[10px] text-gray-500">Weight</label>
-                                        <input type="number" step="0.1" className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200" value={entry.EntryWeight} onChange={(e) => { entry.EntryWeight = parseFloat(e.target.value); updateCrate(idx, parsed); }} />
+                                        <input type="number" step="0.1" className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200" value={entry.EntryWeight} onChange={(e) => { const clone = cloneCrate(parsed); clone.ItemSets[setIdx].ItemEntries[entryIdx].EntryWeight = safeFloat(e.target.value, 1.0); updateCrate(idx, clone); }} />
                                      </div>
                                      <div>
                                         <label className="block text-[10px] text-gray-500">Min Qty</label>
-                                        <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200" value={entry.MinQuantity} onChange={(e) => { entry.MinQuantity = parseFloat(e.target.value); updateCrate(idx, parsed); }} />
+                                        <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200" value={entry.MinQuantity} onChange={(e) => { const clone = cloneCrate(parsed); clone.ItemSets[setIdx].ItemEntries[entryIdx].MinQuantity = safeFloat(e.target.value, 1); updateCrate(idx, clone); }} />
                                      </div>
                                      <div>
                                         <label className="block text-[10px] text-gray-500">Max Qty</label>
-                                        <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200" value={entry.MaxQuantity} onChange={(e) => { entry.MaxQuantity = parseFloat(e.target.value); updateCrate(idx, parsed); }} />
+                                        <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200" value={entry.MaxQuantity} onChange={(e) => { const clone = cloneCrate(parsed); clone.ItemSets[setIdx].ItemEntries[entryIdx].MaxQuantity = safeFloat(e.target.value, 1); updateCrate(idx, clone); }} />
                                      </div>
                                      <div>
                                         <label className="block text-[10px] text-gray-500">Min Quality</label>
-                                        <input type="number" step="0.1" className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200" value={entry.MinQuality} onChange={(e) => { entry.MinQuality = parseFloat(e.target.value); updateCrate(idx, parsed); }} />
+                                        <input type="number" step="0.1" className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200" value={entry.MinQuality} onChange={(e) => { const clone = cloneCrate(parsed); clone.ItemSets[setIdx].ItemEntries[entryIdx].MinQuality = safeFloat(e.target.value, 1.0); updateCrate(idx, clone); }} />
                                      </div>
                                      <div>
                                         <label className="block text-[10px] text-gray-500">Max Quality</label>
-                                        <input type="number" step="0.1" className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200" value={entry.MaxQuality} onChange={(e) => { entry.MaxQuality = parseFloat(e.target.value); updateCrate(idx, parsed); }} />
+                                        <input type="number" step="0.1" className="w-full bg-gray-800 border border-gray-700 rounded px-1.5 py-1 text-xs text-gray-200" value={entry.MaxQuality} onChange={(e) => { const clone = cloneCrate(parsed); clone.ItemSets[setIdx].ItemEntries[entryIdx].MaxQuality = safeFloat(e.target.value, 1.0); updateCrate(idx, clone); }} />
                                      </div>
                                    </div>
                                  </div>
@@ -345,5 +363,3 @@ export function LootCrateEditor({ value, onChange }: LootCrateEditorProps) {
     </div>
   );
 }
-
-

@@ -297,21 +297,29 @@ export default function Dashboard() {
   // Fetch local server versions
   useEffect(() => {
     const fetchLocalVersions = async () => {
-      const targets = servers.filter(s => !serverVersions[s.id]);
-      if (targets.length === 0) return;
+      // Use a callback ref to read current serverVersions without adding it as a dependency
+      setServerVersions(currentVersions => {
+        const targets = servers.filter(s => !currentVersions[s.id]);
+        if (targets.length === 0) return currentVersions;
 
-      for (const server of targets) {
-        try {
-          const ver = await getServerVersion(server.id);
-          setServerVersions(prev => ({ ...prev, [server.id]: ver }));
-        } catch (err) {
-          console.error(`Failed to get local version for server ${server.id}:`, err);
-          setServerVersions(prev => ({ ...prev, [server.id]: 'Unknown' }));
-        }
-      }
+        // Trigger async fetches outside the setState callback
+        (async () => {
+          for (const server of targets) {
+            try {
+              const ver = await getServerVersion(server.id);
+              setServerVersions(prev => ({ ...prev, [server.id]: ver }));
+            } catch (err) {
+              console.error(`Failed to get local version for server ${server.id}:`, err);
+              setServerVersions(prev => ({ ...prev, [server.id]: 'Unknown' }));
+            }
+          }
+        })();
+
+        return currentVersions;
+      });
     };
     fetchLocalVersions();
-  }, [servers, serverVersions]);
+  }, [servers]);
 
   const isServerOutdated = (serverId: number) => {
     const localVer = serverVersions[serverId];

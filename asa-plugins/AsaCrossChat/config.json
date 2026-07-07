@@ -1,0 +1,13 @@
+{
+  "MySQL": {
+    "Host": "localhost",
+    "User": "root",
+    "Password": "",
+    "Database": "test",
+    "Port": 3306
+  },
+  "General": {
+    "FetchChatInterval": 0.25
+  },
+  "ServerKey": "Server1"
+}

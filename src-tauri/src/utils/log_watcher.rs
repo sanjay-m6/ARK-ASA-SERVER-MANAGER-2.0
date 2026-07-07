@@ -72,6 +72,12 @@ impl LogWatcher {
                                 break;
                             }
 
+                            // If we hit EOF before a newline, it's a partial line write.
+                            // Break out and retry on the next poll when more data is appended.
+                            if !line.ends_with('\n') {
+                                break;
+                            }
+
                             let trimmed = line.trim();
                             if !trimmed.is_empty() {
                                 let _ = tx.send(trimmed.to_string()).await;

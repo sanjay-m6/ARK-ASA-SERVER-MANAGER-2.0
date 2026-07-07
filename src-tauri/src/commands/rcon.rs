@@ -176,6 +176,24 @@ pub async fn start_log_stream(
     state: State<'_, crate::AppState>,
     server_id: i64,
 ) -> Result<(), String> {
+    // 1. Ensure log watcher is watching the server's logs
+    let needs_watch = !state.log_watcher.is_watching(server_id);
+
+    if needs_watch {
+        let install_path: String = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.query_row(
+                "SELECT install_path FROM servers WHERE id = ?1",
+                [server_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to find server install path in DB: {}", e))?
+        };
+        
+        let _ = state.log_watcher.start_watching(server_id, std::path::PathBuf::from(install_path));
+    }
+
     state.log_watcher.enable_streaming(server_id);
     Ok(())
 }

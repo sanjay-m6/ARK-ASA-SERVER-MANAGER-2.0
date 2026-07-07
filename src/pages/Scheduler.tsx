@@ -45,7 +45,7 @@ const TASK_TYPES = [
 
 export default function Scheduler() {
     const { t } = useTranslation();
-    const { setServers } = useServerStore();
+    const { servers, setServers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const [settings, setSettings] = useState<SchedulerSettings | null>(null);
     const [tasks, setTasks] = useState<ScheduledTask[]>([]);
@@ -91,7 +91,23 @@ export default function Scheduler() {
             setSettings(data);
         } catch (error) {
             console.error('Failed to fetch settings:', error);
-            toast.error(t('scheduler.loadFailed'));
+            toast.error(t('scheduler.loadFailed', 'Failed to load scheduler settings'));
+            // Fallback to default settings so the UI is not blocked on a loading state
+            setSettings({
+                serverId: selectedServerId,
+                mode: 'disabled',
+                basicIntervalHours: 6,
+                basicWarningMinutes: '30,10,5,1',
+                nextRunBasic: null,
+                advancedTime: '06:00',
+                advancedDays: '',
+                advancedWarningMinutes: '30,15,10,5,1',
+                advancedShutdown: false,
+                advancedUpdate: false,
+                advancedRestart: false,
+                advancedDinoWipe: false,
+                watchdogEnabled: false,
+            });
         }
     };
 
@@ -101,7 +117,9 @@ export default function Scheduler() {
             const data = await getScheduledTasks(selectedServerId);
             setTasks(data);
         } catch (error) {
-            toast.error(t('scheduler.loadTasksFailed'));
+            console.error('Failed to fetch tasks:', error);
+            toast.error(t('scheduler.loadTasksFailed', 'Failed to load scheduled tasks'));
+            setTasks([]);
         }
     };
 
@@ -225,6 +243,30 @@ export default function Scheduler() {
             toast.error(t('scheduler.toggleFailed'));
         }
     };
+
+    if (servers.length === 0) {
+        return (
+            <div className="space-y-6 pb-20 animate-in fade-in duration-500 relative">
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+                    <div>
+                        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+                            {t('scheduler.title')}
+                        </h1>
+                        <p className="text-slate-400 mt-1">{t('scheduler.subtitle')}</p>
+                    </div>
+                </div>
+
+                <div className="border border-slate-800 rounded-xl p-10 text-center bg-slate-900/20">
+                    <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4 animate-bounce" />
+                    <h3 className="text-lg font-bold text-white mb-2">{t('scheduler.noServers', 'No Servers Found')}</h3>
+                    <p className="text-slate-400 text-sm max-w-md mx-auto">
+                        {t('scheduler.noServersDesc', 'Please create a server in Server Manager first to configure scheduled tasks.')}
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     if (!settings) return <div className="p-10 text-center text-slate-500">{t('common.loading', 'Loading...')}</div>;
 
@@ -563,7 +605,7 @@ export default function Scheduler() {
             {/* Guardian Watchdog Section */}
             <div className="border border-slate-800 rounded-xl p-6 bg-slate-900/40 relative overflow-hidden group shadow-xl">
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_60%_at_80%_80%,rgba(245,158,11,0.04),transparent)] pointer-events-none" />
-                
+
                 <div className="flex flex-col md:flex-row gap-8 items-center">
                     <div className="flex-1 space-y-4">
                         <div className="flex items-center justify-between">
@@ -658,7 +700,9 @@ export default function Scheduler() {
                                                         {t(taskTypeInfo.labelKey)}
                                                     </div>
                                                 )}
-                                                <div className="text-xs text-slate-500 font-mono mt-0.5">{task.cronExpression}</div>
+                                                <div className="text-xs text-slate-500 font-mono mt-0.5">
+                                                    {task.cronExpression === '@online' ? t('scheduler.onServerOnline', 'When Server Comes Online') : task.cronExpression}
+                                                </div>
                                             </div>
                                         </div>
                                         <button onClick={() => handleToggleTask(task.id, task.enabled)} className={cn("w-8 h-4 rounded-full relative transition-colors", task.enabled ? "bg-green-500" : "bg-slate-700")}>
@@ -740,6 +784,7 @@ export default function Scheduler() {
                                         <option value="0 */6 * * *">{t('scheduler.every')} 6 {t('scheduler.hours')}</option>
                                         <option value="0 */12 * * *">{t('scheduler.every')} 12 {t('scheduler.hours')}</option>
                                         <option value="0 4 * * *">{t('scheduler.daily')} {t('scheduler.at')} 4:00 AM</option>
+                                        <option value="@online">{t('scheduler.onServerOnline', 'When Server Comes Online')}</option>
                                         <option value="custom">Custom Cron Expression</option>
                                     </select>
 

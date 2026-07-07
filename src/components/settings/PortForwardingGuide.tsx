@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, ExternalLink, CheckCircle, Copy, Router, Globe, Shield, Settings } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, CheckCircle, Copy, Router, Globe, Shield, Settings, Info } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
@@ -21,7 +21,11 @@ const ROUTER_BRANDS = [
     { name: 'Xfinity', url: 'https://www.xfinity.com/support/articles/port-forwarding-xfinity-xfi' },
 ];
 
-export default function PortForwardingGuide() {
+interface PortForwardingGuideProps {
+    serverType?: 'ASA' | 'ASE';
+}
+
+export default function PortForwardingGuide({ serverType = 'ASA' }: PortForwardingGuideProps) {
     const { t } = useTranslation();
     const [expandedStep, setExpandedStep] = useState<number | null>(1);
     const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -157,6 +161,7 @@ export default function PortForwardingGuide() {
                                     <th className="text-left p-3 text-slate-400">{t('settings.portForwarding.steps.addRules.headers.port')}</th>
                                     <th className="text-left p-3 text-slate-400">{t('settings.portForwarding.steps.addRules.headers.protocol')}</th>
                                     <th className="text-left p-3 text-slate-400">{t('settings.portForwarding.steps.addRules.headers.purpose')}</th>
+                                    <th className="text-left p-3 text-slate-400">{t('settings.portForwarding.steps.addRules.headers.required', 'Required')}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-700/50">
@@ -164,25 +169,42 @@ export default function PortForwardingGuide() {
                                     <td className="p-3 font-mono text-cyan-400">7777</td>
                                     <td className="p-3 text-purple-400">UDP</td>
                                     <td className="p-3 text-slate-300">{t('settings.portForwarding.steps.addRules.purposes.game')}</td>
+                                    <td className="p-3"><span className="text-emerald-400 font-bold text-xs">✓ {serverType}</span></td>
                                 </tr>
-                                <tr>
-                                    <td className="p-3 font-mono text-cyan-400">7778</td>
-                                    <td className="p-3 text-purple-400">UDP</td>
-                                    <td className="p-3 text-slate-300">{t('settings.portForwarding.steps.addRules.purposes.gamePlus')}</td>
-                                </tr>
-                                <tr>
-                                    <td className="p-3 font-mono text-cyan-400">27015</td>
-                                    <td className="p-3 text-purple-400">UDP</td>
-                                    <td className="p-3 text-slate-300">{t('settings.portForwarding.steps.addRules.purposes.query')}</td>
-                                </tr>
+                                {serverType === 'ASE' && (
+                                    <>
+                                        <tr>
+                                            <td className="p-3 font-mono text-cyan-400">7778</td>
+                                            <td className="p-3 text-purple-400">UDP</td>
+                                            <td className="p-3 text-slate-300">{t('settings.portForwarding.steps.addRules.purposes.gamePlus')}</td>
+                                            <td className="p-3"><span className="text-amber-400 font-bold text-xs">✓ ASE Only</span></td>
+                                        </tr>
+                                        <tr>
+                                            <td className="p-3 font-mono text-cyan-400">27015</td>
+                                            <td className="p-3 text-purple-400">UDP</td>
+                                            <td className="p-3 text-slate-300">{t('settings.portForwarding.steps.addRules.purposes.query')}</td>
+                                            <td className="p-3"><span className="text-amber-400 font-bold text-xs">✓ ASE Only</span></td>
+                                        </tr>
+                                    </>
+                                )}
                                 <tr>
                                     <td className="p-3 font-mono text-cyan-400">27020</td>
                                     <td className="p-3 text-blue-400">TCP</td>
                                     <td className="p-3 text-slate-300">{t('settings.portForwarding.steps.addRules.purposes.rcon')}</td>
+                                    <td className="p-3"><span className="text-slate-500 font-bold text-xs">Optional</span></td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
+                    {serverType === 'ASA' && (
+                        <div className="flex items-start gap-2 bg-sky-500/5 border border-sky-500/15 rounded-lg p-3">
+                            <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                            <p className="text-xs text-sky-300/90 leading-relaxed">
+                                <strong>ASA Note:</strong> ARK: Survival Ascended only requires <strong>port 7777 UDP</strong>. 
+                                Unlike ASE, ports 7778 (peer) and 27015 (query) are <em>not</em> needed — the engine handles them internally.
+                            </p>
+                        </div>
+                    )}
                     <p className="text-xs text-slate-500">
                         {t('settings.portForwarding.steps.addRules.tip')}
                     </p>

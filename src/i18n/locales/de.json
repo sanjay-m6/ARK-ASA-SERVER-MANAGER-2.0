@@ -205,7 +205,7 @@
     "goodMorning": "Guten Morgen",
     "goodAfternoon": "Guten Tag",
     "goodEvening": "Guten Abend",
-    "commander": "Administrator",
+    "": "Administrator",
     "serversRunning": "{{count}} Server läuft • Systemstatus hervorragend",
     "serversRunning_plural": "{{count}} Server laufen • Systemstatus hervorragend",
     "allStandby": "Alle Systeme bereit",

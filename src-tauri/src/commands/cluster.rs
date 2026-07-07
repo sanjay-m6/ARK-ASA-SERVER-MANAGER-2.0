@@ -959,6 +959,193 @@ pub async fn get_cluster_cross_chat_status(
     Ok(enabled)
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClusterCrossChatConfig {
+    pub host: String,
+    pub user: String,
+    pub pass: String,
+    pub db_name: String,
+    pub port: i32,
+    pub fetch_interval: f32,
+    pub debug: bool,
+}
+
+#[tauri::command]
+pub async fn get_cluster_cross_chat_config(
+    state: State<'_, AppState>,
+    cluster_id: i64,
+) -> Result<ClusterCrossChatConfig, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let host = conn
+        .query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_mysql_host'",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "localhost".to_string());
+
+    let user = conn
+        .query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_mysql_user'",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "root".to_string());
+
+    let pass = conn
+        .query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_mysql_pass'",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "".to_string());
+
+    let db_name = conn
+        .query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_mysql_db'",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "test".to_string());
+
+    let port_str = conn
+        .query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_mysql_port'",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "3306".to_string());
+    let port = port_str.parse::<i32>().unwrap_or(3306);
+
+    let fetch_str = conn
+        .query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_fetch_interval'",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "0.25".to_string());
+    let fetch_interval = fetch_str.parse::<f32>().unwrap_or(0.25);
+
+    let debug_str = conn
+        .query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_debug'",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "false".to_string());
+    let debug = debug_str == "true";
+
+    Ok(ClusterCrossChatConfig {
+        host,
+        user,
+        pass,
+        db_name,
+        port,
+        fetch_interval,
+        debug,
+    })
+}
+
+#[tauri::command]
+pub async fn save_cluster_cross_chat_config(
+    state: State<'_, AppState>,
+    cluster_id: i64,
+    config: ClusterCrossChatConfig,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let settings = vec![
+        ("cross_chat_mysql_host", config.host.clone()),
+        ("cross_chat_mysql_user", config.user.clone()),
+        ("cross_chat_mysql_pass", config.pass.clone()),
+        ("cross_chat_mysql_db", config.db_name.clone()),
+        ("cross_chat_mysql_port", config.port.to_string()),
+        ("cross_chat_fetch_interval", config.fetch_interval.to_string()),
+        ("cross_chat_debug", config.debug.to_string()),
+    ];
+
+    for (key, val) in settings {
+        let exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM cluster_settings WHERE cluster_id = ?1 AND key = ?2",
+                rusqlite::params![cluster_id, key],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+
+        if exists {
+            conn.execute(
+                "UPDATE cluster_settings SET value = ?1 WHERE cluster_id = ?2 AND key = ?3",
+                rusqlite::params![val, cluster_id, key],
+            )
+            .map_err(|e| e.to_string())?;
+        } else {
+            conn.execute(
+                "INSERT INTO cluster_settings (cluster_id, key, value) VALUES (?1, ?2, ?3)",
+                rusqlite::params![cluster_id, key, val],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+    }
+
+    // Now, write config.json to each server in the cluster!
+    let mut stmt = conn
+        .prepare("SELECT id, install_path, name FROM servers WHERE cluster_id = ?1")
+        .map_err(|e| e.to_string())?;
+    let server_rows = stmt
+        .query_map([cluster_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+
+    for server_row in server_rows {
+        if let Ok((server_id, install_path, _name)) = server_row {
+            let install_path_buf = PathBuf::from(install_path);
+            let plugin_config_dir = install_path_buf
+                .join("ShooterGame")
+                .join("Binaries")
+                .join("Win64")
+                .join("ArkApi")
+                .join("Plugins")
+                .join("AsaCrossChat");
+
+            if !plugin_config_dir.exists() {
+                let _ = std::fs::create_dir_all(&plugin_config_dir);
+            }
+
+            let config_file_path = plugin_config_dir.join("config.json");
+            
+            let config_json = serde_json::json!({
+                "MySQL": {
+                    "Host": config.host,
+                    "User": config.user,
+                    "Password": config.pass,
+                    "Database": config.db_name,
+                    "Port": config.port
+                },
+                "General": {
+                    "FetchChatInterval": config.fetch_interval
+                },
+                "ServerKey": format!("Server{}", server_id)
+            });
+
+            if let Ok(config_str) = serde_json::to_string_pretty(&config_json) {
+                let _ = std::fs::write(config_file_path, config_str);
+            }
+        }
+    }
+
+    Ok(())
+}
+
 // ── Cluster Validation ─────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize)]

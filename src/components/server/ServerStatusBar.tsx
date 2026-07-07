@@ -415,7 +415,7 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                                 Checks if the server executable has successfully locked and started listening on the game/query port.
                             </p>
                             <div className="text-[11px] bg-slate-950/50 border border-white/5 rounded-lg p-2.5 text-slate-400 leading-normal">
-                                <span className="text-emerald-400 font-semibold">Fix:</span> Ensure no other server instance or app is running on the same port (e.g. 7777 or 27015).
+                                <span className="text-emerald-400 font-semibold">Fix:</span> {serverType === 'ASE' ? 'Ensure no other server instance or app is running on the same port (e.g. 7777 or 27015).' : 'ARK ASA takes 1–5 minutes to load maps/mods before opening port 7777. Wait for the full boot. If stuck, check for port conflicts with: netstat -ano | findstr :7777'}
                             </div>
                         </div>
 
@@ -443,7 +443,7 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
                                 Queries the server query port from external nodes to test public joinability. <strong>Note:</strong> If your router lacks NAT Loopback, this will report "Blocked / Filtered" even if the server is fully open to the public.
                             </p>
                             <div className="text-[11px] bg-slate-950/50 border border-white/5 rounded-lg p-2.5 text-slate-400 leading-normal">
-                                <span className="text-cyan-400 font-semibold">Fix:</span> Forward the Game Port (e.g. 7777 UDP), Query Port (e.g. 27015 UDP), and **Raw Port (Game Port + 1, e.g. 7778 UDP)**. Missing the Raw Port makes servers greyed out. Ask a friend outside your network to check.
+                                <span className="text-cyan-400 font-semibold">Fix:</span> {serverType === 'ASE' ? 'Forward the Game Port (e.g. 7777 UDP), Query Port (e.g. 27015 UDP), and Raw Port (Game Port + 1, e.g. 7778 UDP). Missing the Raw Port makes servers greyed out.' : 'Forward only port 7777 UDP on your router. ASA does not need ports 7778 or 27015 (those are ASE-only). If you are behind CGNAT (router WAN IP ≠ whatismyip.com), port forwarding will never work — use playit.gg or request a public IP from your ISP.'} Ask a friend outside your network to check.
                             </div>
                         </div>
                     </div>

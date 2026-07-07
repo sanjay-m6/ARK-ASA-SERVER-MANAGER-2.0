@@ -1,13 +1,13 @@
 {
   "name": "asa-server-manager",
   "private": true,
-  "version": "4.5.5",
+  "version": "4.6.0",
   "author": "Sanjay",
   "description": "ARK: Survival Ascended Server Manager",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "node scripts/increment-version.js && tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "compare": "node compare_fields.js",
@@ -54,6 +54,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.4.5",
     "postcss": "^8.5.6",
+    "puppeteer": "^25.3.0",
     "tailwindcss": "^3.4.18",
     "typescript": "~5.6.2",
     "vite": "^6.0.3"

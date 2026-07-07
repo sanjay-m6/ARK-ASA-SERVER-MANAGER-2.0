@@ -45,8 +45,8 @@ export const AdvancedModInput: React.FC<AdvancedModInputProps> = ({
             const extracted = extractModId(id);
             if (!extracted) return;
 
-            // Validate: must be numeric only after extraction
-            if (!/^\d+$/.test(extracted)) {
+            // Validate: must be alphanumeric, dashes, or underscores after extraction
+            if (!/^[\w-]+$/.test(extracted)) {
                 errorList.push(`Line ${index + 1}: "${id}" is not a valid mod ID or URL`);
                 return;
             }
