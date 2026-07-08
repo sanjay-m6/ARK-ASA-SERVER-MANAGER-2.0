@@ -52,11 +52,19 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Clean signing key
+        shell: bash
+        run: |
+          CLEAN_KEY=$(echo -n "$RAW_KEY" | tr -d '\r\n ')
+          echo "TAURI_SIGNING_PRIVATE_KEY=$CLEAN_KEY" >> $GITHUB_ENV
+        env:
+          RAW_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0.5.15
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ env.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: ${{ steps.version.outputs.version }}
           releaseName: 'ARK Server Manager ${{ steps.version.outputs.version }}'
