@@ -27,7 +27,8 @@ import {
   Search,
   Languages,
   Swords,
-  Users
+  Users,
+  Zap
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence } from 'framer-motion';
@@ -87,6 +88,7 @@ export default function Sidebar() {
         { name: t('sidebar.tribeLogs', 'Tribe Logs'), path: '/tools/tribe-logs', icon: ScrollText },
         { name: t('sidebar.upnp', 'UPnP Ports'), path: '/tools/upnp', icon: Wifi },
         { name: t('sidebar.serverOrganization', 'Server Organization'), path: '/tools/organization', icon: Folder },
+        { name: t('sidebar.boostManager', 'Boost Manager'), path: '/tools/boost', icon: Zap },
       ]
     },
     { name: t('sidebar.wiki', 'Knowledge Base'), path: '/wiki', icon: FileText },
@@ -120,6 +122,7 @@ export default function Sidebar() {
         { name: 'Tribe Logs', path: '/ase/tools/tribe-logs', icon: ScrollText },
         { name: 'UPnP Ports', path: '/ase/tools/upnp', icon: Wifi },
         { name: 'Server Organization', path: '/ase/tools/organization', icon: Folder },
+        { name: 'Boost Manager', path: '/ase/tools/boost', icon: Zap },
       ]
     },
     { name: t('sidebar.wiki', 'Knowledge Base'), path: '/wiki', icon: FileText },

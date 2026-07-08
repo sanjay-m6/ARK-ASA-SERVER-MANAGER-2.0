@@ -283,7 +283,7 @@ pub async fn get_scheduler_settings(
     let result = conn.query_row(
         "SELECT mode, basic_interval_hours, basic_warning_minutes, next_run_basic,
                 advanced_time, advanced_days, advanced_warning_minutes, 
-                advanced_shutdown, advanced_update, advanced_restart, advanced_dino_wipe,
+                advanced_shutdown, advanced_backup, advanced_update, advanced_restart, advanced_dino_wipe,
                 watchdog_enabled
          FROM scheduler_settings WHERE server_id = ?1",
         [server_id],
@@ -298,10 +298,11 @@ pub async fn get_scheduler_settings(
                 advanced_days: row.get(5).unwrap_or(None),
                 advanced_warning_minutes: row.get(6).unwrap_or(None),
                 advanced_shutdown: row.get(7).unwrap_or(Some(false)),
-                advanced_update: row.get(8).unwrap_or(Some(false)),
-                advanced_restart: row.get(9).unwrap_or(Some(false)),
-                advanced_dino_wipe: row.get(10).unwrap_or(Some(false)),
-                watchdog_enabled: row.get(11).unwrap_or(Some(false)),
+                advanced_backup: row.get(8).unwrap_or(Some(false)),
+                advanced_update: row.get(9).unwrap_or(Some(false)),
+                advanced_restart: row.get(10).unwrap_or(Some(false)),
+                advanced_dino_wipe: row.get(11).unwrap_or(Some(false)),
+                watchdog_enabled: row.get(12).unwrap_or(Some(false)),
             })
         },
     );
@@ -320,6 +321,7 @@ pub async fn get_scheduler_settings(
                 advanced_days: None,
                 advanced_warning_minutes: Some("30,15,10,5,1".to_string()),
                 advanced_shutdown: Some(false),
+                advanced_backup: Some(false),
                 advanced_update: Some(false),
                 advanced_restart: Some(false),
                 advanced_dino_wipe: Some(false),
@@ -350,9 +352,9 @@ pub async fn save_scheduler_settings(
             "INSERT INTO scheduler_settings (
                 server_id, mode, basic_interval_hours, basic_warning_minutes, next_run_basic,
                 advanced_time, advanced_days, advanced_warning_minutes,
-                advanced_shutdown, advanced_update, advanced_restart, advanced_dino_wipe, watchdog_enabled
+                advanced_shutdown, advanced_backup, advanced_update, advanced_restart, advanced_dino_wipe, watchdog_enabled
              )
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
              ON CONFLICT(server_id) DO UPDATE SET
                 mode = excluded.mode,
                 basic_interval_hours = excluded.basic_interval_hours,
@@ -362,6 +364,7 @@ pub async fn save_scheduler_settings(
                 advanced_days = excluded.advanced_days,
                 advanced_warning_minutes = excluded.advanced_warning_minutes,
                 advanced_shutdown = excluded.advanced_shutdown,
+                advanced_backup = excluded.advanced_backup,
                 advanced_update = excluded.advanced_update,
                 advanced_restart = excluded.advanced_restart,
                 advanced_dino_wipe = excluded.advanced_dino_wipe,
@@ -376,6 +379,7 @@ pub async fn save_scheduler_settings(
                 settings.advanced_days,
                 settings.advanced_warning_minutes,
                 settings.advanced_shutdown,
+                settings.advanced_backup,
                 settings.advanced_update,
                 settings.advanced_restart,
                 settings.advanced_dino_wipe,

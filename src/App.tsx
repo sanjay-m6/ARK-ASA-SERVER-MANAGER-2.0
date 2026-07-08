@@ -37,6 +37,7 @@ const AIAssistant = lazy(() => import('./pages/AIAssistant'));
 const TribeLogViewer = lazy(() => import('./pages/tools/TribeLogViewer'));
 const UPnPPanel = lazy(() => import('./pages/tools/UPnPPanel'));
 const ServerOrganization = lazy(() => import('./pages/tools/ServerOrganization'));
+const BoostManager = lazy(() => import('./pages/tools/BoostManager'));
 const Hardware = lazy(() => import('./pages/Hardware'));
 const Wiki = lazy(() => import('./pages/Wiki'));
 
@@ -63,6 +64,7 @@ const ASEPluginManager = lazy(() => import('./ase/pages/ASEPluginManager'));
 const ASETribeLogViewer = lazy(() => import('./ase/pages/ASETribeLogViewer'));
 const ASEUPnPPanel = lazy(() => import('./ase/pages/ASEUPnPPanel'));
 const ASEServerOrganization = lazy(() => import('./ase/pages/tools/ASEServerOrganization'));
+const ASEBoostManager = lazy(() => import('./ase/pages/tools/ASEBoostManager'));
 
 // Loading component for Suspense
 const PageLoader = () => (
@@ -136,6 +138,7 @@ function App() {
                                 <Route path="tools/tribe-logs" element={<TribeLogViewer />} />
                                 <Route path="tools/upnp" element={<UPnPPanel />} />
                                 <Route path="tools/organization" element={<ServerOrganization />} />
+                                <Route path="tools/boost" element={<BoostManager />} />
                                 <Route path="hardware" element={<Hardware />} />
                                 <Route path="wiki" element={<Wiki />} />
                                 <Route path="settings" element={<Settings />} />
@@ -163,6 +166,7 @@ function App() {
                                  <Route path="ase/tools/tribe-logs" element={<ASETribeLogViewer />} />
                                  <Route path="ase/tools/upnp" element={<ASEUPnPPanel />} />
                                  <Route path="ase/tools/organization" element={<ASEServerOrganization />} />
+                                 <Route path="ase/tools/boost" element={<ASEBoostManager />} />
                                  <Route path="ase/tools/chat-translator" element={<ChatTranslator />} />
                             </Route>
                         </Routes>

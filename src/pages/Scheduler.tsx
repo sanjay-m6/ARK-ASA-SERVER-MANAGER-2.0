@@ -103,6 +103,7 @@ export default function Scheduler() {
                 advancedDays: '',
                 advancedWarningMinutes: '30,15,10,5,1',
                 advancedShutdown: false,
+                advancedBackup: false,
                 advancedUpdate: false,
                 advancedRestart: false,
                 advancedDinoWipe: false,
@@ -471,35 +472,63 @@ export default function Scheduler() {
                                 {settings.advancedShutdown && <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none" />}
                             </label>
 
-                            {/* Step 2: Update */}
+                            {/* Step 2: Backup */}
                             <div className="flex justify-center -my-2 relative z-0">
-                                <div className={cn("w-0.5 h-6", settings.advancedShutdown && settings.advancedUpdate ? "bg-slate-600" : "bg-slate-800")}></div>
+                                <div className={cn("w-0.5 h-6", settings.advancedShutdown && settings.advancedBackup ? "bg-slate-600" : "bg-slate-800")}></div>
                             </div>
 
                             <label className={cn(
                                 "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden",
-                                settings.advancedUpdate
+                                settings.advancedBackup
                                     ? "bg-blue-500/5 border-blue-500/30 hover:border-blue-500/50"
                                     : "bg-slate-900/30 border-slate-800 hover:border-slate-700"
                             )}>
                                 <div className={cn(
                                     "w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors z-10",
-                                    settings.advancedUpdate ? "bg-blue-500 border-blue-500 text-white" : "border-slate-600 bg-transparent"
+                                    settings.advancedBackup ? "bg-blue-500 border-blue-500 text-white" : "border-slate-600 bg-transparent"
                                 )}>
                                     <span className="text-xs font-bold">2</span>
                                 </div>
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
+                                        <span className={cn("font-bold text-sm", settings.advancedBackup ? "text-white" : "text-slate-400")}>{t('scheduler.backupServer', 'Backup Server')}</span>
+                                        <input type="checkbox" checked={settings.advancedBackup || false} onChange={(e) => setSettings({ ...settings, advancedBackup: e.target.checked })} className="sr-only" />
+                                        {settings.advancedBackup && <CheckCircle className="w-4 h-4 text-blue-400" />}
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.backupServerDesc', 'Create an automated backup of server files.')}</p>
+                                </div>
+                                {settings.advancedBackup && <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent pointer-events-none" />}
+                            </label>
+
+                            {/* Step 3: Update */}
+                            <div className="flex justify-center -my-2 relative z-0">
+                                <div className={cn("w-0.5 h-6", settings.advancedBackup && settings.advancedUpdate ? "bg-slate-600" : "bg-slate-800")}></div>
+                            </div>
+
+                            <label className={cn(
+                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden",
+                                settings.advancedUpdate
+                                    ? "bg-cyan-500/5 border-cyan-500/30 hover:border-cyan-500/50"
+                                    : "bg-slate-900/30 border-slate-800 hover:border-slate-700"
+                            )}>
+                                <div className={cn(
+                                    "w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors z-10",
+                                    settings.advancedUpdate ? "bg-cyan-500 border-cyan-500 text-white" : "border-slate-600 bg-transparent"
+                                )}>
+                                    <span className="text-xs font-bold">3</span>
+                                </div>
+                                <div className="flex-1 z-10">
+                                    <div className="flex items-center justify-between">
                                         <span className={cn("font-bold text-sm", settings.advancedUpdate ? "text-white" : "text-slate-400")}>{t('scheduler.updateServer')}</span>
                                         <input type="checkbox" checked={settings.advancedUpdate || false} onChange={(e) => setSettings({ ...settings, advancedUpdate: e.target.checked })} className="sr-only" />
-                                        {settings.advancedUpdate && <CheckCircle className="w-4 h-4 text-blue-400" />}
+                                        {settings.advancedUpdate && <CheckCircle className="w-4 h-4 text-cyan-400" />}
                                     </div>
                                     <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.updateServerDesc')}</p>
                                 </div>
-                                {settings.advancedUpdate && <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-transparent pointer-events-none" />}
+                                {settings.advancedUpdate && <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-transparent pointer-events-none" />}
                             </label>
 
-                            {/* Step 3: Restart */}
+                            {/* Step 4: Restart */}
                             <div className="flex justify-center -my-2 relative z-0">
                                 <div className={cn("w-0.5 h-6", settings.advancedUpdate && settings.advancedRestart ? "bg-slate-600" : "bg-slate-800")}></div>
                             </div>
@@ -514,7 +543,7 @@ export default function Scheduler() {
                                     "w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors z-10",
                                     settings.advancedRestart ? "bg-green-500 border-green-500 text-white" : "border-slate-600 bg-transparent"
                                 )}>
-                                    <span className="text-xs font-bold">3</span>
+                                    <span className="text-xs font-bold">4</span>
                                 </div>
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
@@ -527,7 +556,7 @@ export default function Scheduler() {
                                 {settings.advancedRestart && <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-transparent pointer-events-none" />}
                             </label>
 
-                            {/* Step 4: Maintenance */}
+                            {/* Step 5: Maintenance */}
                             <div className="flex justify-center -my-2 relative z-0">
                                 <div className={cn("w-0.5 h-6", settings.advancedRestart && settings.advancedDinoWipe ? "bg-slate-600" : "bg-slate-800")}></div>
                             </div>
@@ -542,7 +571,7 @@ export default function Scheduler() {
                                     "w-6 h-6 rounded-full flex items-center justify-center border-2 transition-colors z-10",
                                     settings.advancedDinoWipe ? "bg-purple-500 border-purple-500 text-white" : "border-slate-600 bg-transparent"
                                 )}>
-                                    <span className="text-xs font-bold">4</span>
+                                    <span className="text-xs font-bold">5</span>
                                 </div>
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">

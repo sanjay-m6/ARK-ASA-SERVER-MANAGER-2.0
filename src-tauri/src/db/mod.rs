@@ -78,6 +78,9 @@ impl Database {
         // Fix accidental ShooterGame install paths
         Self::run_install_path_migration(conn)?;
 
+        // Boost Profiles migrations
+        Self::run_boost_profiles_migration(conn)?;
+
         Ok(())
     }
 
@@ -371,6 +374,7 @@ impl Database {
                 advanced_days TEXT,
                 advanced_warning_minutes TEXT,
                 advanced_shutdown INTEGER DEFAULT 0,
+                advanced_backup INTEGER DEFAULT 0,
                 advanced_update INTEGER DEFAULT 0,
                 advanced_restart INTEGER DEFAULT 0,
                 advanced_dino_wipe INTEGER DEFAULT 0,
@@ -379,6 +383,23 @@ impl Database {
             )",
             [],
         )?;
+
+        // Migration: Add advanced_backup to scheduler_settings if missing
+        {
+            let mut stmt_ss = conn.prepare("PRAGMA table_info(scheduler_settings)")?;
+            let ss_columns: Vec<String> = stmt_ss
+                .query_map([], |row| row.get::<_, String>(1))?
+                .filter_map(|r| r.ok())
+                .collect();
+
+            if !ss_columns.contains(&"advanced_backup".to_string()) {
+                println!("📦 Migration: Adding 'advanced_backup' column to scheduler_settings table");
+                conn.execute(
+                    "ALTER TABLE scheduler_settings ADD COLUMN advanced_backup INTEGER DEFAULT 0",
+                    [],
+                )?;
+            }
+        }
 
         // Add intelligent_mode column if missing
         if !columns.contains(&"intelligent_mode".to_string()) {
@@ -1177,6 +1198,9 @@ impl Database {
                     server_id INTEGER NOT NULL,
                     task_type TEXT NOT NULL DEFAULT 'restart',
                     cron_expr TEXT NOT NULL DEFAULT '0 */6 * * *',
+                    command TEXT,
+                    message TEXT,
+                    pre_warning_minutes INTEGER DEFAULT 0,
                     enabled INTEGER NOT NULL DEFAULT 1,
                     last_run TEXT,
                     FOREIGN KEY(server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
@@ -1225,6 +1249,7 @@ impl Database {
                 advanced_days TEXT,
                 advanced_warning_minutes TEXT,
                 advanced_shutdown INTEGER DEFAULT 0,
+                advanced_backup INTEGER DEFAULT 0,
                 advanced_update INTEGER DEFAULT 0,
                 advanced_restart INTEGER DEFAULT 0,
                 advanced_dino_wipe INTEGER DEFAULT 0,
@@ -1265,6 +1290,45 @@ impl Database {
                     &format!("ALTER TABLE ase_servers ADD COLUMN {} {}", col_name, col_type),
                     [],
                 )?;
+            }
+        }
+
+        // Migrate existing ase_scheduler_settings if advanced_backup is missing
+        {
+            let mut stmt_ase_ss = conn.prepare("PRAGMA table_info(ase_scheduler_settings)")?;
+            let ase_ss_columns: Vec<String> = stmt_ase_ss
+                .query_map([], |row| row.get::<_, String>(1))?
+                .filter_map(|r| r.ok())
+                .collect();
+
+            if !ase_ss_columns.contains(&"advanced_backup".to_string()) {
+                println!("📦 ASE Migration: Adding 'advanced_backup' column to ase_scheduler_settings");
+                conn.execute(
+                    "ALTER TABLE ase_scheduler_settings ADD COLUMN advanced_backup INTEGER DEFAULT 0",
+                    [],
+                )?;
+            }
+        }
+
+        // Migrate ase_scheduled_tasks columns
+        {
+            let mut stmt_tasks = conn.prepare("PRAGMA table_info(ase_scheduled_tasks)")?;
+            let tasks_columns: Vec<String> = stmt_tasks
+                .query_map([], |row| row.get::<_, String>(1))?
+                .filter_map(|r| r.ok())
+                .collect();
+
+            if !tasks_columns.contains(&"command".to_string()) {
+                println!("📦 ASE Migration: Adding 'command' column to ase_scheduled_tasks");
+                conn.execute("ALTER TABLE ase_scheduled_tasks ADD COLUMN command TEXT", [])?;
+            }
+            if !tasks_columns.contains(&"message".to_string()) {
+                println!("📦 ASE Migration: Adding 'message' column to ase_scheduled_tasks");
+                conn.execute("ALTER TABLE ase_scheduled_tasks ADD COLUMN message TEXT", [])?;
+            }
+            if !tasks_columns.contains(&"pre_warning_minutes".to_string()) {
+                println!("📦 ASE Migration: Adding 'pre_warning_minutes' column to ase_scheduled_tasks");
+                conn.execute("ALTER TABLE ase_scheduled_tasks ADD COLUMN pre_warning_minutes INTEGER DEFAULT 0", [])?;
             }
         }
 
@@ -1326,6 +1390,39 @@ impl Database {
             println!("  ✅ ase_mods unique index created");
         }
 
+        Ok(())
+    }
+
+    fn run_boost_profiles_migration(conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS boost_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                xp_multiplier REAL DEFAULT 1.0,
+                taming_multiplier REAL DEFAULT 1.0,
+                harvest_multiplier REAL DEFAULT 1.0,
+                mating_multiplier REAL DEFAULT 1.0,
+                hatch_multiplier REAL DEFAULT 1.0,
+                mature_multiplier REAL DEFAULT 1.0,
+                active INTEGER DEFAULT 0,
+                FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS ase_boost_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                xp_multiplier REAL DEFAULT 1.0,
+                taming_multiplier REAL DEFAULT 1.0,
+                harvest_multiplier REAL DEFAULT 1.0,
+                mating_multiplier REAL DEFAULT 1.0,
+                hatch_multiplier REAL DEFAULT 1.0,
+                mature_multiplier REAL DEFAULT 1.0,
+                active INTEGER DEFAULT 0,
+                FOREIGN KEY (server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
+            );"
+        )?;
         Ok(())
     }
 }

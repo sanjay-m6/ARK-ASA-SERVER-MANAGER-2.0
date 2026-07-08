@@ -11,6 +11,7 @@ pub mod config_advanced;
 pub mod tools;
 pub mod import;
 pub mod players;
+pub mod boost;
 
 /// Collect all ASE command handler names for registration in lib.rs
 pub fn get_all_handlers() -> Vec<&'static str> {

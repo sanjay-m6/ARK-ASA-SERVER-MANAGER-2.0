@@ -513,6 +513,7 @@ export interface AseSchedulerSettings {
   advancedDays?: string;
   advancedWarningMinutes?: string;
   advancedShutdown: boolean;
+  advancedBackup: boolean;
   advancedUpdate: boolean;
   advancedRestart: boolean;
   advancedDinoWipe: boolean;

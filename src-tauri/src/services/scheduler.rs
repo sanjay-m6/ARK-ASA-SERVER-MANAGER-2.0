@@ -148,7 +148,7 @@ impl SchedulerService {
             };
 
             let mut stmt = match conn.prepare(
-                "SELECT id, server_id, task_type, cron_expr, enabled, last_run \
+                "SELECT id, server_id, task_type, cron_expr, command, message, pre_warning_minutes, enabled, last_run \
                  FROM ase_scheduled_tasks WHERE enabled = 1"
             ) {
                 Ok(s) => s,
@@ -161,8 +161,11 @@ impl SchedulerService {
                     server_id: row.get(1)?,
                     task_type: row.get(2)?,
                     cron_expr: row.get(3)?,
-                    enabled: row.get::<_, i32>(4)? != 0,
-                    last_run: row.get(5)?,
+                    command: row.get(4)?,
+                    message: row.get(5)?,
+                    pre_warning_minutes: row.get(6)?,
+                    enabled: row.get::<_, i32>(7)? != 0,
+                    last_run: row.get(8)?,
                 })
             });
 
@@ -181,6 +184,54 @@ impl SchedulerService {
                         let _ = crate::ase::commands::server::stop_ase_server(task.server_id, state.clone()).await;
                         sleep(Duration::from_secs(5)).await;
                         let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), task.server_id, state.clone()).await;
+                    }
+                    "BoostStart" => {
+                        if let Some(cmd) = &task.command {
+                            if let Ok(profile_id) = cmd.parse::<i64>() {
+                                let pre_warning_minutes = if task.pre_warning_minutes > 0 {
+                                    task.pre_warning_minutes
+                                } else {
+                                    5
+                                };
+
+                                for min_left in (1..=pre_warning_minutes).rev() {
+                                    let msg = format!("⚠️ SERVER BOOST STARTING IN {} MINUTE(S)!", min_left);
+                                    let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("Broadcast {}", msg), state.clone()).await;
+                                    let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("ServerChat {}", msg), state.clone()).await;
+                                    sleep(Duration::from_secs(60)).await;
+                                }
+
+                                let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "Broadcast ⚠️ SERVER RESTARTING FOR BOOST EVENT NOW!".into(), state.clone()).await;
+                                let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "ServerChat ⚠️ SERVER RESTARTING FOR BOOST EVENT NOW!".into(), state.clone()).await;
+                                let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "SaveWorld".into(), state.clone()).await;
+                                sleep(Duration::from_secs(5)).await;
+
+                                let _ = crate::ase::commands::boost::activate_ase_boost_profile((*app_handle).clone(), state.clone(), task.server_id, profile_id).await;
+                                log::info!("🚀 ASE Boost Activated via Scheduler for server {}", task.server_id);
+                            }
+                        }
+                    }
+                    "BoostEnd" => {
+                        let pre_warning_minutes = if task.pre_warning_minutes > 0 {
+                            task.pre_warning_minutes
+                        } else {
+                            5
+                        };
+
+                        for min_left in (1..=pre_warning_minutes).rev() {
+                            let msg = format!("⚠️ SERVER BOOST EVENT ENDING IN {} MINUTE(S)!", min_left);
+                            let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("Broadcast {}", msg), state.clone()).await;
+                            let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("ServerChat {}", msg), state.clone()).await;
+                            sleep(Duration::from_secs(60)).await;
+                        }
+
+                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "Broadcast ⚠️ SERVER RESTARTING TO RESTORE MULTIPLIERS NOW!".into(), state.clone()).await;
+                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "ServerChat ⚠️ SERVER RESTARTING TO RESTORE MULTIPLIERS NOW!".into(), state.clone()).await;
+                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "SaveWorld".into(), state.clone()).await;
+                        sleep(Duration::from_secs(5)).await;
+
+                        let _ = crate::ase::commands::boost::deactivate_ase_boost_profile((*app_handle).clone(), state.clone(), task.server_id).await;
+                        log::info!("🚀 ASE Boost Deactivated via Scheduler for server {}", task.server_id);
                     }
                     "wipe_dinos" => {
                         let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "DestroyWildDinos".into(), state.clone()).await;
@@ -287,7 +338,7 @@ impl SchedulerService {
 
             let mut stmt = match conn.prepare(
                 "SELECT server_id, mode, basic_interval_hours, basic_warning_minutes, next_run_basic, \
-                 advanced_time, advanced_days, advanced_warning_minutes, advanced_shutdown, advanced_update, \
+                 advanced_time, advanced_days, advanced_warning_minutes, advanced_shutdown, advanced_backup, advanced_update, \
                  advanced_restart, advanced_dino_wipe \
                  FROM ase_scheduler_settings WHERE mode != 'disabled'"
             ) {
@@ -309,6 +360,7 @@ impl SchedulerService {
                     row.get::<_, i32>(9)? != 0,
                     row.get::<_, i32>(10)? != 0,
                     row.get::<_, i32>(11)? != 0,
+                    row.get::<_, i32>(12)? != 0,
                 ))
             });
 
@@ -330,9 +382,10 @@ impl SchedulerService {
                 if let (Some(time_str), Some(days_str)) = (s.5, s.6) {
                     let warnings_opt = s.7;
                     let shutdown = s.8;
-                    let update = s.9;
-                    let restart = s.10;
-                    let dino_wipe = s.11;
+                    let backup = s.9;
+                    let update = s.10;
+                    let restart = s.11;
+                    let dino_wipe = s.12;
                     Self::process_ase_advanced_mode(
                         app_handle,
                         server_id,
@@ -340,6 +393,7 @@ impl SchedulerService {
                         &days_str,
                         warnings_opt,
                         shutdown,
+                        backup,
                         update,
                         restart,
                         dino_wipe,
@@ -365,7 +419,7 @@ impl SchedulerService {
 
             let mut stmt = match conn.prepare(
                 "SELECT server_id, mode, basic_interval_hours, basic_warning_minutes, next_run_basic, \
-                 advanced_time, advanced_days, advanced_warning_minutes, advanced_shutdown, advanced_update, \
+                 advanced_time, advanced_days, advanced_warning_minutes, advanced_shutdown, advanced_backup, advanced_update, \
                  advanced_restart, advanced_dino_wipe \
                  FROM scheduler_settings WHERE mode != 'disabled'"
             ) {
@@ -387,6 +441,7 @@ impl SchedulerService {
                     row.get::<_, i32>(9)? != 0,
                     row.get::<_, i32>(10)? != 0,
                     row.get::<_, i32>(11)? != 0,
+                    row.get::<_, i32>(12)? != 0,
                 ))
             });
 
@@ -413,9 +468,10 @@ impl SchedulerService {
                 if let (Some(time_str), Some(days_str)) = (s.5, s.6) {
                     let warnings_opt = s.7;
                     let shutdown = s.8;
-                    let update = s.9;
-                    let restart = s.10;
-                    let dino_wipe = s.11;
+                    let backup = s.9;
+                    let update = s.10;
+                    let restart = s.11;
+                    let dino_wipe = s.12;
                     Self::process_asa_advanced_mode(
                         app_handle,
                         server_id,
@@ -423,6 +479,7 @@ impl SchedulerService {
                         &days_str,
                         warnings_opt,
                         shutdown,
+                        backup,
                         update,
                         restart,
                         dino_wipe,
@@ -440,6 +497,7 @@ impl SchedulerService {
         days_str: &str,
         warning_str: Option<String>,
         shutdown: bool,
+        backup: bool,
         update: bool,
         restart: bool,
         dino_wipe: bool,
@@ -471,7 +529,7 @@ impl SchedulerService {
             }
 
             if shutdown {
-                log::info!("  [Advanced ASA] Step 1/4: Graceful Shutdown");
+                log::info!("  [Advanced ASA] Step 1/5: Graceful Shutdown");
                 let _ = state.process_manager.stop_server_with_reason(
                     server_id,
                     crate::services::process_manager::StopReason::ScheduledRestart,
@@ -479,19 +537,24 @@ impl SchedulerService {
                 sleep(Duration::from_secs(5)).await;
             }
 
+            if backup {
+                log::info!("  [Advanced ASA] Step 2/5: Creating automated backup");
+                let _ = Self::create_preupdate_backup_for_server(app_handle, server_id);
+            }
+
             if update {
-                log::info!("  [Advanced ASA] Step 2/4: Updating server");
+                log::info!("  [Advanced ASA] Step 3/5: Updating server");
                 let app = (*app_handle).clone();
                 let _ = crate::commands::server::update_server(app, state.clone(), server_id).await;
             }
 
             if restart {
-                log::info!("  [Advanced ASA] Step 3/4: Restarting server");
+                log::info!("  [Advanced ASA] Step 4/5: Restarting server");
                 let app = (*app_handle).clone();
                 let _ = crate::commands::server::start_server(app, server_id, false).await;
                 
                 if dino_wipe {
-                    log::info!("  [Advanced ASA] Step 4/4: Queuing DestroyWildDinos command");
+                    log::info!("  [Advanced ASA] Step 5/5: Queuing DestroyWildDinos command");
                     let app = (*app_handle).clone();
                     tauri::async_runtime::spawn(async move {
                         sleep(Duration::from_secs(180)).await;
@@ -592,6 +655,7 @@ impl SchedulerService {
         days_str: &str,
         warning_str: Option<String>,
         shutdown: bool,
+        backup: bool,
         update: bool,
         restart: bool,
         dino_wipe: bool,
@@ -621,13 +685,18 @@ impl SchedulerService {
             }
 
             if shutdown {
-                log::info!("  [Advanced ASE] Step 1/4: Graceful Shutdown");
+                log::info!("  [Advanced ASE] Step 1/5: Graceful Shutdown");
                 let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
                 sleep(Duration::from_secs(5)).await;
             }
 
+            if backup {
+                log::info!("  [Advanced ASE] Step 2/5: Creating automated backup");
+                let _ = crate::ase::commands::backup::create_ase_backup(server_id, state.clone()).await;
+            }
+
             if update {
-                log::info!("  [Advanced ASE] Step 2/4: SteamCMD mod/server update");
+                log::info!("  [Advanced ASE] Step 3/5: SteamCMD mod/server update");
                 let install_path: Option<String> = if let Ok(db) = state.db.lock() {
                     if let Ok(conn) = db.get_connection() {
                         conn.query_row(
@@ -663,11 +732,11 @@ impl SchedulerService {
             }
 
             if restart {
-                log::info!("  [Advanced ASE] Step 3/4: Starting server up");
+                log::info!("  [Advanced ASE] Step 4/5: Starting server up");
                 let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
                 
                 if dino_wipe {
-                    log::info!("  [Advanced ASE] Step 4/4: Queuing DestroyWildDinos command");
+                    log::info!("  [Advanced ASE] Step 5/5: Queuing DestroyWildDinos command");
                     let app = (*app_handle).clone();
                     tauri::async_runtime::spawn(async move {
                         sleep(Duration::from_secs(180)).await;
@@ -1031,33 +1100,59 @@ impl SchedulerService {
             }
             "BoostStart" => {
                 if let Some(cmd) = &task.command {
-                    let rcon_state = app_handle.state::<RconState>();
-                    let rcon = &rcon_state.0;
+                    if let Ok(profile_id) = cmd.parse::<i64>() {
+                        let pre_warning_minutes = if task.pre_warning_minutes > 0 {
+                            task.pre_warning_minutes
+                        } else {
+                            5
+                        };
 
-                    if let Some(msg) = &task.message {
-                        let _ = rcon
-                            .send_command(task.server_id, &format!("ServerChat {}", msg))
-                            .await;
+                        let rcon_state = app_handle.state::<RconState>();
+                        let rcon = &rcon_state.0;
+
+                        for min_left in (1..=pre_warning_minutes).rev() {
+                            let msg = format!("⚠️ SERVER BOOST STARTING IN {} MINUTE(S)!", min_left);
+                            let _ = rcon.send_command(task.server_id, &format!("Broadcast {}", msg)).await;
+                            let _ = rcon.send_command(task.server_id, &format!("ServerChat {}", msg)).await;
+                            sleep(Duration::from_secs(60)).await;
+                        }
+
+                        let _ = rcon.send_command(task.server_id, "Broadcast ⚠️ SERVER RESTARTING FOR BOOST EVENT NOW!").await;
+                        let _ = rcon.send_command(task.server_id, "ServerChat ⚠️ SERVER RESTARTING FOR BOOST EVENT NOW!").await;
+                        let _ = rcon.send_command(task.server_id, "SaveWorld").await;
+                        sleep(Duration::from_secs(5)).await;
+
+                        let state = app_handle.state::<AppState>();
+                        let _ = crate::commands::boost::activate_boost_profile((*app_handle).clone(), state.clone(), task.server_id, profile_id).await;
+                        log::info!("🚀 Boost Activated via Scheduler for server {}", task.server_id);
                     }
-
-                    let _ = rcon.send_command(task.server_id, cmd).await;
-                    log::info!("🚀 Boost Started for server {}: {}", task.server_id, cmd);
                 }
             }
             "BoostEnd" => {
-                if let Some(cmd) = &task.command {
-                    let rcon_state = app_handle.state::<RconState>();
-                    let rcon = &rcon_state.0;
+                let pre_warning_minutes = if task.pre_warning_minutes > 0 {
+                    task.pre_warning_minutes
+                } else {
+                    5
+                };
 
-                    if let Some(msg) = &task.message {
-                        let _ = rcon
-                            .send_command(task.server_id, &format!("ServerChat {}", msg))
-                            .await;
-                    }
+                let rcon_state = app_handle.state::<RconState>();
+                let rcon = &rcon_state.0;
 
-                    let _ = rcon.send_command(task.server_id, cmd).await;
-                    log::info!("🚀 Boost Ended for server {}: {}", task.server_id, cmd);
+                for min_left in (1..=pre_warning_minutes).rev() {
+                    let msg = format!("⚠️ SERVER BOOST EVENT ENDING IN {} MINUTE(S)!", min_left);
+                    let _ = rcon.send_command(task.server_id, &format!("Broadcast {}", msg)).await;
+                    let _ = rcon.send_command(task.server_id, &format!("ServerChat {}", msg)).await;
+                    sleep(Duration::from_secs(60)).await;
                 }
+
+                let _ = rcon.send_command(task.server_id, "Broadcast ⚠️ SERVER RESTARTING TO RESTORE MULTIPLIERS NOW!").await;
+                let _ = rcon.send_command(task.server_id, "ServerChat ⚠️ SERVER RESTARTING TO RESTORE MULTIPLIERS NOW!").await;
+                let _ = rcon.send_command(task.server_id, "SaveWorld").await;
+                sleep(Duration::from_secs(5)).await;
+
+                let state = app_handle.state::<AppState>();
+                let _ = crate::commands::boost::deactivate_boost_profile((*app_handle).clone(), state.clone(), task.server_id).await;
+                log::info!("🚀 Boost Deactivated via Scheduler for server {}", task.server_id);
             }
             "AutoUpdateMods" | "auto-update-mods" => {
                 let server_id = task.server_id;

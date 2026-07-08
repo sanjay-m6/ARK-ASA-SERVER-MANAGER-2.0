@@ -1443,7 +1443,8 @@ async fn perform_server_startup_inner(
     println!("  ✅ Server {} started", server_id);
 
     // Start log watcher for anomaly detection
-    let _ = state.log_watcher.start_watching(server_id, install_path_buf.clone());
+    let has_mods = !enabled_mods.is_empty();
+    let _ = state.log_watcher.start_watching(server_id, install_path_buf.clone(), has_mods);
     Ok(())
 }
 
@@ -1614,8 +1615,8 @@ pub async fn start_server_no_mods(
 
     println!("  ✅ Server {} started (NO MODS)", server_id);
 
-    // Start log watcher for anomaly detection
-    let _ = state.log_watcher.start_watching(server_id, install_path_buf.clone());
+    // Start log watcher for anomaly detection (no mods enabled since this was explicitly started without mods)
+    let _ = state.log_watcher.start_watching(server_id, install_path_buf.clone(), false);
     Ok(())
 }
 
@@ -3688,24 +3689,36 @@ pub async fn get_server_visibility_status(
     server_id: i64,
     server_type: String,
 ) -> Result<ServerVisibilityReport, String> {
-    let (install_path_str, query_port, db_status): (String, u16, String) = {
+    let (install_path_str, query_port, db_status, rcon_port, rcon_enabled): (String, u16, String, u16, bool) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
         if server_type.to_uppercase() == "ASE" {
             let mut stmt = conn
-                .prepare("SELECT install_path, query_port, status FROM ase_servers WHERE id = ?1")
+                .prepare("SELECT install_path, query_port, status, rcon_port FROM ase_servers WHERE id = ?1")
                 .map_err(|e| e.to_string())?;
             stmt.query_row([server_id], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)? as u16, row.get::<_, String>(2)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i32>(1)? as u16,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, i32>(3)? as u16,
+                    true,
+                ))
             })
             .map_err(|e| e.to_string())?
         } else {
             let mut stmt = conn
-                .prepare("SELECT install_path, query_port, status FROM servers WHERE id = ?1")
+                .prepare("SELECT install_path, query_port, status, rcon_port, rcon_enabled FROM servers WHERE id = ?1")
                 .map_err(|e| e.to_string())?;
             stmt.query_row([server_id], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)? as u16, row.get::<_, String>(2)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i32>(1)? as u16,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, i32>(3)? as u16,
+                    row.get::<_, Option<i32>>(4)?.unwrap_or(1) != 0,
+                ))
             })
             .map_err(|e| e.to_string())?
         }
@@ -3756,8 +3769,25 @@ pub async fn get_server_visibility_status(
 
     if is_running {
         // Check local query
-        let local_reachable = crate::services::network::query_server("127.0.0.1", query_port)
+        let mut local_reachable = crate::services::network::query_server("127.0.0.1", query_port)
             || crate::services::network::query_server(&local_ip, query_port);
+
+        // Fallback 1: ProcessManager startup confirmation (logs/stdout saw startup complete)
+        if !local_reachable {
+            local_reachable = state.process_manager.is_startup_confirmed(server_id);
+            if local_reachable {
+                println!("  ℹ️ [Diagnostics] Server {} local reachability confirmed via ProcessManager startup detection.", server_id);
+            }
+        }
+
+        // Fallback 2: RCON port TCP check (if open, server is running and accepting connection)
+        if !local_reachable && rcon_enabled && rcon_port > 0 {
+            local_reachable = crate::services::network::check_port_open("127.0.0.1", rcon_port)
+                || crate::services::network::check_port_open(&local_ip, rcon_port);
+            if local_reachable {
+                println!("  ℹ️ [Diagnostics] Server {} local reachability confirmed via open RCON port {}.", server_id, rcon_port);
+            }
+        }
 
         if local_reachable {
             availability = "lan".to_string();
@@ -3766,10 +3796,21 @@ pub async fn get_server_visibility_status(
             }
 
             // Check public query
+            let mut public_reachable = false;
             if let Some(ref pub_ip) = public_ip {
                 if crate::services::network::query_server(pub_ip, query_port) {
-                    availability = "global".to_string();
+                    public_reachable = true;
                 }
+                // Fallback: Check if public RCON is open
+                if !public_reachable && rcon_enabled && rcon_port > 0 {
+                    if crate::services::network::check_port_open(pub_ip, rcon_port) {
+                        public_reachable = true;
+                    }
+                }
+            }
+
+            if public_reachable {
+                availability = "global".to_string();
             }
         }
     }

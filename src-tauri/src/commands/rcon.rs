@@ -191,7 +191,17 @@ pub async fn start_log_stream(
             .map_err(|e| format!("Failed to find server install path in DB: {}", e))?
         };
         
-        let _ = state.log_watcher.start_watching(server_id, std::path::PathBuf::from(install_path));
+        let has_mods = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.query_row(
+                "SELECT COUNT(*) FROM mods WHERE server_id = ?1 AND enabled = 1",
+                [server_id],
+                |row| row.get::<_, i64>(0)
+            ).map(|count| count > 0).unwrap_or(false)
+        };
+
+        let _ = state.log_watcher.start_watching(server_id, std::path::PathBuf::from(install_path), has_mods);
     }
 
     state.log_watcher.enable_streaming(server_id);

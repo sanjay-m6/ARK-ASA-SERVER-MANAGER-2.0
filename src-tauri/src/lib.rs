@@ -836,6 +836,14 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::scheduler::get_scheduler_settings,
              commands::scheduler::save_scheduler_settings,
 
+             // ASA Boost Commands
+             commands::boost::get_boost_profiles,
+             commands::boost::save_boost_profile,
+             commands::boost::delete_boost_profile,
+             commands::boost::activate_boost_profile,
+             commands::boost::deactivate_boost_profile,
+             commands::boost::get_active_boost_profile,
+
              // ═══ ASE Module Commands ═══
              // ASE Server commands
              ase::commands::server::get_ase_servers,
@@ -918,6 +926,15 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               ase::commands::scheduler::delete_ase_scheduled_task,
               ase::commands::scheduler::get_ase_scheduler_settings,
               ase::commands::scheduler::save_ase_scheduler_settings,
+
+              // ASE Boost Commands
+              ase::commands::boost::get_ase_boost_profiles,
+              ase::commands::boost::save_ase_boost_profile,
+              ase::commands::boost::delete_ase_boost_profile,
+              ase::commands::boost::activate_ase_boost_profile,
+              ase::commands::boost::deactivate_ase_boost_profile,
+              ase::commands::boost::get_active_ase_boost_profile,
+
               // ASE Discord commands
               ase::commands::discord::save_ase_discord_config,
               ase::commands::discord::get_ase_discord_config,

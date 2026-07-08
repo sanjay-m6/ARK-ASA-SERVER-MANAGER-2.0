@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { X, Send, Trash2, Loader2, Maximize2 } from 'lucide-react';
+import { X, Send, Trash2, Loader2, Maximize2, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useCrashNotificationStore } from '../../stores/crashNotificationStore';
 import { cn } from '../../utils/helpers';
 import { useCopilotStore } from '../../stores/copilotStore';
 import {
@@ -182,6 +183,14 @@ export default function CopilotPanel() {
                     </div>
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                        onClick={() => useCrashNotificationStore.getState().setArchiveOpen(true)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
+                        title="View Crash Archive"
+                        aria-label="View Crash Archive"
+                    >
+                        <History className="w-3.5 h-3.5" />
+                    </button>
                     <button
                         onClick={() => navigate('/tools/ai')}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-all"

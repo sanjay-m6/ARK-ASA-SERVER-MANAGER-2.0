@@ -760,6 +760,9 @@ pub struct AseScheduledTask {
     pub server_id: i64,
     pub task_type: String,
     pub cron_expr: String,
+    pub command: Option<String>,
+    pub message: Option<String>,
+    pub pre_warning_minutes: i32,
     pub enabled: bool,
     pub last_run: Option<String>,
 }
@@ -777,6 +780,7 @@ pub struct AseSchedulerSettings {
     pub advanced_days: Option<String>,
     pub advanced_warning_minutes: Option<String>,
     pub advanced_shutdown: bool,
+    pub advanced_backup: bool,
     pub advanced_update: bool,
     pub advanced_restart: bool,
     pub advanced_dino_wipe: bool,

@@ -251,6 +251,7 @@ CREATE TABLE IF NOT EXISTS scheduler_settings (
     advanced_days TEXT,
     advanced_warning_minutes TEXT,
     advanced_shutdown INTEGER DEFAULT 0,
+    advanced_backup INTEGER DEFAULT 0,
     advanced_update INTEGER DEFAULT 0,
     advanced_restart INTEGER DEFAULT 0,
     advanced_dino_wipe INTEGER DEFAULT 0,
@@ -565,3 +566,33 @@ CREATE TABLE IF NOT EXISTS translator_stats (
 );
 
 CREATE INDEX IF NOT EXISTS idx_translator_player_prefs_server ON translator_player_prefs(server_id, server_type);
+
+-- Boost Profiles for ASA
+CREATE TABLE IF NOT EXISTS boost_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    xp_multiplier REAL DEFAULT 1.0,
+    taming_multiplier REAL DEFAULT 1.0,
+    harvest_multiplier REAL DEFAULT 1.0,
+    mating_multiplier REAL DEFAULT 1.0,
+    hatch_multiplier REAL DEFAULT 1.0,
+    mature_multiplier REAL DEFAULT 1.0,
+    active INTEGER DEFAULT 0,
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+);
+
+-- Boost Profiles for ASE
+CREATE TABLE IF NOT EXISTS ase_boost_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    xp_multiplier REAL DEFAULT 1.0,
+    taming_multiplier REAL DEFAULT 1.0,
+    harvest_multiplier REAL DEFAULT 1.0,
+    mating_multiplier REAL DEFAULT 1.0,
+    hatch_multiplier REAL DEFAULT 1.0,
+    mature_multiplier REAL DEFAULT 1.0,
+    active INTEGER DEFAULT 0,
+    FOREIGN KEY (server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
+);

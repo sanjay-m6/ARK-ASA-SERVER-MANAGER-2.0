@@ -285,7 +285,7 @@ impl ConfigGenerator {
                 custom_settings: HashMap::new(),
             },
             MapProfile {
-                map_id: "Genesis".to_string(),
+                map_id: "Genesis_WP".to_string(),
                 map_name: "Genesis Part 1".to_string(),
                 difficulty_offset: 1.0,
                 xp_multiplier: 1.5,

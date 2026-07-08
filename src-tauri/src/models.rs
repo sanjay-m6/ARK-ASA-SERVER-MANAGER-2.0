@@ -395,6 +395,7 @@ pub struct SchedulerSettings {
     pub advanced_days: Option<String>,
     pub advanced_warning_minutes: Option<String>,
     pub advanced_shutdown: Option<bool>,
+    pub advanced_backup: Option<bool>,
     pub advanced_update: Option<bool>,
     pub advanced_restart: Option<bool>,
     pub advanced_dino_wipe: Option<bool>,

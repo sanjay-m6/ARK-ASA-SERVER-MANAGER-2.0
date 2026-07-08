@@ -388,67 +388,34 @@ export default function Dashboard() {
 
       unlistenModFailure = await listen<{ server_id: number, error_type: string, details: string, suggestions: string[] }>('mod_load_failure', (event) => {
         console.error('🧩 Mod Load Failure:', event.payload);
-        const { server_id, error_type, suggestions } = event.payload;
+        const { server_id, error_type, details, suggestions } = event.payload;
 
-        const title = error_type === 'CFCore_NoMachineId'
-          ? `Server ${server_id}: CFCore Machine ID Missing`
-          : error_type === 'CFCore_LibraryLoadFailed'
-            ? `Server ${server_id}: CFCore Library Load Failed`
-            : `Server ${server_id}: Mod Loading Failed`;
+        const srv = servers.find(s => s.id === server_id);
+        const serverName = srv ? srv.name : `Server ${server_id}`;
 
-        toast.error(
-          `${title}\n\n${suggestions.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`,
-          { duration: 15000, icon: '🧩', style: { whiteSpace: 'pre-line', maxWidth: '500px' } }
-        );
+        import('../stores/crashNotificationStore').then(({ useCrashNotificationStore }) => {
+          useCrashNotificationStore.getState().handleCrashEvent({
+            serverId: server_id,
+            serverName,
+            anomalyType: error_type,
+            details: `${details}\n\nSuggestions:\n${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+          });
+        });
       });
 
       unlistenLogAnomaly = await listen<any>('log_anomaly', async (event) => {
         console.log('🔥 Log Anomaly Detected:', event.payload);
         const { server_id, anomaly_type, details } = event.payload;
 
-        toast.error(`Anomaly (${anomaly_type}) detected on Server ${server_id}! AI is analyzing...`, {
-          duration: 6000,
-          icon: '🔥'
-        });
+        const srv = servers.find(s => s.id === server_id);
+        const serverName = srv ? srv.name : `Server ${server_id}`;
 
-        // Trigger AI analysis asynchronously
-        import('../stores/aiStore').then(({ useAiStore }) => {
-          import('../utils/aiAgent').then(async ({ sendAiMessage, generateMessageId, buildSystemPrompt }) => {
-            const aiStore = useAiStore.getState();
-
-            const prompt = `A ${anomaly_type} anomaly was just detected on Server ${server_id}.\nDetails:\n\`\`\`\n${details}\n\`\`\`\nPlease analyze this log anomaly and provide a diagnosis or recommended fix.`;
-
-            aiStore.addMessage({
-              id: generateMessageId(),
-              role: 'user',
-              content: prompt,
-              timestamp: Date.now()
-            });
-
-            try {
-              const apiMessages = [
-                { role: 'system', content: buildSystemPrompt() },
-                ...aiStore.messages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => ({ role: m.role, content: m.content })),
-                { role: 'user', content: prompt }
-              ];
-
-              const response = await sendAiMessage(apiMessages, aiStore.model);
-
-              if (response.content) {
-                aiStore.addMessage({
-                  id: generateMessageId(),
-                  role: 'assistant',
-                  content: `**[Automated Crash Diagnosis]**\n\n${response.content}`,
-                  timestamp: Date.now()
-                });
-                toast.success(`AI Diagnosis ready for Server ${server_id}! Open AI Assistant to view.`, {
-                  duration: 10000,
-                  icon: '🤖'
-                });
-              }
-            } catch (error) {
-              console.error('Failed to get AI diagnosis:', error);
-            }
+        import('../stores/crashNotificationStore').then(({ useCrashNotificationStore }) => {
+          useCrashNotificationStore.getState().handleCrashEvent({
+            serverId: server_id,
+            serverName,
+            anomalyType: anomaly_type,
+            details
           });
         });
       });

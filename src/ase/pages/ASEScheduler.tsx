@@ -240,9 +240,10 @@ export default function ASEScheduler() {
 
   const chainSteps = [
     { key: 'advancedShutdown', label: '1. Graceful Shutdown', desc: 'Performs standard SaveWorld, warns players, and stops process gracefully.' },
-    { key: 'advancedUpdate', label: '2. SteamCMD Update', desc: 'Safely launches SteamCMD block, fetches game files, and checks mods.' },
-    { key: 'advancedRestart', label: '3. Server Auto-Restart', desc: 'Boots the server process back up under the crash guard watchdog.' },
-    { key: 'advancedDinoWipe', label: '4. Post-Boot Dino Wipe', desc: 'Cleans up wild dinosaur populations 3 minutes after bootup for performance.' },
+    { key: 'advancedBackup', label: '2. Server Backup', desc: 'Creates an automated backup of server files before updating.' },
+    { key: 'advancedUpdate', label: '3. SteamCMD Update', desc: 'Safely launches SteamCMD block, fetches game files, and checks mods.' },
+    { key: 'advancedRestart', label: '4. Server Auto-Restart', desc: 'Boots the server process back up under the crash guard watchdog.' },
+    { key: 'advancedDinoWipe', label: '5. Post-Boot Dino Wipe', desc: 'Cleans up wild dinosaur populations 3 minutes after bootup for performance.' },
   ];
 
   const typeLabels: Record<string, string> = { restart: '🔄 Restart', update: '📥 Update', backup: '💾 Backup', wipe_dinos: '🦕 Wipe Dinos' };

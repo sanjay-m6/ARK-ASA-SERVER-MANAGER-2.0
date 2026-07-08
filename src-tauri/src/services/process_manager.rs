@@ -1104,6 +1104,11 @@ impl ProcessManager {
 
         let app_handle_stdout = self.app_handle.clone();
         let server_id_stdout = server_id;
+        let has_mods = match mods {
+            Some(m) => !m.is_empty(),
+            None => false,
+        };
+        let has_mods_stdout = has_mods;
 
         // Stdout Reader
         std::thread::spawn(move || {
@@ -1164,38 +1169,40 @@ impl ProcessManager {
                     }
 
                     // CFCore mod loading failure detection (real-time)
-                    if lower_line.contains("not all mods were installed") {
-                        println!("  ❌ [CFCore] Mod loading failure detected for server {}", server_id_stdout);
-                        let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
-                            server_id: server_id_stdout,
-                            error_type: "CFCore_ModLoadFailed".to_string(),
-                            details: l.clone(),
-                            suggestions: vec![
-                                "Accept CurseForge Terms & Conditions in the ARK game client (Main Menu → Mod List)".to_string(),
-                                "Clear the mod cache using Server Actions → Clear Mod Cache, then restart".to_string(),
-                                "If using crossplay, check that no PC-only mods are in the mod list".to_string(),
-                                "Try running the Server Manager as Administrator for the first launch".to_string(),
-                            ],
-                        });
-                    } else if lower_line.contains("no machine id was found") {
-                        let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
-                            server_id: server_id_stdout,
-                            error_type: "CFCore_NoMachineId".to_string(),
-                            details: l.clone(),
-                            suggestions: vec![
-                                "Run the Server Manager as Administrator once to register CFCore's machine ID".to_string(),
-                            ],
-                        });
-                    } else if lower_line.contains("couldn't load mods library from disk") {
-                        let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
-                            server_id: server_id_stdout,
-                            error_type: "CFCore_LibraryLoadFailed".to_string(),
-                            details: l.clone(),
-                            suggestions: vec![
-                                "Accept CurseForge Terms & Conditions in the ARK game client".to_string(),
-                                "Clear the mod cache and let CFCore re-download all mods".to_string(),
-                            ],
-                        });
+                    if has_mods_stdout {
+                        if lower_line.contains("not all mods were installed") {
+                            println!("  ❌ [CFCore] Mod loading failure detected for server {}", server_id_stdout);
+                            let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
+                                server_id: server_id_stdout,
+                                error_type: "CFCore_ModLoadFailed".to_string(),
+                                details: l.clone(),
+                                suggestions: vec![
+                                    "Accept CurseForge Terms & Conditions in the ARK game client (Main Menu → Mod List)".to_string(),
+                                    "Clear the mod cache using Server Actions → Clear Mod Cache, then restart".to_string(),
+                                    "If using crossplay, check that no PC-only mods are in the mod list".to_string(),
+                                    "Try running the Server Manager as Administrator for the first launch".to_string(),
+                                ],
+                            });
+                        } else if lower_line.contains("no machine id was found") {
+                            let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
+                                server_id: server_id_stdout,
+                                error_type: "CFCore_NoMachineId".to_string(),
+                                details: l.clone(),
+                                suggestions: vec![
+                                    "Run the Server Manager as Administrator once to register CFCore's machine ID".to_string(),
+                                ],
+                            });
+                        } else if lower_line.contains("couldn't load mods library from disk") {
+                            let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
+                                server_id: server_id_stdout,
+                                error_type: "CFCore_LibraryLoadFailed".to_string(),
+                                details: l.clone(),
+                                suggestions: vec![
+                                    "Accept CurseForge Terms & Conditions in the ARK game client".to_string(),
+                                    "Clear the mod cache and let CFCore re-download all mods".to_string(),
+                                ],
+                            });
+                        }
                     }
                 }
             }
@@ -1837,6 +1844,16 @@ impl ProcessManager {
             Ok(())
         } else {
             Err(anyhow::anyhow!("Server is not running"))
+        }
+    }
+
+    /// Check if a server process has completed its startup logs/ticking
+    pub fn is_startup_confirmed(&self, server_id: i64) -> bool {
+        let processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(proc) = processes.get(&server_id) {
+            proc.startup_confirmed.load(std::sync::atomic::Ordering::Relaxed)
+        } else {
+            false
         }
     }
 }

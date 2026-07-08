@@ -1368,6 +1368,8 @@
     "sequentialExecution": "Sequential Execution",
     "stopServer": "Stop Server",
     "stopServerDesc": "Gracefully save world and stop the server process.",
+    "backupServer": "Backup Server",
+    "backupServerDesc": "Create an automated backup of server files.",
     "updateServer": "Update Server",
     "updateServerDesc": "Run SteamCMD update to get latest patch.",
     "startServer": "Start Server",

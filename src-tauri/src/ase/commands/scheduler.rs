@@ -8,7 +8,7 @@ pub async fn get_ase_scheduled_tasks(server_id: i64, state: State<'_, AppState>)
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
     let mut stmt = conn.prepare(
-        "SELECT id, server_id, task_type, cron_expr, enabled, last_run \
+        "SELECT id, server_id, task_type, cron_expr, command, message, pre_warning_minutes, enabled, last_run \
          FROM ase_scheduled_tasks WHERE server_id = ?1"
     ).map_err(|e| e.to_string())?;
 
@@ -21,8 +21,11 @@ pub async fn get_ase_scheduled_tasks(server_id: i64, state: State<'_, AppState>)
             server_id: row.get(1).map_err(|e| e.to_string())?,
             task_type: row.get(2).map_err(|e| e.to_string())?,
             cron_expr: row.get(3).map_err(|e| e.to_string())?,
-            enabled: row.get(4).map_err(|e| e.to_string())?,
-            last_run: row.get(5).map_err(|e| e.to_string())?,
+            command: row.get(4).map_err(|e| e.to_string())?,
+            message: row.get(5).map_err(|e| e.to_string())?,
+            pre_warning_minutes: row.get(6).map_err(|e| e.to_string())?,
+            enabled: row.get(7).map_err(|e| e.to_string())?,
+            last_run: row.get(8).map_err(|e| e.to_string())?,
         });
     }
 
@@ -31,14 +34,21 @@ pub async fn get_ase_scheduled_tasks(server_id: i64, state: State<'_, AppState>)
 
 #[tauri::command]
 pub async fn create_ase_scheduled_task(
-    server_id: i64, task_type: String, cron_expr: String, enabled: bool,
+    server_id: i64,
+    task_type: String,
+    cron_expr: String,
+    command: Option<String>,
+    message: Option<String>,
+    pre_warning_minutes: i32,
+    enabled: bool,
     state: State<'_, AppState>,
 ) -> Result<i64, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO ase_scheduled_tasks (server_id, task_type, cron_expr, enabled) VALUES (?1, ?2, ?3, ?4)",
-        rusqlite::params![server_id, task_type, cron_expr, enabled],
+        "INSERT INTO ase_scheduled_tasks (server_id, task_type, cron_expr, command, message, pre_warning_minutes, enabled) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        rusqlite::params![server_id, task_type, cron_expr, command, message, pre_warning_minutes, enabled],
     ).map_err(|e| e.to_string())?;
 
     Ok(conn.last_insert_rowid())
@@ -77,7 +87,7 @@ pub async fn get_ase_scheduler_settings(
     // Try querying first
     let row_result = conn.query_row(
         "SELECT server_id, mode, basic_interval_hours, basic_warning_minutes, next_run_basic, \
-         advanced_time, advanced_days, advanced_warning_minutes, advanced_shutdown, advanced_update, \
+         advanced_time, advanced_days, advanced_warning_minutes, advanced_shutdown, advanced_backup, advanced_update, \
          advanced_restart, advanced_dino_wipe, watchdog_enabled, backup_on_restart, backup_on_update, include_cluster_backup \
          FROM ase_scheduler_settings WHERE server_id = ?1",
         [server_id],
@@ -92,13 +102,14 @@ pub async fn get_ase_scheduler_settings(
                 advanced_days: row.get(6)?,
                 advanced_warning_minutes: row.get(7)?,
                 advanced_shutdown: row.get::<_, i32>(8)? != 0,
-                advanced_update: row.get::<_, i32>(9)? != 0,
-                advanced_restart: row.get::<_, i32>(10)? != 0,
-                advanced_dino_wipe: row.get::<_, i32>(11)? != 0,
-                watchdog_enabled: row.get::<_, i32>(12)? != 0,
-                backup_on_restart: row.get::<_, i32>(13)? != 0,
-                backup_on_update: row.get::<_, i32>(14)? != 0,
-                include_cluster_backup: row.get::<_, i32>(15)? != 0,
+                advanced_backup: row.get::<_, i32>(9)? != 0,
+                advanced_update: row.get::<_, i32>(10)? != 0,
+                advanced_restart: row.get::<_, i32>(11)? != 0,
+                advanced_dino_wipe: row.get::<_, i32>(12)? != 0,
+                watchdog_enabled: row.get::<_, i32>(13)? != 0,
+                backup_on_restart: row.get::<_, i32>(14)? != 0,
+                backup_on_update: row.get::<_, i32>(15)? != 0,
+                include_cluster_backup: row.get::<_, i32>(16)? != 0,
             })
         },
     );
@@ -109,9 +120,9 @@ pub async fn get_ase_scheduler_settings(
             // Insert defaults and return
             conn.execute(
                 "INSERT INTO ase_scheduler_settings (server_id, mode, basic_interval_hours, basic_warning_minutes, \
-                 advanced_shutdown, advanced_update, advanced_restart, advanced_dino_wipe, watchdog_enabled, \
+                 advanced_shutdown, advanced_backup, advanced_update, advanced_restart, advanced_dino_wipe, watchdog_enabled, \
                  backup_on_restart, backup_on_update, include_cluster_backup) \
-                 VALUES (?1, 'disabled', 24, '30,15,10,5,1', 0, 0, 0, 0, 0, 0, 0, 0)",
+                 VALUES (?1, 'disabled', 24, '30,15,10,5,1', 0, 0, 0, 0, 0, 0, 0, 0, 0)",
                 [server_id],
             ).map_err(|e| e.to_string())?;
 
@@ -125,6 +136,7 @@ pub async fn get_ase_scheduler_settings(
                 advanced_days: None,
                 advanced_warning_minutes: None,
                 advanced_shutdown: false,
+                advanced_backup: false,
                 advanced_update: false,
                 advanced_restart: false,
                 advanced_dino_wipe: false,
@@ -149,14 +161,14 @@ pub async fn save_ase_scheduler_settings(
 
         conn.execute(
             "INSERT INTO ase_scheduler_settings (server_id, mode, basic_interval_hours, basic_warning_minutes, next_run_basic, \
-             advanced_time, advanced_days, advanced_warning_minutes, advanced_shutdown, advanced_update, \
+             advanced_time, advanced_days, advanced_warning_minutes, advanced_shutdown, advanced_backup, advanced_update, \
              advanced_restart, advanced_dino_wipe, watchdog_enabled, backup_on_restart, backup_on_update, include_cluster_backup) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17) \
              ON CONFLICT(server_id) DO UPDATE SET \
              mode = ?2, basic_interval_hours = ?3, basic_warning_minutes = ?4, next_run_basic = ?5, \
              advanced_time = ?6, advanced_days = ?7, advanced_warning_minutes = ?8, advanced_shutdown = ?9, \
-             advanced_update = ?10, advanced_restart = ?11, advanced_dino_wipe = ?12, watchdog_enabled = ?13, \
-             backup_on_restart = ?14, backup_on_update = ?15, include_cluster_backup = ?16",
+             advanced_backup = ?10, advanced_update = ?11, advanced_restart = ?12, advanced_dino_wipe = ?13, watchdog_enabled = ?14, \
+             backup_on_restart = ?15, backup_on_update = ?16, include_cluster_backup = ?17",
             rusqlite::params![
                 settings.server_id,
                 settings.mode,
@@ -167,6 +179,7 @@ pub async fn save_ase_scheduler_settings(
                 settings.advanced_days,
                 settings.advanced_warning_minutes,
                 settings.advanced_shutdown as i32,
+                settings.advanced_backup as i32,
                 settings.advanced_update as i32,
                 settings.advanced_restart as i32,
                 settings.advanced_dino_wipe as i32,

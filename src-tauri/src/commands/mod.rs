@@ -26,3 +26,4 @@ pub mod hardware;
 pub mod autosave;
 pub mod server_organization;
 pub mod chat_translator;
+pub mod boost;

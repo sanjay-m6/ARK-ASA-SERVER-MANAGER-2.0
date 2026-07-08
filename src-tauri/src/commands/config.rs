@@ -33,7 +33,7 @@ fn sanitize_ini_content(content: &str) -> String {
 }
 
 /// Helper to get server install path and type from database
-fn get_server_info(state: &State<'_, AppState>, server_id: i64) -> Result<(String, String), String> {
+pub(crate) fn get_server_info(state: &State<'_, AppState>, server_id: i64) -> Result<(String, String), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
     
@@ -59,7 +59,7 @@ fn get_server_info(state: &State<'_, AppState>, server_id: i64) -> Result<(Strin
 
 /// Resolve user config folder override from DB settings.
 /// Returns Some(path) if set and the folder exists, None otherwise.
-fn resolve_user_config_folder(state: &State<'_, AppState>, server_type: &str) -> Option<String> {
+pub(crate) fn resolve_user_config_folder(state: &State<'_, AppState>, server_type: &str) -> Option<String> {
     let db = state.db.lock().ok()?;
     let key = if server_type == "ASE" {
         "ase_user_config_folder"
@@ -80,7 +80,7 @@ fn resolve_user_config_folder(state: &State<'_, AppState>, server_type: &str) ->
 }
 
 /// Get config file path, optionally using a user-specified config folder override.
-fn get_config_path(install_path: &str, config_type: &str, server_type: &str, user_config_folder: Option<&str>) -> PathBuf {
+pub(crate) fn get_config_path(install_path: &str, config_type: &str, server_type: &str, user_config_folder: Option<&str>) -> PathBuf {
     if let Some(folder) = user_config_folder {
         // User override: look for the INI directly in the user folder
         let user_path = PathBuf::from(folder).join(format!("{}.ini", config_type));
@@ -106,7 +106,7 @@ fn get_config_path(install_path: &str, config_type: &str, server_type: &str, use
 
 /// Get the directory where configs are written to (for save operations).
 /// If user_config_folder is set, writes go there; otherwise uses install path.
-fn get_config_write_dir(install_path: &str, server_type: &str, user_config_folder: Option<&str>) -> PathBuf {
+pub(crate) fn get_config_write_dir(install_path: &str, server_type: &str, user_config_folder: Option<&str>) -> PathBuf {
     if let Some(folder) = user_config_folder {
         PathBuf::from(folder)
     } else {

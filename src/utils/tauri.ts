@@ -10,6 +10,8 @@ import type {
     ServerType,
     PlayerStats,
     PlayerSession,
+    BoostProfile,
+    AseBoostProfile,
 } from '../types';
 
 export type {
@@ -869,6 +871,7 @@ export interface SchedulerSettings {
     advancedDays?: string | null;
     advancedWarningMinutes?: string | null;
     advancedShutdown?: boolean;
+    advancedBackup?: boolean;
     advancedUpdate?: boolean;
     advancedRestart?: boolean;
     advancedDinoWipe?: boolean;
@@ -1029,4 +1032,57 @@ export async function getAseDiscordRateLimitConfig(clusterId: number): Promise<{
 
 export async function setAseDiscordRateLimitConfig(clusterId: number, maxMessages: number, windowSeconds: number): Promise<void> {
     return await invoke('set_ase_discord_rate_limit_config', { clusterId, maxMessages, windowSeconds });
+}
+
+// ============================================================================
+// Boost (Seasonal Events) Commands
+// ============================================================================
+
+export async function getBoostProfiles(serverId: number): Promise<BoostProfile[]> {
+    return await invoke('get_boost_profiles', { serverId });
+}
+
+export async function saveBoostProfile(profile: BoostProfile): Promise<void> {
+    return await invoke('save_boost_profile', { profile });
+}
+
+export async function deleteBoostProfile(id: number): Promise<void> {
+    return await invoke('delete_boost_profile', { id });
+}
+
+export async function getActiveBoostProfile(serverId: number): Promise<BoostProfile | null> {
+    return await invoke('get_active_boost_profile', { serverId });
+}
+
+export async function activateBoostProfile(serverId: number, id: number): Promise<void> {
+    return await invoke('activate_boost_profile', { serverId, id });
+}
+
+export async function deactivateBoostProfile(serverId: number): Promise<void> {
+    return await invoke('deactivate_boost_profile', { serverId });
+}
+
+// ASE Boost Commands
+export async function getAseBoostProfiles(serverId: number): Promise<AseBoostProfile[]> {
+    return await invoke('get_ase_boost_profiles', { serverId });
+}
+
+export async function saveAseBoostProfile(profile: AseBoostProfile): Promise<void> {
+    return await invoke('save_ase_boost_profile', { profile });
+}
+
+export async function deleteAseBoostProfile(id: number): Promise<void> {
+    return await invoke('delete_ase_boost_profile', { id });
+}
+
+export async function getActiveAseBoostProfile(serverId: number): Promise<AseBoostProfile | null> {
+    return await invoke('get_active_ase_boost_profile', { serverId });
+}
+
+export async function activateAseBoostProfile(serverId: number, id: number): Promise<void> {
+    return await invoke('activate_ase_boost_profile', { serverId, id });
+}
+
+export async function deactivateAseBoostProfile(serverId: number): Promise<void> {
+    return await invoke('deactivate_ase_boost_profile', { serverId });
 }
