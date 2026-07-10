@@ -368,18 +368,45 @@ impl Default for DiscordConfig {
     }
 }
 
+// Plugin Status Enum for ASA Server API Plugins
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum PluginStatus {
+    Enabled,
+    Disabled,
+    Error,
+    Missing,
+}
+
 // Plugin Info for ASA Server API Plugins
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginInfo {
     pub id: String,
     pub name: String,
+    pub folder_name: String,
     pub version: Option<String>,
     pub description: Option<String>,
     pub author: Option<String>,
-    pub asa_version_compatible: Option<String>,
     pub enabled: bool,
-    pub install_path: std::path::PathBuf,
+    pub installed_path: String,
+    pub dependencies: Vec<String>,
+    pub last_loaded_at: Option<String>,
+    pub status: PluginStatus,
+    pub status_message: Option<String>,
+}
+
+// Result of scanning a server's plugin directory
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginScanResult {
+    pub plugins: Vec<PluginInfo>,
+    pub loader_installed: bool,
+    pub plugins_dir: String,
+    pub launch_executable: String,
+    pub active_plugin_count: usize,
+    pub api_loader_enabled: bool,
+    pub pdb_missing: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

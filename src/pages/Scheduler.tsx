@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
     Save,
@@ -13,7 +14,8 @@ import {
     CheckCircle,
     Download,
     AlertTriangle,
-    Shield
+    Shield,
+    X
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { toast } from 'react-hot-toast';
@@ -35,16 +37,24 @@ const TASK_TYPES = [
     { value: 'restart', labelKey: 'scheduler.restart', icon: RefreshCw, color: 'text-orange-400', border: 'border-orange-500/50', bg: 'bg-orange-500/10' },
     { value: 'AutoUpdateMods', labelKey: 'scheduler.autoUpdateMods', icon: Download, color: 'text-cyan-400', border: 'border-cyan-500/50', bg: 'bg-cyan-500/10' },
     { value: 'backup', labelKey: 'scheduler.backup', icon: Terminal, color: 'text-blue-400', border: 'border-blue-500/50', bg: 'bg-blue-500/10' },
-    { value: 'save-world', labelKey: 'common.save', icon: Save, color: 'text-green-400', border: 'border-green-500/50', bg: 'bg-green-500/10' },
+    { value: 'save-world', labelKey: 'scheduler.saveWorld', icon: Save, color: 'text-green-400', border: 'border-green-500/50', bg: 'bg-green-500/10' },
     { value: 'announcement', labelKey: 'scheduler.broadcast', icon: MessageSquare, color: 'text-purple-400', border: 'border-purple-500/50', bg: 'bg-purple-500/10' },
     { value: 'destroy-wild-dinos', labelKey: 'scheduler.destroyDinos', icon: Zap, color: 'text-red-400', border: 'border-red-500/50', bg: 'bg-red-500/10' },
-    { value: 'BoostStart', labelKey: 'scheduler.custom', icon: Activity, color: 'text-emerald-400', border: 'border-emerald-500/50', bg: 'bg-emerald-500/10' },
-    { value: 'BoostEnd', labelKey: 'scheduler.custom', icon: Activity, color: 'text-slate-400', border: 'border-slate-500/50', bg: 'bg-slate-500/10' },
+    { value: 'BoostStart', labelKey: 'scheduler.boostStart', icon: Activity, color: 'text-emerald-400', border: 'border-emerald-500/50', bg: 'bg-emerald-500/10' },
+    { value: 'BoostEnd', labelKey: 'scheduler.boostEnd', icon: Activity, color: 'text-slate-400', border: 'border-slate-500/50', bg: 'bg-slate-500/10' },
     { value: 'rcon-command', labelKey: 'scheduler.rconCommand', icon: ServerIcon, color: 'text-cyan-400', border: 'border-cyan-500/50', bg: 'bg-cyan-500/10' },
 ];
 
 export default function Scheduler() {
     const { t } = useTranslation();
+    
+    const getTaskTypeLabel = (labelKey: string) => {
+        if (labelKey === 'scheduler.boostStart') return t('scheduler.boostStart', 'Boost Event Start');
+        if (labelKey === 'scheduler.boostEnd') return t('scheduler.boostEnd', 'Boost Event End');
+        if (labelKey === 'scheduler.saveWorld') return t('scheduler.saveWorld', 'Save World');
+        return t(labelKey);
+    };
+
     const { servers, setServers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const [settings, setSettings] = useState<SchedulerSettings | null>(null);
@@ -302,7 +312,7 @@ export default function Scheduler() {
                 "border rounded-xl p-6 transition-all relative overflow-hidden",
                 settings.mode === 'basic'
                     ? "border-green-500/50 bg-green-500/5 shadow-[0_0_20px_rgba(34,197,94,0.1)]"
-                    : "border-red-500/20 bg-red-500/5 opacity-80 hover:opacity-100"
+                    : "border-slate-800/80 bg-slate-900/10 opacity-70 hover:opacity-100 hover:border-slate-700/50"
             )}>
                 {settings.mode === 'basic' && (
                     <div className="absolute top-0 right-0 p-2">
@@ -311,7 +321,7 @@ export default function Scheduler() {
                         </span>
                     </div>
                 )}
-                <h2 className={cn("text-lg font-bold mb-1", settings.mode === 'basic' ? "text-green-400" : "text-red-400")}>
+                <h2 className={cn("text-lg font-bold mb-1", settings.mode === 'basic' ? "text-green-400" : "text-slate-300")}>
                     {t('scheduler.basicTitle')}
                 </h2>
                 <p className="text-slate-400 text-sm mb-4">{t('scheduler.basicDesc')}</p>
@@ -323,9 +333,11 @@ export default function Scheduler() {
                     </div>
                     <div className="flex items-center gap-4 flex-wrap">
                         <select
+                            id="basic-interval-select"
+                            aria-label={t('scheduler.basicInterval', 'Basic Interval')}
                             value={settings.basicIntervalHours}
                             onChange={(e) => setSettings({ ...settings, basicIntervalHours: Number(e.target.value) })}
-                            className="bg-slate-900/80 border border-slate-700 rounded px-3 py-2 text-white w-32 focus:border-green-500 focus:outline-none"
+                            className="bg-slate-900/80 border border-slate-700 rounded px-3 py-2 text-white w-32 focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:outline-none transition-all"
                         >
                             {[1, 2, 3, 4, 6, 8, 12, 24].map(h => (
                                 <option key={h} value={h}>{h} hours</option>
@@ -334,7 +346,7 @@ export default function Scheduler() {
                         <button
                             onClick={() => handleSave({ ...settings, mode: 'basic' })}
                             className={cn(
-                                "px-4 py-2 rounded font-medium transition-colors flex items-center gap-2",
+                                "px-4 py-2 rounded font-medium transition-all duration-200 flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:outline-none",
                                 settings.mode === 'basic' ? "bg-green-600 hover:bg-green-500 text-white" : "bg-slate-800 hover:bg-slate-700 text-slate-300"
                             )}
                         >
@@ -351,23 +363,23 @@ export default function Scheduler() {
             <div className={cn(
                 "border rounded-xl p-6 transition-all relative overflow-hidden",
                 settings.mode === 'advanced'
-                    ? "border-green-500/50 bg-green-500/5 shadow-[0_0_20px_rgba(34,197,94,0.1)]"
-                    : "border-slate-800 bg-slate-900/20 opacity-90"
+                    ? "border-purple-500/50 bg-purple-500/5 shadow-[0_0_20px_rgba(168,85,247,0.1)]"
+                    : "border-slate-800/80 bg-slate-900/10 opacity-70 hover:opacity-100 hover:border-slate-700/50"
             )}>
                 {settings.mode === 'advanced' && (
                     <div className="absolute top-0 right-0 p-2 z-10">
-                        <span className="flex items-center gap-1.5 text-xs font-bold text-green-400 bg-green-500/10 border border-green-500/20 px-3 py-1 rounded-full uppercase tracking-wider shadow-[0_0_10px_rgba(34,197,94,0.2)]">
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-full uppercase tracking-wider shadow-[0_0_10px_rgba(168,85,247,0.2)]">
                             <Activity className="w-3 h-3 animate-pulse" /> {t('common.active')}
                         </span>
                     </div>
                 )}
 
                 <div className="flex items-center gap-3 mb-6">
-                    <div className={cn("p-2 rounded-lg transition-colors", settings.mode === 'advanced' ? "bg-green-500/10 text-green-400" : "bg-slate-800 text-slate-400")}>
+                    <div className={cn("p-2 rounded-lg transition-colors", settings.mode === 'advanced' ? "bg-purple-500/10 text-purple-400" : "bg-slate-800/80 text-slate-400")}>
                         <Zap className="w-5 h-5" />
                     </div>
                     <div>
-                        <h2 className={cn("text-lg font-bold transition-colors", settings.mode === 'advanced' ? "text-green-400" : "text-slate-200")}>
+                        <h2 className={cn("text-lg font-bold transition-colors", settings.mode === 'advanced' ? "text-purple-400" : "text-slate-200")}>
                             {t('scheduler.advancedTitle')}
                         </h2>
                         <p className="text-slate-400 text-sm">{t('scheduler.advancedDesc')}</p>
@@ -384,28 +396,32 @@ export default function Scheduler() {
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">{t('scheduler.shutdownTime')}</label>
+                                    <label htmlFor="advanced-shutdown-time" className="block text-xs font-semibold text-slate-500 mb-2 uppercase">{t('scheduler.shutdownTime')}</label>
                                     <div className="flex items-center gap-3">
                                         <input
+                                            id="advanced-shutdown-time"
                                             type="time"
                                             value={settings.advancedTime || '06:00'}
                                             onChange={(e) => setSettings({ ...settings, advancedTime: e.target.value })}
-                                            className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white text-lg font-mono focus:border-sky-500 focus:outline-none w-full"
+                                            className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white text-lg font-mono focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500 focus:outline-none w-full transition-all"
                                         />
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">{t('scheduler.activeDays')}</label>
-                                    <div className="flex flex-wrap gap-2">
+                                    <span className="block text-xs font-semibold text-slate-500 mb-2 uppercase">{t('scheduler.activeDays')}</span>
+                                    <div className="flex flex-wrap gap-2" role="group" aria-label={t('scheduler.activeDays', 'Active Days')}>
                                         {daysOfWeek.map((day) => {
                                             const isChecked = settings.advancedDays?.split(',').map(Number).includes(day.value);
                                             return (
                                                 <button
                                                     key={day.value}
+                                                    type="button"
                                                     onClick={() => toggleDay(day.value)}
+                                                    aria-pressed={isChecked}
+                                                    aria-label={day.label}
                                                     className={cn(
-                                                        "w-9 h-9 rounded-lg text-xs font-bold transition-all border",
+                                                        "w-9 h-9 rounded-lg text-xs font-bold transition-all border focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none",
                                                         isChecked
                                                             ? "bg-sky-500 text-white border-sky-400 shadow-[0_0_10px_rgba(14,165,233,0.3)]"
                                                             : "bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600 hover:text-slate-300"
@@ -419,15 +435,16 @@ export default function Scheduler() {
                                 </div>
 
                                 <div className="pt-2 border-t border-slate-800/50">
-                                    <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase">{t('scheduler.warningSequence')}</label>
+                                    <label htmlFor="advanced-warning-sequence" className="block text-xs font-semibold text-slate-500 mb-2 uppercase">{t('scheduler.warningSequence')}</label>
                                     <div className="relative">
                                         <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-400" />
                                         <input
+                                            id="advanced-warning-sequence"
                                             type="text"
                                             value={settings.advancedWarningMinutes || ''}
                                             onChange={(e) => setSettings({ ...settings, advancedWarningMinutes: e.target.value })}
                                             placeholder="10,5,3,1"
-                                            className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white text-sm focus:border-amber-500 focus:outline-none font-mono placeholder:text-slate-600"
+                                            className="w-full bg-slate-950 border border-slate-700 rounded-lg pl-10 pr-4 py-2 text-white text-sm focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 focus:outline-none font-mono placeholder:text-slate-600 transition-all"
                                         />
                                     </div>
                                     <p className="text-[10px] text-slate-500 mt-1.5 ml-1">Comma-separated minutes before shutdown to warn players.</p>
@@ -450,7 +467,7 @@ export default function Scheduler() {
                         <div className="space-y-3">
                             {/* Step 1: Shutdown */}
                             <label className={cn(
-                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden",
+                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden focus-within:ring-2 focus-within:ring-red-500/50 focus-within:border-red-500/50",
                                 settings.advancedShutdown
                                     ? "bg-red-500/5 border-red-500/30 hover:border-red-500/50"
                                     : "bg-slate-900/30 border-slate-800 hover:border-slate-700"
@@ -464,7 +481,7 @@ export default function Scheduler() {
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
                                         <span className={cn("font-bold text-sm", settings.advancedShutdown ? "text-white" : "text-slate-400")}>{t('scheduler.stopServer')}</span>
-                                        <input type="checkbox" checked={settings.advancedShutdown || false} onChange={(e) => setSettings({ ...settings, advancedShutdown: e.target.checked })} className="sr-only" />
+                                        <input id="step-shutdown-checkbox" type="checkbox" checked={settings.advancedShutdown || false} onChange={(e) => setSettings({ ...settings, advancedShutdown: e.target.checked })} className="sr-only" />
                                         {settings.advancedShutdown && <CheckCircle className="w-4 h-4 text-red-400" />}
                                     </div>
                                     <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.stopServerDesc')}</p>
@@ -478,7 +495,7 @@ export default function Scheduler() {
                             </div>
 
                             <label className={cn(
-                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden",
+                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:border-blue-500/50",
                                 settings.advancedBackup
                                     ? "bg-blue-500/5 border-blue-500/30 hover:border-blue-500/50"
                                     : "bg-slate-900/30 border-slate-800 hover:border-slate-700"
@@ -492,7 +509,7 @@ export default function Scheduler() {
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
                                         <span className={cn("font-bold text-sm", settings.advancedBackup ? "text-white" : "text-slate-400")}>{t('scheduler.backupServer', 'Backup Server')}</span>
-                                        <input type="checkbox" checked={settings.advancedBackup || false} onChange={(e) => setSettings({ ...settings, advancedBackup: e.target.checked })} className="sr-only" />
+                                        <input id="step-backup-checkbox" type="checkbox" checked={settings.advancedBackup || false} onChange={(e) => setSettings({ ...settings, advancedBackup: e.target.checked })} className="sr-only" />
                                         {settings.advancedBackup && <CheckCircle className="w-4 h-4 text-blue-400" />}
                                     </div>
                                     <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.backupServerDesc', 'Create an automated backup of server files.')}</p>
@@ -506,7 +523,7 @@ export default function Scheduler() {
                             </div>
 
                             <label className={cn(
-                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden",
+                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden focus-within:ring-2 focus-within:ring-cyan-500/50 focus-within:border-cyan-500/50",
                                 settings.advancedUpdate
                                     ? "bg-cyan-500/5 border-cyan-500/30 hover:border-cyan-500/50"
                                     : "bg-slate-900/30 border-slate-800 hover:border-slate-700"
@@ -520,7 +537,7 @@ export default function Scheduler() {
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
                                         <span className={cn("font-bold text-sm", settings.advancedUpdate ? "text-white" : "text-slate-400")}>{t('scheduler.updateServer')}</span>
-                                        <input type="checkbox" checked={settings.advancedUpdate || false} onChange={(e) => setSettings({ ...settings, advancedUpdate: e.target.checked })} className="sr-only" />
+                                        <input id="step-update-checkbox" type="checkbox" checked={settings.advancedUpdate || false} onChange={(e) => setSettings({ ...settings, advancedUpdate: e.target.checked })} className="sr-only" />
                                         {settings.advancedUpdate && <CheckCircle className="w-4 h-4 text-cyan-400" />}
                                     </div>
                                     <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.updateServerDesc')}</p>
@@ -534,7 +551,7 @@ export default function Scheduler() {
                             </div>
 
                             <label className={cn(
-                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden",
+                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden focus-within:ring-2 focus-within:ring-green-500/50 focus-within:border-green-500/50",
                                 settings.advancedRestart
                                     ? "bg-green-500/5 border-green-500/30 hover:border-green-500/50"
                                     : "bg-slate-900/30 border-slate-800 hover:border-slate-700"
@@ -548,7 +565,7 @@ export default function Scheduler() {
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
                                         <span className={cn("font-bold text-sm", settings.advancedRestart ? "text-white" : "text-slate-400")}>{t('scheduler.startServer')}</span>
-                                        <input type="checkbox" checked={settings.advancedRestart || false} onChange={(e) => setSettings({ ...settings, advancedRestart: e.target.checked })} className="sr-only" />
+                                        <input id="step-restart-checkbox" type="checkbox" checked={settings.advancedRestart || false} onChange={(e) => setSettings({ ...settings, advancedRestart: e.target.checked })} className="sr-only" />
                                         {settings.advancedRestart && <CheckCircle className="w-4 h-4 text-green-400" />}
                                     </div>
                                     <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.startServerDesc')}</p>
@@ -562,7 +579,7 @@ export default function Scheduler() {
                             </div>
 
                             <label className={cn(
-                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden",
+                                "flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden focus-within:ring-2 focus-within:ring-purple-500/50 focus-within:border-purple-500/50",
                                 settings.advancedDinoWipe
                                     ? "bg-purple-500/5 border-purple-500/30 hover:border-purple-500/50"
                                     : "bg-slate-900/30 border-slate-800 hover:border-slate-700"
@@ -576,7 +593,7 @@ export default function Scheduler() {
                                 <div className="flex-1 z-10">
                                     <div className="flex items-center justify-between">
                                         <span className={cn("font-bold text-sm", settings.advancedDinoWipe ? "text-white" : "text-slate-400")}>{t('scheduler.destroyDinos')}</span>
-                                        <input type="checkbox" checked={settings.advancedDinoWipe || false} onChange={(e) => setSettings({ ...settings, advancedDinoWipe: e.target.checked })} className="sr-only" />
+                                        <input id="step-dinowipe-checkbox" type="checkbox" checked={settings.advancedDinoWipe || false} onChange={(e) => setSettings({ ...settings, advancedDinoWipe: e.target.checked })} className="sr-only" />
                                         {settings.advancedDinoWipe && <CheckCircle className="w-4 h-4 text-purple-400" />}
                                     </div>
                                     <p className="text-xs text-slate-500 mt-0.5">{t('scheduler.destroyDinosDesc')}</p>
@@ -590,7 +607,7 @@ export default function Scheduler() {
                 <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-800">
                     <div className="flex items-center gap-2 text-sm">
                         <span className="text-slate-500">{t('scheduler.status')}:</span>
-                        <span className={cn("font-mono font-medium", settings.mode === 'advanced' ? "text-green-400" : "text-slate-400")}>
+                        <span className={cn("font-mono font-medium", settings.mode === 'advanced' ? "text-purple-400" : "text-slate-400")}>
                             {settings.mode === 'advanced' ? (
                                 <span className="flex items-center gap-2">
                                     <Activity className="w-4 h-4" />
@@ -603,7 +620,7 @@ export default function Scheduler() {
                         <button
                             onClick={() => handleSave(settings)}
                             disabled={isSaving}
-                            className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            className="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none"
                         >
                             {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                             {isSaving ? t('common.saving', 'Saving...') : t('common.saveChanges', 'Save Changes')}
@@ -611,10 +628,10 @@ export default function Scheduler() {
                         <button
                             onClick={() => handleSave({ ...settings, mode: 'advanced' })}
                             className={cn(
-                                "px-6 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2",
+                                "px-6 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none",
                                 settings.mode === 'advanced'
-                                    ? "bg-green-500/10 border border-green-500/50 text-green-400 cursor-default"
-                                    : "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white shadow-lg shadow-green-900/20"
+                                    ? "bg-purple-500/10 border border-purple-500/50 text-purple-400 cursor-default"
+                                    : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-900/20"
                             )}
                         >
                             {settings.mode === 'advanced' ? (
@@ -643,9 +660,12 @@ export default function Scheduler() {
                                 <h2 className="text-xl font-bold text-white">Guardian Watchdog</h2>
                             </div>
                             <button
+                                role="switch"
+                                aria-checked={settings.watchdogEnabled}
+                                aria-label="Guardian Watchdog"
                                 onClick={() => handleSave({ ...settings, watchdogEnabled: !settings.watchdogEnabled })}
                                 className={cn(
-                                    "relative w-14 h-7 rounded-full transition-all duration-300 flex-shrink-0 focus:outline-none hover:scale-105",
+                                    "relative w-14 h-7 rounded-full transition-all duration-300 flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 hover:scale-105",
                                     settings.watchdogEnabled
                                         ? "bg-gradient-to-r from-amber-500 to-orange-600 shadow-[0_0_15px_rgba(245,158,11,0.4)]"
                                         : "bg-slate-800 border border-white/10"
@@ -703,7 +723,7 @@ export default function Scheduler() {
                         <h3 className="text-xl font-bold text-white">{t('scheduler.scheduledTasks')}</h3>
                         <button
                             onClick={() => setIsTaskModalOpen(true)}
-                            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded transition-colors"
+                            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded transition-all focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none"
                         >
                             <Plus className="w-4 h-4" /> {t('scheduler.addTask')}
                         </button>
@@ -714,19 +734,19 @@ export default function Scheduler() {
                             const taskTypeInfo = TASK_TYPES.find(t => t.value === task.taskType) || TASK_TYPES[0];
                             const Icon = taskTypeInfo.icon;
                             return (
-                                <div key={task.id} className="bg-slate-900 border border-slate-800 rounded-lg p-4 group hover:border-slate-700 transition-all">
+                                <div key={task.id} className="bg-slate-900 border border-slate-800 rounded-lg p-4 group hover:border-slate-700/50 hover:shadow-lg hover:shadow-purple-900/5 transition-all">
                                     <div className="flex justify-between items-start mb-3">
                                         <div className="flex items-center gap-3">
                                             <div className={cn("p-2 rounded-lg", taskTypeInfo.bg)}>
                                                 <Icon className={cn("w-5 h-5", taskTypeInfo.color)} />
                                             </div>
                                             <div className="overflow-hidden">
-                                                <div className="font-semibold text-white truncate" title={task.taskName || t(taskTypeInfo.labelKey)}>
-                                                    {task.taskName || t(taskTypeInfo.labelKey)}
+                                                <div className="font-semibold text-white truncate" title={task.taskName || getTaskTypeLabel(taskTypeInfo.labelKey)}>
+                                                    {task.taskName || getTaskTypeLabel(taskTypeInfo.labelKey)}
                                                 </div>
                                                 {task.taskName && (
                                                     <div className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">
-                                                        {t(taskTypeInfo.labelKey)}
+                                                        {getTaskTypeLabel(taskTypeInfo.labelKey)}
                                                     </div>
                                                 )}
                                                 <div className="text-xs text-slate-500 font-mono mt-0.5">
@@ -734,7 +754,16 @@ export default function Scheduler() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <button onClick={() => handleToggleTask(task.id, task.enabled)} className={cn("w-8 h-4 rounded-full relative transition-colors", task.enabled ? "bg-green-500" : "bg-slate-700")}>
+                                        <button
+                                            role="switch"
+                                            aria-checked={task.enabled}
+                                            aria-label={t('scheduler.toggleTask', 'Toggle Task')}
+                                            onClick={() => handleToggleTask(task.id, task.enabled)}
+                                            className={cn(
+                                                "w-8 h-4 rounded-full relative transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500",
+                                                task.enabled ? "bg-green-500" : "bg-slate-700"
+                                            )}
+                                        >
                                             <div className={cn("absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform", task.enabled ? "translate-x-4" : "translate-x-0")} />
                                         </button>
                                     </div>
@@ -742,7 +771,11 @@ export default function Scheduler() {
                                         <span className="text-xs text-slate-500">
                                             {t('scheduler.lastRun')}: {task.lastRun ? new Date(task.lastRun).toLocaleString() : t('common.never', 'Never')}
                                         </span>
-                                        <button onClick={() => handleDeleteClick(task.id)} className="text-slate-600 hover:text-red-400 transition-colors">
+                                        <button
+                                            onClick={() => handleDeleteClick(task.id)}
+                                            aria-label={t('common.delete', 'Delete')}
+                                            className="text-slate-600 hover:text-red-400 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:rounded"
+                                        >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -759,54 +792,80 @@ export default function Scheduler() {
             )}
 
             {/* Add Task Modal */}
-            {isTaskModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-200">
+            {isTaskModalOpen && createPortal(
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="modal-title"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+                >
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         <div className="p-6">
-                            <h2 className="text-xl font-bold text-white mb-6">{t('scheduler.addScheduledTask')}</h2>
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 id="modal-title" className="text-xl font-bold text-white">{t('scheduler.addScheduledTask')}</h2>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsTaskModalOpen(false)}
+                                    className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none"
+                                    aria-label={t('common.close', 'Close')}
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
 
                             <div className="space-y-6">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.taskName')} <span className="text-slate-600">({t('common.optional')})</span></label>
+                                    <label htmlFor="new-task-name" className="block text-sm font-medium text-slate-400 mb-2">
+                                        {t('scheduler.taskName')} <span className="text-slate-600">({t('common.optional')})</span>
+                                    </label>
                                     <input
+                                        id="new-task-name"
                                         type="text"
                                         value={newTaskName}
                                         onChange={(e) => setNewTaskName(e.target.value)}
                                         placeholder={t('scheduler.taskNamePlaceholder')}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.taskType')}</label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {TASK_TYPES.map(type => {
+                                    <span className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.taskType')}</span>
+                                    <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label={t('scheduler.taskType')}>
+                                        {TASK_TYPES.map((type, idx) => {
                                             const Icon = type.icon;
+                                            const isLastOdd = idx === TASK_TYPES.length - 1 && TASK_TYPES.length % 2 !== 0;
                                             return (
                                                 <button
                                                     key={type.value}
+                                                    type="button"
+                                                    role="radio"
+                                                    aria-checked={newTaskType === type.value}
                                                     onClick={() => setNewTaskType(type.value)}
                                                     className={cn(
-                                                        "flex items-center gap-3 p-3 rounded-lg border text-left transition-all",
+                                                        "flex items-center gap-3 p-3 rounded-lg border text-left transition-all focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none",
                                                         newTaskType === type.value
                                                             ? `bg-slate-800 ${type.border} ring-1 ring-purple-500/50`
-                                                            : "bg-slate-900 border-slate-800 hover:border-slate-700"
+                                                            : "bg-slate-900 border-slate-800 hover:border-slate-700",
+                                                        isLastOdd && "col-span-2"
                                                     )}
                                                 >
-                                                    <Icon className={cn("w-5 h-5", type.color)} />
-                                                    <span className="text-sm font-medium text-slate-200">{t(type.labelKey)}</span>
+                                                    <div className={cn("p-2 rounded", type.bg)}>
+                                                        <Icon className={cn("w-4 h-4", type.color)} />
+                                                    </div>
+                                                    <span className="text-sm font-semibold text-white">{getTaskTypeLabel(type.labelKey)}</span>
                                                 </button>
-                                            )
+                                            );
                                         })}
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.schedule')}</label>
+                                    <label htmlFor="new-task-schedule" className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.schedule')}</label>
                                     <select
+                                        id="new-task-schedule"
                                         value={cronSchedule}
                                         onChange={(e) => setCronSchedule(e.target.value)}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                                     >
                                         <option value="0 */1 * * *">{t('scheduler.every')} 1 {t('scheduler.hours')}</option>
                                         <option value="0 */3 * * *">{t('scheduler.every')} 3 {t('scheduler.hours')}</option>
@@ -820,46 +879,50 @@ export default function Scheduler() {
                                     {cronSchedule === 'custom' && (
                                         <input
                                             type="text"
+                                            aria-label="Custom cron expression"
                                             value={customCron}
                                             onChange={(e) => setCustomCron(e.target.value)}
                                             placeholder="* * * * *"
-                                            className="mt-3 w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white font-mono text-sm"
+                                            className="mt-3 w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-white font-mono text-sm focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all"
                                         />
                                     )}
                                 </div>
 
                                 {newTaskType === 'rcon-command' && (
                                     <div className="animate-in slide-in-from-top-2 duration-200">
-                                        <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.rconCommand')}</label>
+                                        <label htmlFor="new-task-rcon" className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.rconCommand')}</label>
                                         <input
+                                            id="new-task-rcon"
                                             type="text"
                                             value={customCommand}
                                             onChange={(e) => setCustomCommand(e.target.value)}
                                             placeholder={t('scheduler.enterRcon')}
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono transition-all"
                                         />
                                     </div>
                                 )}
 
                                 {newTaskType === 'announcement' && (
                                     <div className="animate-in slide-in-from-top-2 duration-200">
-                                        <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.announcementMsg')}</label>
+                                        <label htmlFor="new-task-announcement" className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.announcementMsg')}</label>
                                         <textarea
+                                            id="new-task-announcement"
                                             value={announcementMsg}
                                             onChange={(e) => setAnnouncementMsg(e.target.value)}
                                             placeholder={t('scheduler.enterMessage')}
-                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px]"
+                                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 min-h-[80px] transition-all"
                                         />
                                     </div>
                                 )}
 
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.preWarning')}</label>
+                                    <label htmlFor="new-task-warning" className="block text-sm font-medium text-slate-400 mb-2">{t('scheduler.preWarning')}</label>
                                     <input
+                                        id="new-task-warning"
                                         type="number"
                                         value={preWarning}
                                         onChange={(e) => setPreWarning(Number(e.target.value))}
-                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
                                     />
                                     <p className="text-xs text-slate-500 mt-1">{t('scheduler.preWarningDesc')}</p>
                                 </div>
@@ -867,13 +930,13 @@ export default function Scheduler() {
                                 <div className="flex gap-4 pt-4">
                                     <button
                                         onClick={() => setIsTaskModalOpen(false)}
-                                        className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors"
+                                        className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-all focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:outline-none"
                                     >
                                         {t('common.cancel')}
                                     </button>
                                     <button
                                         onClick={handleCreateTask}
-                                        className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-colors shadow-lg shadow-purple-900/20"
+                                        className="flex-1 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-purple-900/20 focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:outline-none"
                                     >
                                         {t('scheduler.createTask')}
                                     </button>
@@ -881,19 +944,25 @@ export default function Scheduler() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Delete Confirmation Modal */}
-            {taskToDelete && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-6 relative">
+            {taskToDelete && createPortal(
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="delete-modal-title"
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+                >
+                    <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-6 relative animate-in fade-in zoom-in-95 duration-200">
                         <div className="flex items-center gap-4 mb-4">
                             <div className="p-3 bg-red-500/10 rounded-full">
                                 <AlertTriangle className="w-6 h-6 text-red-500" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold text-white">{t('common.confirmDelete', 'Confirm Deletion')}</h3>
+                                <h3 id="delete-modal-title" className="text-lg font-bold text-white">{t('common.confirmDelete', 'Confirm Deletion')}</h3>
                                 <p className="text-sm text-slate-400">{t('scheduler.confirmDeleteMsg', 'Are you sure you want to delete this task?')}</p>
                             </div>
                         </div>
@@ -901,20 +970,21 @@ export default function Scheduler() {
                         <div className="flex justify-end gap-3 mt-6">
                             <button
                                 onClick={() => setTaskToDelete(null)}
-                                className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                                className="px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-all focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:outline-none"
                             >
                                 {t('common.cancel', 'Cancel')}
                             </button>
                             <button
                                 onClick={confirmDeleteTask}
-                                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+                                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-all font-medium flex items-center gap-2 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
                             >
                                 <Trash2 className="w-4 h-4" />
                                 {t('common.delete', 'Delete')}
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

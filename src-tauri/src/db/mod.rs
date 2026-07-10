@@ -81,6 +81,12 @@ impl Database {
         // Boost Profiles migrations
         Self::run_boost_profiles_migration(conn)?;
 
+        // Plugin manager per-server state
+        Self::run_plugin_migration(conn)?;
+
+        // api_loader_enabled column for servers table
+        Self::run_api_loader_enabled_migration(conn)?;
+
         Ok(())
     }
 
@@ -1423,6 +1429,45 @@ impl Database {
                 FOREIGN KEY (server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
             );"
         )?;
+        Ok(())
+    }
+
+    fn run_plugin_migration(conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS server_plugins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                server_id INTEGER NOT NULL,
+                folder_name TEXT NOT NULL,
+                enabled INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+                UNIQUE(server_id, folder_name)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_server_plugins_server_id ON server_plugins(server_id);"
+        )?;
+        Ok(())
+    }
+
+    fn run_api_loader_enabled_migration(conn: &Connection) -> Result<()> {
+        let has_column = {
+            let mut stmt = conn.prepare("PRAGMA table_info(servers)")?;
+            let mut rows = stmt.query([])?;
+            let mut found = false;
+            while let Some(row) = rows.next()? {
+                let name: String = row.get(1)?;
+                if name == "api_loader_enabled" {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+
+        if !has_column {
+            conn.execute("ALTER TABLE servers ADD COLUMN api_loader_enabled INTEGER DEFAULT 1", [])?;
+        }
         Ok(())
     }
 }

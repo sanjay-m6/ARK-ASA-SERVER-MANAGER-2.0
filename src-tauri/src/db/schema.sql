@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS servers (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_started TIMESTAMP,
     battleye INTEGER NOT NULL DEFAULT 1,
+    api_loader_enabled INTEGER DEFAULT 1,
     UNIQUE(name)
 );
 
@@ -596,3 +597,17 @@ CREATE TABLE IF NOT EXISTS ase_boost_profiles (
     active INTEGER DEFAULT 0,
     FOREIGN KEY (server_id) REFERENCES ase_servers(id) ON DELETE CASCADE
 );
+
+-- Per-server plugin enable/disable state (ASA plugins)
+CREATE TABLE IF NOT EXISTS server_plugins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    server_id INTEGER NOT NULL,
+    folder_name TEXT NOT NULL,
+    enabled INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+    UNIQUE(server_id, folder_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_server_plugins_server_id ON server_plugins(server_id);

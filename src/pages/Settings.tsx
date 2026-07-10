@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, Cloud, FolderOpen, FileText, Search, Copy, Check, Terminal, X } from 'lucide-react';
+import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, Cloud, FolderOpen, FileText, Search, Copy, Check, Terminal, X, Cpu } from 'lucide-react';
 import { getSetting, setSetting, getAllServers } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import CloudBackupDashboard from '../components/backups/CloudBackupDashboard';
 import { manualCheckForUpdates } from '../components/UpdateChecker';
 import { cn } from '../utils/helpers';
 import { useServerStore } from '../stores/serverStore';
+import { useGameStore } from '../stores/gameStore';
 import ServerSelect from '../components/ui/ServerSelect';
 import {
     getUpdateSettings,
@@ -51,11 +52,13 @@ export default function Settings() {
 
     // User Config Folder state
     const [userConfigFolder, setUserConfigFolder] = useState('');
+    const [customSteamcmdPath, setCustomSteamcmdPath] = useState('');
 
     const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language' | 'cloud' | 'startup'>('api');
     const { setServers } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
     const { t, i18n } = useTranslation();
+    const { showAseMode, setShowAseMode, activeGame, setActiveGame } = useGameStore();
 
     // API Verification State
     const [isVerifying, setIsVerifying] = useState(false);
@@ -132,7 +135,7 @@ export default function Settings() {
         try {
             const [
                 curseforgeKey, steamKey, timeout, nvidiaKey,
-                gasEnabled, gbDelay, minTray, maxCrash, timeWindow, winShortcut, headless, ucf
+                gasEnabled, gbDelay, minTray, maxCrash, timeWindow, winShortcut, headless, ucf, csp
             ] = await Promise.all([
                 getSetting('curseforge_api_key'),
                 getSetting('steam_api_key'),
@@ -145,7 +148,8 @@ export default function Settings() {
                 getSetting('loop_prevention_time_window_mins'),
                 getSetting('windows_startup_shortcut'),
                 getSetting('silent_headless_startup'),
-                getSetting('user_config_folder')
+                getSetting('user_config_folder'),
+                getSetting('custom_steamcmd_path')
             ]);
             if (curseforgeKey) setCurseforgeApiKey(curseforgeKey);
             if (steamKey) setSteamApiKey(steamKey);
@@ -160,6 +164,7 @@ export default function Settings() {
             setWindowsStartupShortcut(winShortcut === 'true');
             setSilentHeadlessStartup(headless === 'true');
             if (ucf) setUserConfigFolder(ucf);
+            if (csp) setCustomSteamcmdPath(csp);
 
             // Load update settings
             setUpdateSettingsState(getUpdateSettings());
@@ -308,6 +313,7 @@ export default function Settings() {
                 setSetting('windows_startup_shortcut', windowsStartupShortcut ? 'true' : 'false'),
                 setSetting('silent_headless_startup', silentHeadlessStartup ? 'true' : 'false'),
                 setSetting('user_config_folder', userConfigFolder),
+                setSetting('custom_steamcmd_path', customSteamcmdPath),
             ]);
 
             // Sync OS startup configuration
@@ -440,6 +446,51 @@ export default function Settings() {
                 </div>
             ) : activeTab === 'api' ? (
                 <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
+                    {/* Game Support & Evolved Mode */}
+                    <div className="glass-panel rounded-2xl p-8">
+                        <div className="flex items-start space-x-4 mb-6">
+                            <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                                <Cpu className="w-6 h-6 text-cyan-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h2 className="text-lg font-bold text-white mb-1">Game Support Options</h2>
+                                <p className="text-sm text-slate-400 leading-relaxed">
+                                    Toggle Evolved (ASE) support to display both ARK: Survival Evolved and ARK: Survival Ascended configuration sections. If disabled, Evolved features are hidden to keep the manager streamlined for Ascended.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-between p-4 bg-slate-800/40 border border-white/5 rounded-xl">
+                            <div>
+                                <h3 className="text-sm font-semibold text-white">Enable Evolved (ASE) Support</h3>
+                                <p className="text-xs text-slate-400 mt-1">Show both Evolved and Ascended server configurations across the manager</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const newVal = !showAseMode;
+                                    setShowAseMode(newVal);
+                                    if (!newVal && activeGame === 'ASE') {
+                                        setActiveGame('ASA');
+                                    }
+                                }}
+                                className={cn(
+                                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75",
+                                    showAseMode ? "bg-cyan-500" : "bg-slate-700"
+                                )}
+                                role="switch"
+                                aria-checked={showAseMode}
+                            >
+                                <span
+                                    aria-hidden="true"
+                                    className={cn(
+                                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                                        showAseMode ? "translate-x-5" : "translate-x-0"
+                                    )}
+                                />
+                            </button>
+                        </div>
+                    </div>
+
                     {/* User Config Folder */}
                     <div className="glass-panel rounded-2xl p-8">
                         <div className="flex items-start space-x-4 mb-6">
@@ -492,6 +543,71 @@ export default function Settings() {
                             <p className="mt-3 text-xs text-amber-400/70 flex items-center gap-1.5">
                                 <CheckCircle className="w-3.5 h-3.5" />
                                 {t('settings.userConfigFolder.activeNote', 'Config files will be read from and saved to this folder')}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Custom SteamCMD Path */}
+                    <div className="glass-panel rounded-2xl p-8 animate-in slide-in-from-left-4 duration-300">
+                        <div className="flex items-start space-x-4 mb-6">
+                            <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20">
+                                <Terminal className="w-6 h-6 text-sky-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h2 className="text-lg font-bold text-white mb-1">{t('settings.customSteamcmdPath.title', 'Custom SteamCMD Path')}</h2>
+                                <p className="text-sm text-slate-400 leading-relaxed">
+                                    {t('settings.customSteamcmdPath.desc', 'Redirect SteamCMD and server workshop downloads to a custom folder. SteamCMD cannot execute if there are non-English/non-ASCII characters (e.g. á, ő, ú) anywhere in its path. If your Windows username has special characters, set this to an ASCII-only path (e.g. F:\\ASA\\SteamCMD).')}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={customSteamcmdPath}
+                                onChange={(e) => setCustomSteamcmdPath(e.target.value)}
+                                placeholder={t('settings.customSteamcmdPath.placeholder', 'Not set — using default Roaming AppData')}
+                                className={cn(
+                                    "flex-1 px-4 py-3 bg-slate-800/50 border rounded-xl text-white font-mono text-xs focus:outline-none focus:border-sky-500/30 placeholder-slate-500",
+                                    /[^\x00-\x7F]/.test(customSteamcmdPath) ? "border-red-500/50 text-red-200" : "border-white/10"
+                                )}
+                            />
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    try {
+                                        const path = await invoke<string | null>('select_folder', { title: 'Select Custom SteamCMD Folder' });
+                                        if (path) setCustomSteamcmdPath(path);
+                                    } catch (error) {
+                                        console.error('Failed to select folder:', error);
+                                        toast.error(t('settings.customSteamcmdPath.browseFailed', 'Failed to open folder picker'));
+                                    }
+                                }}
+                                className="px-3 py-3 bg-slate-800/50 hover:bg-slate-700/50 border border-white/10 rounded-xl text-slate-400 hover:text-white transition-colors focus:outline-none"
+                                title={t('common.browse', 'Browse')}
+                            >
+                                <FolderOpen className="w-4 h-4" />
+                            </button>
+                            {customSteamcmdPath && (
+                                <button
+                                    type="button"
+                                    onClick={() => setCustomSteamcmdPath('')}
+                                    className="px-3 py-3 bg-slate-800/50 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 rounded-xl text-slate-400 hover:text-red-400 transition-all focus:outline-none"
+                                    title={t('settings.customSteamcmdPath.clear', 'Clear and use default')}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                        {/[^\x00-\x7F]/.test(customSteamcmdPath) && (
+                            <p className="mt-3 text-xs text-red-400 flex items-center gap-1.5">
+                                <AlertCircle className="w-3.5 h-3.5" />
+                                {t('settings.customSteamcmdPath.invalidWarning', 'Warning: Path contains non-ASCII characters. SteamCMD will fail to run here.')}
+                            </p>
+                        )}
+                        {customSteamcmdPath && !/[^\x00-\x7F]/.test(customSteamcmdPath) && (
+                            <p className="mt-3 text-xs text-sky-400/70 flex items-center gap-1.5">
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                {t('settings.customSteamcmdPath.activeNote', 'SteamCMD operations will run from this folder')}
                             </p>
                         )}
                     </div>

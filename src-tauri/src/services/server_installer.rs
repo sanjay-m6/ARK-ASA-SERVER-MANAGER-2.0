@@ -198,13 +198,23 @@ impl ServerInstaller {
         self.emit_progress("preparing", 10.0, "Finding SteamCMD...");
         self.emit_console("Locating SteamCMD executable...", "info");
 
-        // Get SteamCMD path
-        let app_dir = self
-            .app_handle
-            .path()
-            .app_data_dir()
-            .map_err(|e| format!("Failed to get app dir: {}", e))?;
-        let steamcmd_exe = app_dir.join("steamcmd").join("steamcmd.exe");
+        // Get SteamCMD path (supports custom path override via settings)
+        let steamcmd_dir = {
+            let app_dir = self
+                .app_handle
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("Failed to get app dir: {}", e))?;
+
+            // Try to read custom_steamcmd_path from settings DB
+            if let Some(state) = self.app_handle.try_state::<crate::AppState>() {
+                crate::services::resolve_steamcmd_dir_from_state(&state, &self.app_handle)
+                    .unwrap_or_else(|_| app_dir.join("steamcmd"))
+            } else {
+                app_dir.join("steamcmd")
+            }
+        };
+        let steamcmd_exe = steamcmd_dir.join("steamcmd.exe");
 
         if !steamcmd_exe.exists() {
             self.emit_console(
@@ -218,6 +228,10 @@ impl ServerInstaller {
             &format!("SteamCMD found: {}", steamcmd_exe.display()),
             "success",
         );
+        self.emit_console("Checking for and terminating any background SteamCMD processes...", "info");
+        let steamcmd_service = crate::services::steamcmd::SteamCmdService::new(self.app_handle.clone());
+        let _ = steamcmd_service.kill_existing_processes();
+
         self.emit_progress("downloading", 15.0, "Starting SteamCMD...");
 
         self.emit_console("", "info");
@@ -390,7 +404,16 @@ impl ServerInstaller {
                 } else {
                     let code = status.code();
                     let error_msg = match code {
-                        Some(8) => "SteamCMD Error (8): Download failed due to disk space, network, or permissions.\n\nType: Disk/Network Error\nFix:\n1. Check disk space (approx 60GB required)\n2. Ensure stable internet connection\n3. Run as Administrator\n4. Delete 'steamapps' folder in steamcmd to clear cache".to_string(),
+                        Some(8) => {
+                            self.emit_console("  [AUTO-HEAL] SteamCMD Error (8) detected. Automatically terminating background processes and clearing SteamCMD download cache...", "warning");
+                            let steamcmd_service = crate::services::steamcmd::SteamCmdService::new(self.app_handle.clone());
+                            if let Err(e) = steamcmd_service.clear_cache() {
+                                self.emit_console(&format!("  [AUTO-HEAL] Failed to clear SteamCMD cache: {}", e), "error");
+                            } else {
+                                self.emit_console("  [AUTO-HEAL] SteamCMD cache cleared successfully.", "success");
+                            }
+                            "SteamCMD Error (8): Download failed due to disk space, network, or permissions.\n\nType: Disk/Network Error\nFix:\n1. Check disk space (approx 60GB required)\n2. Ensure stable internet connection\n3. Run as Administrator\n4. SteamCMD cache has been automatically cleared. Please try running the update/install again.".to_string()
+                        }
                         Some(7) => "SteamCMD Error (7): Command failure. The Steam servers might be busy or the command format is invalid.".to_string(),
                         Some(c) => format!("SteamCMD exited with unexpected code: {}", c),
                         None => "SteamCMD process terminated without an exit code.".to_string(),

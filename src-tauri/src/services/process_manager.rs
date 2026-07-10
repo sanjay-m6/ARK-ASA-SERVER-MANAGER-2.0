@@ -162,7 +162,7 @@ pub struct ModLoadFailureEvent {
     pub suggestions: Vec<String>,
 }
 
-pub fn find_game_server_pid_by_install_path(install_path: &str, server_type: &str) -> Option<u32> {
+pub fn find_game_server_pid_by_install_path(install_path: &str, server_type: &str, parent_pid: Option<u32>) -> Option<u32> {
     use sysinfo::System;
     let mut sys = System::new();
     sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
@@ -173,6 +173,22 @@ pub fn find_game_server_pid_by_install_path(install_path: &str, server_type: &st
         "ArkAscendedServer.exe"
     };
 
+    // 1. Try parent PID matching first (most robust since the loader spawns the game server directly)
+    if let Some(ppid) = parent_pid {
+        for (pid, process) in sys.processes() {
+            let name = process.name().to_string_lossy();
+            if name.eq_ignore_ascii_case(target_name) {
+                if let Some(parent) = process.parent() {
+                    if parent.as_u32() == ppid {
+                        println!("  🎯 [Handoff] Found child process {} with parent PID {}", pid, ppid);
+                        return Some(pid.as_u32());
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Path-based / Command-line-based matching
     let norm_install = install_path.replace('\\', "/").to_lowercase();
     let install_parts: Vec<&str> = norm_install.split('/').filter(|s| !s.is_empty()).collect();
     if install_parts.is_empty() {
@@ -182,13 +198,35 @@ pub fn find_game_server_pid_by_install_path(install_path: &str, server_type: &st
     for (pid, process) in sys.processes() {
         let name = process.name().to_string_lossy();
         if name.eq_ignore_ascii_case(target_name) {
+            let mut matches_path = false;
+
             if let Some(exe_path) = process.exe() {
                 let exe_str = exe_path.to_string_lossy().replace('\\', "/").to_lowercase();
                 let exe_parts: Vec<&str> = exe_str.split('/').filter(|s| !s.is_empty()).collect();
 
                 if exe_parts.len() >= install_parts.len() && exe_parts[..install_parts.len()] == install_parts[..] {
-                    return Some(pid.as_u32());
+                    matches_path = true;
                 }
+            }
+
+            // Fallback to checking command line arguments if exe() was None or path matching failed
+            if !matches_path {
+                let cmd = process.cmd();
+                if !cmd.is_empty() {
+                    let cmd_str = cmd.iter()
+                        .map(|arg| arg.to_string_lossy())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                        .replace('\\', "/")
+                        .to_lowercase();
+                    if cmd_str.contains(&norm_install) {
+                        matches_path = true;
+                    }
+                }
+            }
+
+            if matches_path {
+                return Some(pid.as_u32());
             }
         }
     }
@@ -263,7 +301,7 @@ impl ProcessManager {
                             match child.try_wait() {
                                 Ok(Some(status)) => {
                                     // Parent exited. Check if handoff exists first.
-                                    if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type) {
+                                    if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, Some(proc.pid)) {
                                         println!("  🔄 [Handoff] Monitor: Handoff detected for server {}! Swapping tracking to PID {}.", id, new_pid);
                                         proc.pid = new_pid;
                                         proc.child = None;
@@ -281,16 +319,18 @@ impl ProcessManager {
                                             }
                                             // Update Guardian Watchdog
                                             if let Some(guardian) = monitor_handle.try_state::<crate::services::guardian::GuardianState>() {
-                                                let guard = tauri::async_runtime::block_on(async { guardian.0.lock().await });
-                                                if proc.server_type == "ASE" {
-                                                    tauri::async_runtime::block_on(async {
-                                                        guard.register_ase_server(monitor_handle.clone(), *id, new_pid).await;
-                                                    });
-                                                } else {
-                                                    tauri::async_runtime::block_on(async {
-                                                        guard.register_server(monitor_handle.clone(), *id, new_pid).await;
-                                                    });
-                                                }
+                                                let guardian_inner = guardian.0.clone();
+                                                let app_clone = monitor_handle.clone();
+                                                let is_ase = proc.server_type == "ASE";
+                                                let server_id = *id;
+                                                tauri::async_runtime::spawn(async move {
+                                                    let guard = guardian_inner.lock().await;
+                                                    if is_ase {
+                                                        guard.register_ase_server(app_clone, server_id, new_pid).await;
+                                                    } else {
+                                                        guard.register_server(app_clone, server_id, new_pid).await;
+                                                    }
+                                                });
                                             }
                                         }
                                     } else {
@@ -768,17 +808,44 @@ impl ProcessManager {
             .join("Binaries")
             .join("Win64");
 
+        // Sync the API loader DLLs on disk with the database setting right before checking executables
+        if server_type == "ASA" {
+            if let Some(state) = self.app_handle.try_state::<AppState>() {
+                let _ = state.plugin_manager.sync_api_loader_dlls(server_id);
+            }
+        }
+
         let executable = if server_type == "ASE" {
             win64_dir.join("ShooterGameServer.exe")
         } else {
-            // First check for ASA API Loader
-            let api_loader = win64_dir.join("AsaApiLoader.exe");
-            let api_dir = win64_dir.join("ArkApi");
+            // Plugin-driven launch: scan plugins to determine which exe to use
+            let state_result = self.app_handle.try_state::<AppState>();
+            if let Some(state) = state_result {
+                match state.plugin_manager.scan_plugins_for_launch(server_id) {
+                    Ok(result) => {
+                        println!(
+                            "[LAUNCH] Server {} → {} ({} active plugins)",
+                            server_id, result.launch_executable, result.active_plugin_count
+                        );
+                        let exe_path = win64_dir.join(&result.launch_executable);
 
-            // ASA Server API requires AsaApiLoader.exe and the ArkApi folder to be present
-            if api_loader.exists() && api_dir.exists() {
-                api_loader
+                        // If plugins are enabled but loader is missing, provide clear error
+                        if result.launch_executable == "AsaApiLoader.exe" && !exe_path.exists() {
+                            return Err(anyhow::anyhow!(
+                                "Plugin loader (AsaApiLoader.exe) is not installed but {} plugin(s) are enabled. \
+                                 Install the ASA Server API or disable all plugins before launching.",
+                                result.active_plugin_count
+                            ));
+                        }
+                        exe_path
+                    }
+                    Err(e) => {
+                        println!("[LAUNCH] Plugin scan failed for server {}: {}. Falling back to ArkAscendedServer.exe.", server_id, e);
+                        win64_dir.join("ArkAscendedServer.exe")
+                    }
+                }
             } else {
+                // Fallback if AppState not available
                 win64_dir.join("ArkAscendedServer.exe")
             }
         };
@@ -1025,9 +1092,16 @@ impl ProcessManager {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        // Spawn in a new process group so the server survives if the manager exits without showing a console window
+        // Spawn in a new process group so the server survives if the manager exits
         #[cfg(target_os = "windows")]
-        command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
+        {
+            let is_loader = executable.file_name().map_or(false, |f| f == "AsaApiLoader.exe");
+            if is_loader {
+                command.creation_flags(CREATE_NEW_PROCESS_GROUP);
+            } else {
+                command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
+            }
+        }
 
         let mut child = command.spawn().context("Failed to start server process")?;
                 let child_pid = child.id();
@@ -1543,6 +1617,16 @@ impl ProcessManager {
             reasons.insert(server_id, reason.clone());
         }
 
+        // Notify Guardian watchdog that we are stopping intentionally
+        if let Some(guardian) = self.app_handle.try_state::<crate::services::guardian::GuardianState>() {
+            let guardian_inner = guardian.0.clone();
+            tauri::async_runtime::spawn(async move {
+                let guard = guardian_inner.lock().await;
+                guard.mark_as_stopping(server_id).await;
+                guard.mark_as_stopping(-server_id).await;
+            });
+        }
+
         let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
 
         if let Some(server_proc) = processes.remove(&server_id) {
@@ -1666,7 +1750,7 @@ impl ProcessManager {
                 match child.try_wait() {
                     Ok(Some(status)) => {
                         // Parent exited. Check if handoff exists first.
-                        if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type) {
+                        if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type, Some(server_proc.pid)) {
                             println!("  🔄 [Handoff] is_running: Handoff detected for server {}! Swapping tracking to PID {}.", server_id, new_pid);
                             server_proc.pid = new_pid;
                             server_proc.child = None;
@@ -1684,16 +1768,17 @@ impl ProcessManager {
                                 }
                                 // Update Guardian
                                 if let Some(guardian) = self.app_handle.try_state::<crate::services::guardian::GuardianState>() {
-                                    let guard = tauri::async_runtime::block_on(async { guardian.0.lock().await });
-                                    if server_proc.server_type == "ASE" {
-                                        tauri::async_runtime::block_on(async {
-                                            guard.register_ase_server(self.app_handle.clone(), server_id, new_pid).await;
-                                        });
-                                    } else {
-                                        tauri::async_runtime::block_on(async {
-                                            guard.register_server(self.app_handle.clone(), server_id, new_pid).await;
-                                        });
-                                    }
+                                    let guardian_inner = guardian.0.clone();
+                                    let app_clone = self.app_handle.clone();
+                                    let is_ase = server_proc.server_type == "ASE";
+                                    tauri::async_runtime::spawn(async move {
+                                        let guard = guardian_inner.lock().await;
+                                        if is_ase {
+                                            guard.register_ase_server(app_clone, server_id, new_pid).await;
+                                        } else {
+                                            guard.register_server(app_clone, server_id, new_pid).await;
+                                        }
+                                    });
                                 }
                             }
                             return true;

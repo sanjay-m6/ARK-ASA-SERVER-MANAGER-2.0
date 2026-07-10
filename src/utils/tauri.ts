@@ -745,7 +745,7 @@ export async function searchPlayers(query: string): Promise<PlayerStats[]> {
 // Plugin Commands
 // ============================================================================
 
-import type { PluginInfo } from '../types';
+import type { PluginInfo, PluginScanResult } from '../types';
 
 // ============================================================================
 // Plugin Commands
@@ -775,20 +775,32 @@ export async function importPluginArchive(serverId: number, archivePath: string)
     return await invoke('import_plugin_archive', { serverId, archivePath });
 }
 
-export async function getInstalledPlugins(serverId: number): Promise<PluginInfo[]> {
-    return await invoke('get_installed_plugins', { serverId });
+export async function scanPlugins(serverId: number): Promise<PluginScanResult> {
+    return await invoke('scan_plugins', { serverId });
 }
 
 export async function uninstallPlugin(serverId: number, pluginId: string): Promise<void> {
     return await invoke('uninstall_plugin', { serverId, pluginId });
 }
 
-export async function togglePlugin(serverId: number, pluginId: string, enabled: boolean): Promise<void> {
-    return await invoke('toggle_plugin', { serverId, pluginId, enabled });
+export async function togglePlugin(serverId: number, folderName: string, enabled: boolean): Promise<void> {
+    return await invoke('toggle_plugin', { serverId, folderName, enabled });
+}
+
+export async function setAllPluginsEnabled(serverId: number, enabled: boolean): Promise<void> {
+    return await invoke('set_all_plugins_enabled', { serverId, enabled });
+}
+
+export async function openPluginFolder(serverId: number): Promise<void> {
+    return await invoke('open_plugin_folder', { serverId });
 }
 
 export async function createDefaultPlugin(serverId: number): Promise<PluginInfo> {
     return await invoke('create_default_plugin', { serverId });
+}
+
+export async function toggleApiLoader(serverId: number, enabled: boolean): Promise<void> {
+    return await invoke('toggle_api_loader', { serverId, enabled });
 }
 
 

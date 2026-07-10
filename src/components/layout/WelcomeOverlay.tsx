@@ -7,13 +7,14 @@ import aseLogo from '../../assets/ASE.png';
 
 export default function WelcomeOverlay({ onComplete }: { onComplete: () => void }) {
     const { t } = useTranslation();
-    const { setActiveGame } = useGameStore();
+    const { setActiveGame, setShowAseMode } = useGameStore();
     const [hoveredCard, setHoveredCard] = useState<'ASE' | 'ASA' | null>(null);
     const [selectedGame, setSelectedGame] = useState<'ASE' | 'ASA' | null>(null);
 
     const handleSelectGame = (game: 'ASE' | 'ASA') => {
         setSelectedGame(game);
         setActiveGame(game);
+        setShowAseMode(game === 'ASE');
         
         // Update URL path to load the correct route upon mounting
         const targetPath = game === 'ASE' ? '/ase/dashboard' : '/dashboard';

@@ -342,7 +342,7 @@ impl GuardianService {
                                             [-server_id],
                                             |row| row.get::<_, String>(0)
                                         ).ok().and_then(|path| {
-                                            find_game_server_pid_by_install_path(&path, "ASE")
+                                            find_game_server_pid_by_install_path(&path, "ASE", None)
                                         })
                                     } else {
                                         conn.query_row(
@@ -350,7 +350,7 @@ impl GuardianService {
                                             [server_id],
                                             |row| row.get::<_, String>(0)
                                         ).ok().and_then(|path| {
-                                            find_game_server_pid_by_install_path(&path, "ASA")
+                                            find_game_server_pid_by_install_path(&path, "ASA", None)
                                         })
                                     }
                                 } else { None }

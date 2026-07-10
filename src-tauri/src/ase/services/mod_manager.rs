@@ -1,4 +1,4 @@
-use tauri::{AppHandle, State, Manager, Emitter};
+use tauri::{AppHandle, State, Emitter};
 use crate::AppState;
 use crate::ase::models::AseInstalledMod;
 use std::path::{Path, PathBuf};
@@ -416,8 +416,9 @@ impl AseModManager {
         _state: &State<'_, AppState>,
         _retries: u32,
     ) -> Result<AseInstalledMod, String> {
-        let app_dir = _app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
-        let steamcmd_exe = app_dir.join("steamcmd").join("steamcmd.exe");
+        // Resolve SteamCMD path (supports custom path override)
+        let steamcmd_base = crate::services::resolve_steamcmd_dir_from_state(_state, _app_handle)?;
+        let steamcmd_exe = steamcmd_base.join("steamcmd.exe");
         if !steamcmd_exe.exists() {
             let err_msg = "steamcmd.exe not found. Please install SteamCMD in settings.".to_string();
             emit_mod_progress(_app_handle, workshop_id, "failed", 0.0, &err_msg);
@@ -434,7 +435,7 @@ impl AseModManager {
             ).map_err(|e| format!("Failed to find server install path: {}", e))?
         };
 
-        let download_dir = app_dir.join("steamcmd")
+        let download_dir = steamcmd_base
             .join("steamapps")
             .join("workshop")
             .join("content")
@@ -442,7 +443,7 @@ impl AseModManager {
             .join(workshop_id);
 
         // Clear any leftover download/lock files to prevent "failed (Locking Failed)" errors
-        let downloads_dir = app_dir.join("steamcmd")
+        let downloads_dir = steamcmd_base
             .join("steamapps")
             .join("workshop")
             .join("downloads");
@@ -619,7 +620,7 @@ impl AseModManager {
             emit_mod_log(_app_handle, workshop_id, &format!("Attempt {}/{} failed. Error: {}. Retrying in {} seconds...", attempt, _retries, last_err, delay_secs));
             
             // Clear lock/download files for the next retry attempt
-            let downloads_dir = app_dir.join("steamcmd")
+            let downloads_dir = steamcmd_base
                 .join("steamapps")
                 .join("workshop")
                 .join("downloads");
@@ -634,7 +635,7 @@ impl AseModManager {
 
             // Clean stale ACF manifest to prevent "Content Servers Unreachable" or
             // "Locking Failed" errors on subsequent SteamCMD invocations
-            let workshop_dir = app_dir.join("steamcmd")
+            let workshop_dir = steamcmd_base
                 .join("steamapps")
                 .join("workshop");
             let acf_file = workshop_dir.join("appworkshop_346110.acf");
@@ -938,8 +939,8 @@ impl AseModManager {
     }
 
     pub async fn clean_failed_download(_app_handle: &AppHandle, workshop_id: &str, _server_id: i64, _state: &State<'_, AppState>) -> Result<(), String> {
-        let app_dir = _app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
-        let steamcmd_workshop = app_dir.join("steamcmd").join("steamapps").join("workshop");
+        let steamcmd_base = crate::services::resolve_steamcmd_dir_from_state(_state, _app_handle)?;
+        let steamcmd_workshop = steamcmd_base.join("steamapps").join("workshop");
         
         let content_dir = steamcmd_workshop.join("content").join("346110").join(workshop_id);
         if content_dir.exists() {

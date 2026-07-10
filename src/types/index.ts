@@ -193,15 +193,31 @@ export interface ServerStatusInfo {
     playerCount: number;
 }
 
+export type PluginStatus = 'enabled' | 'disabled' | 'error' | 'missing';
+
 export interface PluginInfo {
     id: string;
     name: string;
+    folderName: string;
     version?: string;
     description?: string;
     author?: string;
-    asaVersionCompatible?: string;
     enabled: boolean;
-    installPath: string;
+    installedPath: string;
+    dependencies: string[];
+    lastLoadedAt?: string;
+    status: PluginStatus;
+    statusMessage?: string;
+}
+
+export interface PluginScanResult {
+    plugins: PluginInfo[];
+    loaderInstalled: boolean;
+    pluginsDir: string;
+    launchExecutable: string;
+    activePluginCount: number;
+    apiLoaderEnabled: boolean;
+    pdbMissing: boolean;
 }
 
 export interface AseInstalledMod {

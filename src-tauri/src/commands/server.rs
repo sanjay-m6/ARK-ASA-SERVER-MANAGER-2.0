@@ -1745,6 +1745,30 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
     // Graceful stop before restart — ensures SaveWorld is called
     graceful_stop(&state, server_id).await?;
 
+    // Optional: Backup before restart
+    let backup_before_restart = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT backup_before_restart FROM backup_policies WHERE server_id = ?1 AND enabled = 1",
+            [server_id],
+            |row| row.get::<_, bool>(0),
+        ).unwrap_or(false)
+    };
+
+    if backup_before_restart {
+        println!("💾 Policy Active: Creating backup before restart for server {}...", server_id);
+        match crate::commands::backup::create_backup(
+            state.clone(),
+            server_id,
+            "pre-restart".to_string(),
+            None,
+        ).await {
+            Ok(_) => println!("✅ Pre-restart backup created successfully"),
+            Err(err) => println!("⚠️ Pre-restart backup failed: {}", err),
+        }
+    }
+
     // Get server details including cluster info
     let (
         install_path,
@@ -2143,7 +2167,33 @@ pub async fn update_server(
             })?;
         }
 
-        log_msg("Status updated to 'updating' in DB. Initializing ServerInstaller...");
+        log_msg("Status updated to 'updating' in DB. Checking backup policy...");
+
+        // Check backup policy
+        let backup_before_update = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.query_row(
+                "SELECT backup_before_update FROM backup_policies WHERE server_id = ?1 AND enabled = 1",
+                [server_id],
+                |row| row.get::<_, bool>(0),
+            ).unwrap_or(false)
+        };
+
+        if backup_before_update {
+            log_msg(&format!("💾 Policy Active: Creating backup before update for server {}...", server_id));
+            match crate::commands::backup::create_backup(
+                state.clone(),
+                server_id,
+                "pre-update".to_string(),
+                None,
+            ).await {
+                Ok(_) => log_msg("✅ Pre-update backup created successfully"),
+                Err(err) => log_msg(&format!("⚠️ Pre-update backup failed: {}", err)),
+            }
+        }
+
+        log_msg("Initializing ServerInstaller...");
 
         // Run the update
         let installer = ServerInstaller::new(app_handle.clone(), install_path.clone());
@@ -3555,7 +3605,12 @@ pub async fn toggle_automation(
 #[tauri::command]
 pub async fn repair_steamcmd(app_handle: tauri::AppHandle) -> Result<(), String> {
     use crate::services::steamcmd::SteamCmdService;
-    let steamcmd = SteamCmdService::new(app_handle);
+    let steamcmd = if let Some(state) = app_handle.try_state::<AppState>() {
+        let dir = crate::services::resolve_steamcmd_dir_from_state(&state, &app_handle)?;
+        SteamCmdService::with_custom_dir(app_handle, dir)
+    } else {
+        SteamCmdService::new(app_handle)
+    };
     steamcmd
         .repair()
         .await
@@ -3565,7 +3620,12 @@ pub async fn repair_steamcmd(app_handle: tauri::AppHandle) -> Result<(), String>
 #[tauri::command]
 pub async fn clear_steamcmd_cache(app_handle: tauri::AppHandle) -> Result<(), String> {
     use crate::services::steamcmd::SteamCmdService;
-    let steamcmd = SteamCmdService::new(app_handle);
+    let steamcmd = if let Some(state) = app_handle.try_state::<AppState>() {
+        let dir = crate::services::resolve_steamcmd_dir_from_state(&state, &app_handle)?;
+        SteamCmdService::with_custom_dir(app_handle, dir)
+    } else {
+        SteamCmdService::new(app_handle)
+    };
     steamcmd
         .clear_cache()
         .map_err(|e| format!("Failed to clear SteamCMD cache: {}", e))
@@ -3576,7 +3636,12 @@ pub async fn get_steamcmd_health(
     app_handle: tauri::AppHandle,
 ) -> Result<crate::services::steamcmd::SteamCmdHealth, String> {
     use crate::services::steamcmd::SteamCmdService;
-    let steamcmd = SteamCmdService::new(app_handle);
+    let steamcmd = if let Some(state) = app_handle.try_state::<AppState>() {
+        let dir = crate::services::resolve_steamcmd_dir_from_state(&state, &app_handle)?;
+        SteamCmdService::with_custom_dir(app_handle, dir)
+    } else {
+        SteamCmdService::new(app_handle)
+    };
     steamcmd
         .check_health()
         .map_err(|e| format!("Failed to check SteamCMD health: {}", e))
@@ -3736,7 +3801,7 @@ pub async fn get_server_visibility_status(
     let exe_exists = exe_path.exists();
 
     // Check if process is running
-    let running_pid = crate::services::process_manager::find_game_server_pid_by_install_path(&install_path_str, &server_type.to_uppercase());
+    let running_pid = crate::services::process_manager::find_game_server_pid_by_install_path(&install_path_str, &server_type.to_uppercase(), None);
     let is_running = running_pid.is_some();
 
     // Determine base status

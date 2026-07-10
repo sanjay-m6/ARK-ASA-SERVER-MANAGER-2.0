@@ -13,43 +13,11 @@ export interface WatchdogAlert {
     dismissed: boolean;
 }
 
-interface ServerSnapshot {
-    id: number;
-    name: string;
-    status: string;
-}
-
-let previousSnapshot: ServerSnapshot[] = [];
-let watchdogInterval: ReturnType<typeof setInterval> | null = null;
-
 // Check for issues and return new alerts
 export async function runHealthCheck(): Promise<WatchdogAlert[]> {
     const alerts: WatchdogAlert[] = [];
 
     try {
-        // 1. Check server statuses — detect crashes
-        const servers = await invoke<ServerSnapshot[]>('get_all_servers').catch(() => []);
-        
-        for (const server of servers) {
-            const prev = previousSnapshot.find(s => s.id === server.id);
-            
-            // Crash detection: was running, now stopped/crashed
-            if (prev && (prev.status === 'running' || prev.status === 'online') && 
-                (server.status === 'stopped' || server.status === 'crashed')) {
-                alerts.push({
-                    id: `crash_${server.id}_${Date.now()}`,
-                    type: 'crash',
-                    severity: 'critical',
-                    title: `Server "${server.name}" crashed`,
-                    message: `Server was running but is now ${server.status}. Check logs for crash details.`,
-                    timestamp: Date.now(),
-                    dismissed: false,
-                });
-            }
-        }
-        
-        previousSnapshot = servers;
-
         // 2. Check system resources
         const sysInfo = await invoke<{
             cpuUsage: number;
@@ -126,15 +94,12 @@ export async function runHealthCheck(): Promise<WatchdogAlert[]> {
     return alerts;
 }
 
+let watchdogInterval: ReturnType<typeof setInterval> | null = null;
+
 // Start the watchdog with the given callback
 export function startWatchdog(onAlert: (alert: WatchdogAlert) => void, intervalMs = 60000): void {
     // Don't start if already running
     if (watchdogInterval) return;
-
-    // Initial snapshot
-    invoke<ServerSnapshot[]>('get_all_servers')
-        .then(servers => { previousSnapshot = servers; })
-        .catch(() => {});
 
     watchdogInterval = setInterval(async () => {
         // Only run when app is visible

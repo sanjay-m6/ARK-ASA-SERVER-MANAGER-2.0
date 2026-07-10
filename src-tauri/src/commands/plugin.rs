@@ -1,4 +1,4 @@
-use crate::models::PluginInfo;
+use crate::models::{PluginInfo, PluginScanResult, PluginStatus};
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -47,32 +47,29 @@ pub(crate) fn get_server_install_path(state: &State<'_, AppState>, server_id: i6
     Err(format!("Server {} not found in servers or ase_servers table", server_id))
 }
 
-/// Helper function to dynamically locate the plugins directory (supporting AsaApi or ArkApi)
-pub(crate) fn get_api_plugins_dir(install_path: &std::path::Path, server_type: &str) -> Result<PathBuf, String> {
-    let win64_dir = install_path
-        .join("ShooterGame")
-        .join("Binaries")
-        .join("Win64");
-
-    if !win64_dir.exists() {
-        return Err("Server binaries directory not found. Please install the server first.".to_string());
-    }
-
-    // Try AsaApi folder first, then ArkApi folder
-    let api_name = if win64_dir.join("AsaApi").exists() {
-        "AsaApi"
-    } else if win64_dir.join("ArkApi").exists() {
-        "ArkApi"
+pub(crate) fn get_api_plugins_dir(
+    state: &State<'_, AppState>,
+    install_path: &std::path::Path,
+    server_type: &str,
+) -> Result<PathBuf, String> {
+    if server_type == "ASA" {
+        state.plugin_manager.resolve_plugins_dir(install_path)
     } else {
-        // Fallback default based on server type
-        if server_type == "ASA" {
-            "AsaApi"
-        } else {
-            "ArkApi"
-        }
-    };
+        let win64_dir = install_path
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64");
+        Ok(win64_dir.join("ArkApi").join("Plugins"))
+    }
+}
 
-    Ok(win64_dir.join(api_name).join("Plugins"))
+/// Scan all plugins for a server — returns full scan result with loader state and launch info
+#[tauri::command]
+pub async fn scan_plugins(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<PluginScanResult, String> {
+    state.plugin_manager.scan_plugins(server_id)
 }
 
 /// Check if a specific plugin is installed
@@ -93,19 +90,22 @@ pub async fn check_asa_api_installed(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<bool, String> {
-    let (install_path, _server_type) = get_server_install_path(&state, server_id)?;
+    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
 
     let win64_dir = install_path
         .join("ShooterGame")
         .join("Binaries")
         .join("Win64");
 
-    let api_loader = win64_dir.join("AsaApiLoader.exe");
-    let arkapi_path = win64_dir.join("ArkApi");
-    let asaapi_path = win64_dir.join("AsaApi");
-
-    // Consider installed if both the loader executable AND either directory exist
-    Ok(api_loader.exists() && (arkapi_path.exists() || asaapi_path.exists()))
+    if server_type == "ASA" {
+        let api_loader = win64_dir.join("AsaApiLoader.exe");
+        let asaapi_path = win64_dir.join("AsaApi");
+        Ok(api_loader.exists() && asaapi_path.exists())
+    } else {
+        let api_loader = win64_dir.join("ServerApiLoader.exe");
+        let arkapi_path = win64_dir.join("ArkApi");
+        Ok(api_loader.exists() && arkapi_path.exists())
+    }
 }
 
 /// Get the plugin directory for a specific server
@@ -115,9 +115,8 @@ pub async fn get_plugin_directory(
     server_id: i64,
 ) -> Result<String, String> {
     let (install_path, server_type) = get_server_install_path(&state, server_id)?;
-    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
+    let plugins_dir = get_api_plugins_dir(&state, &install_path, &server_type)?;
 
-    // Create if doesn't exist
     if !plugins_dir.exists() {
         fs::create_dir_all(&plugins_dir)
             .map_err(|e| format!("Failed to create plugins directory: {}", e))?;
@@ -139,17 +138,14 @@ pub async fn import_plugin_archive(
         return Err("Archive file not found".to_string());
     }
 
-    // Get server install path and type
     let (install_path, server_type) = get_server_install_path(&state, server_id)?;
-    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
+    let plugins_dir = get_api_plugins_dir(&state, &install_path, &server_type)?;
 
-    // Create plugins directory if it doesn't exist
     if !plugins_dir.exists() {
         fs::create_dir_all(&plugins_dir)
             .map_err(|e| format!("Failed to create plugins directory: {}", e))?;
     }
 
-    // Determine plugin name from archive filename
     let plugin_name = archive_path_buf
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
@@ -160,14 +156,12 @@ pub async fn import_plugin_archive(
         .filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-')
         .collect::<String>();
 
-    // Create temporary extraction directory
     let temp_dir = plugins_dir.join(format!(".{}_temp", plugin_id));
     if temp_dir.exists() {
         let _ = fs::remove_dir_all(&temp_dir);
     }
     fs::create_dir_all(&temp_dir).map_err(|e| format!("Failed to create temp directory: {}", e))?;
 
-    // Extract based on file extension
     let extension = archive_path_buf
         .extension()
         .map(|e| e.to_string_lossy().to_lowercase())
@@ -185,14 +179,11 @@ pub async fn import_plugin_archive(
         return Err(e);
     }
 
-    // Find the DLL recursively inside extraction directory to locate the actual plugin root.
-    // This allows robust importing of plugins with varying zip nesting structures (e.g. ArkShopUI).
     let dll_info = find_plugin_dll_and_dir(&temp_dir);
 
     let (source_dir, dll_name) = match dll_info {
         Some((dir, name)) => (dir, Some(name)),
         None => {
-            // Fallback to checking entries at extraction root if no DLL is found
             let entries: Vec<_> = fs::read_dir(&temp_dir)
                 .map_err(|e| e.to_string())?
                 .filter_map(|e| e.ok())
@@ -206,17 +197,14 @@ pub async fn import_plugin_archive(
         }
     };
 
-    // Plugin folder name MUST match DLL name (ASA Server API requirement)
     let final_plugin_name = dll_name.clone().unwrap_or(plugin_id.clone());
     let final_plugin_dir = plugins_dir.join(&final_plugin_name);
 
-    // Move extracted content to final location
     if final_plugin_dir.exists() {
         let _ = fs::remove_dir_all(&temp_dir);
         return Err(format!("Plugin '{}' already exists", final_plugin_name));
     }
 
-    // If source is different from temp, we need to rename
     if source_dir != temp_dir {
         fs::rename(&source_dir, &final_plugin_dir)
             .map_err(|e| format!("Failed to move plugin: {}", e))?;
@@ -226,8 +214,10 @@ pub async fn import_plugin_archive(
             .map_err(|e| format!("Failed to move plugin: {}", e))?;
     }
 
-    // Try to read manifest
     let manifest = read_plugin_manifest(&final_plugin_dir);
+
+    // Auto-enable the newly imported plugin in the database
+    let _ = state.plugin_manager.toggle_plugin(server_id, &final_plugin_name, true);
 
     println!(
         "✅ Plugin '{}' installed to {:?}",
@@ -239,13 +229,17 @@ pub async fn import_plugin_archive(
         name: manifest
             .as_ref()
             .and_then(|m| m.name.clone())
-            .unwrap_or(final_plugin_name),
+            .unwrap_or_else(|| final_plugin_name.clone()),
+        folder_name: final_plugin_name,
         version: manifest.as_ref().and_then(|m| m.version.clone()),
         description: manifest.as_ref().and_then(|m| m.description.clone()),
         author: manifest.as_ref().and_then(|m| m.author.clone()),
-        asa_version_compatible: manifest.as_ref().and_then(|m| m.min_api_version.clone()),
         enabled: true,
-        install_path: final_plugin_dir,
+        installed_path: final_plugin_dir.to_string_lossy().to_string(),
+        dependencies: vec![],
+        last_loaded_at: None,
+        status: PluginStatus::Enabled,
+        status_message: None,
     })
 }
 
@@ -271,14 +265,11 @@ fn extract_7z(archive_path: &PathBuf, dest: &PathBuf) -> Result<(), String> {
 
 /// Extract RAR archive (not supported - suggest alternatives)
 fn extract_rar(_archive_path: &PathBuf, _dest: &PathBuf) -> Result<(), String> {
-    // RAR support requires native library which is complex to set up
-    // Most ASA plugins are distributed as .zip or .7z
     Err("RAR format is not currently supported. Please extract the .rar file manually and re-archive as .zip or .7z".to_string())
 }
 
 /// Read plugin manifest from plugin folder
 fn read_plugin_manifest(plugin_dir: &PathBuf) -> Option<PluginManifest> {
-    // Try common manifest names
     let manifest_names = ["PluginInfo.json", "plugin.json", "manifest.json"];
 
     for name in manifest_names {
@@ -295,88 +286,6 @@ fn read_plugin_manifest(plugin_dir: &PathBuf) -> Option<PluginManifest> {
     None
 }
 
-/// List all installed plugins for a server
-#[tauri::command]
-pub async fn get_installed_plugins(
-    state: State<'_, AppState>,
-    server_id: i64,
-) -> Result<Vec<PluginInfo>, String> {
-    let (install_path, server_type) = get_server_install_path(&state, server_id)?;
-    let plugin_dir = get_api_plugins_dir(&install_path, &server_type)?;
-
-    if !plugin_dir.exists() {
-        return Ok(vec![]);
-    }
-
-    let mut plugins = Vec::new();
-
-    let entries =
-        fs::read_dir(&plugin_dir).map_err(|e| format!("Failed to read plugin directory: {}", e))?;
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir()
-            || path
-                .file_name()
-                .map(|n| n.to_string_lossy().starts_with("."))
-                .unwrap_or(false)
-        {
-            continue;
-        }
-
-        let plugin_id = path
-            .file_name()
-            .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_default();
-
-        // Check if DLL exists (valid plugin check)
-        let dll_path = path.join(format!("{}.dll", plugin_id));
-        if !dll_path.exists() {
-            // Try to find any DLL
-            let has_dll = fs::read_dir(&path)
-                .map(|entries| {
-                    entries.filter_map(|e| e.ok()).any(|e| {
-                        e.path()
-                            .extension()
-                            .map(|ext| ext.to_string_lossy().to_lowercase() == "dll")
-                            .unwrap_or(false)
-                    })
-                })
-                .unwrap_or(false);
-
-            if !has_dll {
-                continue; // Not a valid plugin
-            }
-        }
-
-        // Try to read manifest
-        let manifest = read_plugin_manifest(&path);
-
-        // Check if disabled (presence of .disabled file)
-        let disabled_marker = path.join(".disabled");
-        let enabled = !disabled_marker.exists();
-
-        plugins.push(PluginInfo {
-            id: plugin_id.clone(),
-            name: manifest
-                .as_ref()
-                .and_then(|m| m.name.clone())
-                .unwrap_or(plugin_id),
-            version: manifest.as_ref().and_then(|m| m.version.clone()),
-            description: manifest.as_ref().and_then(|m| m.description.clone()),
-            author: manifest.as_ref().and_then(|m| m.author.clone()),
-            asa_version_compatible: manifest.as_ref().and_then(|m| m.min_api_version.clone()),
-            enabled,
-            install_path: path,
-        });
-    }
-
-    // Sort by name
-    plugins.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-
-    Ok(plugins)
-}
-
 /// Uninstall a plugin from a server
 #[tauri::command]
 pub async fn uninstall_plugin(
@@ -385,7 +294,7 @@ pub async fn uninstall_plugin(
     plugin_id: String,
 ) -> Result<(), String> {
     let (install_path, server_type) = get_server_install_path(&state, server_id)?;
-    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
+    let plugins_dir = get_api_plugins_dir(&state, &install_path, &server_type)?;
     let plugin_path = plugins_dir.join(&plugin_id);
 
     if !plugin_path.exists() {
@@ -393,6 +302,16 @@ pub async fn uninstall_plugin(
     }
 
     fs::remove_dir_all(&plugin_path).map_err(|e| format!("Failed to remove plugin: {}", e))?;
+
+    // Remove from database
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let _ = conn.execute(
+            "DELETE FROM server_plugins WHERE server_id = ?1 AND folder_name = ?2",
+            rusqlite::params![server_id, plugin_id],
+        );
+    }
 
     println!(
         "🗑️ Plugin '{}' uninstalled from server {}",
@@ -402,36 +321,60 @@ pub async fn uninstall_plugin(
     Ok(())
 }
 
-/// Toggle plugin enabled/disabled state
+/// Toggle plugin enabled/disabled state (DB-backed, no file modifications)
 #[tauri::command]
 pub async fn toggle_plugin(
     state: State<'_, AppState>,
     server_id: i64,
-    plugin_id: String,
+    folder_name: String,
     enabled: bool,
 ) -> Result<(), String> {
+    state.plugin_manager.toggle_plugin(server_id, &folder_name, enabled)?;
+
+    println!(
+        "{} Plugin '{}' {} on server {}",
+        if enabled { "✅" } else { "⏸️" },
+        folder_name,
+        if enabled { "enabled" } else { "disabled" },
+        server_id
+    );
+
+    Ok(())
+}
+
+/// Set all plugins to enabled or disabled for a server
+#[tauri::command]
+pub async fn set_all_plugins_enabled(
+    state: State<'_, AppState>,
+    server_id: i64,
+    enabled: bool,
+) -> Result<(), String> {
+    state.plugin_manager.set_all_plugins(server_id, enabled)?;
+
+    println!(
+        "🔄 All plugins {} on server {}",
+        if enabled { "enabled" } else { "disabled" },
+        server_id
+    );
+
+    Ok(())
+}
+
+/// Open the plugin folder in the system file explorer
+#[tauri::command]
+pub async fn open_plugin_folder(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<(), String> {
     let (install_path, server_type) = get_server_install_path(&state, server_id)?;
-    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
-    let plugin_path = plugins_dir.join(&plugin_id);
+    let plugins_dir = get_api_plugins_dir(&state, &install_path, &server_type)?;
 
-    if !plugin_path.exists() {
-        return Err(format!("Plugin '{}' not found", plugin_id));
+    if !plugins_dir.exists() {
+        fs::create_dir_all(&plugins_dir)
+            .map_err(|e| format!("Failed to create plugins directory: {}", e))?;
     }
 
-    let disabled_marker = plugin_path.join(".disabled");
-
-    if enabled {
-        // Remove disabled marker if it exists
-        if disabled_marker.exists() {
-            fs::remove_file(&disabled_marker)
-                .map_err(|e| format!("Failed to enable plugin: {}", e))?;
-        }
-        println!("✅ Plugin '{}' enabled on server {}", plugin_id, server_id);
-    } else {
-        // Create disabled marker
-        fs::write(&disabled_marker, "").map_err(|e| format!("Failed to disable plugin: {}", e))?;
-        println!("⏸️ Plugin '{}' disabled on server {}", plugin_id, server_id);
-    }
+    crate::commands::file_manager::open_in_explorer(plugins_dir.to_string_lossy().to_string())?;
 
     Ok(())
 }
@@ -454,7 +397,6 @@ pub async fn install_asa_api(
 
     println!("[ASA-API] Fetching latest AsaApi release from GitHub...");
     
-    // Build HTTP client with custom User-Agent
     let client = reqwest::Client::builder()
         .user_agent("asa-server-manager")
         .build()
@@ -472,7 +414,6 @@ pub async fn install_asa_api(
             .await
             .map_err(|e| format!("Failed to parse GitHub release JSON: {}", e))?;
 
-        // Find the zip asset URL
         let assets = release_data.get("assets")
             .and_then(|a| a.as_array())
             .ok_or_else(|| "No assets found in the latest release".to_string())?;
@@ -492,13 +433,11 @@ pub async fn install_asa_api(
         found_url.ok_or_else(|| "Could not find a .zip asset in the latest release".to_string())?
     } else {
         println!("[ASA-API] GitHub API failed (status: {}). Falling back to direct latest download URL...", response.status());
-        // Fallback to standard direct download url if GitHub API rate-limited
         "https://github.com/ArkServerApi/AsaApi/releases/latest/download/AsaApi.zip".to_string()
     };
 
     println!("[ASA-API] Downloading from: {}", download_url);
 
-    // Download zip package
     let download_resp = client.get(&download_url)
         .send()
         .await
@@ -512,20 +451,74 @@ pub async fn install_asa_api(
         .await
         .map_err(|e| format!("Failed to get zip bytes: {}", e))?;
 
-    println!("[ASA-API] Extracting zip directly to Win64 directory: {:?}", win64_dir);
+    println!("[ASA-API] Extracting zip to Win64 directory (with root folder flattening): {:?}", win64_dir);
     
-    // Extract zip contents
     let target_dir = win64_dir.clone();
     tokio::task::spawn_blocking(move || -> Result<(), String> {
         let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))
             .map_err(|e| format!("Failed to read zip archive: {}", e))?;
         
-        archive.extract(&target_dir)
-            .map_err(|e| format!("Failed to extract zip archive: {}", e))?;
+        // Find if there is a common root directory in the ZIP
+        let mut common_root = None;
+        let mut entries = Vec::new();
+        for i in 0..archive.len() {
+            if let Ok(file) = archive.by_index(i) {
+                entries.push(file.name().to_string());
+            }
+        }
+
+        if !entries.is_empty() {
+            let first_path = &entries[0];
+            let first_segment = first_path.split('/').next().unwrap_or("");
+            if !first_segment.is_empty() && entries.iter().all(|path| {
+                path.starts_with(first_segment) && 
+                (path.len() == first_segment.len() || path.chars().nth(first_segment.len()) == Some('/'))
+            }) {
+                common_root = Some(format!("{}/", first_segment));
+                println!("[ASA-API] Detected common root folder in zip: '{}'. Flattening extraction...", first_segment);
+            }
+        }
+
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i)
+                .map_err(|e| format!("Failed to read zip entry: {}", e))?;
+            
+            let file_name = file.name();
+            let relative_path = if let Some(ref root) = common_root {
+                if file_name == *root || file_name == &root[..root.len() - 1] {
+                    continue; // Skip the root directory itself
+                }
+                file_name.strip_prefix(root).unwrap_or(file_name)
+            } else {
+                file_name
+            };
+
+            let outpath = target_dir.join(relative_path);
+
+            if file.name().ends_with('/') {
+                std::fs::create_dir_all(&outpath)
+                    .map_err(|e| format!("Failed to create directory: {}", e))?;
+            } else {
+                if let Some(p) = outpath.parent() {
+                    if !p.exists() {
+                        std::fs::create_dir_all(p)
+                            .map_err(|e| format!("Failed to create parent directory: {}", e))?;
+                    }
+                }
+                let mut outfile = std::fs::File::create(&outpath)
+                    .map_err(|e| format!("Failed to create output file: {}", e))?;
+                std::io::copy(&mut file, &mut outfile)
+                    .map_err(|e| format!("Failed to copy file contents: {}", e))?;
+            }
+        }
         
         Ok(())
     }).await
     .map_err(|e| format!("Join error during extraction: {}", e))??;
+
+    // Trigger migration/file placements (like copying AsaApi.dll and AsaApi.pdb to root)
+    let _ = state.plugin_manager.resolve_plugins_dir(&install_path);
+    let _ = state.plugin_manager.sync_api_loader_dlls(server_id);
 
     println!("[ASA-API] ASA Server API installed successfully!");
     Ok("ASA Server API installed successfully!".to_string())
@@ -537,7 +530,6 @@ fn find_plugin_dll_and_dir(dir: &std::path::Path) -> Option<(std::path::PathBuf,
         return None;
     }
 
-    // 1. Search for a .dll file in the current directory
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
@@ -553,19 +545,16 @@ fn find_plugin_dll_and_dir(dir: &std::path::Path) -> Option<(std::path::PathBuf,
         }
     }
 
-    // 2. If not found, recursively search subdirectories
     if let Ok(entries) = fs::read_dir(dir) {
         let mut subdirs: Vec<_> = entries
             .flatten()
             .filter(|e| e.path().is_dir())
             .collect();
             
-        // Sort subdirectories to ensure deterministic behavior
         subdirs.sort_by_key(|e| e.path());
 
         for entry in subdirs {
             let path = entry.path();
-            // Ignore hidden directories (e.g. starting with .)
             if path.file_name().map(|n| n.to_string_lossy().starts_with(".")).unwrap_or(false) {
                 continue;
             }
@@ -585,66 +574,120 @@ pub async fn create_default_plugin(
     server_id: i64,
 ) -> Result<PluginInfo, String> {
     let (install_path, server_type) = get_server_install_path(&state, server_id)?;
-    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
+    let plugins_dir = get_api_plugins_dir(&state, &install_path, &server_type)?;
 
     if !plugins_dir.exists() {
         fs::create_dir_all(&plugins_dir)
             .map_err(|e| format!("Failed to create plugins directory: {}", e))?;
     }
 
-    let plugin_name = "DefaultPlugin".to_string();
+    let plugin_name = "AsaCrossChat".to_string();
     let plugin_dir = plugins_dir.join(&plugin_name);
 
     if plugin_dir.exists() {
-        return Err("DefaultPlugin already exists".to_string());
+        return Err("AsaCrossChat plugin already exists on this server".to_string());
     }
 
     fs::create_dir_all(&plugin_dir)
         .map_err(|e| format!("Failed to create plugin directory: {}", e))?;
 
-    // Create plugin.json manifest
-    let manifest_path = plugin_dir.join("plugin.json");
-    let manifest_content = r#"{
-  "name": "DefaultPlugin",
-  "version": "1.0.0",
-  "description": "Default ASA Server API plugin template. Example configuration for floating damage numbers custom size, color, and duration.",
-  "author": "ServerManager",
-  "minApiVersion": "1.0.0"
-}"#;
-    fs::write(&manifest_path, manifest_content)
-        .map_err(|e| format!("Failed to write plugin manifest: {}", e))?;
+    // Try to find the source directory of AsaCrossChat in the workspace
+    let mut source_dir = None;
+    let paths_to_try = [
+        std::env::current_dir().ok().map(|d| d.join("asa-plugins").join("AsaCrossChat")),
+        std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("asa-plugins").join("AsaCrossChat"))),
+        std::env::current_exe().ok().and_then(|e| e.parent().and_then(|p| p.parent()).and_then(|p| p.parent()).map(|p| p.join("asa-plugins").join("AsaCrossChat"))),
+    ];
 
-    // Create config.json template showing float damage settings
-    let config_path = plugin_dir.join("config.json");
-    let config_content = r##"{
-  "Settings": {
-    "DamageNumbers": {
-      "EnableCustomDamageNumbers": true,
-      "TextSize": 1.5,
-      "TextColorHex": "#FF0000",
-      "DisplayDurationSeconds": 3.0
+    for path_opt in paths_to_try {
+        if let Some(path) = path_opt {
+            if path.exists() && path.is_dir() {
+                source_dir = Some(path);
+                break;
+            }
+        }
     }
-  }
-}"##;
-    fs::write(&config_path, config_content)
-        .map_err(|e| format!("Failed to write config template: {}", e))?;
 
-    // Create dummy DLL so that the manager detects it as a valid installed plugin (if it doesn't exist)
+    if let Some(src) = source_dir {
+        // Copy all files from source directory recursively
+        fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+            fs::create_dir_all(dst)?;
+            for entry in fs::read_dir(src)? {
+                let entry = entry?;
+                let ty = entry.file_type()?;
+                if ty.is_dir() {
+                    copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
+                } else {
+                    fs::copy(entry.path(), &dst.join(entry.file_name()))?;
+                }
+            }
+            Ok(())
+        }
+        copy_dir_all(&src, &plugin_dir)
+            .map_err(|e| format!("Failed to copy AsaCrossChat source files: {}", e))?;
+    } else {
+        // Fallback: Write default files inline if source dir not found
+        let manifest_path = plugin_dir.join("PluginInfo.json");
+        let manifest_content = r#"{
+  "FullName": "AsaCrossChat",
+  "Description": "Asynchronous cross-server chat plugin for Ark Survival Ascended maps using a shared MySQL/MariaDB database.",
+  "Version": "1.0.0",
+  "MinApiVersion": "1.0",
+  "UpdateUrl": ""
+}"#;
+        fs::write(&manifest_path, manifest_content)
+            .map_err(|e| format!("Failed to write plugin manifest: {}", e))?;
+
+        let config_path = plugin_dir.join("config.json");
+        let config_content = r#"{
+  "MySQL": {
+    "Host": "localhost",
+    "User": "root",
+    "Password": "",
+    "Database": "ark_chat",
+    "Port": 3306
+  },
+  "General": {
+    "FetchChatInterval": 5
+  },
+  "ServerKey": "Server1"
+}"#;
+        fs::write(&config_path, config_content)
+            .map_err(|e| format!("Failed to write config template: {}", e))?;
+    }
+
+    // Always create a placeholder DLL if it wasn't copied, so the manager recognizes it
     let dll_path = plugin_dir.join(format!("{}.dll", plugin_name));
     if !dll_path.exists() {
         fs::write(&dll_path, vec![0; 64])
             .map_err(|e| format!("Failed to create placeholder DLL: {}", e))?;
     }
 
+    // Auto-enable in database
+    let _ = state.plugin_manager.toggle_plugin(server_id, &plugin_name, true);
+
     Ok(PluginInfo {
         id: plugin_name.clone(),
         name: plugin_name.clone(),
+        folder_name: plugin_name,
         version: Some("1.0.0".to_string()),
-        description: Some("Default ASA Server API plugin template. Example configuration for floating damage numbers custom size, color, and duration.".to_string()),
+        description: Some("Asynchronous cross-server chat plugin for Ark Survival Ascended maps using a shared MySQL/MariaDB database.".to_string()),
         author: Some("ServerManager".to_string()),
-        asa_version_compatible: Some("1.0.0".to_string()),
         enabled: true,
-        install_path: plugin_dir,
+        installed_path: plugin_dir.to_string_lossy().to_string(),
+        dependencies: vec![],
+        last_loaded_at: None,
+        status: PluginStatus::Enabled,
+        status_message: None,
     })
 }
 
+/// Toggle the overall API Loader state for a server (AsaApiLoader.exe vs ArkAscendedServer.exe)
+#[tauri::command]
+pub async fn toggle_api_loader(
+    state: State<'_, AppState>,
+    server_id: i64,
+    enabled: bool,
+) -> Result<(), String> {
+    state.plugin_manager.toggle_api_loader(server_id, enabled)
+}

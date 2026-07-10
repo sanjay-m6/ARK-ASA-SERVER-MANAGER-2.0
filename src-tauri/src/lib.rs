@@ -493,10 +493,19 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 }
             });
 
-            // Check and install SteamCMD
+            // Check and install SteamCMD (supports custom path override)
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                let steamcmd = SteamCmdService::new(app_handle);
+                // Resolve custom SteamCMD path from DB if configured
+                let steamcmd = if let Some(state) = app_handle.try_state::<AppState>() {
+                    match services::resolve_steamcmd_dir_from_state(&state, &app_handle) {
+                        Ok(dir) => SteamCmdService::with_custom_dir(app_handle.clone(), dir),
+                        Err(_) => SteamCmdService::new(app_handle.clone()),
+                    }
+                } else {
+                    SteamCmdService::new(app_handle.clone())
+                };
+
                 if !steamcmd.check_installation() {
                     println!("SteamCMD not found, installing... ");
                     if let Err(e) = steamcmd.install().await {
@@ -525,9 +534,11 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::system::set_auto_start_config,
              commands::system::set_server_startup_config,
             commands::system::get_player_counts,
-            commands::system::get_app_logs_dir,
+             commands::system::get_app_logs_dir,
             commands::system::rollback_to_version,
             commands::system::uninstall_application,
+            commands::system::validate_steamcmd_path,
+            commands::system::get_steamcmd_dir,
             // Server commands
             commands::server::get_all_servers,
             commands::server::update_server_status_in_db,
@@ -654,15 +665,18 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::player::record_player_session,
             commands::player::search_players,
              // Plugin commands
-             commands::plugin::check_plugin_status, // <-- New Command
+             commands::plugin::check_plugin_status,
              commands::plugin::check_asa_api_installed,
              commands::plugin::install_asa_api,
              commands::plugin::get_plugin_directory,
              commands::plugin::import_plugin_archive,
-             commands::plugin::get_installed_plugins,
+             commands::plugin::scan_plugins,
              commands::plugin::uninstall_plugin,
              commands::plugin::toggle_plugin,
+             commands::plugin::set_all_plugins_enabled,
+             commands::plugin::open_plugin_folder,
              commands::plugin::create_default_plugin,
+             commands::plugin::toggle_api_loader,
                  // Chat Translator Commands
               commands::chat_translator::get_translator_config,
               commands::chat_translator::save_translator_config,

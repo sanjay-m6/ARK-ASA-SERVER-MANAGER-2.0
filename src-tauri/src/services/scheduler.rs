@@ -530,11 +530,7 @@ impl SchedulerService {
 
             if shutdown {
                 log::info!("  [Advanced ASA] Step 1/5: Graceful Shutdown");
-                let _ = state.process_manager.stop_server_with_reason(
-                    server_id,
-                    crate::services::process_manager::StopReason::ScheduledRestart,
-                );
-                sleep(Duration::from_secs(5)).await;
+                let _ = crate::commands::server::stop_server(state.clone(), server_id).await;
             }
 
             if backup {

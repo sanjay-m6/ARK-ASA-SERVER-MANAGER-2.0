@@ -45,7 +45,7 @@ jobs:
           toolchain: stable
 
       - name: Rust Cache
-        uses: swatinem/rust-cache@v2.9.1
+        uses: swatinem/rust-cache@v2
         with:
           workspaces: 'src-tauri -> target'
 
@@ -76,13 +76,23 @@ jobs:
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
             - **Fresh Install**: Download the `.exe` installer below and run it.
 
-            ### 🆕 New Features & Improvements in v4.6.1
+            ### 🆕 New Features & Improvements in v4.6.2
+            - **🔌 Per-Server ASA Plugin Manager**: Complete per-server plugin manager in the UI for ASA servers. Discovered plugins are fully parsed for manifests (`PluginInfo.json`), status checks, and dependency validation.
+            - **⚙️ API Loader and DLL Renaming**: Frontend UI toggle and backend support to switch the server launch executable between `AsaApiLoader.exe` (with loader console output enabled) and the native `ArkAscendedServer.exe`.
+            - **📁 Custom SteamCMD Path Redirect**: Redirect SteamCMD and server workshop downloads to a custom folder path. The settings page automatically validates and warns against non-ASCII/non-English characters to prevent crashes.
+            - **🧹 SteamCMD Cache Cleaning & Lock Release**: Enhanced cache clearing by terminating lingering `steamcmd.exe` processes before cleaning, and deleting stale `.acf` appmanifests to resolve update loops.
+            - **📱 Collapsible Sidebar & Evolved Support Settings**: Redesigned sidebar with a collapsible layout, tooltips, and a setting switch to hide/show ARK: Survival Evolved (ASE) support to keep the manager streamlined.
+            - **♿ Accessibility & Modal Improvements**: Replaced standard modal dialogs in Scheduler with React Portals (`createPortal`) and updated elements/buttons with proper ARIA attributes and focus styles.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.1 — AI Co-Pilot Notification Center, Diagnostics & Toast Suppression</summary>
+
             - **🛡️ AI Co-Pilot Notification Center**: Unified crash notification center with in-memory caching, server-wide grouping/deduplication, sequential queue AI analysis, and historical archive modal.
             - **🌐 Diagnostics Reachability Fallback**: Integrated RCON TCP local connectivity checks and process manager startup confirmation to prevent Windows loopback firewall false-negatives.
             - **🧩 Optional CurseForge Mod Alerts**: Automatically suppresses all CFCore mod-loading warnings and crash notifications for plugins-only servers (with 0 enabled mods).
             - **🔕 Log Anomaly Toast Suppression**: Silences active server toast warnings for generic log anomalies (Crash, Fatal Error, Exception), caching them solely for post-crash diagnostic enrichment.
-
-            ### 🛠️ Previous Releases
+            </details>
             <details>
             <summary>v4.6.0 — Native C++ CrossChat, Chat Persistence & Real-Time Logs</summary>
 

@@ -562,10 +562,16 @@ pub async fn clear_ase_workshop_cache(app_handle: AppHandle) -> Result<String, S
 
     let images_cleared = crate::services::workshop_metadata::clear_workshop_image_cache(&app_handle)?;
 
-    let app_dir = app_handle.path().app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
-    let steamcmd_workshop = app_dir
-        .join("steamcmd").join("steamapps").join("workshop");
+    let steamcmd_base = if let Some(state_ref) = app_handle.try_state::<crate::AppState>() {
+        crate::services::resolve_steamcmd_dir_from_state(&state_ref, &app_handle)
+            .unwrap_or_else(|_| app_handle.path().app_data_dir().unwrap_or_default().join("steamcmd"))
+    } else {
+        app_handle.path().app_data_dir()
+            .map_err(|e| format!("Failed to get app data dir: {}", e))?
+            .join("steamcmd")
+    };
+    let steamcmd_workshop = steamcmd_base
+        .join("steamapps").join("workshop");
     
     let content_dir = steamcmd_workshop.join("content").join("346110");
     let mut steamcmd_cleared = 0;

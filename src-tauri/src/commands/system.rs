@@ -140,9 +140,12 @@ pub async fn run_diagnostics(
 ) -> Result<DiagnosticResult, String> {
     let mut issues = Vec::new();
 
-    // Check SteamCMD
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let steamcmd_path = app_dir.join("steamcmd").join("steamcmd.exe");
+    // Check SteamCMD (supports custom path override)
+    let steamcmd_dir = crate::services::resolve_steamcmd_dir_from_state(&state, &app)
+        .unwrap_or_else(|_| {
+            app.path().app_data_dir().unwrap_or_default().join("steamcmd")
+        });
+    let steamcmd_path = steamcmd_dir.join("steamcmd.exe");
     let steamcmd_installed = steamcmd_path.exists();
     if !steamcmd_installed {
         issues.push("SteamCMD is missing. Server installation will fail.".to_string());
@@ -210,8 +213,13 @@ pub async fn run_diagnostics(
 pub async fn install_steamcmd(app: tauri::AppHandle) -> Result<String, String> {
     use std::io::Write;
 
-    let app_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let steamcmd_dir = app_dir.join("steamcmd");
+    // Resolve SteamCMD directory (supports custom path override)
+    let steamcmd_dir = if let Some(state_ref) = app.try_state::<AppState>() {
+        crate::services::resolve_steamcmd_dir_from_state(&state_ref, &app)
+            .unwrap_or_else(|_| app.path().app_data_dir().unwrap_or_default().join("steamcmd"))
+    } else {
+        app.path().app_data_dir().map_err(|e| e.to_string())?.join("steamcmd")
+    };
 
     // Create directory
     if !steamcmd_dir.exists() {
@@ -247,6 +255,22 @@ pub async fn install_steamcmd(app: tauri::AppHandle) -> Result<String, String> {
     let _ = std::fs::remove_file(&zip_path);
 
     Ok("SteamCMD installed successfully.".to_string())
+}
+
+/// Validate whether a path contains non-ASCII characters that SteamCMD cannot handle.
+#[tauri::command]
+pub fn validate_steamcmd_path(path: String) -> Result<bool, String> {
+    Ok(!crate::services::has_non_ascii_chars(&path))
+}
+
+/// Get the currently resolved SteamCMD directory path.
+#[tauri::command]
+pub async fn get_steamcmd_dir(
+    state: State<'_, AppState>,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    let dir = crate::services::resolve_steamcmd_dir_from_state(&state, &app)?;
+    Ok(dir.to_string_lossy().to_string())
 }
 
 #[tauri::command]

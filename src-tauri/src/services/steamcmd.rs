@@ -6,14 +6,24 @@ use anyhow::{Result, Context};
 
 pub struct SteamCmdService {
     app_handle: AppHandle,
+    custom_dir: Option<PathBuf>,
 }
 
 impl SteamCmdService {
     pub fn new(app_handle: AppHandle) -> Self {
-        Self { app_handle }
+        Self { app_handle, custom_dir: None }
+    }
+
+    /// Create a SteamCmdService with a custom directory override.
+    /// When set, all operations use this path instead of the default app_data_dir/steamcmd.
+    pub fn with_custom_dir(app_handle: AppHandle, custom_dir: PathBuf) -> Self {
+        Self { app_handle, custom_dir: Some(custom_dir) }
     }
 
     pub fn get_steamcmd_dir(&self) -> Result<PathBuf> {
+        if let Some(ref custom) = self.custom_dir {
+            return Ok(custom.clone());
+        }
         let app_dir = self.app_handle.path().app_data_dir()?;
         Ok(app_dir.join("steamcmd"))
     }
@@ -78,8 +88,29 @@ impl SteamCmdService {
         self.install().await
     }
 
+    /// Terminate any running steamcmd.exe processes to release file locks on cache files
+    pub fn kill_existing_processes(&self) -> Result<()> {
+        #[cfg(target_os = "windows")]
+        {
+            use std::process::Command;
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            println!("Killing any existing steamcmd.exe processes...");
+            let _ = Command::new("taskkill")
+                .args(["/F", "/IM", "steamcmd.exe"])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output();
+            // Sleep briefly to let the OS release file locks
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+        Ok(())
+    }
+
     /// Clear SteamCMD download cache to fix stale download issues
     pub fn clear_cache(&self) -> Result<()> {
+        // First kill any running steamcmd processes to release locks
+        let _ = self.kill_existing_processes();
+
         let install_dir = self.get_steamcmd_dir()?;
 
         // Clear appcache
@@ -104,6 +135,24 @@ impl SteamCmdService {
             std::fs::remove_dir_all(&temp)
                 .context("Failed to remove temp directory")?;
             println!("Cleared SteamCMD temp cache");
+        }
+
+        // Clear any stale appmanifest files directly inside steamcmd/steamapps
+        let steamapps_dir = install_dir.join("steamapps");
+        if steamapps_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(&steamapps_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Some(ext) = path.extension() {
+                            if ext == "acf" {
+                                let _ = std::fs::remove_file(&path);
+                                println!("Cleared stale manifest in steamcmd: {:?}", path.file_name());
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         Ok(())

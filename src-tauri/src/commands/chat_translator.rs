@@ -41,7 +41,7 @@ pub struct TranslatorStats {
 
 async fn sync_config_file_to_disk(state: &State<'_, AppState>, config: &TranslatorConfig) -> Result<(), String> {
     let (install_path, server_type) = get_server_install_path(state, config.server_id)?;
-    let plugins_dir = get_api_plugins_dir(&install_path, &server_type)?;
+    let plugins_dir = get_api_plugins_dir(state, &install_path, &server_type)?;
     let plugin_dir = plugins_dir.join("ChatTranslator");
     
     if plugin_dir.exists() {
@@ -278,7 +278,7 @@ pub async fn install_translator_plugin(
     server_type: String,
 ) -> Result<(), String> {
     let (install_path, s_type) = get_server_install_path(&state, server_id)?;
-    let plugins_dir = get_api_plugins_dir(&install_path, &s_type)?;
+    let plugins_dir = get_api_plugins_dir(&state, &install_path, &s_type)?;
 
     let plugin_dir = plugins_dir.join("ChatTranslator");
     if !plugin_dir.exists() {
@@ -348,7 +348,7 @@ pub async fn uninstall_translator_plugin(
     server_type: String,
 ) -> Result<(), String> {
     let (install_path, s_type) = get_server_install_path(&state, server_id)?;
-    let plugins_dir = get_api_plugins_dir(&install_path, &s_type)?;
+    let plugins_dir = get_api_plugins_dir(&state, &install_path, &s_type)?;
     let plugin_path = plugins_dir.join("ChatTranslator");
 
     if plugin_path.exists() {

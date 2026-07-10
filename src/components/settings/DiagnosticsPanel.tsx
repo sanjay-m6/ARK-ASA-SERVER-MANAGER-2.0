@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -16,12 +16,34 @@ export default function DiagnosticsPanel() {
     const { t } = useTranslation();
     const [result, setResult] = useState<DiagnosticResult | null>(null);
     const [isInstalling, setIsInstalling] = useState(false);
+    const [steamcmdDir, setSteamcmdDir] = useState<string>('');
+
+    const fetchSteamcmdDir = async () => {
+        try {
+            const dir = await invoke<string>('get_steamcmd_dir');
+            setSteamcmdDir(dir);
+        } catch (e) {
+            console.error('Failed to get SteamCMD dir:', e);
+        }
+    };
+
+    useEffect(() => {
+        fetchSteamcmdDir();
+    }, []);
 
     const runDiagnostics = async () => {
         const toastId = toast.loading(t('settings.diagnostics.running'));
         try {
+            await fetchSteamcmdDir();
             const res = await invoke<DiagnosticResult>('run_diagnostics');
             setResult(res);
+
+            // Add non-ascii path issue to report if detected
+            if (steamcmdDir && /[^\x00-\x7F]/.test(steamcmdDir)) {
+                if (!res.issues.some(i => i.includes('non-ASCII') || i.includes('non-English'))) {
+                    res.issues.push(`SteamCMD installation path contains non-ASCII characters: "${steamcmdDir}". This causes SteamCMD to crash.`);
+                }
+            }
 
             if (res.issues.length === 0) {
                 toast.success(t('settings.diagnostics.healthy'), { id: toastId });
@@ -76,6 +98,22 @@ export default function DiagnosticsPanel() {
                 <CheckCircle className="w-6 h-6" />
                 {t('settings.diagnostics.runCheck')}
             </button>
+
+            {steamcmdDir && /[^\x00-\x7F]/.test(steamcmdDir) && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-red-500/20 rounded-lg animate-pulse">
+                            <AlertTriangle className="w-5 h-5 text-red-400" />
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-red-400">{t('settings.diagnostics.nonAsciiPath', 'SteamCMD Path Error')}</h4>
+                            <p className="text-xs text-red-200/70 mt-1">
+                                {t('settings.diagnostics.nonAsciiPathDesc', 'Your current SteamCMD path contains non-ASCII/non-English characters: "{{path}}". SteamCMD cannot operate from this location. Please set an ASCII-only custom SteamCMD path in Settings.', { path: steamcmdDir })}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Quick Fix Actions */}
             {result && !result.steamcmd_installed && (

@@ -439,8 +439,29 @@ describe('ServerOrganizationStore', () => {
 5. **Collaborative** - Share folders with other users
 6. **Mobile App** - React Native version
 
+## Process Control & Platform-Specific Safeguards (ASA API / Linux / Proton)
+
+### 1. Hard Process Tree Terminations
+* **Windows**: We use `taskkill /F /T /PID <pid>` to completely tear down the spawned process tree (parent/child loader and game servers).
+* **Linux/Proton (Future Support)**: Native in-game or RCON restarts (`DoExit` / `plugins.unload`) under Proton/Wine frequently leave orphaned/defunct child processes running in the background. To support non-Windows hosts, the manager must use:
+  ```rust
+  // Kill the entire process group (negative PID = group)
+  Command::new("kill")
+      .args(["-9", &format!("-{}", pgid)])
+      .output();
+  ```
+  This requires spawning the Wine/Proton wrapper process with a new process group (e.g., via `setsid` or equivalent Unix spawn options) so that orphaned children do not remain behind holding sockets/ports.
+
+### 2. Port-Release Verification Loop
+* When restarting or stopping a server, always verify that the server ports (Game Port, Query Port, RCON Port) are actually freed by the OS rather than just checking that the PID has exited. 
+* Socket teardown inside Wine/Proton can lag behind process termination; starting the loader before the sockets are fully freed will result in binding conflicts and boot failures.
+
+### 3. Folder & DLL Alignment Checks
+* The folder name containing an Ark Server API plugin must exactly match the name of the plugin's `.dll` file (e.g. `ArkApi/Plugins/MyPlugin/MyPlugin.dll`). A folder/file name mismatch is the #1 cause of silent loader failures.
+
 ## Support and Documentation
 
 - See `documentation/backend/ServerOrganization.md` for backend details
 - See `documentation/frontend/ServerOrganization.md` for component API
 - Check test files for usage examples
+
