@@ -141,6 +141,11 @@ export default function Settings() {
     };
 
 
+    /**
+     * Loads all persisted settings from the backend DB (API keys, AI provider +
+     * LM Studio config, startup/recovery options, path overrides) plus local
+     * update settings, and populates the corresponding form state.
+     */
     async function loadSettings() {
         try {
             const [
@@ -210,8 +215,12 @@ export default function Settings() {
     }, []);
 
     // ── Unsaved-changes guard ──────────────────────────────────────────
-    // Snapshot of the fields that are only persisted via the Save button.
-    // (AI provider + LM Studio fields autosave on change, so they're excluded.)
+    /**
+     * Serializes the fields that are only persisted via the Save button into a
+     * stable string, used to detect unsaved edits by comparing against a
+     * baseline. AI provider + LM Studio fields autosave on change, so they are
+     * deliberately excluded here.
+     */
     const persistedSnapshot = () => JSON.stringify([
         curseforgeApiKey, steamApiKey, nvidiaApiKey, startupTimeout,
         globalAutoStartEnabled, globalBootDelay, startMinimizedToTray,
@@ -243,6 +252,10 @@ export default function Settings() {
         return () => window.removeEventListener('beforeunload', handler);
     }, [isDirty]);
 
+    /**
+     * Save & leave action for the unsaved-changes dialog: persists all settings
+     * and only proceeds with the blocked navigation if the save succeeded.
+     */
     const handleSaveAndLeave = async () => {
         const ok = await handleSave();
         if (ok) blocker.proceed?.();
@@ -355,8 +368,11 @@ export default function Settings() {
         toast.success('Version entry removed from history');
     };
 
-    // Provider switching persists immediately so it takes effect without
-    // needing the global Save button (backend reads these settings live).
+    /**
+     * Switches the active AI provider (NVIDIA cloud vs. local LM Studio) and
+     * persists the choice immediately, so it takes effect without the global
+     * Save button — the Rust backend reads `ai_provider` live on each request.
+     */
     const handleSelectProvider = async (provider: 'nvidia' | 'lmstudio') => {
         setAiProvider(provider);
         try {
@@ -367,6 +383,12 @@ export default function Settings() {
         }
     };
 
+    /**
+     * Probes the configured LM Studio server for its loaded models via the
+     * `lmstudio_list_models` command. Persists the API key, base URL and provider
+     * first so a successful probe is immediately usable, auto-selects the first
+     * loaded model when none is chosen, and surfaces connection errors as toasts.
+     */
     const handleProbeLmStudio = async () => {
         setLmStudioProbing(true);
         try {
@@ -395,6 +417,12 @@ export default function Settings() {
         }
     };
 
+    /**
+     * Persists all Save-button-backed settings to the backend DB, synchronizes
+     * the OS startup hooks (registry run key / Task Scheduler) with the current
+     * options, and resets the unsaved-changes baseline.
+     * @returns `true` if the save succeeded, `false` otherwise.
+     */
     const handleSave = async () => {
         setIsSaving(true);
         try {

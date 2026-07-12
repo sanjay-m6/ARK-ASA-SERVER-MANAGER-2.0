@@ -78,7 +78,11 @@ const IndexRedirect = () => {
     return <Navigate to={activeGame === 'ASE' ? "/ase/dashboard" : "/dashboard"} replace />;
 };
 
-// Root layout wraps the app shell in an error boundary + Suspense for lazy pages.
+/**
+ * Root route element: wraps the persistent app shell (`AppLayout`) in an error
+ * boundary and a Suspense boundary so lazily-loaded pages show the loader while
+ * their chunks download.
+ */
 const RootLayout = () => (
     <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
@@ -87,7 +91,11 @@ const RootLayout = () => (
     </ErrorBoundary>
 );
 
-// Data router (createBrowserRouter) enables useBlocker for unsaved-changes guards.
+/**
+ * Application data router. A data router (`createBrowserRouter`) is required for
+ * `useBlocker`, which the Settings page uses to guard against navigating away
+ * with unsaved changes. Holds the full ASA + ASE route tree under `RootLayout`.
+ */
 const router = createBrowserRouter(
     createRoutesFromElements(
         <Route path="/" element={<RootLayout />}>
