@@ -756,6 +756,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              // AI Agent Commands
              commands::ai::ai_chat,
              commands::ai::ai_chat_stream,
+             commands::ai::lmstudio_list_models,
 
              // Tribe Log Commands
               commands::tribe_log::get_tribe_logs,

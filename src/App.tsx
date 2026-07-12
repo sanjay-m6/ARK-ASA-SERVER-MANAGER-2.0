@@ -1,5 +1,5 @@
 import { useState, Suspense, lazy, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
 import WelcomeOverlay from './components/layout/WelcomeOverlay';
 import UpdateChecker from './components/UpdateChecker';
@@ -78,6 +78,75 @@ const IndexRedirect = () => {
     return <Navigate to={activeGame === 'ASE' ? "/ase/dashboard" : "/dashboard"} replace />;
 };
 
+// Root layout wraps the app shell in an error boundary + Suspense for lazy pages.
+const RootLayout = () => (
+    <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+            <AppLayout />
+        </Suspense>
+    </ErrorBoundary>
+);
+
+// Data router (createBrowserRouter) enables useBlocker for unsaved-changes guards.
+const router = createBrowserRouter(
+    createRoutesFromElements(
+        <Route path="/" element={<RootLayout />}>
+            <Route index element={<IndexRedirect />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="servers" element={<ServerManager />} />
+            <Route path="mods" element={<ModManager />} />
+            <Route path="config" element={<ConfigEditor />} />
+            <Route path="clusters" element={<ClusterManager />} />
+            <Route path="backups" element={<Backups />} />
+            <Route path="autosaves" element={<AutoSaves />} />
+            <Route path="rcon" element={<RconConsole />} />
+            <Route path="scheduler" element={<Scheduler />} />
+            <Route path="logs" element={<LogsConsole />} />
+            <Route path="tools/advanced" element={<AdvancedPage />} />
+            <Route path="tools/discord" element={<DiscordBot />} />
+            <Route path="tools/discord-control" element={<DiscordControlPanel />} />
+            <Route path="tools/plugins" element={<PluginManager />} />
+            <Route path="tools/chat-translator" element={<ChatTranslator />} />
+            <Route path="tools/combat-metrics" element={<CombatMetrics />} />
+            <Route path="tools/files" element={<FileManager />} />
+            <Route path="tools/ai" element={<AIAssistant />} />
+            <Route path="tools/tribe-logs" element={<TribeLogViewer />} />
+            <Route path="tools/upnp" element={<UPnPPanel />} />
+            <Route path="tools/organization" element={<ServerOrganization />} />
+            <Route path="tools/boost" element={<BoostManager />} />
+            <Route path="hardware" element={<Hardware />} />
+            <Route path="wiki" element={<Wiki />} />
+            <Route path="settings" element={<Settings />} />
+
+            {/* ASE Module Routes */}
+            <Route path="ase/dashboard" element={<ASEDashboard />} />
+            <Route path="ase/servers" element={<ASEServerManager />} />
+            <Route path="ase/mods" element={<ASEModManager />} />
+            <Route path="ase/config" element={<ASEConfigEditor />} />
+            <Route path="ase/clusters" element={<ASEClusterManager />} />
+            <Route path="ase/backups" element={<ASEBackups />} />
+            <Route path="ase/autosaves" element={<ASEAutoSaves />} />
+            <Route path="ase/logs" element={<ASELogsConsole />} />
+            <Route path="ase/rcon" element={<ASERconConsole />} />
+            <Route path="ase/scheduler" element={<ASEScheduler />} />
+            <Route path="ase/hardware" element={<ASEHardware />} />
+            <Route path="ase/files" element={<ASEFileManager />} />
+            <Route path="ase/settings" element={<ASESettings />} />
+            <Route path="ase/discord" element={<ASEDiscordBot />} />
+            <Route path="ase/profile-sync" element={<ASEProfileSync />} />
+            <Route path="ase/players" element={<ASEPlayerManager />} />
+            <Route path="ase/tools/ai" element={<ASEAIAssistant />} />
+            <Route path="ase/tools/advanced" element={<ASEAdvancedPage />} />
+            <Route path="ase/tools/plugins" element={<ASEPluginManager />} />
+            <Route path="ase/tools/tribe-logs" element={<ASETribeLogViewer />} />
+            <Route path="ase/tools/upnp" element={<ASEUPnPPanel />} />
+            <Route path="ase/tools/organization" element={<ASEServerOrganization />} />
+            <Route path="ase/tools/boost" element={<ASEBoostManager />} />
+            <Route path="ase/tools/chat-translator" element={<ChatTranslator />} />
+        </Route>
+    )
+);
+
 function App() {
     const [appState, setAppState] = useState<'welcome' | 'app'>('welcome');
 
@@ -111,68 +180,7 @@ function App() {
 
     return (
         <>
-            <BrowserRouter>
-                <ErrorBoundary>
-                    <Suspense fallback={<PageLoader />}>
-                        <Routes>
-                            <Route path="/" element={<AppLayout />}>
-                                <Route index element={<IndexRedirect />} />
-                                <Route path="dashboard" element={<Dashboard />} />
-                                <Route path="servers" element={<ServerManager />} />
-                                <Route path="mods" element={<ModManager />} />
-                                <Route path="config" element={<ConfigEditor />} />
-                                <Route path="clusters" element={<ClusterManager />} />
-                                <Route path="backups" element={<Backups />} />
-                                <Route path="autosaves" element={<AutoSaves />} />
-                                <Route path="rcon" element={<RconConsole />} />
-                                <Route path="scheduler" element={<Scheduler />} />
-                                <Route path="logs" element={<LogsConsole />} />
-                                <Route path="tools/advanced" element={<AdvancedPage />} />
-                                <Route path="tools/discord" element={<DiscordBot />} />
-                                <Route path="tools/discord-control" element={<DiscordControlPanel />} />
-                                <Route path="tools/plugins" element={<PluginManager />} />
-                                <Route path="tools/chat-translator" element={<ChatTranslator />} />
-                                <Route path="tools/combat-metrics" element={<CombatMetrics />} />
-                                <Route path="tools/files" element={<FileManager />} />
-                                <Route path="tools/ai" element={<AIAssistant />} />
-                                <Route path="tools/tribe-logs" element={<TribeLogViewer />} />
-                                <Route path="tools/upnp" element={<UPnPPanel />} />
-                                <Route path="tools/organization" element={<ServerOrganization />} />
-                                <Route path="tools/boost" element={<BoostManager />} />
-                                <Route path="hardware" element={<Hardware />} />
-                                <Route path="wiki" element={<Wiki />} />
-                                <Route path="settings" element={<Settings />} />
-
-                                {/* ASE Module Routes */}
-                                <Route path="ase/dashboard" element={<ASEDashboard />} />
-                                <Route path="ase/servers" element={<ASEServerManager />} />
-                                <Route path="ase/mods" element={<ASEModManager />} />
-                                <Route path="ase/config" element={<ASEConfigEditor />} />
-                                <Route path="ase/clusters" element={<ASEClusterManager />} />
-                                <Route path="ase/backups" element={<ASEBackups />} />
-                                <Route path="ase/autosaves" element={<ASEAutoSaves />} />
-                                <Route path="ase/logs" element={<ASELogsConsole />} />
-                                <Route path="ase/rcon" element={<ASERconConsole />} />
-                                <Route path="ase/scheduler" element={<ASEScheduler />} />
-                                <Route path="ase/hardware" element={<ASEHardware />} />
-                                <Route path="ase/files" element={<ASEFileManager />} />
-                                <Route path="ase/settings" element={<ASESettings />} />
-                                <Route path="ase/discord" element={<ASEDiscordBot />} />
-                                <Route path="ase/profile-sync" element={<ASEProfileSync />} />
-                                <Route path="ase/players" element={<ASEPlayerManager />} />
-                                 <Route path="ase/tools/ai" element={<ASEAIAssistant />} />
-                                 <Route path="ase/tools/advanced" element={<ASEAdvancedPage />} />
-                                 <Route path="ase/tools/plugins" element={<ASEPluginManager />} />
-                                 <Route path="ase/tools/tribe-logs" element={<ASETribeLogViewer />} />
-                                 <Route path="ase/tools/upnp" element={<ASEUPnPPanel />} />
-                                 <Route path="ase/tools/organization" element={<ASEServerOrganization />} />
-                                 <Route path="ase/tools/boost" element={<ASEBoostManager />} />
-                                 <Route path="ase/tools/chat-translator" element={<ChatTranslator />} />
-                            </Route>
-                        </Routes>
-                    </Suspense>
-                </ErrorBoundary>
-            </BrowserRouter>
+            <RouterProvider router={router} />
             <UpdateChecker />
             <DonationAlert />
         </>
