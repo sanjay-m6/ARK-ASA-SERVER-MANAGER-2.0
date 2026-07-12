@@ -216,12 +216,36 @@ impl ServerInstaller {
         };
         let steamcmd_exe = steamcmd_dir.join("steamcmd.exe");
 
+        // Self-heal: if SteamCMD isn't present in the resolved (possibly custom)
+        // folder, provision it there now instead of failing. This covers the case
+        // where the user set a custom SteamCMD path that hasn't been populated yet.
         if !steamcmd_exe.exists() {
             self.emit_console(
-                "SteamCMD not found! Please install SteamCMD first.",
-                "error",
+                &format!(
+                    "SteamCMD not found in {}. Downloading and installing it now...",
+                    steamcmd_dir.display()
+                ),
+                "info",
             );
-            return Err("SteamCMD not installed".to_string());
+            let provisioner = crate::services::steamcmd::SteamCmdService::with_custom_dir(
+                self.app_handle.clone(),
+                steamcmd_dir.clone(),
+            );
+            if let Err(e) = provisioner.install().await {
+                self.emit_console(
+                    &format!("Failed to install SteamCMD automatically: {}", e),
+                    "error",
+                );
+                return Err(format!("SteamCMD installation failed: {}", e));
+            }
+            if !steamcmd_exe.exists() {
+                self.emit_console(
+                    "SteamCMD installation completed but steamcmd.exe is still missing.",
+                    "error",
+                );
+                return Err("SteamCMD not installed".to_string());
+            }
+            self.emit_console("SteamCMD installed successfully.", "success");
         }
 
         self.emit_console(

@@ -45,9 +45,23 @@ pub fn resolve_steamcmd_dir(
     app_handle: &tauri::AppHandle,
 ) -> Result<PathBuf, String> {
     if let Ok(Some(custom_path)) = db.get_setting("custom_steamcmd_path") {
-        let trimmed = custom_path.trim();
+        // Strip surrounding quotes/whitespace that can slip in from manual entry.
+        let trimmed = custom_path.trim().trim_matches('"').trim();
         if !trimmed.is_empty() {
-            return Ok(PathBuf::from(trimmed));
+            let p = PathBuf::from(trimmed);
+            // The setting is meant to be a folder. If the user pointed it directly
+            // at steamcmd.exe (or any file), use its parent directory instead.
+            let is_exe = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| n.eq_ignore_ascii_case("steamcmd.exe"))
+                .unwrap_or(false);
+            if is_exe || p.is_file() {
+                if let Some(parent) = p.parent() {
+                    return Ok(parent.to_path_buf());
+                }
+            }
+            return Ok(p);
         }
     }
 

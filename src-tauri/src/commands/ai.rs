@@ -495,35 +495,86 @@ fn get_tool_definitions() -> serde_json::Value {
     ])
 }
 
+// ── Provider Resolution ────────────────────────────────────────────────
+
+/// Resolved endpoint config for the active AI provider.
+struct AiProviderConfig {
+    /// Full chat-completions endpoint URL.
+    endpoint: String,
+    /// Bearer token, if the provider requires auth. LM Studio typically does not.
+    api_key: Option<String>,
+    /// Effective model id to send in the request body.
+    model: String,
+}
+
+/// Normalizes an OpenAI-compatible base URL to a `/chat/completions` endpoint.
+/// Accepts either a bare base ("http://localhost:1234/v1") or a full endpoint.
+fn build_openai_endpoint(base: &str) -> String {
+    let trimmed = base.trim().trim_end_matches('/');
+    if trimmed.ends_with("/chat/completions") {
+        trimmed.to_string()
+    } else {
+        format!("{}/chat/completions", trimmed)
+    }
+}
+
+/// Resolves the AI provider config from the settings DB.
+///
+/// - `nvidia` (default): NVIDIA NIM cloud API, requires `nvidia_api_key`.
+/// - `lmstudio`: local LM Studio (OpenAI-compatible) server at `lmstudio_base_url`.
+///   API key is optional; the custom loaded model name (`lmstudio_model`) overrides
+///   the requested model when set.
+fn resolve_ai_config(
+    state: &tauri::State<'_, AppState>,
+    requested_model: String,
+) -> Result<AiProviderConfig, String> {
+    let db = state.db.lock().map_err(|e| format!("DB lock failed: {}", e))?;
+
+    let get = |key: &str| -> Option<String> {
+        db.get_setting(key).ok().flatten().filter(|v| !v.trim().is_empty())
+    };
+
+    let provider = get("ai_provider").unwrap_or_else(|| "nvidia".to_string());
+
+    match provider.as_str() {
+        "lmstudio" => {
+            let base = get("lmstudio_base_url")
+                .unwrap_or_else(|| "http://localhost:1234/v1".to_string());
+            // Custom loaded model takes precedence; fall back to whatever the UI passed.
+            let model = get("lmstudio_model").unwrap_or(requested_model);
+            Ok(AiProviderConfig {
+                endpoint: build_openai_endpoint(&base),
+                api_key: get("lmstudio_api_key"),
+                model,
+            })
+        }
+        _ => {
+            let api_key = get("nvidia_api_key").ok_or_else(|| {
+                "NVIDIA API key not configured. Add it in Settings → API Keys.".to_string()
+            })?;
+            Ok(AiProviderConfig {
+                endpoint: "https://integrate.api.nvidia.com/v1/chat/completions".to_string(),
+                api_key: Some(api_key),
+                model: requested_model,
+            })
+        }
+    }
+}
+
 // ── Commands ───────────────────────────────────────────────────────────
 
-/// Non-streaming AI chat — sends messages to NVIDIA API and returns full response
+/// Non-streaming AI chat — sends messages to the configured provider and returns full response
 #[tauri::command]
 pub async fn ai_chat(
     state: tauri::State<'_, AppState>,
     messages: Vec<AiMessage>,
     model: String,
 ) -> Result<AiResponse, String> {
-    // Read API key from settings DB
-    let api_key = {
-        let db = state.db.lock().map_err(|e| format!("DB lock failed: {}", e))?;
-        let conn = db.get_connection().map_err(|e| format!("DB connection failed: {}", e))?;
-        let mut stmt = conn
-            .prepare("SELECT value FROM settings WHERE key = 'nvidia_api_key'")
-            .map_err(|e| format!("DB query failed: {}", e))?;
-        let key: Option<String> = stmt
-            .query_row([], |row| row.get(0))
-            .ok();
-        key
-    };
-
-    let api_key = api_key
-        .filter(|k| !k.trim().is_empty())
-        .ok_or_else(|| "NVIDIA API key not configured. Add it in Settings → API Keys.".to_string())?;
+    let config = resolve_ai_config(&state, model)?;
 
     // Build request body
     let body = serde_json::json!({
-        "model": model,
+        "model": config.model,
         "messages": messages,
         "tools": get_tool_definitions(),
         "tool_choice": "auto",
@@ -532,11 +583,14 @@ pub async fn ai_chat(
     });
 
     let client = reqwest::Client::new();
-    let response = client
-        .post("https://integrate.api.nvidia.com/v1/chat/completions")
-        .header("Authorization", format!("Bearer {}", api_key))
+    let mut req = client
+        .post(&config.endpoint)
         .header("Content-Type", "application/json")
-        .json(&body)
+        .json(&body);
+    if let Some(key) = &config.api_key {
+        req = req.header("Authorization", format!("Bearer {}", key));
+    }
+    let response = req
         .send()
         .await
         .map_err(|e| format!("API request failed: {}", e))?;
@@ -592,25 +646,10 @@ pub async fn ai_chat_stream(
     messages: Vec<AiMessage>,
     model: String,
 ) -> Result<(), String> {
-    // Read API key from settings DB
-    let api_key = {
-        let db = state.db.lock().map_err(|e| format!("DB lock failed: {}", e))?;
-        let conn = db.get_connection().map_err(|e| format!("DB connection failed: {}", e))?;
-        let mut stmt = conn
-            .prepare("SELECT value FROM settings WHERE key = 'nvidia_api_key'")
-            .map_err(|e| format!("DB query failed: {}", e))?;
-        let key: Option<String> = stmt
-            .query_row([], |row| row.get(0))
-            .ok();
-        key
-    };
-
-    let api_key = api_key
-        .filter(|k| !k.trim().is_empty())
-        .ok_or_else(|| "NVIDIA API key not configured. Add it in Settings → API Keys.".to_string())?;
+    let config = resolve_ai_config(&state, model)?;
 
     let body = serde_json::json!({
-        "model": model,
+        "model": config.model,
         "messages": messages,
         "temperature": 0.7,
         "max_tokens": 4096,
@@ -618,11 +657,14 @@ pub async fn ai_chat_stream(
     });
 
     let client = reqwest::Client::new();
-    let response = client
-        .post("https://integrate.api.nvidia.com/v1/chat/completions")
-        .header("Authorization", format!("Bearer {}", api_key))
+    let mut req = client
+        .post(&config.endpoint)
         .header("Content-Type", "application/json")
-        .json(&body)
+        .json(&body);
+    if let Some(key) = &config.api_key {
+        req = req.header("Authorization", format!("Bearer {}", key));
+    }
+    let response = req
         .send()
         .await
         .map_err(|e| format!("API request failed: {}", e))?;
@@ -689,4 +731,61 @@ pub async fn ai_chat_stream(
     });
 
     Ok(())
+}
+
+/// Lists models currently loaded/available on an LM Studio (or any OpenAI-compatible)
+/// server. Used by Settings to detect the custom loaded model and verify connectivity.
+/// `base_url` is optional — falls back to the saved `lmstudio_base_url` setting.
+#[tauri::command]
+pub async fn lmstudio_list_models(
+    state: tauri::State<'_, AppState>,
+    base_url: Option<String>,
+) -> Result<Vec<String>, String> {
+    let (base, api_key) = {
+        let db = state.db.lock().map_err(|e| format!("DB lock failed: {}", e))?;
+        let get = |key: &str| -> Option<String> {
+            db.get_setting(key).ok().flatten().filter(|v| !v.trim().is_empty())
+        };
+        let base = base_url
+            .filter(|b| !b.trim().is_empty())
+            .or_else(|| get("lmstudio_base_url"))
+            .unwrap_or_else(|| "http://localhost:1234/v1".to_string());
+        (base, get("lmstudio_api_key"))
+    };
+
+    let url = format!("{}/models", base.trim().trim_end_matches('/'));
+
+    let client = reqwest::Client::new();
+    let mut req = client.get(&url);
+    if let Some(key) = &api_key {
+        req = req.header("Authorization", format!("Bearer {}", key));
+    }
+    let response = req
+        .send()
+        .await
+        .map_err(|e| format!("Failed to reach LM Studio at {}: {}", url, e))?;
+
+    let status = response.status();
+    let text = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+
+    if !status.is_success() {
+        return Err(format!("LM Studio error ({}): {}", status, text));
+    }
+
+    let parsed: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("Failed to parse models response: {}", e))?;
+
+    let models = parsed["data"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m["id"].as_str().map(|s| s.to_string()))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    Ok(models)
 }

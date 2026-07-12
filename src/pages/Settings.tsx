@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useBlocker } from 'react-router-dom';
 import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, Cloud, FolderOpen, FileText, Search, Copy, Check, Terminal, X, Cpu } from 'lucide-react';
 import { getSetting, setSetting, getAllServers } from '../utils/tauri';
 import toast from 'react-hot-toast';
@@ -38,6 +39,15 @@ export default function Settings() {
     const [showSteamKey, setShowSteamKey] = useState(false);
     const [nvidiaApiKey, setNvidiaApiKey] = useState('');
     const [showNvidiaKey, setShowNvidiaKey] = useState(false);
+
+    // AI Provider state (NVIDIA cloud vs. local LM Studio)
+    const [aiProvider, setAiProvider] = useState<'nvidia' | 'lmstudio'>('nvidia');
+    const [lmStudioBaseUrl, setLmStudioBaseUrl] = useState('http://localhost:1234/v1');
+    const [lmStudioModel, setLmStudioModel] = useState('');
+    const [lmStudioApiKey, setLmStudioApiKey] = useState('');
+    const [showLmStudioKey, setShowLmStudioKey] = useState(false);
+    const [lmStudioModels, setLmStudioModels] = useState<string[]>([]);
+    const [lmStudioProbing, setLmStudioProbing] = useState(false);
     const [currentVersion, setCurrentVersion] = useState<string>('');
     const [startupTimeout, setStartupTimeout] = useState('1800');
 
@@ -131,11 +141,17 @@ export default function Settings() {
     };
 
 
+    /**
+     * Loads all persisted settings from the backend DB (API keys, AI provider +
+     * LM Studio config, startup/recovery options, path overrides) plus local
+     * update settings, and populates the corresponding form state.
+     */
     async function loadSettings() {
         try {
             const [
                 curseforgeKey, steamKey, timeout, nvidiaKey,
-                gasEnabled, gbDelay, minTray, maxCrash, timeWindow, winShortcut, headless, ucf, csp
+                gasEnabled, gbDelay, minTray, maxCrash, timeWindow, winShortcut, headless, ucf, csp,
+                aiProviderVal, lmBaseUrl, lmModel, lmApiKey
             ] = await Promise.all([
                 getSetting('curseforge_api_key'),
                 getSetting('steam_api_key'),
@@ -149,12 +165,20 @@ export default function Settings() {
                 getSetting('windows_startup_shortcut'),
                 getSetting('silent_headless_startup'),
                 getSetting('user_config_folder'),
-                getSetting('custom_steamcmd_path')
+                getSetting('custom_steamcmd_path'),
+                getSetting('ai_provider'),
+                getSetting('lmstudio_base_url'),
+                getSetting('lmstudio_model'),
+                getSetting('lmstudio_api_key')
             ]);
             if (curseforgeKey) setCurseforgeApiKey(curseforgeKey);
             if (steamKey) setSteamApiKey(steamKey);
             if (timeout) setStartupTimeout(timeout);
             if (nvidiaKey) setNvidiaApiKey(nvidiaKey);
+            if (aiProviderVal === 'lmstudio' || aiProviderVal === 'nvidia') setAiProvider(aiProviderVal);
+            if (lmBaseUrl) setLmStudioBaseUrl(lmBaseUrl);
+            if (lmModel) setLmStudioModel(lmModel);
+            if (lmApiKey) setLmStudioApiKey(lmApiKey);
             
             setGlobalAutoStartEnabled(gasEnabled === 'true');
             setGlobalBootDelay(gbDelay || '0');
@@ -189,6 +213,53 @@ export default function Settings() {
             if (s.length > 0 && !selectedServerId) setSelectedServerId(s[0].id);
         }).catch(console.error);
     }, []);
+
+    // ── Unsaved-changes guard ──────────────────────────────────────────
+    /**
+     * Serializes the fields that are only persisted via the Save button into a
+     * stable string, used to detect unsaved edits by comparing against a
+     * baseline. AI provider + LM Studio fields autosave on change, so they are
+     * deliberately excluded here.
+     */
+    const persistedSnapshot = () => JSON.stringify([
+        curseforgeApiKey, steamApiKey, nvidiaApiKey, startupTimeout,
+        globalAutoStartEnabled, globalBootDelay, startMinimizedToTray,
+        loopPreventionMaxCrashes, loopPreventionTimeWindowMins,
+        windowsStartupShortcut, silentHeadlessStartup, userConfigFolder, customSteamcmdPath,
+    ]);
+    const baselineRef = useRef<string>('');
+
+    // Capture the baseline once the initial load has populated state.
+    useEffect(() => {
+        if (!isLoading) baselineRef.current = persistedSnapshot();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoading]);
+
+    const isDirty = !isLoading && baselineRef.current !== '' && baselineRef.current !== persistedSnapshot();
+
+    // Block in-app navigation away from Settings while there are unsaved changes.
+    const blocker = useBlocker(() => isDirty);
+
+    // Warn on window close / reload while dirty.
+    useEffect(() => {
+        const handler = (e: BeforeUnloadEvent) => {
+            if (isDirty) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [isDirty]);
+
+    /**
+     * Save & leave action for the unsaved-changes dialog: persists all settings
+     * and only proceeds with the blocked navigation if the save succeeded.
+     */
+    const handleSaveAndLeave = async () => {
+        const ok = await handleSave();
+        if (ok) blocker.proceed?.();
+    };
 
     const openUrl = async (url: string) => {
         try {
@@ -297,6 +368,61 @@ export default function Settings() {
         toast.success('Version entry removed from history');
     };
 
+    /**
+     * Switches the active AI provider (NVIDIA cloud vs. local LM Studio) and
+     * persists the choice immediately, so it takes effect without the global
+     * Save button — the Rust backend reads `ai_provider` live on each request.
+     */
+    const handleSelectProvider = async (provider: 'nvidia' | 'lmstudio') => {
+        setAiProvider(provider);
+        try {
+            await setSetting('ai_provider', provider);
+        } catch (err) {
+            console.error('Failed to persist AI provider:', err);
+            toast.error('Failed to switch provider');
+        }
+    };
+
+    /**
+     * Probes the configured LM Studio server for its loaded models via the
+     * `lmstudio_list_models` command. Persists the API key, base URL and provider
+     * first so a successful probe is immediately usable, auto-selects the first
+     * loaded model when none is chosen, and surfaces connection errors as toasts.
+     */
+    const handleProbeLmStudio = async () => {
+        setLmStudioProbing(true);
+        try {
+            // Persist the key first so the backend uses it for the probe request.
+            await setSetting('lmstudio_api_key', lmStudioApiKey);
+            const models = await invoke<string[]>('lmstudio_list_models', { baseUrl: lmStudioBaseUrl });
+            setLmStudioModels(models);
+            // Persist URL (and provider) now so a successful probe is immediately usable.
+            await setSetting('lmstudio_base_url', lmStudioBaseUrl);
+            await setSetting('ai_provider', 'lmstudio');
+            if (models.length === 0) {
+                toast('Connected, but no model is loaded in LM Studio.', { icon: '⚠️' });
+            } else {
+                toast.success(`Found ${models.length} model(s)`);
+                // Auto-select and persist the loaded model if none chosen yet
+                if (!lmStudioModel) {
+                    setLmStudioModel(models[0]);
+                    await setSetting('lmstudio_model', models[0]);
+                }
+            }
+        } catch (err) {
+            toast.error(typeof err === 'string' ? err : 'Failed to reach LM Studio');
+            setLmStudioModels([]);
+        } finally {
+            setLmStudioProbing(false);
+        }
+    };
+
+    /**
+     * Persists all Save-button-backed settings to the backend DB, synchronizes
+     * the OS startup hooks (registry run key / Task Scheduler) with the current
+     * options, and resets the unsaved-changes baseline.
+     * @returns `true` if the save succeeded, `false` otherwise.
+     */
     const handleSave = async () => {
         setIsSaving(true);
         try {
@@ -305,6 +431,10 @@ export default function Settings() {
                 setSetting('steam_api_key', steamApiKey),
                 setSetting('startup_timeout', startupTimeout),
                 setSetting('nvidia_api_key', nvidiaApiKey),
+                setSetting('ai_provider', aiProvider),
+                setSetting('lmstudio_base_url', lmStudioBaseUrl),
+                setSetting('lmstudio_model', lmStudioModel),
+                setSetting('lmstudio_api_key', lmStudioApiKey),
                 setSetting('global_auto_start_enabled', globalAutoStartEnabled ? 'true' : 'false'),
                 setSetting('global_boot_delay', globalBootDelay),
                 setSetting('start_minimized_to_tray', startMinimizedToTray ? 'true' : 'false'),
@@ -338,10 +468,13 @@ export default function Settings() {
                 toast.error("Failed to sync OS startup tasks. Run as Administrator if creating Scheduler task.");
             }
 
+            baselineRef.current = persistedSnapshot();
             toast.success(t('settings.saved'));
+            return true;
         } catch (error) {
             console.error('Failed to save settings:', error);
             toast.error(t('settings.saveFailed'));
+            return false;
         } finally {
             setIsSaving(false);
         }
@@ -783,6 +916,165 @@ export default function Settings() {
                             )}
                         </div>
                     </div>
+
+                    {/* AI Provider Selector */}
+                    <div className="glass-panel rounded-2xl p-8">
+                        <div className="flex items-start space-x-4 mb-6">
+                            <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                                <Cpu className="w-6 h-6 text-cyan-400" />
+                            </div>
+                            <div className="flex-1">
+                                <h2 className="text-2xl font-bold text-white mb-2">{t('settings.aiProvider.title', 'AI Provider')}</h2>
+                                <p className="text-slate-400">
+                                    {t('settings.aiProvider.description', 'Choose between NVIDIA cloud models or a local LM Studio server running your own loaded model.')}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <button
+                                onClick={() => handleSelectProvider('nvidia')}
+                                className={cn(
+                                    "text-left p-5 rounded-xl border transition-all",
+                                    aiProvider === 'nvidia'
+                                        ? "bg-emerald-500/10 border-emerald-500/40 ring-1 ring-emerald-500/30"
+                                        : "bg-slate-800/40 border-slate-700 hover:border-slate-600"
+                                )}
+                            >
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Bot className="w-4 h-4 text-emerald-400" />
+                                    <span className="font-semibold text-white">{t('settings.aiProvider.nvidia', 'NVIDIA Cloud')}</span>
+                                    {aiProvider === 'nvidia' && <CheckCircle className="w-4 h-4 text-emerald-400 ml-auto" />}
+                                </div>
+                                <p className="text-xs text-slate-400">{t('settings.aiProvider.nvidiaDesc', 'Hosted NIM models. Requires an API key.')}</p>
+                            </button>
+
+                            <button
+                                onClick={() => handleSelectProvider('lmstudio')}
+                                className={cn(
+                                    "text-left p-5 rounded-xl border transition-all",
+                                    aiProvider === 'lmstudio'
+                                        ? "bg-cyan-500/10 border-cyan-500/40 ring-1 ring-cyan-500/30"
+                                        : "bg-slate-800/40 border-slate-700 hover:border-slate-600"
+                                )}
+                            >
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Cpu className="w-4 h-4 text-cyan-400" />
+                                    <span className="font-semibold text-white">{t('settings.aiProvider.lmstudio', 'LM Studio (Local)')}</span>
+                                    {aiProvider === 'lmstudio' && <CheckCircle className="w-4 h-4 text-cyan-400 ml-auto" />}
+                                </div>
+                                <p className="text-xs text-slate-400">{t('settings.aiProvider.lmstudioDesc', 'Your own loaded model, offline & private.')}</p>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* LM Studio Configuration */}
+                    {aiProvider === 'lmstudio' && (
+                        <div className="glass-panel rounded-2xl p-8">
+                            <div className="flex items-start space-x-4 mb-6">
+                                <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                                    <Terminal className="w-6 h-6 text-cyan-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <h2 className="text-2xl font-bold text-white mb-2">{t('settings.lmStudio.title', 'LM Studio Endpoint')}</h2>
+                                    <p className="text-slate-400">
+                                        {t('settings.lmStudio.description', 'Point Infinity AI at a local OpenAI-compatible server and pick the loaded model.')}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                        {t('settings.lmStudio.baseUrl', 'Server Base URL')}
+                                    </label>
+                                    <div className="relative">
+                                        <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                                        <input
+                                            type="text"
+                                            value={lmStudioBaseUrl}
+                                            onChange={(e) => setLmStudioBaseUrl(e.target.value)}
+                                            onBlur={() => setSetting('lmstudio_base_url', lmStudioBaseUrl).catch(() => {})}
+                                            placeholder="http://localhost:1234/v1"
+                                            className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all font-mono"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        {t('settings.lmStudio.baseUrlHint', "In LM Studio: Developer tab → start the server. Default is http://localhost:1234/v1.")}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                        {t('settings.lmStudio.apiKey', 'API Token')} <span className="text-slate-500 font-normal">({t('common.optional', 'optional')})</span>
+                                    </label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                                        <input
+                                            type={showLmStudioKey ? 'text' : 'password'}
+                                            value={lmStudioApiKey}
+                                            onChange={(e) => setLmStudioApiKey(e.target.value)}
+                                            onBlur={() => setSetting('lmstudio_api_key', lmStudioApiKey).catch(() => {})}
+                                            placeholder={t('settings.lmStudio.apiKeyPlaceholder', 'Leave blank for a default local server')}
+                                            className="w-full pl-12 pr-14 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all font-mono"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowLmStudioKey(!showLmStudioKey)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors text-sm"
+                                        >
+                                            {showLmStudioKey ? t('common.hide') : t('common.show')}
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        {t('settings.lmStudio.apiKeyHint', 'Only needed if your server enforces auth (e.g. a remote endpoint or a proxy in front of LM Studio).')}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                                        {t('settings.lmStudio.model', 'Loaded Model')}
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={lmStudioModel}
+                                            onChange={(e) => setLmStudioModel(e.target.value)}
+                                            onBlur={() => setSetting('lmstudio_model', lmStudioModel).catch(() => {})}
+                                            placeholder="qwen3.5-4b-uncensored-hauhaucs-aggressive"
+                                            list="lmstudio-models"
+                                            className="flex-1 px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all font-mono"
+                                        />
+                                        <datalist id="lmstudio-models">
+                                            {lmStudioModels.map((m) => <option key={m} value={m} />)}
+                                        </datalist>
+                                        <button
+                                            onClick={handleProbeLmStudio}
+                                            disabled={lmStudioProbing}
+                                            className="flex items-center gap-2 px-4 py-3 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg shadow-cyan-500/20 whitespace-nowrap"
+                                        >
+                                            <RefreshCw className={cn("w-4 h-4", lmStudioProbing && "animate-spin")} />
+                                            <span>{t('settings.lmStudio.detect', 'Detect')}</span>
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        {t('settings.lmStudio.modelHint', 'Type the model id or click Detect to list models loaded in LM Studio. Leave blank to use the currently loaded one.')}
+                                    </p>
+                                </div>
+
+                                {lmStudioModels.length > 0 && (
+                                    <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4">
+                                        <div className="flex items-center space-x-2">
+                                            <CheckCircle className="w-5 h-5 text-cyan-400" />
+                                            <span className="text-cyan-400 font-medium">
+                                                {t('settings.lmStudio.connected', 'Connected — {{count}} model(s) available', { count: lmStudioModels.length })}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {/* NVIDIA AI API Key */}
                     <div className="glass-panel rounded-2xl p-8">
@@ -1289,6 +1581,44 @@ export default function Settings() {
             ) : null}
 
             {/* Log Viewer Modal */}
+            {blocker.state === 'blocked' && createPortal(
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="relative w-full max-w-md flex flex-col bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md animate-in zoom-in-95 duration-200">
+                        <div className="p-6 border-b border-slate-800">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <AlertCircle className="w-5 h-5 text-amber-400" />
+                                {t('settings.unsaved.title', 'Unsaved changes')}
+                            </h3>
+                            <p className="text-sm text-slate-400 mt-2">
+                                {t('settings.unsaved.body', 'You have unsaved settings. Leaving this page will discard them.')}
+                            </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2 p-4 bg-slate-900/40">
+                            <button
+                                onClick={() => blocker.reset?.()}
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-medium transition-colors"
+                            >
+                                {t('settings.unsaved.stay', 'Stay')}
+                            </button>
+                            <button
+                                onClick={() => blocker.proceed?.()}
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600/90 hover:bg-red-500 text-white font-medium transition-colors"
+                            >
+                                {t('settings.unsaved.discard', 'Leave without saving')}
+                            </button>
+                            <button
+                                onClick={handleSaveAndLeave}
+                                disabled={isSaving}
+                                className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium transition-colors"
+                            >
+                                {isSaving ? t('common.saving', 'Saving…') : t('settings.unsaved.saveLeave', 'Save & leave')}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
             {isViewLogOpen && createPortal(
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="relative w-full max-w-5xl h-[85vh] flex flex-col bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md animate-in zoom-in-95 duration-200">
