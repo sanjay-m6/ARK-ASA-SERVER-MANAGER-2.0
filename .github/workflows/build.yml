@@ -76,7 +76,7 @@ jobs:
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
             - **Fresh Install**: Download the `.exe` installer below and run it.
 
-            ### 🆕 New Features & Improvements in v4.6.2
+            ### 🆕 New Features & Improvements in v4.6.3
             - **🛠️ Automated Maintenance Sequence Overhaul**:
               - **Visual Skipped Steps**: Skipped/unchecked steps in the maintenance timeline are visually rendered as dashed, lower-opacity, and lined-through icons.
               - **Smart RCON Polling**: Replaced the 30-second blind boot sleep with active polling on the RCON port (up to 90 seconds), proceeding immediately when ready.
