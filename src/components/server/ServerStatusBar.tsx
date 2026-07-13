@@ -296,20 +296,20 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-5 relative z-10">
                 {/* 1. Process Check */}
                 <div className={cn(
-                    "flex items-center gap-3.5 bg-slate-950/20 border rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] shadow-inner",
-                    isProcessActive ? "border-emerald-500/10 hover:border-emerald-500/20" : "border-slate-800/40"
+                    "flex items-center gap-3.5 bg-slate-950/40 backdrop-blur-md border rounded-2xl p-4 transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 shadow-2xl group/diag",
+                    isProcessActive ? "border-emerald-500/10 hover:border-emerald-500/30 hover:shadow-emerald-500/5" : "border-white/5 hover:border-white/10"
                 )}>
                     <div className={cn(
                         "p-3 rounded-xl border transition-all duration-500",
                         isProcessActive 
-                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]" 
-                            : "bg-slate-900/50 border-slate-800 text-slate-500"
+                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)] group-hover/diag:bg-emerald-500/20" 
+                            : "bg-slate-905 border-white/5 text-slate-500"
                     )}>
                         <Cpu className="w-5 h-5" />
                     </div>
                     <div>
                         <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t('serverManager.diagnostics.process', 'Game Process')}</h5>
-                        <p className="text-xs font-bold text-white mt-0.5">
+                        <p className="text-xs font-black text-white mt-0.5 transition-colors group-hover/diag:text-slate-200">
                             {isProcessActive ? t('serverManager.diagnostics.processRunning', 'Active PID') : t('serverManager.diagnostics.processInactive', 'Inactive')}
                         </p>
                     </div>
@@ -317,20 +317,20 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
 
                 {/* 2. Port Binding */}
                 <div className={cn(
-                    "flex items-center gap-3.5 bg-slate-950/20 border rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] shadow-inner",
-                    isPortBound ? "border-emerald-500/10 hover:border-emerald-500/20" : "border-slate-800/40"
+                    "flex items-center gap-3.5 bg-slate-950/40 backdrop-blur-md border rounded-2xl p-4 transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 shadow-2xl group/diag",
+                    isPortBound ? "border-emerald-500/10 hover:border-emerald-500/30 hover:shadow-emerald-500/5" : "border-white/5 hover:border-white/10"
                 )}>
                     <div className={cn(
                         "p-3 rounded-xl border transition-all duration-500",
                         isPortBound 
-                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]" 
-                            : "bg-slate-900/50 border-slate-800 text-slate-500"
+                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)] group-hover/diag:bg-emerald-500/20" 
+                            : "bg-slate-905 border-white/5 text-slate-500"
                     )}>
                         <Terminal className="w-5 h-5" />
                     </div>
                     <div>
                         <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t('serverManager.diagnostics.port', 'UDP Port Binding')}</h5>
-                        <p className="text-xs font-bold text-white mt-0.5">
+                        <p className="text-xs font-black text-white mt-0.5 transition-colors group-hover/diag:text-slate-200">
                             {isPortBound ? t('serverManager.diagnostics.portBound', 'Listening') : t('serverManager.diagnostics.portClosed', 'Closed')}
                         </p>
                     </div>
@@ -338,20 +338,20 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
 
                 {/* 3. LAN Reachability */}
                 <div className={cn(
-                    "flex items-center gap-3.5 bg-slate-950/20 border rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] shadow-inner",
-                    isLanVisible ? "border-amber-500/10 hover:border-amber-500/20" : "border-slate-800/40"
+                    "flex items-center gap-3.5 bg-slate-950/40 backdrop-blur-md border rounded-2xl p-4 transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 shadow-2xl group/diag",
+                    isLanVisible ? "border-amber-500/10 hover:border-amber-500/30 hover:shadow-amber-500/5" : "border-white/5 hover:border-white/10"
                 )}>
                     <div className={cn(
                         "p-3 rounded-xl border transition-all duration-500",
                         isLanVisible 
-                            ? "bg-amber-500/10 border-amber-500/20 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]" 
-                            : "bg-slate-900/50 border-slate-800 text-slate-500"
+                            ? "bg-amber-500/10 border-amber-500/20 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)] group-hover/diag:bg-amber-500/20" 
+                            : "bg-slate-905 border-white/5 text-slate-500"
                     )}>
                         <Wifi className="w-5 h-5" />
                     </div>
                     <div>
                         <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t('serverManager.diagnostics.lan', 'LAN Reachability')}</h5>
-                        <p className="text-xs font-bold text-white mt-0.5">
+                        <p className="text-xs font-black text-white mt-0.5 transition-colors group-hover/diag:text-slate-200">
                             {isLanVisible ? t('serverManager.diagnostics.lanVisible', 'Responsive (A2S)') : t('serverManager.diagnostics.lanBlocked', 'No Response')}
                         </p>
                     </div>
@@ -359,20 +359,20 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
 
                 {/* 4. WAN Reachability */}
                 <div className={cn(
-                    "flex items-center gap-3.5 bg-slate-950/20 border rounded-xl p-4 transition-all duration-300 hover:scale-[1.01] shadow-inner",
-                    isWanVisible ? "border-cyan-500/10 hover:border-cyan-500/20" : "border-slate-800/40"
+                    "flex items-center gap-3.5 bg-slate-950/40 backdrop-blur-md border rounded-2xl p-4 transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 shadow-2xl group/diag",
+                    isWanVisible ? "border-cyan-500/10 hover:border-cyan-500/30 hover:shadow-cyan-500/5" : "border-white/5 hover:border-white/10"
                 )}>
                     <div className={cn(
                         "p-3 rounded-xl border transition-all duration-500",
                         isWanVisible 
-                            ? "bg-cyan-500/10 border-cyan-400/20 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.15)]" 
-                            : "bg-slate-900/50 border-slate-800 text-slate-500"
+                            ? "bg-cyan-500/10 border-cyan-400/20 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.15)] group-hover/diag:bg-cyan-500/20" 
+                            : "bg-slate-905 border-white/5 text-slate-500"
                     )}>
                         <Globe className="w-5 h-5" />
                     </div>
                     <div>
                         <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t('serverManager.diagnostics.wan', 'Global Visibility')}</h5>
-                        <p className="text-xs font-bold text-white mt-0.5">
+                        <p className="text-xs font-black text-white mt-0.5 transition-colors group-hover/diag:text-slate-200">
                             {isWanVisible ? t('serverManager.diagnostics.wanVisible', 'Publicly Accessible') : t('serverManager.diagnostics.wanBlocked', 'Blocked / Filtered')}
                         </p>
                     </div>

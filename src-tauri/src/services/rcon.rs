@@ -30,12 +30,14 @@ struct RconSession {
 #[derive(Clone)]
 pub struct RconService {
     sessions: Arc<Mutex<HashMap<i64, RconSession>>>,
+    app_handle: Arc<Mutex<Option<tauri::AppHandle>>>,
 }
 
 impl RconService {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
+            app_handle: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -237,6 +239,92 @@ impl RconService {
                 }
             }
         } else {
+            // Check if we can automatically establish the connection
+            let mut auto_connected = false;
+            let mut ip = String::new();
+            let mut port = 0u16;
+            let mut pwd = String::new();
+
+            if let Some(app_handle) = self.app_handle.try_lock().ok().and_then(|guard| guard.clone()) {
+                if let Some(state) = app_handle.try_state::<crate::AppState>() {
+                    if let Ok(db) = state.db.lock() {
+                        if let Ok(conn) = db.get_connection() {
+                            if server_id > 0 {
+                                // ASA
+                                if let Ok(mut stmt) = conn.prepare("SELECT COALESCE(ip_address, '127.0.0.1'), rcon_port, admin_password FROM servers WHERE id = ?1 AND rcon_enabled = 1") {
+                                    if let Ok(mut rows) = stmt.query([server_id]) {
+                                        if let Ok(Some(row)) = rows.next() {
+                                            if let (Ok(db_ip), Ok(db_port), Ok(db_pwd)) = (row.get::<_, String>(0), row.get::<_, i64>(1), row.get::<_, String>(2)) {
+                                                ip = db_ip;
+                                                port = db_port as u16;
+                                                pwd = db_pwd;
+                                                auto_connected = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                // ASE (negative ID)
+                                let clean_id = server_id.abs();
+                                if let Ok(mut stmt) = conn.prepare("SELECT '127.0.0.1', rcon_port, admin_password FROM ase_servers WHERE id = ?1") {
+                                    if let Ok(mut rows) = stmt.query([clean_id]) {
+                                        if let Ok(Some(row)) = rows.next() {
+                                            if let (Ok(db_ip), Ok(db_port), Ok(db_pwd)) = (row.get::<_, String>(0), row.get::<_, i64>(1), row.get::<_, String>(2)) {
+                                                ip = db_ip;
+                                                port = db_port as u16;
+                                                pwd = db_pwd;
+                                                auto_connected = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if auto_connected && !pwd.is_empty() {
+                log::info!(
+                    "[RCON] No active session for server {}. Attempting auto-connect to {}:{}...",
+                    server_id,
+                    ip,
+                    port
+                );
+                // Sanitize any corrupted ?ServerPassword= suffixes from the database
+                let clean_password = pwd
+                    .split("?ServerPassword=")
+                    .next()
+                    .unwrap_or(&pwd)
+                    .to_string();
+
+                drop(sessions); // Drop mutex guard before calling connect to avoid deadlock!
+
+                if let Ok(resp) = self.connect(server_id, &ip, port, &clean_password).await {
+                    if resp.success {
+                        log::info!("[RCON] Auto-connect successful for server {}. Retrying command...", server_id);
+                        // Re-acquire lock and retry send
+                        let mut sessions = self.sessions.lock().await;
+                        if let Some(session) = sessions.get_mut(&server_id) {
+                            match session.connection.send_command(&command_owned).await {
+                                Ok(response) => {
+                                    return Ok(RconResponse {
+                                        success: true,
+                                        message: "Command executed after auto-connect".to_string(),
+                                        data: Some(response),
+                                    });
+                                }
+                                Err(e) => {
+                                    return Err(format!("Command failed after auto-connect: {}", e));
+                                }
+                            }
+                        }
+                    }
+                }
+                // If auto-connect or retry failed:
+                return Err("No active RCON connection, and auto-connection failed".to_string());
+            }
+
             log::warn!(
                 "[RCON] Command '{}' rejected — no active connection for server {}",
                 command_owned,
@@ -398,6 +486,11 @@ impl RconService {
     }
 
     pub fn spawn_heartbeat(&self, app_handle: tauri::AppHandle) {
+        {
+            if let Ok(mut handle) = self.app_handle.try_lock() {
+                *handle = Some(app_handle.clone());
+            }
+        }
         let service = self.clone();
         tauri::async_runtime::spawn(async move {
             log::info!("[RCON] Starting background player count heartbeat task...");

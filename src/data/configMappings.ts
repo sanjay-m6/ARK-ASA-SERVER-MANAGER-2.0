@@ -934,82 +934,10 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         ]
     },
     {
-        title: 'Breeding & Imprinting',
-        description: 'Baby care and imprinting mechanics',
+        title: 'Breeding Rules & Imprinting',
+        description: 'Baby care and imprinting rules',
         category: 'breeding',
         fields: [
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'MatingIntervalMultiplier',
-                label: 'Mating Interval',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1, max: 10, step: 0.1,
-                description: 'Lower means dinos can mate sooner'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'EggHatchSpeedMultiplier',
-                label: 'Egg Hatch Speed',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1, max: 50, step: 0.1,
-                description: 'Higher means faster hatching/gestation'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'BabyMatureSpeedMultiplier',
-                label: 'Baby Mature Speed',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1, max: 50, step: 0.1,
-                description: 'Higher means babies grow faster'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'BabyFoodConsumptionSpeedMultiplier',
-                label: 'Baby Food Consumption',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1, max: 10, step: 0.1,
-                description: 'Lower means babies eat less'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'BabyCuddleIntervalMultiplier',
-                label: 'Cuddle Interval',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1, max: 10, step: 0.1,
-                description: 'Lower means imprint requests happen sooner'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'BabyCuddleGracePeriodMultiplier',
-                label: 'Cuddle Grace Period',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1, max: 10, step: 0.1,
-                description: 'Grace period before imprinting decays'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'BabyCuddleLoseImprintQualitySpeedMultiplier',
-                label: 'Imprint Quality Loss Speed',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1, max: 10, step: 0.1,
-                description: 'How fast imprint is lost when overdue'
-            },
-            {
-                section: '/Script/ShooterGame.ShooterGameMode',
-                key: 'BabyImprintingStatScaleMultiplier',
-                label: 'Imprint Stat Scale',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1, max: 10, step: 0.1,
-                description: 'Multiplier for the stat bonus from imprinting'
-            },
             {
                 section: 'ServerSettings',
                 key: 'AllowAnyoneBabyImprintCuddle',

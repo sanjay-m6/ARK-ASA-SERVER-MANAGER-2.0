@@ -36,6 +36,7 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/helpers';
 import { useServerStore } from '../../stores/serverStore';
+import { useAseServerStore } from '../../ase/stores/aseServerStore';
 import { useGameStore } from '../../stores/gameStore';
 import asaLogo from '../../assets/ASA.png';
 import aseLogo from '../../assets/ASE.png';
@@ -56,13 +57,24 @@ export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [appVersion, setAppVersion] = useState<string>('');
-  const servers = useServerStore((state) => state.servers);
   const [openSections, setOpenSections] = useState<string[]>(['Tools']);
   const [searchQuery, setSearchQuery] = useState('');
   const { t } = useTranslation();
 
   const { activeGame, setActiveGame, isSidebarCollapsed, setSidebarCollapsed, showAseMode, setShowAseMode } = useGameStore();
   const isASE = activeGame === 'ASE';
+
+  // Auto-collapse sidebar on narrow screens (e.g. vertical displays)
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1200) {
+        setSidebarCollapsed(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [setSidebarCollapsed]);
 
   const asaNavigation = [
     { name: t('sidebar.dashboard'), path: '/dashboard', icon: LayoutDashboard },
@@ -84,11 +96,9 @@ export default function Sidebar() {
         { name: 'Hardware Allocation', path: '/hardware', icon: Cpu },
         { name: t('sidebar.discordBot'), path: '/tools/discord', icon: MessageSquare },
         { name: t('sidebar.plugins'), path: '/tools/plugins', icon: Plug },
-        { name: t('sidebar.chatTranslator', 'Chat Translator'), path: '/tools/chat-translator', icon: Languages },
         { name: t('sidebar.combatMetrics', 'Combat Metrics'), path: '/tools/combat-metrics', icon: Swords },
         { name: t('sidebar.fileManager'), path: '/tools/files', icon: Folder },
         { name: t('sidebar.tribeLogs', 'Tribe Logs'), path: '/tools/tribe-logs', icon: ScrollText },
-        { name: t('sidebar.upnp', 'UPnP Ports'), path: '/tools/upnp', icon: Wifi },
         { name: t('sidebar.serverOrganization', 'Server Organization'), path: '/tools/organization', icon: Folder },
         { name: t('sidebar.boostManager', 'Boost Manager'), path: '/tools/boost', icon: Zap },
       ]
@@ -155,7 +165,18 @@ export default function Sidebar() {
   }, [location.pathname, activeGame, setActiveGame]);
 
   // Check if any server is running
-  const runningServers = servers.filter((s) => s.status === 'running');
+  const asaServers = useServerStore((state) => state.servers);
+  const aseServers = useAseServerStore((state) => state.servers);
+  const activeModeServers = isASE ? aseServers : asaServers;
+
+  const runningServers = activeModeServers.filter((s) => 
+    s.status === 'running' || 
+    s.status === 'online' || 
+    s.status === 'starting' || 
+    s.status === 'updating' || 
+    s.status === 'restarting' || 
+    s.status === 'stopping'
+  );
   const isAnyServerRunning = runningServers.length > 0;
   const systemStatus = isAnyServerRunning 
     ? t('common.online', 'Online') 

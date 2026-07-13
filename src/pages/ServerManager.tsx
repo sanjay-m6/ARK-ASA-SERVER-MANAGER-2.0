@@ -1010,45 +1010,45 @@ export default function ServerManager() {
                             </span>
                         </label>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto bg-slate-950/40 rounded-xl border border-white/5 p-1">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto bg-slate-950/40 rounded-full border border-white/5 p-2">
                         <button
                             onClick={handleBulkStart}
                             disabled={selectedServers.length === 0}
-                            className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-green-500/10 text-green-500 rounded-lg transition-all text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
                         >
-                            <Play className="w-4 h-4 fill-current" />
+                            <Play className="w-3.5 h-3.5 fill-current" />
                             <span>{t('serverManager.buttons.startSelected')}</span>
                         </button>
                         <button
                             onClick={handleStartAll}
-                            className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-sky-500/10 text-sky-400 rounded-lg transition-all text-sm font-medium"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-sky-500/10 text-sky-400 border border-sky-500/20 hover:bg-sky-500/20 hover:border-sky-500/30 rounded-full transition-all text-xs font-semibold"
                         >
-                            <Play className="w-4 h-4 fill-current" />
+                            <Play className="w-3.5 h-3.5 fill-current" />
                             <span>{t('serverManager.buttons.startAll')}</span>
                         </button>
-                        <div className="w-px h-6 bg-white/10 hidden sm:block mx-1"></div>
+                        <div className="w-px h-5 bg-white/10 hidden sm:block mx-1.5"></div>
                         <button
                             onClick={handleBulkStop}
                             disabled={selectedServers.length === 0}
-                            className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-red-500/10 text-red-400 rounded-lg transition-all text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
                         >
-                            <Square className="w-4 h-4 fill-current" />
+                            <Square className="w-3.5 h-3.5 fill-current" />
                             <span>{t('serverManager.buttons.stopSelected', 'Stop Selected')}</span>
                         </button>
                         <button
                             onClick={handleBulkMoveServers}
                             disabled={selectedServers.length === 0}
-                            className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-amber-500/10 text-amber-400 rounded-lg transition-all text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
                         >
-                            <FolderOpen className="w-4 h-4" />
+                            <FolderOpen className="w-3.5 h-3.5" />
                             <span>{t('serverManager.buttons.moveSelected', 'Move Selected')}</span>
                         </button>
-                        <div className="w-px h-6 bg-white/10 hidden sm:block mx-1"></div>
+                        <div className="w-px h-5 bg-white/10 hidden sm:block mx-1.5"></div>
                         <button
                             onClick={handleStopAll}
-                            className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-rose-500/10 text-rose-400 rounded-lg transition-all text-sm font-medium"
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30 rounded-full transition-all text-xs font-semibold"
                         >
-                            <Square className="w-4 h-4 fill-current" />
+                            <Square className="w-3.5 h-3.5 fill-current" />
                             <span>{t('serverManager.buttons.stopAll', 'Stop All')}</span>
                         </button>
                     </div>
@@ -1113,7 +1113,7 @@ export default function ServerManager() {
                                                         <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-sky-500/5 to-transparent rounded-full blur-3xl -mr-32 -mt-32"></div>
                                                     </div>
 
-                                                    <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                                                     <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
                                                          {/* Left-hand section: Info */}
                                                          <div className="flex items-center gap-4 flex-1 min-w-0">
                                                              {/* Drag Handle */}
@@ -1265,7 +1265,7 @@ export default function ServerManager() {
                                                          {/* Actions Toolbar (Server Action Pod) */}
                                                          <div 
                                                              onClick={(e) => e.stopPropagation()}
-                                                             className="flex items-center gap-4 p-1.5 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-full shadow-lg lg:mr-8 shrink-0 no-collapse"
+                                                             className="flex items-center gap-4 p-1.5 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-full shadow-lg xl:mr-8 shrink-0 no-collapse w-fit mx-auto xl:mx-0 self-center xl:self-auto mt-4 xl:mt-0"
                                                          >
                                                              {server.status === 'stopped' || server.status === 'crashed' ? (
                                                                  <div className="relative group/start">
@@ -1277,7 +1277,7 @@ export default function ServerManager() {
                                                                          <Play className="w-5 h-5 fill-current" />
                                                                      </button>
                                                                      {/* Start Options Dropdown */}
-                                                                     <div className="absolute top-full right-0 lg:left-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/start:opacity-100 group-hover/start:visible transition-all duration-200 z-50 overflow-hidden origin-top-right lg:origin-top-left scale-95 group-hover/start:scale-100">
+                                                                     <div className="absolute top-full left-1/2 -translate-x-1/2 xl:translate-x-0 xl:left-0 xl:right-auto mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/start:opacity-100 group-hover/start:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-left scale-95 group-hover/start:scale-100">
                                                                          <button
                                                                              onClick={() => handleStartServer(server.id)}
                                                                              className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
@@ -1315,7 +1315,7 @@ export default function ServerManager() {
                                                                  </button>
 
                                                                  {/* Dropdown Menu */}
-                                                                 <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
+                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/dropdown:scale-100">
                                                                      <button
                                                                          onClick={() => handleRestartServer(server.id)}
                                                                          className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
@@ -1374,7 +1374,7 @@ export default function ServerManager() {
                                                                  </button>
                                                                  
                                                                  {/* Update Options Dropdown */}
-                                                                 <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/update:opacity-100 group-hover/update:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/update:scale-100">
+                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/update:opacity-100 group-hover/update:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/update:scale-100">
                                                                      <button
                                                                          onClick={() => handleUpdateServer(server.id)}
                                                                          className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
@@ -1405,7 +1405,7 @@ export default function ServerManager() {
                                                                  </button>
 
                                                                  {/* Settings Options Dropdown */}
-                                                                 <div className="absolute top-full right-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/settings:opacity-100 group-hover/settings:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/settings:scale-100">
+                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/settings:opacity-100 group-hover/settings:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/settings:scale-100">
                                                                      <button
                                                                          onClick={() => navigate('/config', { state: { serverId: server.id } })}
                                                                          className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
@@ -1463,40 +1463,40 @@ export default function ServerManager() {
                                         className="overflow-hidden"
                                     >
 
-                            {/* Server Details Footer */}
-                            <div className="mt-6 p-5 bg-slate-950/30 rounded-xl border border-slate-800/50 shadow-inner">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                            <FolderOpen className="w-4 h-4" />
-                                            <p className="text-[11px] uppercase tracking-wider font-semibold">{t('serverManager.serverDetails.installPath')}</p>
-                                        </div>
-                                        <p className="text-slate-300 font-mono text-xs truncate bg-slate-900/50 p-2 rounded-lg border border-slate-800/50 shadow-inner" title={server.installPath}>{server.installPath}</p>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                            <Users className="w-4 h-4" />
-                                            <p className="text-[11px] uppercase tracking-wider font-semibold">{t('serverManager.serverDetails.maxPlayers')}</p>
-                                        </div>
-                                        <p className="text-slate-300 text-xs bg-slate-900/50 p-2 rounded-lg border border-slate-800/50 shadow-inner truncate">{server.config.maxPlayers} {t('serverManager.serverDetails.survivors')}</p>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                            <PenLine className="w-4 h-4" />
-                                            <p className="text-[11px] uppercase tracking-wider font-semibold">{t('serverManager.serverDetails.sessionName')}</p>
-                                        </div>
-                                        <p className="text-slate-300 text-xs truncate bg-slate-900/50 p-2 rounded-lg border border-slate-800/50 shadow-inner">{server.config.sessionName}</p>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                            <Network className="w-4 h-4" />
-                                            <p className="text-[11px] uppercase tracking-wider font-semibold">{t('serverManager.serverDetails.connection')}</p>
-                                        </div>
-                                        <p className="text-slate-300 font-mono text-xs bg-slate-900/50 p-2 rounded-lg border border-slate-800/50 shadow-inner truncate">
-                                            {server.ipAddress ? server.ipAddress : "0.0.0.0"} : {server.ports.gamePort}
-                                        </p>
-                                    </div>
-                                </div>
+                             {/* Server Details Footer */}
+                             <div className="mt-6 p-5 bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-2xl transition-all duration-300 hover:shadow-sky-500/5">
+                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
+                                     <div className="space-y-2 group/field">
+                                         <div className="flex items-center gap-2 text-slate-400 group-hover/field:text-slate-200 transition-colors">
+                                             <FolderOpen className="w-4 h-4 text-sky-400/80" />
+                                             <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.installPath')}</p>
+                                         </div>
+                                         <p className="text-slate-300 font-mono text-xs truncate bg-slate-950/40 p-2.5 rounded-xl border border-white/5 hover:border-white/10 transition-colors shadow-inner" title={server.installPath}>{server.installPath}</p>
+                                     </div>
+                                     <div className="space-y-2 group/field">
+                                         <div className="flex items-center gap-2 text-slate-400 group-hover/field:text-slate-200 transition-colors">
+                                             <Users className="w-4 h-4 text-sky-400/80" />
+                                             <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.maxPlayers')}</p>
+                                         </div>
+                                         <p className="text-slate-300 text-xs bg-slate-950/40 p-2.5 rounded-xl border border-white/5 hover:border-white/10 transition-colors shadow-inner truncate">{server.config.maxPlayers} {t('serverManager.serverDetails.survivors')}</p>
+                                     </div>
+                                     <div className="space-y-2 group/field">
+                                         <div className="flex items-center gap-2 text-slate-400 group-hover/field:text-slate-200 transition-colors">
+                                             <PenLine className="w-4 h-4 text-sky-400/80" />
+                                             <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.sessionName')}</p>
+                                         </div>
+                                         <p className="text-slate-300 text-xs truncate bg-slate-950/40 p-2.5 rounded-xl border border-white/5 hover:border-white/10 transition-colors shadow-inner">{server.config.sessionName}</p>
+                                     </div>
+                                     <div className="space-y-2 group/field">
+                                         <div className="flex items-center gap-2 text-slate-400 group-hover/field:text-slate-200 transition-colors">
+                                             <Network className="w-4 h-4 text-sky-400/80" />
+                                             <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.connection')}</p>
+                                         </div>
+                                         <p className="text-slate-300 font-mono text-xs bg-slate-950/40 p-2.5 rounded-xl border border-white/5 hover:border-white/10 transition-colors shadow-inner truncate">
+                                             {server.ipAddress ? server.ipAddress : "0.0.0.0"} : {server.ports.gamePort}
+                                         </p>
+                                     </div>
+                                 </div>
                                 {moveProgress[server.id] && (
                                     <div className="mt-4 p-4 bg-slate-900 rounded-lg border border-slate-800">
                                         <div className="flex justify-between items-center mb-2">
@@ -1523,7 +1523,7 @@ export default function ServerManager() {
                                         <Cpu className="w-4 h-4 text-sky-400" />
                                         <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('serverManager.serverDetails.automation')}</span>
                                     </div>
-                                <label className="flex items-center gap-2 cursor-pointer group/toggle">
+                                <label className="flex items-center gap-2.5 cursor-pointer group/toggle select-none">
                                     <div className="relative">
                                         <input
                                             type="checkbox"
@@ -1531,15 +1531,15 @@ export default function ServerManager() {
                                             checked={server.autoStart || false}
                                             onChange={() => handleToggleAutomation(server.id, 'auto_start', server.autoStart || false)}
                                         />
-                                        <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
+                                        <div className="relative w-10 h-6 bg-slate-950/60 border border-slate-700/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[16px] rtl:peer-checked:after:-translate-x-[16px] peer-checked:after:border-white/10 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 peer-checked:after:bg-emerald-400 after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-emerald-500/20 peer-checked:border-emerald-500/40 shadow-inner after:shadow-md peer-checked:after:shadow-[0_0_8px_rgba(52,211,153,0.5)] transition-all"></div>
                                     </div>
-                                    <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStart')}</span>
+                                    <span className="text-slate-400 text-sm font-bold group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStart')}</span>
                                 </label>
 
                                 {server.autoStart && (
-                                    <div className="flex items-center gap-3 bg-slate-800/40 px-3 py-1 rounded-lg border border-slate-700/50 animate-in fade-in duration-200 text-xs">
+                                    <div className="flex items-center gap-3 bg-slate-950/40 px-3 py-1.5 rounded-xl border border-white/5 animate-in fade-in duration-200 text-xs shadow-inner">
                                         <div className="flex items-center gap-1.5 text-slate-400">
-                                            <span>Delay:</span>
+                                            <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Delay:</span>
                                             <input
                                                 type="number"
                                                 min="0"
@@ -1556,13 +1556,13 @@ export default function ServerManager() {
                                                         console.error("Failed to update delay:", err);
                                                     }
                                                 }}
-                                                className="w-12 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-white font-mono text-center focus:outline-none focus:border-sky-500"
+                                                className="w-12 bg-slate-950 border border-white/5 rounded-lg px-1.5 py-0.5 text-white font-mono text-center focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/50"
                                             />
-                                            <span>s</span>
+                                            <span className="text-slate-500">s</span>
                                         </div>
-                                        <div className="w-px h-3 bg-slate-700"></div>
+                                        <div className="w-px h-3.5 bg-white/10"></div>
                                         <div className="flex items-center gap-1.5 text-slate-400">
-                                            <span>Priority:</span>
+                                            <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Priority:</span>
                                             <input
                                                 type="number"
                                                 min="0"
@@ -1579,13 +1579,13 @@ export default function ServerManager() {
                                                         console.error("Failed to update priority:", err);
                                                     }
                                                 }}
-                                                className="w-10 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-white font-mono text-center focus:outline-none focus:border-sky-500"
+                                                className="w-10 bg-slate-950 border border-white/5 rounded-lg px-1.5 py-0.5 text-white font-mono text-center focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500/50"
                                             />
                                         </div>
                                     </div>
                                 )}
 
-                                <label className="flex items-center gap-2 cursor-pointer group/toggle">
+                                <label className="flex items-center gap-2.5 cursor-pointer group/toggle select-none">
                                     <div className="relative">
                                         <input
                                             type="checkbox"
@@ -1593,15 +1593,15 @@ export default function ServerManager() {
                                             checked={server.autoStop || false}
                                             onChange={() => handleToggleAutomation(server.id, 'auto_stop', server.autoStop || false)}
                                         />
-                                        <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500"></div>
+                                        <div className="relative w-10 h-6 bg-slate-955/60 border border-slate-700/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[16px] rtl:peer-checked:after:-translate-x-[16px] peer-checked:after:border-white/10 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 peer-checked:after:bg-rose-400 after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-rose-500/20 peer-checked:border-rose-500/40 shadow-inner after:shadow-md peer-checked:after:shadow-[0_0_8px_rgba(244,63,94,0.5)] transition-all"></div>
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStop')}</span>
+                                        <span className="text-slate-400 text-sm font-bold group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStop')}</span>
                                         <span className="text-[10px] text-slate-500">{t('serverManager.serverDetails.onConfigChange')}</span>
                                     </div>
                                 </label>
 
-                                <label className="flex items-center gap-2 cursor-pointer group/toggle ml-auto lg:ml-0">
+                                <label className="flex items-center gap-2.5 cursor-pointer group/toggle ml-auto lg:ml-0 select-none">
                                     <div className="relative">
                                         <input
                                             type="checkbox"
@@ -1609,7 +1609,7 @@ export default function ServerManager() {
                                             checked={server.intelligentMode || false}
                                             onChange={() => handleToggleAutomation(server.id, 'intelligent_mode', server.intelligentMode || false)}
                                         />
-                                        <div className="w-10 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500 shadow-inner"></div>
+                                        <div className="relative w-10 h-6 bg-slate-950/60 border border-slate-700/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[16px] rtl:peer-checked:after:-translate-x-[16px] peer-checked:after:border-white/10 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 peer-checked:after:bg-sky-400 after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-sky-500/20 peer-checked:border-sky-500/40 shadow-inner after:shadow-md peer-checked:after:shadow-[0_0_8px_rgba(14,165,233,0.5)] transition-all"></div>
                                     </div>
                                     <div className="flex flex-col">
                                         <div className="flex items-center gap-1.5">

@@ -77,6 +77,25 @@ jobs:
             - **Fresh Install**: Download the `.exe` installer below and run it.
 
             ### 🆕 New Features & Improvements in v4.6.2
+            - **🛠️ Automated Maintenance Sequence Overhaul**:
+              - **Visual Skipped Steps**: Skipped/unchecked steps in the maintenance timeline are visually rendered as dashed, lower-opacity, and lined-through icons.
+              - **Smart RCON Polling**: Replaced the 30-second blind boot sleep with active polling on the RCON port (up to 90 seconds), proceeding immediately when ready.
+              - **Instant Abort Feedback**: Clicking "Abort" now resets the UI state back to idle immediately, while the background process exits gracefully at the next await check.
+            - **📡 Dual-Store System Status indicator (Online/Offline) Fix**:
+              - The main sidebar/topbar status indicators now accurately check either `useServerStore` (ASA) or `useAseServerStore` (ASE) depending on the active game mode.
+              - Expanded the active status checks to include all transitional states (`online`, `running`, `starting`, `updating`, `restarting`, `stopping`) instead of just `running`.
+            - **🛡️ Mod Startup Crash & Warnings Fix**:
+              - **Mod ID "0" Filter**: Added database and configuration filters to discard invalid mod IDs like `"0"`, which previously crashed the server engine on startup.
+              - **False-Positive Mod Warning Suppression**: Batch-processes and filters the log stream to silence the annoying false-positive "Not all mods were installed" warning if 0 mods failed.
+            - **🦖 Mod Manager Drag-and-Drop & Bulk Actions**:
+              - Fully integrated drag-and-drop mod reordering with index mapping and visual highlight states.
+              - Added quick "Enable All" and "Disable All" bulk controls utilizing a single fast Rust database command.
+              - Included a premium fallback mod thumbnail icon for failed or missing CurseForge images.
+            - **🎨 Premium UI Overhauls**:
+              - **Full-Width Server Control Hub**: Top full-width layout for high-density server listings.
+              - **Pill-Shaped Floating Actions**: Compact bulk actions bar with balanced padding.
+              - **Pulsing Circular Spinners**: Unique start/stop circular ring progress spinners for real-time lifecycle tracking.
+              - **Toggle Knob Anchoring**: Fixed misaligned knobs by correctly centering the layout.
             - **🔌 Per-Server ASA Plugin Manager**: Complete per-server plugin manager in the UI for ASA servers. Discovered plugins are fully parsed for manifests (`PluginInfo.json`), status checks, and dependency validation.
             - **⚙️ API Loader and DLL Renaming**: Frontend UI toggle and backend support to switch the server launch executable between `AsaApiLoader.exe` (with loader console output enabled) and the native `ArkAscendedServer.exe`.
             - **📁 Custom SteamCMD Path Redirect**: Redirect SteamCMD and server workshop downloads to a custom folder path. The settings page automatically validates and warns against non-ASCII/non-English characters to prevent crashes.

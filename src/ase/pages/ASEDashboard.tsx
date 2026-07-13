@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Server, Activity, Zap, Terminal, Puzzle,
   Play, Square, RotateCw, Clock, Database, FileEdit,
-  Folder, FolderOpen, Heart, Bookmark, Search, Globe, ShieldCheck, Copy, RefreshCw
+  Folder, FolderOpen, Heart, Bookmark, Search, Globe, Copy, RefreshCw
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -28,6 +28,7 @@ export default function ASEDashboard() {
   const { servers, updateServerStatus, refreshServers } = useAseServerStore();
   const { systemInfo, setSystemInfo } = useUIStore();
   const [performanceHistory, setPerformanceHistory] = useState<any[]>([]);
+  const [stoppingServers, setStoppingServers] = useState<number[]>([]);
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -197,8 +198,16 @@ export default function ASEDashboard() {
     catch (e) { updateServerStatus(id, 'stopped'); toast.error(`Failed: ${e}`); }
   };
   const handleStop = async (id: number) => {
-    try { await stopAseServer(id); updateServerStatus(id, 'stopped'); toast.success('Server stopped'); }
-    catch (e) { toast.error(`Failed: ${e}`); }
+    try {
+      setStoppingServers(prev => [...prev, id]);
+      await stopAseServer(id);
+      updateServerStatus(id, 'stopped');
+      toast.success('Server stopped');
+    } catch (e) {
+      toast.error(`Failed: ${e}`);
+    } finally {
+      setStoppingServers(prev => prev.filter(x => x !== id));
+    }
   };
 
   const handleRestart = async (id: number, wipeDinos?: boolean) => {
@@ -451,11 +460,9 @@ export default function ASEDashboard() {
       </div>
 
       {/* Main Command Center Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left Column (2/3 width) */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Server Hub */}
-          <div className="glass-panel rounded-2xl p-6">
+      <div className="space-y-6 animate-in fade-in duration-500">
+        {/* Server Hub */}
+        <div className="glass-panel rounded-2xl p-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
               <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
                 <span className="text-amber-400 font-mono font-black leading-none mt-0.5">{'>_'}</span>
@@ -473,7 +480,7 @@ export default function ASEDashboard() {
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     placeholder="Search server..."
-                    className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50 focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 w-48 transition-all"
+                    className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 w-48 transition-all"
                   />
                 </div>
                 <button
@@ -713,7 +720,7 @@ export default function ASEDashboard() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2.5">
-                        {(srv.status === 'stopped' || srv.status === 'crashed') ? (
+                        {(srv.status === 'stopped' || srv.status === 'crashed') && !stoppingServers.includes(srv.id) ? (
                           <button
                             onClick={() => handleStart(srv.id)}
                             className="w-[34px] h-[34px] flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
@@ -722,7 +729,7 @@ export default function ASEDashboard() {
                           >
                             <Play className="w-4 h-4 fill-current ml-0.5" />
                           </button>
-                        ) : (srv.status === 'running' || srv.status === 'online') ? (
+                        ) : (srv.status === 'running' || srv.status === 'online') && !stoppingServers.includes(srv.id) ? (
                           <>
                             <button
                               onClick={() => handleStop(srv.id)}
@@ -765,10 +772,33 @@ export default function ASEDashboard() {
                         ) : (
                           <button
                             disabled
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-slate-500/10 text-slate-400 border border-slate-500/20 rounded-xl opacity-50 cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                            className={cn(
+                              "w-[34px] h-[34px] flex items-center justify-center border rounded-xl opacity-80 cursor-not-allowed focus:outline-none transition-all",
+                              (srv.status === 'starting' && !stoppingServers.includes(srv.id)) && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                              stoppingServers.includes(srv.id) && 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+                              srv.status === 'updating' && 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+                              'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                            )}
                             aria-label={`Server ${displayName} status updating`}
                           >
-                            <RotateCw className="w-4 h-4 animate-spin" />
+                            {stoppingServers.includes(srv.id) ? (
+                              <div className="relative w-4 h-4 flex items-center justify-center">
+                                <div className="absolute inset-0 border-2 border-rose-500/20 border-t-rose-400 rounded-full animate-spin" />
+                                <Square className="w-1.5 h-1.5 fill-current text-rose-400 animate-pulse" />
+                              </div>
+                            ) : srv.status === 'starting' ? (
+                              <div className="relative w-4 h-4 flex items-center justify-center">
+                                <div className="absolute inset-0 border-2 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" />
+                                <Play className="w-2 h-2 fill-current text-emerald-400 animate-pulse ml-0.5" />
+                              </div>
+                            ) : srv.status === 'updating' ? (
+                              <div className="relative w-4 h-4 flex items-center justify-center">
+                                <div className="absolute inset-0 border-2 border-sky-500/20 border-t-sky-400 rounded-full animate-spin" />
+                                <RefreshCw className="w-2 h-2 text-sky-400 animate-spin [animation-duration:3s]" />
+                              </div>
+                            ) : (
+                              <RotateCw className="w-4 h-4 animate-spin" />
+                            )}
                           </button>
                         )}
 
@@ -815,47 +845,17 @@ export default function ASEDashboard() {
                 })}
               </div>
             )}
-          </div>
-
-          <PerformanceMonitor data={performanceHistory} />
         </div>
 
-        {/* Right Column (1/3 width) - Co-Pilot, Quick Actions, Live Logs */}
-        <div className="space-y-6">
-          {/* AI Co-Pilot Widget */}
-          <div className="glass-panel rounded-2xl p-6 relative overflow-hidden group">
-            <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-amber-500/10 blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
-
-            <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2 mb-3">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-              </span>
-              AI Co-Pilot Status
-            </h3>
-            <div className="bg-[#070b13]/60 rounded-xl p-3 border border-white/5 space-y-2.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Diagnostics Mode</span>
-                <span className="text-amber-400 font-semibold font-mono">AUTOMATED</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Crash Surveillance</span>
-                <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> ACTIVE
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">Conflict Detection</span>
-                <span className="text-slate-300 font-medium">REAL-TIME</span>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate('/ase/tools/ai')}
-              className="w-full mt-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold transition-all focus:outline-none"
-            >
-              Consult AI Co-Pilot
-            </button>
+        {/* Lower Dashboard Grid (Charts and Widgets) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          {/* Left Column: Performance Monitor (2/3 width) */}
+          <div className="lg:col-span-2 space-y-6">
+            <PerformanceMonitor data={performanceHistory} />
           </div>
+
+          {/* Right Column (1/3 width) - Quick Actions, Live Logs */}
+          <div className="space-y-6">
 
           {/* Startup & Boot Options Widget */}
           <div className="glass-panel rounded-2xl p-6 relative overflow-hidden group">
@@ -883,7 +883,7 @@ export default function ASEDashboard() {
                     disabled={isSavingStartup}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                  <div className="relative w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                 </label>
               </div>
 
@@ -901,7 +901,7 @@ export default function ASEDashboard() {
                     disabled={isSavingStartup}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                  <div className="relative w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                 </label>
               </div>
 
@@ -919,7 +919,7 @@ export default function ASEDashboard() {
                     onChange={(e) => handleToggleStartupSetting('silentHeadlessStartup', e.target.checked)}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 peer-disabled:opacity-30"></div>
+                  <div className="relative w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 peer-disabled:opacity-30"></div>
                 </label>
               </div>
             </div>
@@ -975,6 +975,7 @@ export default function ASEDashboard() {
           </div>
         </div>
       </div>
+    </div>
     </motion.div>
   );
 }

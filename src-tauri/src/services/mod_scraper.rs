@@ -125,6 +125,7 @@ pub async fn search_curseforge(
             enabled: false,
             load_order: 0,
             last_updated: None,
+            is_local: None,
         }]);
     }
 
@@ -178,6 +179,7 @@ pub async fn search_curseforge(
                                         enabled: false,
                                         load_order: 0,
                                         last_updated: cf_mod.date_modified,
+                                        is_local: None,
                                     }]);
                                 }
                             }
@@ -226,6 +228,7 @@ pub async fn search_curseforge(
                 enabled: false,
                 load_order: 0,
                 last_updated: None,
+                is_local: None,
             })
             .collect());
     }
@@ -298,6 +301,7 @@ pub async fn search_curseforge(
                                                 enabled: false,
                                                 load_order: 0,
                                                 last_updated: cf_mod.date_modified,
+                                                is_local: None,
                                             })
                                             .collect();
 
@@ -335,6 +339,7 @@ pub async fn search_curseforge(
                         enabled: false,
                         load_order: 0,
                         last_updated: None,
+                        is_local: None,
                     }]);
                 } else if status.as_u16() == 429 {
                     // Rate limited - wait longer before retry
@@ -371,6 +376,7 @@ pub async fn search_curseforge(
         enabled: false,
         load_order: 0,
         last_updated: None,
+        is_local: None,
     }])
 }
 
@@ -483,6 +489,7 @@ pub async fn check_mod_updates(
                 enabled: true,
                 load_order: 0,
                 last_updated: cf_mod.date_modified,
+                is_local: None,
             })
             .collect();
 

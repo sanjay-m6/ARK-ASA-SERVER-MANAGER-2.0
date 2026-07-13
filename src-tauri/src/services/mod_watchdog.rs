@@ -249,8 +249,7 @@ impl ModWatchdogService {
             .join("Binaries")
             .join("Win64")
             .join("ShooterGame")
-            .join("Saved")
-            .join("Mods"); // Verify ASA path or use root ShooterGame/Mods
+            .join("Mods");
             
         let backup_dir = PathBuf::from(&install_path).join("ModBackups");
         if mods_dir.exists() {

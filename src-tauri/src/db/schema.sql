@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS mods (
     author TEXT,
     description TEXT,
     workshop_url TEXT,
+    thumbnail_url TEXT,
     server_type TEXT NOT NULL DEFAULT 'ASA' CHECK(server_type IN ('ASA', 'ASE')),
     enabled BOOLEAN DEFAULT 1,
     load_order INTEGER NOT NULL,

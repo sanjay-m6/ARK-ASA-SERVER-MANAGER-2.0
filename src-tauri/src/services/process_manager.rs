@@ -16,6 +16,8 @@ use std::os::windows::process::CommandExt;
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 #[cfg(target_os = "windows")]
 const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+#[cfg(target_os = "windows")]
+const CREATE_NEW_CONSOLE: u32 = 0x00000010;
 
 /// Reason why a server stop was initiated. Every stop must provide a reason.
 #[derive(Debug, Clone, Serialize)]
@@ -300,8 +302,17 @@ impl ProcessManager {
                         if let Some(ref mut child) = proc.child {
                             match child.try_wait() {
                                 Ok(Some(status)) => {
-                                    // Parent exited. Check if handoff exists first.
-                                    if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, Some(proc.pid)) {
+                                    // Parent exited. Check if handoff exists (with retry since it may take a moment to spawn)
+                                    let mut handoff_pid = None;
+                                    for _ in 0..20 {
+                                        if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, Some(proc.pid)) {
+                                            handoff_pid = Some(new_pid);
+                                            break;
+                                        }
+                                        std::thread::sleep(std::time::Duration::from_millis(500));
+                                    }
+
+                                    if let Some(new_pid) = handoff_pid {
                                         println!("  🔄 [Handoff] Monitor: Handoff detected for server {}! Swapping tracking to PID {}.", id, new_pid);
                                         proc.pid = new_pid;
                                         proc.child = None;
@@ -950,47 +961,55 @@ impl ProcessManager {
                     .join("Binaries")
                     .join("Win64")
                     .join("ShooterGame")
-                    .join("Content")
                     .join("Mods");
                 for mod_id in mod_list {
                     let mod_path = mods_dir.join(mod_id);
                     if mod_path.exists() && mod_path.is_dir() {
-                        // Check if the mod directory has any .pak files and is not suspiciously tiny
-                        let has_pak = std::fs::read_dir(&mod_path)
-                            .map(|entries| {
-                                entries.filter_map(|e| e.ok()).any(|e| {
-                                    e.path().extension().map_or(false, |ext| ext == "pak")
-                                })
-                            })
-                            .unwrap_or(false);
-                        let total_size: u64 = std::fs::read_dir(&mod_path)
-                            .map(|entries| {
-                                entries
-                                    .filter_map(|e| e.ok())
-                                    .filter_map(|e| e.metadata().ok())
-                                    .map(|m| m.len())
-                                    .sum()
-                            })
-                            .unwrap_or(0);
+                        // Check recursively if the mod directory has any valid mod files and is not suspiciously tiny
+                        let mut has_valid_files = false;
+                        let mut total_size: u64 = 0;
 
-                        if !has_pak || total_size < 1024 {
+                        for entry in walkdir::WalkDir::new(&mod_path).into_iter().filter_map(|e| e.ok()) {
+                            if entry.file_type().is_file() {
+                                if let Some(ext) = entry.path().extension() {
+                                    let ext_str = ext.to_string_lossy().to_lowercase();
+                                    if ext_str == "pak" || ext_str == "ucas" || ext_str == "utoc" || ext_str == "mod" || ext_str == "json" {
+                                        has_valid_files = true;
+                                    }
+                                }
+                                if let Ok(metadata) = entry.metadata() {
+                                    total_size += metadata.len();
+                                }
+                            }
+                        }
+
+                        if !has_valid_files || total_size < 1024 {
                             println!(
-                                "  🧹 Cleaning corrupt mod cache for {} (has_pak={}, size={}B) — CFCore will re-download",
-                                mod_id, has_pak, total_size
+                                "  🧹 Cleaning corrupt mod cache for {} (has_valid_files={}, size={}B) — CFCore will re-download",
+                                mod_id, has_valid_files, total_size
                             );
                             let _ = std::fs::remove_dir_all(&mod_path);
                         }
                     }
                 }
 
-                let mods_string = mod_list.join(",");
-                args.push(format!("-mods={}", mods_string));
-                println!(
-                    "  🧩 Server {} loading {} mods: {}",
-                    server_id,
-                    mod_list.len(),
-                    mods_string
-                );
+                let valid_mods: Vec<String> = mod_list.iter()
+                    .map(|m| m.trim().to_string())
+                    .filter(|m| !m.is_empty() && m != "0" && m.chars().all(|c| c.is_ascii_digit()))
+                    .collect();
+
+                if !valid_mods.is_empty() {
+                    let mods_string = valid_mods.join(",");
+                    args.push(format!("-mods={}", mods_string));
+                    println!(
+                        "  🧩 Server {} loading {} mods: {}",
+                        server_id,
+                        valid_mods.len(),
+                        mods_string
+                    );
+                } else {
+                    println!("  🧩 Server {} had mods configured, but all were invalid/filtered out.", server_id);
+                }
             }
         }
 
@@ -1097,7 +1116,7 @@ impl ProcessManager {
         {
             let is_loader = executable.file_name().map_or(false, |f| f == "AsaApiLoader.exe");
             if is_loader {
-                command.creation_flags(CREATE_NEW_PROCESS_GROUP);
+                command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NEW_CONSOLE);
             } else {
                 command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
             }
@@ -1184,6 +1203,10 @@ impl ProcessManager {
         };
         let has_mods_stdout = has_mods;
 
+        // Deferred mod failure state for false-positive suppression
+        let pending_mod_failure = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let pending_mod_failure_details = Arc::new(std::sync::Mutex::new(String::new()));
+
         // Stdout Reader
         std::thread::spawn(move || {
             let reader = BufReader::new(stdout);
@@ -1243,20 +1266,37 @@ impl ProcessManager {
                     }
 
                     // CFCore mod loading failure detection (real-time)
+                    // Uses deferred emission: "not all mods were installed" is a known ARK/CFCore
+                    // false positive when followed by "Mods not installed: 0". We defer the warning
+                    // and check the next line before firing.
                     if has_mods_stdout {
+                        // First, check if we have a pending deferred mod failure from the previous line
+                        if pending_mod_failure.load(Ordering::Relaxed) {
+                            pending_mod_failure.store(false, Ordering::Relaxed);
+                            if lower_line.contains("mods not installed: 0") || lower_line.contains("mods not installed:0") {
+                                println!("  🤖 Suppressed false-positive CFCore mod warning for server {} (Mods not installed: 0)", server_id_stdout);
+                            } else {
+                                // Previous line was a real failure — emit the deferred warning now
+                                println!("  ❌ [CFCore] Mod loading failure confirmed for server {}", server_id_stdout);
+                                let details = pending_mod_failure_details.lock().unwrap_or_else(|p| p.into_inner()).clone();
+                                let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
+                                    server_id: server_id_stdout,
+                                    error_type: "CFCore_ModLoadFailed".to_string(),
+                                    details,
+                                    suggestions: vec![
+                                        "Accept CurseForge Terms & Conditions in the ARK game client (Main Menu → Mod List)".to_string(),
+                                        "Clear the mod cache using Server Actions → Clear Mod Cache, then restart".to_string(),
+                                        "If using crossplay, check that no PC-only mods are in the mod list".to_string(),
+                                        "Try running the Server Manager as Administrator for the first launch".to_string(),
+                                    ],
+                                });
+                            }
+                        }
+
                         if lower_line.contains("not all mods were installed") {
-                            println!("  ❌ [CFCore] Mod loading failure detected for server {}", server_id_stdout);
-                            let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
-                                server_id: server_id_stdout,
-                                error_type: "CFCore_ModLoadFailed".to_string(),
-                                details: l.clone(),
-                                suggestions: vec![
-                                    "Accept CurseForge Terms & Conditions in the ARK game client (Main Menu → Mod List)".to_string(),
-                                    "Clear the mod cache using Server Actions → Clear Mod Cache, then restart".to_string(),
-                                    "If using crossplay, check that no PC-only mods are in the mod list".to_string(),
-                                    "Try running the Server Manager as Administrator for the first launch".to_string(),
-                                ],
-                            });
+                            // Defer — wait for the next line to check for false positive
+                            pending_mod_failure.store(true, Ordering::Relaxed);
+                            *pending_mod_failure_details.lock().unwrap_or_else(|p| p.into_inner()) = l.clone();
                         } else if lower_line.contains("no machine id was found") {
                             let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
                                 server_id: server_id_stdout,
@@ -1677,6 +1717,66 @@ impl ProcessManager {
                     DiscordEmbed::server_stopped(&name),
                 ).await;
             });
+        } else {
+            // Fallback: If not in the active processes map (e.g. manager was restarted or state desynced),
+            // retrieve the process_id and server_type from the database and terminate the process.
+            if let Some(state) = self.app_handle.try_state::<crate::AppState>() {
+                if let Ok(db_guard) = state.db.lock() {
+                    if let Ok(conn) = db_guard.get_connection() {
+                        let is_ase = {
+                            let is_in_servers = conn.query_row(
+                                "SELECT 1 FROM servers WHERE id = ?1",
+                                [server_id],
+                                |_| Ok(true)
+                            ).unwrap_or(false);
+                            if !is_in_servers {
+                                conn.query_row(
+                                    "SELECT 1 FROM ase_servers WHERE id = ?1",
+                                    [server_id],
+                                    |_| Ok(true)
+                                ).unwrap_or(false)
+                            } else {
+                                false
+                            }
+                        };
+
+                        let table = if is_ase { "ase_servers" } else { "servers" };
+                        let query = format!("SELECT process_id FROM {} WHERE id = ?1", table);
+                        if let Ok(pid_opt) = conn.query_row(&query, [server_id], |row| row.get::<_, Option<u32>>(0)) {
+                            if let Some(pid) = pid_opt {
+                                println!("  ⚠️ [PROCESS RECOVERY] Killing orphaned server {} with PID {}", server_id, pid);
+                                #[cfg(target_os = "windows")]
+                                {
+                                    let _ = Command::new("taskkill")
+                                        .args(["/F", "/T", "/PID", &pid.to_string()])
+                                        .creation_flags(CREATE_NO_WINDOW)
+                                        .output();
+                                }
+                            }
+                        }
+
+                        // Update status in DB
+                        let update_query = format!("UPDATE {} SET status = 'stopped', process_id = NULL WHERE id = ?1", table);
+                        let _ = conn.execute(&update_query, [server_id]);
+                    }
+                }
+            }
+
+            // Emit lifecycle event
+            let _ = self.app_handle.emit(
+                "server-lifecycle-event",
+                ServerLifecycleEvent {
+                    server_id,
+                    event: "STOP".to_string(),
+                    reason: Some(format!("{} (Orphan Cleanup)", reason)),
+                    exit_code: None,
+                    uptime_seconds: None,
+                    timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                },
+            );
+
+            // Emit stopped status
+            self.emit_status_change(server_id, "stopped");
         }
 
         // Clean up the reason after stop completes
@@ -1749,8 +1849,17 @@ impl ProcessManager {
             if let Some(ref mut child) = server_proc.child {
                 match child.try_wait() {
                     Ok(Some(status)) => {
-                        // Parent exited. Check if handoff exists first.
-                        if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type, Some(server_proc.pid)) {
+                        // Parent exited. Check if handoff exists (with retry since it may take a moment to spawn)
+                        let mut handoff_pid = None;
+                        for _ in 0..20 {
+                            if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type, Some(server_proc.pid)) {
+                                handoff_pid = Some(new_pid);
+                                break;
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(500));
+                        }
+
+                        if let Some(new_pid) = handoff_pid {
                             println!("  🔄 [Handoff] is_running: Handoff detected for server {}! Swapping tracking to PID {}.", server_id, new_pid);
                             server_proc.pid = new_pid;
                             server_proc.child = None;
@@ -1939,6 +2048,44 @@ impl ProcessManager {
             proc.startup_confirmed.load(std::sync::atomic::Ordering::Relaxed)
         } else {
             false
+        }
+    }
+
+    /// Register an already running process back into the process manager (used for recovery on manager restart)
+    pub fn register_running_process(
+        &self,
+        server_id: i64,
+        pid: u32,
+        install_path: std::path::PathBuf,
+        server_type: String,
+        query_port: u16,
+        ip_address: Option<String>,
+    ) {
+        let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
+        
+        // Only insert if not already tracked
+        if !processes.contains_key(&server_id) {
+            let stop_flag = Arc::new(AtomicBool::new(false));
+            let startup_confirmed = Arc::new(AtomicBool::new(true));
+
+            processes.insert(server_id, ServerProcess {
+                child: None,
+                pid,
+                install_path: install_path.clone(),
+                server_type: server_type.clone(),
+                stop_flag,
+                query_port,
+                started_at: std::time::Instant::now(),
+                is_online: true,
+                ip_address,
+                startup_confirmed,
+                has_been_online: true,
+            });
+
+            println!(
+                "  🛡️ [PROCESS RECOVERY] Registered active {} server {} (PID: {}, Query Port: {})",
+                server_type, server_id, pid, query_port
+            );
         }
     }
 }

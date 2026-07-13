@@ -78,6 +78,11 @@ pub async fn install_mod(
     server_id: i64,
     mod_info: ModInfo,
 ) -> Result<(), String> {
+    let trimmed_id = mod_info.id.trim();
+    if trimmed_id.is_empty() || trimmed_id == "0" || !trimmed_id.chars().all(|c| c.is_ascii_digit()) {
+        return Err("Cannot install mod: Invalid Mod ID. Please ensure your CurseForge API Key is configured in Settings.".to_string());
+    }
+
     println!(
         "📦 Installing mod: {} (ID: {}) for server {}",
         mod_info.name, mod_info.id, server_id
@@ -100,8 +105,8 @@ pub async fn install_mod(
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         conn.execute(
-            "INSERT OR REPLACE INTO mods (server_id, mod_id, name, version, author, description, workshop_url, server_type, enabled, load_order)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'ASA', 1, ?8)",
+            "INSERT OR REPLACE INTO mods (server_id, mod_id, name, version, author, description, workshop_url, thumbnail_url, server_type, enabled, load_order)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'ASA', 1, ?9)",
             rusqlite::params![
                 server_id,
                 mod_info.id,
@@ -110,6 +115,7 @@ pub async fn install_mod(
                 mod_info.author.clone().unwrap_or_default(),
                 mod_info.description.clone().unwrap_or_default(),
                 mod_info.curseforge_url.clone().unwrap_or_default(),
+                mod_info.thumbnail_url.clone().unwrap_or_default(),
                 max_order + 1
             ],
         ).map_err(|e| e.to_string())?;
@@ -153,11 +159,23 @@ pub async fn get_installed_mods(
 ) -> Result<Vec<ModInfo>, String> {
     println!("📋 Getting installed mods for server {}", server_id);
 
-    let mods = {
+    // Get server install path
+    let install_path: String = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT install_path FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?
+    };
+
+    let mut mods = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         let mut stmt = conn.prepare(
-            "SELECT mod_id, name, version, author, description, workshop_url, enabled, load_order 
+            "SELECT mod_id, name, version, author, description, workshop_url, thumbnail_url, enabled, load_order 
              FROM mods WHERE server_id = ?1 ORDER BY load_order ASC"
         ).map_err(|e| e.to_string())?;
 
@@ -170,18 +188,38 @@ pub async fn get_installed_mods(
                     version: row.get::<_, Option<String>>(2).ok().flatten(),
                     author: row.get::<_, Option<String>>(3).ok().flatten(),
                     description: row.get::<_, Option<String>>(4).ok().flatten(),
-                    thumbnail_url: None,
+                    thumbnail_url: row.get::<_, Option<String>>(6).ok().flatten(),
                     downloads: None,
                     curseforge_url: row.get::<_, Option<String>>(5).ok().flatten(),
-                    enabled: row.get::<_, bool>(6).unwrap_or(true),
-                    load_order: row.get::<_, i32>(7).unwrap_or(0),
+                    enabled: row.get::<_, bool>(7).unwrap_or(true),
+                    load_order: row.get::<_, i32>(8).unwrap_or(0),
                     last_updated: None,
+                    is_local: None,
                 })
             })
             .map_err(|e| e.to_string())?;
 
         mod_iter.filter_map(|m| m.ok()).collect::<Vec<_>>()
     };
+
+    let mods_dir = PathBuf::from(&install_path)
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64")
+        .join("ShooterGame")
+        .join("Mods");
+
+    for m in &mut mods {
+        let mod_path = mods_dir.join(&m.id);
+        let exists = mod_path.exists() && mod_path.is_dir();
+        
+        // We consider it "local fallback" if it exists locally on disk, but has no curseforge_url (or has never successfully updated from CurseForge)
+        if exists && (m.curseforge_url.is_none() || m.curseforge_url.as_ref().map_or(true, |u| u.is_empty())) {
+            m.is_local = Some(true);
+        } else {
+            m.is_local = Some(false);
+        }
+    }
 
     println!("  Found {} installed mods", mods.len());
     Ok(mods)
@@ -242,6 +280,34 @@ pub async fn toggle_mod(
 
     Ok(())
 }
+
+#[tauri::command]
+pub async fn toggle_all_mods(
+    state: State<'_, AppState>,
+    server_id: i64,
+    enabled: bool,
+) -> Result<(), String> {
+    println!(
+        "⚡ Toggling ALL mods to {} for server {}",
+        enabled, server_id
+    );
+
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE mods SET enabled = ?1 WHERE server_id = ?2",
+            rusqlite::params![enabled, server_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    // Update GameUserSettings.ini
+    sync_mods_to_ini(&state, server_id).await?;
+
+    Ok(())
+}
+
 
 #[tauri::command]
 pub async fn verify_mod_integrity(
@@ -344,6 +410,8 @@ async fn sync_mods_to_ini(state: &State<'_, AppState>, server_id: i64) -> Result
             .query_map([server_id], |row| row.get::<_, String>(0))
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
+            .map(|m| m.trim().to_string())
+            .filter(|m| !m.is_empty() && m != "0" && m.chars().all(|c| c.is_ascii_digit()))
             .collect();
         ids
     };
@@ -741,6 +809,7 @@ pub async fn copy_mods_to_server(
                         enabled: true,
                         load_order: 0, 
                         last_updated: None, 
+                        is_local: None,
                     })
                 })
                 .map_err(|e| e.to_string())?

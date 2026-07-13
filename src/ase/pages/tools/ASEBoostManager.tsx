@@ -58,7 +58,7 @@ export default function ASEBoostManager() {
             const active = await getActiveAseBoostProfile(selectedServerId);
             setActiveProfile(active);
         } catch (error) {
-            toast.error(t('boost.loadFailed', 'Falha ao carregar perfis de boost'));
+            toast.error(t('boost.loadFailed', 'Failed to load boost profiles'));
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -93,7 +93,7 @@ export default function ASEBoostManager() {
         e.preventDefault();
         if (!selectedServerId) return;
         if (!name.trim()) {
-            toast.error(t('boost.nameRequired', 'Nome do perfil é obrigatório'));
+            toast.error(t('boost.nameRequired', 'Profile name is required'));
             return;
         }
 
@@ -112,7 +112,7 @@ export default function ASEBoostManager() {
             };
 
             await saveAseBoostProfile(profileData);
-            toast.success(t('boost.saveSuccess', 'Perfil de boost salvo com sucesso!'));
+            toast.success(t('boost.saveSuccess', 'Boost profile saved successfully!'));
             setIsModalOpen(false);
             loadProfiles();
         } catch (error) {
@@ -121,10 +121,10 @@ export default function ASEBoostManager() {
     };
 
     const handleDeleteProfile = async (id: number) => {
-        if (!window.confirm(t('boost.confirmDelete', 'Tem certeza que deseja deletar este perfil?'))) return;
+        if (!window.confirm(t('boost.confirmDelete', 'Are you sure you want to delete this profile?'))) return;
         try {
             await deleteAseBoostProfile(id);
-            toast.success(t('boost.deleteSuccess', 'Perfil de boost deletado'));
+            toast.success(t('boost.deleteSuccess', 'Boost profile deleted'));
             loadProfiles();
         } catch (error) {
             toast.error(String(error));
@@ -135,9 +135,9 @@ export default function ASEBoostManager() {
         if (!profile.id || !selectedServerId) return;
         setIsActionLoading(profile.id);
         try {
-            toast.loading(t('boost.activatingText', 'Reiniciando o servidor e aplicando taxas do evento...'), { id: 'boost-action' });
+            toast.loading(t('boost.activatingText', 'Restarting server and applying event rates...'), { id: 'boost-action' });
             await activateAseBoostProfile(selectedServerId, profile.id);
-            toast.success(t('boost.activateSuccess', 'Evento de Boost ativado com sucesso!'), { id: 'boost-action' });
+            toast.success(t('boost.activateSuccess', 'Boost event activated successfully!'), { id: 'boost-action' });
             loadProfiles();
         } catch (error) {
             toast.error(String(error), { id: 'boost-action' });
@@ -150,9 +150,9 @@ export default function ASEBoostManager() {
         if (!selectedServerId) return;
         setIsDeactivating(true);
         try {
-            toast.loading(t('boost.deactivatingText', 'Reiniciando o servidor e restaurando taxas originais...'), { id: 'boost-action' });
+            toast.loading(t('boost.deactivatingText', 'Restarting server and restoring original rates...'), { id: 'boost-action' });
             await deactivateAseBoostProfile(selectedServerId);
-            toast.success(t('boost.deactivateSuccess', 'Boost desativado e taxas originais restauradas!'), { id: 'boost-action' });
+            toast.success(t('boost.deactivateSuccess', 'Boost deactivated and original rates restored!'), { id: 'boost-action' });
             loadProfiles();
         } catch (error) {
             toast.error(String(error), { id: 'boost-action' });
@@ -168,10 +168,10 @@ export default function ASEBoostManager() {
                 <div>
                     <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-500 flex items-center gap-3">
                         <Zap className="w-10 h-10 text-orange-400 animate-pulse" />
-                        {t('boost.title', 'Gerenciador de Boost (ASE)')}
+                        {t('boost.titleAse', 'Boost Manager (ASE)')}
                     </h1>
                     <p className="text-slate-400 mt-2 text-lg">
-                        {t('boost.subtitle', 'Configure eventos sazonais temporários e multiplique as taxas do servidor de forma segura.')}
+                        {t('boost.subtitle', 'Safely configure temporary seasonal events and multiply server rates.')}
                     </p>
                 </div>
                 <button
@@ -180,7 +180,7 @@ export default function ASEBoostManager() {
                     className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl shadow-lg shadow-orange-500/20 font-medium transition-all disabled:opacity-50"
                 >
                     <Plus className="w-5 h-5" />
-                    <span>{t('boost.newProfile', '+ Novo Perfil')}</span>
+                    <span>{t('boost.newProfile', '+ New Profile')}</span>
                 </button>
             </div>
 
@@ -188,12 +188,12 @@ export default function ASEBoostManager() {
             <div className="glass-panel rounded-2xl p-5 border border-amber-500/20 bg-amber-500/5 flex items-start gap-4">
                 <Sparkles className="w-6 h-6 text-amber-400 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                    <h4 className="font-bold text-amber-200">{t('boost.bannerTitle', 'Como funciona o Gerenciador de Boost?')}</h4>
+                    <h4 className="font-bold text-amber-200">{t('boost.bannerTitle', 'How does the Boost Manager work?')}</h4>
                     <p className="text-sm text-amber-100/70 leading-relaxed">
-                        Ao ativar um perfil de boost, o manager realiza broadcasts periódicos via RCON para notificar os jogadores. Em seguida, desliga o servidor com segurança, cria cópias de segurança das configurações originais (.boostbackup) e injeta os novos multiplicadores. Ao desativar, as configurações de backup são restauradas perfeitamente.
+                        {t('boost.bannerDesc', 'When activating a boost profile, the manager performs periodic broadcasts via RCON to notify players. It then safely shuts down the server, creates backups of the original configs (.boostbackup), and injects the new multipliers. When deactivated, the backup configurations are restored perfectly.')}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-amber-300/80 font-medium mt-2">
-                        <span>{t('boost.setupTip', 'Para automação, configure tarefas do tipo BoostStart / BoostEnd no Agendador')}</span>
+                        <span>{t('boost.setupTip', 'For automation, configure BoostStart / BoostEnd tasks in the Scheduler')}</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                     </div>
                 </div>
@@ -213,7 +213,7 @@ export default function ASEBoostManager() {
                         <div className="flex items-center gap-3">
                             <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
                             <div>
-                                <p className="text-xs text-emerald-400/70 uppercase font-bold tracking-wider">{t('boost.activeEvent', 'Evento Ativo')}</p>
+                                <p className="text-xs text-emerald-400/70 uppercase font-bold tracking-wider">{t('boost.activeEvent', 'Active Event')}</p>
                                 <p className="text-emerald-300 font-bold text-sm">{activeProfile.name}</p>
                             </div>
                         </div>
@@ -223,12 +223,12 @@ export default function ASEBoostManager() {
                             className="flex items-center gap-1.5 px-3.5 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
                         >
                             {isDeactivating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Square className="w-3.5 h-3.5" />}
-                            <span>{t('boost.deactivate', 'Desativar Evento')}</span>
+                            <span>{t('boost.deactivate', 'Deactivate Event')}</span>
                         </button>
                     </div>
                 ) : (
                     <div className="px-4 py-3 bg-slate-800/60 border border-slate-700/50 rounded-xl text-slate-400 text-sm font-medium w-full md:w-auto text-center">
-                        {t('boost.noActiveEvent', 'Nenhum perfil de boost ativo neste servidor')}
+                        {t('boost.noActiveEvent', 'No active boost profile on this server')}
                     </div>
                 )}
             </div>
@@ -237,19 +237,19 @@ export default function ASEBoostManager() {
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-500">
                     <Loader2 className="w-12 h-12 animate-spin text-orange-400 mb-3" />
-                    <p className="text-lg">{t('boost.loading', 'Carregando perfis...')}</p>
+                    <p className="text-lg">{t('boost.loading', 'Loading profiles...')}</p>
                 </div>
             ) : profiles.length === 0 ? (
                 <div className="text-center py-16 glass-panel rounded-2xl border border-slate-700/50">
                     <Zap className="w-16 h-16 mx-auto mb-4 text-slate-600 opacity-30" />
-                    <p className="text-slate-400 text-lg font-medium">{t('boost.noProfiles', 'Nenhum perfil de boost cadastrado')}</p>
-                    <p className="text-slate-500 text-sm mt-1">{t('boost.noProfilesDesc', 'Crie um novo perfil para começar a configurar taxas sazonais.')}</p>
+                    <p className="text-slate-400 text-lg font-medium">{t('boost.noProfiles', 'No boost profiles registered')}</p>
+                    <p className="text-slate-500 text-sm mt-1">{t('boost.noProfilesDesc', 'Create a new profile to start configuring seasonal rates.')}</p>
                     <button
                         onClick={handleOpenCreateModal}
                         className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/30 rounded-xl text-sm font-semibold transition-all"
                     >
                         <Plus className="w-4 h-4" />
-                        <span>{t('boost.createFirst', 'Criar Primeiro Perfil')}</span>
+                        <span>{t('boost.createFirst', 'Create First Profile')}</span>
                     </button>
                 </div>
             ) : (
@@ -272,14 +272,14 @@ export default function ASEBoostManager() {
                                             <button
                                                 onClick={() => handleOpenEditModal(profile)}
                                                 className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all"
-                                                title="Editar"
+                                                title={t('common.edit', 'Edit')}
                                             >
                                                 <Edit2 className="w-3.5 h-3.5" />
                                             </button>
                                             <button
                                                 onClick={() => profile.id && handleDeleteProfile(profile.id)}
                                                 className="p-2 bg-slate-800 hover:bg-red-500/20 hover:text-red-300 text-slate-300 rounded-lg transition-all"
-                                                title="Deletar"
+                                                title={t('common.delete', 'Delete')}
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
@@ -315,11 +315,11 @@ export default function ASEBoostManager() {
                                     </div>
                                 </div>
 
-                                <div className="border-t border-slate-800/60 p-4 bg-slate-900/[0.15]">
+                                <div className="border-t border-slate-885/60 p-4 bg-slate-900/[0.15]">
                                     {isActive ? (
                                         <div className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-sm font-semibold">
                                             <Check className="w-4 h-4" />
-                                            <span>{t('boost.active', 'Ativo')}</span>
+                                            <span>{t('boost.active', 'Active')}</span>
                                         </div>
                                     ) : (
                                         <button
@@ -332,7 +332,7 @@ export default function ASEBoostManager() {
                                             ) : (
                                                 <Play className="w-4 h-4" />
                                             )}
-                                            <span>{t('boost.activateBtn', 'Ativar no Servidor')}</span>
+                                            <span>{t('boost.activateBtn', 'Activate on Server')}</span>
                                         </button>
                                     )}
                                 </div>
@@ -349,7 +349,7 @@ export default function ASEBoostManager() {
                         <div className="flex items-center justify-between border-b border-slate-850 p-5">
                             <h3 className="text-xl font-bold text-white flex items-center gap-2">
                                 <Zap className="w-5 h-5 text-orange-400" />
-                                {editingProfile ? t('boost.editTitle', 'Editar Perfil de Boost') : t('boost.newTitle', 'Novo Perfil de Boost')}
+                                {editingProfile ? t('boost.editTitle', 'Edit Boost Profile') : t('boost.newTitle', 'New Boost Profile')}
                             </h3>
                             <button 
                                 onClick={() => setIsModalOpen(false)}
@@ -362,10 +362,10 @@ export default function ASEBoostManager() {
                         <form onSubmit={handleSaveProfile} className="p-6 space-y-5">
                             {/* Profile Name */}
                             <div className="space-y-1.5">
-                                <label className="text-xs uppercase tracking-wider text-slate-400 font-bold">{t('boost.profileName', 'Nome do Perfil')}</label>
+                                <label className="text-xs uppercase tracking-wider text-slate-400 font-bold">{t('boost.profileName', 'Profile Name')}</label>
                                 <input
                                     type="text"
-                                    placeholder="Ex: Fim de Semana 2x, Evento de Páscoa"
+                                    placeholder={t('boost.profileNamePlaceholder', 'e.g. 2x Weekend, Easter Event')}
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/50 transition-all font-medium"
@@ -441,20 +441,19 @@ export default function ASEBoostManager() {
                                     />
                                 </div>
                             </div>
-
                             <div className="flex items-center gap-3 border-t border-slate-850 pt-5 mt-2">
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
                                     className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-semibold transition-all"
                                 >
-                                    {t('common.cancel', 'Cancelar')}
+                                    {t('common.cancel', 'Cancel')}
                                 </button>
                                 <button
                                     type="submit"
                                     className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white rounded-xl font-semibold shadow-lg shadow-orange-500/20 transition-all"
                                 >
-                                    {t('common.save', 'Salvar')}
+                                    {t('common.save', 'Save')}
                                 </button>
                             </div>
                         </form>

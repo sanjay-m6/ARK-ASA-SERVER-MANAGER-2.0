@@ -24,7 +24,7 @@ use services::cloud_backup_service::CloudBackupService;
 use services::mod_watchdog::ModWatchdogService;
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
-use tauri::Manager;
+use tauri::{Manager, Emitter};
 
 pub struct AppState {
     pub db: Mutex<Database>,
@@ -343,6 +343,199 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                     }
                 };
 
+                // === PROCESS RECOVERY ===
+                // Query all servers (ASA and ASE) that are supposed to be active,
+                // check if their process is still running, and re-associate them in memory.
+                println!("🔍 [Process Recovery] Checking for running game servers to recover...");
+                if let Ok(db_guard) = state.db.lock() {
+                    if let Ok(conn) = db_guard.get_connection() {
+                        let active_servers: Vec<(i64, String, String, u16, Option<u32>, Option<String>, String)> = {
+                            let stmt_result = conn.prepare(
+                                "SELECT id, name, install_path, query_port, process_id, ip_address, status FROM servers"
+                            );
+                            if let Ok(mut stmt) = stmt_result {
+                                stmt.query_map([], |row| {
+                                    Ok((
+                                        row.get::<_, i64>(0)?,
+                                        row.get::<_, String>(1)?,
+                                        row.get::<_, String>(2)?,
+                                        row.get::<_, i32>(3)? as u16,
+                                        row.get::<_, Option<i32>>(4)?.map(|v| v as u32),
+                                        row.get::<_, Option<String>>(5)?,
+                                        row.get::<_, String>(6)?,
+                                    ))
+                                })
+                                .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                                .unwrap_or_default()
+                            } else {
+                                Vec::new()
+                            }
+                        };
+
+                        let active_ase_servers: Vec<(i64, String, String, u16, Option<u32>, Option<String>, String)> = {
+                            let stmt_result = conn.prepare(
+                                "SELECT id, name, install_path, query_port, process_id, ip_address, status FROM ase_servers"
+                            );
+                            if let Ok(mut stmt) = stmt_result {
+                                stmt.query_map([], |row| {
+                                    Ok((
+                                        row.get::<_, i64>(0)?,
+                                        row.get::<_, String>(1)?,
+                                        row.get::<_, String>(2)?,
+                                        row.get::<_, i32>(3)? as u16,
+                                        row.get::<_, Option<i32>>(4)?.map(|v| v as u32),
+                                        row.get::<_, Option<String>>(5)?,
+                                        row.get::<_, String>(6)?,
+                                    ))
+                                })
+                                .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                                .unwrap_or_default()
+                            } else {
+                                Vec::new()
+                            }
+                        };
+
+                        let mut check_sys = sysinfo::System::new();
+                        check_sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+                        for (id, name, install_path, query_port, pid_opt, ip_address, status) in active_servers {
+                            let mut recovered = false;
+                            let mut active_pid = None;
+
+                            // 1. Try checking the stored process_id if present
+                            if let Some(pid) = pid_opt {
+                                if let Some(proc) = check_sys.process(sysinfo::Pid::from_u32(pid)) {
+                                    let proc_name = proc.name().to_string_lossy().to_lowercase();
+                                    if proc_name.contains("arkascendedserver") {
+                                        active_pid = Some(pid);
+                                        recovered = true;
+                                    }
+                                }
+                            }
+
+                            // 2. Fallback to path-based search if not found via stored PID
+                            if !recovered {
+                                if let Some(found_pid) = services::process_manager::find_game_server_pid_by_install_path(&install_path, "ASA", None) {
+                                    active_pid = Some(found_pid);
+                                    recovered = true;
+                                    println!("  🔄 [Process Recovery] ASA Server '{}' (ID: {}) recovered running process by path: PID {}", name, id, found_pid);
+                                }
+                            }
+
+                            if recovered {
+                                if let Some(pid) = active_pid {
+                                    state.process_manager.register_running_process(
+                                        id,
+                                        pid,
+                                        std::path::PathBuf::from(install_path),
+                                        "ASA".to_string(),
+                                        query_port,
+                                        ip_address,
+                                    );
+                                    // Update Guardian Watchdog
+                                    if let Some(guardian) = app_handle_clone.try_state::<crate::services::guardian::GuardianState>() {
+                                        let guardian_inner = guardian.0.clone();
+                                        let app_clone = app_handle_clone.clone();
+                                        tauri::async_runtime::spawn(async move {
+                                            let guard = guardian_inner.lock().await;
+                                            guard.register_server(app_clone, id, pid).await;
+                                        });
+                                    }
+                                    
+                                    // If status in DB is not one of the active statuses, update it to online
+                                    let is_status_active = matches!(status.as_str(), "online" | "running" | "starting" | "restarting" | "updating" | "stopping");
+                                    if !is_status_active {
+                                        let _ = conn.execute(
+                                            "UPDATE servers SET status = 'online', process_id = ?1 WHERE id = ?2",
+                                            rusqlite::params![pid, id],
+                                        );
+                                        let _ = app_handle_clone.emit("server-status-change", serde_json::json!({ "server_id": id, "status": "online" }));
+                                    }
+                                }
+                            } else {
+                                // If not running, but status was active, reset to stopped
+                                let is_status_active = matches!(status.as_str(), "online" | "running" | "starting" | "restarting" | "updating" | "stopping");
+                                if is_status_active {
+                                    println!("  ❌ [Process Recovery] ASA Server '{}' (ID: {}) process not found. Resetting DB status to stopped.", name, id);
+                                    let _ = conn.execute(
+                                        "UPDATE servers SET status = 'stopped', process_id = NULL WHERE id = ?1",
+                                        [id],
+                                    );
+                                    let _ = app_handle_clone.emit("server-status-change", serde_json::json!({ "server_id": id, "status": "stopped" }));
+                                }
+                            }
+                        }
+
+                        for (id, name, install_path, query_port, pid_opt, ip_address, status) in active_ase_servers {
+                            let mut recovered = false;
+                            let mut active_pid = None;
+
+                            // 1. Try checking the stored process_id if present
+                            if let Some(pid) = pid_opt {
+                                if let Some(proc) = check_sys.process(sysinfo::Pid::from_u32(pid)) {
+                                    let proc_name = proc.name().to_string_lossy().to_lowercase();
+                                    if proc_name.contains("shootergameserver") {
+                                        active_pid = Some(pid);
+                                        recovered = true;
+                                    }
+                                }
+                            }
+
+                            // 2. Fallback to path-based search if not found via stored PID
+                            if !recovered {
+                                if let Some(found_pid) = services::process_manager::find_game_server_pid_by_install_path(&install_path, "ASE", None) {
+                                    active_pid = Some(found_pid);
+                                    recovered = true;
+                                    println!("  🔄 [Process Recovery] ASE Server '{}' (ID: {}) recovered running process by path: PID {}", name, id, found_pid);
+                                }
+                            }
+
+                            if recovered {
+                                if let Some(pid) = active_pid {
+                                    state.process_manager.register_running_process(
+                                        id,
+                                        pid,
+                                        std::path::PathBuf::from(install_path),
+                                        "ASE".to_string(),
+                                        query_port,
+                                        ip_address,
+                                    );
+                                    // Update Guardian Watchdog
+                                    if let Some(guardian) = app_handle_clone.try_state::<crate::services::guardian::GuardianState>() {
+                                        let guardian_inner = guardian.0.clone();
+                                        let app_clone = app_handle_clone.clone();
+                                        tauri::async_runtime::spawn(async move {
+                                            let guard = guardian_inner.lock().await;
+                                            guard.register_ase_server(app_clone, id, pid).await;
+                                        });
+                                    }
+
+                                    // If status in DB is not one of the active statuses, update it to online
+                                    let is_status_active = matches!(status.as_str(), "online" | "running" | "starting" | "restarting" | "updating" | "stopping");
+                                    if !is_status_active {
+                                        let _ = conn.execute(
+                                            "UPDATE ase_servers SET status = 'online', process_id = ?1 WHERE id = ?2",
+                                            rusqlite::params![pid, id],
+                                        );
+                                        let _ = app_handle_clone.emit("server-status-change", serde_json::json!({ "server_id": id, "status": "online" }));
+                                    }
+                                }
+                            } else {
+                                // If not running, but status was active, reset to stopped
+                                let is_status_active = matches!(status.as_str(), "online" | "running" | "starting" | "restarting" | "updating" | "stopping");
+                                if is_status_active {
+                                    println!("  ❌ [Process Recovery] ASE Server '{}' (ID: {}) process not found. Resetting DB status to stopped.", name, id);
+                                    let _ = conn.execute(
+                                        "UPDATE ase_servers SET status = 'stopped', process_id = NULL WHERE id = ?1",
+                                        [id],
+                                    );
+                                    let _ = app_handle_clone.emit("server-status-change", serde_json::json!({ "server_id": id, "status": "stopped" }));
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Sync all ASE servers with their INI files on startup
                 if !safe_mode {
                     let mut ase_server_ids = Vec::new();
@@ -580,6 +773,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::mods::get_installed_mods,
             commands::mods::update_mod_order,
             commands::mods::toggle_mod,
+            commands::mods::toggle_all_mods,
             commands::mods::verify_mod_integrity,
             commands::mods::validate_mod_ids,
             commands::mods::generate_mod_config,

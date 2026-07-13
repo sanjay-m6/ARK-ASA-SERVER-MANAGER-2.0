@@ -555,7 +555,13 @@ impl ConfigGenerator {
 
         // Mods
         if !config.active_mods.is_empty() {
-            content.push_str(&format!("ActiveMods={}\r\n", config.active_mods.join(",")));
+            let valid_mods: Vec<String> = config.active_mods.iter()
+                .map(|m| m.trim().to_string())
+                .filter(|m| !m.is_empty() && m != "0" && m.chars().all(|c| c.is_ascii_digit()))
+                .collect();
+            if !valid_mods.is_empty() {
+                content.push_str(&format!("ActiveMods={}\r\n", valid_mods.join(",")));
+            }
         }
 
         content.push_str("\r\n");

@@ -91,6 +91,7 @@ export interface ModInfo {
     serverType?: ServerType;
     enabled?: boolean;
     loadOrder?: number;
+    isLocal?: boolean;
 }
 
 export interface Backup {

@@ -1090,6 +1090,56 @@ pub async fn write_ase_config(
     );
     ini_set(
         ss,
+        "bAllowUnclaimDinos",
+        ark_bool(config.b_allow_unclaim_dinos).to_string(),
+    );
+    ini_set(
+        ss,
+        "bUseTameLimitForStructuresOnly",
+        ark_bool(config.b_use_tame_limit_for_structures_only).to_string(),
+    );
+    ini_set(
+        ss,
+        "bAllowRaidDinoFeeding",
+        ark_bool(config.b_allow_raid_dino_feeding).to_string(),
+    );
+    ini_set(
+        ss,
+        "RaidDinoCharacterFoodDrainMultiplier",
+        format!("{:.6}", config.raid_dino_character_food_drain_multiplier),
+    );
+    ini_set(
+        ss,
+        "ForceAllowCaveFlyers",
+        ark_bool(config.force_allow_cave_flyers).to_string(),
+    );
+    ini_set(
+        ss,
+        "DisableDinoDecayPvE",
+        ark_bool(config.disable_dino_decay_pve).to_string(),
+    );
+    ini_set(
+        ss,
+        "AllowDinoLevelUpAnimation",
+        ark_bool(config.allow_dino_level_up_animation).to_string(),
+    );
+    ini_set(
+        ss,
+        "bAllowFlyingStaminaRecovery",
+        ark_bool(config.b_allow_flying_stamina_recovery).to_string(),
+    );
+    ini_set(
+        ss,
+        "bAllowMultipleAttachedC4",
+        ark_bool(config.b_allow_multiple_attached_c4).to_string(),
+    );
+    ini_set(
+        ss,
+        "DisableDinoDecayPvP",
+        ark_bool(config.disable_dino_decay_pvp).to_string(),
+    );
+    ini_set(
+        ss,
         "UseDinoLevelUpAnimations",
         ark_bool(config.use_dino_level_up_animations).to_string(),
     );

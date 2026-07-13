@@ -1642,7 +1642,7 @@ export default function ASEConfigEditor() {
     { file: 'Game.ini', tab: 'engrams', type: 'crafting_costs', key: 'configOverrideItemCraftingCosts', label: 'Crafting Cost Overrides' },
 
     // ADMIN - GameUserSettings.ini
-    { file: 'GameUserSettings.ini', tab: 'admin', type: 'text', key: 'adminList', label: 'Admin Steam IDs', desc: 'Comma separated' },
+    { file: 'GameUserSettings.ini', tab: 'admin', type: 'text', key: 'adminList', label: 'Admin Steam IDs', desc: 'Warning: ARK dedicated servers do not support multiple IDs here (it will delete any after the first comma). For multiple admins, please use the Player Management tab to add them to AllowedCheaterSteamIDs.txt' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'text', key: 'badWordFilter', label: 'Bad Word Filter', desc: 'Comma separated' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'enableCreativeMode', label: 'Enable Creative Mode' },
     { file: 'GameUserSettings.ini', tab: 'admin', type: 'toggle', key: 'enableExclusiveJoin', label: 'Enable Exclusive Join Mode', desc: 'Launches the server with -exclusivejoin. Only players in the Exclusive Join list will be allowed to join.' },

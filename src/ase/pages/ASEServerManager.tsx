@@ -566,49 +566,47 @@ export default function ASEServerManager() {
               </span>
             </label>
           </div>
-          <div className="flex flex-wrap items-center gap-1 w-full sm:w-auto bg-slate-900/50 backdrop-blur-md rounded-full border border-slate-700/50 shadow-inner p-1">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto bg-slate-950/40 rounded-full border border-slate-700/50 p-2 shadow-inner">
             <button
               onClick={handleBulkStart}
               disabled={selectedServers.length === 0}
-              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-green-500/20 text-green-500 rounded-full transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
             >
-              <Play className="w-4 h-4 fill-current" />
+              <Play className="w-3.5 h-3.5 fill-current" />
               <span>Start Selected</span>
             </button>
             <button
               onClick={handleStartAll}
-              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-amber-500/20 text-amber-400 rounded-full transition-all font-medium"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/30 rounded-full transition-all text-xs font-semibold"
             >
-              <Play className="w-4 h-4 fill-current" />
+              <Play className="w-3.5 h-3.5 fill-current" />
               <span>Start All</span>
             </button>
-            <div className="w-px h-6 bg-slate-700/50 hidden sm:block mx-1"></div>
+            <div className="w-px h-5 bg-slate-700/50 hidden sm:block mx-1.5"></div>
             <button
               onClick={handleBulkStop}
               disabled={selectedServers.length === 0}
-              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-red-500/20 text-red-400 rounded-full transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 sm:sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
             >
-              <Square className="w-4 h-4 fill-current" />
+              <Square className="w-3.5 h-3.5 fill-current" />
               <span>Stop Selected</span>
             </button>
             <button
-              onClick={handleStopAll}
-              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-rose-500/20 text-rose-400 rounded-full transition-all font-medium"
-            >
-              <Square className="w-4 h-4 fill-current" />
-              <span>Stop All</span>
-            </button>
-
-            <div className="w-px h-6 bg-slate-700/50 hidden sm:block mx-1"></div>
-            
-            <button
               onClick={handleBulkMoveServers}
               disabled={selectedServers.length === 0}
-              className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-4 py-2 hover:bg-purple-500/20 text-purple-400 rounded-full transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
               title={t('serverManager.move.bulkTitle', 'Move selected servers to a new directory')}
             >
-              <FolderOpen className="w-4 h-4 fill-current" />
+              <FolderOpen className="w-3.5 h-3.5" />
               <span>Move Selected</span>
+            </button>
+            <div className="w-px h-5 bg-slate-700/50 hidden sm:block mx-1.5"></div>
+            <button
+              onClick={handleStopAll}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30 rounded-full transition-all text-xs font-semibold"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+              <span>Stop All</span>
             </button>
           </div>
         </div>
@@ -659,7 +657,7 @@ export default function ASEServerManager() {
                           <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-500/5 to-transparent rounded-full blur-3xl -mr-32 -mt-32"></div>
                         </div>
               
-                <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
                 <div className="flex items-start space-x-4">
                   {/* Drag Handle */}
                   <div
@@ -895,43 +893,44 @@ export default function ASEServerManager() {
               {!collapsedCards[srv.id] && (
                 <div className="animate-in slide-in-from-top-2 fade-in duration-300">
                   {/* Server Details Grid - Glassmorphic */}
+                  {/* Server Details Grid - Glassmorphic */}
                   <div className="mt-5 pt-4 border-t border-slate-700/30">
-                    <div className="bg-slate-900/40 backdrop-blur-sm rounded-xl border border-slate-700/30 p-4 shadow-inner">
+                    <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/10 p-5 shadow-2xl transition-all duration-300 hover:shadow-amber-500/5">
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-6 text-sm">
-                        <div>
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                                <FolderOpen className="w-3.5 h-3.5 text-amber-500/60" />
-                                <p className="text-slate-500 text-xs uppercase tracking-wider font-bold">{t('serverManager.serverDetails.installPath', 'Install Path')}</p>
+                        <div className="space-y-2 group/field">
+                            <div className="flex items-center gap-2 text-slate-400 group-hover/field:text-slate-200 transition-colors">
+                                <FolderOpen className="w-4 h-4 text-amber-500/80" />
+                                <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.installPath', 'Install Path')}</p>
                             </div>
-                            <p className="text-slate-300 font-mono text-xs truncate" title={srv.installPath}>{srv.installPath}</p>
+                            <p className="text-slate-300 font-mono text-xs truncate bg-slate-950/40 p-2.5 rounded-xl border border-white/5 hover:border-white/10 transition-colors shadow-inner" title={srv.installPath}>{srv.installPath}</p>
                         </div>
-                        <div>
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                                <Users className="w-3.5 h-3.5 text-amber-500/60" />
-                                <p className="text-slate-500 text-xs uppercase tracking-wider font-bold">{t('serverManager.serverDetails.maxPlayers', 'Max Players')}</p>
+                        <div className="space-y-2 group/field">
+                            <div className="flex items-center gap-2 text-slate-400 group-hover/field:text-slate-200 transition-colors">
+                                <Users className="w-4 h-4 text-amber-500/80" />
+                                <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.maxPlayers', 'Max Players')}</p>
                             </div>
-                            <p className="text-slate-300">{srv.maxPlayers} {t('serverManager.serverDetails.survivors', 'Survivors')}</p>
+                            <p className="text-slate-300 text-xs bg-slate-950/40 p-2.5 rounded-xl border border-white/5 hover:border-white/10 transition-colors shadow-inner truncate">{srv.maxPlayers} {t('serverManager.serverDetails.survivors', 'Survivors')}</p>
                         </div>
-                        <div>
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                                <PenLine className="w-3.5 h-3.5 text-amber-500/60" />
-                                <p className="text-slate-500 text-xs uppercase tracking-wider font-bold">{t('serverManager.serverDetails.sessionName', 'Session Name')}</p>
+                        <div className="space-y-2 group/field">
+                            <div className="flex items-center gap-2 text-slate-400 group-hover/field:text-slate-200 transition-colors">
+                                <PenLine className="w-4 h-4 text-amber-500/80" />
+                                <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.sessionName', 'Session Name')}</p>
                             </div>
-                            <p className="text-slate-300 truncate">{srv.sessionName}</p>
+                            <p className="text-slate-300 text-xs truncate bg-slate-950/40 p-2.5 rounded-xl border border-white/5 hover:border-white/10 transition-colors shadow-inner">{srv.sessionName}</p>
                         </div>
-                        <div>
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                                <Network className="w-3.5 h-3.5 text-amber-500/60" />
-                                <p className="text-slate-500 text-xs uppercase tracking-wider font-bold">{t('serverManager.serverDetails.connection', 'Connection')}</p>
+                        <div className="space-y-2 group/field">
+                            <div className="flex items-center gap-2 text-slate-400 group-hover/field:text-slate-200 transition-colors">
+                                <Network className="w-4 h-4 text-amber-500/80" />
+                                <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.connection', 'Connection')}</p>
                             </div>
-                            <p className="text-slate-300 font-mono text-xs">
+                            <p className="text-slate-300 font-mono text-xs bg-slate-950/40 p-2.5 rounded-xl border border-white/5 hover:border-white/10 transition-colors shadow-inner truncate">
                                 {srv.port} (Game) / {srv.queryPort} (Query)
                             </p>
                         </div>
-                        <div className="no-collapse">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                                <GitBranch className="w-3.5 h-3.5 text-amber-500/60" />
-                                <p className="text-slate-500 text-xs uppercase tracking-wider font-bold">{t('serverManager.serverDetails.branch', 'Server Version')}</p>
+                        <div className="space-y-2 group/field no-collapse">
+                            <div className="flex items-center gap-2 text-slate-400 group-hover/field:text-slate-200 transition-colors">
+                                <GitBranch className="w-4 h-4 text-amber-500/80" />
+                                <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.branch', 'Server Version')}</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 <select
@@ -1060,106 +1059,106 @@ export default function ASEServerManager() {
                     </div>
                   )}
 
-                  {/* Automation Controls - Glassmorphic */}
-                  <div className="mt-3">
-                    <div className="bg-slate-900/40 backdrop-blur-sm rounded-xl border border-slate-700/30 p-4 shadow-inner">
-                      <div className="flex flex-wrap items-center gap-6">
-                        <div className="flex items-center gap-2">
-                            <Cpu className="w-4 h-4 text-amber-500/60" />
-                            <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('serverManager.serverDetails.automation', 'Automation')}</span>
-                        </div>
-                        <label className="flex items-center gap-2 cursor-pointer group/toggle no-collapse">
-                            <div className="relative">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={srv.autoStart || false}
-                                    onChange={() => handleToggleAseAutomation(srv.id, 'autoStart', srv.autoStart || false)}
-                                />
-                                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
-                            </div>
-                            <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStart', 'Auto-Start')}</span>
-                        </label>
+                   {/* Automation Controls - Glassmorphic */}
+                   <div className="mt-4">
+                     <div className="bg-slate-900/40 backdrop-blur-md rounded-2xl border border-white/10 p-5 shadow-2xl transition-all duration-300 hover:shadow-amber-500/5">
+                       <div className="flex flex-wrap items-center gap-6">
+                         <div className="flex items-center gap-2">
+                             <Cpu className="w-4 h-4 text-amber-500/80" />
+                             <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">{t('serverManager.serverDetails.automation', 'Automation')}</span>
+                         </div>
+                         <label className="flex items-center gap-2.5 cursor-pointer group/toggle no-collapse select-none">
+                             <div className="relative">
+                                 <input
+                                     type="checkbox"
+                                     className="sr-only peer"
+                                     checked={srv.autoStart || false}
+                                     onChange={() => handleToggleAseAutomation(srv.id, 'autoStart', srv.autoStart || false)}
+                                 />
+                                 <div className="relative w-10 h-6 bg-slate-955/60 border border-slate-700/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[16px] rtl:peer-checked:after:-translate-x-[16px] peer-checked:after:border-white/10 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 peer-checked:after:bg-emerald-400 after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-emerald-500/20 peer-checked:border-emerald-500/40 shadow-inner after:shadow-md peer-checked:after:shadow-[0_0_8px_rgba(52,211,153,0.5)] transition-all"></div>
+                             </div>
+                             <span className="text-slate-400 text-sm font-bold group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStart', 'Auto-Start')}</span>
+                         </label>
 
-                        {srv.autoStart && (
-                            <div className="flex items-center gap-3 bg-slate-800/40 px-3 py-1 rounded-lg border border-slate-700/50 animate-in fade-in duration-200 text-xs no-collapse">
-                                <div className="flex items-center gap-1.5 text-slate-400">
-                                    <span>{t('serverManager.serverDetails.delay', 'Delay')}:</span>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        placeholder="0"
-                                        value={srv.startupDelay !== undefined ? srv.startupDelay : ''}
-                                        onChange={async (e) => {
-                                            const delay = parseInt(e.target.value) || 0;
-                                            try {
-                                                await updateAseServer(srv.id, { startupDelay: delay });
-                                                setServers(servers.map(s => s.id === srv.id ? { ...s, startupDelay: delay } : s));
-                                            } catch (err) {
-                                                console.error('Failed to update delay:', err);
-                                            }
-                                        }}
-                                        className="w-12 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-white font-mono text-center focus:outline-none focus:border-amber-500"
-                                    />
-                                    <span>s</span>
-                                </div>
-                                <div className="w-px h-3 bg-slate-700"></div>
-                                <div className="flex items-center gap-1.5 text-slate-400">
-                                    <span>{t('serverManager.serverDetails.priority', 'Priority')}:</span>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        placeholder="0"
-                                        value={srv.startupPriority !== undefined ? srv.startupPriority : ''}
-                                        onChange={async (e) => {
-                                            const priority = parseInt(e.target.value) || 0;
-                                            try {
-                                                await updateAseServer(srv.id, { startupPriority: priority });
-                                                setServers(servers.map(s => s.id === srv.id ? { ...s, startupPriority: priority } : s));
-                                            } catch (err) {
-                                                console.error('Failed to update priority:', err);
-                                            }
-                                        }}
-                                        className="w-10 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-white font-mono text-center focus:outline-none focus:border-amber-500"
-                                    />
-                                </div>
-                            </div>
-                        )}
+                         {srv.autoStart && (
+                             <div className="flex items-center gap-3 bg-slate-955/40 px-3 py-1.5 rounded-xl border border-white/5 animate-in fade-in duration-200 text-xs no-collapse shadow-inner">
+                                 <div className="flex items-center gap-1.5 text-slate-400">
+                                     <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">{t('serverManager.serverDetails.delay', 'Delay')}:</span>
+                                     <input
+                                         type="number"
+                                         min="0"
+                                         placeholder="0"
+                                         value={srv.startupDelay !== undefined ? srv.startupDelay : ''}
+                                         onChange={async (e) => {
+                                             const delay = parseInt(e.target.value) || 0;
+                                             try {
+                                                 await updateAseServer(srv.id, { startupDelay: delay });
+                                                 setServers(servers.map(s => s.id === srv.id ? { ...s, startupDelay: delay } : s));
+                                             } catch (err) {
+                                                 console.error('Failed to update delay:', err);
+                                             }
+                                         }}
+                                         className="w-12 bg-slate-955 border border-white/5 rounded-lg px-1.5 py-0.5 text-white font-mono text-center focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50"
+                                     />
+                                     <span className="text-slate-500">s</span>
+                                 </div>
+                                 <div className="w-px h-3.5 bg-white/10"></div>
+                                 <div className="flex items-center gap-1.5 text-slate-400">
+                                     <span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">{t('serverManager.serverDetails.priority', 'Priority')}:</span>
+                                     <input
+                                         type="number"
+                                         min="0"
+                                         placeholder="0"
+                                         value={srv.startupPriority !== undefined ? srv.startupPriority : ''}
+                                         onChange={async (e) => {
+                                             const priority = parseInt(e.target.value) || 0;
+                                             try {
+                                                 await updateAseServer(srv.id, { startupPriority: priority });
+                                                 setServers(servers.map(s => s.id === srv.id ? { ...s, startupPriority: priority } : s));
+                                             } catch (err) {
+                                                 console.error('Failed to update priority:', err);
+                                             }
+                                         }}
+                                         className="w-10 bg-slate-955 border border-white/5 rounded-lg px-1.5 py-0.5 text-white font-mono text-center focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50"
+                                     />
+                                 </div>
+                             </div>
+                         )}
 
-                        <label className="flex items-center gap-2 cursor-pointer group/toggle no-collapse">
-                            <div className="relative">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={srv.autoStop || false}
-                                    onChange={() => handleToggleAseAutomation(srv.id, 'autoStop', srv.autoStop || false)}
-                                />
-                                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-500"></div>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStop', 'Auto-Stop')}</span>
-                                <span className="text-[10px] text-slate-500">{t('serverManager.serverDetails.onConfigChange', 'On config change')}</span>
-                            </div>
-                        </label>
+                         <label className="flex items-center gap-2.5 cursor-pointer group/toggle no-collapse select-none">
+                             <div className="relative">
+                                 <input
+                                     type="checkbox"
+                                     className="sr-only peer"
+                                     checked={srv.autoStop || false}
+                                     onChange={() => handleToggleAseAutomation(srv.id, 'autoStop', srv.autoStop || false)}
+                                 />
+                                 <div className="relative w-10 h-6 bg-slate-955/60 border border-slate-700/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[16px] rtl:peer-checked:after:-translate-x-[16px] peer-checked:after:border-white/10 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 peer-checked:after:bg-rose-400 after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-rose-500/20 peer-checked:border-rose-500/40 shadow-inner after:shadow-md peer-checked:after:shadow-[0_0_8px_rgba(244,63,94,0.5)] transition-all"></div>
+                             </div>
+                             <div className="flex flex-col">
+                                 <span className="text-slate-400 text-sm font-bold group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStop', 'Auto-Stop')}</span>
+                                 <span className="text-[10px] text-slate-500">{t('serverManager.serverDetails.onConfigChange', 'On config change')}</span>
+                             </div>
+                         </label>
 
-                        <label className="flex items-center gap-2 cursor-pointer group/toggle ml-auto lg:ml-0 no-collapse">
-                            <div className="relative">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={srv.intelligentMode || false}
-                                    onChange={() => handleToggleAseAutomation(srv.id, 'intelligentMode', srv.intelligentMode || false)}
-                                />
-                                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-slate-400 text-sm group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.intelligentMode', 'Intelligent Mode')}</span>
-                                <span className="text-[10px] text-slate-500">{t('serverManager.serverDetails.autoRestartOnCrash', 'Auto-restart on crash')}</span>
-                            </div>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
+                         <label className="flex items-center gap-2.5 cursor-pointer group/toggle ml-auto lg:ml-0 no-collapse select-none">
+                             <div className="relative">
+                                 <input
+                                     type="checkbox"
+                                     className="sr-only peer"
+                                     checked={srv.intelligentMode || false}
+                                     onChange={() => handleToggleAseAutomation(srv.id, 'intelligentMode', srv.intelligentMode || false)}
+                                 />
+                                 <div className="relative w-10 h-6 bg-slate-955/60 border border-slate-700/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[16px] rtl:peer-checked:after:-translate-x-[16px] peer-checked:after:border-white/10 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 peer-checked:after:bg-amber-400 after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-amber-500/20 peer-checked:border-amber-500/40 shadow-inner after:shadow-md peer-checked:after:shadow-[0_0_8px_rgba(245,158,11,0.5)] transition-all"></div>
+                             </div>
+                             <div className="flex flex-col">
+                                 <span className="text-slate-400 text-sm font-bold group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.intelligentMode', 'Intelligent Mode')}</span>
+                                 <span className="text-[10px] text-slate-500">{t('serverManager.serverDetails.autoRestartOnCrash', 'Auto-restart on crash')}</span>
+                             </div>
+                         </label>
+                       </div>
+                     </div>
+                   </div>
                   <ServerStatusBar serverId={srv.id} serverType="ASE" />
                 </div>
                     )}

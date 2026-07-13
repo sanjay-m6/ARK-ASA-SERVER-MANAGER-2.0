@@ -1,25 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getVersion } from '@tauri-apps/api/app';
-import { Sunrise, Sun, Moon, Copy, Bell, Loader2, AlertCircle } from 'lucide-react';
+import { Sunrise, Sun, Moon, Copy, Bell, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../utils/helpers';
 import { useServerStore } from '../../stores/serverStore';
+import { useAseServerStore } from '../../ase/stores/aseServerStore';
 import { useGameStore } from '../../stores/gameStore';
 import { usePublicIP } from '../../hooks/usePublicIP';
-import { UpdateInfo } from '../UpdateChecker';
+import { UpdateInfo, manualCheckForUpdates } from '../UpdateChecker';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 
 export default function TopBar() {
-    const { servers } = useServerStore();
+    const asaServers = useServerStore((state) => state.servers);
+    const aseServers = useAseServerStore((state) => state.servers);
     const { activeGame } = useGameStore();
     const isASE = activeGame === 'ASE';
+    const servers = isASE ? aseServers : asaServers;
     const { t } = useTranslation();
     const [appVersion, setAppVersion] = useState<string>('?.?.?');
     const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
+    const [isChecking, setIsChecking] = useState(false);
 
     // IP Hook
     const { data: publicIp, isLoading: isLoadingIp, isError: isErrorIp, refetch: refetchIp } = usePublicIP();
@@ -36,7 +40,14 @@ export default function TopBar() {
     const GreetingIcon = greeting.icon;
 
     // Server Status Logic
-    const runningServers = servers.filter((s) => s.status === 'running' || s.status === 'online').length;
+    const runningServers = servers.filter((s) => 
+        s.status === 'running' || 
+        s.status === 'online' || 
+        s.status === 'starting' || 
+        s.status === 'updating' || 
+        s.status === 'restarting' || 
+        s.status === 'stopping'
+    ).length;
     const isAnyServerRunning = runningServers > 0;
 
     useEffect(() => {
@@ -71,6 +82,28 @@ export default function TopBar() {
         // Trigger existing update checker UI or handle download
         // We can dispatch a custom event to open the UpdateChecker banner if we want
         window.dispatchEvent(new Event('show-update-banner'));
+    };
+
+    const handleManualCheck = async () => {
+        if (isChecking) return;
+        setIsChecking(true);
+        try {
+            const result = await manualCheckForUpdates();
+            if (result.available && result.update) {
+                toast.success(t('settings.updatesTab.updateAvailable', `Update v${result.update.version} is available!`));
+                // Open the update wizard modal immediately
+                window.dispatchEvent(new Event('show-update-banner'));
+            } else if (result.error) {
+                toast.error(result.error);
+            } else {
+                toast.success(t('settings.updatesTab.latestVersion', 'You are on the latest version'));
+            }
+        } catch (err) {
+            console.error('Failed to check for updates:', err);
+            toast.error(t('settings.updatesTab.checkFailed', 'Failed to check for updates'));
+        } finally {
+            setIsChecking(false);
+        }
     };
 
     return (
@@ -133,22 +166,35 @@ export default function TopBar() {
                     </button>
                 </div>
 
-                {/* Version */}
-                <div className="flex flex-col items-end">
-                    <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">{t('common.version', 'VERSION')}</span>
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-bold text-slate-300">v{appVersion.replace('-0', '-beta')}</span>
-                        {(appVersion.includes('beta') || appVersion.includes('-0')) && (
-                            <span className={cn(
-                                "px-1.5 py-0.5 text-[8px] font-extrabold tracking-wider rounded border uppercase backdrop-blur-sm leading-none",
-                                isASE
-                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                                    : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
-                            )}>
-                                Beta
-                            </span>
-                        )}
+                {/* Version & Update Button */}
+                <div className="flex items-center gap-2.5 bg-slate-900/40 border border-white/5 pl-4 pr-2 py-1.5 rounded-full shadow-inner">
+                    <div className="flex flex-col items-end">
+                        <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">{t('common.version', 'VERSION')}</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-bold text-slate-300 leading-none">v{appVersion.replace('-0', '-beta')}</span>
+                            {(appVersion.includes('beta') || appVersion.includes('-0')) && (
+                                <span className={cn(
+                                    "px-1.5 py-0.5 text-[8px] font-extrabold tracking-wider rounded border uppercase backdrop-blur-sm leading-none",
+                                    isASE
+                                        ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                                        : "bg-cyan-500/10 border-cyan-500/30 text-cyan-400"
+                                )}>
+                                    Beta
+                                </span>
+                            )}
+                        </div>
                     </div>
+                    <button
+                        onClick={handleManualCheck}
+                        disabled={isChecking}
+                        className={cn(
+                            "p-2.5 bg-slate-800/80 hover:bg-slate-700 rounded-full transition-all text-slate-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed group border border-transparent shadow-sm",
+                            isASE ? "hover:text-amber-400 hover:border-amber-500/25" : "hover:text-cyan-400 hover:border-cyan-500/25"
+                        )}
+                        title={t('settings.updatesTab.checkForUpdates', 'Check for Updates')}
+                    >
+                        <RefreshCw className={cn("w-4 h-4 group-hover:scale-110 transition-transform", isChecking ? "animate-spin" : "")} />
+                    </button>
                 </div>
 
                 {/* Divider */}

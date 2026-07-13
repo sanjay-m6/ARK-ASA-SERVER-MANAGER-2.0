@@ -32,7 +32,10 @@ import {
     History,
     Gift,
     Package,
-    Sliders
+    Sliders,
+    Download,
+    Zap,
+    Power
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
@@ -278,8 +281,8 @@ export default function RconConsole() {
     const { t } = useTranslation();
     const { servers } = useServerStore();
 
-    // Active Tab state: terminal, log_stream, cluster, save_manager, give_items
-    const [activeTab, setActiveTab] = useState<'terminal' | 'log_stream' | 'cluster' | 'save_manager' | 'give_items'>('terminal');
+    // Active Tab state: terminal, log_stream, cluster, save_manager, maintenance, give_items
+    const [activeTab, setActiveTab] = useState<'terminal' | 'log_stream' | 'cluster' | 'save_manager' | 'maintenance' | 'give_items'>('terminal');
 
     const [isHelpOpen, setIsHelpOpen] = useState(false);
 
@@ -320,6 +323,207 @@ export default function RconConsole() {
     const commandHistory = serverState?.commandHistory || EMPTY_HISTORY;
     const onlinePlayers = serverState?.players || EMPTY_PLAYERS;
     const connectionInfo = serverState?.connectionInfo || null;
+
+    const [isBackupInProgress, setIsBackupInProgress] = useState(false);
+
+    const handleCreateBackup = async () => {
+        if (!selectedServerId) return;
+        setIsBackupInProgress(true);
+        const toastId = toast.loading(t('rcon.toasts.creatingBackup', 'Creating server backup...'));
+        try {
+            await invoke('create_backup', { serverId: selectedServerId, backupType: 'manual' });
+            toast.success(t('rcon.toasts.backupSuccess', 'Server backup created successfully!'), { id: toastId });
+        } catch (error) {
+            console.error('Failed to create backup:', error);
+            toast.error(t('rcon.toasts.backupFailed', `Failed to create backup: ${error}`), { id: toastId });
+        } finally {
+            setIsBackupInProgress(false);
+        }
+    };
+
+    // Maintenance Sequence states
+    const [maintStop, setMaintStop] = useState(true);
+    const [maintBackup, setMaintBackup] = useState(true);
+    const [maintUpdate, setMaintUpdate] = useState(true);
+    const [maintStart, setMaintStart] = useState(true);
+    const [maintWipeDinos, setMaintWipeDinos] = useState(true);
+
+    const [isMaintRunning, setIsMaintRunning] = useState(false);
+    const [maintStep, setMaintStep] = useState(0); // 0 = idle, 1 = stop, 2 = backup, 3 = update, 4 = start, 5 = wipe, 6 = complete
+    const [maintLogs, setMaintLogs] = useState<string[]>([]);
+    const maintAbortRef = useRef(false);
+
+    const checkServerStatus = (id: number): string | null => {
+        const servers = useServerStore.getState().servers;
+        const srv = servers.find(s => s.id === id);
+        return srv ? srv.status : null;
+    };
+
+    const handleAbortSequence = () => {
+        maintAbortRef.current = true;
+        const timestamp = new Date().toLocaleTimeString();
+        setMaintLogs(prev => [...prev, `[${timestamp}] ⚠️ Abort requested by user. Terminating visualization immediately.`]);
+        setIsMaintRunning(false);
+        setMaintStep(0);
+        toast.success(t('rcon.maint.seqAborted', 'Maintenance sequence aborted.'));
+    };
+
+    const executeMaintenanceSequence = async () => {
+        if (!selectedServerId) return;
+        setIsMaintRunning(true);
+        maintAbortRef.current = false;
+        setMaintLogs([]);
+        setMaintStep(0);
+
+        const server = useServerStore.getState().servers.find(s => s.id === selectedServerId);
+        const serverName = server ? server.name : `Server #${selectedServerId}`;
+
+        const log = (msg: string) => {
+            const timestamp = new Date().toLocaleTimeString();
+            setMaintLogs(prev => [...prev, `[${timestamp}] ${msg}`]);
+        };
+
+        log(`?? Starting automated maintenance sequence for "${serverName}"...`);
+
+        try {
+            // STEP 1: STOP SERVER
+            if (maintStop) {
+                if (maintAbortRef.current) return;
+                setMaintStep(1);
+                const statusBefore = checkServerStatus(selectedServerId);
+                if (statusBefore !== 'stopped') {
+                    log("Step 1/5: Requesting graceful server shutdown...");
+                    await invoke('stop_server', { serverId: selectedServerId });
+                    if (maintAbortRef.current) return;
+                    
+                    // Poll until status is stopped
+                    let isStopped = false;
+                    for (let i = 0; i < 150; i++) { // Max 5 mins (150 * 2s)
+                        if (maintAbortRef.current) return;
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        if (maintAbortRef.current) return;
+                        const currentStatus = checkServerStatus(selectedServerId);
+                        if (currentStatus === 'stopped') {
+                            isStopped = true;
+                            break;
+                        }
+                        log(`Waiting for shutdown (current status: ${currentStatus || 'unknown'})...`);
+                    }
+                    if (maintAbortRef.current) return;
+                    if (!isStopped) throw new Error("Timeout waiting for server to stop");
+                    log("Server stopped successfully.");
+                } else {
+                    log("Step 1/5: Server is already stopped. Skipping stop step.");
+                }
+            }
+
+            // STEP 2: CREATE BACKUP
+            if (maintBackup) {
+                if (maintAbortRef.current) return;
+                setMaintStep(2);
+                log("Step 2/5: Creating automated server backup...");
+                await invoke('create_backup', { serverId: selectedServerId, backupType: 'manual' });
+                if (maintAbortRef.current) return;
+                log("Server backup created successfully.");
+            }
+
+            // STEP 3: UPDATE SERVER
+            if (maintUpdate) {
+                if (maintAbortRef.current) return;
+                setMaintStep(3);
+                log("Step 3/5: Launching SteamCMD update...");
+                await invoke('update_server', { serverId: selectedServerId });
+                if (maintAbortRef.current) return;
+                
+                // Poll until status returns to stopped/starting
+                let isUpdated = false;
+                log("Waiting for SteamCMD update to complete...");
+                for (let i = 0; i < 300; i++) { // Max 10 mins (300 * 2s)
+                    if (maintAbortRef.current) return;
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    if (maintAbortRef.current) return;
+                    const currentStatus = checkServerStatus(selectedServerId);
+                    if (currentStatus !== 'updating') {
+                        isUpdated = true;
+                        break;
+                    }
+                }
+                if (maintAbortRef.current) return;
+                if (!isUpdated) throw new Error("Timeout waiting for server update");
+                log("Server update complete.");
+            }
+
+            // STEP 4: START SERVER
+            if (maintStart) {
+                if (maintAbortRef.current) return;
+                setMaintStep(4);
+                log("Step 4/5: Powering server process back up...");
+                await invoke('start_server', { serverId: selectedServerId, updateOnStart: false });
+                if (maintAbortRef.current) return;
+                
+                // Poll until status is online/running
+                let isOnline = false;
+                for (let i = 0; i < 300; i++) { // Max 10 mins (300 * 2s)
+                    if (maintAbortRef.current) return;
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    if (maintAbortRef.current) return;
+                    const currentStatus = checkServerStatus(selectedServerId);
+                    if (currentStatus === 'online' || currentStatus === 'running') {
+                        isOnline = true;
+                        break;
+                    }
+                    log(`Waiting for server to boot (current status: ${currentStatus || 'starting'})...`);
+                }
+                if (maintAbortRef.current) return;
+                if (!isOnline) throw new Error("Timeout waiting for server to start");
+                log("Server is online.");
+            }
+
+            // STEP 5: DESTROY WILD DINOS
+            if (maintWipeDinos) {
+                if (maintAbortRef.current) return;
+                setMaintStep(5);
+                log("Step 5/5: Preparing wild dino wipe...");
+                log("Polling RCON subsystem until connection is established (max 90 seconds)...");
+                
+                let rconReady = false;
+                for (let i = 0; i < 45; i++) { // 45 * 2s = 90s max
+                    if (maintAbortRef.current) return;
+                    try {
+                        // Send a harmless command to check if RCON port is responsive
+                        await invoke('rcon_send_command', { serverId: selectedServerId, command: 'listplayers' });
+                        rconReady = true;
+                        break;
+                    } catch (e) {
+                        // RCON not ready yet, wait and retry
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                }
+                if (maintAbortRef.current) return;
+                
+                if (!rconReady) {
+                    log("⚠️ RCON subsystem did not respond in time. Proceeding with command transmission anyway...");
+                } else {
+                    log("✅ RCON connection established successfully!");
+                }
+                
+                log("Transmitting DestroyWildDinos command via RCON...");
+                await invoke('rcon_send_command', { serverId: selectedServerId, command: 'DestroyWildDinos' });
+                if (maintAbortRef.current) return;
+                log("DestroyWildDinos command executed successfully!");
+            }
+
+            setMaintStep(6);
+            log("?? Server maintenance sequence completed successfully!");
+            toast.success(t('rcon.maint.seqSuccess', 'Maintenance sequence completed successfully!'));
+        } catch (error: any) {
+            if (maintAbortRef.current) return;
+            log(`?? ERROR: ${error.message || error}`);
+            toast.error(t('rcon.maint.seqFailed', `Maintenance sequence failed: ${error.message || error}`));
+        } finally {
+            setIsMaintRunning(false);
+        }
+    };
 
     // Resolve Player IDs automatically
     useEffect(() => {
@@ -1156,6 +1360,19 @@ export default function RconConsole() {
                 </button>
 
                 <button
+                    onClick={() => setActiveTab('maintenance')}
+                    className={cn(
+                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
+                        activeTab === 'maintenance' 
+                            ? "text-sky-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                    )}
+                >
+                    <RefreshCw className={cn("w-4 h-4", isMaintRunning && "animate-spin text-sky-400")} />
+                    <span className="relative z-10">{t('rcon.tabs.maintenance', 'Maintenance')}</span>
+                </button>
+
+                <button
                     onClick={() => setActiveTab('give_items')}
                     className={cn(
                         "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
@@ -1220,6 +1437,18 @@ export default function RconConsole() {
                                 >
                                     <MessageSquare className="w-4 h-4" />
                                     {t('rcon.quickCommands.serverChat', 'Send Chat')}
+                                </button>
+                                <button
+                                    onClick={handleCreateBackup}
+                                    disabled={isBackupInProgress || !selectedServerId}
+                                    className="flex items-center gap-2 px-3.5 py-2 bg-emerald-950/20 hover:bg-emerald-900/20 border border-emerald-800/30 rounded-xl text-xs text-emerald-400 font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    {isBackupInProgress ? (
+                                        <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                                    ) : (
+                                        <Database className="w-4 h-4 text-emerald-400" />
+                                    )}
+                                    <span>{isBackupInProgress ? t('rcon.creatingBackup', 'Backing Up...') : t('rcon.createBackup', 'Create Backup')}</span>
                                 </button>
                                 <button
                                     onClick={() => setShowAutoBroadcastSettings(!showAutoBroadcastSettings)}
@@ -1767,6 +1996,263 @@ export default function RconConsole() {
                                     )}
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* TAB: MAINTENANCE SEQUENCE */}
+                    {activeTab === 'maintenance' && (
+                        <div className="flex-1 flex flex-col h-full space-y-6 animate-in fade-in duration-300">
+                            
+                            {/* Maintenance Header */}
+                            <div className="bg-slate-950/40 border border-slate-850 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md relative overflow-hidden">
+                                <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none select-none text-[150px] text-sky-400">
+                                    dY-
+                                </div>
+
+                                <div className="space-y-2 max-w-lg">
+                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                        <RefreshCw className={cn("w-5 h-5 text-sky-400", isMaintRunning && "animate-spin")} />
+                                        <span>Server Maintenance Sequence</span>
+                                    </h3>
+                                    <p className="text-xs text-slate-400 leading-relaxed">
+                                        Coordinate and execute a safe, step-by-step update and restart sequence on the server. Select the operations to perform below and monitor progress in real-time.
+                                    </p>
+                                </div>
+
+                                <div className="shrink-0 flex items-center gap-2.5">
+                                    {isMaintRunning ? (
+                                        <button
+                                            onClick={handleAbortSequence}
+                                            className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-rose-600 hover:bg-rose-500 text-white shadow-xl transition-all duration-300 transform active:scale-95 shadow-rose-950/20"
+                                        >
+                                            <XCircle className="w-5 h-5 animate-pulse" />
+                                            <span>Abort Sequence</span>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={executeMaintenanceSequence}
+                                            disabled={!selectedServerId}
+                                            className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white shadow-xl transition-all duration-300 transform active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        >
+                                            <Play className="w-5 h-5" />
+                                            <span>Run Sequence</span>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Main Body Grid */}
+                            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                                
+                                {/* Step Selection Config (Left 2 Columns) */}
+                                <div className="lg:col-span-2 space-y-3.5">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">Configuration Steps</h4>
+                                    
+                                    {/* Step 1 Toggle */}
+                                    <div 
+                                        onClick={() => !isMaintRunning && setMaintStop(!maintStop)}
+                                        className={cn(
+                                            "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
+                                            isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
+                                            maintStop ? "bg-red-500/5 border-red-500/20 hover:border-red-500/40" : "bg-slate-950/20 border-slate-850 hover:border-slate-800"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStop ? "bg-red-500/10 text-red-400 border border-red-500/30" : "bg-slate-900 text-slate-500 border border-slate-800")}>1</div>
+                                            <div>
+                                                <p className="text-xs font-bold text-white font-sans">Graceful Shutdown</p>
+                                                <p className="text-[10px] text-slate-400 font-sans">Stop server before maintenance</p>
+                                            </div>
+                                        </div>
+                                        <input type="checkbox" checked={maintStop} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
+                                    </div>
+
+                                    {/* Step 2 Toggle */}
+                                    <div 
+                                        onClick={() => !isMaintRunning && setMaintBackup(!maintBackup)}
+                                        className={cn(
+                                            "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
+                                            isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
+                                            maintBackup ? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40" : "bg-slate-950/20 border-slate-850 hover:border-slate-800"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintBackup ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-slate-900 text-slate-500 border border-slate-800")}>2</div>
+                                            <div>
+                                                <p className="text-xs font-bold text-white font-sans">Create Backup</p>
+                                                <p className="text-[10px] text-slate-400 font-sans">Zip world save & configs</p>
+                                            </div>
+                                        </div>
+                                        <input type="checkbox" checked={maintBackup} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
+                                    </div>
+
+                                    {/* Step 3 Toggle */}
+                                    <div 
+                                        onClick={() => !isMaintRunning && setMaintUpdate(!maintUpdate)}
+                                        className={cn(
+                                            "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
+                                            isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
+                                            maintUpdate ? "bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40" : "bg-slate-950/20 border-slate-850 hover:border-slate-800"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintUpdate ? "bg-blue-500/10 text-blue-400 border border-blue-500/30" : "bg-slate-900 text-slate-500 border border-slate-800")}>3</div>
+                                            <div>
+                                                <p className="text-xs font-bold text-white font-sans">SteamCMD Update</p>
+                                                <p className="text-[10px] text-slate-400 font-sans">Fetch latest server binary files</p>
+                                            </div>
+                                        </div>
+                                        <input type="checkbox" checked={maintUpdate} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
+                                    </div>
+
+                                    {/* Step 4 Toggle */}
+                                    <div 
+                                        onClick={() => !isMaintRunning && setMaintStart(!maintStart)}
+                                        className={cn(
+                                            "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
+                                            isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
+                                            maintStart ? "bg-sky-500/5 border-sky-500/20 hover:border-sky-500/40" : "bg-slate-950/20 border-slate-850 hover:border-slate-800"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStart ? "bg-sky-500/10 text-sky-400 border border-sky-500/30" : "bg-slate-900 text-slate-500 border border-slate-800")}>4</div>
+                                            <div>
+                                                <p className="text-xs font-bold text-white font-sans">Start Server</p>
+                                                <p className="text-[10px] text-slate-400 font-sans">Launch process and watch bootup</p>
+                                            </div>
+                                        </div>
+                                        <input type="checkbox" checked={maintStart} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
+                                    </div>
+
+                                    {/* Step 5 Toggle */}
+                                    <div 
+                                        onClick={() => !isMaintRunning && setMaintWipeDinos(!maintWipeDinos)}
+                                        className={cn(
+                                            "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
+                                            isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
+                                            maintWipeDinos ? "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40" : "bg-slate-950/20 border-slate-850 hover:border-slate-800"
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintWipeDinos ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" : "bg-slate-900 text-slate-500 border border-slate-800")}>5</div>
+                                            <div>
+                                                <p className="text-xs font-bold text-white font-sans">Destroy Wild Dinos</p>
+                                                <p className="text-[10px] text-slate-400 font-sans">Wipe map populations via RCON</p>
+                                            </div>
+                                        </div>
+                                        <input type="checkbox" checked={maintWipeDinos} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
+                                    </div>
+                                </div>
+
+                                {/* Sequence Progress Flow and Console Logs (Right 3 Columns) */}
+                                <div className="lg:col-span-3 space-y-4 flex flex-col h-full">
+                                    <div className="bg-slate-950 rounded-2xl p-5 border border-slate-850 shadow-inner flex-1 flex flex-col space-y-4">
+                                        
+                                        {/* Status Header */}
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-sans">Sequence Status</span>
+                                            {isMaintRunning ? (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 font-sans">
+                                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                                    <span>Running Step {maintStep}/5</span>
+                                                </span>
+                                            ) : maintStep === 6 ? (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-sans">
+                                                    <Check className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                                                    <span>Completed</span>
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-850 text-slate-500 border border-slate-800 font-sans">
+                                                    <span>Idle</span>
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Visual Step Timeline */}
+                                        <div className="flex items-center justify-between px-2 pt-2 relative">
+                                            {/* Line Background */}
+                                            <div className="absolute top-[1.4rem] left-10 right-10 h-0.5 bg-slate-800 pointer-events-none z-0"></div>
+                                            
+                                            {/* Dynamic Line Progress */}
+                                            {isMaintRunning && maintStep > 1 && (
+                                                <div 
+                                                    className="absolute top-[1.4rem] left-10 h-0.5 bg-sky-500 transition-all duration-500 pointer-events-none z-0"
+                                                    style={{ width: `calc(${((maintStep - 1) / 4) * 100}% - 40px)` }}
+                                                ></div>
+                                            )}
+
+                                            {[
+                                                { label: 'Stop', step: 1, icon: Power, enabled: maintStop },
+                                                { label: 'Backup', step: 2, icon: Database, enabled: maintBackup },
+                                                { label: 'Update', step: 3, icon: Download, enabled: maintUpdate },
+                                                { label: 'Start', step: 4, icon: Play, enabled: maintStart },
+                                                { label: 'Wipe', step: 5, icon: Zap, enabled: maintWipeDinos }
+                                             ].map((s) => {
+                                                const Icon = s.icon;
+                                                const isSkipped = !s.enabled;
+                                                const isCompleted = s.enabled && (maintStep > s.step || maintStep === 6);
+                                                const isActive = s.enabled && (maintStep === s.step && isMaintRunning);
+                                                return (
+                                                    <div key={s.step} className="flex flex-col items-center gap-1.5 z-10 select-none">
+                                                        <div 
+                                                            className={cn(
+                                                                "w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-300",
+                                                                isSkipped ? "bg-[#0B0F19]/40 border-slate-800/40 text-slate-700 border-dashed" :
+                                                                isCompleted ? "bg-emerald-500 border-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]" :
+                                                                isActive ? "bg-sky-500 border-sky-500 text-white animate-pulse shadow-[0_0_10px_rgba(14,165,233,0.4)]" :
+                                                                "bg-slate-900 border-slate-800 text-slate-500"
+                                                            )}
+                                                            title={isSkipped ? "This step is skipped" : undefined}
+                                                        >
+                                                            {isActive ? (
+                                                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                                            ) : (
+                                                                <Icon className={cn("w-4 h-4", isSkipped && "opacity-20")} />
+                                                            )}
+                                                        </div>
+                                                        <span className={cn(
+                                                            "text-[9px] font-bold uppercase tracking-wider font-sans",
+                                                            isSkipped ? "text-slate-600 line-through font-normal" :
+                                                            isCompleted ? "text-emerald-400" :
+                                                            isActive ? "text-sky-400 animate-pulse" :
+                                                            "text-slate-500"
+                                                        )}>
+                                                            {s.label}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Console Logs */}
+                                        <div className="flex-1 flex flex-col space-y-2">
+                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-1 font-sans">Execution Console Logs</span>
+                                            <div className="flex-1 bg-slate-950 border border-slate-850 rounded-xl p-3.5 font-mono text-[10px] leading-relaxed text-slate-300 overflow-y-auto min-h-[160px] max-h-[220px]">
+                                                {maintLogs.length === 0 ? (
+                                                    <p className="text-slate-600 italic">Logs will appear here once execution starts.</p>
+                                                ) : (
+                                                    maintLogs.map((logLine, idx) => (
+                                                        <div 
+                                                            key={idx} 
+                                                            className={cn(
+                                                                "py-0.5 border-b border-white/5 last:border-b-0",
+                                                                logLine.includes("ERROR:") ? "text-rose-400" : 
+                                                                logLine.includes("completed successfully") ? "text-emerald-400 font-bold" :
+                                                                logLine.includes("Starting") ? "text-sky-400 font-bold" : ""
+                                                            )}
+                                                        >
+                                                            {logLine}
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                            </div>
+
                         </div>
                     )}
 

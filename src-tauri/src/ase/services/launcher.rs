@@ -309,6 +309,7 @@ impl AseLauncher {
         if _config.enable_crossplay { args.push("-crossplay".to_string()); }
         if _config.enable_public_ip_for_epic { args.push("-PublicIPForEpic".to_string()); }
         if _config.epic_store_players_only { args.push("-epiconly".to_string()); }
+        if _config.force_allow_cave_flyers { args.push("-ForceAllowCaveFlyers".to_string()); }
         
         if _config.no_anti_speed_hack { args.push("?bDisableAntiSpeedHack=true".to_string()); }
         if _config.speed_hack_cpu_bias != 1.0 { args.push(format!("?SpeedHackBias={}", _config.speed_hack_cpu_bias)); }

@@ -6,6 +6,7 @@ use tauri::State;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ServerHealthInfo {
     pub id: i64,
     pub name: String,

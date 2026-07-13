@@ -354,6 +354,10 @@ export async function toggleMod(serverId: number, modId: string, enabled: boolea
     return await invoke('toggle_mod', { serverId, modId, enabled });
 }
 
+export async function toggleAllMods(serverId: number, enabled: boolean): Promise<void> {
+    return await invoke('toggle_all_mods', { serverId, enabled });
+}
+
 export interface ModValidationResult {
     valid: boolean;
     mod_id: string;

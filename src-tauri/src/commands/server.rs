@@ -1349,7 +1349,6 @@ async fn perform_server_startup_inner(
             .join("Binaries")
             .join("Win64")
             .join("ShooterGame")
-            .join("Content")
             .join("Mods");
         for mod_id in &enabled_mods {
             let mod_path = mods_dir.join(mod_id);
@@ -3504,7 +3503,29 @@ pub async fn import_server(
         mods_str.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
     };
 
-    println!("✅ Server imported with ID: {} (map: {}, mods: {})", id, map_name, mods_vec.len());
+    // Pre-populate the mods table so they are recognized by the manager
+    let mut load_order_index = 0;
+    for mod_id in &mods_vec {
+        let trimmed = mod_id.trim();
+        if trimmed.is_empty() || trimmed == "0" || !trimmed.chars().all(|c| c.is_ascii_digit()) {
+            println!("   ⚠️ [Import] Skipping invalid mod ID: '{}'", mod_id);
+            continue;
+        }
+        println!("   📥 [Import] Pre-populating mod {} with load order {}", trimmed, load_order_index);
+        let _ = conn.execute(
+            "INSERT OR IGNORE INTO mods (server_id, mod_id, name, version, author, description, workshop_url, thumbnail_url, server_type, enabled, load_order) \
+             VALUES (?1, ?2, ?3, '1.0', '', '', '', '', 'ASA', 1, ?4)",
+            rusqlite::params![
+                id,
+                trimmed,
+                format!("CurseForge Mod {}", trimmed),
+                load_order_index
+            ],
+        );
+        load_order_index += 1;
+    }
+
+    println!("✅ Server imported with ID: {} (map: {}, mods: {})", id, map_name, load_order_index);
 
     Ok(Server {
         id,
@@ -4072,7 +4093,6 @@ pub async fn clear_mod_cache(
         .join("Binaries")
         .join("Win64")
         .join("ShooterGame")
-        .join("Content")
         .join("Mods");
 
     if mods_dir.exists() {
@@ -4130,7 +4150,6 @@ pub async fn diagnose_mod_loading(
         .join("Binaries")
         .join("Win64")
         .join("ShooterGame")
-        .join("Content")
         .join("Mods");
 
     let mut mod_diagnostics = Vec::new();
@@ -4149,8 +4168,11 @@ pub async fn diagnose_mod_loading(
                     if let Ok(meta) = entry.metadata() {
                         total_size += meta.len();
                     }
-                    if entry.path().extension().map_or(false, |ext| ext == "pak") {
-                        has_pak = true;
+                    if let Some(ext) = entry.path().extension() {
+                        let ext_str = ext.to_string_lossy().to_lowercase();
+                        if ext_str == "pak" || ext_str == "ucas" || ext_str == "utoc" || ext_str == "mod" || ext_str == "json" {
+                            has_pak = true;
+                        }
                     }
                 }
             }

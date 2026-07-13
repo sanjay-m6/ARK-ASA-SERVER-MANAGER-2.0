@@ -97,6 +97,8 @@ pub struct ModInfo {
     pub enabled: bool,
     pub load_order: i32,
     pub last_updated: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_local: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

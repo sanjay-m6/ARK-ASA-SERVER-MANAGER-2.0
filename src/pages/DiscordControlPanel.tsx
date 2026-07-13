@@ -417,15 +417,15 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
                 </div>
                 <div>
                   <p className="text-xs text-gray-200">CPU</p>
-                  <p className="text-lg font-bold text-white">{server.cpuUsage.toFixed(1)}%</p>
+                  <p className="text-lg font-bold text-white">{(server.cpuUsage ?? 0).toFixed(1)}%</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-200">RAM</p>
-                  <p className="text-lg font-bold text-white">{server.ramUsage.toFixed(1)}%</p>
+                  <p className="text-lg font-bold text-white">{(server.ramUsage ?? 0).toFixed(1)}%</p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-200">FPS</p>
-                  <p className="text-lg font-bold text-white">{server.fps.toFixed(1)}</p>
+                  <p className="text-lg font-bold text-white">{(server.fps ?? 0).toFixed(1)}</p>
                 </div>
               </div>
 

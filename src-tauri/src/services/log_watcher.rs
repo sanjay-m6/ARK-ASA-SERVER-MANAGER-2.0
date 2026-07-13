@@ -120,8 +120,22 @@ impl LogWatcherService {
                                         let _ = file.seek(SeekFrom::Start(last_pos));
                                         let reader = BufReader::new(file);
                                         
+                                        // Collect all new lines from this batch for context-aware analysis
+                                        let mut batch_lines: Vec<String> = Vec::new();
                                         for line in reader.lines() {
                                             if let Ok(line_content) = line {
+                                                batch_lines.push(line_content);
+                                            }
+                                        }
+
+                                        // Pre-scan: check if this batch contains "Mods not installed: 0"
+                                        // which means CFCore's "not all mods were installed" is a false positive
+                                        let has_zero_mods_failed = has_mods_clone && batch_lines.iter().any(|l| {
+                                            let lower = l.to_lowercase();
+                                            lower.contains("mods not installed: 0") || lower.contains("mods not installed:0")
+                                        });
+
+                                        for line_content in &batch_lines {
                                                 let lower_line = line_content.to_lowercase();
                                                 
                                                 // 1. Emit live log line to console subscriber if active
@@ -159,17 +173,23 @@ impl LogWatcherService {
                                                 // 3. Check for CFCore mod loading failures
                                                 if has_mods_clone {
                                                     if lower_line.contains("not all mods were installed") {
-                                                        let _ = app_handle.emit("mod_load_failure", crate::services::process_manager::ModLoadFailureEvent {
-                                                            server_id: server_id_clone,
-                                                            error_type: "CFCore_ModLoadFailed".to_string(),
-                                                            details: line_content.clone(),
-                                                            suggestions: vec![
-                                                                "Accept CurseForge Terms & Conditions in the ARK game client (Main Menu → Mod List)".to_string(),
-                                                                "Clear the mod cache using Server Actions → Clear Mod Cache, then restart".to_string(),
-                                                                "If using crossplay, check that no PC-only mods are in the mod list".to_string(),
-                                                                "Try running the Server Manager as Administrator for the first launch".to_string(),
-                                                            ],
-                                                        });
+                                                        // Suppress false positive: ARK/CFCore emits this error even when
+                                                        // "Mods not installed: 0" — all mods are actually valid and loaded.
+                                                        if has_zero_mods_failed {
+                                                            println!("🤖 AI Automation: Suppressed false-positive CFCore mod warning for server {} (Mods not installed: 0)", server_id_clone);
+                                                        } else {
+                                                            let _ = app_handle.emit("mod_load_failure", crate::services::process_manager::ModLoadFailureEvent {
+                                                                server_id: server_id_clone,
+                                                                error_type: "CFCore_ModLoadFailed".to_string(),
+                                                                details: line_content.clone(),
+                                                                suggestions: vec![
+                                                                    "Accept CurseForge Terms & Conditions in the ARK game client (Main Menu → Mod List)".to_string(),
+                                                                    "Clear the mod cache using Server Actions → Clear Mod Cache, then restart".to_string(),
+                                                                    "If using crossplay, check that no PC-only mods are in the mod list".to_string(),
+                                                                    "Try running the Server Manager as Administrator for the first launch".to_string(),
+                                                                ],
+                                                            });
+                                                        }
                                                     } else if lower_line.contains("no machine id was found") {
                                                         let _ = app_handle.emit("mod_load_failure", crate::services::process_manager::ModLoadFailureEvent {
                                                             server_id: server_id_clone,
@@ -191,7 +211,6 @@ impl LogWatcherService {
                                                         });
                                                     }
                                                 }
-                                            }
                                         }
                                         last_pos = current_len;
                                     }

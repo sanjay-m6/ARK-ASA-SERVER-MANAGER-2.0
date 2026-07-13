@@ -27,6 +27,11 @@ impl Database {
         // Initialize schema
         Self::init_schema(&mut conn)?;
 
+        // Clean up any corrupt or dummy mods (like mod ID '0' or empty strings) from the database
+        if let Err(e) = conn.execute("DELETE FROM mods WHERE mod_id = '0' OR TRIM(mod_id) = ''", []) {
+            println!("⚠️ Database cleanup warning: failed to purge invalid mods: {}", e);
+        }
+
         Ok(Database {
             conn: Mutex::new(conn),
         })
@@ -86,6 +91,9 @@ impl Database {
 
         // api_loader_enabled column for servers table
         Self::run_api_loader_enabled_migration(conn)?;
+
+        // Mod thumbnail migration
+        Self::run_mods_thumbnail_migration(conn)?;
 
         Ok(())
     }
@@ -903,6 +911,7 @@ impl Database {
                         author TEXT,
                         description TEXT,
                         workshop_url TEXT,
+                        thumbnail_url TEXT,
                         server_type TEXT NOT NULL DEFAULT 'ASA' CHECK(server_type IN ('ASA', 'ASE')),
                         enabled BOOLEAN DEFAULT 1,
                         load_order INTEGER NOT NULL,
@@ -1467,6 +1476,27 @@ impl Database {
 
         if !has_column {
             conn.execute("ALTER TABLE servers ADD COLUMN api_loader_enabled INTEGER DEFAULT 1", [])?;
+        }
+        Ok(())
+    }
+
+    fn run_mods_thumbnail_migration(conn: &Connection) -> Result<()> {
+        let has_column = {
+            let mut stmt = conn.prepare("PRAGMA table_info(mods)")?;
+            let mut rows = stmt.query([])?;
+            let mut found = false;
+            while let Some(row) = rows.next()? {
+                let name: String = row.get(1)?;
+                if name == "thumbnail_url" {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+
+        if !has_column {
+            conn.execute("ALTER TABLE mods ADD COLUMN thumbnail_url TEXT", [])?;
         }
         Ok(())
     }

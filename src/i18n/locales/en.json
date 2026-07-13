@@ -184,7 +184,8 @@
     "tribeLogs": "Tribe Logs",
     "upnp": "UPnP Port Forwarding",
     "serverOrganization": "Server Organization",
-    "wiki": "Wiki Guide"
+    "wiki": "Wiki Guide",
+    "boostManager": "Boost Manager"
   },
   "welcome": {
     "title": "ASA Server Manager",
@@ -1181,6 +1182,7 @@
     "installError": "Failed to install mod: {{error}}",
     "batchInstallComplete": "Successfully installed {{count}} mods",
     "batchInstallCompleteWithFailures": "Installed {{success}} mods ({{failed}} failed)",
+    "selectedCount": "{{count}} mods selected",
     "clearSelection": "Clear Selection",
     "installSelected": "Install Selected",
     "searchMods": "Search for mods...",
@@ -2630,5 +2632,36 @@
         "description": "You now know the basics. Start by installing your first server!"
       }
     }
+  },
+  "boost": {
+    "loadFailed": "Failed to load boost profiles",
+    "nameRequired": "Profile name is required",
+    "saveSuccess": "Boost profile saved successfully!",
+    "confirmDelete": "Are you sure you want to delete this profile?",
+    "deleteSuccess": "Boost profile deleted",
+    "activatingText": "Restarting server and applying event rates...",
+    "activateSuccess": "Boost event activated successfully!",
+    "deactivatingText": "Restarting server and restoring original rates...",
+    "deactivateSuccess": "Boost deactivated and original rates restored!",
+    "title": "Boost Manager",
+    "titleAse": "Boost Manager (ASE)",
+    "subtitle": "Safely configure temporary seasonal events and multiply server rates.",
+    "newProfile": "+ New Profile",
+    "bannerTitle": "How does the Boost Manager work?",
+    "bannerDesc": "When activating a boost profile, the manager performs periodic broadcasts via RCON to notify players. It then safely shuts down the server, creates backups of the original configs (.boostbackup), and injects the new multipliers. When deactivated, the backup configurations are restored perfectly.",
+    "setupTip": "For automation, configure BoostStart / BoostEnd tasks in the Scheduler",
+    "activeEvent": "Active Event",
+    "deactivate": "Deactivate Event",
+    "noActiveEvent": "No active boost profile on this server",
+    "loading": "Loading profiles...",
+    "noProfiles": "No boost profiles registered",
+    "noProfilesDesc": "Create a new profile to start configuring seasonal rates.",
+    "createFirst": "Create First Profile",
+    "active": "Active",
+    "activateBtn": "Activate on Server",
+    "editTitle": "Edit Boost Profile",
+    "newTitle": "New Boost Profile",
+    "profileName": "Profile Name",
+    "profileNamePlaceholder": "e.g. 2x Weekend, Easter Event"
   }
 }
