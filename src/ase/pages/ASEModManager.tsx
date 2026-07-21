@@ -14,7 +14,7 @@ import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseModStore } from '../stores/aseModStore';
 import { useAseServerStore } from '../stores/aseServerStore';
-import ServerSelect from '../../components/ui/ServerSelect';
+
 import { 
   searchWorkshop, downloadWorkshopMod, removeWorkshopMod, 
   toggleAseMod, updateAseModOrder 
@@ -102,7 +102,7 @@ const ModImage = ({ mod, className }: { mod: any; className?: string }) => {
 };
 
 export default function ASEModManager() {
-  const { servers } = useAseServerStore();
+  const { servers, activeServer } = useAseServerStore();
   const { 
     installedMods, 
     searchResults, 
@@ -120,7 +120,14 @@ export default function ASEModManager() {
 
   const [query, setQuery] = useState('');
   const [installedFilter, setInstalledFilter] = useState('');
-  const [selectedServer, setSelectedServer] = useState<number | null>(servers[0]?.id || null);
+  const [selectedServer, setSelectedServer] = useState<number | null>(() => activeServer?.id || null);
+
+  useEffect(() => {
+    if (activeServer) {
+      setSelectedServer(activeServer.id);
+      refreshInstalledMods(activeServer.id);
+    }
+  }, [activeServer]);
   const [selectedModDetail, setSelectedModDetail] = useState<any | null>(null);
 
   const [activeTab, setActiveTab] = useState<'available' | 'installed' | 'logs'>('available');
@@ -769,17 +776,7 @@ export default function ASEModManager() {
           </h1>
           <p className="text-sm text-slate-400 mt-1">Manage Steam Workshop mods for ARK: Survival Evolved</p>
         </div>
-        {servers.length > 0 && (
-          <ServerSelect 
-            value={selectedServer} 
-            onChange={id => { 
-              setSelectedServer(id); 
-              refreshInstalledMods(id); 
-            }} 
-            servers={servers} 
-            accentColor="amber" 
-          />
-        )}
+
       </div>
 
       {/* Info Banner */}
@@ -796,7 +793,6 @@ export default function ASEModManager() {
       {/* Search and Tabs Panel */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-[#0A0F1C]/60 p-5 rounded-2xl border border-white/5 backdrop-blur-xl shadow-2xl">
         <div className="relative w-full md:w-96">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
             value={activeTab === 'available' ? query : installedFilter}
@@ -804,10 +800,11 @@ export default function ASEModManager() {
             placeholder={activeTab === 'available' ? "Search Steam Workshop..." : "Filter installed mods..."}
             className="w-full pl-11 pr-10 py-3 bg-[#0A0F1C]/80 border border-white/5 rounded-2xl text-xs font-black uppercase tracking-wider text-slate-300 placeholder-slate-600 focus:outline-none focus:border-amber-500/30 focus:ring-4 focus:ring-amber-500/10 transition-all duration-300"
           />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none z-10" />
           {((activeTab === 'available' && query) || (activeTab === 'installed' && installedFilter)) && (
             <button 
               onClick={() => activeTab === 'available' ? setQuery('') : setInstalledFilter('')}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors z-10"
             >
               <X className="w-4 h-4" />
             </button>

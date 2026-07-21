@@ -76,34 +76,53 @@ jobs:
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
             - **Fresh Install**: Download the `.exe` installer below and run it.
 
-            ### 🆕 New Features & Improvements in v4.6.3
-            - **🛠️ Automated Maintenance Sequence Overhaul**:
-              - **Visual Skipped Steps**: Skipped/unchecked steps in the maintenance timeline are visually rendered as dashed, lower-opacity, and lined-through icons.
-              - **Smart RCON Polling**: Replaced the 30-second blind boot sleep with active polling on the RCON port (up to 90 seconds), proceeding immediately when ready.
-              - **Instant Abort Feedback**: Clicking "Abort" now resets the UI state back to idle immediately, while the background process exits gracefully at the next await check.
-            - **📡 Dual-Store System Status indicator (Online/Offline) Fix**:
-              - The main sidebar/topbar status indicators now accurately check either `useServerStore` (ASA) or `useAseServerStore` (ASE) depending on the active game mode.
-              - Expanded the active status checks to include all transitional states (`online`, `running`, `starting`, `updating`, `restarting`, `stopping`) instead of just `running`.
-            - **🛡️ Mod Startup Crash & Warnings Fix**:
-              - **Mod ID "0" Filter**: Added database and configuration filters to discard invalid mod IDs like `"0"`, which previously crashed the server engine on startup.
-              - **False-Positive Mod Warning Suppression**: Batch-processes and filters the log stream to silence the annoying false-positive "Not all mods were installed" warning if 0 mods failed.
-            - **🦖 Mod Manager Drag-and-Drop & Bulk Actions**:
-              - Fully integrated drag-and-drop mod reordering with index mapping and visual highlight states.
-              - Added quick "Enable All" and "Disable All" bulk controls utilizing a single fast Rust database command.
-              - Included a premium fallback mod thumbnail icon for failed or missing CurseForge images.
-            - **🎨 Premium UI Overhauls**:
-              - **Full-Width Server Control Hub**: Top full-width layout for high-density server listings.
-              - **Pill-Shaped Floating Actions**: Compact bulk actions bar with balanced padding.
-              - **Pulsing Circular Spinners**: Unique start/stop circular ring progress spinners for real-time lifecycle tracking.
-              - **Toggle Knob Anchoring**: Fixed misaligned knobs by correctly centering the layout.
-            - **🔌 Per-Server ASA Plugin Manager**: Complete per-server plugin manager in the UI for ASA servers. Discovered plugins are fully parsed for manifests (`PluginInfo.json`), status checks, and dependency validation.
-            - **⚙️ API Loader and DLL Renaming**: Frontend UI toggle and backend support to switch the server launch executable between `AsaApiLoader.exe` (with loader console output enabled) and the native `ArkAscendedServer.exe`.
-            - **📁 Custom SteamCMD Path Redirect**: Redirect SteamCMD and server workshop downloads to a custom folder path. The settings page automatically validates and warns against non-ASCII/non-English characters to prevent crashes.
-            - **🧹 SteamCMD Cache Cleaning & Lock Release**: Enhanced cache clearing by terminating lingering `steamcmd.exe` processes before cleaning, and deleting stale `.acf` appmanifests to resolve update loops.
-            - **📱 Collapsible Sidebar & Evolved Support Settings**: Redesigned sidebar with a collapsible layout, tooltips, and a setting switch to hide/show ARK: Survival Evolved (ASE) support to keep the manager streamlined.
-            - **♿ Accessibility & Modal Improvements**: Replaced standard modal dialogs in Scheduler with React Portals (`createPortal`) and updated elements/buttons with proper ARIA attributes and focus styles.
+            ### 🆕 New Features & Improvements in v4.6.4
+            - **🐛 ASE Branch Switching Fix (preaquatica → Default/Latest)**:
+              - Fixed a critical bug where imported ASE servers stuck on the `preaquatica` branch (v358.24) even after switching to Default/Latest.
+              - SteamCMD now explicitly receives `-beta public` to clear any previously cached beta key from the appmanifest, correctly updating to the latest build (361.x).
+            - **💾 Automated Backup System**:
+              - Full automated backup system with customizable presets (High Protection 1h, Balanced 6h, Storage Saver 24h).
+              - Timeline, Grid, and Calendar view modes for backup history.
+              - One-click restore, verify integrity, preview, and delete actions.
+              - Auto-backup toggle button in the header with quick-preset dropdown.
+            - **🔔 Application Close Confirmation & Reminder**:
+              - Confirmation modal when closing the application with options to Minimize to Tray or Exit Completely.
+              - "Remember this choice" checkbox to persist the user's preference.
+              - Active server protection warning before exit.
+            - **🔄 In-App Update Checker**:
+              - Added a "Check for Updates" button within the application settings.
+              - Compares current version against the latest GitHub release and offers one-click install.
+            - **🤖 Discord Bot Install Guide & Integration**:
+              - Step-by-step install guide modal for the Discord bot integration.
+              - Post-install UI state changes to reflect bot installation status.
+            - **💬 Cross-Chat & RCON Message Detection Improvements**:
+              - Overhauled all RCON message detection patterns for reliable cross-server chat relay.
+              - Fixed Discord message forwarding that was not showing in Discord channels.
+            - **🌐 Cluster Topology Real Data Integration**:
+              - Replaced mock random CPU/Player data with real backend health metrics from `get_cluster_servers_health`.
+              - Live CPU%, RAM%, Player count/max, and Uptime refreshing every 10 seconds.
+              - Added total players stat chip to the toolbar.
+            - **🎨 UI/UX Design Improvements**:
+              - Redesigned Cluster Topology nodes with gradient fills, glow effects, and accent bars.
+              - Upgraded Discord Bot section tabs with glass morphism, rounded pills, and indigo glow.
+              - Improved Backups page timeline view alignment and always-visible action buttons.
+              - Fixed garbled emoji (`🧹`) in mod cache clear toast notification.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.3 — Maintenance Overhaul, Mod Fixes & Plugin Manager</summary>
+
+            - **🛠️ Automated Maintenance Sequence Overhaul**: Visual skipped steps, smart RCON polling, and instant abort feedback.
+            - **📡 Dual-Store System Status Fix**: Accurate Online/Offline indicators across ASA and ASE modes.
+            - **🛡️ Mod Startup Crash & Warnings Fix**: Mod ID "0" filter and false-positive warning suppression.
+            - **🦖 Mod Manager Drag-and-Drop & Bulk Actions**: Full drag-and-drop reordering, Enable/Disable All.
+            - **🎨 Premium UI Overhauls**: Full-width server hub, pill-shaped actions, pulsing spinners.
+            - **🔌 Per-Server ASA Plugin Manager**: Plugin discovery, manifest parsing, and dependency validation.
+            - **⚙️ API Loader & DLL Renaming**: Toggle between AsaApiLoader.exe and ArkAscendedServer.exe.
+            - **📁 Custom SteamCMD Path Redirect**: Custom folder path with non-ASCII character validation.
+            - **🧹 SteamCMD Cache Cleaning**: Process termination and stale appmanifest deletion.
+            - **📱 Collapsible Sidebar**: Redesigned sidebar with tooltips and ASE support toggle.
+            </details>
             <details>
             <summary>v4.6.1 — AI Co-Pilot Notification Center, Diagnostics & Toast Suppression</summary>
 

@@ -109,11 +109,21 @@ export const useInstallStore = create<InstallStore>((set) => ({
                 logs: [],
             };
         } else {
-            // Trigger toast on status changes
+            // Trigger toast on status changes with unique ID to avoid duplicate floating toasts
+            const toastId = `install-toast-${normalized}`;
             if (progressData.isComplete && !task.isComplete) {
-                toast.success(`Server "${task.name}" installed successfully!`, { duration: 5000 });
+                const msg = progressData.message && progressData.message !== 'Update complete' 
+                    ? `Server "${task.name}" updated: ${progressData.message}` 
+                    : `Server "${task.name}" updated successfully!`;
+                toast.success(msg, { id: toastId, duration: 5000 });
+                // Force refresh server versions so the "Update Available" warning badge vanishes instantly!
+                useServerStore.getState().fetchAllServerVersions(true);
+                useServerStore.getState().refreshServers();
             } else if (progressData.isError && !task.isError) {
-                toast.error(`Server "${task.name}" installation failed: ${progressData.message || 'Unknown error'}`, { duration: 6000 });
+                toast.error(`Server "${task.name}" installation failed: ${progressData.message || 'Unknown error'}`, { id: toastId, duration: 8000 });
+            } else if (!progressData.isError && task.isError) {
+                // Progress resumed/retried after error — dismiss stale error toast
+                toast.dismiss(toastId);
             }
         }
 

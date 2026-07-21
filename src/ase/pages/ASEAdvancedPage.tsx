@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAseServerStore } from '../stores/aseServerStore';
-import ServerSelect from '../../components/ui/ServerSelect';
+
 import { updateAseServer } from '../utils/aseCommands';
 import { optimizeMemory, setProcessPriority } from '../../utils/tauri';
 import { Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Copy, Flame } from 'lucide-react';
@@ -10,21 +10,20 @@ import toast from 'react-hot-toast';
 
 export default function ASEAdvancedPage() {
     const location = useLocation();
-    const { servers, refreshServers } = useAseServerStore();
-    const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+    const { servers, refreshServers, activeServer } = useAseServerStore();
+    const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
     const [customArgs, setCustomArgs] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
 
-    // Initialize from navigation or default
     useEffect(() => {
-        if (selectedServerId === null) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
+        } else if (selectedServerId === null) {
             if (location.state?.serverId) setSelectedServerId(location.state.serverId);
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             else if (servers.length > 0) setSelectedServerId(servers[0].id);
         }
-    }, [servers, selectedServerId, location.state]);
+    }, [activeServer, servers, selectedServerId, location.state]);
 
     // Load custom args
     useEffect(() => {
@@ -87,14 +86,7 @@ export default function ASEAdvancedPage() {
                             ASE Advanced Configuration
                         </h2>
 
-                        <div className="h-6 w-px bg-white/5 mx-2" />
 
-                        <ServerSelect
-                            value={selectedServerId}
-                            onChange={setSelectedServerId}
-                            servers={servers}
-                            accentColor="amber"
-                        />
                     </div>
 
                     <button

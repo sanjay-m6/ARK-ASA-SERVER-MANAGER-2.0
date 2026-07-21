@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2, Copy, AlertTriangle } from 'lucide-react';
+import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2, Copy, AlertTriangle, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
@@ -258,9 +258,9 @@ export default function ASEServerManager() {
     if (!serverToDelete) return;
     setIsDeleting(true);
     try { 
-      await deleteAseServer(serverToDelete.id); 
+      await deleteAseServer(serverToDelete.id, true); 
       removeServer(serverToDelete.id); 
-      toast.success('Server deleted'); 
+      toast.success(`ASE Server instance "${serverToDelete.name}" and all files on disk deleted.`); 
       setServerToDelete(null);
     } catch (e) { 
       toast.error(`${e}`); 
@@ -566,7 +566,8 @@ export default function ASEServerManager() {
               </span>
             </label>
           </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto bg-slate-950/40 rounded-full border border-slate-700/50 p-2 shadow-inner">
+          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto bg-slate-950/60 rounded-xl sm:rounded-2xl border border-slate-700/50 p-2 shadow-inner">
+            {/* Start Actions */}
             <button
               onClick={handleBulkStart}
               disabled={selectedServers.length === 0}
@@ -582,15 +583,29 @@ export default function ASEServerManager() {
               <Play className="w-3.5 h-3.5 fill-current" />
               <span>Start All</span>
             </button>
+
             <div className="w-px h-5 bg-slate-700/50 hidden sm:block mx-1.5"></div>
+
+            {/* Stop Actions */}
             <button
               onClick={handleBulkStop}
               disabled={selectedServers.length === 0}
-              className="flex-1 sm:sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
             >
               <Square className="w-3.5 h-3.5 fill-current" />
               <span>Stop Selected</span>
             </button>
+            <button
+              onClick={handleStopAll}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30 rounded-full transition-all text-xs font-semibold"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+              <span>Stop All</span>
+            </button>
+
+            <div className="w-px h-5 bg-slate-700/50 hidden sm:block mx-1.5"></div>
+
+            {/* Manage Actions */}
             <button
               onClick={handleBulkMoveServers}
               disabled={selectedServers.length === 0}
@@ -599,14 +614,6 @@ export default function ASEServerManager() {
             >
               <FolderOpen className="w-3.5 h-3.5" />
               <span>Move Selected</span>
-            </button>
-            <div className="w-px h-5 bg-slate-700/50 hidden sm:block mx-1.5"></div>
-            <button
-              onClick={handleStopAll}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30 rounded-full transition-all text-xs font-semibold"
-            >
-              <Square className="w-3.5 h-3.5 fill-current" />
-              <span>Stop All</span>
             </button>
           </div>
         </div>
@@ -814,9 +821,18 @@ export default function ASEServerManager() {
                       onClick={() => navigate('/ase/config', { state: { serverId: srv.id } })}
                       disabled={srv.status === 'updating'}
                       className="p-2.5 bg-slate-700/30 hover:bg-slate-700/50 text-slate-300 border border-slate-600/30 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Server Settings"
+                      title="Visual Server Settings"
                   >
                       <Settings className="w-5 h-5" />
+                  </button>
+
+                  <button
+                      onClick={() => navigate('/ase/config', { state: { serverId: srv.id, initialMode: 'gus' } })}
+                      disabled={srv.status === 'updating'}
+                      className="p-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Edit Server Files Manually (IDE Code Editor)"
+                  >
+                      <FileText className="w-5 h-5" />
                   </button>
 
                   <button

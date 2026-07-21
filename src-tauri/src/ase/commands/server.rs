@@ -66,10 +66,50 @@ pub async fn create_ase_server(
 }
 
 #[tauri::command]
-pub async fn delete_ase_server(server_id: i64, state: State<'_, AppState>) -> Result<(), String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
-    conn.execute("DELETE FROM ase_servers WHERE id = ?1", [server_id]).map_err(|e| e.to_string())?;
+pub async fn delete_ase_server(
+    server_id: i64,
+    state: State<'_, AppState>,
+    delete_files: Option<bool>,
+) -> Result<(), String> {
+    let install_path: Option<String> = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT install_path FROM ase_servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        )
+        .ok()
+    };
+
+    // Stop server process if running to release file locks
+    if state.process_manager.is_running(server_id) {
+        println!("  🛑 Stopping running process for ASE server {} prior to deletion...", server_id);
+        let _ = state.process_manager.stop_server_with_reason(
+            server_id,
+            crate::services::process_manager::StopReason::UserAction,
+        );
+    }
+
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let _ = conn.execute("DELETE FROM ase_backups WHERE server_id = ?1", [server_id]);
+        conn.execute("DELETE FROM ase_servers WHERE id = ?1", [server_id]).map_err(|e| e.to_string())?;
+    }
+
+    let should_delete_files = delete_files.unwrap_or(true);
+    if should_delete_files {
+        if let Some(ref path_str) = install_path {
+            let path = std::path::Path::new(path_str);
+            if path.exists() {
+                if let Err(e) = std::fs::remove_dir_all(path) {
+                    eprintln!("  ⚠️ Warning: Could not remove ASE server directory {:?}: {}", path, e);
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 

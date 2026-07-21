@@ -178,11 +178,11 @@ export async function diagnoseModLoading(serverId: number): Promise<any> {
     return await invoke('diagnose_mod_loading', { serverId });
 }
 
-export async function deleteServer(serverId: number): Promise<void> {
-    return await invoke('delete_server', { serverId });
+export async function deleteServer(serverId: number, deleteFiles: boolean = true): Promise<void> {
+    return await invoke('delete_server', { serverId, deleteFiles });
 }
 
-export async function updateServer(serverId: number): Promise<void> {
+export async function updateServer(serverId: number): Promise<boolean> {
     return await invoke('update_server', { serverId });
 }
 
@@ -264,7 +264,27 @@ export interface UpdateServerSettingsParams {
 }
 
 export async function updateServerSettings(params: UpdateServerSettingsParams): Promise<void> {
-    return await invoke('update_server_settings', { ...params });
+    await invoke('update_server_settings', { ...params });
+    // Proactively trigger firewall rule creation for updated ports
+    try {
+        await invoke('create_firewall_rules', { serverId: params.serverId });
+    } catch (e) {
+        console.warn('Firewall auto-sync warning:', e);
+    }
+    // Notify custom event for real-time UI synchronization
+    window.dispatchEvent(new CustomEvent('firewall-status-updated', { detail: { serverId: params.serverId } }));
+}
+
+export async function createFirewallRules(serverId: number): Promise<{ success: boolean; message: string; requiresAdmin: boolean }> {
+    const res = await invoke<{ success: boolean; message: string; requiresAdmin: boolean }>('create_firewall_rules', { serverId });
+    window.dispatchEvent(new CustomEvent('firewall-status-updated', { detail: { serverId } }));
+    return res;
+}
+
+export async function createAllFirewallRules(): Promise<{ success: boolean; message: string; requiresAdmin: boolean }> {
+    const res = await invoke<{ success: boolean; message: string; requiresAdmin: boolean }>('create_all_firewall_rules');
+    window.dispatchEvent(new CustomEvent('firewall-status-updated'));
+    return res;
 }
 
 export async function checkServerReachability(port: number, protocol: string): Promise<'Public' | 'LAN' | 'Unknown' | 'Offline'> {
@@ -626,6 +646,7 @@ export async function getClusterCrossChatStatus(clusterId: number): Promise<bool
 }
 
 export interface ClusterCrossChatConfig {
+    mode?: 'lacc' | 'asa_api' | 'native';
     host: string;
     user: string;
     pass: string;
@@ -633,6 +654,8 @@ export interface ClusterCrossChatConfig {
     port: number;
     fetchInterval: number;
     debug: boolean;
+    isPluginInstalled?: boolean;
+    isLaccInstalled?: boolean;
 }
 
 export async function getClusterCrossChatConfig(clusterId: number): Promise<ClusterCrossChatConfig> {
@@ -641,6 +664,18 @@ export async function getClusterCrossChatConfig(clusterId: number): Promise<Clus
 
 export async function saveClusterCrossChatConfig(clusterId: number, config: ClusterCrossChatConfig): Promise<void> {
     return await invoke('save_cluster_cross_chat_config', { clusterId, config });
+}
+
+export async function applyLaccModToCluster(clusterId: number): Promise<number> {
+    return await invoke('apply_lacc_mod_to_cluster', { clusterId });
+}
+
+export async function installCrosschatAscendedPlugin(clusterId: number, config: ClusterCrossChatConfig): Promise<number> {
+    return await invoke('install_crosschat_ascended_plugin', { clusterId, config });
+}
+
+export async function testMysqlConnection(host: string, port: number): Promise<boolean> {
+    return await invoke('test_mysql_connection', { host, port });
 }
 
 export interface ClusterValidationIssue {
@@ -1102,3 +1137,40 @@ export async function activateAseBoostProfile(serverId: number, id: number): Pro
 export async function deactivateAseBoostProfile(serverId: number): Promise<void> {
     return await invoke('deactivate_ase_boost_profile', { serverId });
 }
+
+// ============================================================================
+// Server Instance Profile Export / Import Utilities
+// ============================================================================
+
+export async function exportServerInstanceProfile(server: Server): Promise<string> {
+    const profile = {
+        version: '2.0',
+        exportedAt: new Date().toISOString(),
+        server: {
+            name: server.name,
+            serverType: server.serverType,
+            ports: server.ports,
+            config: server.config,
+            autoStart: server.autoStart,
+            autoStop: server.autoStop,
+            intelligentMode: server.intelligentMode,
+            battleye: server.battleye,
+            tags: server.tags,
+            colorBadge: server.colorBadge,
+        }
+    };
+    return JSON.stringify(profile, null, 2);
+}
+
+export async function cancelInstallation(
+    installPath?: string,
+    deleteFiles: boolean = false,
+    clearCache: boolean = false
+): Promise<void> {
+    return await invoke('cancel_installation', {
+        installPath: installPath || null,
+        deleteFiles,
+        clearCache,
+    });
+}
+

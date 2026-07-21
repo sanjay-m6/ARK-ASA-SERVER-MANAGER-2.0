@@ -15,7 +15,7 @@ import { manualCheckForUpdates } from '../components/UpdateChecker';
 import { cn } from '../utils/helpers';
 import { useServerStore } from '../stores/serverStore';
 import { useGameStore } from '../stores/gameStore';
-import ServerSelect from '../components/ui/ServerSelect';
+
 import {
     getUpdateSettings,
     setUpdateSettings,
@@ -65,8 +65,14 @@ export default function Settings() {
     const [customSteamcmdPath, setCustomSteamcmdPath] = useState('');
 
     const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language' | 'cloud' | 'startup'>('api');
-    const { setServers } = useServerStore();
-    const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+    const { setServers, activeServer } = useServerStore();
+    const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
+
+    useEffect(() => {
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
+        }
+    }, [activeServer]);
     const { t, i18n } = useTranslation();
     const { showAseMode, setShowAseMode, activeGame, setActiveGame } = useGameStore();
 
@@ -1520,15 +1526,7 @@ export default function Settings() {
                 />
             ) : activeTab === 'cloud' ? (
                 <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
-                    {/* Server Selector */}
-                    <div className="flex items-center gap-4">
-                        <label className="text-sm font-medium text-slate-300">{t('backups.selectServer', 'Select Server')}</label>
-                        <ServerSelect
-                            value={selectedServerId}
-                            onChange={setSelectedServerId}
-                            accentColor="blue"
-                        />
-                    </div>
+
                     <CloudBackupDashboard serverId={selectedServerId} />
                 </div>
             ) : activeTab === 'language' ? (

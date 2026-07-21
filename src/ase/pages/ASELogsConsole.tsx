@@ -3,12 +3,19 @@ import { ScrollText, Search, Pause, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import { listen } from '@tauri-apps/api/event';
-import ServerSelect from '../../components/ui/ServerSelect';
+
 
 export default function ASELogsConsole() {
-  const { servers } = useAseServerStore();
-  const [selectedServer, setSelectedServer] = useState<number | null>(servers[0]?.id || null);
+  const { activeServer } = useAseServerStore();
+  const [selectedServer, setSelectedServer] = useState<number | null>(() => activeServer?.id || null);
   const [logs, setLogs] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (activeServer) {
+      setSelectedServer(activeServer.id);
+      setLogs([]);
+    }
+  }, [activeServer]);
   const [filter, setFilter] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
   const logRef = useRef<HTMLDivElement>(null);
@@ -35,12 +42,7 @@ export default function ASELogsConsole() {
     <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold text-white flex items-center gap-3"><div className="p-2.5 bg-amber-500/10 rounded-xl"><ScrollText className="w-6 h-6 text-amber-400" /></div>ASE Logs Console</h1><p className="text-sm text-slate-400 mt-1">Real-time server log streaming</p></div>
-        <ServerSelect 
-          value={selectedServer} 
-          onChange={(id) => { setSelectedServer(id); setLogs([]); }} 
-          servers={servers} 
-          accentColor="amber" 
-        />
+
       </div>
 
       <div className="flex items-center gap-2">

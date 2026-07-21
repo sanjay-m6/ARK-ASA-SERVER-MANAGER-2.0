@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useCopilotStore } from '../../stores/copilotStore';
 import { startWatchdog, stopWatchdog } from '../../utils/aiWatchdog';
-import CopilotFAB from './CopilotFAB';
 import CopilotPanel from './CopilotPanel';
 import CrashNotificationCenter from './CrashNotificationCenter';
 import CrashArchiveModal from './CrashArchiveModal';
@@ -35,7 +34,6 @@ export default function InfinityCopilot() {
     return (
         <>
             <CopilotPanel />
-            <CopilotFAB />
             <CrashNotificationCenter />
             <CrashArchiveModal />
         </>

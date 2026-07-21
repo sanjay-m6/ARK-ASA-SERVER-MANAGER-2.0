@@ -181,57 +181,23 @@ impl SchedulerService {
                 
                 match task.task_type.as_str() {
                     "restart" => {
+                        let pre_warning_minutes = task.pre_warning_minutes;
+                        if pre_warning_minutes > 0 {
+                            for min_left in (1..=pre_warning_minutes).rev() {
+                                let msg = format!("⚠️ SERVER RESTARTING IN {} MINUTE(S)!", min_left);
+                                let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("Broadcast {}", msg), state.clone()).await;
+                                let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("ServerChat {}", msg), state.clone()).await;
+                                sleep(Duration::from_secs(60)).await;
+                            }
+                        }
+
+                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "SaveWorld".into(), state.clone()).await;
+                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!".into(), state.clone()).await;
+                        sleep(Duration::from_secs(3)).await;
+
                         let _ = crate::ase::commands::server::stop_ase_server(task.server_id, state.clone()).await;
                         sleep(Duration::from_secs(5)).await;
                         let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), task.server_id, state.clone()).await;
-                    }
-                    "BoostStart" => {
-                        if let Some(cmd) = &task.command {
-                            if let Ok(profile_id) = cmd.parse::<i64>() {
-                                let pre_warning_minutes = if task.pre_warning_minutes > 0 {
-                                    task.pre_warning_minutes
-                                } else {
-                                    5
-                                };
-
-                                for min_left in (1..=pre_warning_minutes).rev() {
-                                    let msg = format!("⚠️ SERVER BOOST STARTING IN {} MINUTE(S)!", min_left);
-                                    let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("Broadcast {}", msg), state.clone()).await;
-                                    let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("ServerChat {}", msg), state.clone()).await;
-                                    sleep(Duration::from_secs(60)).await;
-                                }
-
-                                let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "Broadcast ⚠️ SERVER RESTARTING FOR BOOST EVENT NOW!".into(), state.clone()).await;
-                                let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "ServerChat ⚠️ SERVER RESTARTING FOR BOOST EVENT NOW!".into(), state.clone()).await;
-                                let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "SaveWorld".into(), state.clone()).await;
-                                sleep(Duration::from_secs(5)).await;
-
-                                let _ = crate::ase::commands::boost::activate_ase_boost_profile((*app_handle).clone(), state.clone(), task.server_id, profile_id).await;
-                                log::info!("🚀 ASE Boost Activated via Scheduler for server {}", task.server_id);
-                            }
-                        }
-                    }
-                    "BoostEnd" => {
-                        let pre_warning_minutes = if task.pre_warning_minutes > 0 {
-                            task.pre_warning_minutes
-                        } else {
-                            5
-                        };
-
-                        for min_left in (1..=pre_warning_minutes).rev() {
-                            let msg = format!("⚠️ SERVER BOOST EVENT ENDING IN {} MINUTE(S)!", min_left);
-                            let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("Broadcast {}", msg), state.clone()).await;
-                            let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("ServerChat {}", msg), state.clone()).await;
-                            sleep(Duration::from_secs(60)).await;
-                        }
-
-                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "Broadcast ⚠️ SERVER RESTARTING TO RESTORE MULTIPLIERS NOW!".into(), state.clone()).await;
-                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "ServerChat ⚠️ SERVER RESTARTING TO RESTORE MULTIPLIERS NOW!".into(), state.clone()).await;
-                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "SaveWorld".into(), state.clone()).await;
-                        sleep(Duration::from_secs(5)).await;
-
-                        let _ = crate::ase::commands::boost::deactivate_ase_boost_profile((*app_handle).clone(), state.clone(), task.server_id).await;
-                        log::info!("🚀 ASE Boost Deactivated via Scheduler for server {}", task.server_id);
                     }
                     "wipe_dinos" => {
                         let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "DestroyWildDinos".into(), state.clone()).await;
@@ -511,8 +477,47 @@ impl SchedulerService {
         let enabled_days: Vec<u32> = days_str.split(',').filter_map(|s| s.trim().parse::<u32>().ok()).collect();
         let current_day = time.weekday().num_days_from_sunday();
 
-        if !enabled_days.contains(&current_day) {
+        if !enabled_days.is_empty() && !enabled_days.contains(&current_day) {
             return;
+        }
+
+        // Parse pre-warning minutes (e.g. "15,10,5,1")
+        if let Some(w_str) = &warning_str {
+            let warning_mins: Vec<i32> = w_str
+                .split(',')
+                .filter_map(|s| s.trim().parse::<i32>().ok())
+                .collect();
+
+            let target_mins = (hour * 60 + minute) as i32;
+            let current_mins = (time.hour() * 60 + time.minute()) as i32;
+            let mut diff = target_mins - current_mins;
+            if diff < 0 {
+                diff += 1440;
+            }
+
+            if diff > 0 && warning_mins.contains(&diff) && time.second() < 10 {
+                log::warn!("⚠️ Advanced ASA Scheduler: Warning Server {} - {} mins left before maintenance", server_id, diff);
+                if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+                    let rcon = &rcon_state.0;
+                    let msg = format!("⚠️ SERVER RESTART & MAINTENANCE IN {} MINUTE(S)!", diff);
+                    let _ = rcon.send_command(server_id, &format!("ServerChat {}", msg)).await;
+                    let _ = rcon.send_command(server_id, &format!("Broadcast {}", msg)).await;
+                }
+
+                let app_handle_clone = app_handle.clone();
+                let name = get_server_name(app_handle, server_id);
+                tauri::async_runtime::spawn(async move {
+                    crate::services::discord::send_discord_webhook(
+                        &app_handle_clone,
+                        "scheduledRestarts",
+                        crate::services::discord::DiscordEmbed::scheduled_task(
+                            &name,
+                            "Maintenance Warning",
+                            &format!("Scheduled maintenance warning: restarting in **{} minutes**.", diff),
+                        ),
+                    ).await;
+                });
+            }
         }
 
         if time.hour() == hour && time.minute() == minute {
@@ -520,12 +525,14 @@ impl SchedulerService {
 
             let state = app_handle.state::<AppState>();
             
-            if let Some(_) = warning_str {
-                let rcon_state = app_handle.state::<RconState>();
+            // Step 0: SaveWorld & Final RCON Notice
+            if let Some(rcon_state) = app_handle.try_state::<RconState>() {
                 let rcon = &rcon_state.0;
-                let msg = "⚠️ SERVER MAINTENANCE CHAIN STARTING NOW!";
-                let _ = rcon.send_command(server_id, &format!("ServerChat {}", msg)).await;
-                let _ = rcon.send_command(server_id, &format!("Broadcast {}", msg)).await;
+                log::info!("  [Advanced ASA] Step 0: Executing RCON SaveWorld & Final Warning");
+                let _ = rcon.send_command(server_id, "SaveWorld").await;
+                let _ = rcon.send_command(server_id, "Broadcast ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!").await;
+                let _ = rcon.send_command(server_id, "ServerChat ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!").await;
+                sleep(Duration::from_secs(3)).await;
             }
 
             if shutdown {
@@ -585,6 +592,10 @@ impl SchedulerService {
             log::info!("🚀 Basic ASE Scheduler: Restarting ASE Server {}", server_id);
 
             let state = app_handle.state::<AppState>();
+            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
+            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!".into(), state.clone()).await;
+            sleep(Duration::from_secs(3)).await;
+
             let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
             sleep(Duration::from_secs(5)).await;
             let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
@@ -665,20 +676,44 @@ impl SchedulerService {
         let enabled_days: Vec<u32> = days_str.split(',').filter_map(|s| s.trim().parse::<u32>().ok()).collect();
         let current_day = time.weekday().num_days_from_sunday();
 
-        if !enabled_days.contains(&current_day) {
+        if !enabled_days.is_empty() && !enabled_days.contains(&current_day) {
             return;
+        }
+
+        // Parse pre-warning minutes (e.g. "15,10,5,1")
+        if let Some(w_str) = &warning_str {
+            let warning_mins: Vec<i32> = w_str
+                .split(',')
+                .filter_map(|s| s.trim().parse::<i32>().ok())
+                .collect();
+
+            let target_mins = (hour * 60 + minute) as i32;
+            let current_mins = (time.hour() * 60 + time.minute()) as i32;
+            let mut diff = target_mins - current_mins;
+            if diff < 0 {
+                diff += 1440;
+            }
+
+            if diff > 0 && warning_mins.contains(&diff) && time.second() < 10 {
+                log::warn!("⚠️ Advanced ASE Scheduler: Warning Server {} - {} mins left before maintenance", server_id, diff);
+                let state = app_handle.state::<AppState>();
+                let msg = format!("⚠️ SERVER RESTART & MAINTENANCE IN {} MINUTE(S)!", diff);
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat {}", msg), state.clone()).await;
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast {}", msg), state.clone()).await;
+            }
         }
 
         if time.hour() == hour && time.minute() == minute {
             log::info!("🚀 Advanced ASE Scheduler: Running execution chain for server {}", server_id);
 
             let state = app_handle.state::<AppState>();
-            
-            if let Some(_) = warning_str {
-                let msg = "⚠️ SERVER MAINTENANCE CHAIN STARTING NOW!";
-                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat {}", msg), state.clone()).await;
-                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast {}", msg), state.clone()).await;
-            }
+
+            // Step 0: SaveWorld & Final RCON Notice
+            log::info!("  [Advanced ASE] Step 0: Executing RCON SaveWorld & Final Warning");
+            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
+            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!".into(), state.clone()).await;
+            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "ServerChat ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!".into(), state.clone()).await;
+            sleep(Duration::from_secs(3)).await;
 
             if shutdown {
                 log::info!("  [Advanced ASE] Step 1/5: Graceful Shutdown");
@@ -774,6 +809,13 @@ impl SchedulerService {
                 "🚀 Basic Scheduler: Restarting Server {}",
                 setting.server_id
             );
+
+            if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+                let rcon = &rcon_state.0;
+                let _ = rcon.send_command(setting.server_id, "SaveWorld").await;
+                let _ = rcon.send_command(setting.server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!").await;
+                sleep(Duration::from_secs(3)).await;
+            }
 
             // Execute Restart (Basic Mode is Loop Restart)
             let task = ScheduledTask {
@@ -1049,6 +1091,11 @@ impl SchedulerService {
     async fn execute_task(app_handle: &AppHandle, task: &ScheduledTask) {
         let state = app_handle.state::<AppState>();
 
+        // Pre-warning broadcast countdown for tasks other than restart/AutoUpdateMods (which handle their own countdowns)
+        if task.task_type != "restart" && task.task_type != "Restart" && task.task_type != "AutoUpdateMods" && task.task_type != "auto-update-mods" {
+            run_task_pre_warnings(app_handle, task).await;
+        }
+
         match task.task_type.as_str() {
             "restart" | "Restart" => {
                 let _ = commands_restart(app_handle, task).await;
@@ -1077,8 +1124,8 @@ impl SchedulerService {
                 if let Some(msg) = &task.message {
                     let rcon_state = app_handle.state::<RconState>();
                     let rcon = &rcon_state.0;
-                    let _ = rcon.send_command(task.server_id, &format!("ServerChat {}", msg)).await;
-                    let _ = rcon.send_command(task.server_id, &format!("Broadcast {}", msg)).await;
+                    let _ = rcon.send_command(task.server_id, &format!("ServerChat \"{}\"", msg)).await;
+                    let _ = rcon.send_command(task.server_id, &format!("Broadcast \"{}\"", msg)).await;
                 }
             }
             "save-world" | "SaveWorld" => {
@@ -1089,66 +1136,11 @@ impl SchedulerService {
             "destroy-wild-dinos" | "DestroyWildDinos" => {
                 let rcon_state = app_handle.state::<RconState>();
                 let rcon = &rcon_state.0;
+                let _ = rcon.send_command(task.server_id, "SaveWorld").await;
                 let _ = rcon.send_command(task.server_id, "DestroyWildDinos").await;
             }
             "backup" | "Backup" => {
                 execute_backup(app_handle, task).await;
-            }
-            "BoostStart" => {
-                if let Some(cmd) = &task.command {
-                    if let Ok(profile_id) = cmd.parse::<i64>() {
-                        let pre_warning_minutes = if task.pre_warning_minutes > 0 {
-                            task.pre_warning_minutes
-                        } else {
-                            5
-                        };
-
-                        let rcon_state = app_handle.state::<RconState>();
-                        let rcon = &rcon_state.0;
-
-                        for min_left in (1..=pre_warning_minutes).rev() {
-                            let msg = format!("⚠️ SERVER BOOST STARTING IN {} MINUTE(S)!", min_left);
-                            let _ = rcon.send_command(task.server_id, &format!("Broadcast {}", msg)).await;
-                            let _ = rcon.send_command(task.server_id, &format!("ServerChat {}", msg)).await;
-                            sleep(Duration::from_secs(60)).await;
-                        }
-
-                        let _ = rcon.send_command(task.server_id, "Broadcast ⚠️ SERVER RESTARTING FOR BOOST EVENT NOW!").await;
-                        let _ = rcon.send_command(task.server_id, "ServerChat ⚠️ SERVER RESTARTING FOR BOOST EVENT NOW!").await;
-                        let _ = rcon.send_command(task.server_id, "SaveWorld").await;
-                        sleep(Duration::from_secs(5)).await;
-
-                        let state = app_handle.state::<AppState>();
-                        let _ = crate::commands::boost::activate_boost_profile((*app_handle).clone(), state.clone(), task.server_id, profile_id).await;
-                        log::info!("🚀 Boost Activated via Scheduler for server {}", task.server_id);
-                    }
-                }
-            }
-            "BoostEnd" => {
-                let pre_warning_minutes = if task.pre_warning_minutes > 0 {
-                    task.pre_warning_minutes
-                } else {
-                    5
-                };
-
-                let rcon_state = app_handle.state::<RconState>();
-                let rcon = &rcon_state.0;
-
-                for min_left in (1..=pre_warning_minutes).rev() {
-                    let msg = format!("⚠️ SERVER BOOST EVENT ENDING IN {} MINUTE(S)!", min_left);
-                    let _ = rcon.send_command(task.server_id, &format!("Broadcast {}", msg)).await;
-                    let _ = rcon.send_command(task.server_id, &format!("ServerChat {}", msg)).await;
-                    sleep(Duration::from_secs(60)).await;
-                }
-
-                let _ = rcon.send_command(task.server_id, "Broadcast ⚠️ SERVER RESTARTING TO RESTORE MULTIPLIERS NOW!").await;
-                let _ = rcon.send_command(task.server_id, "ServerChat ⚠️ SERVER RESTARTING TO RESTORE MULTIPLIERS NOW!").await;
-                let _ = rcon.send_command(task.server_id, "SaveWorld").await;
-                sleep(Duration::from_secs(5)).await;
-
-                let state = app_handle.state::<AppState>();
-                let _ = crate::commands::boost::deactivate_boost_profile((*app_handle).clone(), state.clone(), task.server_id).await;
-                log::info!("🚀 Boost Deactivated via Scheduler for server {}", task.server_id);
             }
             "AutoUpdateMods" | "auto-update-mods" => {
                 let server_id = task.server_id;
@@ -1446,37 +1438,80 @@ fn get_server_name(app_handle: &AppHandle, server_id: i64) -> String {
     format!("Server #{}", server_id)
 }
 
+fn format_warning_message(custom_template: Option<&str>, task_type: &str, min_left: i32, server_name: &str) -> String {
+    if let Some(tpl) = custom_template {
+        if !tpl.trim().is_empty() {
+            let mut formatted = tpl.to_string();
+            formatted = formatted.replace("{mins}", &min_left.to_string());
+            formatted = formatted.replace("{minutes}", &min_left.to_string());
+            formatted = formatted.replace("{secs}", &(min_left * 60).to_string());
+            formatted = formatted.replace("{seconds}", &(min_left * 60).to_string());
+            formatted = formatted.replace("{server}", server_name);
+            formatted = formatted.replace("{task}", task_type);
+            return formatted;
+        }
+    }
+
+    match task_type {
+        "restart" | "Restart" => format!("⚠️ SERVER RESTARTING IN {} MINUTE(S)!", min_left),
+        "destroy-wild-dinos" | "DestroyWildDinos" => format!("⚠️ DESTROYING WILD DINOS IN {} MINUTE(S)!", min_left),
+        "backup" | "Backup" => format!("⚠️ SERVER BACKUP EXECUTING IN {} MINUTE(S)!", min_left),
+        "save-world" | "SaveWorld" => format!("⚠️ SAVING WORLD IN {} MINUTE(S)!", min_left),
+        _ => format!("⚠️ TASK ({}) EXECUTING IN {} MINUTE(S)!", task_type, min_left),
+    }
+}
+
+async fn run_task_pre_warnings(app_handle: &AppHandle, task: &ScheduledTask) {
+    if task.pre_warning_minutes <= 0 {
+        return;
+    }
+    let server_name = get_server_name(app_handle, task.server_id);
+    let mins = task.pre_warning_minutes;
+
+    if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+        let rcon = &rcon_state.0;
+        for min_left in (1..=mins).rev() {
+            let msg = format_warning_message(task.message.as_deref(), &task.task_type, min_left, &server_name);
+            let _ = rcon.send_command(task.server_id, &format!("Broadcast \"{}\"", msg)).await;
+            let _ = rcon.send_command(task.server_id, &format!("ServerChat \"{}\"", msg)).await;
+
+            let app_handle_clone = app_handle.clone();
+            let name_clone = server_name.clone();
+            let task_type_clone = task.task_type.clone();
+            let msg_clone = msg.clone();
+
+            tauri::async_runtime::spawn(async move {
+                crate::services::discord::send_discord_webhook(
+                    &app_handle_clone,
+                    "scheduledTasks",
+                    crate::services::discord::DiscordEmbed::scheduled_task(
+                        &name_clone,
+                        &format!("Task Warning: {}", task_type_clone),
+                        &msg_clone,
+                    ),
+                ).await;
+            });
+
+            sleep(Duration::from_secs(60)).await;
+        }
+    }
+}
+
 // Logic helpers
 async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
-    let _state = app_handle.state::<AppState>();
     let name = get_server_name(app_handle, task.server_id);
 
-    // Warn players if configured (Legacy handling for explicit tasks)
+    // Warn players & countdown if pre_warning_minutes > 0
     if task.pre_warning_minutes > 0 {
-        let rcon_state = app_handle.state::<RconState>();
-        let rcon = &rcon_state.0;
-        let msg = format!(
-            "⚠️ SERVER RESTARTING IN {} MINUTES",
-            task.pre_warning_minutes
-        );
-        let _ = rcon
-            .send_command(task.server_id, &format!("ServerChat {}", msg))
-            .await;
+        run_task_pre_warnings(app_handle, task).await;
+    }
 
-        let app_handle_clone = app_handle.clone();
-        let name_clone = name.clone();
-        let mins = task.pre_warning_minutes;
-        tauri::async_runtime::spawn(async move {
-            crate::services::discord::send_discord_webhook(
-                &app_handle_clone,
-                "scheduledRestarts",
-                crate::services::discord::DiscordEmbed::scheduled_task(
-                    &name_clone,
-                    "Server Restart Warning",
-                    &format!("Scheduled server restart warning: restarting in **{} minutes**.", mins),
-                ),
-            ).await;
-        });
+    // Save world via RCON before restart
+    if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+        let rcon = &rcon_state.0;
+        let _ = rcon.send_command(task.server_id, "SaveWorld").await;
+        let _ = rcon.send_command(task.server_id, "Broadcast \"⚠️ RESTARTING SERVER NOW!\"").await;
+        sleep(Duration::from_secs(3)).await;
     }
 
     // Call restart command from server module

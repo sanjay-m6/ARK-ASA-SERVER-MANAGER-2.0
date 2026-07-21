@@ -29,8 +29,8 @@ export async function createAseServer(server: Partial<AseServer>): Promise<AseSe
     return invoke('create_ase_server', { server });
 }
 
-export async function deleteAseServer(serverId: number): Promise<void> {
-    return invoke('delete_ase_server', { serverId });
+export async function deleteAseServer(serverId: number, deleteFiles: boolean = true): Promise<void> {
+    return invoke('delete_ase_server', { serverId, deleteFiles });
 }
 
 export async function updateAseServer(serverId: number, updates: Partial<AseServer>): Promise<void> {

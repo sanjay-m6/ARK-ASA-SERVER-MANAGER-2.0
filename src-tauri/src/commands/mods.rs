@@ -83,9 +83,26 @@ pub async fn install_mod(
         return Err("Cannot install mod: Invalid Mod ID. Please ensure your CurseForge API Key is configured in Settings.".to_string());
     }
 
+    let mut final_mod_info = mod_info;
+
+    // Fetch real mod details from CurseForge if name is generic (e.g. "Mod 949310") or missing details
+    if (final_mod_info.name.starts_with("Mod ") || final_mod_info.thumbnail_url.is_none()) && final_mod_info.id.chars().all(|c| c.is_ascii_digit()) {
+        if let Ok(id_num) = final_mod_info.id.parse::<i64>() {
+            let api_key = crate::services::api_key_manager::ApiKeyManager::get_curseforge_key(&state);
+            if let Ok(fetched) = crate::services::mod_scraper::get_mod_by_id(id_num, api_key).await {
+                println!("  ✨ Enriching mod metadata for ID {}: {}", id_num, fetched.name);
+                final_mod_info.name = fetched.name;
+                if fetched.author.is_some() { final_mod_info.author = fetched.author; }
+                if fetched.description.is_some() { final_mod_info.description = fetched.description; }
+                if fetched.thumbnail_url.is_some() { final_mod_info.thumbnail_url = fetched.thumbnail_url; }
+                if fetched.curseforge_url.is_some() { final_mod_info.curseforge_url = fetched.curseforge_url; }
+            }
+        }
+    }
+
     println!(
         "📦 Installing mod: {} (ID: {}) for server {}",
-        mod_info.name, mod_info.id, server_id
+        final_mod_info.name, final_mod_info.id, server_id
     );
 
     // Get highest load order
@@ -109,13 +126,13 @@ pub async fn install_mod(
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'ASA', 1, ?9)",
             rusqlite::params![
                 server_id,
-                mod_info.id,
-                mod_info.name,
-                mod_info.version.clone().unwrap_or_default(),
-                mod_info.author.clone().unwrap_or_default(),
-                mod_info.description.clone().unwrap_or_default(),
-                mod_info.curseforge_url.clone().unwrap_or_default(),
-                mod_info.thumbnail_url.clone().unwrap_or_default(),
+                final_mod_info.id,
+                final_mod_info.name,
+                final_mod_info.version.clone().unwrap_or_default(),
+                final_mod_info.author.clone().unwrap_or_default(),
+                final_mod_info.description.clone().unwrap_or_default(),
+                final_mod_info.curseforge_url.clone().unwrap_or_default(),
+                final_mod_info.thumbnail_url.clone().unwrap_or_default(),
                 max_order + 1
             ],
         ).map_err(|e| e.to_string())?;

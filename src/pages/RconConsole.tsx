@@ -45,7 +45,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useServerStore } from '../stores/serverStore';
 import { useRconStore, RconPlayer, CommandHistoryEntry } from '../stores/rconStore';
 import RconHelpModal from '../components/ui/RconHelpModal';
-import ServerSelect from '../components/ui/ServerSelect';
+
 
 interface RconResponse {
     success: boolean;
@@ -279,7 +279,7 @@ const EMPTY_HISTORY: CommandHistoryEntry[] = [];
 
 export default function RconConsole() {
     const { t } = useTranslation();
-    const { servers } = useServerStore();
+    const { servers, activeServer } = useServerStore();
 
     // Active Tab state: terminal, log_stream, cluster, save_manager, maintenance, give_items
     const [activeTab, setActiveTab] = useState<'terminal' | 'log_stream' | 'cluster' | 'save_manager' | 'maintenance' | 'give_items'>('terminal');
@@ -307,6 +307,12 @@ export default function RconConsole() {
     // Zustand global state for RCON
     const selectedServerId = useRconStore(state => state.selectedServerId);
     const setSelectedServerId = useRconStore(state => state.setSelectedServerId);
+
+    useEffect(() => {
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
+        }
+    }, [activeServer, setSelectedServerId]);
 
     // Select stable action references to avoid dependency re-triggers
     const setConnected = useRconStore(state => state.setConnected);
@@ -1265,11 +1271,6 @@ export default function RconConsole() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                    <ServerSelect 
-                        value={selectedServerId} 
-                        onChange={setSelectedServerId} 
-                        accentColor="sky" 
-                    />
 
                     <button
                         onClick={() => setIsHelpOpen(true)}

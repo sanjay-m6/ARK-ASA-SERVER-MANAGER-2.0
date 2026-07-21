@@ -1,12 +1,7 @@
 import { useState } from 'react';
 import { Cpu, Gauge } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useAseServerStore } from '../stores/aseServerStore';
-import ServerSelect from '../../components/ui/ServerSelect';
-
 export default function ASEHardware() {
-  const { servers } = useAseServerStore();
-  const [selectedServer, setSelectedServer] = useState<number | null>(servers[0]?.id || null);
   const [priority, setPriority] = useState('Normal');
   const [affinity, setAffinity] = useState<number[]>([]);
 
@@ -17,7 +12,7 @@ export default function ASEHardware() {
     <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold text-white flex items-center gap-3"><div className="p-2.5 bg-amber-500/10 rounded-xl"><Cpu className="w-6 h-6 text-amber-400" /></div>ASE Hardware</h1><p className="text-sm text-slate-400 mt-1">CPU affinity and process priority for ShooterGameServer.exe</p></div>
-        <ServerSelect value={selectedServer} onChange={setSelectedServer} servers={servers} accentColor="amber" />
+
       </div>
 
       <div className="glass-panel rounded-2xl p-6">

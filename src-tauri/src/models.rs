@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-pub mod autosave;
 pub mod server_organization;
 
 // ARK Server Manager 2.0 - ASA and ASE Models

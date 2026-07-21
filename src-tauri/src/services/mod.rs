@@ -24,12 +24,10 @@ pub mod cloud_backup_service;
 pub mod mod_watchdog;
 pub mod mod_validator;
 pub mod workshop_metadata;
-pub mod autosave;
 pub mod server_organization;
 pub mod system_analyzer;
 
 pub mod ase_discord_bridge;
-pub mod combat_metrics_server;
 
 use std::path::PathBuf;
 

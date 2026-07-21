@@ -1,8 +1,25 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Network, Server as ServerIcon, Link2, Unlink, Move, ZoomIn, ZoomOut, Play, Square, Focus, Cpu } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
+import { Network, Server as ServerIcon, Link2, Unlink, Move, ZoomIn, ZoomOut, Play, Square, Focus, Cpu, Globe, Wifi, WifiOff, Users, Hash, Clock, HardDrive } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { Server, Cluster } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
+
+/** Matches the backend ServerHealthInfo struct from discord_panel.rs */
+interface ServerHealthInfo {
+    id: number;
+    name: string;
+    status: string;
+    player_count: number;
+    max_players: number;
+    cpu_usage: number;
+    ram_usage: number;
+    fps: number;
+    uptime: string;
+    last_started: string | null;
+    mods: string[];
+    crashed: boolean;
+}
 
 interface ClusterNode {
     id: number;
@@ -13,8 +30,11 @@ interface ClusterNode {
     mapName: string;
     status: string;
     ports: { gamePort: number; queryPort: number; rconPort: number };
-    cpu?: number;
-    players?: number;
+    cpu: number;
+    ram: number;
+    players: number;
+    maxPlayers: number;
+    uptime: string;
 }
 
 interface VisualClusterBuilderProps {
@@ -62,13 +82,36 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
     const centerX = 300;
     const centerY = 200;
 
-    // Initialize nodes in a circular layout
+    // Real health data from backend
+    const [healthData, setHealthData] = useState<Map<number, ServerHealthInfo>>(new Map());
+
+    // Fetch real server health metrics from the backend
+    useEffect(() => {
+        const fetchHealth = async () => {
+            try {
+                const result = await invoke<ServerHealthInfo[]>('get_cluster_servers_health', {
+                    clusterId: cluster.id,
+                });
+                const map = new Map<number, ServerHealthInfo>();
+                result.forEach(h => map.set(h.id, h));
+                setHealthData(map);
+            } catch (err) {
+                console.error('Failed to fetch cluster health:', err);
+            }
+        };
+
+        fetchHealth();
+        const interval = setInterval(fetchHealth, 10_000);
+        return () => clearInterval(interval);
+    }, [cluster.id]);
+
+    // Initialize nodes in a circular layout, merging real health data
     useEffect(() => {
         const clusterServers = cluster.serverIds
             .map(id => servers.find(s => s.id === id))
             .filter((s): s is Server => !!s);
 
-        const radius = Math.min(150, 60 + clusterServers.length * 30);
+        const radius = Math.min(180, 80 + clusterServers.length * 35);
 
         setNodes(prevNodes => {
             const newNodes: ClusterNode[] = clusterServers.map((server, idx) => {
@@ -88,6 +131,9 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                     rconPort: anyServer.rconPort ?? 27020,
                 };
 
+                // Use real health data from backend instead of random values
+                const health = healthData.get(server.id);
+
                 return {
                     id: idx,
                     serverId: server.id,
@@ -97,14 +143,16 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                     mapName: resolvedMapName,
                     status: server.status,
                     ports: resolvedPorts,
-                    // Mock dynamic data for demonstration
-                    cpu: server.status === 'running' || server.status === 'online' ? Math.floor(Math.random() * 40) + 10 : 0,
-                    players: server.status === 'running' || server.status === 'online' ? Math.floor(Math.random() * 50) : 0,
+                    cpu: health ? Math.round(health.cpu_usage * 10) / 10 : 0,
+                    ram: health ? Math.round(health.ram_usage * 10) / 10 : 0,
+                    players: health?.player_count ?? 0,
+                    maxPlayers: health?.max_players ?? (server.config?.maxPlayers ?? 70),
+                    uptime: health?.uptime ?? 'N/A',
                 };
             });
             return newNodes;
         });
-    }, [cluster.serverIds, servers]);
+    }, [cluster.serverIds, servers, healthData]);
 
     const handleNodeMouseDown = useCallback((e: React.MouseEvent, nodeId: number) => {
         e.stopPropagation();
@@ -175,37 +223,63 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
         s => !cluster.serverIds.includes(s.id)
     );
 
+    // Stats for toolbar
+    const onlineCount = nodes.filter(n => n.status === 'running' || n.status === 'online').length;
+    const offlineCount = nodes.filter(n => n.status === 'stopped').length;
+    const totalPlayers = nodes.reduce((sum, n) => sum + n.players, 0);
+
     return (
         <div className="glass-panel rounded-2xl border border-slate-700/50 bg-slate-950 overflow-hidden shadow-2xl">
             {/* Toolbar */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md z-10 relative">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800/80 bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-900/90 backdrop-blur-xl z-10 relative">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-pink-500/10 border border-pink-500/20 shadow-inner">
-                        <Network className="w-4 h-4 text-pink-400" />
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-purple-600/20 border border-pink-500/30 flex items-center justify-center shadow-lg shadow-pink-500/10">
+                        <Network className="w-5 h-5 text-pink-400" />
                     </div>
                     <div>
-                        <span className="text-white font-semibold text-sm block leading-none">Cluster Topology</span>
+                        <span className="text-white font-bold text-sm block leading-none tracking-wide">Cluster Topology</span>
                         <span className="text-slate-500 text-[10px] uppercase tracking-wider block mt-1">Interactive Network Map</span>
                     </div>
                 </div>
+
+                {/* Center Stats Chips */}
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <Wifi className="w-3 h-3 text-emerald-400" />
+                        <span className="text-[10px] font-bold text-emerald-400">{onlineCount} Online</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/50">
+                        <WifiOff className="w-3 h-3 text-slate-500" />
+                        <span className="text-[10px] font-bold text-slate-400">{offlineCount} Offline</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                        <Users className="w-3 h-3 text-sky-400" />
+                        <span className="text-[10px] font-bold text-sky-400">{totalPlayers} Players</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                        <Globe className="w-3 h-3 text-indigo-400" />
+                        <span className="text-[10px] font-bold text-indigo-400">{nodes.length} Nodes</span>
+                    </div>
+                </div>
+
                 <div className="flex items-center gap-2">
                     <button
                         onClick={resetView}
-                        className="p-1.5 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-sky-400 transition-colors border border-slate-700/50 shadow-inner mr-2"
+                        className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-sky-400 transition-all border border-slate-700/50 shadow-inner mr-1"
                         title="Auto-Center View"
                     >
                         <Focus className="w-3.5 h-3.5" />
                     </button>
                     <button
                         onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}
-                        className="p-1.5 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors border border-slate-700/50 shadow-inner"
+                        className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-all border border-slate-700/50 shadow-inner"
                     >
                         <ZoomOut className="w-3.5 h-3.5" />
                     </button>
-                    <span className="text-xs text-slate-400 font-mono w-10 text-center bg-slate-900 px-2 py-1 rounded shadow-inner">{Math.round(zoom * 100)}%</span>
+                    <span className="text-xs text-slate-400 font-mono w-12 text-center bg-slate-900/80 px-2 py-1.5 rounded-lg shadow-inner border border-slate-800">{Math.round(zoom * 100)}%</span>
                     <button
                         onClick={() => setZoom(z => Math.min(2.0, z + 0.1))}
-                        className="p-1.5 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors border border-slate-700/50 shadow-inner"
+                        className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-all border border-slate-700/50 shadow-inner"
                     >
                         <ZoomIn className="w-3.5 h-3.5" />
                     </button>
@@ -216,10 +290,10 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
             <div
                 ref={canvasRef}
                 className={cn(
-                    "relative w-full h-[450px] select-none overflow-hidden",
+                    "relative w-full h-[500px] select-none overflow-hidden",
                     panning ? "cursor-grabbing" : "cursor-grab"
                 )}
-                style={{ background: 'radial-gradient(circle at 50% 50%, #0f172a 0%, #020617 100%)' }}
+                style={{ background: 'radial-gradient(ellipse at 50% 50%, #0f172a 0%, #020617 70%, #000000 100%)' }}
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -237,8 +311,16 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                     <svg className="absolute inset-0 w-[2000px] h-[2000px] -left-[1000px] -top-[1000px] pointer-events-none">
                         <defs>
                             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                                <circle cx="20" cy="20" r="1.5" fill="rgba(148,163,184,0.15)" />
+                                <circle cx="20" cy="20" r="1" fill="rgba(148,163,184,0.08)" />
                             </pattern>
+                            {/* Glow filter for connection lines */}
+                            <filter id="connectionGlow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
                         </defs>
                         <rect width="100%" height="100%" fill="url(#grid)" />
 
@@ -254,8 +336,8 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                     <path
                                         d={path}
                                         fill="none"
-                                        stroke={isActive ? `${mapColor}40` : "rgba(100,116,139,0.2)"}
-                                        strokeWidth="2"
+                                        stroke={isActive ? `${mapColor}30` : "rgba(100,116,139,0.12)"}
+                                        strokeWidth="3"
                                         strokeLinecap="round"
                                     />
                                     {/* Animated data flow pulse */}
@@ -264,11 +346,11 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                             d={path}
                                             fill="none"
                                             stroke={mapColor}
-                                            strokeWidth="3"
-                                            strokeDasharray="10 40"
+                                            strokeWidth="2.5"
+                                            strokeDasharray="8 45"
                                             strokeLinecap="round"
                                             className="animate-[dash_2s_linear_infinite]"
-                                            style={{ filter: `drop-shadow(0 0 4px ${mapColor})` }}
+                                            filter="url(#connectionGlow)"
                                         />
                                     )}
                                 </g>
@@ -281,13 +363,15 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                         <div
                             className="absolute flex items-center justify-center pointer-events-none z-10"
                             style={{
-                                left: hubX - 24,
-                                top: hubY - 24,
+                                left: hubX - 28,
+                                top: hubY - 28,
                             }}
                         >
-                            <div className="w-12 h-12 rounded-full bg-slate-900/80 border border-pink-500/50 flex items-center justify-center shadow-[0_0_30px_rgba(236,72,153,0.3)] backdrop-blur-md">
-                                <Link2 className="w-6 h-6 text-pink-400 drop-shadow-[0_0_8px_rgba(236,72,153,0.8)]" />
-                                <div className="absolute inset-0 rounded-full border-2 border-pink-500/30 animate-ping opacity-50" style={{ animationDuration: '3s' }}></div>
+                            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-900/95 to-slate-800/90 border-2 border-pink-500/40 flex items-center justify-center shadow-[0_0_40px_rgba(236,72,153,0.25),0_0_80px_rgba(236,72,153,0.1)] backdrop-blur-xl">
+                                <Link2 className="w-7 h-7 text-pink-400 drop-shadow-[0_0_12px_rgba(236,72,153,0.9)]" />
+                                <div className="absolute inset-0 rounded-full border-2 border-pink-500/20 animate-ping opacity-40" style={{ animationDuration: '3s' }}></div>
+                                {/* Outer glow ring */}
+                                <div className="absolute -inset-2 rounded-full border border-pink-500/10 animate-pulse" style={{ animationDuration: '4s' }}></div>
                             </div>
                         </div>
                     )}
@@ -309,8 +393,8 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                         isSelected && "z-40"
                                     )}
                                     style={{
-                                        left: node.x - 30, // center offset (half of width 60)
-                                        top: node.y - 30,  // center offset
+                                        left: node.x - 36,
+                                        top: node.y - 36,
                                     }}
                                     onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
                                     onDoubleClick={() => setSelectedNode(node.id)}
@@ -318,37 +402,52 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                     {/* Glassmorphic Node Body */}
                                     <div
                                         className={cn(
-                                            "relative w-16 h-16 rounded-2xl flex flex-col items-center justify-center border border-slate-700/50 bg-slate-900/80 backdrop-blur-md shadow-inner transition-all duration-300",
-                                            isSelected ? "ring-2 ring-offset-2 ring-offset-slate-900 scale-110 shadow-2xl" : "hover:scale-105 hover:shadow-xl"
+                                            "relative w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center backdrop-blur-md transition-all duration-300",
+                                            isSelected ? "ring-2 ring-offset-2 ring-offset-slate-950 scale-110 shadow-2xl" : "hover:scale-105 hover:shadow-xl"
                                         )}
                                         style={{
-                                            borderColor: isActive ? `${color}80` : isCrashed ? 'rgba(239,68,68,0.5)' : 'rgba(71,85,105,0.5)',
-                                            boxShadow: isActive ? `inset 0 0 15px ${color}20, 0 0 20px ${color}30` : isCrashed ? 'inset 0 0 15px rgba(239,68,68,0.2)' : 'none',
+                                            background: isActive
+                                                ? `linear-gradient(135deg, ${color}15, ${color}08)`
+                                                : isCrashed
+                                                    ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.05))'
+                                                    : 'linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95))',
+                                            border: `1.5px solid ${isActive ? `${color}60` : isCrashed ? 'rgba(239,68,68,0.4)' : 'rgba(71,85,105,0.35)'}`,
+                                            boxShadow: isActive
+                                                ? `inset 0 1px 0 ${color}20, 0 0 30px ${color}20, 0 4px 20px rgba(0,0,0,0.4)`
+                                                : isCrashed
+                                                    ? 'inset 0 0 15px rgba(239,68,68,0.15), 0 4px 20px rgba(0,0,0,0.4)'
+                                                    : '0 4px 20px rgba(0,0,0,0.4)',
                                             ...(isSelected ? { ringColor: color } : {})
                                         }}
                                     >
-                                        <ServerIcon className={cn("w-6 h-6 mb-1", isActive ? "drop-shadow-lg" : "")} style={{ color: isActive ? color : isCrashed ? '#ef4444' : '#64748b' }} />
+                                        <ServerIcon className={cn("w-6 h-6 mb-0.5 transition-all", isActive ? "drop-shadow-lg" : "")} style={{ color: isActive ? color : isCrashed ? '#ef4444' : '#64748b' }} />
                                         
                                         {/* Status Text Pill inside Node */}
                                         <div className={cn(
-                                            "text-[8px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-widest",
-                                            isActive ? "bg-green-500/20 text-green-400" : isCrashed ? "bg-red-500/20 text-red-400" : "bg-slate-800 text-slate-400"
+                                            "text-[7px] font-extrabold px-2 py-[2px] rounded-full uppercase tracking-[0.08em] mt-0.5",
+                                            isActive ? "bg-green-500/20 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.3)]" : isCrashed ? "bg-red-500/20 text-red-400" : "bg-slate-800/80 text-slate-500"
                                         )}>
-                                            {node.status}
+                                            {node.status === 'running' || node.status === 'online' ? 'ONLINE' : node.status === 'stopped' ? 'OFFLINE' : node.status.toUpperCase()}
                                         </div>
 
                                         {/* Top Right Activity Indicator */}
                                         {isActive && (
-                                            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-slate-900 rounded-full flex items-center justify-center">
-                                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
+                                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-slate-950 rounded-full flex items-center justify-center border border-slate-800">
+                                                <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.9)]" />
                                             </div>
                                         )}
+
+                                        {/* Colored accent bar at bottom */}
+                                        <div 
+                                            className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full"
+                                            style={{ background: isActive ? color : isCrashed ? '#ef4444' : 'rgba(71,85,105,0.3)' }}
+                                        />
                                     </div>
 
                                     {/* Label underneath */}
-                                    <div className="absolute top-[72px] left-1/2 -translate-x-1/2 text-center pointer-events-none w-[120px]">
-                                        <p className="text-[11px] font-bold text-white drop-shadow-md truncate">{node.name}</p>
-                                        <p className="text-[9px] text-slate-400 drop-shadow-md truncate">{(node.mapName || 'Unknown').replace('_WP', '')}</p>
+                                    <div className="absolute top-[80px] left-1/2 -translate-x-1/2 text-center pointer-events-none w-[140px]">
+                                        <p className="text-[11px] font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] truncate">{node.name}</p>
+                                        <p className="text-[9px] text-slate-500 drop-shadow-md truncate font-medium">{(node.mapName || 'Unknown').replace('_WP', '')}</p>
                                     </div>
 
                                     {/* Hover / Select Popover Tooltip */}
@@ -360,50 +459,93 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                                                 exit={{ opacity: 0, y: 5, scale: 0.95 }}
                                                 transition={{ duration: 0.15 }}
                                                 className={cn(
-                                                    "absolute left-full ml-4 top-1/2 -translate-y-1/2 z-50",
+                                                    "absolute left-full ml-5 top-1/2 -translate-y-1/2 z-50",
                                                     isSelected ? "block" : "hidden group-hover:block"
                                                 )}
                                             >
-                                                <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl p-3 shadow-2xl min-w-[180px] pointer-events-auto cursor-default">
+                                                <div className="bg-slate-900/98 backdrop-blur-2xl border border-slate-700/80 rounded-2xl p-4 shadow-2xl shadow-black/50 min-w-[210px] pointer-events-auto cursor-default">
                                                     {/* Triangle pointer */}
-                                                    <div className="absolute right-full top-1/2 -translate-y-1/2 -mr-[1px] w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-slate-700">
-                                                        <div className="absolute -right-[9px] -top-[7px] w-0 h-0 border-y-[7px] border-y-transparent border-r-[7px] border-r-slate-900/95"></div>
+                                                    <div className="absolute right-full top-1/2 -translate-y-1/2 -mr-[1px] w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-slate-700/80">
+                                                        <div className="absolute -right-[9px] -top-[7px] w-0 h-0 border-y-[7px] border-y-transparent border-r-[7px] border-r-slate-900/98"></div>
                                                     </div>
 
-                                                    <p className="text-sm text-white font-bold mb-0.5 truncate">{node.name}</p>
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <div className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-green-500" : isCrashed ? "bg-red-500" : "bg-slate-500")} />
-                                                        <span className={cn("text-[10px] font-bold uppercase", isActive ? "text-green-400" : isCrashed ? "text-red-400" : "text-slate-400")}>{node.status}</span>
+                                                    {/* Server Name + Status */}
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <p className="text-sm text-white font-bold truncate max-w-[140px]">{node.name}</p>
+                                                        <div className={cn(
+                                                            "flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide",
+                                                            isActive ? "bg-green-500/15 text-green-400" : isCrashed ? "bg-red-500/15 text-red-400" : "bg-slate-800 text-slate-500"
+                                                        )}>
+                                                            <div className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-green-500" : isCrashed ? "bg-red-500" : "bg-slate-500")} />
+                                                            {node.status === 'running' || node.status === 'online' ? 'ONLINE' : node.status === 'stopped' ? 'OFFLINE' : node.status.toUpperCase()}
+                                                        </div>
                                                     </div>
 
-                                                    <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400 mb-3 bg-slate-950/50 rounded-lg p-2 shadow-inner">
-                                                        <div className="col-span-2">Map: <span className="text-slate-200">{node.mapName}</span></div>
-                                                        <div>Game: <span className="text-slate-200">{node.ports.gamePort}</span></div>
-                                                        <div>Query: <span className="text-slate-200">{node.ports.queryPort}</span></div>
+                                                    {/* Info Grid */}
+                                                    <div className="grid grid-cols-2 gap-1.5 text-[10px] text-slate-400 mb-3 bg-slate-950/70 rounded-xl p-2.5 shadow-inner border border-slate-800/50">
+                                                        <div className="col-span-2 flex items-center gap-1.5 pb-1.5 border-b border-slate-800/50 mb-0.5">
+                                                            <Globe className="w-3 h-3 text-slate-500" />
+                                                            <span className="text-slate-200 font-semibold">{node.mapName}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <Hash className="w-2.5 h-2.5 text-slate-600" />
+                                                            <span>Game:</span>
+                                                            <span className="text-slate-200 font-mono font-medium">{node.ports.gamePort}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <Hash className="w-2.5 h-2.5 text-slate-600" />
+                                                            <span>Query:</span>
+                                                            <span className="text-slate-200 font-mono font-medium">{node.ports.queryPort}</span>
+                                                        </div>
                                                         {isActive && (
                                                             <>
-                                                                <div className="flex items-center gap-1 text-sky-400"><Cpu className="w-3 h-3"/> {node.cpu}%</div>
-                                                                <div className="flex items-center gap-1 text-emerald-400"><ServerIcon className="w-3 h-3"/> {node.players} Pl</div>
+                                                                <div className="flex items-center gap-1.5 text-sky-400">
+                                                                    <Cpu className="w-3 h-3"/>
+                                                                    <span className="font-bold">{node.cpu}%</span>
+                                                                    <span className="text-slate-600">CPU</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 text-violet-400">
+                                                                    <HardDrive className="w-3 h-3"/>
+                                                                    <span className="font-bold">{node.ram}%</span>
+                                                                    <span className="text-slate-600">RAM</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 text-emerald-400">
+                                                                    <Users className="w-3 h-3"/>
+                                                                    <span className="font-bold">{node.players}/{node.maxPlayers}</span>
+                                                                    <span className="text-slate-600">Players</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 text-amber-400">
+                                                                    <Clock className="w-3 h-3"/>
+                                                                    <span className="font-bold">{node.uptime}</span>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                        {!isActive && (
+                                                            <>
+                                                                <div className="col-span-2 flex items-center gap-1.5 text-slate-500">
+                                                                    <Users className="w-3 h-3"/>
+                                                                    <span className="font-medium">0/{node.maxPlayers} Players</span>
+                                                                </div>
                                                             </>
                                                         )}
                                                     </div>
 
                                                     {/* Quick Actions inside Tooltip */}
-                                                    <div className="flex items-center gap-1.5 mt-2">
+                                                    <div className="flex items-center gap-1.5">
                                                         {(node.status === 'stopped' || node.status === 'crashed') && onStartServer && (
-                                                            <button onClick={(e) => { e.stopPropagation(); onStartServer(node.serverId); }} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 rounded shadow-inner text-[10px] font-bold transition-all">
+                                                            <button onClick={(e) => { e.stopPropagation(); onStartServer(node.serverId); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 rounded-xl shadow-inner text-[10px] font-bold transition-all">
                                                                 <Play className="w-3 h-3" /> Start
                                                             </button>
                                                         )}
                                                         {(node.status === 'running' || node.status === 'online') && onStopServer && (
-                                                            <button onClick={(e) => { e.stopPropagation(); onStopServer(node.serverId); }} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded shadow-inner text-[10px] font-bold transition-all">
+                                                            <button onClick={(e) => { e.stopPropagation(); onStopServer(node.serverId); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl shadow-inner text-[10px] font-bold transition-all">
                                                                 <Square className="w-3 h-3" /> Stop
                                                             </button>
                                                         )}
                                                         {onRemoveServer && (
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); onRemoveServer(node.serverId); }}
-                                                                className="flex items-center justify-center w-7 h-7 bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700 hover:border-red-500/30 rounded transition-all"
+                                                                className="flex items-center justify-center w-8 h-8 bg-slate-800/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700/60 hover:border-red-500/30 rounded-xl transition-all"
                                                                 title="Unlink from Cluster"
                                                             >
                                                                 <Unlink className="w-3 h-3" />
@@ -423,17 +565,18 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
 
             {/* Add server bar */}
             {onAddServer && availableServers.length > 0 && (
-                <div className="px-4 py-3 border-t border-slate-800 bg-slate-900/30 backdrop-blur flex items-center gap-3">
-                    <span className="text-xs text-slate-500 flex items-center gap-1 font-semibold uppercase tracking-wider">
+                <div className="px-5 py-3.5 border-t border-slate-800/80 bg-gradient-to-r from-slate-900/50 to-slate-900/30 backdrop-blur flex items-center gap-4">
+                    <span className="text-xs text-slate-500 flex items-center gap-1.5 font-bold uppercase tracking-wider">
                         <Move className="w-3.5 h-3.5" />
                         Add Node
                     </span>
+                    <div className="h-5 w-px bg-slate-800" />
                     <div className="flex flex-wrap gap-2">
                         {availableServers.slice(0, 5).map(s => (
                             <button
                                 key={s.id}
                                 onClick={() => onAddServer(s.id)}
-                                className="px-3 py-1 bg-slate-800/80 hover:bg-pink-500/20 text-slate-300 hover:text-pink-300 border border-slate-700/80 hover:border-pink-500/50 rounded-lg text-xs font-medium transition-all shadow-inner hover:shadow-[0_0_10px_rgba(236,72,153,0.2)]"
+                                className="px-3.5 py-1.5 bg-slate-800/60 hover:bg-pink-500/15 text-slate-300 hover:text-pink-300 border border-slate-700/60 hover:border-pink-500/40 rounded-xl text-xs font-semibold transition-all shadow-inner hover:shadow-[0_0_15px_rgba(236,72,153,0.15)]"
                             >
                                 + {s.name}
                             </button>
@@ -445,7 +588,7 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
             {/* Global Animation styles needed for data flow */}
             <style dangerouslySetInnerHTML={{__html: `
                 @keyframes dash {
-                    to { stroke-dashoffset: -50; }
+                    to { stroke-dashoffset: -53; }
                 }
             `}} />
         </div>

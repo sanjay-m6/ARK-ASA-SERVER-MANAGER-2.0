@@ -12,7 +12,6 @@ import {
   ScrollText,
   Terminal,
   Clock,
-  History,
   MessageSquare,
   Settings as SettingsIcon,
   Wrench,
@@ -28,9 +27,7 @@ import {
   RefreshCw,
   Search,
   Languages,
-  Swords,
-  Users,
-  Zap
+  Users
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence } from 'framer-motion';
@@ -85,7 +82,6 @@ export default function Sidebar() {
     { name: t('sidebar.configEditor'), path: '/config', icon: FileEdit },
     { name: t('sidebar.clusterManager'), path: '/clusters', icon: Network },
     { name: t('sidebar.backups'), path: '/backups', icon: Database },
-    { name: t('sidebar.autoSaves', 'Auto-Saves'), path: '/autosaves', icon: History },
     { name: t('sidebar.logsConsole'), path: '/logs', icon: ScrollText },
     {
       name: t('sidebar.tools'),
@@ -96,11 +92,9 @@ export default function Sidebar() {
         { name: 'Hardware Allocation', path: '/hardware', icon: Cpu },
         { name: t('sidebar.discordBot'), path: '/tools/discord', icon: MessageSquare },
         { name: t('sidebar.plugins'), path: '/tools/plugins', icon: Plug },
-        { name: t('sidebar.combatMetrics', 'Combat Metrics'), path: '/tools/combat-metrics', icon: Swords },
         { name: t('sidebar.fileManager'), path: '/tools/files', icon: Folder },
         { name: t('sidebar.tribeLogs', 'Tribe Logs'), path: '/tools/tribe-logs', icon: ScrollText },
         { name: t('sidebar.serverOrganization', 'Server Organization'), path: '/tools/organization', icon: Folder },
-        { name: t('sidebar.boostManager', 'Boost Manager'), path: '/tools/boost', icon: Zap },
       ]
     },
     { name: t('sidebar.wiki', 'Knowledge Base'), path: '/wiki', icon: FileText },
@@ -117,7 +111,6 @@ export default function Sidebar() {
     { name: 'Server Configuration', path: '/ase/config', icon: FileEdit },
     { name: 'Cluster Manager', path: '/ase/clusters', icon: Network },
     { name: 'Backups', path: '/ase/backups', icon: Database },
-    { name: 'Auto-Saves', path: '/ase/autosaves', icon: History },
     { name: 'Diagnostics & Logs', path: '/ase/logs', icon: ScrollText },
     {
       name: 'Server Utilities',
@@ -134,14 +127,25 @@ export default function Sidebar() {
         { name: 'Tribe Logs', path: '/ase/tools/tribe-logs', icon: ScrollText },
         { name: 'UPnP Ports', path: '/ase/tools/upnp', icon: Wifi },
         { name: 'Server Organization', path: '/ase/tools/organization', icon: Folder },
-        { name: 'Boost Manager', path: '/ase/tools/boost', icon: Zap },
       ]
     },
     { name: t('sidebar.wiki', 'Knowledge Base'), path: '/wiki', icon: FileText },
     { name: 'ASE Settings', path: '/ase/settings', icon: SettingsIcon },
   ];
 
-  const navigation = isASE ? aseNavigation : asaNavigation;
+  const asaServers = useServerStore((state) => state.servers);
+  const aseServers = useAseServerStore((state) => state.servers);
+  const activeModeServers = isASE ? aseServers : asaServers;
+  const hasInstalledServers = activeModeServers.length > 0;
+
+  const rawNavigation = isASE ? aseNavigation : asaNavigation;
+  const navigation = hasInstalledServers
+    ? rawNavigation
+    : rawNavigation.filter(item => {
+        const p = item.path || '';
+        return p === '/servers' || p === '/ase/servers' || p === '/wiki' || p === '/settings' || p === '/ase/settings';
+      });
+
   const accentText = isASE ? 'text-amber-400' : 'text-cyan-400';
   const accentBg = isASE ? 'bg-amber-500/10' : 'bg-cyan-500/10';
   const accentGlow = isASE ? 'shadow-amber-500/20' : 'shadow-cyan-500/20';
@@ -151,23 +155,13 @@ export default function Sidebar() {
 
   const handleGameSwitch = (game: 'ASA' | 'ASE') => {
     setActiveGame(game);
-    navigate(game === 'ASE' ? '/ase/dashboard' : '/dashboard');
-  };
-
-  // Synchronize game switcher context automatically based on active route path
-  useEffect(() => {
-    const isAseRoute = location.pathname.startsWith('/ase');
-    if (isAseRoute && activeGame !== 'ASE') {
-      setActiveGame('ASE');
-    } else if (!isAseRoute && activeGame !== 'ASA' && location.pathname !== '/') {
-      setActiveGame('ASA');
+    const targetServers = game === 'ASE' ? aseServers : asaServers;
+    if (targetServers.length === 0) {
+      navigate(game === 'ASE' ? '/ase/servers' : '/servers');
+    } else {
+      navigate(game === 'ASE' ? '/ase/dashboard' : '/dashboard');
     }
-  }, [location.pathname, activeGame, setActiveGame]);
-
-  // Check if any server is running
-  const asaServers = useServerStore((state) => state.servers);
-  const aseServers = useAseServerStore((state) => state.servers);
-  const activeModeServers = isASE ? aseServers : asaServers;
+  };
 
   const runningServers = activeModeServers.filter((s) => 
     s.status === 'running' || 

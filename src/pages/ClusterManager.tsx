@@ -392,23 +392,22 @@ export default function ClusterManager() {
                                         <span>{t('clusterManager.validateCluster', 'Validate')}</span>
                                     </button>
 
-                                    {/* Cross-Chat Toggle */}
+                                    {/* Cross-Chat Settings */}
                                     <button
                                         onClick={() => setConfiguringCrossChat(cluster)}
                                         className={cn(
-                                            "flex items-center space-x-1 px-3 py-1.5 rounded-lg transition-colors text-sm relative",
+                                            "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-all text-xs font-semibold border shadow-sm",
                                             crossChatStatus[cluster.id]
-                                                ? "bg-violet-600/20 hover:bg-violet-600/30 text-violet-400"
-                                                : "bg-slate-700/50 hover:bg-slate-600/50 text-slate-400"
+                                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                                                : "bg-slate-800/60 border-white/5 text-slate-400 hover:bg-slate-700/60 hover:text-white"
                                         )}
-                                        title="Cross-Server Chat Settings"
+                                        title="Cross-Server Chat Setup"
                                     >
-                                        <MessageCircle className="w-4 h-4" />
-                                        <span>{t('clusterManager.chat')}</span>
-                                        <span className="absolute -top-1.5 -right-1 px-1 py-0.5 bg-amber-500 text-[9px] font-bold text-black rounded flex items-center gap-0.5">
-                                            <FlaskConical className="w-2 h-2" />
-                                            {t('clusterManager.beta')}
-                                        </span>
+                                        <MessageCircle className="w-4 h-4 text-emerald-400" />
+                                        <span>Cross-Chat</span>
+                                        {crossChatStatus[cluster.id] && (
+                                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                        )}
                                     </button>
                                 </div>
                             </div>

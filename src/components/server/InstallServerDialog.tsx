@@ -4,11 +4,13 @@ import {
     Server, MapPin, Settings, Zap, ArrowRight, ArrowLeft,
     HardDrive, Network, Shield, Terminal, ChevronDown, ChevronUp, Globe,
     Copy, ArrowDownToLine, Clock, Minus, Users, Key, Lock,
-    AlertTriangle, Check
+    AlertTriangle, Check, Trash2, PauseCircle, RefreshCw, XCircle, Wand2
 } from 'lucide-react';
 import { useServerStore } from '../../stores/serverStore';
 import { useInstallStore } from '../../stores/installStore';
 import { installServer, InstallServerParams, selectFolder, updateServerSettings } from '../../utils/tauri';
+import { generateAutoServerName } from '../../utils/helpers';
+import { allocateNextAvailablePorts } from '../../utils/portAllocator';
 import toast from 'react-hot-toast';
 import type { ServerType } from '../../types';
 import { MODDED_MAP_PRESETS, getModdedMapByMapArg, buildLaunchArgs } from '../../data/moddedMapRegistry';
@@ -127,19 +129,46 @@ export default function InstallServerDialog({ onClose }: Props) {
     const [showTimestamps, setShowTimestamps] = useState(true);
     const [stepDirection, setStepDirection] = useState<'forward' | 'backward'>('forward');
     const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+    const [showCancelMenu, setShowCancelMenu] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
+
+    const { servers } = useServerStore();
+    const autoServerName = useMemo(() => generateAutoServerName(servers), [servers]);
+
+    const initialPorts = useMemo(() => {
+        return allocateNextAvailablePorts(servers);
+    }, [servers]);
 
     const [formData, setFormData] = useState<InstallServerParams>(draftSetup?.formData || {
         serverType: 'ASA' as ServerType,
         installPath: '', // Will be calculated
-        name: 'My ASA Server',
+        name: autoServerName,
+        sessionName: 'My ASA Server',
         mapName: 'TheIsland_WP',
-        gamePort: 7777,
-        queryPort: 27015,
-        rconPort: 32330,
+        gamePort: initialPorts.gamePort,
+        queryPort: initialPorts.queryPort,
+        rconPort: initialPorts.rconPort,
         maxPlayers: 70,
         adminPassword: '',
         serverPassword: '',
     });
+
+    const handleAutoAllocatePorts = () => {
+        const free = allocateNextAvailablePorts(servers);
+        setFormData(prev => ({
+            ...prev,
+            gamePort: free.gamePort,
+            queryPort: free.queryPort,
+            rconPort: free.rconPort,
+        }));
+        toast.success(`Auto-allocated free ports: Game (${free.gamePort}), Query (${free.queryPort}), RCON (${free.rconPort})`);
+    };
+
+    useEffect(() => {
+        if (!draftSetup?.formData) {
+            setFormData(prev => ({ ...prev, name: autoServerName }));
+        }
+    }, [autoServerName, draftSetup?.formData]);
 
     // Base directory state (default to C:\ARKServers if empty)
     const [baseDir, setBaseDir] = useState(draftSetup?.baseDir || 'C:\\ARKServers');
@@ -226,8 +255,32 @@ export default function InstallServerDialog({ onClose }: Props) {
         }
     };
 
+    const handleCancelInstall = async (deleteFiles: boolean, clearCache: boolean) => {
+        try {
+            setIsCancelling(true);
+            toast.loading(t('dialogs.installServer.cancelling', 'Cancelling installation...'), { id: 'cancel-install' });
+            const { cancelInstallation } = await import('../../utils/tauri');
+            await cancelInstallation(formData.installPath, deleteFiles, clearCache);
+            if (currentlyViewingPath) {
+                removeInstall(currentlyViewingPath);
+            }
+            toast.success(t('dialogs.installServer.cancelSuccess', 'Installation cancelled successfully.'), { id: 'cancel-install' });
+            setShowCancelMenu(false);
+            setIsCancelling(false);
+            if (deleteFiles) {
+                setStep(1);
+            } else {
+                onClose();
+            }
+        } catch (e) {
+            toast.error(`Failed to cancel: ${e}`, { id: 'cancel-install' });
+            setIsCancelling(false);
+        }
+    };
+
     const handleInstall = async () => {
         setDraftSetup(null); // Clear draft since we're installing
+        toast.dismiss(`install-toast-${formData.installPath}`);
         startInstall(formData.installPath, formData.name, formData.mapName, formData.serverType);
         setViewingPath(formData.installPath);
         setStep(4);
@@ -252,7 +305,9 @@ export default function InstallServerDialog({ onClose }: Props) {
             addServer(server);
         } catch (error) {
             console.error('Installation failed:', error);
-            toast.error(`${t('dialogs.installServer.installationFailed')}: ${error}`);
+            toast.error(`${t('dialogs.installServer.installationFailed')}: ${error}`, {
+                id: `install-toast-${formData.installPath}`
+            });
         }
     };
 
@@ -642,41 +697,29 @@ export default function InstallServerDialog({ onClose }: Props) {
                                 <div className="space-y-4">
                                     <div>
                                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
-                                            <Server className="w-4 h-4" />
+                                            <Server className="w-4 h-4 text-cyan-400" />
                                             {t('dialogs.installServer.serverName')}
                                         </label>
-                                        <input
-                                            type="text"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-lg focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-transparent transition-all"
-                                            placeholder="My Awesome Server"
-                                        />
-                                        <p className="text-xs text-slate-500 mt-1">{t('dialogs.installServer.internalNameDesc')}</p>
+                                        <div className="w-full px-4 py-3 bg-slate-800/60 border border-slate-700/60 rounded-xl text-cyan-400 font-mono text-base flex items-center justify-between">
+                                            <span className="font-semibold">{formData.name}</span>
+                                            <span className="text-xs text-slate-500 font-sans font-normal">⚡ Auto-generated system identifier</span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-1">System server folder identifier (e.g. server1, server2...).</p>
                                     </div>
 
                                     <div>
                                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
-                                            <Globe className="w-4 h-4" />
+                                            <Globe className="w-4 h-4 text-emerald-400" />
                                             {t('dialogs.installServer.sessionName')}
                                             <span className="text-xs text-emerald-500 font-normal">{t('dialogs.installServer.publicVisibility')}</span>
                                         </label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={formData.sessionName ?? ''}
-                                                onChange={(e) => setFormData({ ...formData, sessionName: e.target.value })}
-                                                className="flex-1 px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all"
-                                                placeholder={formData.name || "[PvE] The Island - 10x Rates"}
-                                            />
-                                            <button
-                                                onClick={() => setFormData({ ...formData, sessionName: formData.name })}
-                                                className="px-3 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl transition-colors text-xs text-slate-300"
-                                                title="Copy from Server Name"
-                                            >
-                                                ↩️
-                                            </button>
-                                        </div>
+                                        <input
+                                            type="text"
+                                            value={formData.sessionName ?? ''}
+                                            onChange={(e) => setFormData({ ...formData, sessionName: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/50 transition-all"
+                                            placeholder="My ASA Server"
+                                        />
                                         <p className="text-xs text-slate-500 mt-1">🌐 {t('dialogs.installServer.sessionNameDesc')}</p>
                                     </div>
 
@@ -846,9 +889,17 @@ export default function InstallServerDialog({ onClose }: Props) {
                         {/* Step 3: Network Configuration */}
                         {step === 3 && !isInstalling && (
                             <div className="space-y-6 max-w-lg mx-auto">
-                                <div className="text-center mb-6">
+                                <div className="text-center mb-6 flex flex-col items-center">
                                     <h3 className="text-xl font-bold text-white">{t('dialogs.installServer.networkConfig', 'Network Config')}</h3>
-                                    <p className="text-slate-400 mt-1">{t('dialogs.installServer.configurePorts', 'Configure Ports')}</p>
+                                    <p className="text-slate-400 mt-1 mb-3">{t('dialogs.installServer.configurePorts', 'Configure Ports')}</p>
+                                    <button
+                                        type="button"
+                                        onClick={handleAutoAllocatePorts}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-xl text-xs font-semibold transition-all hover:scale-105 active:scale-95 shadow-md shadow-sky-500/10"
+                                    >
+                                        <Wand2 className="w-3.5 h-3.5 text-sky-400" />
+                                        <span>Auto-Allocate Free Ports</span>
+                                    </button>
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-4">
@@ -1333,14 +1384,85 @@ export default function InstallServerDialog({ onClose }: Props) {
 
                 {/* Footer Buttons - Fixed at bottom */}
                 <div className="p-4 sm:p-6 bg-slate-900 border-t border-slate-700/50 flex justify-between items-center relative z-20">
-                    <button
-                        onClick={prevStep}
-                        className="flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-all font-medium text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={isInstalling}
-                    >
-                        <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-                        {step === 1 ? 'Cancel' : 'Back'}
-                    </button>
+                    {isInstalling ? (
+                        <div className="relative z-50">
+                            <button
+                                onClick={() => setShowCancelMenu(!showCancelMenu)}
+                                disabled={isCancelling}
+                                className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 hover:border-red-500/50 font-semibold text-xs sm:text-sm transition-all shadow-lg shadow-red-500/10"
+                            >
+                                <XCircle className="w-4 h-4 text-red-400" />
+                                <span>{isCancelling ? t('dialogs.installServer.cancelling', 'Cancelling...') : t('dialogs.installServer.cancelInstall', 'Cancel Installation')}</span>
+                                <ChevronUp className={`w-4 h-4 text-red-300 transition-transform ${showCancelMenu ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {showCancelMenu && (
+                                <div className="absolute left-0 bottom-14 w-80 bg-slate-900/95 backdrop-blur-xl border border-red-500/30 rounded-2xl p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                                    <div className="text-[11px] font-semibold text-slate-400 px-3 py-1.5 uppercase tracking-wider border-b border-slate-800 flex items-center justify-between">
+                                        <span>{t('dialogs.installServer.cancelOptionsTitle', 'Cancellation Options')}</span>
+                                        <XCircle className="w-3.5 h-3.5 text-slate-500 cursor-pointer hover:text-slate-300" onClick={() => setShowCancelMenu(false)} />
+                                    </div>
+                                    
+                                    {/* Option 1: Keep partial files */}
+                                    <button
+                                        onClick={() => handleCancelInstall(false, false)}
+                                        className="w-full text-left flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group mt-1"
+                                    >
+                                        <PauseCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <div className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">
+                                                {t('dialogs.installServer.cancelKeepFiles', 'Stop & Keep Partial Download')}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 mt-0.5">
+                                                {t('dialogs.installServer.cancelKeepFilesDesc', 'Stops SteamCMD. Keeps downloaded files to resume later.')}
+                                            </div>
+                                        </div>
+                                    </button>
+
+                                    {/* Option 2: Clean delete */}
+                                    <button
+                                        onClick={() => handleCancelInstall(true, false)}
+                                        className="w-full text-left flex items-start gap-3 p-2.5 rounded-xl hover:bg-red-500/15 transition-colors group"
+                                    >
+                                        <Trash2 className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <div className="text-xs font-bold text-white group-hover:text-red-300 transition-colors">
+                                                {t('dialogs.installServer.cancelDeleteFiles', 'Stop & Delete Server Folder')}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 mt-0.5">
+                                                {t('dialogs.installServer.cancelDeleteFilesDesc', 'Stops process and completely removes target directory.')}
+                                            </div>
+                                        </div>
+                                    </button>
+
+                                    {/* Option 3: Purge cache */}
+                                    <button
+                                        onClick={() => handleCancelInstall(true, true)}
+                                        className="w-full text-left flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/80 transition-colors group"
+                                    >
+                                        <RefreshCw className="w-5 h-5 text-sky-400 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <div className="text-xs font-bold text-white group-hover:text-sky-300 transition-colors">
+                                                {t('dialogs.installServer.cancelPurgeCache', 'Stop & Purge SteamCMD Cache')}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 mt-0.5">
+                                                {t('dialogs.installServer.cancelPurgeCacheDesc', 'Stops process, purges download cache, and resets.')}
+                                            </div>
+                                        </div>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <button
+                            onClick={prevStep}
+                            className="flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-all font-medium text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={isInstalling}
+                        >
+                            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                            {step === 1 ? 'Cancel' : 'Back'}
+                        </button>
+                    )}
 
                     <button
                         onClick={() => {

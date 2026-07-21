@@ -8,7 +8,7 @@ import {
 import { cn } from '../../utils/helpers';
 import { getTribeLogs, getAllServers, type TribeLogEntry, type TribeLogResult } from '../../utils/tauri';
 import toast from 'react-hot-toast';
-import ServerSelect from '../../components/ui/ServerSelect';
+import { useServerStore } from '../../stores/serverStore';
 
 const EVENT_CONFIG: Record<string, { icon: any; color: string; label: string }> = {
     tamed: { icon: Heart, color: 'text-pink-400', label: 'Tamed' },
@@ -34,13 +34,19 @@ export default function TribeLogViewer() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<string>('all');
 
+    const { activeServer } = useServerStore();
+
     useEffect(() => {
-        getAllServers()
-            .then((s) => {
-                if (s.length > 0) setSelectedServerId(s[0].id);
-            })
-            .catch(console.error);
-    }, []);
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
+        } else {
+            getAllServers()
+                .then((s) => {
+                    if (s.length > 0 && !selectedServerId) setSelectedServerId(s[0].id);
+                })
+                .catch(console.error);
+        }
+    }, [activeServer]);
 
     const loadLogs = async () => {
         if (!selectedServerId) return;
@@ -96,11 +102,7 @@ export default function TribeLogViewer() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <ServerSelect 
-                        value={selectedServerId} 
-                        onChange={setSelectedServerId} 
-                        accentColor="purple" 
-                    />
+
                     <button
                         onClick={loadLogs}
                         disabled={isLoading}

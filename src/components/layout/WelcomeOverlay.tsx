@@ -188,13 +188,6 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                         </div>
                     </motion.div>
                 </div>
-
-                {/* Footer */}
-                <footer className="relative z-10 pb-6 text-center select-none">
-                    <p className="text-[9px] font-mono tracking-[0.25em] text-slate-600">
-                        {t('welcome.footerStatus', 'v2.0 | POWERED BY TAURI & RUST')}
-                    </p>
-                </footer>
             </motion.div>
         </AnimatePresence>
     );

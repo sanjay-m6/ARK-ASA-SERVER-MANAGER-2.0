@@ -4,6 +4,8 @@ import type { Server, ServerStatus } from '../types';
 interface ServerStore {
     servers: Server[];
     activeServer: Server | null;
+    serverVersions: Record<number, string>;
+    latestPublicVersion: string | null;
     setServers: (servers: Server[]) => void;
     addServer: (server: Server) => void;
     removeServer: (serverId: number) => void;
@@ -11,11 +13,17 @@ interface ServerStore {
     setActiveServer: (server: Server | null) => void;
     checkReachability: (serverId: number, gamePort: number) => Promise<void>;
     refreshServers: () => Promise<void>;
+    fetchServerVersion: (serverId: number, force?: boolean) => Promise<string>;
+    fetchAllServerVersions: (force?: boolean) => Promise<void>;
+    fetchLatestPublicVersion: () => Promise<string | null>;
+    isServerOutdated: (serverId: number) => boolean;
 }
 
-export const useServerStore = create<ServerStore>((set) => ({
+export const useServerStore = create<ServerStore>((set, get) => ({
     servers: [],
     activeServer: null,
+    serverVersions: {},
+    latestPublicVersion: null,
 
     setServers: (servers) => set({ servers }),
 
@@ -46,15 +54,20 @@ export const useServerStore = create<ServerStore>((set) => ({
         }
     },
 
-    setActiveServer: (server) => set({ activeServer: server }),
+    setActiveServer: (server) => {
+        if (server) {
+            localStorage.setItem('activeAsaServerId', server.id.toString());
+        } else {
+            localStorage.removeItem('activeAsaServerId');
+        }
+        set({ activeServer: server });
+    },
 
     checkReachability: async (serverId: number, port: number) => {
         try {
-            // Import dynamically or assume it's available since we are in the store
             const { checkServerReachability } = await import('../utils/tauri');
             const status = await checkServerReachability(port, 'UDP');
 
-            // Assume "Offline" or other strings map to 'Unknown' or handled strictly
             let reachability: 'Public' | 'LAN' | 'Unknown' = 'Unknown';
             if (status === 'Public') reachability = 'Public';
             else if (status === 'LAN') reachability = 'LAN';
@@ -69,27 +82,90 @@ export const useServerStore = create<ServerStore>((set) => ({
         }
     },
 
+    fetchServerVersion: async (serverId: number, force = false) => {
+        const current = get().serverVersions[serverId];
+        if (current && !force) return current;
+
+        try {
+            const { getServerVersion } = await import('../utils/tauri');
+            const version = await getServerVersion(serverId);
+            set((state) => ({
+                serverVersions: { ...state.serverVersions, [serverId]: version }
+            }));
+            return version;
+        } catch (err) {
+            console.error(`Failed to get version for server ${serverId}:`, err);
+            const fallback = 'Unknown';
+            set((state) => ({
+                serverVersions: { ...state.serverVersions, [serverId]: fallback }
+            }));
+            return fallback;
+        }
+    },
+
+    fetchAllServerVersions: async (force = false) => {
+        const { servers, fetchServerVersion } = get();
+        await Promise.all(servers.map(s => fetchServerVersion(s.id, force)));
+    },
+
+    fetchLatestPublicVersion: async () => {
+        try {
+            const { getLatestServerVersion } = await import('../utils/tauri');
+            const latest = await getLatestServerVersion();
+            set({ latestPublicVersion: latest });
+            return latest;
+        } catch (err) {
+            console.error('Failed to fetch latest public version:', err);
+            return null;
+        }
+    },
+
+    isServerOutdated: (serverId: number) => {
+        const { serverVersions, latestPublicVersion } = get();
+        const localVer = serverVersions[serverId];
+        if (!localVer || !latestPublicVersion) return false;
+        if (localVer.startsWith('Build ')) {
+            return !localVer.includes(latestPublicVersion);
+        }
+        return false;
+    },
+
     refreshServers: async () => {
         try {
             const { getAllServers } = await import('../utils/tauri');
             const freshServers = await getAllServers();
 
-            // Merge: preserve 'online' status from current state if DB still says 'running'
-            // This prevents the race condition where STDOUT detected 'online' but DB hasn't updated yet
+            const savedActiveIdStr = localStorage.getItem('activeAsaServerId');
+            const savedActiveId = savedActiveIdStr ? parseInt(savedActiveIdStr, 10) : null;
+
             set((state) => {
                 const currentStatusMap = new Map(
                     state.servers.map(s => [s.id, s.status])
                 );
                 const merged = freshServers.map(s => {
                     const currentStatus = currentStatusMap.get(s.id);
-                    // If frontend knows it's 'online' but DB still says 'running', keep 'online'
                     if (currentStatus === 'online' && (s.status === 'running' || s.status === 'starting')) {
                         return { ...s, status: 'online' as const };
                     }
                     return s;
                 });
-                return { servers: merged };
+
+                // Auto-restore or maintain activeServer reference
+                let newActive = state.activeServer;
+                if (savedActiveId !== null) {
+                    const found = merged.find(s => s.id === savedActiveId);
+                    if (found) newActive = found;
+                }
+                if (!newActive && merged.length > 0) {
+                    newActive = merged[0];
+                    localStorage.setItem('activeAsaServerId', newActive.id.toString());
+                }
+
+                return { servers: merged, activeServer: newActive };
             });
+
+            // Automatically trigger fetching server versions for newly refreshed servers
+            get().fetchAllServerVersions();
         } catch (error) {
             console.error('Failed to refresh servers:', error);
             import('react-hot-toast').then(({ default: toast }) => {

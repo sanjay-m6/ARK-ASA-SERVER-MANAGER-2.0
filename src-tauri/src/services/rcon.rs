@@ -41,6 +41,13 @@ impl RconService {
         }
     }
 
+    pub fn with_app_handle(app_handle: tauri::AppHandle) -> Self {
+        Self {
+            sessions: Arc::new(Mutex::new(HashMap::new())),
+            app_handle: Arc::new(Mutex::new(Some(app_handle))),
+        }
+    }
+
     /// Connect to a server's RCON with timeout and retry logic.
     /// ARK: ASA servers can take 30–120s to fully start RCON, so we retry
     /// up to MAX_RETRIES times with linear backoff before giving up.
@@ -251,7 +258,7 @@ impl RconService {
                         if let Ok(conn) = db.get_connection() {
                             if server_id > 0 {
                                 // ASA
-                                if let Ok(mut stmt) = conn.prepare("SELECT COALESCE(ip_address, '127.0.0.1'), rcon_port, admin_password FROM servers WHERE id = ?1 AND rcon_enabled = 1") {
+                                if let Ok(mut stmt) = conn.prepare("SELECT COALESCE(ip_address, '127.0.0.1'), rcon_port, admin_password FROM servers WHERE id = ?1") {
                                     if let Ok(mut rows) = stmt.query([server_id]) {
                                         if let Ok(Some(row)) = rows.next() {
                                             if let (Ok(db_ip), Ok(db_port), Ok(db_pwd)) = (row.get::<_, String>(0), row.get::<_, i64>(1), row.get::<_, String>(2)) {

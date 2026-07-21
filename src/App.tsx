@@ -21,7 +21,6 @@ const ModManager = lazy(() => import('./pages/ModManager'));
 const ConfigEditor = lazy(() => import('./pages/ConfigEditor'));
 const ClusterManager = lazy(() => import('./pages/ClusterManager'));
 const Backups = lazy(() => import('./pages/Backups'));
-const AutoSaves = lazy(() => import('./pages/AutoSaves'));
 const LogsConsole = lazy(() => import('./pages/LogsConsole'));
 const RconConsole = lazy(() => import('./pages/RconConsole'));
 const Scheduler = lazy(() => import('./pages/Scheduler'));
@@ -31,13 +30,11 @@ const DiscordControlPanel = lazy(() => import('./pages/DiscordControlPanel'));
 const AdvancedPage = lazy(() => import('./pages/tools/AdvancedPage'));
 const PluginManager = lazy(() => import('./pages/PluginManager'));
 const ChatTranslator = lazy(() => import('./pages/tools/ChatTranslator'));
-const CombatMetrics = lazy(() => import('./pages/tools/CombatMetrics'));
 const FileManager = lazy(() => import('./pages/FileManager'));
 const AIAssistant = lazy(() => import('./pages/AIAssistant'));
 const TribeLogViewer = lazy(() => import('./pages/tools/TribeLogViewer'));
 const UPnPPanel = lazy(() => import('./pages/tools/UPnPPanel'));
 const ServerOrganization = lazy(() => import('./pages/tools/ServerOrganization'));
-const BoostManager = lazy(() => import('./pages/tools/BoostManager'));
 const Hardware = lazy(() => import('./pages/Hardware'));
 const Wiki = lazy(() => import('./pages/Wiki'));
 
@@ -48,7 +45,6 @@ const ASEModManager = lazy(() => import('./ase/pages/ASEModManager'));
 const ASEConfigEditor = lazy(() => import('./ase/pages/ASEConfigEditor'));
 const ASEClusterManager = lazy(() => import('./ase/pages/ASEClusterManager'));
 const ASEBackups = lazy(() => import('./ase/pages/ASEBackups'));
-const ASEAutoSaves = lazy(() => import('./ase/pages/ASEAutoSaves'));
 const ASELogsConsole = lazy(() => import('./ase/pages/ASELogsConsole'));
 const ASERconConsole = lazy(() => import('./ase/pages/ASERconConsole'));
 const ASEScheduler = lazy(() => import('./ase/pages/ASEScheduler'));
@@ -64,7 +60,6 @@ const ASEPluginManager = lazy(() => import('./ase/pages/ASEPluginManager'));
 const ASETribeLogViewer = lazy(() => import('./ase/pages/ASETribeLogViewer'));
 const ASEUPnPPanel = lazy(() => import('./ase/pages/ASEUPnPPanel'));
 const ASEServerOrganization = lazy(() => import('./ase/pages/tools/ASEServerOrganization'));
-const ASEBoostManager = lazy(() => import('./ase/pages/tools/ASEBoostManager'));
 
 // Loading component for Suspense
 const PageLoader = () => (
@@ -106,7 +101,6 @@ const router = createBrowserRouter(
             <Route path="config" element={<ConfigEditor />} />
             <Route path="clusters" element={<ClusterManager />} />
             <Route path="backups" element={<Backups />} />
-            <Route path="autosaves" element={<AutoSaves />} />
             <Route path="rcon" element={<RconConsole />} />
             <Route path="scheduler" element={<Scheduler />} />
             <Route path="logs" element={<LogsConsole />} />
@@ -115,13 +109,11 @@ const router = createBrowserRouter(
             <Route path="tools/discord-control" element={<DiscordControlPanel />} />
             <Route path="tools/plugins" element={<PluginManager />} />
             <Route path="tools/chat-translator" element={<ChatTranslator />} />
-            <Route path="tools/combat-metrics" element={<CombatMetrics />} />
             <Route path="tools/files" element={<FileManager />} />
             <Route path="tools/ai" element={<AIAssistant />} />
             <Route path="tools/tribe-logs" element={<TribeLogViewer />} />
             <Route path="tools/upnp" element={<UPnPPanel />} />
             <Route path="tools/organization" element={<ServerOrganization />} />
-            <Route path="tools/boost" element={<BoostManager />} />
             <Route path="hardware" element={<Hardware />} />
             <Route path="wiki" element={<Wiki />} />
             <Route path="settings" element={<Settings />} />
@@ -133,7 +125,6 @@ const router = createBrowserRouter(
             <Route path="ase/config" element={<ASEConfigEditor />} />
             <Route path="ase/clusters" element={<ASEClusterManager />} />
             <Route path="ase/backups" element={<ASEBackups />} />
-            <Route path="ase/autosaves" element={<ASEAutoSaves />} />
             <Route path="ase/logs" element={<ASELogsConsole />} />
             <Route path="ase/rcon" element={<ASERconConsole />} />
             <Route path="ase/scheduler" element={<ASEScheduler />} />
@@ -149,7 +140,6 @@ const router = createBrowserRouter(
             <Route path="ase/tools/tribe-logs" element={<ASETribeLogViewer />} />
             <Route path="ase/tools/upnp" element={<ASEUPnPPanel />} />
             <Route path="ase/tools/organization" element={<ASEServerOrganization />} />
-            <Route path="ase/tools/boost" element={<ASEBoostManager />} />
             <Route path="ase/tools/chat-translator" element={<ChatTranslator />} />
         </Route>
     )

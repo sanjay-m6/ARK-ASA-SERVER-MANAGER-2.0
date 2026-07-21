@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAseServerStore } from '../stores/aseServerStore';
-import ServerSelect from '../../components/ui/ServerSelect';
+
 import { checkAseApiInstalled, getInstalledAsePlugins, type AsePluginInfo } from '../utils/aseCommands';
 import { Plug, ExternalLink, Loader2, Package, X, AlertTriangle, CheckCircle2, Server } from 'lucide-react';
 import { cn } from '../../utils/helpers';
@@ -12,19 +12,21 @@ const UMOD_REPOSITORY_URL = 'https://umod.org/games/ark';
 const ARKAPI_REPOSITORY_URL = 'https://arkforum.de/';
 
 export default function ASEPluginManager() {
-    const { servers } = useAseServerStore();
-    const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+    const { servers, activeServer } = useAseServerStore();
+    const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
     const [plugins, setPlugins] = useState<AsePluginInfo[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [selectedPlugin, setSelectedPlugin] = useState<AsePluginInfo | null>(null);
     const [apiInstalled, setApiInstalled] = useState<boolean | null>(null);
 
-    // Initialize default server
+    // Initialize active server from TopBar
     useEffect(() => {
-        if (servers.length > 0 && !selectedServerId) {
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
+        } else if (servers.length > 0 && !selectedServerId) {
             setSelectedServerId(servers[0].id);
         }
-    }, [servers, selectedServerId]);
+    }, [activeServer, servers, selectedServerId]);
 
     // Load plugins when server selection changes
     useEffect(() => {
@@ -109,14 +111,8 @@ export default function ASEPluginManager() {
                             <Server className="w-6 h-6" />
                         </div>
                         <div className="flex-1">
-                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Active Server Instance</label>
-                            <ServerSelect
-                                value={selectedServerId}
-                                onChange={setSelectedServerId}
-                                servers={servers}
-                                accentColor="amber"
-                                className="w-full sm:w-60"
-                            />
+                            <h3 className="text-sm font-bold text-white leading-tight">Server Plugin Manager</h3>
+                            <p className="text-xs text-slate-400">Manage ARK Server API plugins for active server</p>
                         </div>
                     </div>
 

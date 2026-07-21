@@ -43,7 +43,6 @@ pub struct AppState {
     pub advanced_config: Arc<AdvancedConfigService>,
     pub cloud_backup: Arc<CloudBackupService>,
     pub mod_watchdog: Arc<ModWatchdogService>,
-    pub combat_metrics: Arc<services::combat_metrics_server::CombatMetricsServerService>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -273,14 +272,13 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 app_handle.clone(),
                 player_intelligence.clone(),
             ));
-            let rcon_service = RconService::new();
+            let rcon_service = RconService::with_app_handle(app_handle.clone());
             let scheduler = Arc::new(SchedulerService::new(app_handle.clone()));
             let anti_cheat = Arc::new(AntiCheatService::new(app_handle.clone()));
-            let cross_chat = Arc::new(CrossChatService::new(rcon_service.clone()));
+            let cross_chat = Arc::new(CrossChatService::with_app_handle(app_handle.clone(), rcon_service.clone()));
             let advanced_config = Arc::new(AdvancedConfigService::new(app_handle.clone()));
             let cloud_backup = Arc::new(CloudBackupService::new());
             let mod_watchdog = Arc::new(ModWatchdogService::new(app_handle.clone()));
-            let combat_metrics = Arc::new(services::combat_metrics_server::CombatMetricsServerService::new(app_handle.clone()));
 
             // 1. Manage AppState BEFORE starting any background tasks
             app.manage(AppState {
@@ -300,7 +298,6 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 advanced_config,
                 cloud_backup: cloud_backup.clone(),
                 mod_watchdog: mod_watchdog.clone(),
-                combat_metrics: combat_metrics.clone(),
             });
 
             // 2. Initialize RCON and Guardian state
@@ -318,7 +315,6 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 ase_discord_bridge.start();
                 rcon_service.spawn_heartbeat(app_handle.clone());
                 mod_watchdog.start_worker();
-                combat_metrics.start();
 
                 // Start Guardian Watchdog!
                 let app_handle_for_guardian = app_handle.clone();
@@ -714,6 +710,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
         .invoke_handler(tauri::generate_handler![
             // System commands
             commands::system::get_system_info,
+            commands::system::check_app_update,
+            commands::system::install_app_update,
             commands::system::select_folder,
             commands::system::select_file, // <-- New Command
             commands::system::select_plugin_zip,
@@ -758,6 +756,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::debug_database_check, // <-- New Command
             commands::server::repair_steamcmd,
             commands::server::clear_steamcmd_cache,
+            commands::server::cancel_installation,
             commands::server::get_steamcmd_health,
             commands::server::check_port_conflicts,
             commands::server::get_server_visibility_status,
@@ -820,6 +819,9 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::cluster::get_cluster_cross_chat_status,
             commands::cluster::get_cluster_cross_chat_config,
             commands::cluster::save_cluster_cross_chat_config,
+            commands::cluster::apply_lacc_mod_to_cluster,
+            commands::cluster::install_crosschat_ascended_plugin,
+            commands::cluster::test_mysql_connection,
             commands::cluster::validate_cluster_configuration,
             commands::rcon::rcon_connect,
             commands::rcon::rcon_disconnect,
@@ -991,50 +993,6 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               // Mod Watchdog Commands
              commands::watchdog::get_watchdog_config,
              commands::watchdog::set_watchdog_config,
-             
-             // AutoSave Commands
-             commands::autosave::register_auto_save,
-             commands::autosave::get_auto_save,
-             commands::autosave::list_saves_for_server,
-             commands::autosave::search_saves,
-             commands::autosave::update_save_label,
-             commands::autosave::update_save_notes,
-             commands::autosave::toggle_save_protection,
-             commands::autosave::toggle_favorite,
-             commands::autosave::move_save_to_folder,
-             commands::autosave::delete_save,
-             commands::autosave::validate_save_file,
-             commands::autosave::get_validation_logs,
-             commands::autosave::get_restore_history,
-             commands::autosave::create_restore_point,
-             commands::autosave::get_restore_points,
-             commands::autosave::get_save_statistics,
-             commands::autosave::get_save_health_status,
-             commands::autosave::get_preferences,
-             commands::autosave::get_timeline_events,
-             commands::autosave::create_timeline_event,
-             commands::autosave::load_server_data,
-             commands::autosave::delete_old_saves,
-             commands::autosave::create_save_folder,
-             commands::autosave::get_save_folders,
-             commands::autosave::update_save_folder,
-             commands::autosave::delete_save_folder,
-             commands::autosave::validate_all_saves,
-             commands::autosave::restore_save,
-             commands::autosave::get_restore_progress,
-             commands::autosave::get_restore_backups,
-             commands::autosave::delete_restore_point,
-             commands::autosave::update_preferences,
-             commands::autosave::bulk_delete_saves,
-             commands::autosave::bulk_protect_saves,
-             commands::autosave::bulk_move_saves,
-             commands::autosave::bulk_compress_saves,
-             commands::autosave::get_available_maps,
-             commands::autosave::get_unique_server_versions,
-             commands::autosave::sync_save_to_cloud,
-             commands::autosave::restore_from_cloud,
-             commands::autosave::export_saves,
-             commands::autosave::import_saves,
 
              // ASA Scheduler Commands
              commands::scheduler::get_scheduled_tasks,
@@ -1044,14 +1002,6 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::scheduler::update_task_last_run,
              commands::scheduler::get_scheduler_settings,
              commands::scheduler::save_scheduler_settings,
-
-             // ASA Boost Commands
-             commands::boost::get_boost_profiles,
-             commands::boost::save_boost_profile,
-             commands::boost::delete_boost_profile,
-             commands::boost::activate_boost_profile,
-             commands::boost::deactivate_boost_profile,
-             commands::boost::get_active_boost_profile,
 
              // ═══ ASE Module Commands ═══
              // ASE Server commands
@@ -1135,14 +1085,6 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               ase::commands::scheduler::delete_ase_scheduled_task,
               ase::commands::scheduler::get_ase_scheduler_settings,
               ase::commands::scheduler::save_ase_scheduler_settings,
-
-              // ASE Boost Commands
-              ase::commands::boost::get_ase_boost_profiles,
-              ase::commands::boost::save_ase_boost_profile,
-              ase::commands::boost::delete_ase_boost_profile,
-              ase::commands::boost::activate_ase_boost_profile,
-              ase::commands::boost::deactivate_ase_boost_profile,
-              ase::commands::boost::get_active_ase_boost_profile,
 
               // ASE Discord commands
               ase::commands::discord::save_ase_discord_config,

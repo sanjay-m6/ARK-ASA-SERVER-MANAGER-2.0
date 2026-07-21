@@ -25,10 +25,29 @@ body {
   color: #f8fafc;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Re-enable text selection for input fields, textareas, code & log blocks */
+input,
+textarea,
+select,
+pre,
+code,
+[contenteditable="true"],
+.selectable-text,
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 /* Optimized Panel - Translucent AAA Glassmorphism */

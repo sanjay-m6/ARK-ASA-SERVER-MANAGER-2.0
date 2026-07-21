@@ -1,12 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
-import { Minus, Square, Minimize2, X } from 'lucide-react';
+import { Minus, Square, Minimize2, X, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../../stores/gameStore';
 import { useServerStore } from '../../stores/serverStore';
 import asaLogo from '../../assets/ASA.png';
 import aseLogo from '../../assets/ASE.png';
+import CloseAppModal from '../modals/CloseAppModal';
+import AppUpdateModal from '../modals/AppUpdateModal';
 
 // Apple-inspired spring curves
 const appleSpring = { type: 'spring' as const, stiffness: 500, damping: 30, mass: 0.8 };
@@ -19,6 +21,7 @@ export default function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
   const [appVersion, setAppVersion] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
 
 
   const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -83,14 +86,54 @@ export default function TitleBar() {
     }
   }, [appWindow]);
 
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+
+  // Intercept window close requested event
+  useEffect(() => {
+    if (!appWindow) return;
+    const unlistenPromise = appWindow.onCloseRequested(async (event) => {
+      const remember = localStorage.getItem('rememberCloseAction') === 'true';
+      const pref = localStorage.getItem('closeActionPreference');
+
+      if (remember && pref === 'tray') {
+        event.preventDefault();
+        try {
+          await appWindow.hide();
+        } catch (e) {
+          await appWindow.minimize();
+        }
+      } else if (remember && pref === 'exit') {
+        // Allow default close
+      } else {
+        event.preventDefault();
+        setIsCloseModalOpen(true);
+      }
+    });
+
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, [appWindow]);
+
   const handleClose = useCallback(async () => {
-    setTimeout(async () => {
+    const remember = localStorage.getItem('rememberCloseAction') === 'true';
+    const pref = localStorage.getItem('closeActionPreference');
+
+    if (remember && pref === 'tray') {
+      try {
+        if (appWindow) await appWindow.hide();
+      } catch (err) {
+        if (appWindow) await appWindow.minimize();
+      }
+    } else if (remember && pref === 'exit') {
       try {
         if (appWindow) await appWindow.close();
       } catch (err) {
         console.error('Failed to close window:', err);
       }
-    }, 180);
+    } else {
+      setIsCloseModalOpen(true);
+    }
   }, [appWindow]);
 
 
@@ -121,11 +164,16 @@ export default function TitleBar() {
         </span>
 
         {/* Badges */}
-        <div className="flex items-center gap-1.5 ml-2">
+        <div className="flex items-center gap-1.5 ml-2 pointer-events-auto">
           {appVersion && (
-            <span className="text-[9px] font-mono font-medium text-slate-300 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-full shadow-sm">
-              v{appVersion}
-            </span>
+            <button
+              onClick={() => setIsUpdateModalOpen(true)}
+              className="text-[9px] font-mono font-medium text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1 cursor-pointer transition-all"
+              title="Click to check for application updates"
+            >
+              <Sparkles className="w-2.5 h-2.5 text-amber-400" />
+              v{appVersion} (Check Updates)
+            </button>
           )}
           <span className="text-[9px] font-bold text-slate-300 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-full shadow-sm">
             {isASE ? 'ASE' : 'ASA'}
@@ -196,6 +244,15 @@ export default function TitleBar() {
           </motion.button>
         </div>
       </div>
+
+      <CloseAppModal
+        isOpen={isCloseModalOpen}
+        onClose={() => setIsCloseModalOpen(false)}
+      />
+      <AppUpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+      />
     </div>
   );
 }

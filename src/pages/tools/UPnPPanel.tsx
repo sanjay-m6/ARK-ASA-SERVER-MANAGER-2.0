@@ -12,7 +12,7 @@ import {
 } from '../../utils/tauri';
 import { Server } from '../../types';
 import toast from 'react-hot-toast';
-import ServerSelect from '../../components/ui/ServerSelect';
+import { useServerStore } from '../../stores/serverStore';
 
 export default function UPnPPanel() {
     const { t } = useTranslation();
@@ -25,14 +25,23 @@ export default function UPnPPanel() {
     const [lastResult, setLastResult] = useState<UPnPForwardResult | null>(null);
     const [discoveryError, setDiscoveryError] = useState<string | null>(null);
 
+    const { activeServer } = useServerStore();
+
     useEffect(() => {
         getAllServers()
             .then((s) => {
                 setServers(s);
-                if (s.length > 0) setSelectedServerId(s[0].id);
             })
             .catch(console.error);
     }, []);
+
+    useEffect(() => {
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
+        } else if (servers.length > 0 && !selectedServerId) {
+            setSelectedServerId(servers[0].id);
+        }
+    }, [activeServer, servers, selectedServerId]);
 
     const handleDiscover = async () => {
         setIsDiscovering(true);
@@ -155,13 +164,7 @@ export default function UPnPPanel() {
                 </h3>
 
                 <div className="space-y-4">
-                    <div className="flex items-center gap-3 w-full">
-                        <ServerSelect 
-                            value={selectedServerId} 
-                            onChange={setSelectedServerId} 
-                            accentColor="cyan" 
-                        />
-                    </div>
+
 
                     {/* Current ports preview */}
                     {selectedServer && (

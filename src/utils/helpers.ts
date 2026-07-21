@@ -26,3 +26,27 @@ export function formatDuration(seconds: number): string {
 
     return parts.join(' ');
 }
+
+export function generateAutoServerName(existingServers: { name?: string; installPath?: string }[]): string {
+    let i = 1;
+    while (true) {
+        const candidate = `server${i}`;
+        const candidateAlt = `server_${i}`;
+        const candidateSpace = `server ${i}`;
+        const exists = existingServers.some(s => {
+            const nameLower = (s.name || '').toLowerCase();
+            const pathLower = (s.installPath || '').toLowerCase();
+            return nameLower === candidate ||
+                   nameLower === candidateAlt ||
+                   nameLower === candidateSpace ||
+                   pathLower.endsWith(`\\${candidate}`) ||
+                   pathLower.endsWith(`/${candidate}`) ||
+                   pathLower.endsWith(`\\${candidateAlt}`) ||
+                   pathLower.endsWith(`/${candidateAlt}`);
+        });
+        if (!exists) {
+            return candidate;
+        }
+        i++;
+    }
+}

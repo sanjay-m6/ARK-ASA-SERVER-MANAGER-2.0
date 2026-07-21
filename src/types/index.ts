@@ -27,12 +27,17 @@ export interface Server {
     intelligentMode?: boolean;
     startupDelay?: number;
     startupPriority?: number;
+    battleye?: boolean;
+    tags?: string[];
+    colorBadge?: string;
 }
 
 export interface ServerPorts {
     gamePort: number;
     queryPort: number;
     rconPort: number;
+    peerPort?: number;
+    beaconPort?: number;
 }
 
 export interface ServerConfig {
@@ -44,6 +49,16 @@ export interface ServerConfig {
     motd?: string;
     custom_args?: string;
 
+    // Cluster Integration
+    clusterId?: string;
+    clusterPath?: string;
+    preventDownloadSurvivors?: boolean;
+    preventDownloadItems?: boolean;
+    preventDownloadDinos?: boolean;
+    preventUploadSurvivors?: boolean;
+    preventUploadItems?: boolean;
+    preventUploadDinos?: boolean;
+
     // Structure & Events
     structure_damage_multiplier?: number;
     structure_resistance_multiplier?: number;
@@ -52,12 +67,28 @@ export interface ServerConfig {
     global_item_stack_size_multiplier?: number;
     custom_resource_harvesting_multiplier?: number;
 
-    // Advanced
+    // Advanced Rates & Gameplay
     xp_multiplier?: number;
     harvest_amount_multiplier?: number;
     taming_speed_multiplier?: number;
     pve_mode?: boolean;
     allow_tek_suit_powers_in_genesis?: boolean;
+}
+
+export interface ServerInstanceProfile {
+    version: string;
+    exportedAt: string;
+    server: {
+        name: string;
+        serverType: ServerType;
+        ports: ServerPorts;
+        config: ServerConfig;
+        autoStart?: boolean;
+        autoStop?: boolean;
+        intelligentMode?: boolean;
+        battleye?: boolean;
+        mods?: string[];
+    };
 }
 
 export interface SystemInfo {

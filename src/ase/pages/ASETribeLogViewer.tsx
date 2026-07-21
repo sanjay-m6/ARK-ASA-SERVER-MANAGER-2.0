@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { useAseServerStore } from '../stores/aseServerStore';
-import ServerSelect from '../../components/ui/ServerSelect';
+
 import { getAseTribeLogs, type AseTribeLogEntry, type AseTribeLogResult } from '../utils/aseCommands';
 import toast from 'react-hot-toast';
 
@@ -29,18 +29,20 @@ const EVENT_CONFIG: Record<string, { icon: any; color: string; label: string }> 
 
 export default function ASETribeLogViewer() {
     const { t } = useTranslation();
-    const { servers } = useAseServerStore();
-    const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+    const { servers, activeServer } = useAseServerStore();
+    const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
     const [logResult, setLogResult] = useState<AseTribeLogResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<string>('all');
 
     useEffect(() => {
-        if (servers.length > 0 && !selectedServerId) {
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
+        } else if (servers.length > 0 && !selectedServerId) {
             setSelectedServerId(servers[0].id);
         }
-    }, [servers, selectedServerId]);
+    }, [activeServer, servers, selectedServerId]);
 
     const loadLogs = async () => {
         if (!selectedServerId) return;
@@ -99,12 +101,6 @@ export default function ASETribeLogViewer() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <ServerSelect
-                        value={selectedServerId}
-                        onChange={setSelectedServerId}
-                        servers={servers}
-                        accentColor="amber"
-                    />
                     <button
                         onClick={loadLogs}
                         disabled={isLoading}

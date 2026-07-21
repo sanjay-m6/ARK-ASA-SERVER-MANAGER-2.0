@@ -1,7 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, ToastBar, toast } from 'react-hot-toast';
+import { X } from 'lucide-react';
 import App from './App';
 import './styles/globals.css';
 
@@ -52,9 +53,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 toastOptions={{
                     duration: 4000,
                     style: {
-                        background: '#1e293b',
+                        background: '#0f172a',
                         color: '#f8fafc',
                         border: '1px solid #334155',
+                        borderRadius: '0.75rem',
+                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+                        padding: '10px 14px',
                     },
                     success: {
                         iconTheme: {
@@ -69,7 +73,27 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                         },
                     },
                 }}
-            />
+            >
+                {(t) => (
+                    <ToastBar toast={t}>
+                        {({ icon, message }) => (
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                                {icon}
+                                <div className="flex-1 px-1">{message}</div>
+                                {t.type !== 'loading' && (
+                                    <button
+                                        onClick={() => toast.dismiss(t.id)}
+                                        className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors ml-2 focus:outline-none focus:ring-1 focus:ring-slate-700"
+                                        aria-label="Close notification"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </ToastBar>
+                )}
+            </Toaster>
         </QueryClientProvider>
     </React.StrictMode>
 );

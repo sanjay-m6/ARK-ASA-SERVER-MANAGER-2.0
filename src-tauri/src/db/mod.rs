@@ -44,9 +44,6 @@ impl Database {
         let migrations = include_str!("migrations.sql");
         conn.execute_batch(migrations)?;
 
-        let autosave_migrations = include_str!("autosave_migrations.sql");
-        conn.execute_batch(autosave_migrations)?;
-
         // Run migrations for existing databases
         Self::run_migrations(conn)?;
 

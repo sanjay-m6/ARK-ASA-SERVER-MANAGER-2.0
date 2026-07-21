@@ -553,15 +553,22 @@ impl ConfigGenerator {
             content.push_str(&format!("AllowTekSuitPowersInGenesis={}\r\n", ark_bool(config.allow_tek_suit_powers_in_genesis)));
         }
 
-        // Mods
-        if !config.active_mods.is_empty() {
-            let valid_mods: Vec<String> = config.active_mods.iter()
-                .map(|m| m.trim().to_string())
-                .filter(|m| !m.is_empty() && m != "0" && m.chars().all(|c| c.is_ascii_digit()))
-                .collect();
-            if !valid_mods.is_empty() {
-                content.push_str(&format!("ActiveMods={}\r\n", valid_mods.join(",")));
+        // Mods & Map Mod Auto-Injection
+        let mut valid_mods: Vec<String> = config.active_mods.iter()
+            .map(|m| m.trim().to_string())
+            .filter(|m| !m.is_empty() && m != "0" && m.chars().all(|c| c.is_ascii_digit()))
+            .collect();
+
+        let effective_map = normalize_map_name(&config.map_name);
+        if let Some(map_mod_id) = get_mod_id_for_map(&effective_map) {
+            content.push_str(&format!("ActiveMapMod={}\r\n", map_mod_id));
+            if !valid_mods.contains(&map_mod_id.to_string()) {
+                valid_mods.insert(0, map_mod_id.to_string());
             }
+        }
+
+        if !valid_mods.is_empty() {
+            content.push_str(&format!("ActiveMods={}\r\n", valid_mods.join(",")));
         }
 
         content.push_str("\r\n");
@@ -740,7 +747,7 @@ impl ConfigGenerator {
 
         // Add mods (ASA only, ASE is handled in travel/query URL)
         if server_type != "ASE" && !config.active_mods.is_empty() {
-            cmd.push_str(&format!(" -mods=\"{}\"", config.active_mods.join(",")));
+            cmd.push_str(&format!(" -mods={}", config.active_mods.join(",")));
         }
 
         cmd
@@ -1276,5 +1283,44 @@ impl ConfigGenerator {
         fs::write(&gus_path, final_gus).map_err(|e| e.to_string())?;
 
         Ok(())
+    }
+}
+
+pub fn normalize_map_name(map: &str) -> String {
+    let trimmed = map.trim();
+    if trimmed.eq_ignore_ascii_case("Astraos") || trimmed.eq_ignore_ascii_case("Astraos_WP") || trimmed.eq_ignore_ascii_case("Astraeos") {
+        return "Astraeos_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Svartalfheim") {
+        return "Svartalfheim_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Forglar") {
+        return "Forglar_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Amissa") {
+        return "Amissa_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Insaluna") {
+        return "Insaluna_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("TemptressLagoon") {
+        return "TemptressLagoon_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Reverence") {
+        return "Reverence_WP".to_string();
+    }
+    trimmed.to_string()
+}
+
+pub fn get_mod_id_for_map(map: &str) -> Option<&'static str> {
+    match map.trim() {
+        "Astraeos_WP" | "Astraeos" | "Astraos_WP" | "Astraos" => Some("988598"),
+        "Svartalfheim_WP" | "Svartalfheim" | "SVARTALFHEIM" => Some("927083"),
+        "Forglar_WP" | "Forglar" => Some("952876"),
+        "Amissa_WP" | "Amissa" => Some("927598"),
+        "Insaluna_WP" | "Insaluna" => Some("935639"),
+        "TemptressLagoon_WP" | "TemptressLagoon" => Some("935048"),
+        "Reverence_WP" | "Reverence" => Some("932906"),
+        _ => None,
     }
 }

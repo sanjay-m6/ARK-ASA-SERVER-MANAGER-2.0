@@ -19,7 +19,7 @@ import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import { useAseRconStore } from '../../stores/aseRconStore';
-import ServerSelect from '../../components/ui/ServerSelect';
+
 import {
   getAsePlayers,
   saveAsePlayers,
@@ -31,21 +31,21 @@ import type { AsePlayer, AsePlayerLists, AseGameConfig } from '../types/ase.type
 import { cn } from '../../utils/helpers';
 
 export default function ASEPlayerManager() {
-  const { servers } = useAseServerStore();
+  const { servers, activeServer } = useAseServerStore();
   const location = useLocation();
   const [selectedServerId, setSelectedServerId] = useState<number | null>(
-    location.state?.serverId || servers[0]?.id || null
+    () => activeServer?.id || location.state?.serverId || servers[0]?.id || null
   );
 
   useEffect(() => {
-    if (location.state?.serverId && servers.some(s => s.id === location.state.serverId)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (activeServer) {
+      setSelectedServerId(activeServer.id);
+    } else if (location.state?.serverId && servers.some(s => s.id === location.state.serverId)) {
       setSelectedServerId(location.state.serverId);
     } else if (!selectedServerId && servers.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedServerId(servers[0].id);
     }
-  }, [servers, selectedServerId, location.state]);
+  }, [activeServer, servers, selectedServerId, location.state]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rconState = useAseRconStore((state: any) =>
@@ -395,9 +395,7 @@ export default function ASEPlayerManager() {
             Manage server administrators, whitelisted players to bypass slot limits, and exclusive access joining rules.
           </p>
         </div>
-        <div className="w-full md:w-72 shrink-0">
-          <ServerSelect value={selectedServerId} onChange={setSelectedServerId} servers={servers} accentColor="amber" />
-        </div>
+
       </div>
 
       {selectedServerId ? (

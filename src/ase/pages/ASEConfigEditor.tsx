@@ -6,7 +6,6 @@ import { Save, RotateCcw, ChevronDown, ChevronUp, Check, CheckSquare, Settings2,
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
-import ServerSelect from '../../components/ui/ServerSelect';
 import { readAseConfig, writeAseConfig, updateAseServer, getAseLaunchArguments, syncAseServerFromIni, getAseConfigDiagnostics, readAseIniRaw, writeAseIniRaw, validateAseConfig } from '../utils/aseCommands';
 import { AseGameConfig, AseDiagnostics, ValidationResult } from '../types/ase.types';
 import { EngramOverridesEditor } from '../../components/config/EngramOverridesEditor';
@@ -515,19 +514,18 @@ export default function ASEConfigEditor() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const { servers } = useAseServerStore();
-  const [selectedServer, setSelectedServer] = useState<number | null>(servers[0]?.id || null);
+  const { servers, activeServer } = useAseServerStore();
+  const [selectedServer, setSelectedServer] = useState<number | null>(activeServer?.id || null);
 
-  // Auto-select first server if none selected and servers are available
   useEffect(() => {
-    if (location.state?.serverId && servers.some(s => s.id === location.state.serverId)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (activeServer) {
+      setSelectedServer(activeServer.id);
+    } else if (location.state?.serverId && servers.some(s => s.id === location.state.serverId)) {
       setSelectedServer(location.state.serverId);
     } else if (!selectedServer && servers.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedServer(servers[0].id);
     }
-  }, [servers, selectedServer, location.state]);
+  }, [activeServer, servers, location.state]);
 
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [pendingServerSwitch, setPendingServerSwitch] = useState<number | null>(null);
@@ -844,15 +842,7 @@ export default function ASEConfigEditor() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isDirty, isLoading, handleSave]);
 
-  // Unsaved-changes guard on server switch
-  const handleServerSwitch = useCallback((newServerId: number | null) => {
-    if (isDirty && newServerId !== selectedServer) {
-      setPendingServerSwitch(newServerId);
-      setShowUnsavedWarning(true);
-    } else {
-      setSelectedServer(newServerId);
-    }
-  }, [isDirty, selectedServer]);
+
 
   const confirmServerSwitch = useCallback(() => {
     setShowUnsavedWarning(false);
@@ -1893,6 +1883,15 @@ export default function ASEConfigEditor() {
     }
   }, [activeFile, activeFileTabs, activeTab]);
 
+  useEffect(() => {
+    if (location.state?.initialMode) {
+      const mode = location.state.initialMode;
+      if (mode === 'gus') handleSwitchViewMode('raw-gus');
+      else if (mode === 'game') handleSwitchViewMode('raw-game');
+      else handleSwitchViewMode(mode);
+    }
+  }, [location.state]);
+
 
   const renderField = (field: SchemaField) => {
     if (field.type === 'text') {
@@ -2053,16 +2052,7 @@ export default function ASEConfigEditor() {
               </span>
             </h2>
 
-            {servers.length > 0 && (
-              <ServerSelect
-                value={selectedServer}
-                onChange={handleServerSwitch}
-                servers={servers}
-                accentColor="amber"
-              />
-            )}
 
-            <div className="h-8 w-px bg-[#2d2d44] mx-2" />
 
             <PresetSelector
               onApplyPreset={handleApplyPreset}

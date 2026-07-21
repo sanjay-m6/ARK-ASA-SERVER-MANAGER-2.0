@@ -4,11 +4,11 @@ import {
   X, ChevronRight, ChevronLeft, MapPin, Wifi, Shield, Rocket, 
   AlertTriangle, HardDrive, GitBranch, Server, Check, FolderOpen, 
   Search, Loader2, Terminal, Clock, Copy, ChevronUp, ChevronDown, 
-  ArrowDownToLine, CheckCircle, AlertCircle, Zap, Settings, Minus 
+  ArrowDownToLine, CheckCircle, AlertCircle, Zap, Settings, Minus, Wand2 
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '../../../utils/helpers';
+import { cn, generateAutoServerName } from '../../../utils/helpers';
 import { ASE_MAPS, ASE_BRANCHES } from '../../data/aseMaps';
 import { installAseServer } from '../../utils/aseCommands';
 import { getModdedMapByMapArg, buildLaunchArgs } from '../../../data/moddedMapRegistry';
@@ -33,6 +33,7 @@ const STEP_ICONS: Record<string, React.ReactNode> = {
 
 export default function ASEInstallWizard({ onClose }: Props) {
   const servers = useAseServerStore(s => s.servers);
+  const autoServerName = generateAutoServerName(servers);
   const suggested = suggestNextAsePorts(servers);
   const refreshServers = useAseServerStore(s => s.refreshServers);
 
@@ -62,17 +63,23 @@ export default function ASEInstallWizard({ onClose }: Props) {
   const [mapFilter, setMapFilter] = useState('');
 
   // Form Fields
-  const [name, setName] = useState(draftSetup?.formData?.name || '');
+  const [name, setName] = useState(draftSetup?.formData?.name || autoServerName);
   const [mapName, setMapName] = useState<AseMapName>(draftSetup?.formData?.mapName || 'TheIsland');
   const [branch, setBranch] = useState(draftSetup?.formData?.branch || 'default');
   const [gamePort, setGamePort] = useState(draftSetup?.formData?.gamePort || suggested.gamePort);
   const [queryPort, setQueryPort] = useState(draftSetup?.formData?.queryPort || suggested.queryPort);
   const [rconPort, setRconPort] = useState(draftSetup?.formData?.rconPort || suggested.rconPort);
   const [adminPassword, setAdminPassword] = useState(draftSetup?.formData?.adminPassword || '');
-  const [sessionName, setSessionName] = useState(draftSetup?.formData?.sessionName || '');
+  const [sessionName, setSessionName] = useState(draftSetup?.formData?.sessionName || 'My ASE Server');
   const [installPath, setInstallPath] = useState(draftSetup?.formData?.installPath || '');
   const [maxPlayers, setMaxPlayers] = useState(draftSetup?.formData?.maxPlayers || 70);
   const [baseDir, setBaseDir] = useState(draftSetup?.baseDir || 'C:\\ARKServerManager\\ase');
+
+  useEffect(() => {
+    if (!draftSetup?.formData?.name) {
+      setName(autoServerName);
+    }
+  }, [autoServerName, draftSetup?.formData]);
 
   // Realtime progress & console states
   const [showConsole, setShowConsole] = useState(true);
@@ -532,12 +539,15 @@ export default function ASEInstallWizard({ onClose }: Props) {
                       <p className="text-xs text-slate-500">Name your server and choose where to install it</p>
                     </div>
                     <div className="space-y-4">
-                      <label className="block"><span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Server Name *</span>
-                        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="My ASE Server" autoFocus
-                          className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/40 focus:bg-slate-800 transition-all text-sm" />
-                      </label>
+                      <div>
+                        <span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Server Name</span>
+                        <div className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-amber-400 font-mono text-sm flex items-center justify-between">
+                          <span className="font-semibold">{name}</span>
+                          <span className="text-xs text-slate-500 font-sans font-normal">⚡ Auto-generated system identifier</span>
+                        </div>
+                      </div>
                       <label className="block"><span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Session Name (Browser Display)</span>
-                        <input type="text" value={sessionName} onChange={e => setSessionName(e.target.value)} placeholder={name || 'My ASE Server'}
+                        <input type="text" value={sessionName} onChange={e => setSessionName(e.target.value)} placeholder="My ASE Server"
                           className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/40 transition-all text-sm" />
                       </label>
                       <div>
@@ -665,9 +675,25 @@ export default function ASEInstallWizard({ onClose }: Props) {
                 {/* Step 4: Network */}
                 {step === 'ports' && (
                   <div className="space-y-5">
-                    <div>
-                      <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Wifi className="w-4 h-4 text-amber-400" />Network Configuration</h3>
-                      <p className="text-xs text-slate-500">Configure the ports for your server — ensure they are forwarded in your router</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Wifi className="w-4 h-4 text-amber-400" />Network Configuration</h3>
+                        <p className="text-xs text-slate-500">Configure the ports for your server — ensure they are forwarded in your router</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextP = suggestNextAsePorts(servers);
+                          setGamePort(nextP.gamePort);
+                          setQueryPort(nextP.queryPort);
+                          setRconPort(nextP.rconPort);
+                          toast.success(`Auto-allocated ports: Game (${nextP.gamePort}), Query (${nextP.queryPort}), RCON (${nextP.rconPort})`);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-semibold transition-all hover:scale-105 active:scale-95 shadow-sm"
+                      >
+                        <Wand2 className="w-3.5 h-3.5" />
+                        <span>Auto-Allocate Free Ports</span>
+                      </button>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {[{ label: 'Game Port', sub: 'UDP', val: gamePort, set: setGamePort, def: 7777 },

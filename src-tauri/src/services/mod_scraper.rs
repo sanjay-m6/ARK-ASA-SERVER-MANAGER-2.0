@@ -500,6 +500,56 @@ pub async fn check_mod_updates(
     }
 }
 
+/// Fetch a single CurseForge mod info by ID
+pub async fn get_mod_by_id(
+    mod_id: i64,
+    api_key: Option<String>,
+) -> Result<ModInfo, Box<dyn Error>> {
+    let api_key = api_key
+        .or_else(|| std::env::var("CURSEFORGE_API_KEY").ok())
+        .unwrap_or_default();
+    let api_key = api_key.trim();
+
+    if api_key.is_empty() {
+        return Err("CurseForge API Key missing".into());
+    }
+
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+
+    let id_url = format!("{}/mods/{}", CURSEFORGE_API_URL, mod_id);
+    let resp = client
+        .get(&id_url)
+        .header("x-api-key", api_key)
+        .send()
+        .await?;
+
+    if resp.status().is_success() {
+        let body_text = resp.text().await?;
+        let mod_resp: CurseForgeGetModResponse = serde_json::from_str(&body_text)?;
+        let cf_mod = mod_resp.data;
+
+        Ok(ModInfo {
+            id: cf_mod.id.to_string(),
+            curseforge_id: Some(cf_mod.id as i64),
+            name: cf_mod.name,
+            author: cf_mod.authors.as_ref().and_then(|a| a.first()).map(|a| a.name.clone()),
+            version: None,
+            downloads: cf_mod.download_count.map(|d| d as i64),
+            description: cf_mod.summary,
+            thumbnail_url: cf_mod.logo.map(|l| l.thumbnail_url),
+            curseforge_url: cf_mod.links.map(|l| l.website_url),
+            enabled: true,
+            load_order: 0,
+            last_updated: cf_mod.date_modified,
+            is_local: None,
+        })
+    } else {
+        Err(format!("CurseForge HTTP error {}", resp.status()).into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

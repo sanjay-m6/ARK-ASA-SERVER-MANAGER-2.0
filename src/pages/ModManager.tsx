@@ -11,6 +11,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { AdvancedModInput } from '../components/mods/AdvancedModInput';
 import { ModWatchdogDashboard } from '../components/mods/ModWatchdogDashboard';
 import ServerSelect from '../components/ui/ServerSelect';
+import { useServerStore } from '../stores/serverStore';
 
 interface ServerBasic {
     id: number;
@@ -190,21 +191,25 @@ export default function ModManager() {
         getModCategories().then(setCategories).catch(err => console.error("Failed to load categories", err));
     }, []);
 
-    // Load servers on mount and auto-select first one
+    // Load servers on mount and auto-select active server
+    const activeServer = useServerStore(state => state.activeServer);
     useEffect(() => {
         const loadServers = async () => {
             try {
                 const result = await invoke<ServerBasic[]>('get_all_servers');
                 setServers(result);
-                if (result.length > 0 && !selectedServerId) {
-                    setSelectedServerId(result[0].id);
-                }
             } catch (error) {
                 console.error('Failed to load servers:', error);
             }
         };
         loadServers();
-    }, []);
+    }, [setServers]);
+
+    useEffect(() => {
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
+        }
+    }, [activeServer]);
 
     // Fetch Installed Mods
     const fetchInstalled = async () => {
@@ -629,11 +634,7 @@ export default function ModManager() {
 
                 {/* Server Selector & Actions */}
                 <div className="flex items-center space-x-4">
-                    <ServerSelect 
-                        value={selectedServerId} 
-                        onChange={setSelectedServerId} 
-                        accentColor="sky" 
-                    />
+
 
                     {/* Modpack Export */}
                     <button
@@ -1124,14 +1125,22 @@ export default function ModManager() {
             {/* Search and Tabs */}
             <div className="flex flex-col md:flex-row gap-6 justify-between items-center">
                 <div className="relative w-full md:w-96">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                         placeholder={activeTab === 'available' ? t('modManager.searchMods') : t('modManager.searchMods')}
-                        className="w-full pl-12 pr-4 py-3 bg-[#0A0F1C]/60 border border-white/10 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/10 transition-all backdrop-blur-xl shadow-lg"
+                        className="w-full pl-12 pr-10 py-3 bg-[#0A0F1C]/60 border border-white/10 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/10 transition-all backdrop-blur-xl shadow-lg"
                     />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none z-10" />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors z-10"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex gap-4 items-center">

@@ -22,7 +22,6 @@ import { applyPreset, ConfigPreset, createPresetFromConfig, saveCustomPreset } f
 import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
 import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboard';
-import ServerSelect from '../components/ui/ServerSelect';
 import { MODDED_MAP_PRESETS, buildLaunchArgs, getModdedMapByMapArg } from '../data/moddedMapRegistry';
 
 // Map images
@@ -1531,8 +1530,14 @@ const groupTitleKey = (title: string) =>
 export default function ConfigEditor() {
     const { t } = useTranslation();
     const location = useLocation();
-    const { servers } = useServerStore();
-    const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+    const { servers, activeServer } = useServerStore();
+    const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
+
+    useEffect(() => {
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
+        }
+    }, [activeServer]);
     const [isLoading, setIsLoading] = useState(false);
     const [activeCategory, setActiveCategory] = useState<string>('server');
     const [activeFileFilter, setActiveFileFilter] = useState<'GameUserSettings' | 'Game'>('GameUserSettings');
@@ -1562,11 +1567,20 @@ export default function ConfigEditor() {
 
     // Initialize from navigation or default
     useEffect(() => {
-        if (selectedServerId === null) {
-            if (location.state?.serverId) setSelectedServerId(location.state.serverId);
-            else if (servers.length > 0) setSelectedServerId(servers[0].id);
+        if (location.state?.serverId) {
+            setSelectedServerId(location.state.serverId);
+        } else if (activeServer) {
+            setSelectedServerId(activeServer.id);
+        } else if (servers.length > 0 && !selectedServerId) {
+            setSelectedServerId(servers[0].id);
         }
-    }, [servers, selectedServerId, location.state]);
+        if (location.state?.initialMode) {
+            setViewMode(location.state.initialMode);
+            if (location.state.initialMode === 'gus' || location.state.initialMode === 'game') {
+                handleSwitchToRaw(location.state.initialMode);
+            }
+        }
+    }, [servers, activeServer, location.state]);
 
     // Load configs
     useEffect(() => {
@@ -2010,13 +2024,7 @@ export default function ConfigEditor() {
                             <span className="bg-gradient-to-r from-white via-violet-200 to-indigo-200 bg-clip-text text-transparent">{t('configEditor.title')}</span>
                         </h2>
 
-                        <ServerSelect
-                            value={selectedServerId}
-                            onChange={setSelectedServerId}
-                            accentColor="purple"
-                        />
 
-                        <div className="h-8 w-px bg-[#2d2d44] mx-2" />
 
                         <PresetSelector
                             onApplyPreset={handleApplyPreset}

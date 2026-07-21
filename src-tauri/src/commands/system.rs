@@ -575,3 +575,97 @@ pub async fn uninstall_application() -> Result<(), String> {
     }
 }
 
+#[derive(Debug, Serialize, serde::Deserialize)]
+pub struct AppUpdateInfo {
+    pub current_version: String,
+    pub latest_version: String,
+    pub update_available: bool,
+    pub release_notes: String,
+    pub release_date: String,
+    pub download_url: Option<String>,
+}
+
+#[tauri::command]
+pub async fn check_app_update(app: tauri::AppHandle) -> Result<AppUpdateInfo, String> {
+    let current_version = app.package_info().version.to_string();
+
+    let client = reqwest::Client::builder()
+        .user_agent("ARK-ASA-Server-Manager-Updater")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let url = "https://api.github.com/repos/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases/latest";
+    let resp = client.get(url).send().await;
+
+    match resp {
+        Ok(res) if res.status().is_success() => {
+            let json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+
+            let tag_name = json["tag_name"]
+                .as_str()
+                .unwrap_or("")
+                .trim_start_matches('v')
+                .to_string();
+            
+            let release_notes = json["body"].as_str().unwrap_or("No release notes available.").to_string();
+            let release_date = json["published_at"].as_str().unwrap_or("").to_string();
+            let html_url = json["html_url"].as_str().map(|s| s.to_string());
+
+            let update_available = if !tag_name.is_empty() {
+                tag_name != current_version
+            } else {
+                false
+            };
+
+            Ok(AppUpdateInfo {
+                current_version,
+                latest_version: if tag_name.is_empty() { "4.6.3".to_string() } else { tag_name },
+                update_available,
+                release_notes,
+                release_date,
+                download_url: html_url,
+            })
+        }
+        _ => {
+            Ok(AppUpdateInfo {
+                current_version: current_version.clone(),
+                latest_version: current_version,
+                update_available: false,
+                release_notes: "Application is up to date.".to_string(),
+                release_date: "".to_string(),
+                download_url: None,
+            })
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn install_app_update(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+    
+    if let Ok(updater) = app.updater() {
+        if let Ok(Some(update)) = updater.check().await {
+            let mut downloaded = 0;
+            let _ = update
+                .download_and_install(
+                    move |chunk_length, content_length| {
+                        downloaded += chunk_length;
+                        println!("downloaded {downloaded} from {content_length:?}");
+                    },
+                    || {
+                        println!("download finished");
+                    },
+                )
+                .await;
+
+            app.restart();
+        }
+    }
+
+    // Fallback: Open release download page in browser
+    let url = "https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases/latest";
+    use tauri_plugin_opener::OpenerExt;
+    let _ = app.opener().open_url(url, None::<&str>);
+    Ok(())
+}
+

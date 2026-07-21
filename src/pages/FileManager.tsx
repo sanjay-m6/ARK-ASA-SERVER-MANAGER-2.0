@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import toast from 'react-hot-toast';
+import { useServerStore } from '../stores/serverStore';
 
 interface FileEntry {
     name: string;
@@ -111,11 +112,16 @@ export default function FileManager() {
         }
     }, [history, historyIndex]);
 
+    const activeServer = useServerStore(state => state.activeServer);
+
     useEffect(() => {
         loadDrives();
-        loadDirectory('C:/', false); // Initial load
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+        if (activeServer?.installPath) {
+            loadDirectory(activeServer.installPath, false);
+        } else {
+            loadDirectory('C:/', false);
+        }
+    }, [activeServer?.id]);
 
     const handleNavigate = (path: string) => {
         if (path === currentPath) return;

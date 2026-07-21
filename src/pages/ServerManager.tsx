@@ -4,7 +4,7 @@ import {
     Plus, Play, Square, RotateCw, Trash2, Download, Settings, Terminal, Globe, Shield,
     ChevronDown, ChevronUp, Copy, AppWindow, RefreshCw,
     Check, XCircle, GripVertical, Network, FolderOpen, Users, PenLine, Cpu, HelpCircle,
-    Loader2, AlertTriangle, GitBranch
+    Loader2, AlertTriangle, GitBranch, FileText
 } from 'lucide-react';
 import { useServerStore } from '../stores/serverStore';
 import { useInstallStore, normalizePath } from '../stores/installStore';
@@ -19,7 +19,7 @@ import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-import { startServer, stopServer, restartServer, deleteServer, updateServer, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, getServerVersion, getLatestServerVersion, moveServer, clearModCache } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, updateServer, updateServerSettings, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, moveServer, clearModCache, exportServerInstanceProfile } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -38,7 +38,19 @@ interface ServerLogEvent {
 export default function ServerManager() {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const { servers, setServers, removeServer, updateServerStatus, refreshServers } = useServerStore();
+    const { 
+        servers, 
+        setServers, 
+        removeServer, 
+        updateServerStatus, 
+        refreshServers,
+        serverVersions,
+        latestPublicVersion,
+        fetchServerVersion,
+        fetchAllServerVersions,
+        fetchLatestPublicVersion,
+        isServerOutdated
+    } = useServerStore();
     const { activeInstalls, removeInstall, setDraftOpen } = useInstallStore();
     const [serverLogs, setServerLogs] = useState<Record<number, string[]>>({});
     const [expandedConsoles, setExpandedConsoles] = useState<Record<number, boolean>>({});
@@ -65,8 +77,6 @@ export default function ServerManager() {
     const [editingServerId, setEditingServerId] = useState<number | null>(null);
     const [editServerName, setEditServerName] = useState("");
     const [collapsedServers, setCollapsedServers] = useState<Record<number, boolean>>({});
-    const [serverVersions, setServerVersions] = useState<Record<number, string>>({});
-    const [latestVersion, setLatestVersion] = useState<string | null>(null);
 
     const [serverOrder, setServerOrder] = useState<number[]>(() => {
         const saved = localStorage.getItem('arkServerOrder');
@@ -134,6 +144,17 @@ export default function ServerManager() {
         setCollapsedServers(prev => ({ ...prev, [serverId]: !prev[serverId] }));
     };
 
+    const handleExportProfile = async (server: Server, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        try {
+            const json = await exportServerInstanceProfile(server);
+            await navigator.clipboard.writeText(json);
+            toast.success(`Server Instance profile "${server.name}" copied to clipboard!`, { icon: '📋' });
+        } catch (err) {
+            toast.error(`Failed to export server profile: ${err}`);
+        }
+    };
+
     // Baseline: number of log lines at server start, so we only detect startup in NEW lines
     const [logBaseline, setLogBaseline] = useState<Record<number, number>>({});
 
@@ -161,6 +182,37 @@ export default function ServerManager() {
             console.error("Failed to check port conflicts:", error);
             // If check fails, proceed anyway and let backend handle errors
             return true;
+        }
+    };
+
+    const handleAutoFixPorts = async (newPorts: { gamePort: number; queryPort: number; rconPort: number }) => {
+        if (!pendingStartParams) return;
+        const targetServerId = pendingStartParams.id;
+        try {
+            await updateServerSettings({
+                serverId: targetServerId,
+                gamePort: newPorts.gamePort,
+                queryPort: newPorts.queryPort,
+                rconPort: newPorts.rconPort,
+            });
+
+            toast.success(
+                `Ports reassigned: Game (${newPorts.gamePort}), Query (${newPorts.queryPort}), RCON (${newPorts.rconPort})`
+            );
+
+            await refreshServers();
+
+            if (pendingStartParams.noMods) {
+                await handleStartServerNoMods(targetServerId, true);
+            } else {
+                await handleStartServer(targetServerId, true);
+            }
+        } catch (err) {
+            console.error("Failed to auto-fix ports:", err);
+            toast.error(`Auto-fix ports failed: ${err}`);
+        } finally {
+            setShowConflictModal(false);
+            setPendingStartParams(null);
         }
     };
 
@@ -261,7 +313,7 @@ export default function ServerManager() {
 
             toast.loading(t('serverManager.modCache.clearing', 'Clearing mod cache...'), { id: 'clear-mod-cache' });
             const result = await clearModCache(serverId);
-            toast.success(result, { id: 'clear-mod-cache', duration: 6000, icon: 'Ã°Å¸Â§Â¹' });
+            toast.success(result, { id: 'clear-mod-cache', duration: 6000, icon: '🧹' });
         } catch (error) {
             console.error('Failed to clear mod cache:', error);
             toast.error(t('serverManager.modCache.failed', 'Failed to clear mod cache.'), { id: 'clear-mod-cache' });
@@ -410,46 +462,11 @@ export default function ServerManager() {
         };
     }, [setServers, updateServerStatus, refreshServers, t]);
 
-    // Fetch latest public version on mount
+    // Fetch latest public version & local server versions on mount/server changes
     useEffect(() => {
-        const fetchLatest = async () => {
-            try {
-                const latest = await getLatestServerVersion();
-                setLatestVersion(latest);
-            } catch (err) {
-                console.error('Failed to fetch latest ASA version:', err);
-            }
-        };
-        fetchLatest();
-    }, []);
-
-    // Fetch local versions for servers
-    useEffect(() => {
-        const fetchLocalVersions = async () => {
-            const targets = servers.filter(s => !serverVersions[s.id]);
-            if (targets.length === 0) return;
-
-            for (const server of targets) {
-                try {
-                    const ver = await getServerVersion(server.id);
-                    setServerVersions(prev => ({ ...prev, [server.id]: ver }));
-                } catch (err) {
-                    console.error(`Failed to get version for server ${server.id}:`, err);
-                    setServerVersions(prev => ({ ...prev, [server.id]: 'Unknown' }));
-                }
-            }
-        };
-        fetchLocalVersions();
-    }, [servers, serverVersions]);
-
-    const isServerOutdated = (serverId: number) => {
-        const localVer = serverVersions[serverId];
-        if (!localVer || !latestVersion) return false;
-        if (localVer.startsWith('Build ')) {
-            return !localVer.includes(latestVersion);
-        }
-        return false;
-    };
+        fetchLatestPublicVersion();
+        fetchAllServerVersions();
+    }, [servers]);
 
     // Subscribe to server log events
     useEffect(() => {
@@ -681,12 +698,22 @@ export default function ServerManager() {
     const confirmDeleteServer = async () => {
         if (!deleteConfirmServer) return;
         try {
-            await deleteServer(deleteConfirmServer.id);
-            removeServer(deleteConfirmServer.id);
-            toast.success(t('serverManager.serverDeleted'));
+            const serverId = deleteConfirmServer.id;
+            const serverName = deleteConfirmServer.name;
+            toast.loading(`Deleting server instance "${serverName}" and removing files on disk...`, { id: 'delete-server' });
+
+            // Pass true to trigger complete folder removal on disk & SQL cascade
+            await deleteServer(serverId, true);
+
+            // Purge mod cache if available
+            try { await clearModCache(serverId); } catch (_) {}
+
+            removeServer(serverId);
+            toast.success(`Server instance "${serverName}" and all associated files on disk were deleted.`, { id: 'delete-server', icon: '🗑️' });
             setDeleteConfirmServer(null);
         } catch (error) {
-            toast.error(t('serverManager.deleteFailed', { error }));
+            console.error('Failed to delete server:', error);
+            toast.error(t('serverManager.deleteFailed', { error: String(error) }), { id: 'delete-server' });
         }
     };
 
@@ -696,12 +723,39 @@ export default function ServerManager() {
             setCollapsedServers(prev => ({ ...prev, [serverId]: false }));
 
             updateServerStatus(serverId, 'updating');
-            await updateServer(serverId);
-            toast.success(t('serverManager.serverUpdated'));
+            const wasUpdated = await updateServer(serverId);
+            updateServerStatus(serverId, 'stopped');
+
+            // Force refresh local version for this server immediately so Update Available badge vanishes!
+            const newVer = await fetchServerVersion(serverId, true);
+
+            if (wasUpdated === false) {
+                toast.success(t('serverManager.serverUpToDate', `Server up to date! (${newVer.split(' (')[0]})`), { id: `update-status-${serverId}` });
+            } else {
+                toast.success(t('serverManager.serverUpdated', `Server updated successfully! (${newVer.split(' (')[0]})`), { id: `update-status-${serverId}` });
+            }
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
             toast.error(t('serverManager.updateFailed', { error }));
         }
+    };
+
+    const handleBulkUpdateSelected = async () => {
+        if (selectedServers.length === 0) return;
+        toast(t('serverManager.startingParallelUpdates', { count: selectedServers.length, defaultValue: `Starting parallel update for ${selectedServers.length} server(s)...` }), { icon: 'ℹ️', id: 'bulk-update-start' });
+        await Promise.all(selectedServers.map(id => handleUpdateServer(id)));
+        await fetchAllServerVersions(true);
+    };
+
+    const handleUpdateAllOutdated = async () => {
+        const outdatedServers = servers.filter(s => isServerOutdated(s.id));
+        if (outdatedServers.length === 0) {
+            toast.success(t('serverManager.allServersUpToDate', 'All servers are up to date!'), { id: 'all-up-to-date' });
+            return;
+        }
+        toast(t('serverManager.startingParallelOutdatedUpdates', { count: outdatedServers.length, defaultValue: `Updating ${outdatedServers.length} outdated server(s) in parallel...` }), { icon: 'ℹ️', id: 'bulk-update-outdated' });
+        await Promise.all(outdatedServers.map(s => handleUpdateServer(s.id)));
+        await fetchAllServerVersions(true);
     };
 
     const handleShowConsole = async (serverId: number) => {
@@ -892,9 +946,9 @@ export default function ServerManager() {
                     </div>
                     <p className="text-slate-400 mt-2 text-lg">
                         {t('serverManager.subtitle')}
-                        {latestVersion && (
+                        {latestPublicVersion && (
                             <span className="ml-3 inline-flex items-center gap-1.5 px-3 py-0.5 bg-sky-500/10 border border-sky-500/20 text-sky-400 rounded-full text-xs font-bold font-mono">
-                                Latest Public Build: {latestVersion}
+                                Latest Public Build: {latestPublicVersion}
                             </span>
                         )}
                     </p>
@@ -982,7 +1036,7 @@ export default function ServerManager() {
 
             {/* Bulk Actions Bar */}
             {servers.length > 0 && (
-                <div className="sticky top-4 z-20 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-xl p-6 mt-2 mb-6 gap-4 shadow-lg">
+                <div className="sticky top-4 z-20 flex flex-col lg:flex-row items-start lg:items-center justify-between bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 sm:p-5 mt-2 mb-6 gap-4 shadow-xl">
                     <div className="flex items-center">
                         <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer hover:text-white transition-colors select-none">
                             {/* Spacer to align checkbox with server row checkbox */}
@@ -1010,7 +1064,8 @@ export default function ServerManager() {
                             </span>
                         </label>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto bg-slate-950/40 rounded-full border border-white/5 p-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto bg-slate-950/60 rounded-xl sm:rounded-2xl border border-white/10 p-2 shadow-inner">
+                        {/* Start Actions Group */}
                         <button
                             onClick={handleBulkStart}
                             disabled={selectedServers.length === 0}
@@ -1026,7 +1081,33 @@ export default function ServerManager() {
                             <Play className="w-3.5 h-3.5 fill-current" />
                             <span>{t('serverManager.buttons.startAll')}</span>
                         </button>
+                        
                         <div className="w-px h-5 bg-white/10 hidden sm:block mx-1.5"></div>
+                        
+                        {/* Update Actions Group */}
+                        <button
+                            onClick={handleBulkUpdateSelected}
+                            disabled={selectedServers.length === 0}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
+                            title="Update selected servers concurrently in parallel"
+                        >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>{t('serverManager.buttons.updateSelected', 'Update Selected')}</span>
+                        </button>
+                        {servers.some(s => isServerOutdated(s.id)) && (
+                            <button
+                                onClick={handleUpdateAllOutdated}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 rounded-full transition-all text-xs font-bold animate-pulse"
+                                title="Update all outdated servers simultaneously in parallel"
+                            >
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                                <span>{t('serverManager.buttons.updateOutdated', 'Update Outdated')}</span>
+                            </button>
+                        )}
+                        
+                        <div className="w-px h-5 bg-white/10 hidden sm:block mx-1.5"></div>
+                        
+                        {/* Stop Actions Group */}
                         <button
                             onClick={handleBulkStop}
                             disabled={selectedServers.length === 0}
@@ -1036,6 +1117,17 @@ export default function ServerManager() {
                             <span>{t('serverManager.buttons.stopSelected', 'Stop Selected')}</span>
                         </button>
                         <button
+                            onClick={handleStopAll}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30 rounded-full transition-all text-xs font-semibold"
+                        >
+                            <Square className="w-3.5 h-3.5 fill-current" />
+                            <span>{t('serverManager.buttons.stopAll', 'Stop All')}</span>
+                        </button>
+
+                        <div className="w-px h-5 bg-white/10 hidden sm:block mx-1.5"></div>
+
+                        {/* Manage Actions Group */}
+                        <button
                             onClick={handleBulkMoveServers}
                             disabled={selectedServers.length === 0}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
@@ -1043,13 +1135,17 @@ export default function ServerManager() {
                             <FolderOpen className="w-3.5 h-3.5" />
                             <span>{t('serverManager.buttons.moveSelected', 'Move Selected')}</span>
                         </button>
-                        <div className="w-px h-5 bg-white/10 hidden sm:block mx-1.5"></div>
                         <button
-                            onClick={handleStopAll}
-                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/30 rounded-full transition-all text-xs font-semibold"
+                            onClick={() => {
+                                const targetServer = servers.find(s => selectedServers.includes(s.id)) || servers[0];
+                                if (targetServer) handleExportProfile(targetServer);
+                            }}
+                            disabled={selectedServers.length === 0 && servers.length === 0}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 hover:border-violet-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
+                            title="Export selected server configuration profile to JSON"
                         >
-                            <Square className="w-3.5 h-3.5 fill-current" />
-                            <span>{t('serverManager.buttons.stopAll', 'Stop All')}</span>
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Export Profile</span>
                         </button>
                     </div>
                 </div>
@@ -1405,13 +1501,27 @@ export default function ServerManager() {
                                                                  </button>
 
                                                                  {/* Settings Options Dropdown */}
-                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/settings:opacity-100 group-hover/settings:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/settings:scale-100">
+                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/settings:opacity-100 group-hover/settings:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/settings:scale-100">
                                                                      <button
                                                                          onClick={() => navigate('/config', { state: { serverId: server.id } })}
                                                                          className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
                                                                      >
-                                                                         <Settings className="w-4 h-4" />
+                                                                         <Settings className="w-4 h-4 text-violet-400" />
                                                                          <span>{t('serverManager.tooltips.settings')}</span>
+                                                                     </button>
+                                                                     <button
+                                                                         onClick={() => navigate('/config', { state: { serverId: server.id, initialMode: 'gus' } })}
+                                                                         className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-300 hover:text-amber-200 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                                                     >
+                                                                         <FileText className="w-4 h-4 text-amber-400" />
+                                                                         <span>{t('serverManager.buttons.editRawIni', 'Edit Files Manually (IDE)')}</span>
+                                                                     </button>
+                                                                     <button
+                                                                         onClick={() => navigate('/tools/files', { state: { initialPath: server.installPath } })}
+                                                                         className="w-full text-left px-4 py-3 hover:bg-sky-500/10 text-sky-300 hover:text-sky-200 transition-colors flex items-center gap-2 border-t border-slate-800"
+                                                                     >
+                                                                         <FolderOpen className="w-4 h-4 text-sky-400" />
+                                                                         <span>{t('serverManager.buttons.fileManager', 'File Manager (Browse)')}</span>
                                                                      </button>
                                                                      <button
                                                                          onClick={() => handleMoveServer(server.id)}
@@ -1934,7 +2044,10 @@ export default function ServerManager() {
                         }
                     }
                 }}
+                onAutoFix={handleAutoFixPorts}
                 result={conflictResult}
+                existingServers={servers}
+                currentServerId={pendingStartParams?.id}
             />
 
             <MoveServerDialog

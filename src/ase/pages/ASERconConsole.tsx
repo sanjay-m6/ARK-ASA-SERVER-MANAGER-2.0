@@ -35,7 +35,6 @@ import { cn } from '../../utils/helpers';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
-import ServerSelect from '../../components/ui/ServerSelect';
 import { connectAseRcon, sendAseRcon } from '../utils/aseCommands';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -246,9 +245,15 @@ const PRESET_ITEMS = [
 
 export default function ASERconConsole() {
   const { t } = useTranslation();
-  const { servers } = useAseServerStore();
+  const { servers, activeServer } = useAseServerStore();
   const { selectedServerId, setSelectedServerId, serverStates } = useAseRconStore();
   const rconStore = useAseRconStore();
+
+  useEffect(() => {
+    if (activeServer) {
+      setSelectedServerId(activeServer.id);
+    }
+  }, [activeServer, setSelectedServerId]);
 
   const serverRconState = selectedServerId ? serverStates[selectedServerId] || defaultAseServerState : defaultAseServerState;
 
@@ -587,12 +592,7 @@ export default function ASERconConsole() {
     }
   }, [servers, clusterSelectedServers.length]);
 
-  const mappedServers = useMemo(() => servers.map(s => ({
-    id: s.id,
-    name: s.name,
-    mapName: s.mapName,
-    status: s.status
-  })), [servers]);
+
 
   const selectedServerObj = useMemo(() => servers.find(s => s.id === selectedServerId), [servers, selectedServerId]);
 
@@ -1105,16 +1105,7 @@ export default function ASERconConsole() {
         </div>
         
         <div className="flex items-center gap-3">
-          {servers.length > 0 && (
-            <ServerSelect
-              value={selectedServerId}
-              onChange={val => {
-                setSelectedServerId(val);
-              }}
-              servers={mappedServers}
-              accentColor="amber"
-            />
-          )}
+
           
           <button 
             onClick={isConnected ? handleDisconnect : handleConnect} 

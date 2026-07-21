@@ -931,6 +931,44 @@ pub async fn toggle_cluster_cross_chat(
         }
     }
 
+    if enabled {
+        let servers = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+            let mut stmt = conn
+                .prepare(
+                    "SELECT id, name, install_path, ip_address, rcon_port, admin_password FROM servers WHERE cluster_id = ?1",
+                )
+                .map_err(|e| e.to_string())?;
+
+            let rows = stmt
+                .query_map([cluster_id], |row| {
+                    let rcon_pwd: Option<String> = row.get(5)?;
+                    Ok(crate::services::cross_chat::CrossChatServer {
+                        server_id: row.get(0)?,
+                        server_name: row.get(1)?,
+                        install_path: row.get(2)?,
+                        rcon_address: row.get::<_, Option<String>>(3)?.unwrap_or_else(|| "127.0.0.1".to_string()),
+                        rcon_port: row.get::<_, i64>(4)? as u16,
+                        rcon_password: rcon_pwd.unwrap_or_default(),
+                    })
+                })
+                .map_err(|e| e.to_string())?;
+
+            let list = rows.filter_map(Result::ok).collect::<Vec<_>>();
+            list
+        };
+
+        if !servers.is_empty() {
+            let _ = state.cross_chat.enable_for_cluster(cluster_id, servers.clone()).await;
+            state.cross_chat.clone().start_chat_relay(cluster_id, servers).await;
+        }
+    } else {
+        let _ = state.cross_chat.disable_for_cluster(cluster_id).await;
+        state.cross_chat.stop_polling();
+    }
+
     println!(
         "  ✅ Cross-chat {} for cluster {}",
         if enabled { "enabled" } else { "disabled" },
@@ -962,6 +1000,7 @@ pub async fn get_cluster_cross_chat_status(
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ClusterCrossChatConfig {
+    pub mode: Option<String>, // "lacc" | "asa_api" | "native"
     pub host: String,
     pub user: String,
     pub pass: String,
@@ -969,6 +1008,8 @@ pub struct ClusterCrossChatConfig {
     pub port: i32,
     pub fetch_interval: f32,
     pub debug: bool,
+    pub is_plugin_installed: Option<bool>,
+    pub is_lacc_installed: Option<bool>,
 }
 
 #[tauri::command]
@@ -978,6 +1019,14 @@ pub async fn get_cluster_cross_chat_config(
 ) -> Result<ClusterCrossChatConfig, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let mode = conn
+        .query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_mode'",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        )
+        .ok();
 
     let host = conn
         .query_row(
@@ -1038,7 +1087,38 @@ pub async fn get_cluster_cross_chat_config(
         .unwrap_or_else(|_| "false".to_string());
     let debug = debug_str == "true";
 
+    // Check if plugin is installed in any cluster server
+    let mut is_plugin_installed = false;
+    let mut is_lacc_installed = false;
+
+    if let Ok(mut stmt) = conn.prepare("SELECT install_path, mods FROM servers WHERE cluster_id = ?1") {
+        if let Ok(rows) = stmt.query_map([cluster_id], |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))) {
+            for row_res in rows {
+                if let Ok((install_path, mods_opt)) = row_res {
+                    let plugin_cfg = std::path::PathBuf::from(&install_path)
+                        .join("ShooterGame")
+                        .join("Binaries")
+                        .join("Win64")
+                        .join("ArkApi")
+                        .join("Plugins")
+                        .join("AsaCrossChat")
+                        .join("config.json");
+                    if plugin_cfg.exists() {
+                        is_plugin_installed = true;
+                    }
+
+                    if let Some(mods) = mods_opt {
+                        if mods.contains("928795") {
+                            is_lacc_installed = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     Ok(ClusterCrossChatConfig {
+        mode,
         host,
         user,
         pass,
@@ -1046,6 +1126,8 @@ pub async fn get_cluster_cross_chat_config(
         port,
         fetch_interval,
         debug,
+        is_plugin_installed: Some(is_plugin_installed),
+        is_lacc_installed: Some(is_lacc_installed),
     })
 }
 
@@ -1058,7 +1140,9 @@ pub async fn save_cluster_cross_chat_config(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
+    let mode_str = config.mode.unwrap_or_else(|| "lacc".to_string());
     let settings = vec![
+        ("cross_chat_mode", mode_str.clone()),
         ("cross_chat_mysql_host", config.host.clone()),
         ("cross_chat_mysql_user", config.user.clone()),
         ("cross_chat_mysql_pass", config.pass.clone()),
@@ -1144,6 +1228,179 @@ pub async fn save_cluster_cross_chat_config(
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn apply_lacc_mod_to_cluster(
+    state: State<'_, AppState>,
+    cluster_id: i64,
+) -> Result<i32, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let lacc_mod_id = "928795";
+
+    // Gather all server IDs associated with this cluster
+    let mut target_server_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
+
+    // 1. Check servers table cluster_id column
+    if let Ok(mut stmt) = conn.prepare("SELECT id FROM servers WHERE cluster_id = ?1") {
+        if let Ok(rows) = stmt.query_map([cluster_id], |row| row.get::<_, i64>(0)) {
+            for id_res in rows {
+                if let Ok(id) = id_res {
+                    target_server_ids.insert(id);
+                }
+            }
+        }
+    }
+
+    // 2. Check cluster_servers junction table
+    if let Ok(mut stmt) = conn.prepare("SELECT server_id FROM cluster_servers WHERE cluster_id = ?1") {
+        if let Ok(rows) = stmt.query_map([cluster_id], |row| row.get::<_, i64>(0)) {
+            for id_res in rows {
+                if let Ok(id) = id_res {
+                    target_server_ids.insert(id);
+                }
+            }
+        }
+    }
+
+    // 3. Check server_ids JSON column in clusters table
+    if let Ok(server_ids_json) = conn.query_row::<String, _, _>(
+        "SELECT server_ids FROM clusters WHERE id = ?1",
+        [cluster_id],
+        |row| row.get(0),
+    ) {
+        if let Ok(parsed_ids) = serde_json::from_str::<Vec<i64>>(&server_ids_json) {
+            for id in parsed_ids {
+                target_server_ids.insert(id);
+            }
+        }
+    }
+
+    if target_server_ids.is_empty() {
+        return Err("No servers are currently linked to this cluster. Add servers to this cluster first!".to_string());
+    }
+
+    let mut count = 0;
+    for server_id in target_server_ids {
+        let current_mods_opt: Option<String> = conn
+            .query_row(
+                "SELECT mods FROM servers WHERE id = ?1",
+                [server_id],
+                |row| row.get(0),
+            )
+            .ok();
+
+        let current_mods = current_mods_opt.unwrap_or_default();
+        let mut mod_list: Vec<String> = current_mods
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if !mod_list.contains(&lacc_mod_id.to_string()) {
+            mod_list.push(lacc_mod_id.to_string());
+            let updated_mods = mod_list.join(",");
+            let _ = conn.execute(
+                "UPDATE servers SET mods = ?1 WHERE id = ?2",
+                rusqlite::params![updated_mods, server_id],
+            );
+        }
+        count += 1;
+    }
+
+    Ok(count)
+}
+
+#[tauri::command]
+pub async fn install_crosschat_ascended_plugin(
+    state: State<'_, AppState>,
+    cluster_id: i64,
+    config: ClusterCrossChatConfig,
+) -> Result<i32, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare("SELECT id, install_path, name FROM servers WHERE cluster_id = ?1")
+        .map_err(|e| e.to_string())?;
+
+    let server_rows = stmt
+        .query_map([cluster_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut count = 0;
+    for server_row in server_rows {
+        if let Ok((server_id, install_path, _name)) = server_row {
+            let plugin_config_dir = std::path::PathBuf::from(&install_path)
+                .join("ShooterGame")
+                .join("Binaries")
+                .join("Win64")
+                .join("ArkApi")
+                .join("Plugins")
+                .join("AsaCrossChat");
+
+            let _ = std::fs::create_dir_all(&plugin_config_dir);
+
+            // 1. Write PluginInfo.json
+            let info_path = plugin_config_dir.join("PluginInfo.json");
+            let info_json = serde_json::json!({
+                "FullName": "CrosschatAscended",
+                "Description": "Pelayori's 100% Asynchronous Cross-Server Chat plugin with utf8mb4 multi-language support",
+                "Version": "1.2.0",
+                "MinApiVersion": "1.0",
+                "Author": "Pelayori"
+            });
+            let _ = std::fs::write(&info_path, serde_json::to_string_pretty(&info_json).unwrap_or_default());
+
+            // 2. Write config.json with current MySQL credentials
+            let config_path = plugin_config_dir.join("config.json");
+            let config_json = serde_json::json!({
+                "MySQL": {
+                    "Host": config.host,
+                    "User": config.user,
+                    "Password": config.pass,
+                    "Database": config.db_name,
+                    "Port": config.port
+                },
+                "General": {
+                    "FetchChatInterval": config.fetch_interval,
+                    "EnableUnicode": true,
+                    "Charset": "utf8mb4"
+                },
+                "ServerKey": format!("Server{}", server_id)
+            });
+            let _ = std::fs::write(&config_path, serde_json::to_string_pretty(&config_json).unwrap_or_default());
+            count += 1;
+        }
+    }
+
+    Ok(count)
+}
+
+#[tauri::command]
+pub async fn test_mysql_connection(
+    host: String,
+    port: u16,
+) -> Result<bool, String> {
+    let addr = format!("{}:{}", host, port);
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        tokio::net::TcpStream::connect(&addr),
+    )
+    .await
+    {
+        Ok(Ok(_)) => Ok(true),
+        Ok(Err(e)) => Err(format!("Connection failed on {}: {}", addr, e)),
+        Err(_) => Err(format!("Connection timed out reaching {}", addr)),
+    }
 }
 
 // ── Cluster Validation ─────────────────────────────────────────────────────

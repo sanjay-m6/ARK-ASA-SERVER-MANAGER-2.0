@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import TitleBar from './TitleBar';
@@ -10,12 +10,16 @@ import InstallServerDialog from '../server/InstallServerDialog';
 import ASEInstallWizard from '../../ase/components/install/ASEInstallWizard';
 import { useInstallStore } from '../../stores/installStore';
 import { useGameStore } from '../../stores/gameStore';
+import { useServerStore } from '../../stores/serverStore';
+import { useAseServerStore } from '../../ase/stores/aseServerStore';
 import { cn } from '../../utils/helpers';
 
 // Lazy-load copilot to avoid impacting initial page load
 const InfinityCopilot = lazy(() => import('../ai/InfinityCopilot'));
 
 export default function AppLayout() {
+    const location = useLocation();
+    const navigate = useNavigate();
     const { activeInstalls, currentlyViewingPath, setViewingPath, isDraftOpen, setDraftOpen, draftSetup } = useInstallStore();
     const hasViewingTask = currentlyViewingPath && activeInstalls[currentlyViewingPath];
     const isAseTask = hasViewingTask && activeInstalls[currentlyViewingPath].serverType === 'ASE';
@@ -23,6 +27,21 @@ export default function AppLayout() {
     const isAseRestore = isAseTask || isAseDraft;
     const { activeGame } = useGameStore();
     const isASE = activeGame === 'ASE';
+
+    const asaServers = useServerStore(state => state.servers);
+    const aseServers = useAseServerStore(state => state.servers);
+    const currentModeServers = isASE ? aseServers : asaServers;
+    const hasInstalledServers = currentModeServers.length > 0;
+
+    useEffect(() => {
+        if (!hasInstalledServers) {
+            const path = location.pathname;
+            const isAllowed = path === '/servers' || path === '/ase/servers' || path === '/settings' || path === '/ase/settings' || path === '/wiki';
+            if (!isAllowed) {
+                navigate(isASE ? '/ase/servers' : '/servers', { replace: true });
+            }
+        }
+    }, [hasInstalledServers, isASE, location.pathname, navigate]);
 
     useEffect(() => {
         // Aggressive memory optimization: Trim working set every 10 seconds

@@ -16,12 +16,12 @@ import {
   saveAseSchedulerSettings
 } from '../utils/aseCommands';
 import type { AseScheduledTask, AseSchedulerSettings } from '../types/ase.types';
-import ServerSelect from '../../components/ui/ServerSelect';
+
 import { cn } from '../../utils/helpers';
 
 export default function ASEScheduler() {
-  const { servers, refreshServers } = useAseServerStore();
-  const [selectedServer, setSelectedServer] = useState<number | null>(null);
+  const { servers, refreshServers, activeServer } = useAseServerStore();
+  const [selectedServer, setSelectedServer] = useState<number | null>(() => activeServer?.id || null);
   const [settings, setSettings] = useState<AseSchedulerSettings | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [countdown, setCountdown] = useState<string>('--:--:--');
@@ -50,10 +50,12 @@ export default function ASEScheduler() {
   }, []);
 
   useEffect(() => {
-    if (servers.length > 0 && selectedServer === null) {
+    if (activeServer) {
+      setSelectedServer(activeServer.id);
+    } else if (servers.length > 0 && selectedServer === null) {
       setSelectedServer(servers[0].id);
     }
-  }, [servers, selectedServer]);
+  }, [activeServer, servers, selectedServer]);
 
   useEffect(() => {
     if (selectedServer) {
@@ -323,8 +325,111 @@ export default function ASEScheduler() {
             </p>
           </div>
         </div>
-        <div className="relative z-10 flex items-center gap-3 shrink-0">
-          <ServerSelect value={selectedServer} onChange={setSelectedServer} servers={servers} accentColor="amber" />
+
+        {activeServer && (
+          <div className="relative z-10 flex items-center gap-3 bg-slate-900/90 border border-slate-800 px-4 py-2.5 rounded-2xl">
+            <Clock className="w-4 h-4 text-amber-400" />
+            <div>
+              <div className="text-xs font-bold text-white">{activeServer.name}</div>
+              <div className="text-[10px] text-slate-400 font-mono">ASE ID #{activeServer.id} • Port {activeServer.port}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* QUICK PRESET AUTOMATION RECIPES */}
+      <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 space-y-3 shadow-xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+            <Settings2 className="w-4 h-4 text-amber-400" /> Quick Automation Recipes
+          </h2>
+          <span className="text-[10px] text-slate-500 font-mono">Click to load pre-configured automation templates</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <button
+            onClick={async () => {
+              if (!settings) return;
+              const newS = { ...settings, mode: 'basic' as const, basicIntervalHours: 6, basicWarningMinutes: '15,10,5,1' };
+              setSettings(newS);
+              await saveAseSchedulerSettings(newS);
+              toast.success('Applied 6-Hour Loop Preset');
+            }}
+            className="flex flex-col text-left p-3.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all group"
+          >
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-400 mb-1">
+              <Clock className="w-4 h-4 text-amber-400 group-hover:rotate-180 transition-transform duration-500" />
+              6-Hour Auto Loop
+            </div>
+            <p className="text-[11px] text-slate-400 leading-tight">Restarts server every 6h with 15m, 10m, 5m, 1m warnings & RCON SaveWorld.</p>
+          </button>
+
+          <button
+            onClick={async () => {
+              if (!settings) return;
+              const newS = {
+                ...settings,
+                mode: 'advanced' as const,
+                advancedTime: '03:00',
+                advancedDays: '0,1,2,3,4,5,6',
+                advancedWarningMinutes: '15,10,5,1',
+                advancedShutdown: true,
+                advancedBackup: true,
+                advancedUpdate: true,
+                advancedRestart: true,
+                advancedDinoWipe: true
+              };
+              setSettings(newS);
+              await saveAseSchedulerSettings(newS);
+              toast.success('Applied Daily 3:00 AM Maintenance Preset');
+            }}
+            className="flex flex-col text-left p-3.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-purple-500/50 rounded-xl transition-all group"
+          >
+            <div className="flex items-center gap-2 text-xs font-bold text-purple-400 mb-1">
+              <Shield className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+              Daily 3 AM Pipeline
+            </div>
+            <p className="text-[11px] text-slate-400 leading-tight">SaveWorld → Graceful Stop → Pre-Backup → SteamCMD Update → Dino Wipe.</p>
+          </button>
+
+          <button
+            onClick={async () => {
+              if (!selectedServer) return;
+              try {
+                const t = await createAseScheduledTask({ serverId: selectedServer, taskType: 'wipe_dinos', cronExpr: '0 * * * *', enabled: true });
+                setTasks(prev => [...prev, t]);
+                toast.success('Created Hourly Dino Wipe Task');
+              } catch (e) {
+                toast.error('Failed to create task');
+              }
+            }}
+            className="flex flex-col text-left p-3.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-red-500/50 rounded-xl transition-all group"
+          >
+            <div className="flex items-center gap-2 text-xs font-bold text-red-400 mb-1">
+              <Sliders className="w-4 h-4 text-red-400 group-hover:scale-110 transition-transform" />
+              Hourly Wild Dino Wipe
+            </div>
+            <p className="text-[11px] text-slate-400 leading-tight">Runs DestroyWildDinos RCON command every hour on minute 0.</p>
+          </button>
+
+          <button
+            onClick={async () => {
+              if (!selectedServer) return;
+              try {
+                const t = await createAseScheduledTask({ serverId: selectedServer, taskType: 'backup', cronExpr: '0 */3 * * *', enabled: true });
+                setTasks(prev => [...prev, t]);
+                toast.success('Created 3-Hour Backup Task');
+              } catch (e) {
+                toast.error('Failed to create task');
+              }
+            }}
+            className="flex flex-col text-left p-3.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-blue-500/50 rounded-xl transition-all group"
+          >
+            <div className="flex items-center gap-2 text-xs font-bold text-blue-400 mb-1">
+              <Database className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
+              3-Hour Save Snapshot
+            </div>
+            <p className="text-[11px] text-slate-400 leading-tight">Issues RCON SaveWorld every 3 hours to prevent data loss.</p>
+          </button>
         </div>
       </div>
 

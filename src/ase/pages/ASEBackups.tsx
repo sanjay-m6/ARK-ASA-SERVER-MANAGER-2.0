@@ -6,12 +6,18 @@ import { useAseServerStore } from '../stores/aseServerStore';
 import { createAseBackup, listAseBackups, restoreAseBackup, deleteAseBackup } from '../utils/aseCommands';
 import { formatBytes } from '../../utils/helpers';
 import type { AseBackup } from '../types/ase.types';
-import ServerSelect from '../../components/ui/ServerSelect';
+
 
 export default function ASEBackups() {
-  const { servers } = useAseServerStore();
-  const [selectedServer, setSelectedServer] = useState<number | null>(servers[0]?.id || null);
+  const { activeServer } = useAseServerStore();
+  const [selectedServer, setSelectedServer] = useState<number | null>(() => activeServer?.id || null);
   const [backups, setBackups] = useState<AseBackup[]>([]);
+
+  useEffect(() => {
+    if (activeServer) {
+      setSelectedServer(activeServer.id);
+    }
+  }, [activeServer]);
   const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => { if (selectedServer) loadBackups(selectedServer); }, [selectedServer]);
@@ -25,7 +31,7 @@ export default function ASEBackups() {
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold text-white flex items-center gap-3"><div className="p-2.5 bg-amber-500/10 rounded-xl"><Database className="w-6 h-6 text-amber-400" /></div>ASE Backups</h1><p className="text-sm text-slate-400 mt-1">Backup .ark save files, tribes, and profiles</p></div>
         <div className="flex items-center gap-3">
-          <ServerSelect value={selectedServer} onChange={setSelectedServer} servers={servers} accentColor="amber" />
+
           <button onClick={handleCreate} disabled={isCreating || !selectedServer} className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all focus:outline-none"><Plus className="w-4 h-4" />{isCreating ? 'Creating...' : 'Create Backup'}</button>
         </div>
       </div>

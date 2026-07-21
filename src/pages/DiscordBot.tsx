@@ -568,28 +568,29 @@ export default function DiscordBot() {
             </div>
 
             {/* Section Tabs */}
-            <div className="flex gap-2 p-1 bg-slate-900/50 rounded-lg w-fit">
+            <div className="flex flex-wrap items-center gap-2 p-2 bg-[#0A0F1C]/80 rounded-2xl border border-white/10 shadow-lg shadow-black/40 backdrop-blur-xl w-fit">
                 {[
-                    { key: 'webhook', label: t('discordBot.tabs.webhook'), icon: Webhook },
-                    { key: 'bot', label: t('discordBot.tabs.bot'), icon: Bot },
-                    { key: 'admin', label: t('discordBot.tabs.admin'), icon: Shield },
-                    { key: 'alerts', label: t('discordBot.tabs.alerts'), icon: Bell },
-                    { key: 'activity', label: t('discordBot.tabs.activity'), icon: Activity }
+                    { key: 'webhook', label: t('discordBot.tabs.webhook', 'Webhook'), icon: Webhook },
+                    { key: 'bot', label: t('discordBot.tabs.bot', 'Bot Integration'), icon: Bot },
+                    { key: 'admin', label: t('discordBot.tabs.admin', 'Admin Commands'), icon: Shield },
+                    { key: 'alerts', label: t('discordBot.tabs.alerts', 'Alerts'), icon: Bell },
+                    { key: 'activity', label: t('discordBot.tabs.activity', 'Activity'), icon: Activity }
                 ].map(tab => {
                     const Icon = tab.icon;
+                    const isActive = activeSection === tab.key;
                     return (
                         <button
                             key={tab.key}
                             onClick={() => setActiveSection(tab.key as typeof activeSection)}
                             className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
-                                activeSection === tab.key
-                                    ? "bg-indigo-500/20 text-indigo-400"
-                                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                                "flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all duration-200 cursor-pointer select-none",
+                                isActive
+                                    ? "bg-gradient-to-r from-indigo-600/30 to-purple-600/30 text-indigo-200 border border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.25)]"
+                                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
                             )}
                         >
-                            <Icon className="w-4 h-4" />
-                            {tab.label}
+                            <Icon className={cn("w-4 h-4 transition-colors", isActive ? "text-indigo-400" : "text-slate-500")} />
+                            <span>{tab.label}</span>
                         </button>
                     );
                 })}

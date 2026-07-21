@@ -7,7 +7,7 @@ import { getAllServers, getServerLogs } from '../utils/tauri';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import toast from 'react-hot-toast';
-import ServerSelect from '../components/ui/ServerSelect';
+
 
 interface LogEntry {
     timestamp: string;
@@ -67,8 +67,8 @@ function parseTimestamp(line: string): string {
 
 export default function LogsConsole() {
     const { t } = useTranslation();
-    const { servers, setServers } = useServerStore();
-    const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+    const { servers, setServers, activeServer } = useServerStore();
+    const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [command, setCommand] = useState('');
     const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -83,17 +83,12 @@ export default function LogsConsole() {
         getAllServers().then(setServers).catch(console.error);
     }, [setServers]);
 
-    // Auto-select first running server
     useEffect(() => {
-        if (!selectedServerId && servers.length > 0) {
-            const runningServer = servers.find(s => s.status === 'running' || s.status === 'online');
-            if (runningServer) {
-                setSelectedServerId(runningServer.id);
-            } else {
-                setSelectedServerId(servers[0].id);
-            }
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
+            setLogs([]);
         }
-    }, [servers, selectedServerId]);
+    }, [activeServer]);
 
     // Keep a ref to servers so the log effect doesn't re-run on server status changes
     const serversRef = useRef(servers);
@@ -258,13 +253,7 @@ export default function LogsConsole() {
                     </h1>
                     <p className="text-slate-400 mt-1">{t('logs.realTimeLogs')}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <ServerSelect
-                        value={selectedServerId}
-                        onChange={(id) => { setSelectedServerId(id); setLogs([]); }}
-                        accentColor="emerald"
-                    />
-                </div>
+
             </div>
 
             {/* Toolbar */}

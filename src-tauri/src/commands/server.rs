@@ -625,7 +625,7 @@ pub async fn clone_server(
 
     // Get source server details
     let (
-        name,
+        _name,
         install_path,
         map_name,
         _session_name,
@@ -672,7 +672,7 @@ pub async fn clone_server(
         .map_err(|e| format!("Source server not found: {}", e))?
     };
 
-    // Generate unique clone name using a counter loop (avoids stuck "(Copy)" names)
+    // Generate system auto-server name (server1, server2, server3...)
     let new_name = {
         let db = state
             .db
@@ -682,10 +682,9 @@ pub async fn clone_server(
             .get_connection()
             .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
-        let base_name = name.clone();
-        let mut candidate = format!("{} (Clone)", base_name);
-        let mut counter = 2u32;
+        let mut counter = 1u32;
         loop {
+            let candidate = format!("server{}", counter);
             let exists: bool = conn
                 .query_row(
                     "SELECT EXISTS(SELECT 1 FROM servers WHERE name = ?1)",
@@ -694,21 +693,13 @@ pub async fn clone_server(
                 )
                 .unwrap_or(false);
             if !exists {
-                break;
+                break candidate;
             }
-            candidate = format!("{} (Clone {})", base_name, counter);
             counter += 1;
         }
-        candidate
     };
     let source_path = PathBuf::from(&install_path);
-    let new_install_path = source_path.parent().unwrap_or(&source_path).join(format!(
-        "{}_copy",
-        source_path
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-    ));
+    let new_install_path = source_path.parent().unwrap_or(&source_path).join(&new_name);
 
     // Offset ports by 10 to avoid conflicts
     let new_game_port = game_port + 10;
@@ -1917,21 +1908,74 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
 }
 
 #[tauri::command]
-pub async fn delete_server(state: State<'_, AppState>, server_id: i64) -> Result<(), String> {
+pub async fn delete_server(
+    state: State<'_, AppState>,
+    server_id: i64,
+    delete_files: Option<bool>,
+) -> Result<(), String> {
     println!("🗑️ Deleting server {}", server_id);
 
-    let db = state
-        .db
-        .lock()
-        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-    let conn = db
-        .get_connection()
-        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    // 1. Fetch install path from DB before deleting record
+    let install_path: Option<String> = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
-    conn.execute("DELETE FROM servers WHERE id = ?1", [server_id])
-        .map_err(|e: rusqlite::Error| e.to_string())?;
+        conn.query_row(
+            "SELECT install_path FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        )
+        .ok()
+    };
 
-    println!("  ✅ Server {} deleted", server_id);
+    // 2. Kill server process if running to release file locks
+    if state.process_manager.is_running(server_id) {
+        println!("  🛑 Stopping running process for server {} prior to deletion...", server_id);
+        let _ = state.process_manager.stop_server_with_reason(
+            server_id,
+            crate::services::process_manager::StopReason::UserAction,
+        );
+    }
+
+    // 3. Delete database records (servers + backups)
+    {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+
+        let _ = conn.execute("DELETE FROM backups WHERE server_id = ?1", [server_id]);
+        let _ = conn.execute("DELETE FROM backup_policies WHERE server_id = ?1", [server_id]);
+        let _ = conn.execute("DELETE FROM boost_profiles WHERE server_id = ?1", [server_id]);
+        conn.execute("DELETE FROM servers WHERE id = ?1", [server_id])
+            .map_err(|e: rusqlite::Error| e.to_string())?;
+    }
+
+    // 4. Delete entire installation directory on disk if requested (default: true)
+    let should_delete_files = delete_files.unwrap_or(true);
+    if should_delete_files {
+        if let Some(ref path_str) = install_path {
+            let path = std::path::Path::new(path_str);
+            if path.exists() {
+                println!("  📂 Removing server installation directory on disk: {:?}", path);
+                if let Err(e) = std::fs::remove_dir_all(path) {
+                    eprintln!("  ⚠️ Warning: Could not remove directory {:?}: {}", path, e);
+                } else {
+                    println!("  ✅ Server directory completely wiped from disk");
+                }
+            }
+        }
+    }
+
+    println!("  ✅ Server {} completely deleted", server_id);
     Ok(())
 }
 
@@ -2079,7 +2123,7 @@ pub async fn update_server(
     app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
     server_id: i64,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let log_path = "C:\\Users\\sanja\\AppData\\Roaming\\com.ark.asaservermanager\\rust_debug.log";
     let log_msg = |msg: &str| {
         if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(log_path) {
@@ -2197,21 +2241,22 @@ pub async fn update_server(
         // Run the update
         let installer = ServerInstaller::new(app_handle.clone(), install_path.clone());
         log_msg("Invoking installer.update_server...");
-        installer
+        let was_updated = installer
             .update_server(&PathBuf::from(install_path.clone()), &server_type)
             .await?;
 
         // Emit final install-progress completion event
+        let completion_msg = if was_updated { "Server updated!" } else { "Server up to date!" };
         let _ = app_handle.emit("install-progress", crate::services::server_installer::InstallProgress {
             install_path: install_path.clone(),
             stage: "complete".to_string(),
             progress: 100.0,
-            message: "Server files updated successfully!".to_string(),
+            message: completion_msg.to_string(),
             is_complete: true,
             is_error: false,
         });
 
-        Ok::<(), String>(())
+        Ok::<bool, String>(was_updated)
     }.await;
 
     // Reset status back to stopped (on both success and failure)
@@ -2226,10 +2271,10 @@ pub async fn update_server(
     let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "stopped" }));
 
     match res {
-        Ok(_) => {
-            log_msg("  ✅ Server updated successfully.");
-            println!("  ✅ Server {} updated", server_id);
-            Ok(())
+        Ok(was_updated) => {
+            log_msg(&format!("  ✅ Server update check completed (was_updated={}).", was_updated));
+            println!("  ✅ Server {} update check completed", server_id);
+            Ok(was_updated)
         }
         Err(e) => {
             log_msg(&format!("  ❌ Server update failed: {}", e));
@@ -3650,6 +3695,46 @@ pub async fn clear_steamcmd_cache(app_handle: tauri::AppHandle) -> Result<(), St
     steamcmd
         .clear_cache()
         .map_err(|e| format!("Failed to clear SteamCMD cache: {}", e))
+}
+
+#[tauri::command]
+pub async fn cancel_installation(
+    app_handle: tauri::AppHandle,
+    install_path: Option<String>,
+    delete_files: Option<bool>,
+    clear_cache: Option<bool>,
+) -> Result<(), String> {
+    use crate::services::steamcmd::SteamCmdService;
+
+    // 1. Terminate all background SteamCMD processes
+    let steamcmd = if let Some(state) = app_handle.try_state::<AppState>() {
+        let dir = crate::services::resolve_steamcmd_dir_from_state(&state, &app_handle)?;
+        SteamCmdService::with_custom_dir(app_handle.clone(), dir)
+    } else {
+        SteamCmdService::new(app_handle.clone())
+    };
+
+    println!("  🛑 [CANCEL-INSTALL] Terminating active SteamCMD processes...");
+    let _ = steamcmd.kill_existing_processes();
+
+    // 2. Optionally clear SteamCMD cache
+    if clear_cache.unwrap_or(false) {
+        println!("  🧹 [CANCEL-INSTALL] Purging SteamCMD download cache...");
+        let _ = steamcmd.clear_cache();
+    }
+
+    // 3. Optionally remove partial server folder
+    if delete_files.unwrap_or(false) {
+        if let Some(path_str) = install_path {
+            let path = std::path::PathBuf::from(&path_str);
+            if path.exists() && path.is_dir() {
+                println!("  🗑️ [CANCEL-INSTALL] Deleting server installation folder: {}", path_str);
+                let _ = std::fs::remove_dir_all(&path);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]

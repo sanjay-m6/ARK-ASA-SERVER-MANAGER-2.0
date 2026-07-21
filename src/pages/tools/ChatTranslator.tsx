@@ -8,7 +8,7 @@ import { useChatTranslatorStore } from '../../stores/chatTranslatorStore';
 import { TranslatorConfig } from '../../types/chat_translator.types';
 import { getAllServers } from '../../utils/tauri';
 import { Server } from '../../types';
-import ServerSelect from '../../components/ui/ServerSelect';
+import { useServerStore } from '../../stores/serverStore';
 import toast from 'react-hot-toast';
 import { cn } from '../../utils/helpers';
 
@@ -29,9 +29,16 @@ const SUPPORTED_LANGUAGES = [
 
 export default function ChatTranslator() {
   const { t } = useTranslation();
+  const { activeServer } = useServerStore();
   const [servers, setServers] = useState<Server[]>([]);
-  const [selectedServerId, setSelectedServerId] = useState<number | null>(null);
+  const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
   const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'players'>('overview');
+
+  useEffect(() => {
+    if (activeServer) {
+      setSelectedServerId(activeServer.id);
+    }
+  }, [activeServer]);
 
   // Search / modal state
   const [searchQuery, setSearchQuery] = useState('');
@@ -224,11 +231,7 @@ export default function ChatTranslator() {
         </div>
 
         <div className="flex items-center gap-3">
-          <ServerSelect
-            value={selectedServerId}
-            onChange={setSelectedServerId}
-            accentColor="sky"
-          />
+
           <button
             onClick={loadServerData}
             disabled={isLoading}

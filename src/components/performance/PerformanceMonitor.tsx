@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { TrendingUp, AlertTriangle, Clock, Users, Activity, Cpu, HardDrive } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Users, Activity, Cpu, HardDrive } from 'lucide-react';
 import { ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface PerformanceMonitorProps {
@@ -110,28 +110,6 @@ export default function PerformanceMonitor({ data }: PerformanceMonitorProps) {
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>
-            </div>
-
-            {/* Performance Tips */}
-            <div className="glass-panel p-5 rounded-xl border border-white/5 bg-gradient-to-br from-slate-900/50 to-slate-800/50">
-                <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-sky-400" />
-                    {t('performance.tips.title', 'System Diagnostics')}
-                </h3>
-                <ul className="space-y-3 text-sm">
-                    <li className="flex items-start gap-3 text-slate-300">
-                        <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-                        <span>{t('performance.tips.cpu', 'CPU usage is within normal range (<80%)')}</span>
-                    </li>
-                    <li className="flex items-start gap-3 text-slate-300">
-                        <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
-                        <span>{t('performance.tips.memory', 'Memory usage is stable')}</span>
-                    </li>
-                    <li className="flex items-start gap-3 text-slate-400">
-                        <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]"></div>
-                        <span>{t('performance.tips.viewDistance', 'Consider reducing view distance if CPU usage increases')}</span>
-                    </li>
-                </ul>
             </div>
         </div>
     );

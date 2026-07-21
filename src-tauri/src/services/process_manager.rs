@@ -907,8 +907,8 @@ impl ProcessManager {
             .join("ShooterGame.log");
 
         // Build launch arguments
-        // Wrap session name in quotes so spaces are preserved and parsed correctly by the engine
-        let mut connection_url = format!("{}?listen", map_name);
+        let effective_map = crate::services::config_generator::normalize_map_name(&map_name);
+        let mut connection_url = format!("{}?listen", effective_map);
         connection_url.push_str(&format!("?SessionName=\"{}\"", session_name));
         connection_url.push_str(&format!("?Port={}", game_port));
         connection_url.push_str(&format!("?QueryPort={}", query_port));
@@ -953,9 +953,9 @@ impl ProcessManager {
             }
         }
 
-        // Pre-flight: Clean corrupt mod cache directories before launch
-        if let Some(mod_list) = mods {
-            if !mod_list.is_empty() {
+        // Mod processing & Map Mod Auto-Injection
+        let mut valid_mods: Vec<String> = match mods {
+            Some(mod_list) => {
                 let mods_dir = install_path
                     .join("ShooterGame")
                     .join("Binaries")
@@ -965,7 +965,6 @@ impl ProcessManager {
                 for mod_id in mod_list {
                     let mod_path = mods_dir.join(mod_id);
                     if mod_path.exists() && mod_path.is_dir() {
-                        // Check recursively if the mod directory has any valid mod files and is not suspiciously tiny
                         let mut has_valid_files = false;
                         let mut total_size: u64 = 0;
 
@@ -993,24 +992,32 @@ impl ProcessManager {
                     }
                 }
 
-                let valid_mods: Vec<String> = mod_list.iter()
+                mod_list.iter()
                     .map(|m| m.trim().to_string())
                     .filter(|m| !m.is_empty() && m != "0" && m.chars().all(|c| c.is_ascii_digit()))
-                    .collect();
-
-                if !valid_mods.is_empty() {
-                    let mods_string = valid_mods.join(",");
-                    args.push(format!("-mods={}", mods_string));
-                    println!(
-                        "  🧩 Server {} loading {} mods: {}",
-                        server_id,
-                        valid_mods.len(),
-                        mods_string
-                    );
-                } else {
-                    println!("  🧩 Server {} had mods configured, but all were invalid/filtered out.", server_id);
-                }
+                    .collect()
             }
+            None => Vec::new(),
+        };
+
+        // AUTO FIX: If launching a modded map (like Astraeos_WP, Forglar_WP, etc.),
+        // automatically inject the map's CurseForge Mod ID so the server engine loads the map files!
+        if let Some(map_mod_id) = crate::services::config_generator::get_mod_id_for_map(&effective_map) {
+            if !valid_mods.contains(&map_mod_id.to_string()) {
+                valid_mods.insert(0, map_mod_id.to_string());
+                println!("  ✨ Auto-injected required map mod ID {} for map {}", map_mod_id, effective_map);
+            }
+        }
+
+        if !valid_mods.is_empty() {
+            let mods_string = valid_mods.join(",");
+            args.push(format!("-mods={}", mods_string));
+            println!(
+                "  🧩 Server {} loading {} mods: {}",
+                server_id,
+                valid_mods.len(),
+                mods_string
+            );
         }
 
         // Automatically check GameUserSettings.ini for Culture setting and append -culture arg

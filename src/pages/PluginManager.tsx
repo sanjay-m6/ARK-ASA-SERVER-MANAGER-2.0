@@ -37,7 +37,7 @@ import {
 import { PluginInfo, PluginScanResult } from '../types';
 import toast from 'react-hot-toast';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import ServerSelect from '../components/ui/ServerSelect';
+
 import { useServerStore } from '../stores/serverStore';
 
 const PLUGIN_REPOSITORY_URL = 'https://ark-server-api.com/';
@@ -56,8 +56,6 @@ export default function PluginManager() {
     const [statusFilter, setStatusFilter] = useState<'all' | 'enabled' | 'disabled' | 'error' | 'missing'>('all');
     const [isActionLoading, setIsActionLoading] = useState(false);
 
-    // Filter to only show ASA servers in the selection dropdown
-    const asaServers = useMemo(() => servers.filter(s => s.serverType === 'ASA'), [servers]);
     const selectedServer = useMemo(() => servers.find(s => s.id === selectedServerId), [servers, selectedServerId]);
 
     const handleStartServerAction = async () => {
@@ -97,11 +95,12 @@ export default function PluginManager() {
         }
     }, []);
 
+    const { activeServer } = useServerStore();
     useEffect(() => {
-        if (asaServers.length > 0 && (!selectedServerId || !asaServers.some(s => s.id === selectedServerId))) {
-            setSelectedServerId(asaServers[0].id);
+        if (activeServer) {
+            setSelectedServerId(activeServer.id);
         }
-    }, [asaServers, selectedServerId]);
+    }, [activeServer]);
 
     // Scan/Load plugins when selected server changes
     const loadPluginData = async (silent = false) => {
@@ -333,28 +332,21 @@ export default function PluginManager() {
     return (
         <div className="space-y-6 animate-in fade-in duration-500 relative pb-20">
             {/* Header section */}
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                <div>
+            <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-5">
+                <div className="space-y-1">
                     <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">
                         {t('plugins.title', 'Plugin Manager')}
                     </h1>
-                    <p className="text-slate-400 mt-2 text-lg">
+                    <p className="text-slate-400 mt-2 text-base max-w-2xl leading-relaxed">
                         {t('plugins.subtitle', 'Manage ASA Server API plugins, toggle launch modes, and validate dependencies')}
                     </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                    <ServerSelect
-                        value={selectedServerId}
-                        onChange={setSelectedServerId}
-                        servers={asaServers}
-                        accentColor="purple"
-                    />
-
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                     <button
                         onClick={handleOpenPluginsFolder}
                         disabled={!selectedServerId}
-                        className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 rounded-xl transition-all disabled:opacity-50 font-semibold text-sm cursor-pointer"
+                        className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-slate-600 rounded-xl transition-all disabled:opacity-50 font-semibold text-sm cursor-pointer"
                         title={t('plugins.openFolderTooltip', 'Open Plugins directory in File Explorer')}
                     >
                         <FolderOpen className="w-4 h-4 text-violet-400" />
@@ -364,7 +356,7 @@ export default function PluginManager() {
                     <button
                         onClick={handleCreateDefaultPlugin}
                         disabled={isCreatingDefault || !selectedServerId}
-                        className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 rounded-xl transition-all disabled:opacity-50 font-semibold text-sm cursor-pointer"
+                        className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-slate-600 rounded-xl transition-all disabled:opacity-50 font-semibold text-sm cursor-pointer"
                     >
                         {isCreatingDefault ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plug className="w-4 h-4 text-violet-400" />}
                         <span>{t('plugins.createDefault', 'Create Template')}</span>
@@ -394,90 +386,107 @@ export default function PluginManager() {
                         </div>
                     )}
 
-                    {/* Launch Executable Banner */}
-                    <div className={cn(
-                        "rounded-2xl p-5 flex flex-col xl:flex-row xl:items-center justify-between gap-4 border transition-all duration-300",
-                        scanResult.launchExecutable === 'AsaApiLoader.exe'
-                            ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                            : "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                    )}>
-                        <div className="flex items-center gap-4">
+                    {/* Two-column Launch Status & Controls */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                        {/* LEFT — Launch Mode Status Panel */}
+                        <div className={cn(
+                            "rounded-2xl p-5 border transition-all duration-300 flex items-start gap-4",
+                            scanResult.launchExecutable === 'AsaApiLoader.exe'
+                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                : "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                        )}>
                             <div className={cn(
                                 "p-3 rounded-xl shrink-0",
                                 scanResult.launchExecutable === 'AsaApiLoader.exe' ? "bg-emerald-500/20" : "bg-blue-500/20"
                             )}>
                                 <Plug className="w-6 h-6" />
                             </div>
-                            <div>
-                                <h3 className="font-bold text-white text-lg">
+                            <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-white text-base">
                                     {scanResult.launchExecutable === 'AsaApiLoader.exe'
                                         ? t('plugins.loaderLaunchMode', 'Launch Mode: Plugin Loader Active')
                                         : t('plugins.normalLaunchMode', 'Launch Mode: Normal Server Active')
                                     }
                                 </h3>
-                                <p className="text-slate-400 text-sm mt-1">
+                                <p className="text-slate-400 text-sm mt-1 leading-relaxed">
                                     {scanResult.launchExecutable === 'AsaApiLoader.exe'
                                         ? t('plugins.loaderLaunchDesc', 'Using {{exe}} to launch the server with hook plugins.', { exe: scanResult.launchExecutable })
                                         : t('plugins.normalLaunchDesc', 'Using {{exe}} (plugins loader disabled or missing).', { exe: scanResult.launchExecutable })
                                     }
                                 </p>
+                                <div className="mt-3 font-mono text-xs bg-slate-950/40 px-3 py-2 rounded-lg border border-white/5 select-all inline-block">
+                                    {scanResult.launchExecutable}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3 shrink-0">
-                            {/* Server Control Button */}
-                            {selectedServer && (
-                                <button
-                                    onClick={isServerRunning ? handleStopServerAction : handleStartServerAction}
-                                    disabled={isActionLoading || selectedServer.status === 'starting' || selectedServer.status === 'updating' || selectedServer.status === 'restarting'}
-                                    className={cn(
-                                        "flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md select-none",
+                        {/* RIGHT — Server Controls Panel */}
+                        <div className="rounded-2xl p-5 border border-slate-800/80 bg-slate-900/30 flex flex-col justify-between gap-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">{t('plugins.serverControls', 'Server Controls')}</span>
+                                {selectedServer && (
+                                    <span className={cn(
+                                        "px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider border",
                                         isServerRunning
-                                            ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/20 hover:border-red-500/30"
-                                            : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/30"
-                                    )}
-                                >
-                                    {isActionLoading ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <Server className="w-4 h-4" />
-                                    )}
-                                    <span>
-                                        {isServerRunning
-                                            ? t('serverManager.stopServer', 'Stop Server')
-                                            : t('serverManager.startServer', 'Start Server')
-                                        }
+                                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
+                                            : "bg-slate-800 text-slate-400 border-slate-700"
+                                    )}>
+                                        {selectedServer.status || 'stopped'}
                                     </span>
-                                </button>
-                            )}
-
-                            {/* Toggle switch for Server API Loader */}
-                            <div className="flex items-center gap-2 bg-slate-900/60 px-4 py-2 rounded-xl border border-white/5">
-                                <span className="text-xs font-semibold text-slate-350">
-                                    {t('plugins.serverApiToggle', 'Server API (Loader)')}
-                                </span>
-                                <button
-                                    onClick={handleToggleApiLoader}
-                                    disabled={!scanResult.loaderInstalled || isServerRunning}
-                                    className={cn(
-                                        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-550 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed",
-                                        scanResult.apiLoaderEnabled ? "bg-violet-600" : "bg-slate-700"
-                                    )}
-                                    role="switch"
-                                    aria-checked={scanResult.apiLoaderEnabled}
-                                >
-                                    <span
-                                        aria-hidden="true"
-                                        className={cn(
-                                            "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
-                                            scanResult.apiLoaderEnabled ? "translate-x-5" : "translate-x-0"
-                                        )}
-                                    />
-                                </button>
+                                )}
                             </div>
 
-                            <div className="font-mono text-sm bg-slate-950/40 px-4 py-2.5 rounded-xl border border-white/5 select-all">
-                                {scanResult.launchExecutable}
+                            <div className="flex flex-wrap items-center gap-3">
+                                {/* Server Start/Stop */}
+                                {selectedServer && (
+                                    <button
+                                        onClick={isServerRunning ? handleStopServerAction : handleStartServerAction}
+                                        disabled={isActionLoading || selectedServer.status === 'starting' || selectedServer.status === 'updating' || selectedServer.status === 'restarting'}
+                                        className={cn(
+                                            "flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer shadow-md select-none",
+                                            isServerRunning
+                                                ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/20 hover:border-red-500/30"
+                                                : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/30"
+                                        )}
+                                    >
+                                        {isActionLoading ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <Server className="w-4 h-4" />
+                                        )}
+                                        <span>
+                                            {isServerRunning
+                                                ? t('serverManager.stopServer', 'Stop Server')
+                                                : t('serverManager.startServer', 'Start Server')
+                                            }
+                                        </span>
+                                    </button>
+                                )}
+
+                                {/* API Loader Toggle */}
+                                <div className="flex items-center gap-2.5 bg-slate-950/40 px-4 py-2.5 rounded-xl border border-white/5">
+                                    <span className="text-xs font-semibold text-slate-350">
+                                        {t('plugins.serverApiToggle', 'Server API (Loader)')}
+                                    </span>
+                                    <button
+                                        onClick={handleToggleApiLoader}
+                                        disabled={!scanResult.loaderInstalled || isServerRunning}
+                                        className={cn(
+                                            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-550 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed",
+                                            scanResult.apiLoaderEnabled ? "bg-violet-600" : "bg-slate-700"
+                                        )}
+                                        role="switch"
+                                        aria-checked={scanResult.apiLoaderEnabled}
+                                    >
+                                        <span
+                                            aria-hidden="true"
+                                            className={cn(
+                                                "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                                                scanResult.apiLoaderEnabled ? "translate-x-5" : "translate-x-0"
+                                            )}
+                                        />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -526,24 +535,24 @@ export default function PluginManager() {
 
             {/* Main plugins directory container */}
             {selectedServerId && scanResult && (
-                <div className="space-y-6">
+                <div className="space-y-5">
                     {/* Control and filtering bar */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900/30 border border-slate-800/60 rounded-2xl p-4">
                         {/* Search and Tabs */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 flex-1">
-                            <div className="relative flex-1 max-w-md">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+                            <div className="relative flex-1 max-w-lg">
+                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                                 <input
                                     type="text"
                                     placeholder={t('plugins.searchPlaceholder', 'Filter by name or folder...')}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 hover:border-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 rounded-xl transition-all text-sm outline-none text-white"
+                                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950/50 border border-slate-700/70 hover:border-slate-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 rounded-xl transition-all text-sm outline-none text-white placeholder:text-slate-500"
                                 />
                             </div>
 
                             {/* Category Filter tabs */}
-                            <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 overflow-x-auto shrink-0">
+                            <div className="flex bg-slate-950/50 p-1 rounded-xl border border-slate-800/80 overflow-x-auto shrink-0">
                                 {(['all', 'enabled', 'disabled', 'error', 'missing'] as const).map((filter) => {
                                     const count = scanResult.plugins.filter(p => {
                                         if (filter === 'all') return true;
@@ -571,25 +580,25 @@ export default function PluginManager() {
                         </div>
 
                         {/* Bulk Enable/Disable buttons */}
-                        <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-2.5 shrink-0">
                             <button
                                 onClick={() => handleSetAllPlugins(true)}
                                 disabled={!scanResult.loaderInstalled || scanResult.plugins.length === 0}
-                                className="px-4 py-2 bg-slate-855 hover:bg-slate-800 border border-slate-705 text-slate-300 rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                                className="px-4 py-2 bg-slate-950/50 hover:bg-slate-800 border border-slate-700/60 text-slate-300 rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
                             >
                                 {t('plugins.enableAll', 'Enable All')}
                             </button>
                             <button
                                 onClick={() => handleSetAllPlugins(false)}
                                 disabled={!scanResult.loaderInstalled || scanResult.plugins.length === 0}
-                                className="px-4 py-2 bg-slate-855 hover:bg-slate-800 border border-slate-705 text-slate-300 rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                                className="px-4 py-2 bg-slate-950/50 hover:bg-slate-800 border border-slate-700/60 text-slate-300 rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
                             >
                                 {t('plugins.disableAll', 'Disable All')}
                             </button>
                             <button
                                 onClick={() => loadPluginData()}
                                 disabled={isLoading}
-                                className="p-2.5 bg-slate-855 hover:bg-slate-800 border border-slate-705 text-slate-300 rounded-xl transition-all cursor-pointer"
+                                className="p-2.5 bg-slate-950/50 hover:bg-slate-800 border border-slate-700/60 text-slate-300 rounded-xl transition-all cursor-pointer"
                                 title={t('plugins.refresh', 'Refresh list')}
                             >
                                 <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
@@ -625,7 +634,7 @@ export default function PluginManager() {
                             )}
                         </div>
                     ) : (
-                        <div className="flex flex-col gap-4">
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                             {filteredPlugins.map((plugin) => {
                                 const isExpanded = expandedPluginId === plugin.id;
                                 const statusColor = {
@@ -640,7 +649,7 @@ export default function PluginManager() {
                                         key={plugin.id}
                                         className={cn(
                                             "glass-panel rounded-2xl border transition-all duration-300 overflow-hidden",
-                                            isExpanded ? "border-violet-500/40 shadow-lg shadow-violet-500/5 bg-slate-900/40" : "border-slate-800 hover:border-slate-700/80 bg-slate-950/20",
+                                            isExpanded ? "border-violet-500/40 shadow-lg shadow-violet-500/5 bg-slate-900/40 xl:col-span-2" : "border-slate-800 hover:border-slate-700/80 bg-slate-950/20",
                                             plugin.status === 'error' && "border-red-500/30",
                                             plugin.status === 'missing' && "border-amber-500/30"
                                         )}

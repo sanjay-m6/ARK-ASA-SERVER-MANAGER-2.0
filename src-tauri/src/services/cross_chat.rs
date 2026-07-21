@@ -6,7 +6,6 @@
 
 use crate::services::rcon::RconService;
 use crate::utils::log_watcher::LogWatcher;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -49,6 +48,7 @@ pub struct CrossChatServer {
 /// This service polls chat from each server in a cluster and relays
 /// messages to all other servers with a server name prefix.
 pub struct CrossChatService {
+    app_handle: Option<tauri::AppHandle>,
     rcon_service: RconService,
     active_clusters: Arc<Mutex<HashMap<i64, CrossChatConfig>>>,
     watchers: Arc<tokio::sync::Mutex<HashMap<i64, Vec<Arc<LogWatcher>>>>>,
@@ -58,6 +58,17 @@ pub struct CrossChatService {
 impl CrossChatService {
     pub fn new(rcon_service: RconService) -> Self {
         Self {
+            app_handle: None,
+            rcon_service,
+            active_clusters: Arc::new(Mutex::new(HashMap::new())),
+            watchers: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+            running: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    pub fn with_app_handle(app_handle: tauri::AppHandle, rcon_service: RconService) -> Self {
+        Self {
+            app_handle: Some(app_handle),
             rcon_service,
             active_clusters: Arc::new(Mutex::new(HashMap::new())),
             watchers: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
@@ -123,9 +134,14 @@ impl CrossChatService {
         cluster_servers: &[CrossChatServer],
         source_server_id: i64,
         source_server_name: &str,
+        player_name: &str,
         message: &str,
     ) -> Result<(), String> {
-        let formatted_message = format!("[{}] {}", source_server_name, message);
+        let formatted_message = if player_name.is_empty() {
+            format!("[{}] {}", source_server_name, message)
+        } else {
+            format!("[{}] {}: {}", source_server_name, player_name, message)
+        };
 
         for server in cluster_servers {
             if server.server_id != source_server_id {
@@ -148,30 +164,75 @@ impl CrossChatService {
             }
         }
 
+        // Forward to Discord bridge if configured
+        if let Some(app) = &self.app_handle {
+            use tauri::Manager;
+            if let Some(state) = app.try_state::<crate::AppState>() {
+                let discord = state.discord_bridge.clone();
+                let src_name = source_server_name.to_string();
+                let plr_name = player_name.to_string();
+                let msg_text = message.to_string();
+                tokio::spawn(async move {
+                    let _ = discord.send_to_discord(&src_name, &plr_name, &msg_text).await;
+                });
+            }
+        }
+
         Ok(())
     }
 
-    /// Start the polling loop for chat relay
-    /// This should be spawned as a background task
-    /// Start the log watchers for chat relay
+    /// Start the chat relay for a cluster (dual engine: RCON GetChat polling + ShooterGame.log watcher)
     pub async fn start_chat_relay(self: Arc<Self>, cluster_id: i64, servers: Vec<CrossChatServer>) {
         self.running.store(true, Ordering::Relaxed);
-        println!("🔄 Starting cross-chat relay for cluster {}", cluster_id);
+        println!("🔄 Starting cross-chat relay for cluster {} with {} servers", cluster_id, servers.len());
 
-        let chat_regex = match Regex::new(
-            r"^\[?(\d{4}[.-]\d{2}[.-]\d{2}[_-]\d{2}[.-]\d{2}[.-]\d{2}(?::\d{3})?)\]?(?:\[\s*\d+\s*\])?\s*(?:[A-Za-z0-9_]+)?:\s*Chat:\s*([^:]+?):\s*(.*)$",
-        ) {
-            Ok(r) => r,
-            Err(e) => {
-                println!("❌ Failed to compile cross-chat regex: {}", e);
-                return;
-            }
-        };
-        // Example: 2024.02.05_12.00.00: LogServer: PlayerName: Hello World
-        // Adjusted regex to match typical ARK logs. Needs verification of ASA format.
-
+        let recent_cache = Arc::new(Mutex::new(HashMap::<String, std::time::Instant>::new()));
         let mut cluster_watchers = Vec::new();
 
+        // 1. Spawn RCON GetChat polling loop for instant memory chat reading
+        let service_rcon = self.clone();
+        let servers_rcon = servers.clone();
+        let cache_rcon = recent_cache.clone();
+
+        tokio::spawn(async move {
+            println!("📡 RCON GetChat polling loop active for cluster {}", cluster_id);
+            while service_rcon.running.load(Ordering::Relaxed) {
+                tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+
+                for server in &servers_rcon {
+                    if let Ok(chat_resp) = service_rcon.rcon_service.send_command(server.server_id, "GetChat").await {
+                        if !chat_resp.message.trim().is_empty() && !chat_resp.message.contains("No chat messages") {
+                            for line in chat_resp.message.lines() {
+                                if let Some((player_name, message)) = parse_ark_chat_line(line) {
+                                    let cache_key = format!("{}:{}:{}", server.server_id, player_name, message);
+                                    let mut cache = cache_rcon.lock().await;
+
+                                    // Clean old cache entries (older than 10s)
+                                    cache.retain(|_, time| time.elapsed().as_secs() < 10);
+
+                                    if !cache.contains_key(&cache_key) {
+                                        cache.insert(cache_key, std::time::Instant::now());
+                                        drop(cache);
+
+                                        let _ = service_rcon
+                                            .relay_message(
+                                                &servers_rcon,
+                                                server.server_id,
+                                                &server.server_name,
+                                                &player_name,
+                                                &message,
+                                            )
+                                            .await;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Spawn log watchers as secondary file-based relay engine
         for server in servers.clone() {
             let log_path =
                 PathBuf::from(&server.install_path).join("ShooterGame/Saved/Logs/ShooterGame.log");
@@ -188,40 +249,37 @@ impl CrossChatService {
             let mut rx = watcher.start();
             cluster_watchers.push(watcher);
 
-            let service_clone = self.clone();
-            let servers_clone = servers.clone();
-            let server_clone = server.clone();
-            let regex_clone = chat_regex.clone();
+            let service_log = self.clone();
+            let servers_log = servers.clone();
+            let server_log = server.clone();
+            let cache_log = recent_cache.clone();
 
             tokio::spawn(async move {
                 while let Some(line) = rx.recv().await {
-                    if !service_clone.running.load(Ordering::Relaxed) {
+                    if !service_log.running.load(Ordering::Relaxed) {
                         break;
                     }
 
-                    if let Some(captures) = regex_clone.captures(&line) {
-                        // captures[0] is full match
-                        // captures[1] is timestamp
-                        // captures[2] is player name
-                        // captures[3] is message
+                    if let Some((player_name, message)) = parse_ark_chat_line(&line) {
+                        let cache_key = format!("{}:{}:{}", server_log.server_id, player_name, message);
+                        let mut cache = cache_log.lock().await;
 
-                        let player_name = captures.get(2).map_or("", |m| m.as_str());
-                        let message = captures.get(3).map_or("", |m| m.as_str());
+                        cache.retain(|_, time| time.elapsed().as_secs() < 10);
 
-                        // Ignore system messages or empty
-                        if player_name.is_empty() || message.is_empty() || player_name == "Server" {
-                            continue;
+                        if !cache.contains_key(&cache_key) {
+                            cache.insert(cache_key, std::time::Instant::now());
+                            drop(cache);
+
+                            let _ = service_log
+                                .relay_message(
+                                    &servers_log,
+                                    server_log.server_id,
+                                    &server_log.server_name,
+                                    &player_name,
+                                    &message,
+                                )
+                                .await;
                         }
-
-                        // Broadcast
-                        let _ = service_clone
-                            .relay_message(
-                                &servers_clone,
-                                server_clone.server_id,
-                                &server_clone.server_name,
-                                message,
-                            )
-                            .await; // relay_message will format it as [Server] Message
                     }
                 }
             });
@@ -238,9 +296,102 @@ impl CrossChatService {
     }
 }
 
+/// Helper to parse any format of ARK: Survival Ascended or Evolved chat line into (player_name, message)
+pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
+    let line = raw_line.trim();
+    if line.is_empty() {
+        return None;
+    }
+
+    // 1. If line starts with relayed tag [ServerName], ignore to prevent echo loops
+    if line.starts_with('[') && line.contains("] ") && !line.starts_with("[202") {
+        return None;
+    }
+
+    // 2. Strip standard ARK log timestamp headers:
+    // e.g., "[2024.02.05-12.00.00:123][  0]" or "[2024.02.05_12.00.00]" or "2024.02.05_12.00.00:"
+    let mut cleaned = line;
+    if let Some(pos) = cleaned.find("][") {
+        if let Some(end_bracket) = cleaned[pos + 2..].find(']') {
+            cleaned = cleaned[pos + 3 + end_bracket..].trim();
+        }
+    }
+    if cleaned.starts_with('[') {
+        if let Some(closing) = cleaned.find(']') {
+            let inner = &cleaned[1..closing];
+            if inner.contains('-') || inner.contains('.') || inner.contains(':') || inner.contains('_') {
+                cleaned = cleaned[closing + 1..].trim();
+            }
+        }
+    }
+    if let Some(colon_pos) = cleaned.find(": ") {
+        let prefix = &cleaned[..colon_pos];
+        if prefix.contains('_') || prefix.contains('.') {
+            cleaned = cleaned[colon_pos + 2..].trim();
+        }
+    }
+
+    // 3. Strip Log category prefixes
+    if cleaned.starts_with("LogServer:") {
+        cleaned = cleaned[10..].trim();
+    }
+    if cleaned.starts_with("LogShooterGame:") {
+        cleaned = cleaned[15..].trim();
+    }
+    if cleaned.starts_with("Server:") || cleaned.starts_with("SERVER:") {
+        cleaned = cleaned[7..].trim();
+    }
+    if cleaned.starts_with("Chat:") || cleaned.starts_with("CHAT:") {
+        cleaned = cleaned[5..].trim();
+    }
+    if cleaned.starts_with("Global:") || cleaned.starts_with("GLOBAL:") {
+        cleaned = cleaned[7..].trim();
+    }
+
+    // 4. Filter out system messages, commands, and noise
+    let lower = cleaned.to_lowercase();
+    if lower.starts_with("command:")
+        || lower.starts_with("rcon:")
+        || lower.starts_with("executing")
+        || lower.starts_with("server received")
+        || lower.starts_with("admincmd")
+        || lower.starts_with("logserver:")
+        || lower.starts_with("shootergame:")
+        || lower.starts_with("server :")
+        || lower.starts_with("setmessage")
+    {
+        return None;
+    }
+
+    // 5. Parse "PlayerName: Message" or "PlayerName (TribeName): Message"
+    let parts: Vec<&str> = cleaned.splitn(2, ':').collect();
+    if parts.len() == 2 {
+        let player = parts[0].trim();
+        let msg = parts[1].trim();
+
+        if player.is_empty() || msg.is_empty() {
+            return None;
+        }
+
+        // Filter out system speaker names
+        if player.eq_ignore_ascii_case("server")
+            || player.eq_ignore_ascii_case("admin")
+            || player.eq_ignore_ascii_case("logserver")
+            || player.starts_with('[')
+        {
+            return None;
+        }
+
+        return Some((player.to_string(), msg.to_string()));
+    }
+
+    None
+}
+
 impl Default for CrossChatService {
     fn default() -> Self {
         Self {
+            app_handle: None,
             rcon_service: RconService::new(),
             active_clusters: Arc::new(Mutex::new(HashMap::new())),
             watchers: Arc::new(Mutex::new(HashMap::new())),
