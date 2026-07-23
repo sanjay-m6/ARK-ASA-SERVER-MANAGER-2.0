@@ -76,39 +76,40 @@ jobs:
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
             - **Fresh Install**: Download the `.exe` installer below and run it.
 
-            ### 🆕 New Features & Improvements in v4.6.4
-            - **🐛 ASE Branch Switching Fix (preaquatica → Default/Latest)**:
-              - Fixed a critical bug where imported ASE servers stuck on the `preaquatica` branch (v358.24) even after switching to Default/Latest.
-              - SteamCMD now explicitly receives `-beta public` to clear any previously cached beta key from the appmanifest, correctly updating to the latest build (361.x).
-            - **💾 Automated Backup System**:
-              - Full automated backup system with customizable presets (High Protection 1h, Balanced 6h, Storage Saver 24h).
-              - Timeline, Grid, and Calendar view modes for backup history.
-              - One-click restore, verify integrity, preview, and delete actions.
-              - Auto-backup toggle button in the header with quick-preset dropdown.
-            - **🔔 Application Close Confirmation & Reminder**:
-              - Confirmation modal when closing the application with options to Minimize to Tray or Exit Completely.
-              - "Remember this choice" checkbox to persist the user's preference.
-              - Active server protection warning before exit.
-            - **🔄 In-App Update Checker**:
-              - Added a "Check for Updates" button within the application settings.
-              - Compares current version against the latest GitHub release and offers one-click install.
-            - **🤖 Discord Bot Install Guide & Integration**:
-              - Step-by-step install guide modal for the Discord bot integration.
-              - Post-install UI state changes to reflect bot installation status.
-            - **💬 Cross-Chat & RCON Message Detection Improvements**:
-              - Overhauled all RCON message detection patterns for reliable cross-server chat relay.
-              - Fixed Discord message forwarding that was not showing in Discord channels.
-            - **🌐 Cluster Topology Real Data Integration**:
-              - Replaced mock random CPU/Player data with real backend health metrics from `get_cluster_servers_health`.
-              - Live CPU%, RAM%, Player count/max, and Uptime refreshing every 10 seconds.
-              - Added total players stat chip to the toolbar.
-            - **🎨 UI/UX Design Improvements**:
-              - Redesigned Cluster Topology nodes with gradient fills, glow effects, and accent bars.
-              - Upgraded Discord Bot section tabs with glass morphism, rounded pills, and indigo glow.
-              - Improved Backups page timeline view alignment and always-visible action buttons.
-              - Fixed garbled emoji (`🧹`) in mod cache clear toast notification.
+            ### 🆕 New Features in v4.6.5
+            - **🎨 Redesigned Game Selection Screen**:
+              - Clean, minimal, modern layout replacing the heavy tech-themed design.
+              - Horizontal logo + title row, subtle ambient glows, top accent lines, and brief game descriptions.
+              - Smooth hover-reactive transitions without continuous floating animations.
+            - **📂 Server Organization Categories Bar**:
+              - Integrated category filter pills with server count badges on the Server Manager page.
+              - Filter Grid and List views by workspace/folder category.
+            - **⚙️ Window Close Action in Settings**:
+              - Added "Window Close Action" setting with radio selectors: Always Ask, Minimize to System Tray, Exit Completely.
+              - Preference is persisted via localStorage.
+
+            ### 🐛 Bug Fixes in v4.6.5
+            - **🔧 Deep Repair Column Type Fix**: Fixed `Invalid column type Integer at index: 10, name: cluster_id` crash during Deep Repair by correcting the SQLite column type from `String` to `i64` in `hardcore_retry_mods`.
+            - **🔧 Deep Repair Duplicate Start Fix**: Fixed `Server is already running. Ignoring duplicate start request` error during Deep Repair by adding stale process detection, pending stop protection, and `force_cleanup_server_entry` before restart.
+            - **🔧 Dropdown Menu Clipping Fix**: Fixed settings dropdown menus on server cards being hidden behind neighboring cards by adding hierarchical z-index stacking and removing overflow-hidden from card containers.
+            - **🔧 Stop All Button Fix**: Fixed the Stop All button to properly target all non-stopped servers and await completion with `Promise.all`.
+            - **🔧 Application Exit Fix**: Fixed exit confirmation not actually closing the app by invoking `exit(0)` from `@tauri-apps/plugin-process`.
+            - **🔧 Server Process Persistence on Close**: Closing the manager app no longer terminates running game servers — processes are left active in the background.
+            - **🔧 Process Manager Self-Kill Protection**: Added PID safety guards and image checks to prevent the manager from killing its own process tree during port cleanup.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.4 — Automated Backups, Discord Bot Guide & Cluster Topology</summary>
+
+            - **🐛 ASE Branch Switching Fix (preaquatica → Default/Latest)**: SteamCMD now explicitly receives `-beta public` to clear cached beta keys.
+            - **💾 Automated Backup System**: Full backup system with customizable presets, timeline/grid/calendar views, and one-click restore.
+            - **🔔 Application Close Confirmation & Reminder**: Modal with Minimize to Tray or Exit options, persistent preference checkbox.
+            - **🔄 In-App Update Checker**: Compare current version against latest GitHub release with one-click install.
+            - **🤖 Discord Bot Install Guide & Integration**: Step-by-step install guide modal for the Discord bot.
+            - **💬 Cross-Chat & RCON Message Detection Improvements**: Overhauled RCON message detection for reliable cross-server chat relay.
+            - **🌐 Cluster Topology Real Data Integration**: Live CPU%, RAM%, Player count/max, and Uptime refreshing every 10 seconds.
+            - **🎨 UI/UX Design Improvements**: Redesigned Cluster Topology nodes, Discord Bot tabs, and Backups timeline view.
+            </details>
             <details>
             <summary>v4.6.3 — Maintenance Overhaul, Mod Fixes & Plugin Manager</summary>
 
@@ -135,50 +136,47 @@ jobs:
             <summary>v4.6.0 — Native C++ CrossChat, Chat Persistence & Real-Time Logs</summary>
 
             - **💬 Native C++ CrossChat Plugin (AsaApi)**: Introduced a native C++ plugin (`AsaCrossChat.dll`) for Ark Server API (AsaApi) enabling cross-server cluster chat sync via a shared MySQL/MariaDB database.
-            - **⚡ Chat Persistence & Startup Safety**: Fixed the "lost chat messages on startup" bug. The native plugin now persists the last fetched message ID in a local file (`last_fetched_id.txt`) and delays DB querying until the game world is fully initialized (`GetWorld() != nullptr`).
-            - **👁️ Real-Time Log Streaming Fixes**: Overhauled the log tailing engine to use parent directory monitoring, resolving Windows file locking/flush delays. Added auto-initialization for already running servers on log stream startup.
+            - **⚡ Chat Persistence & Startup Safety**: Fixed the "lost chat messages on startup" bug.
+            - **👁️ Real-Time Log Streaming Fixes**: Overhauled the log tailing engine to use parent directory monitoring.
             </details>
             <details>
             <summary>v4.5.5 — Overhauled Auto-Update System & ASE Config Fixes</summary>
 
-            - **🔄 Rewritten Auto-Update System**: Completely overhauled the update checker with robust error handling, elevation detection, portable ZIP fallback, and direct download URLs when auto-update fails.
-            - **🦕 ASE Boolean Config Fix**: Fixed all boolean configuration values in the ASE (ARK: Survival Evolved) module. Booleans now correctly serialize as `True`/`False` (capitalized) instead of `true`/`false`, which ARK's INI parser requires.
-            - **🗺️ ASA Genesis Part 1 Map**: Added Genesis Part 1 map support for ASA with the correct `map_id: "Genesis"`.
-            - **⚙️ CI/CD Pipeline Rewrite**: Modernized the GitHub Actions build pipeline with automatic version extraction and reliable release publishing.
+            - **🔄 Rewritten Auto-Update System**: Completely overhauled the update checker with robust error handling, elevation detection, portable ZIP fallback, and direct download URLs.
+            - **🦕 ASE Boolean Config Fix**: Fixed all boolean configuration values in the ASE module.
+            - **🗺️ ASA Genesis Part 1 Map**: Added Genesis Part 1 map support for ASA.
+            - **⚙️ CI/CD Pipeline Rewrite**: Modernized the GitHub Actions build pipeline.
             </details>
             <details>
             <summary>v4.5.4 — Dino Spawn Editor, Loot Crate Editor & Guardian Watchdog</summary>
 
             - **🦖 Dino Spawn Editor**: Added visual control over creature spawn weighting and limits.
-            - **🎁 Visual Loot Crate Editor**: Introduced a new visual editor to customize loot crate drops easily without touching raw INI files.
-            - **👥 ASE Player Manager**: Complete pipeline for managing players in ARK: Survival Evolved (kick, ban, whitelist).
-            - **🛡️ Mod Validator**: Added a robust Rust-based `mod_validator.rs` service for verifying mod file integrity.
-            - **📈 Log Watcher Optimization**: Enhanced the background watcher to better detect RCON state changes and crash conditions.
+            - **🎁 Visual Loot Crate Editor**: Introduced a new visual editor to customize loot crate drops.
+            - **👥 ASE Player Manager**: Complete pipeline for managing players in ASE.
+            - **🛡️ Mod Validator**: Rust-based `mod_validator.rs` service for verifying mod file integrity.
             - **🛡️ Guardian Watchdog for ASA**: Integrated Guardian Watchdog settings into the ASA Scheduler UI.
-            - **🤖 Intelligent Mode Auto-Escalation**: Guardian Watchdog now automatically escalates servers to Intelligent Repair mode when an infinite crash loop is detected.
+            - **🤖 Intelligent Mode Auto-Escalation**: Guardian Watchdog auto-escalates servers to Intelligent Repair mode on crash loops.
             </details>
             <details>
             <summary>v4.5.3 — ASE Config Saving & RCON Fixes</summary>
 
             - **⚙️ Fixed ASE Config Page & Saving Issues**: Resolved serialization casing mismatches.
-            - **🔧 INI Parser Multi-Line Continuation Fix**: Rewrote the INI parser's multi-line continuation logic for parenthesized overrides.
-            - **💬 Added RCONServerLogBuffer Support**: Added full support for reading, writing, and editing the `RCONServerLogBuffer` configuration option.
+            - **🔧 INI Parser Multi-Line Continuation Fix**: Rewrote the INI parser's multi-line continuation logic.
+            - **💬 Added RCONServerLogBuffer Support**: Full support for reading, writing, and editing.
             </details>
             <details>
             <summary>v4.5.2 — Custom Titlebar & Apple Window Controls</summary>
 
-            - **🎨 Custom Frameless Title Bar**: Replaced the native OS title bar with a custom title bar featuring live server status, clock, and version.
-            - **🍎 Apple-Style Traffic Light Controls**: macOS-inspired yellow, green, and red window buttons with hover/spring effects.
-            - **🖱️ Native Drag & Double-Click**: Smooth dragging and double-click maximizing.
+            - **🎨 Custom Frameless Title Bar**: Custom title bar with live server status, clock, and version.
+            - **🍎 Apple-Style Traffic Light Controls**: macOS-inspired window buttons with hover/spring effects.
             - **🦕 DestroyWildDinos & Server Restart**: Added a quick "Wipe Wild Dinos" action.
-            - **🧩 ASE Mod Loading Fixes**: Corrected mod ID injection into `GameUserSettings.ini` ActiveMods.
+            - **🧩 ASE Mod Loading Fixes**: Corrected mod ID injection into `GameUserSettings.ini`.
             </details>
-
             <details>
             <summary>v4.5.1 — ASE Support & Diagnostics Pipeline</summary>
 
-            - **🦕 Full ASE Server Support**: Complete management pipeline for ASE servers including ShooterGameServer execution, config editor, map listings, and sidebar integration.
-            - **🌐 Advanced Diagnostics Pipeline**: Real-time checks for process status, UDP port binding, LAN query (Steam A2S), and WAN accessibility.
+            - **🦕 Full ASE Server Support**: Complete management pipeline for ASE servers.
+            - **🌐 Advanced Diagnostics Pipeline**: Real-time checks for process status, UDP port binding, LAN query, and WAN accessibility.
             - **📂 Log Capture & Debugging**: Persistent logging to AppData `debug_events.log`.
             - **⚡ Layout Overhauls**: Optimized settings sliders, grids, and Config Editor layouts.
             </details>

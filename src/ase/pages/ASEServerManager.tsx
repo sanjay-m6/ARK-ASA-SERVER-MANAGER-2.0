@@ -465,10 +465,10 @@ export default function ASEServerManager() {
   };
 
   const handleStopAll = async () => {
-    const runnings = servers.filter(s => s.status === 'running' || s.status === 'online');
-    if (runnings.length === 0) return toast.error('No running servers to stop');
+    const runnings = servers.filter(s => s.status !== 'stopped');
+    if (runnings.length === 0) return toast.error('No active servers to stop');
     toast.success(`Stopping ${runnings.length} servers...`);
-    for (const s of runnings) { handleStop(s.id); await new Promise(r => setTimeout(r, 500)); }
+    await Promise.all(runnings.map(s => handleStop(s.id)));
   };
 
   const handleBulkMoveServers = async () => {
@@ -512,31 +512,29 @@ export default function ASEServerManager() {
   return (
     <motion.div className="space-y-8 animate-in fade-in duration-500" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-400 flex items-center gap-3">
-            ASE Server Manager
-          </h1>
+          <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">{t('serverManager.title', 'Server Manager')}</h1>
           <p className="text-slate-400 mt-2 text-lg">Deploy, configure, and manage your ARK: Survival Evolved servers</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap shrink-0">
           <button
             onClick={() => setShowImport(true)}
-            className="flex items-center space-x-2 px-5 py-3 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 hover:border-slate-600/50 text-slate-200 rounded-xl transition-all font-medium focus:outline-none"
+            className="flex items-center space-x-2 px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 hover:border-slate-600/50 text-slate-200 rounded-xl transition-all font-medium focus:outline-none whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <Download className="w-5 h-5 text-slate-400" />
-            <span>{t('serverManager.buttons.importExisting', 'Import Server')}</span>
+            <Download className="w-4 h-4 text-slate-400 shrink-0" />
+            <span className="whitespace-nowrap">{t('serverManager.buttons.importExisting', 'Import Server')}</span>
           </button>
           <button
             onClick={() => setShowImportSave(true)}
-            className="flex items-center space-x-2 px-5 py-3 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded-xl transition-all font-medium focus:outline-none"
+            className="flex items-center space-x-2 px-4 py-2.5 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 rounded-xl transition-all font-medium focus:outline-none whitespace-nowrap shrink-0 cursor-pointer"
           >
-            <Save className="w-5 h-5" />
-            <span>{t('serverManager.buttons.importSave', 'Import Save')}</span>
+            <Save className="w-4 h-4 shrink-0" />
+            <span className="whitespace-nowrap">{t('serverManager.buttons.importSave', 'Import Save')}</span>
           </button>
-          <button onClick={handleDeployServer} className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl transition-all shadow-lg shadow-amber-500/20 font-medium group focus:outline-none">
-            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-            <span>{t('serverManager.buttons.deployServer', 'Deploy Server')}</span>
+          <button onClick={handleDeployServer} className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl transition-all shadow-lg shadow-amber-500/20 font-medium group focus:outline-none whitespace-nowrap shrink-0 cursor-pointer">
+            <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform shrink-0" />
+            <span className="whitespace-nowrap">{t('serverManager.buttons.deployServer', 'Deploy Server')}</span>
           </button>
         </div>
       </div>
@@ -650,11 +648,14 @@ export default function ASEServerManager() {
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        style={{ ...provided.draggableProps.style, zIndex: snapshot.isDragging ? 50 : 'auto' }}
+                        style={{
+                            ...provided.draggableProps.style,
+                            zIndex: snapshot.isDragging ? 100 : (orderedServers.length - index) * 10
+                        }}
                         className={cn(
-                          "glass-panel rounded-2xl p-6 group relative cursor-pointer",
+                          "glass-panel rounded-2xl p-6 group relative cursor-pointer hover:z-30",
                           snapshot.isDragging
-                            ? "shadow-2xl shadow-amber-500/20 ring-2 ring-amber-500/50 cursor-grabbing scale-[1.02]"
+                            ? "shadow-2xl shadow-amber-500/20 ring-2 ring-amber-500/50 cursor-grabbing scale-[1.02] z-[100]"
                             : "transition-all duration-300 hover:border-amber-500/50 hover:shadow-[0_8px_30px_rgba(245,158,11,0.15)] hover:-translate-y-1"
                         )}
                         onClick={(e) => toggleCollapse(srv.id, e)}

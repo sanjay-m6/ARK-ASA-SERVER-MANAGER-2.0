@@ -85,19 +85,33 @@ pub struct RconConfig {
 #[serde(rename_all = "camelCase")]
 pub struct ModInfo {
     pub id: String,
+    #[serde(default)]
     pub curseforge_id: Option<i64>,
     pub name: String,
+    #[serde(default)]
     pub version: Option<String>,
+    #[serde(default)]
     pub author: Option<String>,
+    #[serde(default)]
     pub description: Option<String>,
+    #[serde(default)]
     pub thumbnail_url: Option<String>,
+    #[serde(default)]
     pub downloads: Option<i64>,
+    #[serde(default)]
     pub curseforge_url: Option<String>,
+    #[serde(default = "default_true")]
     pub enabled: bool,
+    #[serde(default)]
     pub load_order: i32,
+    #[serde(default)]
     pub last_updated: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub is_local: Option<bool>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -417,16 +431,26 @@ pub struct SchedulerSettings {
     pub mode: String, // 'basic', 'advanced', 'disabled'
     pub basic_interval_hours: i32,
     pub basic_warning_minutes: String, // "30,15,10,5,1"
+    #[serde(default)]
     pub next_run_basic: Option<String>,
     // Advanced fields
+    #[serde(default)]
     pub advanced_time: Option<String>,
+    #[serde(default)]
     pub advanced_days: Option<String>,
+    #[serde(default)]
     pub advanced_warning_minutes: Option<String>,
+    #[serde(default)]
     pub advanced_shutdown: Option<bool>,
+    #[serde(default)]
     pub advanced_backup: Option<bool>,
+    #[serde(default)]
     pub advanced_update: Option<bool>,
+    #[serde(default)]
     pub advanced_restart: Option<bool>,
+    #[serde(default)]
     pub advanced_dino_wipe: Option<bool>,
+    #[serde(default)]
     pub watchdog_enabled: Option<bool>,
 }
 

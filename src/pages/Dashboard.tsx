@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Server, Activity, Zap, Copy, Puzzle,
-  Play, Square, RotateCw, FileEdit,
+  Play, Square, RotateCw, FileEdit, Edit2, Check, X,
   Folder, FolderOpen, Heart, Bookmark, Search,
   GitBranch, AlertTriangle, RefreshCw, ShieldCheck, Cpu, Radio, Sparkles
 } from 'lucide-react';
@@ -12,6 +12,7 @@ import { motion, Variants } from 'framer-motion';
 import { useServerStore } from '../stores/serverStore';
 import { useUIStore } from '../stores/uiStore';
 import { useInstallStore } from '../stores/installStore';
+import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { cn } from '../utils/helpers';
 import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData, optimizeMemory } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
@@ -20,6 +21,7 @@ import PerformanceMonitor from '../components/performance/PerformanceMonitor';
 // import { useRconStore } from '../stores/rconStore';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import SponsorBanner from '../components/ui/SponsorBanner';
+import ServerOrganizationBar from '../components/server/ServerOrganizationBar';
 import { Server as ServerType } from '../types';
 
 // Animation Variants
@@ -201,6 +203,47 @@ export default function Dashboard() {
 
   // ... (rest of hook logic remains same until return)
 
+  // Inline Rename State & Handlers
+  const { customizations, updateServerCustomization } = useServerOrganizationStore();
+  const [editingServerId, setEditingServerId] = useState<number | null>(null);
+  const [editServerName, setEditServerName] = useState("");
+
+  const handleRenameStart = (server: ServerType, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingServerId(server.id);
+    const custom = customizations.get(server.id);
+    setEditServerName(custom?.displayName || server.name);
+  };
+
+  const handleRenameSave = (server: ServerType) => {
+    if (editingServerId === server.id) {
+      const custom = customizations.get(server.id) || {
+        serverId: server.id,
+        isPinned: false,
+        pinOrder: 0,
+        isMinimized: false,
+        tags: [],
+        favorite: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      updateServerCustomization({
+        ...custom,
+        displayName: editServerName.trim() || server.name,
+      });
+      setEditingServerId(null);
+      toast.success(t('serverManager.toast.nameUpdated', 'Server display name updated!'));
+    }
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent, server: ServerType) => {
+    if (e.key === 'Enter') {
+      handleRenameSave(server);
+    } else if (e.key === 'Escape') {
+      setEditingServerId(null);
+    }
+  };
+
   const handleCopyIp = (serverIp: string | undefined, port: number) => {
     const ip = serverIp || '127.0.0.1';
     const address = `${ip}:${port}`;
@@ -245,7 +288,7 @@ export default function Dashboard() {
     }
   };
 
-  // Clone Modal state (Keep existing logic)
+  // Clone Modal state
   const [cloneModalServer, setCloneModalServer] = useState<ServerType | null>(null);
 
   const openCloneModal = (server: ServerType) => {
@@ -636,10 +679,11 @@ export default function Dashboard() {
               </button>
               <button
                 onClick={() => navigate('/tools/organization')}
-                className="text-xs font-semibold px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.03] active:scale-[0.97]"
-                aria-label="Organize Nodes"
+                className="text-xs font-semibold px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.03] active:scale-[0.97] flex items-center gap-1.5 cursor-pointer"
+                aria-label="Server Organization Page"
               >
-                Organize Nodes
+                <Folder className="w-3.5 h-3.5 text-sky-400" />
+                Server Organization
               </button>
               <button
                 onClick={() => navigate('/servers')}
@@ -651,44 +695,13 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Folders category filters */}
-          {snapshot?.folders && snapshot.folders.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-6 p-2 bg-white/[0.01] border border-white/5 rounded-2xl">
-              <button
-                onClick={() => setSelectedFolderId(null)}
-                className={cn(
-                  'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.02] active:scale-[0.98]',
-                  selectedFolderId === null
-                    ? 'bg-sky-500 text-slate-900'
-                    : 'bg-white/5 hover:bg-white/10 text-slate-300 border border-white/5'
-                )}
-                aria-label="Filter servers: show all nodes"
-              >
-                <FolderOpen className="w-3.5 h-3.5" />
-                <span>All Nodes</span>
-              </button>
-              {snapshot.folders.map((folder: any) => {
-                const isActive = selectedFolderId === folder.id;
-                return (
-                  <button
-                    key={folder.id}
-                    onClick={() => setSelectedFolderId(folder.id)}
-                    className={cn(
-                      'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 border border-transparent hover:scale-[1.02] active:scale-[0.98]',
-                      isActive
-                        ? 'text-slate-900 font-semibold'
-                        : 'bg-white/5 hover:bg-white/10 text-slate-300'
-                    )}
-                    style={isActive ? { backgroundColor: folder.color } : { borderLeft: `3px solid ${folder.color}` }}
-                    aria-label={`Filter servers by folder: ${folder.name}`}
-                  >
-                    <Folder className="w-3.5 h-3.5" />
-                    <span>{folder.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          {/* Interactive Server Organization Bar */}
+          <ServerOrganizationBar
+            serversCount={servers.length}
+            selectedFolderId={selectedFolderId}
+            onSelectFolderId={setSelectedFolderId}
+            className="mb-6"
+          />
 
           {
             filteredServers.length === 0 ? (
@@ -843,18 +856,76 @@ export default function Dashboard() {
                           aria-label={`Status: ${server.status}`}
                         />
                         <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-slate-200">{displayName}</h3>
-                            {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
-                            {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-400 fill-sky-400" />}
-                            {server.autoStart && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold tracking-wide uppercase">
-                                AUTOSTART
+                          {editingServerId === server.id ? (
+                            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                value={editServerName}
+                                onChange={(e) => setEditServerName(e.target.value)}
+                                onKeyDown={(e) => handleRenameKeyDown(e, server)}
+                                onBlur={() => handleRenameSave(server)}
+                                autoFocus
+                                className="text-sm font-bold bg-slate-900 border border-sky-500 rounded px-2 py-0.5 text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 min-w-[160px]"
+                              />
+                              <button
+                                onClick={() => handleRenameSave(server)}
+                                className="p-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 rounded transition-colors"
+                                title="Save Name"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setEditingServerId(null)}
+                                className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded transition-colors"
+                                title="Cancel"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <div className="flex items-center gap-1.5 group/title">
+                                <h3
+                                  className="font-semibold text-slate-200 hover:text-sky-400 cursor-pointer transition-colors"
+                                  onClick={(e) => handleRenameStart(server, e)}
+                                  onDoubleClick={(e) => handleRenameStart(server, e)}
+                                  title="Click to rename profile"
+                                >
+                                  {displayName}
+                                </h3>
+                                <button
+                                  onClick={(e) => handleRenameStart(server, e)}
+                                  className="p-0.5 text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 rounded transition-all opacity-80 group-hover/title:opacity-100"
+                                  title="Rename Server Profile"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5 text-sky-400/80" />
+                                </button>
+                              </div>
+                              <span
+                                onClick={(e) => handleRenameStart(server, e)}
+                                className="text-[10px] px-2 py-0.5 rounded-md bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 hover:border-sky-500/40 font-mono font-medium flex items-center gap-1 cursor-pointer transition-all"
+                                title="Click to rename profile"
+                              >
+                                <FolderOpen className="w-3 h-3 text-sky-400" />
+                                <span>Profile: {server.name}</span>
+                                <Edit2 className="w-2.5 h-2.5 text-sky-400/70" />
                               </span>
-                            )}
-                          </div>
+                              {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
+                              {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-400 fill-sky-400" />}
+                              {server.autoStart && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold tracking-wide uppercase">
+                                  AUTOSTART
+                                </span>
+                              )}
+                            </div>
+                          )}
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
                             <p className="text-xs text-slate-400">
+                              {server.config.sessionName && server.config.sessionName !== server.name && (
+                                <span className="text-slate-300 font-medium mr-1.5 font-mono">
+                                  [{server.config.sessionName}]
+                                </span>
+                              )}
                               {server.config.mapName} • Game: {server.ports.gamePort} • Query: {server.ports.queryPort}
                             </p>
                             {serverVersions[server.id] && (
@@ -1189,6 +1260,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
 
       {/* Clone Options Modal */}
       {cloneModalServer && (

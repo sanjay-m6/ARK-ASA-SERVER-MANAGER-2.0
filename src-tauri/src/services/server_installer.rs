@@ -121,6 +121,11 @@ impl ServerInstaller {
 
     /// Install ARK server via SteamCMD (ASA or ASE)
     pub async fn install_server(&self, install_path: &PathBuf, server_type: &str, branch: Option<String>) -> Result<bool, String> {
+        self.install_server_ext(install_path, server_type, branch, false).await
+    }
+
+    /// Install or update ARK server with explicit force_update option
+    pub async fn install_server_ext(&self, install_path: &PathBuf, server_type: &str, branch: Option<String>, force_update: bool) -> Result<bool, String> {
         self.emit_progress("preparing", 5.0, "Preparing installation...");
         self.emit_console(
             &format!("Starting ARK: Survival {} server installation...", if server_type == "ASE" { "Evolved" } else { "Ascended" }),
@@ -159,7 +164,7 @@ impl ServerInstaller {
                 self.emit_console(&format!("  Current Local BuildID: {}", current_local), "info");
                 self.emit_console(&format!("  Latest Steam BuildID: {}", remote_build), "info");
 
-                if current_local == remote_build {
+                if current_local == remote_build && !force_update {
                     self.emit_console("", "info");
                     self.emit_console(
                         "═══════════════════════════════════════════════════════════",
@@ -175,6 +180,11 @@ impl ServerInstaller {
                     self.emit_progress("finishing", 100.0, "Server up to date!");
                     self.emit_complete("Server up to date!");
                     return Ok(false);
+                } else if current_local == remote_build && force_update {
+                    self.emit_console(
+                        &format!("  Current Local BuildID {} matches Steam API, but update/validation was explicitly requested. Executing SteamCMD...", current_local),
+                        "info",
+                    );
                 } else {
                     self.emit_console(
                         &format!("  🚀 New update detected! Upgrading BuildID {} ➔ {}", current_local, remote_build),
@@ -298,25 +308,23 @@ impl ServerInstaller {
 
         if let Some(b) = &branch {
             let b_trimmed = b.trim();
-            if !b_trimmed.is_empty() && b_trimmed != "default" && b_trimmed != "latest" {
+            if !b_trimmed.is_empty() && b_trimmed != "default" && b_trimmed != "latest" && b_trimmed != "public" {
                 steamcmd_args.push("-beta".to_string());
                 steamcmd_args.push(b_trimmed.to_string());
             } else {
-                // Explicitly set "-beta public" to clear any previously cached beta key
-                // (e.g. "preaquatica") from the appmanifest. Without this, SteamCMD
-                // keeps reinstalling the old branch's build even after the user
-                // switches back to Default / Latest in the UI.
-                steamcmd_args.push("-beta".to_string());
-                steamcmd_args.push("public".to_string());
+                // Clear any cached beta branch in appmanifest rather than passing -beta public (which fails)
+                clear_beta_from_manifest(install_path, app_id);
             }
         } else {
-            // No branch specified at all – still force public to be safe
-            steamcmd_args.push("-beta".to_string());
-            steamcmd_args.push("public".to_string());
+            // No branch specified, clear cached beta if any exists
+            clear_beta_from_manifest(install_path, app_id);
         }
 
         steamcmd_args.push("validate".to_string());
         steamcmd_args.push("+quit".to_string());
+
+        // Backup AsaApi and proxy DLLs so validate doesn't wipe installed plugins
+        let api_backup = backup_plugins(install_path);
 
         let mut last_error_msg = String::new();
 
@@ -325,7 +333,10 @@ impl ServerInstaller {
                 &format!("Checking for and terminating any background SteamCMD processes (Attempt {}/3)...", attempt),
                 "info",
             );
-            let steamcmd_service = crate::services::steamcmd::SteamCmdService::new(self.app_handle.clone());
+            let steamcmd_service = crate::services::steamcmd::SteamCmdService::with_custom_dir(
+                self.app_handle.clone(),
+                steamcmd_dir.clone(),
+            );
             let _ = steamcmd_service.kill_existing_processes();
 
             if attempt > 1 {
@@ -466,6 +477,7 @@ impl ServerInstaller {
                             "success",
                         );
                         self.emit_complete("Server installed successfully!");
+                        restore_plugins(install_path, api_backup);
                         return Ok(true);
                     } else {
                         let code = status.code();
@@ -481,8 +493,23 @@ impl ServerInstaller {
                                 &format!("  ⚠️ [AUTO-HEAL] {} — Cleared SteamCMD cache, retrying attempt {}/3...", last_error_msg, attempt + 1),
                                 "warning",
                             );
-                            let steamcmd_service = crate::services::steamcmd::SteamCmdService::new(self.app_handle.clone());
+                            let steamcmd_service = crate::services::steamcmd::SteamCmdService::with_custom_dir(
+                                self.app_handle.clone(),
+                                steamcmd_dir.clone(),
+                            );
                             let _ = steamcmd_service.clear_cache();
+
+                            // Also clear target server's downloading and temp cache
+                            let target_dl = install_path.join("steamapps").join("downloading");
+                            if target_dl.exists() {
+                                let _ = std::fs::remove_dir_all(&target_dl);
+                                self.emit_console("  ✅ [AUTO-HEAL] Cleared target server steamapps/downloading cache.", "success");
+                            }
+                            let target_tmp = install_path.join("steamapps").join("temp");
+                            if target_tmp.exists() {
+                                let _ = std::fs::remove_dir_all(&target_tmp);
+                            }
+
                             tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                             continue;
                         }
@@ -503,6 +530,7 @@ impl ServerInstaller {
             "{}\n\nType: Disk/Network Error\nFix:\n1. Check disk space (approx 60GB required)\n2. Ensure stable internet connection\n3. Run as Administrator\n4. SteamCMD cache cleared automatically.",
             last_error_msg
         );
+        restore_plugins(install_path, api_backup);
         self.emit_error(&full_error);
         Err(full_error)
     }
@@ -512,8 +540,8 @@ impl ServerInstaller {
         self.emit_progress("updating", 5.0, "Starting server update...");
         self.emit_console("Starting server update process...", "info");
 
-        // Use the same installation logic - SteamCMD handles updates
-        self.install_server(install_path, server_type, None).await
+        // Use the installation logic with force_update=true to ensure SteamCMD runs file validation
+        self.install_server_ext(install_path, server_type, None, true).await
     }
 }
 
@@ -568,3 +596,95 @@ async fn get_remote_build_id(app_id: &str) -> Option<String> {
     }
     None
 }
+
+/// Helper to clear beta branch settings from appmanifest to allow reverting to default branch
+fn clear_beta_from_manifest(install_path: &std::path::Path, app_id: &str) {
+    let manifest_path = install_path.join("steamapps").join(format!("appmanifest_{}.acf", app_id));
+    if manifest_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+            let mut new_lines = Vec::new();
+            let mut modified = false;
+            for line in content.lines() {
+                if line.contains("\"BetaName\"") || line.contains("\"betakey\"") {
+                    modified = true;
+                    continue; // Skip these lines to clear the beta branch
+                }
+                new_lines.push(line);
+            }
+            if modified {
+                let _ = std::fs::write(&manifest_path, new_lines.join("\n"));
+                log_to_file("[SteamCMD Fix] Cleared beta branch configuration from appmanifest.");
+            }
+        }
+    }
+}
+
+/// Helper to recursively copy directories for plugin backup/restore
+fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    if let Ok(entries) = std::fs::read_dir(src) {
+        for entry in entries.flatten() {
+            let ty = entry.file_type()?;
+            if ty.is_dir() {
+                copy_dir_all(&entry.path(), &dst.join(entry.file_name()))?;
+            } else {
+                std::fs::copy(entry.path(), dst.join(entry.file_name()))?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Backup plugin loaders & AsaApi directory before SteamCMD validation
+fn backup_plugins(install_path: &std::path::Path) -> Option<std::path::PathBuf> {
+    let win64_dir = install_path.join("ShooterGame").join("Binaries").join("Win64");
+    if !win64_dir.exists() {
+        return None;
+    }
+
+    let backup_dir = install_path.join("steamapps").join("api_backup");
+    let _ = std::fs::create_dir_all(&backup_dir);
+
+    let proxy_dlls = ["version.dll", "version.dll.disabled", "winhttp.dll", "dxgi.dll", "psapi.dll"];
+    for dll in &proxy_dlls {
+        let src = win64_dir.join(dll);
+        if src.exists() {
+            let _ = std::fs::copy(&src, backup_dir.join(dll));
+        }
+    }
+
+    let asa_api_src = win64_dir.join("AsaApi");
+    if asa_api_src.exists() {
+        let _ = copy_dir_all(&asa_api_src, &backup_dir.join("AsaApi"));
+    }
+
+    Some(backup_dir)
+}
+
+/// Restore plugin loaders & AsaApi directory after SteamCMD completes
+fn restore_plugins(install_path: &std::path::Path, backup_dir: Option<std::path::PathBuf>) {
+    let Some(backup_dir) = backup_dir else { return };
+    if !backup_dir.exists() { return }
+
+    let win64_dir = install_path.join("ShooterGame").join("Binaries").join("Win64");
+    let _ = std::fs::create_dir_all(&win64_dir);
+
+    let proxy_dlls = ["version.dll", "version.dll.disabled", "winhttp.dll", "dxgi.dll", "psapi.dll"];
+    for dll in &proxy_dlls {
+        let backup_file = backup_dir.join(dll);
+        let target_file = win64_dir.join(dll);
+        if backup_file.exists() && !target_file.exists() {
+            let _ = std::fs::copy(&backup_file, &target_file);
+        }
+    }
+
+    let asa_api_backup = backup_dir.join("AsaApi");
+    let asa_api_target = win64_dir.join("AsaApi");
+    if asa_api_backup.exists() && !asa_api_target.exists() {
+        let _ = copy_dir_all(&asa_api_backup, &asa_api_target);
+    }
+
+    let _ = std::fs::remove_dir_all(&backup_dir);
+}
+
+

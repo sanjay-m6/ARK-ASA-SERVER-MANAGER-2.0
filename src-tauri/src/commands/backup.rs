@@ -17,6 +17,25 @@ pub async fn create_backup(
         backup_type, server_id
     );
 
+    // For automated backups, skip if server is offline
+    if backup_type.to_lowercase() == "auto" {
+        let is_running = state.process_manager.is_running(server_id);
+        let db_status = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.query_row(
+                "SELECT status FROM servers WHERE id = ?1",
+                [server_id],
+                |row| row.get::<_, String>(0),
+            ).ok()
+        };
+        let is_online = is_running || matches!(db_status.as_deref().map(|s| s.to_lowercase()).as_deref(), Some("running" | "online" | "starting"));
+        if !is_online {
+            println!("  ⏭️ Auto backup skipped for server {}: Server is offline", server_id);
+            return Err("Server is offline. Automated backup skipped.".to_string());
+        }
+    }
+
     // Get server info from database
     let (install_path, app_data_dir, server_name) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;

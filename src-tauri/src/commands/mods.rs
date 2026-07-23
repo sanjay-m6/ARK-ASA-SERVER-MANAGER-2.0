@@ -78,12 +78,23 @@ pub async fn install_mod(
     server_id: i64,
     mod_info: ModInfo,
 ) -> Result<(), String> {
-    let trimmed_id = mod_info.id.trim();
-    if trimmed_id.is_empty() || trimmed_id == "0" || !trimmed_id.chars().all(|c| c.is_ascii_digit()) {
-        return Err("Cannot install mod: Invalid Mod ID. Please ensure your CurseForge API Key is configured in Settings.".to_string());
-    }
+    let raw_input = mod_info.id.trim();
+    // Extract numeric Mod ID (handles raw digits, "Mod 927084", URLs, etc.)
+    let extracted_id = if !raw_input.is_empty() && raw_input.chars().all(|c| c.is_ascii_digit()) {
+        Some(raw_input.to_string())
+    } else {
+        raw_input.split(|c: char| !c.is_ascii_digit())
+            .find(|s| s.len() >= 4 && s != &"0")
+            .map(|s| s.to_string())
+    };
+
+    let clean_id = match extracted_id {
+        Some(id) if !id.is_empty() && id != "0" => id,
+        _ => return Err("Cannot install mod: Invalid Mod ID. Please enter a valid numeric Mod ID (e.g. 927084).".to_string()),
+    };
 
     let mut final_mod_info = mod_info;
+    final_mod_info.id = clean_id.clone();
 
     // Fetch real mod details from CurseForge if name is generic (e.g. "Mod 949310") or missing details
     if (final_mod_info.name.starts_with("Mod ") || final_mod_info.thumbnail_url.is_none()) && final_mod_info.id.chars().all(|c| c.is_ascii_digit()) {
@@ -717,7 +728,7 @@ pub async fn hardcore_retry_mods(
                 row.get::<_, Option<String>>(7)?, // server_password
                 row.get::<_, String>(8)?, // admin_password
                 row.get::<_, Option<String>>(9)?, // ip_address
-                row.get::<_, Option<String>>(10)?, // cluster_id
+                row.get::<_, Option<i64>>(10)?.map(|id| id.to_string()), // cluster_id
                 row.get::<_, Option<String>>(11)?, // cluster_path (from clusters table)
                 row.get::<_, Option<String>>(12)?, // custom_args
                 row.get::<_, i32>(13).unwrap_or(1) != 0, // battleye
@@ -761,6 +772,7 @@ pub async fn hardcore_retry_mods(
 
     // 5. Start Server
     println!("  🚀 Restarting server...");
+    state.process_manager.force_cleanup_server_entry(server_id);
     state.process_manager.start_server(
         server_id,
         "ASA", // Assuming ASA for now as this is mod related

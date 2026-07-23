@@ -13,12 +13,11 @@ function extractModId(input: string): string {
     const trimmed = input.trim();
 
     // Match CurseForge project URLs: https://www.curseforge.com/ark-survival-ascended/mods/MODNAME/files/12345
-    // or https://legacy.curseforge.com/ark-survival-ascended/mods/12345
     const cfMatch = trimmed.match(/curseforge\.com\/.*\/(\d+)/);
     if (cfMatch) return cfMatch[1];
 
-    // Match direct numeric IDs in URLs
-    const numericMatch = trimmed.match(/\/(\d{4,})(?:\/|$|\?)/);
+    // Match any contiguous numeric Mod ID (4+ digits)
+    const numericMatch = trimmed.match(/(\d{4,})/);
     if (numericMatch) return numericMatch[1];
 
     return trimmed;

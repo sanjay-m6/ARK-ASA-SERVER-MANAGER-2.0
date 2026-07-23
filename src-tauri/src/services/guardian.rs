@@ -287,9 +287,10 @@ impl GuardianService {
                     continue;
                 }
 
-                // Query process statuses using lightweight sysinfo
+                // Query process statuses using lightweight targeted sysinfo
+                let sys_pids: Vec<sysinfo::Pid> = pids_to_check.iter().map(|(_, pid)| Pid::from_u32(*pid)).collect();
                 let mut sys = System::new();
-                sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+                sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&sys_pids), false);
 
                 for (server_id, pid) in pids_to_check {
                     let process = sys.process(Pid::from_u32(pid));

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
     Database as BackupIcon, Plus, RotateCcw, Trash2, Loader2, FileArchive,
     Calendar, Clock, HardDrive, CheckCircle, XCircle, Eye, Shield,
-    Settings, ChevronDown, ChevronUp, FolderOpen, Sparkles, LayoutList, GitBranch, Cloud
+    Settings, ChevronDown, ChevronUp, FolderOpen, Sparkles, LayoutList, GitBranch
 } from 'lucide-react';
 import { formatBytes, cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
 import { getAllServers } from '../utils/tauri';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
-import CloudBackupDashboard from '../components/backups/CloudBackupDashboard';
+
 import BackupPolicies from '../components/backups/BackupPolicies';
 
 
@@ -51,7 +51,7 @@ export default function Backups() {
     const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list');
     
     // Tab state
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'browser' | 'policies' | 'cloud'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'browser' | 'policies'>('dashboard');
 
     // Auto backup header state
     const [isAutoEnabled, setIsAutoEnabled] = useState(false);
@@ -325,18 +325,7 @@ export default function Backups() {
                             <Shield className="w-3.5 h-3.5" />
                             Policies
                         </button>
-                        <button
-                            onClick={() => setActiveTab('cloud')}
-                            className={cn(
-                                "px-4 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all flex items-center gap-2 whitespace-nowrap flex-shrink-0",
-                                activeTab === 'cloud' 
-                                    ? "bg-sky-500/20 text-sky-300 border border-sky-500/30 shadow-[0_0_15px_rgba(14,165,233,0.2)]" 
-                                    : "text-slate-400 hover:text-slate-200"
-                            )}
-                        >
-                            <Cloud className="w-3.5 h-3.5" />
-                            Cloud Sync
-                        </button>
+
                     </div>
 
                     {/* Controls Container */}
@@ -577,7 +566,7 @@ export default function Backups() {
                 </button>
             </div>
 
-            {activeTab === 'cloud' && <CloudBackupDashboard serverId={selectedServerId} />}
+
             {activeTab === 'policies' && <BackupPolicies serverId={selectedServerId} />}
             {(activeTab === 'dashboard' || activeTab === 'browser') && (
                 <>

@@ -20,7 +20,6 @@ pub mod server;
 pub mod system;
 pub mod tribe_log;
 pub mod upnp;
-pub mod cloud_backup;
 pub mod watchdog;
 pub mod hardware;
 pub mod server_organization;

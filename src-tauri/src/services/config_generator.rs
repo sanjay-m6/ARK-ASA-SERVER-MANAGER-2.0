@@ -1185,10 +1185,22 @@ impl ConfigGenerator {
             "Port",
             &game_port.to_string(),
         );
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "ServerSettings",
+            "Port",
+            &game_port.to_string(),
+        );
 
         final_gus = crate::services::ini_parser::IniParser::update_key(
             &final_gus,
             "URL",
+            "QueryPort",
+            &query_port.to_string(),
+        );
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "ServerSettings",
             "QueryPort",
             &query_port.to_string(),
         );
@@ -1288,6 +1300,9 @@ impl ConfigGenerator {
 
 pub fn normalize_map_name(map: &str) -> String {
     let trimmed = map.trim();
+    if trimmed.eq_ignore_ascii_case("TheIsland") {
+        return "TheIsland_WP".to_string();
+    }
     if trimmed.eq_ignore_ascii_case("Astraos") || trimmed.eq_ignore_ascii_case("Astraos_WP") || trimmed.eq_ignore_ascii_case("Astraeos") {
         return "Astraeos_WP".to_string();
     }

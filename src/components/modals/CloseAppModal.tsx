@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { exit } from '@tauri-apps/plugin-process';
 import { AlertTriangle, X, Minimize2, LogOut, CheckSquare, Square } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useServerStore } from '../../stores/serverStore';
@@ -35,10 +36,18 @@ export default function CloseAppModal({ isOpen, onClose }: CloseAppModalProps) {
                 await appWindow.minimize();
             }
         } else {
+            onClose();
             try {
-                await appWindow.close();
+                await exit(0);
             } catch (err) {
-                console.error("Failed to close window:", err);
+                console.error("Failed to exit application via process exit:", err);
+                try {
+                    await appWindow.destroy();
+                } catch (_) {
+                    try {
+                        await appWindow.close();
+                    } catch (_) {}
+                }
             }
         }
     };

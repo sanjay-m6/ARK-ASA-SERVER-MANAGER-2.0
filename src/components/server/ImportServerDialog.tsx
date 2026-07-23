@@ -31,15 +31,6 @@ export default function ImportServerDialog({ onClose, initialType = 'ASA' }: Pro
         setError(null);
         try {
             const result = await previewImportSettings(targetPath, targetType);
-            
-            // Add a warning that map name may not sync perfectly
-            const mapWarning = "Map name may not sync perfectly from the configuration import. Please verify and set/override it manually if needed.";
-            if (result.warnings) {
-                result.warnings = [...result.warnings, mapWarning];
-            } else {
-                result.warnings = [mapWarning];
-            }
-
             setPreview(result);
             // Auto-fill session name if detected
             if (result.sessionName && result.sessionName.trim()) {
@@ -206,18 +197,18 @@ export default function ImportServerDialog({ onClose, initialType = 'ASA' }: Pro
                     <div>
                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
                             <Server className="w-4 h-4" />
-                            {t('dialogs.importServer.nameLabel', 'Server Name')}
+                            {t('dialogs.importServer.nameLabel', 'Server Profile Name')}
                         </label>
                         <input
                             type="text"
                             value={serverName}
                             onChange={(e) => setServerName(e.target.value)}
-                            placeholder={t('dialogs.importServer.namePlaceholder', 'My ARK Server')}
+                            placeholder={t('dialogs.importServer.namePlaceholder', 'server1')}
                             className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30"
                             disabled={isImporting}
                         />
                         <p className="text-xs text-slate-500 mt-2">
-                            {t('dialogs.importServer.nameHint', 'A friendly name for this server in the manager')}
+                            {t('dialogs.importServer.nameHint', 'A friendly profile name for this server in the manager')}
                         </p>
                     </div>
 

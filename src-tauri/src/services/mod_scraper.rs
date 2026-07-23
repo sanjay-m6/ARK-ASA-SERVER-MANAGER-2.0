@@ -110,6 +110,36 @@ pub async fn search_curseforge(
     let api_key = api_key.trim();
 
     if api_key.is_empty() {
+        let trimmed_query = query.trim();
+        // Check if query is a numeric Mod ID or contains a numeric ID in URL
+        let numeric_id = if !trimmed_query.is_empty() && trimmed_query.chars().all(|c| c.is_ascii_digit()) {
+            Some(trimmed_query.to_string())
+        } else if let Some(cap) = trimmed_query.split('/').last().filter(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit())) {
+            Some(cap.to_string())
+        } else {
+            None
+        };
+
+        if let Some(id) = numeric_id {
+            return Ok(vec![ModInfo {
+                id: id.clone(),
+                curseforge_id: id.parse::<i64>().ok(),
+                name: format!("Mod {}", id),
+                author: Some("Direct Mod ID".to_string()),
+                version: None,
+                downloads: None,
+                description: Some(
+                    format!("Direct Mod ID {} entered. Click Install to add this mod to your server without needing an API Key.", id)
+                ),
+                thumbnail_url: None,
+                curseforge_url: Some(format!("https://www.curseforge.com/ark-survival-ascended/mods/{}", id)),
+                enabled: true,
+                load_order: 0,
+                last_updated: None,
+                is_local: None,
+            }]);
+        }
+
         return Ok(vec![ModInfo {
             id: "0".to_string(),
             curseforge_id: None,
@@ -118,7 +148,7 @@ pub async fn search_curseforge(
             version: None,
             downloads: None,
             description: Some(
-                "Please add your CurseForge API Key in Settings to search ASA mods.".to_string(),
+                "CurseForge API Key is not configured for text search. However, you can enter any numeric Mod ID directly (e.g. 927084) or click 'Add Mod by ID' to install mods without an API key.".to_string(),
             ),
             thumbnail_url: None,
             curseforge_url: None,

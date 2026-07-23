@@ -1807,11 +1807,11 @@ export default function ConfigEditor() {
             const adminPassword = serverSettings?.get('ServerAdminPassword');
             if (adminPassword) updateParams.adminPassword = adminPassword;
 
-            // Ports from URL section
-            const gamePort = urlSettings?.get('Port');
+            // Ports from URL or ServerSettings section
+            const gamePort = urlSettings?.get('Port') || serverSettings?.get('Port') || serverSettings?.get('GamePort');
             if (gamePort) updateParams.gamePort = parseInt(gamePort);
 
-            const queryPort = urlSettings?.get('QueryPort');
+            const queryPort = urlSettings?.get('QueryPort') || serverSettings?.get('QueryPort');
             if (queryPort) updateParams.queryPort = parseInt(queryPort);
 
             // RCON port from ServerSettings

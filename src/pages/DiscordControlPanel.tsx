@@ -158,7 +158,7 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
 
   const handleStartServer = async (serverId: number) => {
     try {
-      await invoke('start_server', { id: serverId });
+      await invoke('start_server', { serverId, updateOnStart: false });
     } catch (err) {
       toast.error(`Failed to start server: ${err}`);
     }
@@ -166,7 +166,7 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
 
   const handleStopServer = async (serverId: number) => {
     try {
-      await invoke('stop_server', { id: serverId });
+      await invoke('stop_server', { serverId });
     } catch (err) {
       toast.error(`Failed to stop server: ${err}`);
     }
@@ -174,7 +174,7 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
 
   const handleRestartServer = async (serverId: number) => {
     try {
-      await invoke('restart_server', { id: serverId });
+      await invoke('restart_server', { serverId, wipeDinos: false });
     } catch (err) {
       toast.error(`Failed to restart server: ${err}`);
     }

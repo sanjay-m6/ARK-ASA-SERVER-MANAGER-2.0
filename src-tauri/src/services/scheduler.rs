@@ -3,7 +3,7 @@ use crate::commands::scheduler::ScheduledTask;
 use crate::models::{Backup, BackupOptions, BackupType, RestoreOptions};
 use crate::services::backup_service::BackupService;
 use crate::AppState;
-use chrono::{DateTime, Datelike, Local, Timelike};
+use chrono::{DateTime, Datelike, Local, Timelike, Utc};
 use rusqlite::params;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -132,6 +132,9 @@ impl SchedulerService {
 
         // 4. Process ASE Scheduler Settings
         Self::process_ase_scheduler_settings(app_handle, time).await;
+
+        // 5. Process Backup Policies (Only run auto-backups when server is ONLINE)
+        Self::process_backup_policies(app_handle, time).await;
     }
 
     async fn process_ase_tasks(app_handle: &AppHandle, time: DateTime<Local>) {
@@ -1566,6 +1569,26 @@ async fn execute_backup(app_handle: &AppHandle, task: &ScheduledTask) {
     
     tauri::async_runtime::spawn(async move {
         let state = app_handle_clone.state::<AppState>();
+
+        // STRICT CHECK: Skip scheduled backup if server is offline
+        let is_running = state.process_manager.is_running(server_id);
+        let db_status = {
+            if let Ok(db) = state.db.lock() {
+                if let Ok(conn) = db.get_connection() {
+                    conn.query_row(
+                        "SELECT status FROM servers WHERE id = ?1",
+                        [server_id],
+                        |row| row.get::<_, String>(0),
+                    ).ok()
+                } else { None }
+            } else { None }
+        };
+        let is_online = is_running || matches!(db_status.as_deref().map(|s| s.to_lowercase()).as_deref(), Some("running" | "online" | "starting"));
+        if !is_online {
+            log::info!("⏭️ Scheduled auto backup skipped for server {}: Server is offline", server_id);
+            return;
+        }
+
         log::info!("💾 Executing scheduled backup for server {}...", server_id);
         
         let paths_opt = {
@@ -1656,4 +1679,99 @@ async fn execute_backup(app_handle: &AppHandle, task: &ScheduledTask) {
             }
         };
     });
+}
+
+impl SchedulerService {
+    async fn process_backup_policies(app_handle: &AppHandle, _time: DateTime<Local>) {
+        let state = app_handle.state::<AppState>();
+        
+        let policies = {
+            let db = match state.db.lock() {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+            let conn = match db.get_connection() {
+                Ok(conn) => conn,
+                Err(_) => return,
+            };
+
+            let mut stmt = match conn.prepare(
+                "SELECT server_id, interval_hours FROM backup_policies WHERE enabled = 1"
+            ) {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+
+            let iter = stmt.query_map([], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1)?))
+            });
+
+            match iter {
+                Ok(rows) => rows.filter_map(|r| r.ok()).collect::<Vec<_>>(),
+                Err(_) => Vec::new(),
+            }
+        };
+
+        for (server_id, interval_hours) in policies {
+            // STRICT CHECK: Skip auto-backup if server is offline
+            let is_running = state.process_manager.is_running(server_id);
+            let db_status = {
+                if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        conn.query_row(
+                            "SELECT status FROM servers WHERE id = ?1",
+                            [server_id],
+                            |row| row.get::<_, String>(0),
+                        ).ok()
+                    } else { None }
+                } else { None }
+            };
+            let is_online = is_running || matches!(db_status.as_deref().map(|s| s.to_lowercase()).as_deref(), Some("running" | "online" | "starting"));
+
+            if !is_online {
+                // Server is offline, skip periodic auto backup
+                continue;
+            }
+
+            // Check when the last auto backup was created for this server
+            let last_backup_time: Option<DateTime<Utc>> = {
+                if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        conn.query_row(
+                            "SELECT created_at FROM backups WHERE server_id = ?1 AND backup_type = 'auto' ORDER BY id DESC LIMIT 1",
+                            [server_id],
+                            |row| row.get::<_, String>(0),
+                        ).ok().and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc)))
+                    } else { None }
+                } else { None }
+            };
+
+            let now_utc = Utc::now();
+            let should_backup = match last_backup_time {
+                Some(last_time) => (now_utc - last_time).num_hours() >= interval_hours as i64,
+                None => true,
+            };
+
+            if should_backup {
+                log::info!("💾 BackupPolicy: Triggering interval auto-backup ({}h) for online server {}", interval_hours, server_id);
+                let app_handle_clone = app_handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    let options = BackupOptions {
+                        include_configs: true,
+                        include_saves: true,
+                        include_mods: false,
+                        include_cluster: false,
+                        compression_level: 6,
+                    };
+                    let state_clone = app_handle_clone.state::<AppState>();
+                    let _ = crate::commands::backup::create_backup(
+                        state_clone,
+                        server_id,
+                        "auto".to_string(),
+                        Some(options),
+                    ).await;
+                });
+            }
+        }
+    }
 }

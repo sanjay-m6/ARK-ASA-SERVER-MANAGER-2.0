@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { getVersion } from '@tauri-apps/api/app';
+import { exit } from '@tauri-apps/plugin-process';
 import { Minus, Square, Minimize2, X, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../../stores/gameStore';
@@ -103,7 +104,12 @@ export default function TitleBar() {
           await appWindow.minimize();
         }
       } else if (remember && pref === 'exit') {
-        // Allow default close
+        event.preventDefault();
+        try {
+          await exit(0);
+        } catch (e) {
+          console.error("Failed to exit app:", e);
+        }
       } else {
         event.preventDefault();
         setIsCloseModalOpen(true);
@@ -127,9 +133,9 @@ export default function TitleBar() {
       }
     } else if (remember && pref === 'exit') {
       try {
-        if (appWindow) await appWindow.close();
+        await exit(0);
       } catch (err) {
-        console.error('Failed to close window:', err);
+        if (appWindow) await appWindow.destroy();
       }
     } else {
       setIsCloseModalOpen(true);
@@ -184,12 +190,22 @@ export default function TitleBar() {
       {/* ═══ RIGHT: Status + Clock + Controls ═══ */}
       <div className="flex items-center gap-4 pr-3 z-10 h-full">
         {/* Status Badge */}
-        <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+        <div className={`flex items-center gap-2 px-2.5 py-1 rounded-full border shadow-sm transition-all ${
+          runningServers > 0
+            ? 'bg-emerald-500/10 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+            : totalServers > 0
+            ? 'bg-amber-500/10 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
+            : 'bg-slate-500/10 border-slate-500/20'
+        }`}>
           <div className="relative flex items-center justify-center w-2 h-2">
-            <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-50" />
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+            {runningServers > 0 && <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-50" />}
+            <div className={`w-1.5 h-1.5 rounded-full ${
+              runningServers > 0 ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : totalServers > 0 ? 'bg-amber-400' : 'bg-slate-400'
+            }`} />
           </div>
-          <span className="text-[10px] font-bold text-emerald-400 tracking-wider">
+          <span className={`text-[10px] font-bold tracking-wider ${
+            runningServers > 0 ? 'text-emerald-400' : totalServers > 0 ? 'text-amber-400' : 'text-slate-400'
+          }`}>
             {runningServers > 0 ? 'ONLINE' : totalServers > 0 ? 'STANDBY' : 'OFFLINE'}
           </span>
         </div>
@@ -203,13 +219,16 @@ export default function TitleBar() {
 
         {/* Window Controls Pill */}
         <div
-          className="flex items-center gap-2 px-2.5 py-1.5 ml-2 rounded-full bg-black/40 border border-white/5 shadow-inner"
-          data-no-drag
+          className="flex items-center gap-2 px-2.5 py-1.5 ml-2 rounded-full bg-black/40 border border-white/5 shadow-inner cursor-default"
+          data-tauri-drag-region="false"
+          style={{ WebkitAppRegion: 'no-drag', AppRegion: 'no-drag' } as React.CSSProperties}
         >
           {/* Minimize */}
           <motion.button
             onClick={handleMinimize}
-            className="relative flex items-center justify-center w-6 h-6 rounded-full border border-yellow-500/40 bg-yellow-500/10 text-yellow-500 shadow-[0_0_12px_rgba(234,179,8,0.3)] transition-all hover:bg-yellow-500/20 hover:shadow-[0_0_15px_rgba(234,179,8,0.5)] focus:outline-none"
+            data-tauri-drag-region="false"
+            style={{ WebkitAppRegion: 'no-drag', AppRegion: 'no-drag' } as React.CSSProperties}
+            className="relative flex items-center justify-center w-6 h-6 rounded-full border border-yellow-500/40 bg-yellow-500/10 text-yellow-500 shadow-[0_0_12px_rgba(234,179,8,0.3)] transition-all hover:bg-yellow-500/20 hover:shadow-[0_0_15px_rgba(234,179,8,0.5)] focus:outline-none cursor-pointer"
             title="Minimize"
             whileTap={{ scale: 0.85 }}
             transition={appleSpring}
@@ -220,7 +239,9 @@ export default function TitleBar() {
           {/* Maximize */}
           <motion.button
             onClick={handleMaximizeToggle}
-            className="relative flex items-center justify-center w-6 h-6 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)] transition-all hover:bg-emerald-500/20 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] focus:outline-none"
+            data-tauri-drag-region="false"
+            style={{ WebkitAppRegion: 'no-drag', AppRegion: 'no-drag' } as React.CSSProperties}
+            className="relative flex items-center justify-center w-6 h-6 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)] transition-all hover:bg-emerald-500/20 hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] focus:outline-none cursor-pointer"
             title={isMaximized ? 'Restore' : 'Maximize'}
             whileTap={{ scale: 0.85 }}
             transition={appleSpring}
@@ -235,7 +256,9 @@ export default function TitleBar() {
           {/* Close */}
           <motion.button
             onClick={handleClose}
-            className="relative flex items-center justify-center w-6 h-6 rounded-full border border-red-500/40 bg-red-500/10 text-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)] transition-all hover:bg-red-500/20 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] focus:outline-none"
+            data-tauri-drag-region="false"
+            style={{ WebkitAppRegion: 'no-drag', AppRegion: 'no-drag' } as React.CSSProperties}
+            className="relative flex items-center justify-center w-6 h-6 rounded-full border border-red-500/40 bg-red-500/10 text-red-500 shadow-[0_0_12px_rgba(239,68,68,0.3)] transition-all hover:bg-red-500/20 hover:shadow-[0_0_15px_rgba(239,68,68,0.5)] focus:outline-none cursor-pointer"
             title="Close"
             whileTap={{ scale: 0.85 }}
             transition={appleSpring}

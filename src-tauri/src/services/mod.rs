@@ -20,7 +20,6 @@ pub mod rcon;
 pub mod scheduler;
 pub mod server_installer;
 pub mod steamcmd;
-pub mod cloud_backup_service;
 pub mod mod_watchdog;
 pub mod mod_validator;
 pub mod workshop_metadata;
@@ -69,7 +68,16 @@ pub fn resolve_steamcmd_dir(
         .path()
         .app_data_dir()
         .map_err(|e| format!("Failed to get app data dir: {}", e))?;
-    Ok(app_dir.join("steamcmd"))
+    let default_path = app_dir.join("steamcmd");
+    
+    // Self-heal: SteamCMD fails to run/update if its path contains non-ASCII characters (e.g. Cyrillic/Turkish names)
+    if has_non_ascii_chars(&default_path.to_string_lossy()) {
+        let safe_fallback = PathBuf::from("C:\\ARKServerManager\\steamcmd");
+        println!("[SteamCMD Path Resolver] ⚠️ Default SteamCMD path contains non-ASCII characters! Falling back to safe path: {:?}", safe_fallback);
+        Ok(safe_fallback)
+    } else {
+        Ok(default_path)
+    }
 }
 
 /// Resolve the SteamCMD directory using AppState (convenience wrapper).

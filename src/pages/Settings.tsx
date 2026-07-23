@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useBlocker } from 'react-router-dom';
-import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, Cloud, FolderOpen, FileText, Search, Copy, Check, Terminal, X, Cpu } from 'lucide-react';
+import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, FolderOpen, FileText, Search, Copy, Check, Terminal, X, Cpu } from 'lucide-react';
 import { getSetting, setSetting, getAllServers } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import FirewallSettings from '../components/settings/FirewallSettings';
 import StartupSettings from '../components/settings/StartupSettings';
-import CloudBackupDashboard from '../components/backups/CloudBackupDashboard';
 import { manualCheckForUpdates } from '../components/UpdateChecker';
 import { cn } from '../utils/helpers';
 import { useServerStore } from '../stores/serverStore';
@@ -63,8 +62,15 @@ export default function Settings() {
     // User Config Folder state
     const [userConfigFolder, setUserConfigFolder] = useState('');
     const [customSteamcmdPath, setCustomSteamcmdPath] = useState('');
+    const [resolvedSteamcmdPath, setResolvedSteamcmdPath] = useState('');
 
-    const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language' | 'cloud' | 'startup'>('api');
+    useEffect(() => {
+        invoke<string>('get_steamcmd_dir')
+            .then(setResolvedSteamcmdPath)
+            .catch(() => {});
+    }, [customSteamcmdPath]);
+
+    const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language' | 'startup'>('api');
     const { setServers, activeServer } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
 
@@ -555,17 +561,7 @@ export default function Settings() {
                 >
                     <span className="relative z-10 flex items-center gap-2">⚡ {t('settings.tabs.startup', 'Startup & Recovery')}</span>
                 </button>
-                <button
-                    onClick={() => setActiveTab('cloud')}
-                    className={cn(
-                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
-                        activeTab === 'cloud'
-                            ? "text-blue-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-                    )}
-                >
-                    <span className="relative z-10 flex items-center gap-2"><Cloud className="w-4 h-4" /> {t('settings.tabs.cloudBackup', 'Cloud Backup')}</span>
-                </button>
+
                 <button
                     onClick={() => setActiveTab('language')}
                     className={cn(
@@ -738,16 +734,26 @@ export default function Settings() {
                             )}
                         </div>
                         {/[^\x00-\x7F]/.test(customSteamcmdPath) && (
-                            <p className="mt-3 text-xs text-red-400 flex items-center gap-1.5">
-                                <AlertCircle className="w-3.5 h-3.5" />
+                            <p className="mt-3 text-xs text-red-400 flex items-center gap-1.5 font-medium">
+                                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                                 {t('settings.customSteamcmdPath.invalidWarning', 'Warning: Path contains non-ASCII characters. SteamCMD will fail to run here.')}
                             </p>
                         )}
-                        {customSteamcmdPath && !/[^\x00-\x7F]/.test(customSteamcmdPath) && (
-                            <p className="mt-3 text-xs text-sky-400/70 flex items-center gap-1.5">
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                {t('settings.customSteamcmdPath.activeNote', 'SteamCMD operations will run from this folder')}
-                            </p>
+                        {resolvedSteamcmdPath && (
+                            <div className="mt-4 p-3 bg-slate-900/60 rounded-xl border border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <div className="flex items-center gap-2 text-slate-300">
+                                    <CheckCircle className="w-4 h-4 text-sky-400 shrink-0" />
+                                    <span className="font-medium text-slate-400">Active SteamCMD Location:</span>
+                                    <code className="px-2 py-0.5 bg-slate-800 rounded text-sky-300 font-mono text-[11px] select-all border border-white/10">
+                                        {resolvedSteamcmdPath}
+                                    </code>
+                                </div>
+                                {resolvedSteamcmdPath.includes('ARKServerManager') && !customSteamcmdPath && (
+                                    <span className="text-[11px] text-amber-300 font-medium bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
+                                        🛡️ Auto-Fallback Active (Windows username path contained special characters)
+                                    </span>
+                                )}
+                            </div>
                         )}
                     </div>
 
@@ -768,7 +774,7 @@ export default function Settings() {
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-3">
-                                    {t('settings.curseforgeKey.label', 'API Key')}
+                                    {t('settings.steamKey.label', 'API Key')}
                                 </label>
                                 <div className="relative">
                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
@@ -776,7 +782,7 @@ export default function Settings() {
                                         type={showSteamKey ? 'text' : 'password'}
                                         value={steamApiKey}
                                         onChange={(e) => setSteamApiKey(e.target.value)}
-                                        placeholder={t('settings.curseforgeKey.placeholder', 'Enter your Steam Web API key').replace('CurseForge', 'Steam Web')}
+                                        placeholder={t('settings.steamKey.placeholder', 'Enter your Steam Web API key')}
                                         className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all font-mono"
                                     />
                                     <button
@@ -790,16 +796,16 @@ export default function Settings() {
                             </div>
 
                             <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-4">
-                                <p className="text-sm text-slate-300 font-medium mb-3">{t('settings.curseforgeKey.needKey', 'A Steam Web API key is required.')}</p>
+                                <p className="text-sm text-slate-300 font-medium mb-3">{t('settings.steamKey.needKey', 'A Steam Web API key is required.')}</p>
                                 <button
                                     onClick={() => openUrl('https://steamcommunity.com/dev/apikey')}
                                     className="flex items-center space-x-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition-colors shadow-lg shadow-sky-500/20 w-full justify-center"
                                 >
                                     <ExternalLink className="w-4 h-4" />
-                                    <span>{t('settings.curseforgeKey.getKey', 'Get your API key here').replace('CurseForge', 'Steam')}</span>
+                                    <span>{t('settings.steamKey.getKey', 'Get your Steam API key here')}</span>
                                 </button>
                                 <p className="text-xs text-slate-400 mt-3">
-                                    {t('settings.curseforgeKey.instructions', 'Create a key in your developer account.').replace('Create/Copy', 'Enter domain name → Copy')}
+                                    {t('settings.steamKey.instructions', 'Create a key in your Steam developer account.')}
                                 </p>
                             </div>
 
@@ -1524,11 +1530,7 @@ export default function Settings() {
                     silentHeadlessStartup={silentHeadlessStartup}
                     setSilentHeadlessStartup={setSilentHeadlessStartup}
                 />
-            ) : activeTab === 'cloud' ? (
-                <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
 
-                    <CloudBackupDashboard serverId={selectedServerId} />
-                </div>
             ) : activeTab === 'language' ? (
                 <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
                     <div className="glass-panel rounded-2xl p-8">

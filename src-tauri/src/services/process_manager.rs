@@ -861,14 +861,40 @@ impl ProcessManager {
             }
         };
 
-        // Guard: reject duplicate starts — if the process is already tracked, bail immediately.
+        // Guard: reject duplicate starts — if the process is already tracked, verify if it's actually alive.
         {
-            let procs = self.processes.lock().unwrap_or_else(|e| e.into_inner());
-            if procs.contains_key(&server_id) {
-                return Err(anyhow::anyhow!(
-                    "Server {} is already running. Ignoring duplicate start request.",
-                    server_id
-                ));
+            let mut procs = self.processes.lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(proc) = procs.get_mut(&server_id) {
+                let mut is_dead = false;
+                if let Some(ref mut child) = proc.child {
+                    if let Ok(Some(_)) = child.try_wait() {
+                        is_dead = true;
+                    }
+                }
+
+                #[cfg(target_os = "windows")]
+                if !is_dead && proc.pid > 0 {
+                    let output = Command::new("tasklist")
+                        .args(["/FI", &format!("PID eq {}", proc.pid), "/NH"])
+                        .creation_flags(CREATE_NO_WINDOW)
+                        .output();
+                    if let Ok(out) = output {
+                        let text = String::from_utf8_lossy(&out.stdout);
+                        if !text.contains(&proc.pid.to_string()) {
+                            is_dead = true;
+                        }
+                    }
+                }
+
+                if is_dead {
+                    println!("  ⚠️ Server {} process (PID {}) is no longer active, removing stale entry.", server_id, proc.pid);
+                    procs.remove(&server_id);
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "Server {} is already running. Ignoring duplicate start request.",
+                        server_id
+                    ));
+                }
             }
         }
 
@@ -934,10 +960,11 @@ impl ProcessManager {
         // Add MaxPlayers as a launch argument (Required for ASA)
         args.push(format!("-WinLiveMaxPlayers={}", max_players));
 
-        // Add MultiHome for IP binding
+        // Add MultiHome for IP binding only if a specific local IP is provided
         if let Some(ip) = ip_address {
-            if !ip.is_empty() {
-                args.push(format!("-MultiHome={}", ip));
+            let trimmed_ip = ip.trim();
+            if !trimmed_ip.is_empty() && trimmed_ip != "0.0.0.0" && trimmed_ip != "127.0.0.1" {
+                args.push(format!("-MultiHome={}", trimmed_ip));
             }
         }
 
@@ -965,27 +992,14 @@ impl ProcessManager {
                 for mod_id in mod_list {
                     let mod_path = mods_dir.join(mod_id);
                     if mod_path.exists() && mod_path.is_dir() {
-                        let mut has_valid_files = false;
-                        let mut total_size: u64 = 0;
+                        let is_empty = std::fs::read_dir(&mod_path)
+                            .map(|mut entries| entries.next().is_none())
+                            .unwrap_or(false);
 
-                        for entry in walkdir::WalkDir::new(&mod_path).into_iter().filter_map(|e| e.ok()) {
-                            if entry.file_type().is_file() {
-                                if let Some(ext) = entry.path().extension() {
-                                    let ext_str = ext.to_string_lossy().to_lowercase();
-                                    if ext_str == "pak" || ext_str == "ucas" || ext_str == "utoc" || ext_str == "mod" || ext_str == "json" {
-                                        has_valid_files = true;
-                                    }
-                                }
-                                if let Ok(metadata) = entry.metadata() {
-                                    total_size += metadata.len();
-                                }
-                            }
-                        }
-
-                        if !has_valid_files || total_size < 1024 {
+                        if is_empty {
                             println!(
-                                "  🧹 Cleaning corrupt mod cache for {} (has_valid_files={}, size={}B) — CFCore will re-download",
-                                mod_id, has_valid_files, total_size
+                                "  🧹 Removing empty mod folder for {} — CFCore will re-download if active",
+                                mod_id
                             );
                             let _ = std::fs::remove_dir_all(&mod_path);
                         }
@@ -1489,7 +1503,7 @@ impl ProcessManager {
                             }
                         }
                         // No new data, wait a bit
-                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        std::thread::sleep(std::time::Duration::from_millis(500));
                     }
                     Ok(n) => {
                         bytes_read += n as u64;
@@ -1582,7 +1596,7 @@ impl ProcessManager {
                         }
                     }
                     Err(_) => {
-                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        std::thread::sleep(std::time::Duration::from_millis(500));
                     }
                 }
             }
@@ -1654,7 +1668,60 @@ impl ProcessManager {
         reasons.insert(server_id, reason);
     }
 
+    fn kill_processes_on_ports(ports: &[u16]) {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+            let current_pid = std::process::id();
+            let valid_ports: Vec<u16> = ports.iter().cloned().filter(|&p| p > 0).collect();
+            if valid_ports.is_empty() { return; }
+
+            for protocol in ["UDP", "TCP"] {
+                if let Ok(output) = Command::new("netstat")
+                    .args(["-ano", "-p", protocol])
+                    .creation_flags(CREATE_NO_WINDOW)
+                    .output()
+                {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    for line in stdout.lines() {
+                        for &port in &valid_ports {
+                            let port_pattern = format!(":{}", port);
+                            if line.contains(&port_pattern) {
+                                if let Some(pid_str) = line.split_whitespace().last() {
+                                    if let Ok(pid) = pid_str.parse::<u32>() {
+                                        if pid > 4 && pid != current_pid {
+                                            if let Ok(task_out) = Command::new("tasklist")
+                                                .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
+                                                .creation_flags(CREATE_NO_WINDOW)
+                                                .output()
+                                            {
+                                                let task_str = String::from_utf8_lossy(&task_out.stdout).to_lowercase();
+                                                if task_str.contains("asa-server-manager") || task_str.contains("cargo") || task_str.contains("tauri") || task_str.contains("node") {
+                                                    println!("  ⚠️ [SAFETY] Skipping termination of manager/dev process PID {}", pid);
+                                                    continue;
+                                                }
+                                            }
+
+                                            println!("  🧹 [BACKGROUND CLEANUP] Terminating background server process on port {}: PID {}", port, pid);
+                                            let _ = Command::new("taskkill")
+                                                .args(["/F", "/PID", &pid.to_string()])
+                                                .creation_flags(CREATE_NO_WINDOW)
+                                                .output();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Stop ARK server with a reason (authorized stop)
+
     pub fn stop_server_with_reason(&self, server_id: i64, reason: StopReason) -> Result<()> {
         println!("  [LIFECYCLE] Server {} stop requested | reason: {}", server_id, reason);
 
@@ -1672,6 +1739,25 @@ impl ProcessManager {
                 guard.mark_as_stopping(server_id).await;
                 guard.mark_as_stopping(-server_id).await;
             });
+        }
+
+        // Retrieve server ports from DB to ensure thorough background process termination
+        let mut target_ports = Vec::new();
+        if let Some(state) = self.app_handle.try_state::<crate::AppState>() {
+            if let Ok(db_guard) = state.db.lock() {
+                if let Ok(conn) = db_guard.get_connection() {
+                    let is_ase = conn.query_row("SELECT 1 FROM ase_servers WHERE id = ?1", [server_id], |_| Ok(true)).unwrap_or(false);
+                    let table = if is_ase { "ase_servers" } else { "servers" };
+                    let query = format!("SELECT game_port, query_port, rcon_port FROM {} WHERE id = ?1", table);
+                    if let Ok((g, q, r)) = conn.query_row(&query, [server_id], |row| {
+                        Ok((row.get::<_, u16>(0).unwrap_or(0), row.get::<_, u16>(1).unwrap_or(0), row.get::<_, u16>(2).unwrap_or(0)))
+                    }) {
+                        if g > 0 { target_ports.push(g); }
+                        if q > 0 { target_ports.push(q); }
+                        if r > 0 { target_ports.push(r); }
+                    }
+                }
+            }
         }
 
         let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
@@ -1696,6 +1782,19 @@ impl ProcessManager {
             if let Some(mut child) = server_proc.child {
                 let _ = child.kill();
                 let _ = child.wait();
+            }
+
+            // Kill any lingering background process on ports
+            Self::kill_processes_on_ports(&target_ports);
+
+            // Clear process_id and update status in DB
+            if let Some(state) = self.app_handle.try_state::<crate::AppState>() {
+                if let Ok(db_guard) = state.db.lock() {
+                    if let Ok(conn) = db_guard.get_connection() {
+                        let _ = conn.execute("UPDATE servers SET status = 'stopped', process_id = NULL WHERE id = ?1", [server_id]);
+                        let _ = conn.execute("UPDATE ase_servers SET status = 'stopped', process_id = NULL WHERE id = ?1", [server_id]);
+                    }
+                }
             }
 
             // Emit lifecycle event
@@ -1762,6 +1861,9 @@ impl ProcessManager {
                             }
                         }
 
+                        // Also kill any process listening on ports
+                        Self::kill_processes_on_ports(&target_ports);
+
                         // Update status in DB
                         let update_query = format!("UPDATE {} SET status = 'stopped', process_id = NULL WHERE id = ?1", table);
                         let _ = conn.execute(&update_query, [server_id]);
@@ -1793,6 +1895,19 @@ impl ProcessManager {
         }
 
         Ok(())
+    }
+
+    /// Force stop all active background servers (used during app exit)
+    pub fn stop_all_servers(&self) {
+        let server_ids: Vec<i64> = {
+            let procs = self.processes.lock().unwrap_or_else(|e| e.into_inner());
+            procs.keys().cloned().collect()
+        };
+
+        for id in server_ids {
+            println!("  ⏹️ Terminating background server {} on application exit...", id);
+            let _ = self.stop_server_with_reason(id, StopReason::SystemShutdown);
+        }
     }
 
     /// Stop ARK server (Force) — backward-compatible wrapper, defaults to UserAction
@@ -2068,6 +2183,15 @@ impl ProcessManager {
         query_port: u16,
         ip_address: Option<String>,
     ) {
+        // Do not auto-register process if server is currently stopping or queued for stop
+        {
+            let reasons = self.pending_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
+            if reasons.contains_key(&server_id) {
+                println!("  🛑 [PROCESS RECOVERY] Skipping auto-register of server {} because it has a pending stop signal.", server_id);
+                return;
+            }
+        }
+
         let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
         
         // Only insert if not already tracked
@@ -2094,6 +2218,14 @@ impl ProcessManager {
                 server_type, server_id, pid, query_port
             );
         }
+    }
+
+    /// Clear tracking entry and pending stop reason for a server (used prior to forced restart)
+    pub fn force_cleanup_server_entry(&self, server_id: i64) {
+        let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
+        processes.remove(&server_id);
+        let mut reasons = self.pending_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
+        reasons.remove(&server_id);
     }
 }
 

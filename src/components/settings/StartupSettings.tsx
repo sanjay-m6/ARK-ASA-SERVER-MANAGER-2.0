@@ -1,4 +1,5 @@
-import { ShieldAlert, Play, Clock, LogIn, Monitor, AlertTriangle, Cpu } from 'lucide-react';
+import { useState } from 'react';
+import { ShieldAlert, Play, Clock, LogIn, Monitor, AlertTriangle, Cpu, Minimize2, LogOut, HelpCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface StartupSettingsProps {
@@ -35,6 +36,26 @@ export default function StartupSettings({
     setSilentHeadlessStartup,
 }: StartupSettingsProps) {
     const { t } = useTranslation();
+
+    const [closeActionPref, setCloseActionPref] = useState<'ask' | 'tray' | 'exit'>(() => {
+        const remember = localStorage.getItem('rememberCloseAction') === 'true';
+        if (!remember) return 'ask';
+        const pref = localStorage.getItem('closeActionPreference');
+        if (pref === 'tray') return 'tray';
+        if (pref === 'exit') return 'exit';
+        return 'ask';
+    });
+
+    const handleClosePrefChange = (pref: 'ask' | 'tray' | 'exit') => {
+        setCloseActionPref(pref);
+        if (pref === 'ask') {
+            localStorage.setItem('rememberCloseAction', 'false');
+            localStorage.setItem('closeActionPreference', 'ask');
+        } else {
+            localStorage.setItem('rememberCloseAction', 'true');
+            localStorage.setItem('closeActionPreference', pref);
+        }
+    };
 
     return (
         <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
@@ -180,6 +201,91 @@ export default function StartupSettings({
                             </div>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* 3. Window Close Action */}
+            <div className="glass-panel rounded-2xl p-8">
+                <div className="flex items-start space-x-4 mb-6">
+                    <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20">
+                        <LogOut className="w-6 h-6 text-purple-400" />
+                    </div>
+                    <div className="flex-1">
+                        <h2 className="text-2xl font-bold text-white mb-2">
+                            {t('settings.startup.closeBehaviorTitle', 'Window Close Action')}
+                        </h2>
+                        <p className="text-slate-400">
+                            {t('settings.startup.closeBehaviorDesc', 'Configure what happens when you click the application close [X] button.')}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Option 1: Always Ask */}
+                    <button
+                        type="button"
+                        onClick={() => handleClosePrefChange('ask')}
+                        className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                            closeActionPref === 'ask'
+                                ? 'bg-purple-600/20 border-purple-500 text-white shadow-md shadow-purple-500/10'
+                                : 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                        }`}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2 font-semibold text-sm text-white">
+                                <HelpCircle className="w-4 h-4 text-purple-400" />
+                                <span>{t('settings.startup.closeActionAsk', 'Always Ask')}</span>
+                            </div>
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${closeActionPref === 'ask' ? 'border-purple-400 bg-purple-500' : 'border-slate-600'}`}>
+                                {closeActionPref === 'ask' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-400">{t('settings.startup.closeActionAskDesc', 'Prompt with confirmation modal each time window is closed')}</p>
+                    </button>
+
+                    {/* Option 2: Minimize to Tray */}
+                    <button
+                        type="button"
+                        onClick={() => handleClosePrefChange('tray')}
+                        className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                            closeActionPref === 'tray'
+                                ? 'bg-purple-600/20 border-purple-500 text-white shadow-md shadow-purple-500/10'
+                                : 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                        }`}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2 font-semibold text-sm text-white">
+                                <Minimize2 className="w-4 h-4 text-purple-400" />
+                                <span>{t('settings.startup.closeActionTray', 'Minimize to System Tray')}</span>
+                            </div>
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${closeActionPref === 'tray' ? 'border-purple-400 bg-purple-500' : 'border-slate-600'}`}>
+                                {closeActionPref === 'tray' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-400">{t('settings.startup.closeActionTrayDesc', 'Keep game servers & cross-chat running silently in background')}</p>
+                    </button>
+
+                    {/* Option 3: Exit Completely */}
+                    <button
+                        type="button"
+                        onClick={() => handleClosePrefChange('exit')}
+                        className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                            closeActionPref === 'exit'
+                                ? 'bg-rose-600/20 border-rose-500 text-white shadow-md shadow-rose-500/10'
+                                : 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                        }`}
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2 font-semibold text-sm text-white">
+                                <LogOut className="w-4 h-4 text-rose-400" />
+                                <span>{t('settings.startup.closeActionExit', 'Exit Completely')}</span>
+                            </div>
+                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${closeActionPref === 'exit' ? 'border-rose-400 bg-rose-500' : 'border-slate-600'}`}>
+                                {closeActionPref === 'exit' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-400">{t('settings.startup.closeActionExitDesc', 'Shut down background server processes and exit application')}</p>
+                    </button>
                 </div>
             </div>
 

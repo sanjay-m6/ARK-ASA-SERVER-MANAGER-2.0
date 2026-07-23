@@ -58,20 +58,29 @@ impl PluginManagerService {
             let asa_plugins = asa_api_parent.join("Plugins");
             let ark_plugins = ark_api_parent.join("Plugins");
             
+            let mut merge_success = true;
             if asa_plugins.exists() {
                 if !ark_plugins.exists() {
                     let _ = std::fs::create_dir_all(&ark_plugins);
                 }
                 if let Ok(entries) = std::fs::read_dir(&asa_plugins) {
                     for entry in entries.flatten() {
+                        let src = entry.path();
                         let dest = ark_plugins.join(entry.file_name());
                         if !dest.exists() {
-                            let _ = std::fs::rename(entry.path(), dest);
+                            if let Err(e) = std::fs::rename(&src, &dest) {
+                                println!("[MIGRATION] [Error] Failed to move plugin folder {:?} to {:?}: {}", src, dest, e);
+                                merge_success = false;
+                            }
                         }
                     }
                 }
             }
-            let _ = std::fs::remove_dir_all(&asa_api_parent);
+            if merge_success {
+                let _ = std::fs::remove_dir_all(&asa_api_parent);
+            } else {
+                println!("[MIGRATION] [Warning] Plugin merge was incomplete. Retaining AsaApi directory to prevent data loss.");
+            }
         }
 
         // Copy/Update AsaApi.dll and AsaApi.pdb from ArkApi/ to Win64/

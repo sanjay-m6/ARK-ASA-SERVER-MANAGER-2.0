@@ -20,7 +20,6 @@ use services::rcon::RconService;
 use services::steamcmd::SteamCmdService;
 use services::scheduler::SchedulerService;
 use services::cross_chat::CrossChatService;
-use services::cloud_backup_service::CloudBackupService;
 use services::mod_watchdog::ModWatchdogService;
 use std::sync::{Arc, Mutex};
 use sysinfo::System;
@@ -41,7 +40,6 @@ pub struct AppState {
     pub scheduler: Arc<SchedulerService>,
     pub cross_chat: Arc<CrossChatService>,
     pub advanced_config: Arc<AdvancedConfigService>,
-    pub cloud_backup: Arc<CloudBackupService>,
     pub mod_watchdog: Arc<ModWatchdogService>,
 }
 
@@ -77,6 +75,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 if minimize_to_tray {
                     let _ = window.hide();
                     api.prevent_close();
+                } else {
+                    println!("🚪 Application closing — keeping running server processes active in background...");
                 }
             }
         })
@@ -277,7 +277,6 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             let anti_cheat = Arc::new(AntiCheatService::new(app_handle.clone()));
             let cross_chat = Arc::new(CrossChatService::with_app_handle(app_handle.clone(), rcon_service.clone()));
             let advanced_config = Arc::new(AdvancedConfigService::new(app_handle.clone()));
-            let cloud_backup = Arc::new(CloudBackupService::new());
             let mod_watchdog = Arc::new(ModWatchdogService::new(app_handle.clone()));
 
             // 1. Manage AppState BEFORE starting any background tasks
@@ -296,7 +295,6 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 scheduler: scheduler.clone(),
                 cross_chat,
                 advanced_config,
-                cloud_backup: cloud_backup.clone(),
                 mod_watchdog: mod_watchdog.clone(),
             });
 
@@ -304,7 +302,6 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             app.manage(RconState(rcon_service.clone()));
             let guardian_service = Arc::new(tokio::sync::Mutex::new(services::guardian::GuardianService::new()));
             app.manage(services::guardian::GuardianState(guardian_service.clone()));
-            app.manage(cloud_backup.clone());
             app.manage(player_intelligence.clone());
 
             // 3. Start background tasks ONLY AFTER state is managed
@@ -981,14 +978,6 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               commands::backup::update_backup_label,
               commands::backup::update_backup_notes,
               commands::backup::toggle_backup_protection,
-
-              // Cloud Backup Commands
-              commands::cloud_backup::get_cloud_backup_settings,
-              commands::cloud_backup::save_cloud_backup_settings,
-              commands::cloud_backup::test_cloud_provider_connection,
-              commands::cloud_backup::list_cloud_backups,
-              commands::cloud_backup::trigger_manual_cloud_backup,
-              commands::cloud_backup::restore_cloud_backup,
 
               // Mod Watchdog Commands
              commands::watchdog::get_watchdog_config,

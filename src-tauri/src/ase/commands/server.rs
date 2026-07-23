@@ -240,7 +240,7 @@ pub async fn update_ase_server_install(
         Some(srv.branch.clone())
     };
 
-    match installer.install_server(&install_dir, "ASE", branch_opt).await {
+    match installer.install_server_ext(&install_dir, "ASE", branch_opt, true).await {
         Ok(_) => {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let conn = db.get_connection().map_err(|e| e.to_string())?;

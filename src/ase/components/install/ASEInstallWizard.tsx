@@ -540,11 +540,9 @@ export default function ASEInstallWizard({ onClose }: Props) {
                     </div>
                     <div className="space-y-4">
                       <div>
-                        <span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Server Name</span>
-                        <div className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-amber-400 font-mono text-sm flex items-center justify-between">
-                          <span className="font-semibold">{name}</span>
-                          <span className="text-xs text-slate-500 font-sans font-normal">⚡ Auto-generated system identifier</span>
-                        </div>
+                        <span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Server Folder Name</span>
+                        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="server1"
+                          className="w-full px-4 py-3 bg-slate-800/60 border border-white/10 rounded-xl text-amber-400 font-mono text-sm placeholder-slate-600 focus:outline-none focus:border-amber-500/40 transition-all" />
                       </div>
                       <label className="block"><span className="text-xs font-medium text-slate-400 mb-1.5 block uppercase tracking-wider">Session Name (Browser Display)</span>
                         <input type="text" value={sessionName} onChange={e => setSessionName(e.target.value)} placeholder="My ASE Server"

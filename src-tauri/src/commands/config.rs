@@ -259,12 +259,16 @@ pub async fn save_config(
             });
 
         let rcon_port: Option<u16> = IniParser::get_value(&content, "ServerSettings", "RCONPort")
+            .or_else(|| IniParser::get_value(&content, "URL", "RCONPort"))
             .and_then(|v| v.trim_matches('"').trim_matches('\'').parse().ok());
 
         let game_port: Option<u16> = IniParser::get_value(&content, "URL", "Port")
+            .or_else(|| IniParser::get_value(&content, "ServerSettings", "Port"))
+            .or_else(|| IniParser::get_value(&content, "ServerSettings", "GamePort"))
             .and_then(|v| v.trim_matches('"').trim_matches('\'').parse().ok());
 
         let query_port: Option<u16> = IniParser::get_value(&content, "URL", "QueryPort")
+            .or_else(|| IniParser::get_value(&content, "ServerSettings", "QueryPort"))
             .and_then(|v| v.trim_matches('"').trim_matches('\'').parse().ok());
 
         let ip_address = IniParser::get_value(&content, "URL", "MultiHome")

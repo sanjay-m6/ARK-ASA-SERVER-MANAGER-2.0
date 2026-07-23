@@ -93,7 +93,6 @@ export default function ServerOrganization() {
   const [serverToArchive, setServerToArchive] = useState<number | null>(null);
   const [archiveReasonInput, setArchiveReasonInput] = useState('');
 
-  // Fetch all initial data
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -103,7 +102,7 @@ export default function ServerOrganization() {
       setFolders(allFolders);
       const allArchived = await getArchivedServers();
       setArchived(allArchived);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to load organization data:', e);
       toast.error('Failed to sync organization data from database.');
     } finally {
@@ -138,6 +137,7 @@ export default function ServerOrganization() {
         });
         toast.success(`Folder "${folderForm.name}" created successfully.`);
       }
+
       setShowFolderModal(false);
       setEditingFolder(null);
       setFolderForm({ name: '', description: '', color: '#8B5CF6', icon: 'folder' });
@@ -152,7 +152,7 @@ export default function ServerOrganization() {
     setFolderForm({
       name: folder.name,
       description: folder.description || '',
-      color: folder.color,
+      color: folder.color || '#8B5CF6',
       icon: folder.icon || 'folder'
     });
     setShowFolderModal(true);
@@ -177,7 +177,6 @@ export default function ServerOrganization() {
     }
   };
 
-  // Add/Remove server from folder
   const handleToggleServerFolder = async (serverId: number, folderId: number, isAssigned: boolean) => {
     try {
       if (isAssigned) {
@@ -193,21 +192,18 @@ export default function ServerOrganization() {
     }
   };
 
-  // Customization selection
-  const handleSelectCustomServer = async (serverId: number) => {
+  const handleSelectCustomServer = (serverId: number) => {
     setSelectedCustomServer(serverId);
-    const server = snapshot?.servers.find((s: any) => s.id === serverId);
-    const cust = server?.customization;
-
+    const existing = snapshot?.customizations?.[serverId];
     setCustomForm({
-      displayName: cust?.displayName || '',
-      customIcon: cust?.customIcon || '',
-      customBanner: cust?.customBanner || '',
-      colorTag: cust?.colorTag || '#3B82F6',
-      isPinned: cust?.isPinned || false,
-      favorite: cust?.favorite || false,
-      tags: cust?.tags || [],
-      notes: cust?.notes || '',
+      displayName: existing?.displayName || '',
+      customIcon: existing?.customIcon || '',
+      customBanner: existing?.customBanner || '',
+      colorTag: existing?.colorTag || '#3B82F6',
+      isPinned: existing?.isPinned || false,
+      favorite: existing?.favorite || false,
+      tags: existing?.tags || [],
+      notes: existing?.notes || '',
       newTag: ''
     });
   };
@@ -233,7 +229,6 @@ export default function ServerOrganization() {
     }
   };
 
-  // Tag helper
   const handleAddTag = () => {
     if (!customForm.newTag.trim()) return;
     if (customForm.tags.includes(customForm.newTag.trim())) return;
@@ -251,7 +246,6 @@ export default function ServerOrganization() {
     });
   };
 
-  // Bulk actions
   const handleToggleSelectAll = () => {
     if (selectedServers.length === servers.length) {
       setSelectedServers([]);
@@ -298,7 +292,6 @@ export default function ServerOrganization() {
     }
   };
 
-  // Archiving
   const handleArchiveSingleServer = (id: number) => {
     setServerToArchive(id);
     setArchiveReasonInput('');
@@ -330,7 +323,6 @@ export default function ServerOrganization() {
     }
   };
 
-  // Reordering
   const handleMoveOrder = async (serverId: number, direction: 'up' | 'down') => {
     const activeServers = snapshot?.servers || [];
     const index = activeServers.findIndex((s: any) => s.id === serverId);

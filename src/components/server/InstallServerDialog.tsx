@@ -698,13 +698,16 @@ export default function InstallServerDialog({ onClose }: Props) {
                                     <div>
                                         <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
                                             <Server className="w-4 h-4 text-cyan-400" />
-                                            {t('dialogs.installServer.serverName')}
+                                            {t('dialogs.installServer.serverName', 'Server Profile Name')}
                                         </label>
-                                        <div className="w-full px-4 py-3 bg-slate-800/60 border border-slate-700/60 rounded-xl text-cyan-400 font-mono text-base flex items-center justify-between">
-                                            <span className="font-semibold">{formData.name}</span>
-                                            <span className="text-xs text-slate-500 font-sans font-normal">⚡ Auto-generated system identifier</span>
-                                        </div>
-                                        <p className="text-xs text-slate-500 mt-1">System server folder identifier (e.g. server1, server2...).</p>
+                                        <input
+                                            type="text"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl text-cyan-400 font-mono text-base focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/50 transition-all"
+                                            placeholder="server1"
+                                        />
+                                        <p className="text-xs text-slate-500 mt-1">Unique profile name for this server (e.g. server1, Aberration_PVP...).</p>
                                     </div>
 
                                     <div>

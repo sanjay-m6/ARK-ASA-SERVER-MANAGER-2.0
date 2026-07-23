@@ -587,15 +587,17 @@ export default function ModManager() {
             setBatchProgress({ current: i + 1, total: modIds.length, currentModName: `Mod ${modId}` });
 
             try {
-                // Create a minimal ModInfo object for the bulk import
+                // Create a complete ModInfo object for the bulk import
                 const mod: ModInfo = {
                     id: modId,
                     name: `Mod ${modId}`,
                     author: 'Unknown',
-                    description: '',
+                    description: 'Direct Mod ID Installation',
                     thumbnailUrl: '',
+                    curseforge_url: `https://www.curseforge.com/ark-survival-ascended/mods/${modId}`,
                     compatible: true,
-                    enabled: true
+                    enabled: true,
+                    loadOrder: 0
                 };
                 await installMod(selectedServerId, mod);
                 successCount++;
@@ -608,10 +610,12 @@ export default function ModManager() {
         setIsBulkImporting(false);
         setBatchProgress({ current: 0, total: 0, currentModName: '' });
 
-        if (failCount > 0) {
-            toast.success(t('modManager.batchInstallCompleteWithFailures', { success: successCount, failed: failCount }));
+        if (successCount === 0 && failCount > 0) {
+            toast.error(`Failed to install ${failCount} mod(s). Please verify the Mod ID.`);
+        } else if (failCount > 0) {
+            toast.error(`Installed ${successCount} mod(s), ${failCount} failed.`);
         } else {
-            toast.success(t('modManager.batchInstallComplete', { count: successCount }));
+            toast.success(`Successfully installed ${successCount} mod(s)!`);
         }
 
         // Refresh installed mods if on that tab
@@ -634,7 +638,16 @@ export default function ModManager() {
 
                 {/* Server Selector & Actions */}
                 <div className="flex items-center space-x-4">
-
+                    {/* Add Mod by ID Button (No API Key Required) */}
+                    <button
+                        onClick={() => setShowAdvancedMode(true)}
+                        disabled={!selectedServerId}
+                        className="flex items-center space-x-2 px-4 py-3 bg-sky-600/20 hover:bg-sky-500 text-sky-400 hover:text-white border border-sky-500/30 rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-sky-950/20"
+                        title={t('modManager.addModByIdTooltip', 'Install Mod directly by Mod ID (No API Key Required)')}
+                    >
+                        <PackagePlus className="w-5 h-5 text-sky-400" />
+                        <span className="font-bold text-sm hidden md:inline">Add Mod by ID</span>
+                    </button>
 
                     {/* Modpack Export */}
                     <button
@@ -1208,6 +1221,28 @@ export default function ModManager() {
                                 <Package className="w-16 h-16 text-slate-600 mx-auto mb-4" />
                                 <h3 className="text-xl font-semibold text-slate-300">{t('modManager.noModsFound')}</h3>
                             </div>
+                        ) : availableMods.length === 1 && availableMods[0].id === '0' ? (
+                            <div className="col-span-full p-8 glass-panel rounded-2xl border border-sky-500/30 bg-slate-900/80 shadow-2xl">
+                                <div className="max-w-xl mx-auto space-y-4 text-center">
+                                    <div className="p-4 bg-sky-500/10 rounded-2xl border border-sky-500/20 w-fit mx-auto">
+                                        <PackagePlus className="w-10 h-10 text-sky-400" />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-white">Direct Mod ID Installer</h3>
+                                    <p className="text-slate-300 text-sm leading-relaxed">
+                                        {availableMods[0].description}
+                                    </p>
+                                    <div className="pt-2">
+                                        <button
+                                            onClick={() => setShowAdvancedMode(true)}
+                                            disabled={!selectedServerId}
+                                            className="px-6 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-sky-500/20 inline-flex items-center gap-2"
+                                        >
+                                            <PackagePlus className="w-5 h-5" />
+                                            <span>Add Mod by ID (No API Key Required)</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         ) : (
                             availableMods.map((mod) => (
                                 <ModCard
@@ -1372,6 +1407,35 @@ export default function ModManager() {
                     </div>
                 )
             }
-        </div >
+
+            {/* Advanced Mod ID Import Modal (No API Key Required) */}
+            {showAdvancedMode && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-200">
+                    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl shadow-sky-900/20">
+                        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                <PackagePlus className="w-5 h-5 text-sky-400" />
+                                {t('modManager.addModByIdTitle', 'Install Mods by Mod ID (No API Key Required)')}
+                            </h2>
+                            <button
+                                onClick={() => setShowAdvancedMode(false)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <AdvancedModInput
+                                onImport={(modIds) => {
+                                    setShowAdvancedMode(false);
+                                    handleBulkImportMods(modIds);
+                                }}
+                                isLoading={isBulkImporting}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

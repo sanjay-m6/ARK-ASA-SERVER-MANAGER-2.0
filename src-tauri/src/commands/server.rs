@@ -1686,13 +1686,13 @@ async fn graceful_stop(state: &State<'_, AppState>, server_id: i64) -> Result<()
 
             if !state.process_manager.is_running(server_id) {
                 println!("  ✅ Server {} exited gracefully after DoExit", server_id);
-                return Ok(());
+            } else {
+                println!("  ⚠️ Server {} still running after DoExit — force stopping", server_id);
             }
-            println!("  ⚠️ Server {} still running after DoExit — force stopping", server_id);
         }
     }
 
-    // Step 5: Force-kill fallback
+    // Step 5: Process manager cleanup & background process termination
     state
         .process_manager
         .stop_server(server_id)
@@ -2115,6 +2115,10 @@ pub async fn update_server_settings(
         println!("  ✅ Synced server {} database settings to INI files", server_id);
     }
 
+    if game_port.is_some() || query_port.is_some() || rcon_port.is_some() {
+        let _ = crate::commands::firewall::configure_firewall_raw(&state, server_id);
+    }
+
     Ok(())
 }
 
@@ -2178,6 +2182,14 @@ pub async fn update_server(
         };
 
         log_msg(&format!("Fetched: install_path='{}', server_type='{}'", install_path, server_type));
+
+        // 🛑 CRITICAL FIX: Gracefully stop server process first to release file locks on binaries & DLLs
+        log_msg("Stopping server process to release binary file locks...");
+        let _ = state.process_manager.stop_server_with_reason(
+            server_id,
+            crate::services::process_manager::StopReason::UpdateRequired,
+        );
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
         // Update status to updating
         {
@@ -3166,7 +3178,7 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
 
     // Detect map name via helper
     let default_map = if server_type == "ASE" { "TheIsland" } else { "TheIsland_WP" };
-    let map_name = if let Some((map, source, confidence)) = detect_map_name(install_path, server_type) {
+    let mut map_name = if let Some((map, source, confidence)) = detect_map_name(install_path, server_type) {
         source_files.insert("mapName".to_string(), source);
         confidence_levels.insert("mapName".to_string(), confidence);
         map
@@ -3183,9 +3195,11 @@ pub fn parse_import_settings(install_path: &std::path::Path, server_type: &str) 
         let src_script = batch.source_script.unwrap_or_else(|| "Startup Script".to_string());
         detected_command = batch.detected_command;
 
-        if batch.map_name.is_some() {
+        if let Some(ref m) = batch.map_name {
+            map_name = m.clone();
             source_files.insert("mapName".to_string(), src_script.clone());
             confidence_levels.insert("mapName".to_string(), "High (Startup Script)".to_string());
+            imported_values.insert("mapName".to_string(), m.clone());
         }
 
         if let Some(port) = batch.game_port {

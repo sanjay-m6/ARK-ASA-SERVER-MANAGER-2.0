@@ -85,7 +85,7 @@ function CustomDropdown({
     }, [isOpen]);
 
     return (
-        <div className={cn("relative custom-dropdown-container", className)}>
+        <div className={cn("relative custom-dropdown-container", isOpen && "z-50", className)}>
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
@@ -199,10 +199,23 @@ export default function Scheduler() {
         if (!selectedServerId) return;
         try {
             const data = await getSchedulerSettings(selectedServerId);
-            if (data && (!data.advancedDays || data.advancedDays.trim() === '')) {
-                data.advancedDays = '0,1,2,3,4,5,6';
-            }
-            setSettings(data);
+            const normalized: SchedulerSettings = {
+                serverId: selectedServerId,
+                mode: data?.mode || 'disabled',
+                basicIntervalHours: data?.basicIntervalHours ?? 6,
+                basicWarningMinutes: data?.basicWarningMinutes || '30,10,5,1',
+                nextRunBasic: data?.nextRunBasic ?? null,
+                advancedTime: data?.advancedTime || '06:00',
+                advancedDays: (data?.advancedDays && data.advancedDays.trim() !== '') ? data.advancedDays : '0,1,2,3,4,5,6',
+                advancedWarningMinutes: data?.advancedWarningMinutes || '30,15,10,5,1',
+                advancedShutdown: data?.advancedShutdown ?? false,
+                advancedBackup: data?.advancedBackup ?? false,
+                advancedUpdate: data?.advancedUpdate ?? false,
+                advancedRestart: data?.advancedRestart ?? false,
+                advancedDinoWipe: data?.advancedDinoWipe ?? false,
+                watchdogEnabled: data?.watchdogEnabled ?? false,
+            };
+            setSettings(normalized);
         } catch (error) {
             console.error('Failed to fetch settings:', error);
             toast.error(t('scheduler.loadFailed', 'Failed to load scheduler settings'));
@@ -318,10 +331,6 @@ export default function Scheduler() {
         }
 
         try {
-            // If editing, delete the old task first, then recreate
-            if (editingTaskId !== null) {
-                await deleteScheduledTask(editingTaskId);
-            }
             await createScheduledTask(
                 selectedServerId,
                 newTaskName || null,
@@ -331,6 +340,9 @@ export default function Scheduler() {
                 announcementMsg.trim() ? announcementMsg.trim() : null,
                 preWarning
             );
+            if (editingTaskId !== null) {
+                await deleteScheduledTask(editingTaskId);
+            }
             toast.success(editingTaskId !== null ? t('scheduler.taskUpdated', 'Task updated successfully') : t('scheduler.taskCreated'));
             setIsTaskModalOpen(false);
             setEditingTaskId(null);
@@ -684,7 +696,7 @@ export default function Scheduler() {
 
             {/* Basic Schedule Section */}
             <div className={cn(
-                "border rounded-xl p-6 transition-all relative overflow-hidden",
+                "border rounded-xl p-6 transition-all relative z-10",
                 settings.mode === 'basic'
                     ? "border-green-500/50 bg-green-500/5 shadow-[0_0_20px_rgba(34,197,94,0.1)]"
                     : "border-slate-800/80 bg-slate-900/10 opacity-70 hover:opacity-100 hover:border-slate-700/50"
