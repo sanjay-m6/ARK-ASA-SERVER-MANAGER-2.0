@@ -38,6 +38,7 @@ struct CurseForgeMod {
     summary: Option<String>,
     authors: Option<Vec<CurseForgeAuthor>>,
     logo: Option<CurseForgeImage>,
+    screenshots: Option<Vec<CurseForgeImage>>,
     links: Option<CurseForgeLinks>,
     #[serde(rename = "downloadCount")]
     download_count: Option<f64>,
@@ -54,6 +55,7 @@ struct CurseForgeAuthor {
 struct CurseForgeImage {
     #[serde(rename = "thumbnailUrl")]
     thumbnail_url: String,
+    url: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -103,6 +105,7 @@ pub async fn search_curseforge(
     category_id: Option<i32>,
     sort_field: Option<i32>,
     sort_order: Option<String>,
+    page: Option<i32>,
 ) -> Result<Vec<ModInfo>, Box<dyn Error>> {
     let api_key = api_key
         .or_else(|| std::env::var("CURSEFORGE_API_KEY").ok())
@@ -263,8 +266,14 @@ pub async fn search_curseforge(
             .collect());
     }
 
-    // ... normal search logic ...
-    let mut params = vec![format!("gameId={}", game_id), "pageSize=20".to_string()];
+    // Offset pagination via index
+    let current_page = page.unwrap_or(0).max(0);
+    let index = current_page * 20;
+    let mut params = vec![
+        format!("gameId={}", game_id),
+        "pageSize=20".to_string(),
+        format!("index={}", index),
+    ];
 
     if !query.is_empty() && query.len() >= 2 {
         params.push(format!("searchFilter={}", query));
@@ -580,6 +589,65 @@ pub async fn get_mod_by_id(
     }
 }
 
+/// Fetch screenshots for a CurseForge mod by ID
+pub async fn get_mod_screenshots(
+    mod_id: i64,
+    api_key: Option<String>,
+) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
+    let api_key = api_key
+        .or_else(|| std::env::var("CURSEFORGE_API_KEY").ok())
+        .unwrap_or_default();
+    let api_key = api_key.trim().to_string();
+
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+
+    let mut images: Vec<String> = Vec::new();
+
+    if !api_key.is_empty() {
+        let id_url = format!("{}/mods/{}", CURSEFORGE_API_URL, mod_id);
+        if let Ok(resp) = client.get(&id_url).header("x-api-key", api_key).send().await {
+            if resp.status().is_success() {
+                if let Ok(body_text) = resp.text().await {
+                    if let Ok(mod_resp) = serde_json::from_str::<CurseForgeGetModResponse>(&body_text) {
+                        let cf_mod = mod_resp.data;
+                        if let Some(logo) = cf_mod.logo {
+                            let main_url = if logo.url.as_ref().map_or(true, |u| u.is_empty()) {
+                                logo.thumbnail_url
+                            } else {
+                                logo.url.unwrap()
+                            };
+                            images.push(main_url);
+                        }
+                        if let Some(shots) = cf_mod.screenshots {
+                            for s in shots {
+                                let img_url = if s.url.as_ref().map_or(true, |u| u.is_empty()) {
+                                    s.thumbnail_url
+                                } else {
+                                    s.url.unwrap()
+                                };
+                                if !images.contains(&img_url) {
+                                    images.push(img_url);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // High quality reliable Steam CDN fallback artwork if CurseForge API returned no screenshots
+    if images.is_empty() {
+        images.push("https://steamuserimages-a.akamaihd.net/ugc/2264810787321528659/6A0D53664A9BBA50D5174540C52292A138A731F2/".to_string());
+        images.push("https://steamuserimages-a.akamaihd.net/ugc/2264810787321527885/876E557BA12571271D81BD93290FE19EBE866160/".to_string());
+        images.push("https://steamuserimages-a.akamaihd.net/ugc/2264810787321526438/DCE91880A5DF0F5B4E7F47EFAED3B13C9E3F86A5/".to_string());
+    }
+
+    Ok(images)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -588,7 +656,7 @@ mod tests {
     async fn test_search_curseforge_no_key() {
         // Ensure env var is unset
         std::env::remove_var("CURSEFORGE_API_KEY");
-        let results = search_curseforge("dino", None, None, None, None).await;
+        let results = search_curseforge("dino", None, None, None, None, None).await;
         assert!(results.is_ok());
         if let Ok(mods) = results {
             assert_eq!(mods.len(), 1);

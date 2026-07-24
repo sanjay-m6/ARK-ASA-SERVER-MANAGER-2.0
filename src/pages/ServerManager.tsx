@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Plus, Play, Square, RotateCw, Trash2, Download, Settings, Terminal, Globe, Shield,
-    ChevronDown, ChevronUp, Copy, AppWindow, RefreshCw,
+    ChevronDown, ChevronUp, Copy, AppWindow, RefreshCw, ExternalLink,
     Check, XCircle, GripVertical, Network, FolderOpen, Users, PenLine, Cpu, HelpCircle,
     Loader2, AlertTriangle, GitBranch, FileText, Edit2, LayoutGrid, LayoutList
 } from 'lucide-react';
@@ -19,7 +19,8 @@ import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-import { startServer, stopServer, restartServer, deleteServer, updateServer, updateServerSettings, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, moveServer, clearModCache, exportServerInstanceProfile } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, checkServerHasSaves, ServerSaveInfo, updateServer, updateServerSettings, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, moveServer, clearModCache, exportServerInstanceProfile, openInExplorer } from '../utils/tauri';
+import { updateServerCustomization as apiUpdateServerCustomization } from '../utils/serverOrganization';
 import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -60,6 +61,7 @@ export default function ServerManager() {
     const [appVersion] = useState<string>('4.5.2');
     const [cloneModalServer, setCloneModalServer] = useState<Server | null>(null);
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
+    const [deleteSaveInfo, setDeleteSaveInfo] = useState<ServerSaveInfo | null>(null);
     const [forceStopServerId, setForceStopServerId] = useState<number | null>(null);
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showNonDedicatedImport, setShowNonDedicatedImport] = useState(false);
@@ -132,20 +134,39 @@ export default function ServerManager() {
         setEditServerName(custom?.displayName || server.name);
     };
 
-    const handleRenameSave = (server: Server) => {
+    const handleRenameSave = async (server: Server) => {
         if (editingServerId === server.id) {
-            const custom = customizations.get(server.id) || {
-                serverId: server.id,
-                isPinned: false,
-                pinOrder: 0,
-                isMinimized: false,
-                tags: [],
-                favorite: false,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            };
-            updateServerCustomization({ ...custom, displayName: editServerName });
-            setEditingServerId(null);
+            const newName = editServerName.trim();
+            if (!newName) {
+                toast.error(t('serverManager.errors.emptyName', 'Profile name cannot be empty.'));
+                setEditingServerId(null);
+                return;
+            }
+
+            try {
+                // Save ONLY to SQLite backend 'server_customization' table (displayName)
+                // DO NOT alter the INI server name (SessionName in GameUserSettings.ini)
+                const custom = customizations.get(server.id) || {
+                    serverId: server.id,
+                    isPinned: false,
+                    pinOrder: 0,
+                    isMinimized: false,
+                    tags: [],
+                    favorite: false,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                };
+                const updatedCustom = { ...custom, displayName: newName };
+                await apiUpdateServerCustomization(updatedCustom);
+                updateServerCustomization(updatedCustom);
+
+                toast.success(t('serverManager.nameUpdated', `Profile name updated to "${newName}"`));
+            } catch (err) {
+                console.error("Failed to rename server profile:", err);
+                toast.error(t('serverManager.renameFailed', 'Failed to update profile name.'));
+            } finally {
+                setEditingServerId(null);
+            }
         }
     };
 
@@ -714,6 +735,17 @@ export default function ServerManager() {
         }
     };
 
+    const handleInitiateDeleteServer = async (server: Server) => {
+        setDeleteConfirmServer(server);
+        setDeleteSaveInfo(null);
+        try {
+            const info = await checkServerHasSaves(server.id);
+            setDeleteSaveInfo(info);
+        } catch (_) {
+            setDeleteSaveInfo(null);
+        }
+    };
+
     const confirmDeleteServer = async () => {
         if (!deleteConfirmServer) return;
         try {
@@ -728,8 +760,9 @@ export default function ServerManager() {
             try { await clearModCache(serverId); } catch (_) {}
 
             removeServer(serverId);
-            toast.success(`Server instance "${serverName}" and all associated files on disk were deleted.`, { id: 'delete-server', icon: '🗑️' });
+            toast.success(`Server instance "${serverName}" deleted. Safety backup preserved if saves existed.`, { id: 'delete-server', icon: '🗑️' });
             setDeleteConfirmServer(null);
+            setDeleteSaveInfo(null);
         } catch (error) {
             console.error('Failed to delete server:', error);
             toast.error(t('serverManager.deleteFailed', { error: String(error) }), { id: 'delete-server' });
@@ -1106,15 +1139,34 @@ export default function ServerManager() {
                         </div>
                     )}
 
-                    {/* Profile Badge */}
-                    <div 
-                        onClick={(e) => handleRenameStart(server, e)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/40 rounded-md text-[11px] text-sky-300 font-mono font-medium cursor-pointer transition-all no-collapse max-w-full truncate"
-                        title="Click to rename profile"
-                    >
-                        <FolderOpen className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                        <span className="truncate">Profile: {server.name}</span>
-                        <Edit2 className="w-3 h-3 text-sky-400/70 shrink-0" />
+                    {/* Profile Badge & Real Server Folder Link */}
+                    <div className="flex items-center gap-1.5 max-w-full">
+                        <div 
+                            onClick={(e) => handleRenameStart(server, e)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/40 rounded-md text-[11px] text-sky-300 font-mono font-medium cursor-pointer transition-all no-collapse max-w-full truncate"
+                            title={`Click to rename profile | Server Path: ${server.installPath}`}
+                        >
+                            <FolderOpen className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                            <span className="truncate">Profile: {customizations.get(server.id)?.displayName || server.name}</span>
+                            <Edit2 className="w-3 h-3 text-sky-400/70 shrink-0" />
+                        </div>
+                        {server.installPath && (
+                            <button
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                        await openInExplorer(server.installPath);
+                                        toast.success("Opened server directory in Explorer");
+                                    } catch (err) {
+                                        toast.error(`Cannot open folder: ${err}`);
+                                    }
+                                }}
+                                className="p-1 bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/40 rounded-md transition-all shrink-0"
+                                title={`Open real server folder on disk:\n${server.installPath}`}
+                            >
+                                <ExternalLink className="w-3 h-3 text-sky-400" />
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -1348,7 +1400,7 @@ export default function ServerManager() {
                                 <span>Clear Mod Cache</span>
                             </button>
                             <button
-                                onClick={() => setDeleteConfirmServer(server)}
+                                onClick={() => handleInitiateDeleteServer(server)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2 border-t border-slate-800"
                             >
                                 <Trash2 className="w-3.5 h-3.5 text-red-400" />
@@ -2095,28 +2147,75 @@ export default function ServerManager() {
                                                              {/* Name and Tags Block */}
                                                              <div className="flex-1 min-w-0">
                                                                  {/* Title row */}
-                                                                 <div className="flex items-center gap-3 min-w-0">
+                                                                 <div className="flex items-center gap-3 min-w-0 flex-wrap">
                                                                      {editingServerId === server.id ? (
-                                                                         <input 
-                                                                             type="text"
-                                                                             value={editServerName}
-                                                                             onChange={(e) => setEditServerName(e.target.value)}
-                                                                             onKeyDown={(e) => handleRenameKeyDown(e, server)}
-                                                                             onBlur={() => handleRenameSave(server)}
-                                                                             autoFocus
-                                                                             className="no-collapse text-xl font-bold bg-slate-900 border border-sky-500/50 rounded px-2 py-0.5 text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 min-w-[200px]"
-                                                                             onClick={(e) => e.stopPropagation()}
-                                                                         />
+                                                                         <div className="flex items-center gap-2 no-collapse" onClick={(e) => e.stopPropagation()}>
+                                                                             <input 
+                                                                                 type="text"
+                                                                                 value={editServerName}
+                                                                                 onChange={(e) => setEditServerName(e.target.value)}
+                                                                                 onKeyDown={(e) => handleRenameKeyDown(e, server)}
+                                                                                 onBlur={() => handleRenameSave(server)}
+                                                                                 autoFocus
+                                                                                 className="text-lg font-bold bg-slate-900 border border-sky-500/50 rounded px-2.5 py-1 text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 min-w-[200px]"
+                                                                             />
+                                                                             <button
+                                                                                 onClick={() => handleRenameSave(server)}
+                                                                                 className="p-1.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-lg shrink-0"
+                                                                             >
+                                                                                 <Check className="w-4 h-4" />
+                                                                             </button>
+                                                                         </div>
                                                                      ) : (
-                                                                         <h3 
-                                                                             className="text-xl font-bold text-white group-hover:text-sky-400 transition-colors truncate"
-                                                                             onDoubleClick={(e) => handleRenameStart(server, e)}
-                                                                             title={t('serverManager.tooltips.doubleClickToRename', 'Double-click to rename')}
-                                                                         >
-                                                                             {customizations.get(server.id)?.displayName || server.name}
-                                                                         </h3>
+                                                                         <div className="flex items-center gap-2 group/title">
+                                                                             <h3 
+                                                                                 className="text-xl font-bold text-white group-hover/title:text-sky-400 transition-colors truncate cursor-pointer"
+                                                                                 onClick={(e) => handleRenameStart(server, e)}
+                                                                                 onDoubleClick={(e) => handleRenameStart(server, e)}
+                                                                                 title="Click to rename profile"
+                                                                             >
+                                                                                 {customizations.get(server.id)?.displayName || server.name}
+                                                                             </h3>
+                                                                             <button
+                                                                                 onClick={(e) => handleRenameStart(server, e)}
+                                                                                 className="p-1 text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-md transition-all opacity-80 group-hover/title:opacity-100 shrink-0"
+                                                                                 title="Rename Server Profile"
+                                                                             >
+                                                                                 <Edit2 className="w-4 h-4 text-sky-400" />
+                                                                             </button>
+                                                                         </div>
                                                                      )}
-                                                                     
+
+                                                                     {/* Profile Badge & Real Server Folder Link */}
+                                                                     <div className="flex items-center gap-1.5 no-collapse" onClick={(e) => e.stopPropagation()}>
+                                                                         <div 
+                                                                             onClick={(e) => handleRenameStart(server, e)}
+                                                                             className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/40 rounded-md text-[11px] text-sky-300 font-mono font-medium cursor-pointer transition-all no-collapse max-w-full truncate"
+                                                                             title={`Click to rename profile | Server Path: ${server.installPath}`}
+                                                                         >
+                                                                             <FolderOpen className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                                                             <span className="truncate">Profile: {customizations.get(server.id)?.displayName || server.name}</span>
+                                                                             <Edit2 className="w-3 h-3 text-sky-400/70 shrink-0" />
+                                                                         </div>
+                                                                         {server.installPath && (
+                                                                             <button
+                                                                                 onClick={async (e) => {
+                                                                                     e.stopPropagation();
+                                                                                     try {
+                                                                                         await openInExplorer(server.installPath);
+                                                                                         toast.success("Opened server directory in Explorer");
+                                                                                     } catch (err) {
+                                                                                         toast.error(`Cannot open folder: ${err}`);
+                                                                                     }
+                                                                                 }}
+                                                                                 className="p-1 bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/40 rounded-md transition-all shrink-0"
+                                                                                 title={`Open real server folder on disk:\n${server.installPath}`}
+                                                                             >
+                                                                                 <ExternalLink className="w-3 h-3 text-sky-400" />
+                                                                             </button>
+                                                                         )}
+                                                                     </div>
+
                                                                      <div className="flex items-center gap-2 shrink-0">
                                                                          <span className={cn(
                                                                              'px-3 py-0.5 rounded-full text-[11px] uppercase tracking-wider font-bold border flex items-center gap-2 shadow-inner',
@@ -2382,7 +2481,7 @@ export default function ServerManager() {
                                                                          <span>{t('serverManager.modCache.button', 'Clear Mod Cache')}</span>
                                                                      </button>
                                                                      <button
-                                                                         onClick={() => setDeleteConfirmServer(server)}
+                                                                         onClick={() => handleInitiateDeleteServer(server)}
                                                                          className="w-full text-left px-4 py-3 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2 border-t border-slate-800"
                                                                      >
                                                                          <Trash2 className="w-4 h-4" />
@@ -2846,10 +2945,18 @@ export default function ServerManager() {
             {/* Delete Confirmation Dialog */}
             <ConfirmDialog
                 isOpen={!!deleteConfirmServer}
-                onClose={() => setDeleteConfirmServer(null)}
+                onClose={() => { setDeleteConfirmServer(null); setDeleteSaveInfo(null); }}
                 onConfirm={confirmDeleteServer}
                 title={t('serverManager.confirmDelete')}
-                message={t('serverManager.confirmDeleteMsg', { name: deleteConfirmServer?.name })}
+                message={
+                    deleteConfirmServer ? (
+                        deleteSaveInfo?.has_saves ? (
+                            `${t('serverManager.confirmDeleteMsg', { name: deleteConfirmServer.name })}\n\n⚠️ WARNING: Active save data detected (${deleteSaveInfo.player_count} players, ${deleteSaveInfo.tribe_count} tribes)! An emergency safety backup will be created in C:\\ASA_Backups\\safety_net\\ before disk removal.`
+                        ) : (
+                            t('serverManager.confirmDeleteMsg', { name: deleteConfirmServer.name })
+                        )
+                    ) : ''
+                }
                 confirmText={t('serverManager.buttons.delete')}
                 variant="danger"
             />

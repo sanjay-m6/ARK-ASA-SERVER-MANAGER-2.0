@@ -347,15 +347,22 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                                 "SELECT id, name, install_path, query_port, process_id, ip_address, status FROM servers"
                             );
                             if let Ok(mut stmt) = stmt_result {
-                                stmt.query_map([], |row| {
+                                 stmt.query_map([], |row| {
+                                    let id: i64 = row.get::<usize, i64>(0)?;
+                                    let name: String = row.get::<usize, String>(1)?;
+                                    let install_path: String = row.get::<usize, String>(2)?;
+                                    let query_port: i32 = row.get::<usize, i32>(3)?;
+                                    let process_id: Option<i32> = row.get::<usize, Option<i32>>(4)?;
+                                    let ip_address: Option<String> = row.get::<usize, Option<String>>(5)?;
+                                    let status: String = row.get::<usize, String>(6)?;
                                     Ok((
-                                        row.get::<_, i64>(0)?,
-                                        row.get::<_, String>(1)?,
-                                        row.get::<_, String>(2)?,
-                                        row.get::<_, i32>(3)? as u16,
-                                        row.get::<_, Option<i32>>(4)?.map(|v| v as u32),
-                                        row.get::<_, Option<String>>(5)?,
-                                        row.get::<_, String>(6)?,
+                                        id,
+                                        name,
+                                        install_path,
+                                        query_port as u16,
+                                        process_id.map(|v| v as u32),
+                                        ip_address,
+                                        status,
                                     ))
                                 })
                                 .map(|iter| iter.filter_map(|r| r.ok()).collect())
@@ -371,14 +378,21 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                             );
                             if let Ok(mut stmt) = stmt_result {
                                 stmt.query_map([], |row| {
+                                    let id: i64 = row.get::<usize, i64>(0)?;
+                                    let name: String = row.get::<usize, String>(1)?;
+                                    let install_path: String = row.get::<usize, String>(2)?;
+                                    let query_port: i32 = row.get::<usize, i32>(3)?;
+                                    let process_id: Option<i32> = row.get::<usize, Option<i32>>(4)?;
+                                    let ip_address: Option<String> = row.get::<usize, Option<String>>(5)?;
+                                    let status: String = row.get::<usize, String>(6)?;
                                     Ok((
-                                        row.get::<_, i64>(0)?,
-                                        row.get::<_, String>(1)?,
-                                        row.get::<_, String>(2)?,
-                                        row.get::<_, i32>(3)? as u16,
-                                        row.get::<_, Option<i32>>(4)?.map(|v| v as u32),
-                                        row.get::<_, Option<String>>(5)?,
-                                        row.get::<_, String>(6)?,
+                                        id,
+                                        name,
+                                        install_path,
+                                        query_port as u16,
+                                        process_id.map(|v| v as u32),
+                                        ip_address,
+                                        status,
                                     ))
                                 })
                                 .map(|iter| iter.filter_map(|r| r.ok()).collect())
@@ -736,9 +750,11 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::install_server,
             commands::server::start_server,
             commands::server::start_server_no_mods,
+            commands::server::start_servers_staggered,
             commands::server::stop_server,
             commands::server::restart_server,
             commands::server::delete_server,
+            commands::server::check_server_has_saves,
             commands::server::update_server,
             commands::server::update_server_settings,
             commands::server::clone_server,
@@ -779,6 +795,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::mods::copy_mods_to_server,
             commands::mods::verify_curseforge_key,
             commands::mods::get_mod_categories,
+            commands::mods::get_mod_screenshots,
             // Modpack & Conflict Scanner commands
             commands::mods::check_mod_conflicts,
             commands::mods::export_modpack,
@@ -803,6 +820,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::config::get_default_config,
             // Cluster commands
             commands::cluster::create_cluster,
+            commands::cluster::scan_existing_clusters,
             commands::cluster::update_cluster,
             commands::cluster::get_clusters,
             commands::cluster::delete_cluster,

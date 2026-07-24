@@ -103,6 +103,28 @@ pub async fn delete_ase_server(
         if let Some(ref path_str) = install_path {
             let path = std::path::Path::new(path_str);
             if path.exists() {
+                let saved_arks = path.join("ShooterGame").join("Saved").join("SavedArks");
+                if saved_arks.exists() {
+                    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+                    let safety_dir = std::path::PathBuf::from("C:/ASA_Backups")
+                        .join("safety_net")
+                        .join(format!("ase_server_{}_{}", server_id, timestamp));
+                    println!("  🛡️ Safety Net (ASE): Preserving save game files to {:?}", safety_dir);
+                    let _ = std::fs::create_dir_all(&safety_dir);
+                    if let Ok(entries) = std::fs::read_dir(&saved_arks) {
+                        let target_saved_arks = safety_dir.join("SavedArks");
+                        let _ = std::fs::create_dir_all(&target_saved_arks);
+                        for entry in entries.flatten() {
+                            let p = entry.path();
+                            if p.is_file() {
+                                if let Some(name) = p.file_name() {
+                                    let _ = std::fs::copy(&p, target_saved_arks.join(name));
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if let Err(e) = std::fs::remove_dir_all(path) {
                     eprintln!("  ⚠️ Warning: Could not remove ASE server directory {:?}: {}", path, e);
                 }

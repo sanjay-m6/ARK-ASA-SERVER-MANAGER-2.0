@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useBlocker } from 'react-router-dom';
-import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, FolderOpen, FileText, Search, Copy, Check, Terminal, X, Cpu } from 'lucide-react';
+import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, FolderOpen, FileText, Search, Copy, Check, Terminal, X, Cpu, Loader2, Eye, EyeOff, Shield, Zap } from 'lucide-react';
 import { getSetting, setSetting, getAllServers } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -63,6 +63,17 @@ export default function Settings() {
     const [userConfigFolder, setUserConfigFolder] = useState('');
     const [customSteamcmdPath, setCustomSteamcmdPath] = useState('');
     const [resolvedSteamcmdPath, setResolvedSteamcmdPath] = useState('');
+    const [isScrolled, setIsScrolled] = useState(false);
+    const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+    const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 150);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     useEffect(() => {
         invoke<string>('get_steamcmd_dir')
@@ -118,6 +129,15 @@ export default function Settings() {
     const [logLoading, setLogLoading] = useState(false);
     const [logSearch, setLogSearch] = useState('');
     const [isCopied, setIsCopied] = useState(false);
+    const [copiedField, setCopiedField] = useState<string | null>(null);
+
+    const handleCopyText = (text: string, fieldName: string) => {
+        if (!text) return;
+        navigator.clipboard.writeText(text);
+        setCopiedField(fieldName);
+        toast.success(t('common.copied', 'Copied to clipboard'));
+        setTimeout(() => setCopiedField(null), 2000);
+    };
 
     const loadLogContent = async () => {
         setLogLoading(true);
@@ -249,8 +269,33 @@ export default function Settings() {
 
     const isDirty = !isLoading && baselineRef.current !== '' && baselineRef.current !== persistedSnapshot();
 
-    // Block in-app navigation away from Settings while there are unsaved changes.
-    const blocker = useBlocker(() => isDirty);
+    // ── Debounced Auto-Save ─────────────────────────────────────────────
+    useEffect(() => {
+        if (!autoSaveEnabled || isLoading || !isDirty) return;
+
+        setAutoSaveStatus('saving');
+        const timer = setTimeout(async () => {
+            const ok = await handleSave({ silent: true });
+            if (ok) {
+                setAutoSaveStatus('saved');
+                setTimeout(() => setAutoSaveStatus('idle'), 2500);
+            } else {
+                setAutoSaveStatus('idle');
+            }
+        }, 700);
+
+        return () => clearTimeout(timer);
+    }, [
+        curseforgeApiKey, steamApiKey, nvidiaApiKey, startupTimeout,
+        globalAutoStartEnabled, globalBootDelay, startMinimizedToTray,
+        loopPreventionMaxCrashes, loopPreventionTimeWindowMins,
+        windowsStartupShortcut, silentHeadlessStartup, userConfigFolder, customSteamcmdPath,
+        aiProvider, lmStudioBaseUrl, lmStudioModel, lmStudioApiKey,
+        autoSaveEnabled, isLoading, isDirty
+    ]);
+
+    // Block in-app navigation away from Settings while there are unsaved changes (only if auto-save disabled).
+    const blocker = useBlocker(() => isDirty && !autoSaveEnabled);
 
     // Warn on window close / reload while dirty.
     useEffect(() => {
@@ -435,7 +480,7 @@ export default function Settings() {
      * options, and resets the unsaved-changes baseline.
      * @returns `true` if the save succeeded, `false` otherwise.
      */
-    const handleSave = async () => {
+    const handleSave = async (options?: { silent?: boolean }) => {
         setIsSaving(true);
         try {
             await Promise.all([
@@ -477,15 +522,18 @@ export default function Settings() {
                 }
             } catch (systemErr) {
                 console.error("Failed to synchronize OS boot hooks:", systemErr);
-                toast.error("Failed to sync OS startup tasks. Run as Administrator if creating Scheduler task.");
             }
 
             baselineRef.current = persistedSnapshot();
-            toast.success(t('settings.saved'));
+            if (!options?.silent) {
+                toast.success(t('settings.saved', 'Settings saved successfully'));
+            }
             return true;
         } catch (error) {
             console.error('Failed to save settings:', error);
-            toast.error(t('settings.saveFailed'));
+            if (!options?.silent) {
+                toast.error(t('settings.saveFailed', 'Failed to save settings'));
+            }
             return false;
         } finally {
             setIsSaving(false);
@@ -503,549 +551,757 @@ export default function Settings() {
                     </h1>
                     <p className="text-slate-400 mt-2 text-lg">{t('settings.subtitle', 'Configure application and view guides')}</p>
                 </div>
-                {(activeTab === 'api' || activeTab === 'startup') && (
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="flex items-center space-x-2 px-6 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl transition-colors shadow-lg shadow-sky-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <Save className={`w-5 h-5 ${isSaving ? 'animate-spin' : ''}`} />
-                        <span>{isSaving ? t('common.saving') : t('common.saveSettings', 'Save Settings')}</span>
-                    </button>
-                )}
-            </div>
+                <div className="flex items-center gap-3">
+                    {/* Auto-Save Toggle & Status Badge */}
+                    <div className="flex items-center gap-2.5 px-4 py-2.5 bg-slate-900/80 border border-slate-800 rounded-2xl backdrop-blur-md shadow-lg">
+                        <div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}>
+                            <div className={cn(
+                                "w-9 h-5 rounded-full transition-colors relative p-0.5",
+                                autoSaveEnabled ? "bg-emerald-500" : "bg-slate-700"
+                            )}>
+                                <div className={cn(
+                                    "w-4 h-4 rounded-full bg-white transition-transform shadow-md",
+                                    autoSaveEnabled ? "translate-x-4" : "translate-x-0"
+                                )} />
+                            </div>
+                            <span className="text-xs font-bold text-slate-200">
+                                {t('settings.autoSave', 'Auto Save')}
+                            </span>
+                        </div>
 
-            {/* Modern Glassmorphic Navigation Tabs */}
-            <div className="flex p-1.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md w-max shadow-inner gap-1 mb-6 flex-wrap">
-                <button
-                    onClick={() => setActiveTab('api')}
-                    className={cn(
-                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
-                        activeTab === 'api'
-                            ? "text-sky-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-                    )}
-                >
-                    <span className="relative z-10 flex items-center gap-2">🔑 {t('settings.tabs.apiKeys')}</span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('firewall')}
-                    className={cn(
-                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
-                        activeTab === 'firewall'
-                            ? "text-red-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-                    )}
-                >
-                    <span className="relative z-10 flex items-center gap-2">🛡️ {t('settings.tabs.firewall')}</span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('updates')}
-                    className={cn(
-                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
-                        activeTab === 'updates'
-                            ? "text-emerald-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-                    )}
-                >
-                    <span className="relative z-10 flex items-center gap-2">🔄 {t('settings.tabs.updates')}</span>
-                </button>
-                <button
-                    onClick={() => setActiveTab('startup')}
-                    className={cn(
-                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
-                        activeTab === 'startup'
-                            ? "text-amber-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-                    )}
-                >
-                    <span className="relative z-10 flex items-center gap-2">⚡ {t('settings.tabs.startup', 'Startup & Recovery')}</span>
-                </button>
-
-                <button
-                    onClick={() => setActiveTab('language')}
-                    className={cn(
-                        "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
-                        activeTab === 'language'
-                            ? "text-cyan-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
-                    )}
-                >
-                    <span className="relative z-10 flex items-center gap-2">🌐 {t('settings.tabs.language')}</span>
-                </button>
-            </div>
-
-            {isLoading ? (
-                <div className="flex justify-center py-20">
-                    <div className="animate-spin w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full"></div>
-                </div>
-            ) : activeTab === 'api' ? (
-                <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
-                    {/* Game Support & Evolved Mode */}
-                    <div className="glass-panel rounded-2xl p-8">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
-                                <Cpu className="w-6 h-6 text-cyan-400" />
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-lg font-bold text-white mb-1">Game Support Options</h2>
-                                <p className="text-sm text-slate-400 leading-relaxed">
-                                    Toggle Evolved (ASE) support to display both ARK: Survival Evolved and ARK: Survival Ascended configuration sections. If disabled, Evolved features are hidden to keep the manager streamlined for Ascended.
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-between p-4 bg-slate-800/40 border border-white/5 rounded-xl">
-                            <div>
-                                <h3 className="text-sm font-semibold text-white">Enable Evolved (ASE) Support</h3>
-                                <p className="text-xs text-slate-400 mt-1">Show both Evolved and Ascended server configurations across the manager</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const newVal = !showAseMode;
-                                    setShowAseMode(newVal);
-                                    if (!newVal && activeGame === 'ASE') {
-                                        setActiveGame('ASA');
-                                    }
-                                }}
-                                className={cn(
-                                    "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75",
-                                    showAseMode ? "bg-cyan-500" : "bg-slate-700"
-                                )}
-                                role="switch"
-                                aria-checked={showAseMode}
-                            >
-                                <span
-                                    aria-hidden="true"
-                                    className={cn(
-                                        "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
-                                        showAseMode ? "translate-x-5" : "translate-x-0"
-                                    )}
-                                />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* User Config Folder */}
-                    <div className="glass-panel rounded-2xl p-8">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                                <FolderOpen className="w-6 h-6 text-amber-400" />
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-lg font-bold text-white mb-1">{t('settings.userConfigFolder.title', 'User Config Folder')}</h2>
-                                <p className="text-sm text-slate-400 leading-relaxed">
-                                    {t('settings.userConfigFolder.desc', 'Point to a custom folder containing your server configuration files (GameUserSettings.ini, Game.ini). When set, the app reads and writes configs from this folder instead of the server install directory. Useful for managing ASM-exported configurations.')}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={userConfigFolder}
-                                onChange={(e) => setUserConfigFolder(e.target.value)}
-                                placeholder={t('settings.userConfigFolder.placeholder', 'Not set — using default server install path')}
-                                className="flex-1 px-4 py-3 bg-slate-800/50 border border-white/10 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500/30 placeholder-slate-500"
-                            />
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    try {
-                                        const path = await invoke<string | null>('select_folder', { title: 'Select User Config Folder' });
-                                        if (path) setUserConfigFolder(path);
-                                    } catch (error) {
-                                        console.error('Failed to select folder:', error);
-                                        toast.error(t('settings.userConfigFolder.browseFailed', 'Failed to open folder picker'));
-                                    }
-                                }}
-                                className="px-3 py-3 bg-slate-800/50 hover:bg-slate-700/50 border border-white/10 rounded-xl text-slate-400 hover:text-white transition-colors focus:outline-none"
-                                title={t('common.browse', 'Browse')}
-                            >
-                                <FolderOpen className="w-4 h-4" />
-                            </button>
-                            {userConfigFolder && (
-                                <button
-                                    type="button"
-                                    onClick={() => setUserConfigFolder('')}
-                                    className="px-3 py-3 bg-slate-800/50 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 rounded-xl text-slate-400 hover:text-red-400 transition-all focus:outline-none"
-                                    title={t('settings.userConfigFolder.clear', 'Clear and use default')}
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
-                        {userConfigFolder && (
-                            <p className="mt-3 text-xs text-amber-400/70 flex items-center gap-1.5">
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                {t('settings.userConfigFolder.activeNote', 'Config files will be read from and saved to this folder')}
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Custom SteamCMD Path */}
-                    <div className="glass-panel rounded-2xl p-8 animate-in slide-in-from-left-4 duration-300">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20">
-                                <Terminal className="w-6 h-6 text-sky-400" />
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-lg font-bold text-white mb-1">{t('settings.customSteamcmdPath.title', 'Custom SteamCMD Path')}</h2>
-                                <p className="text-sm text-slate-400 leading-relaxed">
-                                    {t('settings.customSteamcmdPath.desc', 'Redirect SteamCMD and server workshop downloads to a custom folder. SteamCMD cannot execute if there are non-English/non-ASCII characters (e.g. á, ő, ú) anywhere in its path. If your Windows username has special characters, set this to an ASCII-only path (e.g. F:\\ASA\\SteamCMD).')}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={customSteamcmdPath}
-                                onChange={(e) => setCustomSteamcmdPath(e.target.value)}
-                                placeholder={t('settings.customSteamcmdPath.placeholder', 'Not set — using default Roaming AppData')}
-                                className={cn(
-                                    "flex-1 px-4 py-3 bg-slate-800/50 border rounded-xl text-white font-mono text-xs focus:outline-none focus:border-sky-500/30 placeholder-slate-500",
-                                    /[^\x00-\x7F]/.test(customSteamcmdPath) ? "border-red-500/50 text-red-200" : "border-white/10"
-                                )}
-                            />
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    try {
-                                        const path = await invoke<string | null>('select_folder', { title: 'Select Custom SteamCMD Folder' });
-                                        if (path) setCustomSteamcmdPath(path);
-                                    } catch (error) {
-                                        console.error('Failed to select folder:', error);
-                                        toast.error(t('settings.customSteamcmdPath.browseFailed', 'Failed to open folder picker'));
-                                    }
-                                }}
-                                className="px-3 py-3 bg-slate-800/50 hover:bg-slate-700/50 border border-white/10 rounded-xl text-slate-400 hover:text-white transition-colors focus:outline-none"
-                                title={t('common.browse', 'Browse')}
-                            >
-                                <FolderOpen className="w-4 h-4" />
-                            </button>
-                            {customSteamcmdPath && (
-                                <button
-                                    type="button"
-                                    onClick={() => setCustomSteamcmdPath('')}
-                                    className="px-3 py-3 bg-slate-800/50 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 rounded-xl text-slate-400 hover:text-red-400 transition-all focus:outline-none"
-                                    title={t('settings.customSteamcmdPath.clear', 'Clear and use default')}
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
-                        {/[^\x00-\x7F]/.test(customSteamcmdPath) && (
-                            <p className="mt-3 text-xs text-red-400 flex items-center gap-1.5 font-medium">
-                                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                                {t('settings.customSteamcmdPath.invalidWarning', 'Warning: Path contains non-ASCII characters. SteamCMD will fail to run here.')}
-                            </p>
-                        )}
-                        {resolvedSteamcmdPath && (
-                            <div className="mt-4 p-3 bg-slate-900/60 rounded-xl border border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs">
-                                <div className="flex items-center gap-2 text-slate-300">
-                                    <CheckCircle className="w-4 h-4 text-sky-400 shrink-0" />
-                                    <span className="font-medium text-slate-400">Active SteamCMD Location:</span>
-                                    <code className="px-2 py-0.5 bg-slate-800 rounded text-sky-300 font-mono text-[11px] select-all border border-white/10">
-                                        {resolvedSteamcmdPath}
-                                    </code>
-                                </div>
-                                {resolvedSteamcmdPath.includes('ARKServerManager') && !customSteamcmdPath && (
-                                    <span className="text-[11px] text-amber-300 font-medium bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
-                                        🛡️ Auto-Fallback Active (Windows username path contained special characters)
+                        {autoSaveEnabled && (
+                            <div className="flex items-center gap-1.5 pl-2.5 border-l border-slate-700/60 text-xs font-medium">
+                                {autoSaveStatus === 'saving' ? (
+                                    <span className="flex items-center gap-1.5 text-amber-400">
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        <span>{t('settings.autoSaving', 'Auto-saving…')}</span>
+                                    </span>
+                                ) : autoSaveStatus === 'saved' ? (
+                                    <span className="flex items-center gap-1 text-emerald-400 font-semibold animate-in fade-in">
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                        <span>{t('settings.autoSaved', 'Auto-saved ✓')}</span>
+                                    </span>
+                                ) : (
+                                    <span className="text-slate-400 font-medium">
+                                        {t('settings.autoSaveOn', 'Active')}
                                     </span>
                                 )}
                             </div>
                         )}
                     </div>
 
-                    {/* Steam Web API Key */}
-                    <div className="glass-panel rounded-2xl p-8">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20">
-                                <Key className="w-6 h-6 text-sky-400" />
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-white mb-2">{t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(':')[0]}</h2>
-                                <p className="text-slate-400">
-                                    {t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(': ')[1]}
-                                </p>
-                            </div>
-                        </div>
+                    {/* Manual Save Settings Button */}
+                    <button
+                        onClick={() => handleSave()}
+                        disabled={isSaving}
+                        className={cn(
+                            "flex items-center space-x-2.5 px-6 py-3 rounded-2xl font-bold transition-all shadow-xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm",
+                            isDirty && !autoSaveEnabled
+                                ? "bg-gradient-to-r from-amber-500 via-rose-500 to-pink-600 hover:from-amber-400 hover:to-pink-500 text-white shadow-amber-500/40 ring-4 ring-amber-500/40 animate-pulse"
+                                : "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white shadow-sky-500/25"
+                        )}
+                    >
+                        <Save className={cn("w-4.5 h-4.5", isSaving && "animate-spin")} />
+                        <span>
+                            {isSaving
+                                ? t('common.saving', 'Saving…')
+                                : isDirty && !autoSaveEnabled
+                                ? t('settings.saveUnsaved', '⚡ SAVE SETTINGS')
+                                : t('common.saveSettings', 'Save Settings')}
+                        </span>
+                    </button>
+                </div>
+            </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-3">
-                                    {t('settings.steamKey.label', 'API Key')}
-                                </label>
-                                <div className="relative">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                                    <input
-                                        type={showSteamKey ? 'text' : 'password'}
-                                        value={steamApiKey}
-                                        onChange={(e) => setSteamApiKey(e.target.value)}
-                                        placeholder={t('settings.steamKey.placeholder', 'Enter your Steam Web API key')}
-                                        className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all font-mono"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowSteamKey(!showSteamKey)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors text-sm"
-                                    >
-                                        {showSteamKey ? t('common.hide') : t('common.show')}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-4">
-                                <p className="text-sm text-slate-300 font-medium mb-3">{t('settings.steamKey.needKey', 'A Steam Web API key is required.')}</p>
-                                <button
-                                    onClick={() => openUrl('https://steamcommunity.com/dev/apikey')}
-                                    className="flex items-center space-x-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition-colors shadow-lg shadow-sky-500/20 w-full justify-center"
-                                >
-                                    <ExternalLink className="w-4 h-4" />
-                                    <span>{t('settings.steamKey.getKey', 'Get your Steam API key here')}</span>
-                                </button>
-                                <p className="text-xs text-slate-400 mt-3">
-                                    {t('settings.steamKey.instructions', 'Create a key in your Steam developer account.')}
-                                </p>
-                            </div>
-
-                            {steamApiKey && (
-                                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
-                                    <div className="flex items-center space-x-2">
-                                        <CheckCircle className="w-5 h-5 text-green-400" />
-                                        <span className="text-green-400 font-medium">{t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(':')[0]} configured</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {!steamApiKey && (
-                                <div className="bg-slate-500/10 border border-slate-500/20 rounded-xl p-4">
-                                    <div className="flex items-center space-x-2">
-                                        <AlertCircle className="w-5 h-5 text-slate-400" />
-                                        <span className="text-slate-400 font-medium">{t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(': ')[1]}</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+            {/* Modern Segmented Navigation Bar */}
+            <div className="flex p-2 rounded-3xl bg-slate-950/60 border border-white/10 backdrop-blur-xl w-full shadow-2xl gap-2 mb-8 overflow-x-auto scrollbar-none">
+                <button
+                    onClick={() => setActiveTab('api')}
+                    className={cn(
+                        "flex items-center gap-3 px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 relative overflow-hidden whitespace-nowrap group",
+                        activeTab === 'api'
+                            ? "text-sky-300 bg-gradient-to-r from-sky-500/20 via-blue-500/15 to-indigo-500/20 border border-sky-500/40 shadow-lg shadow-sky-500/10"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
+                    )}
+                >
+                    <div className={cn("p-1.5 rounded-xl transition-all", activeTab === 'api' ? "bg-sky-500/30 text-sky-300" : "bg-slate-800 text-slate-400 group-hover:text-white")}>
+                        <Key className="w-4 h-4" />
                     </div>
+                    <span>{t('settings.tabs.apiKeys', 'API Keys & Integrations')}</span>
+                    {activeTab === 'api' && <div className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse ml-auto" />}
+                </button>
 
-                    {/* CurseForge API Key */}
-                    <div className="glass-panel rounded-2xl p-8">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20">
-                                <Key className="w-6 h-6 text-sky-400" />
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-white mb-2">{t('settings.aboutApiKeys.curseforgeDesc', 'CurseForge API Key: Required for downloading and updating mods').split(':')[0]}</h2>
-                                <p className="text-slate-400">
-                                    {t('settings.aboutApiKeys.curseforgeDesc', 'CurseForge API Key: Required for downloading and updating mods').split(': ')[1]}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-3">
-                                    API Key
-                                </label>
-                                <div className="relative">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                                    <input
-                                        type={showCurseforgeKey ? 'text' : 'password'}
-                                        value={curseforgeApiKey}
-                                        onChange={(e) => {
-                                            setCurseforgeApiKey(e.target.value);
-                                            setKeyStatus('idle');
-                                        }}
-                                        placeholder={t('settings.curseforgeKey.placeholder', 'Enter your CurseForge API key')}
-                                        className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all font-mono"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCurseforgeKey(!showCurseforgeKey)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors text-sm"
-                                    >
-                                        {showCurseforgeKey ? t('common.hide') : t('common.show')}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-4">
-                                <p className="text-sm text-slate-300 font-medium mb-3">{t('settings.curseforgeKey.needKey', 'A CurseForge API key is required.')}</p>
-                                <button
-                                    onClick={() => openUrl('https://console.curseforge.com')}
-                                    className="flex items-center space-x-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition-colors shadow-lg shadow-sky-500/20 w-full justify-center"
-                                >
-                                    <ExternalLink className="w-4 h-4" />
-                                    <span>{t('settings.curseforgeKey.getKey', 'Get your API key here')}</span>
-                                </button>
-                                <p className="text-xs text-slate-400 mt-3">
-                                    {t('settings.curseforgeKey.instructions', 'Create a key in your CurseForge developer account.')}
-                                </p>
-                            </div>
-
-                            {!curseforgeApiKey && (
-                                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
-                                    <div className="flex items-center space-x-2">
-                                        <AlertCircle className="w-5 h-5 text-amber-400" />
-                                        <span className="text-amber-400 font-medium">{t('settings.curseforgeKey.notSet', 'Not set')}</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Verification UI */}
-                            {curseforgeApiKey && (
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={verifyKey}
-                                        disabled={isVerifying}
-                                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-all ${keyStatus === 'valid'
-                                            ? 'bg-green-600/20 text-green-400 border border-green-500/30'
-                                            : keyStatus === 'invalid'
-                                                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                                : 'bg-slate-700 hover:bg-slate-600 text-white border border-slate-600'
-                                            }`}
-                                    >
-                                        {isVerifying ? (
-                                            <>
-                                                <RefreshCw className="w-4 h-4 animate-spin" /> {t('settings.curseforgeKey.verifying', 'Verifying...')}
-                                            </>
-                                        ) : keyStatus === 'valid' ? (
-                                            <>
-                                                <CheckCircle className="w-4 h-4" /> {t('settings.curseforgeKey.verified', 'Verified')}
-                                            </>
-                                        ) : keyStatus === 'invalid' ? (
-                                            <>
-                                                <AlertCircle className="w-4 h-4" /> {t('settings.curseforgeKey.invalid', 'Invalid key')}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <CheckCircle className="w-4 h-4" /> {t('settings.curseforgeKey.verifyKey', 'Verify Key')}
-                                            </>
-                                        )}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                <button
+                    onClick={() => setActiveTab('firewall')}
+                    className={cn(
+                        "flex items-center gap-3 px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 relative overflow-hidden whitespace-nowrap group",
+                        activeTab === 'firewall'
+                            ? "text-red-300 bg-gradient-to-r from-red-500/20 via-rose-500/15 to-orange-500/20 border border-red-500/40 shadow-lg shadow-red-500/10"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
+                    )}
+                >
+                    <div className={cn("p-1.5 rounded-xl transition-all", activeTab === 'firewall' ? "bg-red-500/30 text-red-300" : "bg-slate-800 text-slate-400 group-hover:text-white")}>
+                        <Shield className="w-4 h-4" />
                     </div>
+                    <span>{t('settings.tabs.firewall', 'Firewall & Ports')}</span>
+                    {activeTab === 'firewall' && <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse ml-auto" />}
+                </button>
 
-                    {/* AI Provider Selector */}
-                    <div className="glass-panel rounded-2xl p-8">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
-                                <Cpu className="w-6 h-6 text-cyan-400" />
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-white mb-2">{t('settings.aiProvider.title', 'AI Provider')}</h2>
-                                <p className="text-slate-400">
-                                    {t('settings.aiProvider.description', 'Choose between NVIDIA cloud models or a local LM Studio server running your own loaded model.')}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <button
-                                onClick={() => handleSelectProvider('nvidia')}
-                                className={cn(
-                                    "text-left p-5 rounded-xl border transition-all",
-                                    aiProvider === 'nvidia'
-                                        ? "bg-emerald-500/10 border-emerald-500/40 ring-1 ring-emerald-500/30"
-                                        : "bg-slate-800/40 border-slate-700 hover:border-slate-600"
-                                )}
-                            >
-                                <div className="flex items-center gap-2 mb-1">
-                                    <Bot className="w-4 h-4 text-emerald-400" />
-                                    <span className="font-semibold text-white">{t('settings.aiProvider.nvidia', 'NVIDIA Cloud')}</span>
-                                    {aiProvider === 'nvidia' && <CheckCircle className="w-4 h-4 text-emerald-400 ml-auto" />}
-                                </div>
-                                <p className="text-xs text-slate-400">{t('settings.aiProvider.nvidiaDesc', 'Hosted NIM models. Requires an API key.')}</p>
-                            </button>
-
-                            <button
-                                onClick={() => handleSelectProvider('lmstudio')}
-                                className={cn(
-                                    "text-left p-5 rounded-xl border transition-all",
-                                    aiProvider === 'lmstudio'
-                                        ? "bg-cyan-500/10 border-cyan-500/40 ring-1 ring-cyan-500/30"
-                                        : "bg-slate-800/40 border-slate-700 hover:border-slate-600"
-                                )}
-                            >
-                                <div className="flex items-center gap-2 mb-1">
-                                    <Cpu className="w-4 h-4 text-cyan-400" />
-                                    <span className="font-semibold text-white">{t('settings.aiProvider.lmstudio', 'LM Studio (Local)')}</span>
-                                    {aiProvider === 'lmstudio' && <CheckCircle className="w-4 h-4 text-cyan-400 ml-auto" />}
-                                </div>
-                                <p className="text-xs text-slate-400">{t('settings.aiProvider.lmstudioDesc', 'Your own loaded model, offline & private.')}</p>
-                            </button>
-                        </div>
+                <button
+                    onClick={() => setActiveTab('updates')}
+                    className={cn(
+                        "flex items-center gap-3 px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 relative overflow-hidden whitespace-nowrap group",
+                        activeTab === 'updates'
+                            ? "text-emerald-300 bg-gradient-to-r from-emerald-500/20 via-teal-500/15 to-cyan-500/20 border border-emerald-500/40 shadow-lg shadow-emerald-500/10"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
+                    )}
+                >
+                    <div className={cn("p-1.5 rounded-xl transition-all", activeTab === 'updates' ? "bg-emerald-500/30 text-emerald-300" : "bg-slate-800 text-slate-400 group-hover:text-white")}>
+                        <RefreshCw className="w-4 h-4" />
                     </div>
+                    <span>{t('settings.tabs.updates', 'Updates & Releases')}</span>
+                    {activeTab === 'updates' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-auto" />}
+                </button>
 
-                    {/* LM Studio Configuration */}
-                    {aiProvider === 'lmstudio' && (
-                        <div className="glass-panel rounded-2xl p-8">
-                            <div className="flex items-start space-x-4 mb-6">
-                                <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
-                                    <Terminal className="w-6 h-6 text-cyan-400" />
+                <button
+                    onClick={() => setActiveTab('startup')}
+                    className={cn(
+                        "flex items-center gap-3 px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 relative overflow-hidden whitespace-nowrap group",
+                        activeTab === 'startup'
+                            ? "text-amber-300 bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-orange-500/20 border border-amber-500/40 shadow-lg shadow-amber-500/10"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
+                    )}
+                >
+                    <div className={cn("p-1.5 rounded-xl transition-all", activeTab === 'startup' ? "bg-amber-500/30 text-amber-300" : "bg-slate-800 text-slate-400 group-hover:text-white")}>
+                        <Zap className="w-4 h-4" />
+                    </div>
+                    <span>{t('settings.tabs.startup', 'Startup & Recovery')}</span>
+                    {activeTab === 'startup' && <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse ml-auto" />}
+                </button>
+
+                <button
+                    onClick={() => setActiveTab('language')}
+                    className={cn(
+                        "flex items-center gap-3 px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 relative overflow-hidden whitespace-nowrap group",
+                        activeTab === 'language'
+                            ? "text-cyan-300 bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-sky-500/20 border border-cyan-500/40 shadow-lg shadow-cyan-500/10"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
+                    )}
+                >
+                    <div className={cn("p-1.5 rounded-xl transition-all", activeTab === 'language' ? "bg-cyan-500/30 text-cyan-300" : "bg-slate-800 text-slate-400 group-hover:text-white")}>
+                        <Globe className="w-4 h-4" />
+                    </div>
+                    <span>{t('settings.tabs.language', 'Language & Region')}</span>
+                    {activeTab === 'language' && <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse ml-auto" />}
+                </button>
+            </div>
+
+            {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-24 space-y-4">
+                    <div className="relative">
+                        <div className="w-12 h-12 rounded-full border-4 border-sky-500/20 border-t-sky-400 animate-spin" />
+                        <div className="absolute inset-0 bg-sky-500/10 rounded-full blur-xl" />
+                    </div>
+                    <span className="text-sm font-medium text-slate-400">{t('common.loadingSettings', 'Loading preferences…')}</span>
+                </div>
+            ) : activeTab === 'api' ? (
+                <div className="space-y-8 animate-in slide-in-from-left-4 duration-300">
+
+                    {/* ── Section 1: Game & System Directories ── */}
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
+                            <FolderOpen className="w-4 h-4 text-cyan-400" />
+                            <span>System & Storage Directories</span>
+                        </div>
+
+                        {/* Game Support Options */}
+                        <div className="backdrop-blur-xl bg-slate-900/50 border border-white/10 rounded-3xl p-7 shadow-2xl hover:border-cyan-500/30 transition-all duration-300">
+                            <div className="flex items-start gap-4 mb-6">
+                                <div className="p-3 bg-gradient-to-br from-cyan-500/20 to-blue-600/10 border border-cyan-500/30 rounded-2xl shadow-inner">
+                                    <Cpu className="w-6 h-6 text-cyan-400" />
                                 </div>
                                 <div className="flex-1">
-                                    <h2 className="text-2xl font-bold text-white mb-2">{t('settings.lmStudio.title', 'LM Studio Endpoint')}</h2>
-                                    <p className="text-slate-400">
-                                        {t('settings.lmStudio.description', 'Point Infinity AI at a local OpenAI-compatible server and pick the loaded model.')}
+                                    <h2 className="text-xl font-bold text-white mb-1">Game Support Options</h2>
+                                    <p className="text-sm text-slate-400 leading-relaxed">
+                                        Toggle Evolved (ASE) support to display both ARK: Survival Evolved and ARK: Survival Ascended configuration sections. If disabled, Evolved features are hidden to keep the manager streamlined for Ascended.
                                     </p>
                                 </div>
+                            </div>
+                            <div className="flex items-center justify-between p-4 bg-slate-950/60 border border-white/5 rounded-2xl">
+                                <div>
+                                    <h3 className="text-sm font-semibold text-white">Enable Evolved (ASE) Support</h3>
+                                    <p className="text-xs text-slate-400 mt-1">Show both Evolved and Ascended server configurations across the manager</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const newVal = !showAseMode;
+                                        setShowAseMode(newVal);
+                                        if (!newVal && activeGame === 'ASE') {
+                                            setActiveGame('ASA');
+                                        }
+                                    }}
+                                    className={cn(
+                                        "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                                        showAseMode ? "bg-cyan-500 shadow-lg shadow-cyan-500/30" : "bg-slate-800 border-slate-700"
+                                    )}
+                                    role="switch"
+                                    aria-checked={showAseMode}
+                                >
+                                    <span
+                                        aria-hidden="true"
+                                        className={cn(
+                                            "pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out",
+                                            showAseMode ? "translate-x-5" : "translate-x-0"
+                                        )}
+                                    />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* User Config Folder */}
+                        <div className="backdrop-blur-xl bg-slate-900/50 border border-white/10 rounded-3xl p-7 shadow-2xl hover:border-amber-500/30 transition-all duration-300">
+                            <div className="flex items-start gap-4 mb-6">
+                                <div className="p-3 bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/30 rounded-2xl shadow-inner">
+                                    <FolderOpen className="w-6 h-6 text-amber-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <h2 className="text-xl font-bold text-white mb-1">{t('settings.userConfigFolder.title', 'User Config Folder')}</h2>
+                                    <p className="text-sm text-slate-400 leading-relaxed">
+                                        {t('settings.userConfigFolder.desc', 'Point to a custom folder containing your server configuration files (GameUserSettings.ini, Game.ini). When set, the app reads and writes configs from this folder instead of the server install directory.')}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={userConfigFolder}
+                                    onChange={(e) => setUserConfigFolder(e.target.value)}
+                                    placeholder={t('settings.userConfigFolder.placeholder', 'Not set — using default server install path')}
+                                    className="flex-1 px-4 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 placeholder-slate-500 transition-all"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        try {
+                                            const path = await invoke<string | null>('select_folder', { title: 'Select User Config Folder' });
+                                            if (path) setUserConfigFolder(path);
+                                        } catch (error) {
+                                            console.error('Failed to select folder:', error);
+                                            toast.error(t('settings.userConfigFolder.browseFailed', 'Failed to open folder picker'));
+                                        }
+                                    }}
+                                    className="px-4 py-3 bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 rounded-xl text-slate-300 hover:text-white transition-all flex items-center gap-2 text-xs font-semibold"
+                                    title={t('common.browse', 'Browse')}
+                                >
+                                    <FolderOpen className="w-4 h-4 text-amber-400" />
+                                    <span>Browse</span>
+                                </button>
+                                {userConfigFolder && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setUserConfigFolder('')}
+                                        className="px-3 py-3 bg-slate-800/80 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-xl text-slate-400 hover:text-red-400 transition-all"
+                                        title={t('settings.userConfigFolder.clear', 'Clear and use default')}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
+                            {userConfigFolder && (
+                                <p className="mt-3 text-xs text-amber-400/90 flex items-center gap-1.5 font-medium">
+                                    <CheckCircle className="w-3.5 h-3.5" />
+                                    {t('settings.userConfigFolder.activeNote', 'Config files will be read from and saved to this folder')}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Custom SteamCMD Path */}
+                        <div className="backdrop-blur-xl bg-slate-900/50 border border-white/10 rounded-3xl p-7 shadow-2xl hover:border-sky-500/30 transition-all duration-300">
+                            <div className="flex items-start gap-4 mb-6">
+                                <div className="p-3 bg-gradient-to-br from-sky-500/20 to-blue-600/10 border border-sky-500/30 rounded-2xl shadow-inner">
+                                    <Terminal className="w-6 h-6 text-sky-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <h2 className="text-xl font-bold text-white mb-1">{t('settings.customSteamcmdPath.title', 'Custom SteamCMD Path')}</h2>
+                                    <p className="text-sm text-slate-400 leading-relaxed">
+                                        {t('settings.customSteamcmdPath.desc', 'Redirect SteamCMD and server workshop downloads to a custom folder. Useful if your Windows username contains non-ASCII characters.')}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={customSteamcmdPath}
+                                    onChange={(e) => setCustomSteamcmdPath(e.target.value)}
+                                    placeholder={t('settings.customSteamcmdPath.placeholder', 'Not set — using default Roaming AppData')}
+                                    className={cn(
+                                        "flex-1 px-4 py-3 bg-slate-950/70 border rounded-xl text-white font-mono text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20 placeholder-slate-500 transition-all",
+                                        /[^\x00-\x7F]/.test(customSteamcmdPath) ? "border-red-500/50 text-red-200" : "border-slate-700/80 focus:border-sky-500/50"
+                                    )}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        try {
+                                            const path = await invoke<string | null>('select_folder', { title: 'Select Custom SteamCMD Folder' });
+                                            if (path) setCustomSteamcmdPath(path);
+                                        } catch (error) {
+                                            console.error('Failed to select folder:', error);
+                                            toast.error(t('settings.customSteamcmdPath.browseFailed', 'Failed to open folder picker'));
+                                        }
+                                    }}
+                                    className="px-4 py-3 bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 rounded-xl text-slate-300 hover:text-white transition-all flex items-center gap-2 text-xs font-semibold"
+                                    title={t('common.browse', 'Browse')}
+                                >
+                                    <FolderOpen className="w-4 h-4 text-sky-400" />
+                                    <span>Browse</span>
+                                </button>
+                                {customSteamcmdPath && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setCustomSteamcmdPath('')}
+                                        className="px-3 py-3 bg-slate-800/80 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 rounded-xl text-slate-400 hover:text-red-400 transition-all"
+                                        title={t('settings.customSteamcmdPath.clear', 'Clear and use default')}
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
+                            {/[^\x00-\x7F]/.test(customSteamcmdPath) && (
+                                <p className="mt-3 text-xs text-red-400 flex items-center gap-1.5 font-medium">
+                                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                                    {t('settings.customSteamcmdPath.invalidWarning', 'Warning: Path contains non-ASCII characters. SteamCMD will fail to run here.')}
+                                </p>
+                            )}
+                            {resolvedSteamcmdPath && (
+                                <div className="mt-4 p-3.5 bg-slate-950/80 rounded-2xl border border-white/5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                    <div className="flex items-center gap-2 text-slate-300">
+                                        <CheckCircle className="w-4 h-4 text-sky-400 shrink-0" />
+                                        <span className="font-medium text-slate-400">Active SteamCMD Location:</span>
+                                        <code className="px-2.5 py-1 bg-slate-900 rounded-lg text-sky-300 font-mono text-[11px] select-all border border-white/10">
+                                            {resolvedSteamcmdPath}
+                                        </code>
+                                    </div>
+                                    {resolvedSteamcmdPath.includes('ARKServerManager') && !customSteamcmdPath && (
+                                        <span className="text-[11px] text-amber-300 font-medium bg-amber-500/15 px-3 py-1 rounded-full border border-amber-500/30 flex items-center gap-1.5">
+                                            🛡️ Auto-Fallback Active
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ── Section 2: Steam & Modding Integration Keys ── */}
+                    <div className="space-y-6 pt-4">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
+                            <Key className="w-4 h-4 text-sky-400" />
+                            <span>Steam & Modding Integration Keys</span>
+                        </div>
+
+                        {/* Steam Web API Key */}
+                        <div className="backdrop-blur-xl bg-slate-900/50 border border-white/10 rounded-3xl p-7 shadow-2xl hover:border-sky-500/30 transition-all duration-300">
+                            <div className="flex items-start justify-between gap-4 mb-6">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 bg-gradient-to-br from-sky-500/20 to-blue-600/10 border border-sky-500/30 rounded-2xl shadow-inner">
+                                        <Key className="w-6 h-6 text-sky-400" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h2 className="text-xl font-bold text-white">Steam Web API Key</h2>
+                                            {steamApiKey ? (
+                                                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold flex items-center gap-1">
+                                                    <CheckCircle className="w-3 h-3" /> Configured
+                                                </span>
+                                            ) : (
+                                                <span className="px-2.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-[11px] font-bold">
+                                                    Optional
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-slate-400 mt-1">
+                                            Used for checking software updates and querying Steam Workshop metadata.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => openUrl('https://steamcommunity.com/dev/apikey')}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-sky-500/20 shrink-0"
+                                >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    <span>Get Steam Key</span>
+                                </button>
                             </div>
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        {t('settings.lmStudio.baseUrl', 'Server Base URL')}
+                                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                                        Steam Web API Key
                                     </label>
-                                    <div className="relative">
-                                        <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+                                    <div className="relative flex items-center">
+                                        <Lock className="absolute left-4 w-4 h-4 text-slate-500" />
                                         <input
-                                            type="text"
-                                            value={lmStudioBaseUrl}
-                                            onChange={(e) => setLmStudioBaseUrl(e.target.value)}
-                                            onBlur={() => setSetting('lmstudio_base_url', lmStudioBaseUrl).catch(() => {})}
-                                            placeholder="http://localhost:1234/v1"
-                                            className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all font-mono"
+                                            type={showSteamKey ? 'text' : 'password'}
+                                            value={steamApiKey}
+                                            onChange={(e) => setSteamApiKey(e.target.value)}
+                                            placeholder="Enter your 32-character Steam Web API key"
+                                            className="w-full pl-11 pr-24 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/20 placeholder-slate-500 transition-all"
                                         />
+                                        <div className="absolute right-2 flex items-center gap-1">
+                                            {steamApiKey && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCopyText(steamApiKey, 'steam')}
+                                                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                                                    title="Copy key"
+                                                >
+                                                    {copiedField === 'steam' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowSteamKey(!showSteamKey)}
+                                                className="px-2.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors text-xs font-medium"
+                                            >
+                                                {showSteamKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-2">
-                                        {t('settings.lmStudio.baseUrlHint', "In LM Studio: Developer tab → start the server. Default is http://localhost:1234/v1.")}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* CurseForge API Key */}
+                        <div className="backdrop-blur-xl bg-slate-900/50 border border-white/10 rounded-3xl p-7 shadow-2xl hover:border-sky-500/30 transition-all duration-300">
+                            <div className="flex items-start justify-between gap-4 mb-6">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/30 rounded-2xl shadow-inner">
+                                        <Key className="w-6 h-6 text-amber-400" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h2 className="text-xl font-bold text-white">CurseForge API Key</h2>
+                                            {keyStatus === 'valid' ? (
+                                                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold flex items-center gap-1">
+                                                    <CheckCircle className="w-3 h-3" /> Verified
+                                                </span>
+                                            ) : curseforgeApiKey ? (
+                                                <span className="px-2.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400 text-[11px] font-bold flex items-center gap-1">
+                                                    <CheckCircle className="w-3 h-3" /> Configured
+                                                </span>
+                                            ) : (
+                                                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[11px] font-bold flex items-center gap-1">
+                                                    <AlertCircle className="w-3 h-3" /> Required for Mod Search
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p className="text-sm text-slate-400 mt-1">
+                                            Required for searching and installing ARK: Survival Ascended mods via CurseForge API.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => openUrl('https://console.curseforge.com')}
+                                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-amber-500/20 shrink-0"
+                                >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    <span>Get CurseForge Key</span>
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                                        CurseForge API Key ($2a$10...)
+                                    </label>
+                                    <div className="relative flex items-center">
+                                        <Lock className="absolute left-4 w-4 h-4 text-slate-500" />
+                                        <input
+                                            type={showCurseforgeKey ? 'text' : 'password'}
+                                            value={curseforgeApiKey}
+                                            onChange={(e) => {
+                                                setCurseforgeApiKey(e.target.value);
+                                                setKeyStatus('idle');
+                                            }}
+                                            placeholder="Enter your CurseForge API key ($2a$10...)"
+                                            className="w-full pl-11 pr-24 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 placeholder-slate-500 transition-all"
+                                        />
+                                        <div className="absolute right-2 flex items-center gap-1">
+                                            {curseforgeApiKey && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleCopyText(curseforgeApiKey, 'curseforge')}
+                                                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                                                    title="Copy key"
+                                                >
+                                                    {copiedField === 'curseforge' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowCurseforgeKey(!showCurseforgeKey)}
+                                                className="px-2.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors text-xs font-medium"
+                                            >
+                                                {showCurseforgeKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {curseforgeApiKey && (
+                                    <button
+                                        onClick={verifyKey}
+                                        disabled={isVerifying}
+                                        className={cn(
+                                            "w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-all text-xs",
+                                            keyStatus === 'valid'
+                                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                                                : keyStatus === 'invalid'
+                                                    ? "bg-red-500/20 text-red-300 border border-red-500/40"
+                                                    : "bg-slate-800 hover:bg-slate-700 text-white border border-slate-700"
+                                        )}
+                                    >
+                                        {isVerifying ? (
+                                            <>
+                                                <RefreshCw className="w-4 h-4 animate-spin text-cyan-400" />
+                                                <span>Verifying API Key with CurseForge servers...</span>
+                                            </>
+                                        ) : keyStatus === 'valid' ? (
+                                            <>
+                                                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                                                <span>Key Verified & Active!</span>
+                                            </>
+                                        ) : keyStatus === 'invalid' ? (
+                                            <>
+                                                <AlertCircle className="w-4 h-4 text-red-400" />
+                                                <span>Invalid API Key — Check & Retry</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <RefreshCw className="w-4 h-4 text-amber-400" />
+                                                <span>Test & Verify CurseForge Key</span>
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Section 3: Infinity AI Assistant Engine ── */}
+                    <div className="space-y-6 pt-4">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
+                            <Bot className="w-4 h-4 text-emerald-400" />
+                            <span>Infinity AI Assistant Engine</span>
+                        </div>
+
+                        {/* AI Provider Selection Cards */}
+                        <div className="backdrop-blur-xl bg-slate-900/50 border border-white/10 rounded-3xl p-7 shadow-2xl">
+                            <div className="flex items-start gap-4 mb-6">
+                                <div className="p-3 bg-gradient-to-br from-emerald-500/20 to-cyan-600/10 border border-emerald-500/30 rounded-2xl shadow-inner">
+                                    <Bot className="w-6 h-6 text-emerald-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <h2 className="text-xl font-bold text-white mb-1">AI Engine Provider</h2>
+                                    <p className="text-sm text-slate-400">
+                                        Choose between NVIDIA cloud models or a local LM Studio server for autonomous server management.
                                     </p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => handleSelectProvider('nvidia')}
+                                    className={cn(
+                                        "text-left p-5 rounded-2xl border transition-all duration-300 relative overflow-hidden group",
+                                        aiProvider === 'nvidia'
+                                            ? "bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-transparent border-emerald-500/50 shadow-lg shadow-emerald-500/10"
+                                            : "bg-slate-950/60 border-slate-800 hover:border-slate-700"
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                <Bot className="w-4 h-4" />
+                                            </div>
+                                            <span className="font-bold text-white">NVIDIA Cloud API</span>
+                                        </div>
+                                        {aiProvider === 'nvidia' && (
+                                            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">
+                                                Active
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-400 leading-relaxed">
+                                        High-performance Llama 3.1 & Nemotron models powered by NVIDIA NIM cloud architecture.
+                                    </p>
+                                </button>
+
+                                <button
+                                    onClick={() => handleSelectProvider('lmstudio')}
+                                    className={cn(
+                                        "text-left p-5 rounded-2xl border transition-all duration-300 relative overflow-hidden group",
+                                        aiProvider === 'lmstudio'
+                                            ? "bg-gradient-to-br from-cyan-500/15 via-blue-500/10 to-transparent border-cyan-500/50 shadow-lg shadow-cyan-500/10"
+                                            : "bg-slate-950/60 border-slate-800 hover:border-slate-700"
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                                                <Cpu className="w-4 h-4" />
+                                            </div>
+                                            <span className="font-bold text-white">Local LM Studio</span>
+                                        </div>
+                                        {aiProvider === 'lmstudio' && (
+                                            <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold border border-cyan-500/30">
+                                                Active
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-400 leading-relaxed">
+                                        100% offline, private, self-hosted LLM running directly on your own GPU/CPU hardware.
+                                    </p>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* NVIDIA AI API Key Details */}
+                        {aiProvider === 'nvidia' && (
+                            <div className="backdrop-blur-xl bg-slate-900/50 border border-white/10 rounded-3xl p-7 shadow-2xl animate-in fade-in duration-300">
+                                <div className="flex items-start justify-between gap-4 mb-6">
+                                    <div className="flex items-start gap-4">
+                                        <div className="p-3 bg-gradient-to-br from-emerald-500/20 to-cyan-600/10 border border-emerald-500/30 rounded-2xl shadow-inner">
+                                            <Bot className="w-6 h-6 text-emerald-400" />
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h2 className="text-xl font-bold text-white">NVIDIA NIM API Key</h2>
+                                                {nvidiaApiKey ? (
+                                                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold flex items-center gap-1">
+                                                        <CheckCircle className="w-3 h-3" /> Configured
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[11px] font-bold flex items-center gap-1">
+                                                        <AlertCircle className="w-3 h-3" /> Key Needed
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-slate-400 mt-1">
+                                                Required for Infinity AI to assist with server optimizations and logs.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => openUrl('https://build.nvidia.com/')}
+                                        className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-emerald-500/20 shrink-0"
+                                    >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                        <span>Get Free NVIDIA Key</span>
+                                    </button>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                                            NVIDIA API Key (nvapi-...)
+                                        </label>
+                                        <div className="relative flex items-center">
+                                            <Lock className="absolute left-4 w-4 h-4 text-slate-500" />
+                                            <input
+                                                type={showNvidiaKey ? 'text' : 'password'}
+                                                value={nvidiaApiKey}
+                                                onChange={(e) => setNvidiaApiKey(e.target.value)}
+                                                placeholder="nvapi-..."
+                                                className="w-full pl-11 pr-24 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 placeholder-slate-500 transition-all"
+                                            />
+                                            <div className="absolute right-2 flex items-center gap-1">
+                                                {nvidiaApiKey && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleCopyText(nvidiaApiKey, 'nvidia')}
+                                                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                                                        title="Copy key"
+                                                    >
+                                                        {copiedField === 'nvidia' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                                    </button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowNvidiaKey(!showNvidiaKey)}
+                                                    className="px-2.5 py-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors text-xs font-medium"
+                                                >
+                                                    {showNvidiaKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Local LM Studio Configuration */}
+                        {aiProvider === 'lmstudio' && (
+                            <div className="backdrop-blur-xl bg-slate-900/50 border border-white/10 rounded-3xl p-7 shadow-2xl animate-in fade-in duration-300 space-y-6">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 bg-gradient-to-br from-cyan-500/20 to-blue-600/10 border border-cyan-500/30 rounded-2xl shadow-inner">
+                                        <Terminal className="w-6 h-6 text-cyan-400" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold text-white">LM Studio Local Server Endpoint</h2>
+                                        <p className="text-sm text-slate-400 mt-1">
+                                            Connect to your locally running LM Studio HTTP server (`http://localhost:1234/v1`).
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                                            Server Base URL
+                                        </label>
+                                        <div className="relative flex items-center">
+                                            <Globe className="absolute left-4 w-4 h-4 text-slate-500" />
+                                            <input
+                                                type="text"
+                                                value={lmStudioBaseUrl}
+                                                onChange={(e) => setLmStudioBaseUrl(e.target.value)}
+                                                onBlur={() => setSetting('lmstudio_base_url', lmStudioBaseUrl).catch(() => {})}
+                                                placeholder="http://localhost:1234/v1"
+                                                className="w-full pl-11 pr-4 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                                            API Token (Optional)
+                                        </label>
+                                        <div className="relative flex items-center">
+                                            <Lock className="absolute left-4 w-4 h-4 text-slate-500" />
+                                            <input
+                                                type={showLmStudioKey ? 'text' : 'password'}
+                                                value={lmStudioApiKey}
+                                                onChange={(e) => setLmStudioApiKey(e.target.value)}
+                                                onBlur={() => setSetting('lmstudio_api_key', lmStudioApiKey).catch(() => {})}
+                                                placeholder="Leave blank for local server"
+                                                className="w-full pl-11 pr-12 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowLmStudioKey(!showLmStudioKey)}
+                                                className="absolute right-3 text-slate-400 hover:text-white"
+                                            >
+                                                {showLmStudioKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        {t('settings.lmStudio.apiKey', 'API Token')} <span className="text-slate-500 font-normal">({t('common.optional', 'optional')})</span>
-                                    </label>
-                                    <div className="relative">
-                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                                        <input
-                                            type={showLmStudioKey ? 'text' : 'password'}
-                                            value={lmStudioApiKey}
-                                            onChange={(e) => setLmStudioApiKey(e.target.value)}
-                                            onBlur={() => setSetting('lmstudio_api_key', lmStudioApiKey).catch(() => {})}
-                                            placeholder={t('settings.lmStudio.apiKeyPlaceholder', 'Leave blank for a default local server')}
-                                            className="w-full pl-12 pr-14 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all font-mono"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowLmStudioKey(!showLmStudioKey)}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors text-sm"
-                                        >
-                                            {showLmStudioKey ? t('common.hide') : t('common.show')}
-                                        </button>
-                                    </div>
-                                    <p className="text-xs text-slate-500 mt-2">
-                                        {t('settings.lmStudio.apiKeyHint', 'Only needed if your server enforces auth (e.g. a remote endpoint or a proxy in front of LM Studio).')}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                                        {t('settings.lmStudio.model', 'Loaded Model')}
+                                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                                        Loaded Model Name
                                     </label>
                                     <div className="flex gap-2">
                                         <input
@@ -1053,9 +1309,9 @@ export default function Settings() {
                                             value={lmStudioModel}
                                             onChange={(e) => setLmStudioModel(e.target.value)}
                                             onBlur={() => setSetting('lmstudio_model', lmStudioModel).catch(() => {})}
-                                            placeholder="qwen3.5-4b-uncensored-hauhaucs-aggressive"
+                                            placeholder="Auto-detect or type model id"
                                             list="lmstudio-models"
-                                            className="flex-1 px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all font-mono"
+                                            className="flex-1 px-4 py-3 bg-slate-950/70 border border-slate-700/80 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all"
                                         />
                                         <datalist id="lmstudio-models">
                                             {lmStudioModels.map((m) => <option key={m} value={m} />)}
@@ -1063,114 +1319,24 @@ export default function Settings() {
                                         <button
                                             onClick={handleProbeLmStudio}
                                             disabled={lmStudioProbing}
-                                            className="flex items-center gap-2 px-4 py-3 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-xl transition-colors shadow-lg shadow-cyan-500/20 whitespace-nowrap"
+                                            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50"
                                         >
                                             <RefreshCw className={cn("w-4 h-4", lmStudioProbing && "animate-spin")} />
-                                            <span>{t('settings.lmStudio.detect', 'Detect')}</span>
+                                            <span>Detect Models</span>
                                         </button>
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-2">
-                                        {t('settings.lmStudio.modelHint', 'Type the model id or click Detect to list models loaded in LM Studio. Leave blank to use the currently loaded one.')}
-                                    </p>
                                 </div>
 
                                 {lmStudioModels.length > 0 && (
-                                    <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4">
-                                        <div className="flex items-center space-x-2">
-                                            <CheckCircle className="w-5 h-5 text-cyan-400" />
-                                            <span className="text-cyan-400 font-medium">
-                                                {t('settings.lmStudio.connected', 'Connected — {{count}} model(s) available', { count: lmStudioModels.length })}
-                                            </span>
-                                        </div>
+                                    <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-4 flex items-center gap-3 text-xs text-cyan-300 font-medium">
+                                        <CheckCircle className="w-4 h-4 text-cyan-400 shrink-0" />
+                                        <span>Connected to LM Studio — {lmStudioModels.length} active model(s) detected.</span>
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    )}
-
-                    {/* NVIDIA AI API Key */}
-                    <div className="glass-panel rounded-2xl p-8">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-                                <Bot className="w-6 h-6 text-emerald-400" />
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-white mb-2">{t('settings.nvidiaKey.title', 'NVIDIA AI API Key')}</h2>
-                                <p className="text-slate-400">
-                                    {t('settings.nvidiaKey.description', 'Powers the Infinity AI assistant for autonomous server management')}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-3">
-                                    {t('settings.nvidiaKey.label', 'API Key')}
-                                </label>
-                                <div className="relative">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-                                    <input
-                                        type={showNvidiaKey ? 'text' : 'password'}
-                                        value={nvidiaApiKey}
-                                        onChange={(e) => setNvidiaApiKey(e.target.value)}
-                                        placeholder={t('settings.nvidiaKey.placeholder', 'Enter your NVIDIA API key (nvapi-...)')}
-                                        className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-mono"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowNvidiaKey(!showNvidiaKey)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors text-sm"
-                                    >
-                                        {showNvidiaKey ? t('common.hide') : t('common.show')}
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
-                                <p className="text-sm text-slate-300 font-medium mb-3">{t('settings.nvidiaKey.needKey', 'Get a free NVIDIA API key to enable AI features.')}</p>
-                                <button
-                                    onClick={() => openUrl('https://build.nvidia.com/')}
-                                    className="flex items-center space-x-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors shadow-lg shadow-emerald-500/20 w-full justify-center"
-                                >
-                                    <ExternalLink className="w-4 h-4" />
-                                    <span>{t('settings.nvidiaKey.getKey', 'Get your NVIDIA API key')}</span>
-                                </button>
-                                <p className="text-xs text-slate-400 mt-3">
-                                    {t('settings.nvidiaKey.instructions', 'Sign in → Select a model → Generate API Key → Paste above.')}
-                                </p>
-                            </div>
-
-                            {nvidiaApiKey && (
-                                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
-                                    <div className="flex items-center space-x-2">
-                                        <CheckCircle className="w-5 h-5 text-green-400" />
-                                        <span className="text-green-400 font-medium">{t('settings.nvidiaKey.configured', 'NVIDIA AI API Key configured')}</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {!nvidiaApiKey && (
-                                <div className="bg-slate-500/10 border border-slate-500/20 rounded-xl p-4">
-                                    <div className="flex items-center space-x-2">
-                                        <AlertCircle className="w-5 h-5 text-slate-400" />
-                                        <span className="text-slate-400 font-medium">{t('settings.nvidiaKey.notConfigured', 'AI features require an NVIDIA API key')}</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        )}
                     </div>
 
-                    {/* Info Section */}
-                    <div className="glass-panel rounded-2xl p-6 border-dashed">
-                        <h3 className="text-lg font-medium text-white mb-3">{t('settings.aboutApiKeys.title', 'About API Keys')}</h3>
-                        <div className="space-y-2 text-sm text-slate-400">
-                            <p>• {t('settings.aboutApiKeys.storedLocally', 'Your API keys are stored locally and encrypted on your machine.')}</p>
-                            <p>• {t('settings.aboutApiKeys.neverShared', 'They are never shared with any third party, only sent directly to Steam and CurseForge API endpoints.')}</p>
-                            <p>• <strong className="text-sky-400">{t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(':')[0]}</strong>: {t('settings.aboutApiKeys.steamDesc', 'Steam Web API Key: Used for checking updates to the server software').split(':')[1]}</p>
-                            <p>• <strong className="text-sky-400">{t('settings.aboutApiKeys.curseforgeDesc', 'CurseForge API Key: Required for downloading and updating mods').split(':')[0]}</strong>: {t('settings.aboutApiKeys.curseforgeDesc', 'CurseForge API Key: Required for downloading and updating mods').split(':')[1]}</p>
-                            <p>• {t('settings.aboutApiKeys.revokable', 'You can revoke these keys at any time from your Steam/CurseForge developer portal.')}</p>
-                        </div>
-                    </div>
                 </div>
             ) : activeTab === 'firewall' ? (
                 <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
@@ -1579,6 +1745,74 @@ export default function Settings() {
                     </div>
                 </div>
             ) : null}
+
+            {/* Floating Pop-Up Save Bar */}
+            {(isDirty || isScrolled) && createPortal(
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] animate-in slide-in-from-bottom-6 fade-in duration-300">
+                    <div className={cn(
+                        "flex items-center gap-4 px-6 py-3.5 rounded-2xl border shadow-2xl backdrop-blur-xl transition-all duration-300",
+                        isDirty
+                            ? "bg-slate-900/95 border-amber-500/50 shadow-amber-500/20 ring-1 ring-amber-500/30"
+                            : "bg-slate-900/90 border-slate-700/60 shadow-slate-950/80"
+                    )}>
+                        <div className="flex items-center gap-3">
+                            <div className={cn(
+                                "w-3 h-3 rounded-full",
+                                autoSaveEnabled && autoSaveStatus === 'saving'
+                                    ? "bg-amber-400 animate-ping"
+                                    : isDirty && !autoSaveEnabled
+                                    ? "bg-amber-400 animate-ping"
+                                    : "bg-emerald-400"
+                            )} />
+                            <div>
+                                <span className="text-sm font-bold text-white block leading-tight">
+                                    {autoSaveEnabled
+                                        ? (autoSaveStatus === 'saving' ? t('settings.autoSaving', 'Auto-saving…') : t('settings.autoSaveActive', 'Auto Save Active'))
+                                        : isDirty
+                                        ? t('settings.unsavedChanges', 'Unsaved Settings Edits')
+                                        : t('settings.allSaved', 'Settings Up to Date')}
+                                </span>
+                                <span className="text-[11px] text-slate-400 block">
+                                    {autoSaveEnabled
+                                        ? t('settings.autoSaveNotice', 'Edits save automatically in background')
+                                        : isDirty
+                                        ? t('settings.unsavedChangesDesc', 'Click Save Settings to apply modifications')
+                                        : t('settings.savedNotice', 'All modifications have been saved')}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="h-8 w-px bg-slate-700/60" />
+
+                        <div className="flex items-center gap-2">
+                            {isDirty && !autoSaveEnabled && (
+                                <button
+                                    onClick={() => loadSettings()}
+                                    disabled={isSaving}
+                                    className="px-3.5 py-2 text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors disabled:opacity-50"
+                                >
+                                    {t('common.cancel', 'Cancel')}
+                                </button>
+                            )}
+
+                            <button
+                                onClick={() => handleSave()}
+                                disabled={isSaving || (!isDirty && !isVerifying)}
+                                className={cn(
+                                    "flex items-center space-x-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
+                                    isDirty && !autoSaveEnabled
+                                        ? "bg-gradient-to-r from-amber-500 via-rose-500 to-pink-600 hover:from-amber-400 hover:to-pink-500 text-white shadow-amber-500/30 ring-2 ring-amber-400/50 animate-pulse"
+                                        : "bg-slate-800 text-slate-300 border border-slate-700"
+                                )}
+                            >
+                                <Save className={cn("w-4 h-4", isSaving && "animate-spin")} />
+                                <span>{isSaving ? t('common.saving', 'Saving…') : (isDirty && !autoSaveEnabled) ? t('settings.saveUnsavedShort', '⚡ Save Settings') : t('common.saveSettings', 'Save Settings')}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             {/* Log Viewer Modal */}
             {blocker.state === 'blocked' && createPortal(

@@ -1907,6 +1907,101 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+pub struct ServerSaveInfo {
+    pub has_saves: bool,
+    pub player_count: usize,
+    pub tribe_count: usize,
+    pub save_file_size: u64,
+    pub last_modified: Option<String>,
+}
+
+#[tauri::command]
+pub async fn check_server_has_saves(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<ServerSaveInfo, String> {
+    let install_path: String = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+
+        conn.query_row(
+            "SELECT install_path FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Server not found: {}", e))?
+    };
+
+    let saved_arks_dir = PathBuf::from(&install_path)
+        .join("ShooterGame")
+        .join("Saved")
+        .join("SavedArks");
+
+    let mut player_count = 0;
+    let mut tribe_count = 0;
+    let mut save_file_size = 0;
+    let mut last_modified = None;
+
+    if saved_arks_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&saved_arks_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(ext) = path.extension() {
+                    let ext_str = ext.to_string_lossy().to_lowercase();
+                    if ext_str == "arkprofile" {
+                        player_count += 1;
+                    } else if ext_str == "arktribe" {
+                        tribe_count += 1;
+                    } else if ext_str == "ark" {
+                        if let Ok(meta) = entry.metadata() {
+                            if meta.len() > save_file_size {
+                                save_file_size = meta.len();
+                                if let Ok(modified) = meta.modified() {
+                                    let dt: chrono::DateTime<chrono::Utc> = modified.into();
+                                    last_modified = Some(dt.to_rfc3339());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let has_saves = player_count > 0 || tribe_count > 0 || save_file_size > 0;
+
+    Ok(ServerSaveInfo {
+        has_saves,
+        player_count,
+        tribe_count,
+        save_file_size,
+        last_modified,
+    })
+}
+
+fn copy_dir_recursive_safe_simple(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    if src.is_dir() {
+        std::fs::create_dir_all(dst)?;
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            let src_path = entry.path();
+            let dst_path = dst.join(entry.file_name());
+            if src_path.is_dir() {
+                copy_dir_recursive_safe_simple(&src_path, &dst_path)?;
+            } else {
+                std::fs::copy(&src_path, &dst_path)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn delete_server(
     state: State<'_, AppState>,
@@ -1965,6 +2060,21 @@ pub async fn delete_server(
         if let Some(ref path_str) = install_path {
             let path = std::path::Path::new(path_str);
             if path.exists() {
+                // Safety net: Always create an emergency safety backup of SavedArks before wiping server files!
+                let saved_arks = path.join("ShooterGame").join("Saved").join("SavedArks");
+                if saved_arks.exists() {
+                    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+                    let safety_dir = std::path::PathBuf::from("C:/ASA_Backups")
+                        .join("safety_net")
+                        .join(format!("server_{}_{}", server_id, timestamp));
+                    println!("  🛡️ Safety Net: Preserving save game files to {:?}", safety_dir);
+                    if let Err(e) = copy_dir_recursive_safe_simple(&saved_arks, &safety_dir.join("SavedArks")) {
+                        eprintln!("  ⚠️ Safety Net warning: Could not backup SavedArks: {}", e);
+                    } else {
+                        println!("  ✅ Safety Net: Save games preserved successfully at {:?}", safety_dir);
+                    }
+                }
+
                 println!("  📂 Removing server installation directory on disk: {:?}", path);
                 if let Err(e) = std::fs::remove_dir_all(path) {
                     eprintln!("  ⚠️ Warning: Could not remove directory {:?}: {}", path, e);
@@ -1998,125 +2108,132 @@ pub async fn update_server_settings(
 ) -> Result<(), String> {
     println!("⚙️ Updating server settings for server {}", server_id);
 
-    let db = state
-        .db
-        .lock()
-        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-    let conn = db
-        .get_connection()
-        .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    let (is_ase, ports_changed) = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
-    // Determine the server type (ASA or ASE)
-    let is_ase = {
-        let is_in_servers = conn.query_row(
-            "SELECT 1 FROM servers WHERE id = ?1",
-            [server_id],
-            |_| Ok(true)
-        ).unwrap_or(false);
-        if !is_in_servers {
-            conn.query_row(
-                "SELECT 1 FROM ase_servers WHERE id = ?1",
+        // Determine the server type (ASA or ASE)
+        let is_ase = {
+            let is_in_servers = conn.query_row(
+                "SELECT 1 FROM servers WHERE id = ?1",
                 [server_id],
                 |_| Ok(true)
-            ).unwrap_or(false)
-        } else {
-            false
-        }
-    };
+            ).unwrap_or(false);
+            if !is_in_servers {
+                conn.query_row(
+                    "SELECT 1 FROM ase_servers WHERE id = ?1",
+                    [server_id],
+                    |_| Ok(true)
+                ).unwrap_or(false)
+            } else {
+                false
+            }
+        };
 
-    // Build dynamic update query
-    let mut updates = Vec::new();
-    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        // Build dynamic update query
+        let mut updates = Vec::new();
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
-    if let Some(v) = max_players {
-        updates.push("max_players = ?");
-        params.push(Box::new(v));
-    }
-    if let Some(v) = server_password {
-        updates.push("server_password = ?");
-        params.push(Box::new(v));
-    }
-    if let Some(v) = admin_password {
-        let clean_v = v.split("?ServerPassword=").next().unwrap_or(&v).to_string();
-        updates.push("admin_password = ?");
-        params.push(Box::new(clean_v.clone()));
-        if is_ase {
-            updates.push("rcon_password = ?");
-            params.push(Box::new(clean_v));
-        }
-    }
-    if let Some(v) = map_name {
-        updates.push("map_name = ?");
-        params.push(Box::new(v));
-    }
-    if let Some(v) = session_name {
-        updates.push("session_name = ?");
-        params.push(Box::new(v.clone()));
-        updates.push("name = ?");
-        params.push(Box::new(v));
-    }
-    if let Some(v) = game_port {
-        if is_ase {
-            updates.push("port = ?");
-        } else {
-            updates.push("game_port = ?");
-        }
-        params.push(Box::new(v as i32));
-    }
-    if let Some(v) = query_port {
-        updates.push("query_port = ?");
-        params.push(Box::new(v as i32));
-    }
-    if let Some(v) = rcon_port {
-        updates.push("rcon_port = ?");
-        params.push(Box::new(v as i32));
-    }
-    if !is_ase {
-        if let Some(v) = ip_address {
-            updates.push("ip_address = ?");
+        if let Some(v) = max_players {
+            updates.push("max_players = ?");
             params.push(Box::new(v));
         }
-    }
-    if let Some(v) = custom_args {
-        if is_ase {
-            updates.push("extra_args = ?");
-        } else {
-            updates.push("custom_args = ?");
+        if let Some(v) = server_password {
+            updates.push("server_password = ?");
+            params.push(Box::new(v));
         }
-        params.push(Box::new(v));
-    }
-    if let Some(v) = battleye {
-        updates.push("battleye = ?");
-        params.push(Box::new(if v { 1 } else { 0 }));
-    }
+        if let Some(v) = admin_password {
+            let clean_v = v.split("?ServerPassword=").next().unwrap_or(&v).to_string();
+            updates.push("admin_password = ?");
+            params.push(Box::new(clean_v.clone()));
+            if is_ase {
+                updates.push("rcon_password = ?");
+                params.push(Box::new(clean_v));
+            }
+        }
+        if let Some(v) = map_name {
+            updates.push("map_name = ?");
+            params.push(Box::new(v));
+        }
+        if let Some(v) = session_name {
+            updates.push("session_name = ?");
+            params.push(Box::new(v.clone()));
+            updates.push("name = ?");
+            params.push(Box::new(v));
+        }
+        if let Some(v) = game_port {
+            if is_ase {
+                updates.push("port = ?");
+            } else {
+                updates.push("game_port = ?");
+            }
+            params.push(Box::new(v as i32));
+        }
+        if let Some(v) = query_port {
+            updates.push("query_port = ?");
+            params.push(Box::new(v as i32));
+        }
+        if let Some(v) = rcon_port {
+            updates.push("rcon_port = ?");
+            params.push(Box::new(v as i32));
+        }
+        if !is_ase {
+            if let Some(v) = ip_address {
+                updates.push("ip_address = ?");
+                params.push(Box::new(v));
+            }
+        }
+        if let Some(v) = custom_args {
+            if is_ase {
+                updates.push("extra_args = ?");
+            } else {
+                updates.push("custom_args = ?");
+            }
+            params.push(Box::new(v));
+        }
+        if let Some(v) = battleye {
+            updates.push("battleye = ?");
+            params.push(Box::new(if v { 1 } else { 0 }));
+        }
 
-    if updates.is_empty() {
-        return Ok(());
-    }
+        if !updates.is_empty() {
+            let table = if is_ase { "ase_servers" } else { "servers" };
+            let query = format!("UPDATE {} SET {} WHERE id = ?", table, updates.join(", "));
+            params.push(Box::new(server_id));
 
-    let table = if is_ase { "ase_servers" } else { "servers" };
-    let query = format!("UPDATE {} SET {} WHERE id = ?", table, updates.join(", "));
-    params.push(Box::new(server_id));
+            let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+            conn.execute(&query, params_refs.as_slice())
+                .map_err(|e: rusqlite::Error| e.to_string())?;
 
-    let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    conn.execute(&query, params_refs.as_slice())
-        .map_err(|e: rusqlite::Error| e.to_string())?;
+            println!("  ✅ Server {} settings updated in database", server_id);
 
-    println!("  ✅ Server {} settings updated in database", server_id);
+            // Sync updated settings to INI files on disk immediately
+            if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config(
+                &state.app_handle,
+                &conn,
+                server_id,
+            ) {
+                println!("⚠️ Failed to write synced database settings to INI: {}", e);
+            } else {
+                println!("  ✅ Synced server {} database settings to INI files", server_id);
+            }
+        }
 
-    // Sync updated settings to INI files on disk immediately
-    if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config(
-        &state.app_handle,
-        &conn,
-        server_id,
-    ) {
-        println!("⚠️ Failed to write synced database settings to INI: {}", e);
-    } else {
-        println!("  ✅ Synced server {} database settings to INI files", server_id);
-    }
+        (is_ase, game_port.is_some() || query_port.is_some() || rcon_port.is_some())
+    };
 
-    if game_port.is_some() || query_port.is_some() || rcon_port.is_some() {
-        let _ = crate::commands::firewall::configure_firewall_raw(&state, server_id);
+    // Configure firewall outside of the DB lock scope (prevents reentrant Mutex deadlock)
+    if ports_changed {
+        if is_ase {
+            let _ = crate::commands::firewall::configure_ase_firewall_raw(&state, server_id);
+        } else {
+            let _ = crate::commands::firewall::configure_firewall_raw(&state, server_id);
+        }
     }
 
     Ok(())
@@ -3556,10 +3673,14 @@ pub async fn import_server(
     let id = conn.last_insert_rowid();
 
     // Parse mods list from comma-separated string
-    let mods_vec: Vec<String> = if mods_str.is_empty() {
-        vec![]
+    let mods_vec: Vec<String> = if mods_str.trim().is_empty() {
+        Vec::new()
     } else {
-        mods_str.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+        mods_str
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
     };
 
     // Pre-populate the mods table so they are recognized by the manager
@@ -3883,13 +4004,11 @@ pub async fn get_server_visibility_status(
                 .prepare("SELECT install_path, query_port, status, rcon_port FROM ase_servers WHERE id = ?1")
                 .map_err(|e| e.to_string())?;
             stmt.query_row([server_id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, i32>(1)? as u16,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, i32>(3)? as u16,
-                    true,
-                ))
+                let path: String = row.get(0)?;
+                let query_p: i32 = row.get(1)?;
+                let status: String = row.get(2)?;
+                let rcon_p: i32 = row.get(3)?;
+                Ok((path, query_p as u16, status, rcon_p as u16, true))
             })
             .map_err(|e| e.to_string())?
         } else {
@@ -3897,12 +4016,17 @@ pub async fn get_server_visibility_status(
                 .prepare("SELECT install_path, query_port, status, rcon_port, rcon_enabled FROM servers WHERE id = ?1")
                 .map_err(|e| e.to_string())?;
             stmt.query_row([server_id], |row| {
+                let path: String = row.get(0)?;
+                let query_p: i32 = row.get(1)?;
+                let status: String = row.get(2)?;
+                let rcon_p: i32 = row.get(3)?;
+                let rcon_en: Option<i32> = row.get(4)?;
                 Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, i32>(1)? as u16,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, i32>(3)? as u16,
-                    row.get::<_, Option<i32>>(4)?.unwrap_or(1) != 0,
+                    path,
+                    query_p as u16,
+                    status,
+                    rcon_p as u16,
+                    rcon_en.unwrap_or(1) != 0,
                 ))
             })
             .map_err(|e| e.to_string())?
@@ -4343,4 +4467,22 @@ pub async fn diagnose_mod_loading(
         "cf_core_log_errors": cf_log_errors,
         "mods": mod_diagnostics,
     }))
+}
+
+/// Start multiple servers sequentially with a configurable delay between each process launch
+#[tauri::command]
+pub async fn start_servers_staggered(
+    app: tauri::AppHandle,
+    server_ids: Vec<i64>,
+    delay_seconds: Option<u64>,
+) -> Result<(), String> {
+    let delay = delay_seconds.unwrap_or(15).clamp(1, 300);
+    println!("🚀 Launching {} servers with {}s staggered delay", server_ids.len(), delay);
+    tokio::spawn(async move {
+        for id in server_ids {
+            let _ = crate::commands::server::start_server(app.clone(), id, false).await;
+            tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+        }
+    });
+    Ok(())
 }

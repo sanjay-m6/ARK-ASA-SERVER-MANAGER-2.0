@@ -89,6 +89,10 @@ pub async fn save_discord_bridge_config(
             "ALTER TABLE discord_bridge_config ADD COLUMN notify_anti_cheat INTEGER DEFAULT 1",
             [],
         );
+        let _ = conn.execute(
+            "ALTER TABLE discord_bridge_config ADD COLUMN status_update_interval INTEGER DEFAULT 60",
+            [],
+        );
 
         let admin_roles_json = serde_json::to_string(&config.admin_role_ids).unwrap_or_else(|_| "[]".to_string());
         let mod_roles_json = serde_json::to_string(&config.moderator_role_ids).unwrap_or_else(|_| "[]".to_string());
@@ -105,8 +109,9 @@ pub async fn save_discord_bridge_config(
                     notifications_channel_id = ?18, notify_player_join_leave = ?19, notify_server_crashes = ?20,
                     notify_server_recovery = ?21, notify_scheduled_restarts = ?22, notify_backup_completion = ?23,
                     notify_performance_alerts = ?24, notify_mod_watchdog = ?25, notify_anti_cheat = ?26,
+                    status_update_interval = ?27,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE cluster_id = ?27",
+                WHERE cluster_id = ?28",
                 rusqlite::params![
                     config.enabled,
                     config.bot_token,
@@ -134,6 +139,7 @@ pub async fn save_discord_bridge_config(
                     config.notify_performance_alerts,
                     config.notify_mod_watchdog,
                     config.notify_anti_cheat,
+                    config.status_update_interval,
                     config.cluster_id
                 ],
             )
@@ -149,8 +155,8 @@ pub async fn save_discord_bridge_config(
                     admin_role_ids, moderator_role_ids,
                     notifications_channel_id, notify_player_join_leave, notify_server_crashes,
                     notify_server_recovery, notify_scheduled_restarts, notify_backup_completion,
-                    notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27)",
+                    notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat, status_update_interval
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)",
                 rusqlite::params![
                     config.cluster_id,
                     config.enabled,
@@ -178,7 +184,8 @@ pub async fn save_discord_bridge_config(
                     config.notify_backup_completion,
                     config.notify_performance_alerts,
                     config.notify_mod_watchdog,
-                    config.notify_anti_cheat
+                    config.notify_anti_cheat,
+                    config.status_update_interval
                 ],
             )
             .map_err(|e| e.to_string())?;
@@ -229,7 +236,7 @@ pub async fn get_discord_bridge_config(
                     admin_role_ids, moderator_role_ids,
                     notifications_channel_id, notify_player_join_leave, notify_server_crashes,
                     notify_server_recovery, notify_scheduled_restarts, notify_backup_completion,
-                    notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat
+                    notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat, status_update_interval
              FROM discord_bridge_config WHERE cluster_id = ?1",
             [cluster_id],
             |row| {
@@ -243,6 +250,8 @@ pub async fn get_discord_bridge_config(
                 let moderator_role_ids = mod_roles_json
                     .and_then(|s| serde_json::from_str(&s).ok())
                     .unwrap_or_default();
+
+                let interval: u64 = row.get::<_, Option<i64>>(27)?.unwrap_or(60) as u64;
 
                 Ok(DiscordBridgeConfig {
                     cluster_id: row.get(0)?,
@@ -272,6 +281,7 @@ pub async fn get_discord_bridge_config(
                     notify_performance_alerts: row.get::<_, i32>(24)? != 0,
                     notify_mod_watchdog: row.get::<_, i32>(25)? != 0,
                     notify_anti_cheat: row.get::<_, i32>(26)? != 0,
+                    status_update_interval: if interval == 0 { 60 } else { interval },
                 })
             },
         )

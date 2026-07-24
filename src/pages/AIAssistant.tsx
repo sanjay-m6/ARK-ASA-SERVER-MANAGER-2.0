@@ -665,6 +665,22 @@ export default function AIAssistant() {
         return () => { unlisten.then(fn => fn()); };
     }, [addMessage, setStreaming, setStreamingContent, appendStreamingContent]);
 
+    // Safety fallback: Automatically unlock loading state if stuck for > 40 seconds
+    useEffect(() => {
+        if (!isStreaming && !isThinking) return;
+
+        const safetyTimer = setTimeout(() => {
+            console.warn('⚠️ AI streaming/thinking exceeded 40s safety limit. Force-resetting state.');
+            setStreaming(false);
+            setStreamingContent('');
+            setIsThinking(false);
+            setExecutingTool(null);
+            setAgentTurnCount(0);
+        }, 40000);
+
+        return () => clearTimeout(safetyTimer);
+    }, [isStreaming, isThinking, streamingContent, setStreaming, setStreamingContent]);
+
     // Send message handler
     const handleSend = useCallback(async () => {
         const trimmed = input.trim();
@@ -847,20 +863,22 @@ export default function AIAssistant() {
             setAgentTurnCount(0);
             startTypewriter(followUp.content || (result.success ? '✅ Action completed successfully.' : '❌ Action failed.'));
             return;
-        } catch {
+        } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
             addMessage({
                 id: generateMessageId(),
                 role: 'assistant',
                 content: result.success
                     ? `✅ **${toolLabel}** completed successfully.`
-                    : `❌ **${toolLabel}** failed: ${result.result}`,
+                    : `❌ **${toolLabel}** failed (${errorMsg}): ${result.result}`,
                 timestamp: Date.now(),
             });
+        } finally {
+            setIsThinking(false);
+            setStreaming(false);
+            setStreamingContent('');
+            setAgentTurnCount(0);
         }
-
-        setStreaming(false);
-        setStreamingContent('');
-        setAgentTurnCount(0);
     };
 
     // Confirm pending tool call

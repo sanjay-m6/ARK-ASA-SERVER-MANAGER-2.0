@@ -53,6 +53,8 @@ pub fn set_windows_registry_run(enabled: bool, minimized: bool) -> Result<(), St
         cmd.creation_flags(CREATE_NO_WINDOW);
 
         let _ = cmd
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .args(&[
                 "delete",
                 "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
@@ -107,12 +109,14 @@ pub fn set_windows_task_scheduler(enabled: bool) -> Result<(), String> {
         cmd.creation_flags(CREATE_NO_WINDOW);
 
         let _ = cmd
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
             .args(&[
                 "/delete",
                 "/tn",
                 "ASAServerManager",
                 "/f",
-            ])
+                ])
             .status();
         Ok(())
     }

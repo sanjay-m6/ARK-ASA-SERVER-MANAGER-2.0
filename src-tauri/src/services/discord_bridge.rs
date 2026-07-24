@@ -90,6 +90,12 @@ pub struct DiscordBridgeConfig {
     pub notify_mod_watchdog: bool,
     #[serde(default = "default_true")]
     pub notify_anti_cheat: bool,
+    #[serde(default = "default_interval")]
+    pub status_update_interval: u64,
+}
+
+fn default_interval() -> u64 {
+    60
 }
 
 /// Tracks a command executed via Discord for the activity feed
@@ -144,6 +150,7 @@ impl Default for DiscordBridgeConfig {
             notify_performance_alerts: true,
             notify_mod_watchdog: true,
             notify_anti_cheat: true,
+            status_update_interval: 60,
         }
     }
 }
@@ -1027,8 +1034,69 @@ impl DiscordBridgeService {
 
     /// Configure the bridge
     pub async fn configure(&self, config: DiscordBridgeConfig) {
-        let mut cfg = self.config.lock().await;
-        *cfg = Some(config);
+        let is_enabled = config.enabled && !config.bot_token.is_empty();
+        {
+            let mut cfg = self.config.lock().await;
+            *cfg = Some(config);
+        }
+
+        if is_enabled && !self.gateway_running.load(Ordering::Relaxed) {
+            let app_handle = self.app_handle.clone();
+            let config_arc = self.config.clone();
+            let gateway_running = self.gateway_running.clone();
+            let commands_processed = self.commands_processed.clone();
+            let command_log = self.command_log.clone();
+            let shard_manager = self.shard_manager.clone();
+
+            gateway_running.store(true, Ordering::Relaxed);
+            tauri::async_runtime::spawn(async move {
+                let token = {
+                    let config_guard = config_arc.lock().await;
+                    match config_guard.as_ref() {
+                        Some(c) if !c.bot_token.is_empty() => c.bot_token.clone(),
+                        _ => {
+                            gateway_running.store(false, Ordering::Relaxed);
+                            return;
+                        }
+                    }
+                };
+
+                let intents = GatewayIntents::GUILDS
+                    | GatewayIntents::GUILD_MESSAGES
+                    | GatewayIntents::MESSAGE_CONTENT;
+
+                match SerenityClient::builder(&token, intents)
+                    .event_handler(GatewayHandler { 
+                        app_handle, 
+                        config: config_arc,
+                        commands_processed,
+                        command_log,
+                    })
+                    .await
+                {
+                    Ok(mut client) => {
+                        log::info!("🔌 Connecting to Discord Gateway...");
+                        {
+                            let mut sm = shard_manager.lock().await;
+                            *sm = Some(client.shard_manager.clone());
+                        }
+
+                        if let Err(e) = client.start().await {
+                            log::error!("❌ Discord Gateway error: {:?}", e);
+                        }
+                        {
+                            let mut sm = shard_manager.lock().await;
+                            *sm = None;
+                        }
+                        gateway_running.store(false, Ordering::Relaxed);
+                    }
+                    Err(e) => {
+                        log::error!("❌ Failed to build Discord client: {:?}", e);
+                        gateway_running.store(false, Ordering::Relaxed);
+                    }
+                }
+            });
+        }
     }
 
     /// Get current configuration
@@ -1106,7 +1174,7 @@ impl DiscordBridgeService {
                     admin_role_ids, moderator_role_ids,
                     notifications_channel_id, notify_player_join_leave, notify_server_crashes,
                     notify_server_recovery, notify_scheduled_restarts, notify_backup_completion,
-                    notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat
+                    notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat, status_update_interval
              FROM discord_bridge_config WHERE enabled = 1 LIMIT 1",
             [],
             |row| {
@@ -1120,6 +1188,8 @@ impl DiscordBridgeService {
                 let moderator_role_ids = mod_roles_json
                     .and_then(|s| serde_json::from_str(&s).ok())
                     .unwrap_or_default();
+
+                let interval: u64 = row.get::<_, Option<i64>>(27)?.unwrap_or(60) as u64;
 
                 Ok(DiscordBridgeConfig {
                     cluster_id: row.get(0)?,
@@ -1149,6 +1219,7 @@ impl DiscordBridgeService {
                     notify_performance_alerts: row.get::<_, i32>(24)? != 0,
                     notify_mod_watchdog: row.get::<_, i32>(25)? != 0,
                     notify_anti_cheat: row.get::<_, i32>(26)? != 0,
+                    status_update_interval: if interval == 0 { 60 } else { interval },
                 })
             },
         )
@@ -1543,6 +1614,11 @@ impl DiscordBridgeService {
             }
         }
 
+        self.run_status_loop().await;
+    }
+
+    // Status update loop
+    async fn run_status_loop(&self) {
         loop {
             if !self.running.load(Ordering::Relaxed) {
                 break;
@@ -1550,7 +1626,10 @@ impl DiscordBridgeService {
 
             // 1. Get Config
             let config = self.get_config().await;
+            let mut interval_sec = 60;
+
             if let Some(config) = config {
+                interval_sec = config.status_update_interval.clamp(10, 3600);
                 if config.enabled {
                     // 2. Server List Update
                     if config.server_list_enabled && !config.server_list_channel_id.is_empty() {
@@ -1568,7 +1647,7 @@ impl DiscordBridgeService {
                 }
             }
 
-            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(interval_sec)).await;
         }
     }
 
@@ -1765,8 +1844,9 @@ impl DiscordBridgeService {
             let new_id = self
                 .send_discord_message(channel_id, &bot_token, payload)
                 .await?;
-            // Update DB with new message ID
+            // Update DB and in-memory config with new message ID
             self.save_message_id_to_db(cluster_id, col_name, &new_id);
+            self.update_in_memory_message_id(msg_type, &new_id).await;
         } else if let Err(_) = self
             .edit_discord_message(channel_id, message_id, &bot_token, payload)
             .await
@@ -1775,10 +1855,23 @@ impl DiscordBridgeService {
             let new_id = self
                 .send_discord_message(channel_id, &bot_token, payload)
                 .await?;
-            // Update DB with new message ID
+            // Update DB and in-memory config with new message ID
             self.save_message_id_to_db(cluster_id, col_name, &new_id);
+            self.update_in_memory_message_id(msg_type, &new_id).await;
         }
         Ok(())
+    }
+
+    /// Update in-memory message ID so subsequent loop iterations use message.edit()
+    async fn update_in_memory_message_id(&self, msg_type: &str, new_id: &str) {
+        let mut config_guard = self.config.lock().await;
+        if let Some(cfg) = config_guard.as_mut() {
+            if msg_type == "server_list" {
+                cfg.server_list_message_id = new_id.to_string();
+            } else {
+                cfg.player_list_message_id = new_id.to_string();
+            }
+        }
     }
 
     /// Helper to save message ID to database (sync, no await)

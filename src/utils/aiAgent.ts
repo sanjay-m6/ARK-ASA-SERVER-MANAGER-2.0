@@ -615,7 +615,14 @@ export async function sendAiMessage(
     messages: { role: string; content: string }[],
     model: string
 ): Promise<AiResponse> {
-    return await invoke<AiResponse>('ai_chat', { messages, model });
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('AI request timed out after 50 seconds. Please check your AI API key or network connection.')), 50000);
+    });
+
+    return await Promise.race([
+        invoke<AiResponse>('ai_chat', { messages, model }),
+        timeoutPromise
+    ]);
 }
 
 // ── Chat History Persistence ───────────────────────────────────────────

@@ -76,28 +76,38 @@ jobs:
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
             - **Fresh Install**: Download the `.exe` installer below and run it.
 
-            ### 🆕 New Features in v4.6.5
-            - **🎨 Redesigned Game Selection Screen**:
-              - Clean, minimal, modern layout replacing the heavy tech-themed design.
-              - Horizontal logo + title row, subtle ambient glows, top accent lines, and brief game descriptions.
-              - Smooth hover-reactive transitions without continuous floating animations.
-            - **📂 Server Organization Categories Bar**:
-              - Integrated category filter pills with server count badges on the Server Manager page.
-              - Filter Grid and List views by workspace/folder category.
-            - **⚙️ Window Close Action in Settings**:
-              - Added "Window Close Action" setting with radio selectors: Always Ask, Minimize to System Tray, Exit Completely.
-              - Preference is persisted via localStorage.
+            ### 🆕 New Features in v4.6.6
+            - **📦 Advanced Mod Details 5-Tab Inspector**:
+              - Overview & Description tab with rich HTML formatting and interactive Discord community cards.
+              - Comments tab with local Admin Notes & persistent team scratchpad.
+              - Files tab showing complete CurseForge release history, file sizes, and download links.
+              - Gallery tab with live screenshots & interactive Lightbox viewer.
+              - Relations tab displaying required mod dependencies and child addons.
+            - **🖼️ Interactive Lightbox Gallery Viewer**:
+              - Next/Prev navigation buttons (`←` / `→`) and keyboard arrow shortcuts (`ArrowLeft`, `ArrowRight`, `A`, `D`, `Escape`).
+              - Thumbnail preview strip and image counter indicator.
+            - **🧩 Installed Mods UI & Sync Overhaul**:
+              - Modern glassmorphic cards with Status filter tabs (All, Enabled, Disabled).
+              - Server Sync banner (`ActiveMods=...`) with 1-click order saving & mod active toggles.
+              - 1-click Copy Mod ID (`#935408`) and high-contrast badges.
+            - **📂 Real Server Directory Explorer Access**:
+              - Added 1-click "Open Explorer Folder" (`<ExternalLink />`) button next to Profile badges in Grid and List views to directly open server installation directories on disk.
 
-            ### 🐛 Bug Fixes in v4.6.5
-            - **🔧 Deep Repair Column Type Fix**: Fixed `Invalid column type Integer at index: 10, name: cluster_id` crash during Deep Repair by correcting the SQLite column type from `String` to `i64` in `hardcore_retry_mods`.
-            - **🔧 Deep Repair Duplicate Start Fix**: Fixed `Server is already running. Ignoring duplicate start request` error during Deep Repair by adding stale process detection, pending stop protection, and `force_cleanup_server_entry` before restart.
-            - **🔧 Dropdown Menu Clipping Fix**: Fixed settings dropdown menus on server cards being hidden behind neighboring cards by adding hierarchical z-index stacking and removing overflow-hidden from card containers.
-            - **🔧 Stop All Button Fix**: Fixed the Stop All button to properly target all non-stopped servers and await completion with `Promise.all`.
-            - **🔧 Application Exit Fix**: Fixed exit confirmation not actually closing the app by invoking `exit(0)` from `@tauri-apps/plugin-process`.
-            - **🔧 Server Process Persistence on Close**: Closing the manager app no longer terminates running game servers — processes are left active in the background.
-            - **🔧 Process Manager Self-Kill Protection**: Added PID safety guards and image checks to prevent the manager from killing its own process tree during port cleanup.
+            ### 🐛 Bug Fixes in v4.6.6
+            - **🔧 CurseForge Image Proxy Fix**: Fixed missing screenshots and blank images in Mod Review modal by implementing backend `get_mod_screenshots` CurseForge API proxying.
+            - **🔧 Isolated Profile Name Persistence**: Fixed profile renaming resetting on refresh/tab switch. Profile display names (`displayName`) now persist safely to SQLite without modifying or corrupting `GameUserSettings.ini` `SessionName`.
+            - **🔧 List View Missing Profile Name Fix**: Restored profile rename controls (`<Edit2 />`), Profile badges, and Open Folder links in the List View layout.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.5 — Game Selection Redesign, Categories & Deep Repair Fixes</summary>
+
+            - **🎨 Redesigned Game Selection Screen**: Clean, minimal, modern layout replacing the heavy tech-themed design.
+            - **📂 Server Organization Categories Bar**: Category filter pills with server count badges on Server Manager.
+            - **⚙️ Window Close Action in Settings**: Radio selectors for Always Ask, Minimize to System Tray, Exit Completely.
+            - **🔧 Deep Repair Column Type & Duplicate Start Fixes**: Fixed SQLite column type crash and stale process detection.
+            - **🔧 Dropdown Menu Stacking Fix**: Hierarchical z-index stacking on server cards.
+            </details>
             <details>
             <summary>v4.6.4 — Automated Backups, Discord Bot Guide & Cluster Topology</summary>
 

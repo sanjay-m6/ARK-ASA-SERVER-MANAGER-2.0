@@ -558,6 +558,156 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         ]
     },
     {
+        title: 'Cryopods & Stasis',
+        description: 'Configure Cryopod stasis, fridge requirements, and cooldowns',
+        category: 'gameplay',
+        fields: [
+            {
+                section: 'ServerSettings',
+                key: 'DisableCryopods',
+                label: 'Disable Cryopods Entirely',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Completely disables cryopod usage on the server.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'DisableCryopodStasis',
+                label: 'Disable Cryofridge Stasis Requirement',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'In ASA, setting this to True removes the requirement that cryopods must be charged in a nearby active Cryofridge to be deployed.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'DisableCryopodStructureRequirement',
+                label: 'Disable Structure Requirement',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Allows deploying cryopods anywhere without requiring a nearby Cryofridge structure.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'DisableCryopodEnemyCheck',
+                label: 'Disable Enemy Check',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Allows deploying cryopods even if enemy players or structures are nearby.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'AllowCryoCooldownOnPvE',
+                label: 'Allow Cryo Cooldown on PvE',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Enables Cryo cooldown timer / sickness on PvE servers.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'EnableCryoSicknessPVP',
+                label: 'Enable Cryo Sickness (PvP)',
+                type: 'boolean',
+                defaultValue: 'True',
+                description: 'Enables cryo sickness debuff when deploying multiple cryopods in PvP.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'CryopodCooldown',
+                label: 'Cryopod Cooldown (Seconds)',
+                type: 'slider',
+                defaultValue: '0',
+                min: 0,
+                max: 300,
+                step: 5,
+                description: 'Cooldown time in seconds between cryopod deployments (0 to disable cooldown).'
+            }
+        ]
+    },
+    {
+        title: 'Breeding & Imprinting',
+        description: 'Mating, hatching, maturation, and imprinting rates',
+        category: 'breeding',
+        fields: [
+            {
+                section: 'ServerSettings',
+                key: 'MatingIntervalMultiplier',
+                label: 'Mating Interval Multiplier',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.01,
+                max: 5.0,
+                step: 0.05,
+                description: 'Time between creature matings (lower = faster/more frequent mating)'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'EggHatchSpeedMultiplier',
+                label: 'Egg Hatch Speed Multiplier',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1,
+                max: 100.0,
+                step: 0.5,
+                description: 'Speed of egg incubation and gestation (higher = faster)'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'BabyMatureSpeedMultiplier',
+                label: 'Baby Mature Speed Multiplier',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1,
+                max: 100.0,
+                step: 0.5,
+                description: 'Speed at which babies grow up (higher = faster maturation)'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'BabyCuddleIntervalMultiplier',
+                label: 'Baby Imprint Cuddle Interval',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.01,
+                max: 5.0,
+                step: 0.05,
+                description: 'Interval between imprint requests (lower = shorter wait between cuddles)'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'BabyImprintingStatScaleMultiplier',
+                label: 'Imprint Stat Scale Multiplier',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1,
+                max: 10.0,
+                step: 0.1,
+                description: 'Bonus stat percentage received per full imprinting'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'BabyCuddleGracePeriodMultiplier',
+                label: 'Cuddle Grace Period',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1,
+                max: 10.0,
+                step: 0.1,
+                description: 'Grace period before baby loses imprint quality when cuddle is missed'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'BabyFoodConsumptionSpeedMultiplier',
+                label: 'Baby Food Consumption',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1,
+                max: 5.0,
+                step: 0.1,
+                description: 'Rate of food consumption by baby creatures'
+            }
+        ]
+    },
+    {
         title: 'Day/Night Cycle',
         description: 'Time and lighting settings',
         category: 'gameplay',

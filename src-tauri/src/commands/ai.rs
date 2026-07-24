@@ -582,7 +582,12 @@ pub async fn ai_chat(
         "max_tokens": 4096,
     });
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(45))
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        .pool_max_idle_per_host(0)
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
     let mut req = client
         .post(&config.endpoint)
         .header("Content-Type", "application/json")
@@ -593,7 +598,10 @@ pub async fn ai_chat(
     let response = req
         .send()
         .await
-        .map_err(|e| format!("API request failed: {}", e))?;
+        .map_err(|e| {
+            println!("❌ AI request error for {}: {:?}", config.endpoint, e);
+            format!("API request failed: {}", e)
+        })?;
 
     let status = response.status();
     let response_text = response
@@ -656,7 +664,12 @@ pub async fn ai_chat_stream(
         "stream": true,
     });
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(45))
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        .pool_max_idle_per_host(0)
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
     let mut req = client
         .post(&config.endpoint)
         .header("Content-Type", "application/json")

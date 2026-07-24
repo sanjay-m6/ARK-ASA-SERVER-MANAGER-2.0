@@ -12,16 +12,17 @@ pub async fn search_mods(
     category_id: Option<i32>,
     sort_field: Option<i32>,
     sort_order: Option<String>,
+    page: Option<i32>,
 ) -> Result<Vec<ModInfo>, String> {
     println!(
-        "🔍 search_mods called: query='{}', cat={:?}, sort={:?}",
-        query, category_id, sort_field
+        "🔍 search_mods called: query='{}', cat={:?}, sort={:?}, page={:?}",
+        query, category_id, sort_field, page
     );
 
     // ASA-only: use CurseForge for mod search
     let api_key = crate::services::api_key_manager::ApiKeyManager::get_curseforge_key(&state);
     
-    let result = mod_scraper::search_curseforge(&query, api_key, category_id, sort_field, sort_order)
+    let result = mod_scraper::search_curseforge(&query, api_key, category_id, sort_field, sort_order, page)
         .await
         .map_err(|e| e.to_string());
         
@@ -68,6 +69,21 @@ pub async fn get_mod_description(
     let curseforge_id = mod_id.parse::<i64>().map_err(|_| "Invalid Mod ID".to_string())?;
 
     mod_scraper::get_mod_description(curseforge_id, api_key)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_mod_screenshots(
+    state: State<'_, AppState>,
+    mod_id: String,
+) -> Result<Vec<String>, String> {
+    println!("🖼️ Fetching screenshots for mod: {}", mod_id);
+    let api_key = crate::services::api_key_manager::ApiKeyManager::get_curseforge_key(&state);
+    
+    let curseforge_id = mod_id.parse::<i64>().map_err(|_| "Invalid Mod ID".to_string())?;
+
+    mod_scraper::get_mod_screenshots(curseforge_id, api_key)
         .await
         .map_err(|e| e.to_string())
 }

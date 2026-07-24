@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, Network, Trash2, Loader2, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen } from 'lucide-react';
+import { Plus, Network, Trash2, Loader2, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen, Search, Clock } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, addServerToCluster, removeServerFromCluster, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
+import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, addServerToCluster, removeServerFromCluster, scanExistingClusters, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
 import { startServer, stopServer } from '../utils/tauri';
 import { Cluster, Server } from '../types';
 import toast from 'react-hot-toast';
@@ -84,6 +84,7 @@ export default function ClusterManager() {
                 newClusterName,
                 selectedServers,
                 newClusterPath.trim() || undefined,
+                true,
             );
             toast.success(t('clusterManager.clusterCreated'));
             setNewClusterName('');
@@ -113,11 +114,33 @@ export default function ClusterManager() {
         }
     };
 
+    const [staggerDelay, setStaggerDelay] = useState<number>(15);
+    const [discoveredClusters, setDiscoveredClusters] = useState<{ name: string; path: string; exists_in_db: boolean }[]>([]);
+    const [isScanningClusters, setIsScanningClusters] = useState<boolean>(false);
+
+    const handleScanClusters = async () => {
+        setIsScanningClusters(true);
+        try {
+            const discovered = await scanExistingClusters();
+            setDiscoveredClusters(discovered);
+            if (discovered.length === 0) {
+                toast.error(t('clusterManager.noClustersFound', 'No existing cluster directories found in default path.'));
+            } else {
+                toast.success(t('clusterManager.clustersDiscovered', { count: discovered.length, defaultValue: `Discovered ${discovered.length} cluster folders.` }));
+            }
+        } catch (err) {
+            console.error('Failed to scan cluster directories:', err);
+            toast.error('Failed to scan cluster directories');
+        } finally {
+            setIsScanningClusters(false);
+        }
+    };
+
     const handleStartCluster = async (clusterId: number) => {
         setStartingCluster(clusterId);
         try {
-            await startCluster(clusterId);
-            toast.success(t('clusterManager.startCluster'));
+            await startCluster(clusterId, staggerDelay);
+            toast.success(t('clusterManager.startClusterWithDelay', { delay: staggerDelay, defaultValue: `Starting cluster servers with ${staggerDelay}s delay` }));
             refreshServers();
         } catch (error) {
             console.error('Failed to start cluster:', error);
@@ -229,13 +252,24 @@ export default function ClusterManager() {
                             />
                         </div>
 
-                        {/* Cluster Folder Path */}
+                        {/* Cluster Folder Path & Auto-Connect */}
                         <div>
-                            <label className="text-sm font-medium text-slate-300 block mb-2">
-                                {t('clusterManager.clusterDir')}
-                                <span className="text-slate-500 font-normal ml-1">({t('common.optional', 'optional')})</span>
-                            </label>
-                            <div className="flex gap-2">
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-sm font-medium text-slate-300">
+                                    {t('clusterManager.clusterDir')}
+                                    <span className="text-slate-500 font-normal ml-1">({t('common.optional', 'optional')})</span>
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={handleScanClusters}
+                                    disabled={isScanningClusters}
+                                    className="text-xs text-pink-400 hover:text-pink-300 flex items-center gap-1 font-semibold disabled:opacity-50"
+                                >
+                                    {isScanningClusters ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                                    Auto-Detect Multi-Root Clusters
+                                </button>
+                            </div>
+                            <div className="flex gap-2 mb-2">
                                 <input
                                     type="text"
                                     value={newClusterPath}
@@ -251,7 +285,29 @@ export default function ClusterManager() {
                                     {t('common.browse', 'Browse')}
                                 </button>
                             </div>
-                            <p className="text-xs text-slate-500 mt-1">
+
+                            {discoveredClusters.length > 0 && (
+                                <div className="p-3 bg-slate-900/80 border border-pink-500/30 rounded-xl space-y-2 mb-2">
+                                    <span className="text-xs font-semibold text-pink-300 block">Discovered Cluster Folders (Select to Auto-Connect):</span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {discoveredClusters.map(folder => (
+                                            <button
+                                                key={folder.path}
+                                                type="button"
+                                                onClick={() => {
+                                                    setNewClusterName(folder.name);
+                                                    setNewClusterPath(folder.path);
+                                                }}
+                                                className="px-3 py-1.5 bg-pink-500/10 border border-pink-500/30 hover:bg-pink-500/20 text-white text-xs rounded-lg font-mono flex items-center gap-1.5"
+                                            >
+                                                <span>📁 {folder.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <p className="text-xs text-slate-500">
                                 {t('clusterManager.defaultPath')}
                             </p>
                         </div>
@@ -354,7 +410,21 @@ export default function ClusterManager() {
                                 </div>
 
                                 {/* Control Buttons */}
-                                <div className="flex space-x-2 ml-auto">
+                                <div className="flex items-center space-x-2 ml-auto">
+                                    <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-700/60 rounded-lg px-2 text-xs" title="Delay between consecutive server launches to prevent crashes">
+                                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                                        <span className="text-slate-400 text-[11px]">Delay:</span>
+                                        <select
+                                            value={staggerDelay}
+                                            onChange={(e) => setStaggerDelay(Number(e.target.value))}
+                                            className="bg-transparent text-white font-mono text-xs focus:outline-none cursor-pointer py-1"
+                                        >
+                                            <option value={5} className="bg-slate-900 text-white">5s</option>
+                                            <option value={15} className="bg-slate-900 text-white">15s</option>
+                                            <option value={30} className="bg-slate-900 text-white">30s</option>
+                                            <option value={60} className="bg-slate-900 text-white">60s</option>
+                                        </select>
+                                    </div>
                                     <button
                                         onClick={() => handleStartCluster(cluster.id)}
                                         disabled={startingCluster === cluster.id || getClusterRunningCount(cluster) === cluster.serverIds.length}

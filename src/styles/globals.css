@@ -505,4 +505,150 @@ code,
 
 .animate-fade-out {
   animation: damage-fade-out 1s ease-out forwards;
-}
+}
+
+/* Mod Description Enhanced Formatting & Spacing System */
+.mod-description-formatted {
+  user-select: text;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  line-height: 1.85;
+  letter-spacing: 0.01em;
+}
+
+.mod-description-formatted p {
+  margin-bottom: 1.25rem;
+  line-height: 1.85;
+}
+
+.mod-description-formatted h1,
+.mod-description-formatted h2,
+.mod-description-formatted h3,
+.mod-description-formatted h4 {
+  color: #ffffff;
+  font-weight: 800;
+  margin-top: 1.75rem;
+  margin-bottom: 0.85rem;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.mod-description-formatted strong,
+.mod-description-formatted b {
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.mod-description-formatted a {
+  color: #38bdf8;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: color 0.2s ease;
+}
+
+.mod-description-formatted a:hover {
+  color: #7dd3fc;
+}
+
+.mod-description-formatted ul,
+.mod-description-formatted ol {
+  margin-top: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-left: 1.25rem;
+  list-style-type: disc;
+}
+
+.mod-description-formatted li {
+  margin-bottom: 0.5rem;
+  line-height: 1.75;
+}
+
+.mod-description-formatted code {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #38bdf8;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.825em;
+  word-break: break-all;
+  white-space: pre-wrap;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.mod-description-formatted pre {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+  border-radius: 1rem;
+  overflow-x: auto;
+  margin-top: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Mod Description Responsive Table Styling */
+.mod-description-formatted table {
+  width: 100%;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: rgba(10, 15, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.mod-description-formatted thead {
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.mod-description-formatted th {
+  padding: 1rem 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #38bdf8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.mod-description-formatted td {
+  padding: 1rem 1.25rem;
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: top;
+  line-height: 1.7;
+}
+
+.mod-description-formatted tr:last-child td {
+  border-bottom: none;
+}
+
+.mod-description-formatted tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mod-description-formatted tr:hover {
+  background: rgba(56, 189, 248, 0.04);
+}
+
+.mod-description-formatted td:first-child {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+}
+
+.mod-description-formatted td:nth-child(2) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #38bdf8;
+  white-space: nowrap;
+}
+
+

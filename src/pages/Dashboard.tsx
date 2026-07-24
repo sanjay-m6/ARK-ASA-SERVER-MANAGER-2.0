@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Server, Activity, Zap, Copy, Puzzle,
   Play, Square, RotateCw, FileEdit, Edit2, Check, X,
-  Folder, FolderOpen, Heart, Bookmark, Search,
+  Folder, FolderOpen, Heart, Bookmark, Search, ExternalLink,
   GitBranch, AlertTriangle, RefreshCw, ShieldCheck, Cpu, Radio, Sparkles
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -13,8 +13,9 @@ import { useServerStore } from '../stores/serverStore';
 import { useUIStore } from '../stores/uiStore';
 import { useInstallStore } from '../stores/installStore';
 import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
+import { updateServerCustomization as apiUpdateServerCustomization } from '../utils/serverOrganization';
 import { cn } from '../utils/helpers';
-import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData, optimizeMemory } from '../utils/tauri';
+import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData, optimizeMemory, openInExplorer } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../components/performance/PerformanceMonitor';
@@ -215,24 +216,39 @@ export default function Dashboard() {
     setEditServerName(custom?.displayName || server.name);
   };
 
-  const handleRenameSave = (server: ServerType) => {
+  const handleRenameSave = async (server: ServerType) => {
     if (editingServerId === server.id) {
-      const custom = customizations.get(server.id) || {
-        serverId: server.id,
-        isPinned: false,
-        pinOrder: 0,
-        isMinimized: false,
-        tags: [],
-        favorite: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      updateServerCustomization({
-        ...custom,
-        displayName: editServerName.trim() || server.name,
-      });
-      setEditingServerId(null);
-      toast.success(t('serverManager.toast.nameUpdated', 'Server display name updated!'));
+      const newName = editServerName.trim();
+      if (!newName) {
+        toast.error(t('serverManager.errors.emptyName', 'Profile name cannot be empty.'));
+        setEditingServerId(null);
+        return;
+      }
+
+      try {
+        // Save ONLY to SQLite backend 'server_customization' table (displayName)
+        // DO NOT alter the INI server name (SessionName in GameUserSettings.ini)
+        const custom = customizations.get(server.id) || {
+          serverId: server.id,
+          isPinned: false,
+          pinOrder: 0,
+          isMinimized: false,
+          tags: [],
+          favorite: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        const updatedCustom = { ...custom, displayName: newName };
+        await apiUpdateServerCustomization(updatedCustom);
+        updateServerCustomization(updatedCustom);
+
+        toast.success(t('serverManager.toast.nameUpdated', `Profile name updated to "${newName}"`));
+      } catch (err) {
+        console.error("Failed to rename server profile:", err);
+        toast.error(t('serverManager.renameFailed', 'Failed to update profile name.'));
+      } finally {
+        setEditingServerId(null);
+      }
     }
   };
 
@@ -904,12 +920,29 @@ export default function Dashboard() {
                               <span
                                 onClick={(e) => handleRenameStart(server, e)}
                                 className="text-[10px] px-2 py-0.5 rounded-md bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 hover:border-sky-500/40 font-mono font-medium flex items-center gap-1 cursor-pointer transition-all"
-                                title="Click to rename profile"
+                                title={`Click to rename profile | Server Path: ${server.installPath}`}
                               >
                                 <FolderOpen className="w-3 h-3 text-sky-400" />
-                                <span>Profile: {server.name}</span>
+                                <span>Profile: {displayName}</span>
                                 <Edit2 className="w-2.5 h-2.5 text-sky-400/70" />
                               </span>
+                              {server.installPath && (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await openInExplorer(server.installPath);
+                                      toast.success("Opened server directory in Explorer");
+                                    } catch (err) {
+                                      toast.error(`Cannot open folder: ${err}`);
+                                    }
+                                  }}
+                                  className="p-0.5 bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/40 rounded transition-all shrink-0"
+                                  title={`Open real server folder on disk:\n${server.installPath}`}
+                                >
+                                  <ExternalLink className="w-2.5 h-2.5 text-sky-400" />
+                                </button>
+                              )}
                               {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
                               {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-400 fill-sky-400" />}
                               {server.autoStart && (

@@ -178,6 +178,18 @@ export async function diagnoseModLoading(serverId: number): Promise<any> {
     return await invoke('diagnose_mod_loading', { serverId });
 }
 
+export interface ServerSaveInfo {
+    has_saves: boolean;
+    player_count: number;
+    tribe_count: number;
+    save_file_size: number;
+    last_modified?: string;
+}
+
+export async function checkServerHasSaves(serverId: number): Promise<ServerSaveInfo> {
+    return await invoke('check_server_has_saves', { serverId });
+}
+
 export async function deleteServer(serverId: number, deleteFiles: boolean = true): Promise<void> {
     return await invoke('delete_server', { serverId, deleteFiles });
 }
@@ -287,6 +299,10 @@ export async function createAllFirewallRules(): Promise<{ success: boolean; mess
     return res;
 }
 
+export async function openInExplorer(path: string): Promise<void> {
+    return await invoke('open_in_explorer', { path });
+}
+
 export async function checkServerReachability(port: number, protocol: string): Promise<'Public' | 'LAN' | 'Unknown' | 'Offline'> {
     return await invoke('check_server_reachability', { port, protocol });
 }
@@ -339,19 +355,25 @@ export async function searchMods(
     serverType: ServerType,
     categoryId?: number,
     sortField?: number,
-    sortOrder?: string
+    sortOrder?: string,
+    page?: number
 ): Promise<ModInfo[]> {
     return await invoke('search_mods', {
         query,
         serverType,
         categoryId: categoryId || null,
         sortField: sortField || null,
-        sortOrder: sortOrder || null
+        sortOrder: sortOrder || null,
+        page: page ?? 0
     });
 }
 
 export async function getModDescription(modId: string): Promise<string> {
     return await invoke('get_mod_description', { modId });
+}
+
+export async function getModScreenshots(modId: string): Promise<string[]> {
+    return await invoke('get_mod_screenshots', { modId });
 }
 
 export async function installMod(serverId: number, modInfo: ModInfo): Promise<void> {
@@ -597,8 +619,18 @@ export async function getBackupContents(backupId: number): Promise<string[]> {
 // Cluster Commands
 // ============================================================================
 
-export async function createCluster(name: string, serverIds: number[], clusterPath?: string): Promise<Cluster> {
-    return await invoke('create_cluster', { name, serverIds, clusterPath: clusterPath || null });
+export interface DiscoveredClusterFolder {
+    name: string;
+    path: string;
+    exists_in_db: boolean;
+}
+
+export async function scanExistingClusters(searchRoot?: string): Promise<DiscoveredClusterFolder[]> {
+    return await invoke('scan_existing_clusters', { searchRoot: searchRoot || null });
+}
+
+export async function createCluster(name: string, serverIds: number[], clusterPath?: string, autoLinkExisting?: boolean): Promise<Cluster> {
+    return await invoke('create_cluster', { name, serverIds, clusterPath: clusterPath || null, autoLinkExisting: autoLinkExisting || false });
 }
 
 export async function getClusters(): Promise<Cluster[]> {
@@ -629,8 +661,12 @@ export async function getClusterStatus(clusterId: number): Promise<ClusterStatus
     return await invoke('get_cluster_status', { clusterId });
 }
 
-export async function startCluster(clusterId: number): Promise<void> {
-    return await invoke('start_cluster', { clusterId });
+export async function startCluster(clusterId: number, delaySeconds?: number): Promise<void> {
+    return await invoke('start_cluster', { clusterId, delaySeconds: delaySeconds || null });
+}
+
+export async function startServersStaggered(serverIds: number[], delaySeconds?: number): Promise<void> {
+    return await invoke('start_servers_staggered', { serverIds, delaySeconds: delaySeconds || null });
 }
 
 export async function stopCluster(clusterId: number): Promise<void> {
@@ -719,6 +755,7 @@ export interface DiscordBridgeConfig {
     player_list_message_id: string;
     show_tribe_names: boolean;
     show_playtime: boolean;
+    status_update_interval?: number;
 }
 
 export async function saveDiscordBridgeConfig(config: DiscordBridgeConfig): Promise<void> {

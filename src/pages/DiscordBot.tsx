@@ -82,7 +82,8 @@ export default function DiscordBot() {
         player_list_channel_id: '',
         player_list_message_id: '',
         show_tribe_names: true,
-        show_playtime: true
+        show_playtime: true,
+        status_update_interval: 60
     });
     const [isBridgeTesting, setIsBridgeTesting] = useState(false);
 
@@ -876,7 +877,7 @@ export default function DiscordBot() {
                                             <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-700/50 space-y-4">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
-                                                        <List className="w-4 h-4 text-cyan-400" />
+                                        <List className="w-4 h-4 text-cyan-400" />
                                                         <span className="text-sm font-medium text-white">{t('discordBot.channelConfig.liveStats')}</span>
                                                     </div>
                                                 </div>

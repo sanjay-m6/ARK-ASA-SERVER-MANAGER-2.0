@@ -6,20 +6,67 @@ use tauri::State;
 
 const DEFAULT_CLUSTER_ROOT: &str = "C:/ASA_Clusters";
 
+#[derive(Serialize)]
+pub struct DiscoveredClusterFolder {
+    pub name: String,
+    pub path: String,
+    pub exists_in_db: bool,
+}
+
+/// Scan cluster root path for existing cluster directories to auto-link
+#[tauri::command]
+pub async fn scan_existing_clusters(
+    state: State<'_, AppState>,
+    search_root: Option<String>,
+) -> Result<Vec<DiscoveredClusterFolder>, String> {
+    let root_path = search_root.unwrap_or_else(|| DEFAULT_CLUSTER_ROOT.to_string());
+    let path = std::path::Path::new(&root_path);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let existing_names: Vec<String> = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let mut stmt = conn.prepare("SELECT name FROM clusters").map_err(|e| e.to_string())?;
+        let rows = stmt.query_map([], |row| row.get(0)).map_err(|e| e.to_string())?;
+        rows.filter_map(|r| r.ok()).collect()
+    };
+
+    let mut discovered = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(path) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                let folder_name = entry.file_name().to_string_lossy().to_string();
+                let folder_path = entry.path().to_string_lossy().replace('\\', "/");
+                let exists_in_db = existing_names.contains(&folder_name);
+                discovered.push(DiscoveredClusterFolder {
+                    name: folder_name,
+                    path: folder_path,
+                    exists_in_db,
+                });
+            }
+        }
+    }
+    Ok(discovered)
+}
+
 #[tauri::command]
 pub async fn create_cluster(
     state: State<'_, AppState>,
     name: String,
     server_ids: Vec<i64>,
     cluster_path: Option<String>,
+    auto_link_existing: Option<bool>,
 ) -> Result<Cluster, String> {
     println!(
-        "🔗 Creating cluster: {} with {} servers",
+        "🔗 Creating/linking cluster: {} with {} servers",
         name,
         server_ids.len()
     );
 
     // Check if cluster name matches existing one
+    let should_auto_link = auto_link_existing.unwrap_or(false);
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -31,7 +78,7 @@ pub async fn create_cluster(
             )
             .unwrap_or(false);
 
-        if exists {
+        if exists && !should_auto_link {
             return Err(format!("Cluster with name '{}' already exists", name));
         }
     }
@@ -676,10 +723,15 @@ pub async fn get_cluster_status(
     Ok(status)
 }
 
-/// Start all servers in a cluster
+/// Start all servers in a cluster with configurable delay
 #[tauri::command]
-pub async fn start_cluster(state: State<'_, AppState>, cluster_id: i64) -> Result<(), String> {
-    println!("▶️ Starting all servers in cluster {}", cluster_id);
+pub async fn start_cluster(
+    state: State<'_, AppState>,
+    cluster_id: i64,
+    delay_seconds: Option<u64>,
+) -> Result<(), String> {
+    let delay = delay_seconds.unwrap_or(15).clamp(1, 300);
+    println!("▶️ Starting all servers in cluster {} (delay: {}s)", cluster_id, delay);
 
     // Get cluster info first
     let (cluster_name, cluster_path): (String, String) = {
@@ -830,8 +882,8 @@ pub async fn start_cluster(state: State<'_, AppState>, cluster_id: i64) -> Resul
             }
             println!("  ✅ Started server {}", server_id);
         }
-        // Small delay between starts to prevent overwhelming the system
-        std::thread::sleep(std::time::Duration::from_secs(5));
+        // Configurable delay between starts to prevent CPU/RAM spikes and crashes
+        std::thread::sleep(std::time::Duration::from_secs(delay));
     }
 
     Ok(())

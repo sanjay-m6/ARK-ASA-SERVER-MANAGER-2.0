@@ -616,6 +616,13 @@ impl Database {
                 [],
             )?;
         }
+        if !db_columns.contains(&"status_update_interval".to_string()) {
+            println!("📦 Migration: Adding 'status_update_interval' to discord_bridge_config");
+            conn.execute(
+                "ALTER TABLE discord_bridge_config ADD COLUMN status_update_interval INTEGER DEFAULT 60",
+                [],
+            )?;
+        }
 
         Ok(())
     }

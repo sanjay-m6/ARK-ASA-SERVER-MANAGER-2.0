@@ -1034,6 +1034,19 @@ impl ProcessManager {
             );
         }
 
+        // Fetch CurseForge API Key from database if configured and pass to server process
+        if let Some(state) = self.app_handle.try_state::<crate::AppState>() {
+            if let Ok(db) = state.db.lock() {
+                if let Ok(Some(cf_key)) = db.get_setting("curseforge_api_key") {
+                    let trimmed = cf_key.trim();
+                    if !trimmed.is_empty() {
+                        args.push(format!("-CurseForgeApiKey={}", trimmed));
+                        println!("  🔑 Server {} appended custom -CurseForgeApiKey to launch arguments", server_id);
+                    }
+                }
+            }
+        }
+
         // Automatically check GameUserSettings.ini for Culture setting and append -culture arg
         let sub_dir = if server_type == "ASE" { "WindowsServer" } else { "WindowsServer" };
         let gus_path = install_path
@@ -1335,6 +1348,18 @@ impl ProcessManager {
                                 suggestions: vec![
                                     "Accept CurseForge Terms & Conditions in the ARK game client".to_string(),
                                     "Clear the mod cache and let CFCore re-download all mods".to_string(),
+                                ],
+                            });
+                        } else if lower_line.contains("serverunreachable") || lower_line.contains("apierror: failed") {
+                            let _ = app_handle_stdout.emit("mod_load_failure", ModLoadFailureEvent {
+                                server_id: server_id_stdout,
+                                error_type: "CFCore_ServerUnreachable".to_string(),
+                                details: l.clone(),
+                                suggestions: vec![
+                                    "CurseForge API servers are currently unreachable or experiencing high load".to_string(),
+                                    "Provide a valid CurseForge API Key in Settings → API Keys to resolve rate limits".to_string(),
+                                    "If CurseForge is down, start the server without mods temporarily (Server Actions → Launch Without Mods)".to_string(),
+                                    "Verify server firewall & DNS connectivity to api.curseforge.com".to_string(),
                                 ],
                             });
                         }
