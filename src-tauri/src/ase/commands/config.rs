@@ -533,7 +533,8 @@ pub async fn read_ase_config_internal(
         config.b_use_tame_limit_for_structures_only = ini_get_bool(&sections, ss, "bUseTameLimitForStructuresOnly", false);
         config.b_allow_raid_dino_feeding = ini_get_bool(&sections, ss, "bAllowRaidDinoFeeding", false);
         config.raid_dino_character_food_drain_multiplier = ini_get_f64(&sections, ss, "RaidDinoCharacterFoodDrainMultiplier", 1.0);
-        config.force_allow_cave_flyers = ini_get_bool(&sections, ss, "ForceAllowCaveFlyers", false);
+        config.force_allow_cave_flyers = ini_get_bool(&sections, ss, "ForceAllowCaveFlyers", false)
+            || ini_get_bool(&sections, ss, "bForceCanRideFliers", false);
         config.disable_dino_decay_pve = ini_get_bool(&sections, ss, "DisableDinoDecayPvE", false);
         config.allow_dino_level_up_animation = ini_get_bool(&sections, ss, "AllowDinoLevelUpAnimation", true);
         config.b_allow_flying_stamina_recovery = ini_get_bool(&sections, ss, "bAllowFlyingStaminaRecovery", false);
@@ -1111,6 +1112,11 @@ pub async fn write_ase_config(
     ini_set(
         ss,
         "ForceAllowCaveFlyers",
+        ark_bool(config.force_allow_cave_flyers).to_string(),
+    );
+    ini_set(
+        ss,
+        "bForceCanRideFliers",
         ark_bool(config.force_allow_cave_flyers).to_string(),
     );
     ini_set(

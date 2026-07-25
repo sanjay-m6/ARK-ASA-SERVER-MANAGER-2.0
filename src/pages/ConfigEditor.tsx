@@ -16,6 +16,7 @@ import { ConfigTooltip } from '../components/config/ConfigTooltip';
 import { ArrayEditor } from '../components/config/ArrayEditor';
 import { CraftingCostEditor } from '../components/config/CraftingCostEditor';
 import { EngramOverridesEditor } from '../components/config/EngramOverridesEditor';
+import { EngramPointsPerLevelEditor } from '../components/config/EngramPointsPerLevelEditor';
 import { LootCrateEditor } from '../components/config/LootCrateEditor';
 import { DinoSpawnEditor } from '../components/config/DinoSpawnEditor';
 import { applyPreset, ConfigPreset, createPresetFromConfig, saveCustomPreset } from '../data/presets';
@@ -1485,6 +1486,20 @@ const ConfigInput = memo(({
             return (
                 <div className="col-span-1 md:col-span-2 lg:col-span-2">
                     <EngramOverridesEditor
+                        value={value}
+                        onChange={(val: string) => handleChange(val)}
+                    />
+                    {fieldDescription && (
+                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                            {fieldDescription}
+                        </div>
+                    )}
+                </div>
+            );
+        case 'engram_points_per_level':
+            return (
+                <div className="col-span-1 md:col-span-2 lg:col-span-2">
+                    <EngramPointsPerLevelEditor
                         value={value}
                         onChange={(val: string) => handleChange(val)}
                     />

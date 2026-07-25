@@ -135,6 +135,9 @@ impl SchedulerService {
 
         // 5. Process Backup Policies (Only run auto-backups when server is ONLINE)
         Self::process_backup_policies(app_handle, time).await;
+
+        // 6. Process Steam Auto-Updates (Only when auto_update setting is enabled)
+        Self::process_auto_updates(app_handle, time).await;
     }
 
     async fn process_ase_tasks(app_handle: &AppHandle, time: DateTime<Local>) {
@@ -472,9 +475,9 @@ impl SchedulerService {
         dino_wipe: bool,
         time: DateTime<Local>,
     ) {
-        let [hour, minute] = match time_str.split(':').map(|s| s.parse::<u32>().ok()).collect::<Vec<_>>().as_slice() {
-            [Some(h), Some(m)] => [*h, *m],
-            _ => return,
+        let [hour, minute] = match parse_time_str(time_str) {
+            Some(hm) => hm,
+            None => return,
         };
 
         let enabled_days: Vec<u32> = days_str.split(',').filter_map(|s| s.trim().parse::<u32>().ok()).collect();
@@ -671,9 +674,9 @@ impl SchedulerService {
         dino_wipe: bool,
         time: DateTime<Local>,
     ) {
-        let [hour, minute] = match time_str.split(':').map(|s| s.parse::<u32>().ok()).collect::<Vec<_>>().as_slice() {
-            [Some(h), Some(m)] => [*h, *m],
-            _ => return,
+        let [hour, minute] = match parse_time_str(time_str) {
+            Some(hm) => hm,
+            None => return,
         };
 
         let enabled_days: Vec<u32> = days_str.split(',').filter_map(|s| s.trim().parse::<u32>().ok()).collect();
@@ -1733,22 +1736,28 @@ impl SchedulerService {
                 continue;
             }
 
+            let effective_interval_mins = (interval_hours.max(1) as i64) * 60;
+
             // Check when the last auto backup was created for this server
             let last_backup_time: Option<DateTime<Utc>> = {
                 if let Ok(db) = state.db.lock() {
                     if let Ok(conn) = db.get_connection() {
                         conn.query_row(
-                            "SELECT created_at FROM backups WHERE server_id = ?1 AND backup_type = 'auto' ORDER BY id DESC LIMIT 1",
+                            "SELECT created_at FROM backups WHERE server_id = ?1 AND LOWER(backup_type) = 'auto' ORDER BY id DESC LIMIT 1",
                             [server_id],
                             |row| row.get::<_, String>(0),
-                        ).ok().and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc)))
+                        ).ok().and_then(|s| parse_db_datetime(&s))
                     } else { None }
                 } else { None }
             };
 
             let now_utc = Utc::now();
             let should_backup = match last_backup_time {
-                Some(last_time) => (now_utc - last_time).num_hours() >= interval_hours as i64,
+                Some(last_time) => {
+                    let elapsed_mins = (now_utc - last_time).num_minutes();
+                    // Extra safety guard: never run auto backup if less than 50 minutes have passed
+                    elapsed_mins >= effective_interval_mins && elapsed_mins >= 50
+                }
                 None => true,
             };
 
@@ -1774,4 +1783,184 @@ impl SchedulerService {
             }
         }
     }
+
+    async fn process_auto_updates(app_handle: &AppHandle, _time: DateTime<Local>) {
+        let state = app_handle.state::<AppState>();
+
+        // Query all servers where auto_update = 1
+        let auto_update_servers: Vec<(i64, String, String, String)> = {
+            let db = match state.db.lock() {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+            let conn = match db.get_connection() {
+                Ok(conn) => conn,
+                Err(_) => return,
+            };
+
+            let mut stmt = match conn.prepare(
+                "SELECT id, name, install_path, COALESCE(server_type, 'ASA') FROM servers WHERE auto_update = 1"
+            ) {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+
+            let iter = stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            });
+
+            match iter {
+                Ok(rows) => rows.filter_map(|r| r.ok()).collect::<Vec<_>>(),
+                Err(_) => Vec::new(),
+            }
+        };
+
+        if auto_update_servers.is_empty() {
+            return;
+        }
+
+        for (server_id, name, install_path_str, server_type) in auto_update_servers {
+            let app_id = if server_type == "ASE" { "237090" } else { "2430930" };
+            let install_path = PathBuf::from(&install_path_str);
+
+            let local_build = match crate::services::server_installer::get_local_build_id(&install_path, app_id) {
+                Some(b) => b,
+                None => continue,
+            };
+
+            let remote_build = match crate::services::server_installer::get_remote_build_id(app_id).await {
+                Some(b) => b,
+                None => continue,
+            };
+
+            if local_build != remote_build {
+                log::warn!("🚀 [AutoUpdate] New Steam build detected for server {} ({})! Local {} vs Remote {}", server_id, name, local_build, remote_build);
+
+                let is_running = state.process_manager.is_running(server_id);
+                let db_status = {
+                    if let Ok(db) = state.db.lock() {
+                        if let Ok(conn) = db.get_connection() {
+                            conn.query_row("SELECT status FROM servers WHERE id = ?1", [server_id], |row| row.get::<_, String>(0)).ok()
+                        } else { None }
+                    } else { None }
+                };
+
+                let is_online = is_running || matches!(db_status.as_deref().map(|s| s.to_lowercase()).as_deref(), Some("running" | "online" | "starting"));
+
+                if is_online {
+                    log::info!("📢 [AutoUpdate] Server {} is online. Broadcasting maintenance & update notice...", server_id);
+
+                    // Step 1: 3-Minute Warning Broadcast
+                    if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+                        let rcon = &rcon_state.0;
+                        let msg = "⚠️ NEW GAME UPDATE DETECTED! Server will perform a graceful save, update & restart in 3 minutes.";
+                        let _ = rcon.send_command(server_id, &format!("ServerChat {}", msg)).await;
+                        let _ = rcon.send_command(server_id, &format!("Broadcast {}", msg)).await;
+                    }
+
+                    let app_clone = app_handle.clone();
+                    let server_name = name.clone();
+                    tauri::async_runtime::spawn(async move {
+                        crate::services::discord::send_discord_webhook(
+                            &app_clone,
+                            "autoUpdate",
+                            crate::services::discord::DiscordEmbed::scheduled_task(
+                                &server_name,
+                                "Steam Auto-Update",
+                                "New Steam update detected! Server updating & restarting in **3 minutes**.",
+                            ),
+                        ).await;
+                    });
+
+                    sleep(Duration::from_secs(120)).await;
+
+                    // Step 2: 1-Minute Warning Broadcast & Save World
+                    if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+                        let rcon = &rcon_state.0;
+                        let msg = "⚠️ SERVER UPDATE IN 1 MINUTE! Saving world data...";
+                        let _ = rcon.send_command(server_id, "SaveWorld").await;
+                        let _ = rcon.send_command(server_id, &format!("ServerChat {}", msg)).await;
+                        let _ = rcon.send_command(server_id, &format!("Broadcast {}", msg)).await;
+                    }
+
+                    sleep(Duration::from_secs(60)).await;
+
+                    // Step 3: Shutdown, Backup, Update, Restart
+                    if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+                        let rcon = &rcon_state.0;
+                        let _ = rcon.send_command(server_id, "Broadcast ⚠️ RESTARTING FOR GAME UPDATE NOW!").await;
+                        sleep(Duration::from_secs(3)).await;
+                    }
+
+                    log::info!("  [AutoUpdate] Stopping server {}", server_id);
+                    let _ = crate::commands::server::stop_server(state.clone(), server_id).await;
+
+                    log::info!("  [AutoUpdate] Creating pre-update backup for server {}", server_id);
+                    let _ = Self::create_preupdate_backup_for_server(app_handle, server_id);
+
+                    log::info!("  [AutoUpdate] Executing update for server {}", server_id);
+                    let app = (*app_handle).clone();
+                    let _ = crate::commands::server::update_server(app, state.clone(), server_id).await;
+
+                    log::info!("  [AutoUpdate] Restarting server {}", server_id);
+                    let app = (*app_handle).clone();
+                    let _ = crate::commands::server::start_server(app, server_id, false).await;
+                } else {
+                    log::info!("  [AutoUpdate] Server {} is offline. Updating server files...", server_id);
+                    let app = (*app_handle).clone();
+                    let _ = crate::commands::server::update_server(app, state.clone(), server_id).await;
+                }
+            }
+        }
+    }
 }
+
+pub fn parse_time_str(time_str: &str) -> Option<[u32; 2]> {
+    let s = time_str.trim().to_uppercase();
+    let is_pm = s.contains("PM");
+    let is_am = s.contains("AM");
+    
+    let clean_str = s.replace("AM", "").replace("PM", "").trim().to_string();
+    let parts: Vec<&str> = clean_str.split(':').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+
+    let mut hour: u32 = parts[0].trim().parse().ok()?;
+    let minute: u32 = parts[1].trim().parse().ok()?;
+
+    if is_pm && hour < 12 {
+        hour += 12;
+    } else if is_am && hour == 12 {
+        hour = 0;
+    }
+
+    if hour <= 23 && minute <= 59 {
+        Some([hour, minute])
+    } else {
+        None
+    }
+}
+
+pub fn parse_db_datetime(s: &str) -> Option<DateTime<Utc>> {
+    let s = s.trim();
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return Some(dt.with_timezone(&Utc));
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+        return Some(DateTime::from_naive_utc_and_offset(naive, Utc));
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f") {
+        return Some(DateTime::from_naive_utc_and_offset(naive, Utc));
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
+        return Some(DateTime::from_naive_utc_and_offset(naive, Utc));
+    }
+    None
+}
+

@@ -776,6 +776,9 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::move_server, // <-- New Command
             commands::server::clear_mod_cache,
             commands::server::diagnose_mod_loading,
+            commands::server::set_auto_update,
+            commands::server::set_update_on_start,
+            commands::server::get_server_update_settings,
             commands::import::import_non_dedicated_save, // <-- New Command
             // Mod commands
             commands::mods::search_mods,

@@ -76,29 +76,38 @@ jobs:
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
             - **Fresh Install**: Download the `.exe` installer below and run it.
 
-            ### 🆕 New Features in v4.6.6
-            - **📦 Advanced Mod Details 5-Tab Inspector**:
-              - Overview & Description tab with rich HTML formatting and interactive Discord community cards.
-              - Comments tab with local Admin Notes & persistent team scratchpad.
-              - Files tab showing complete CurseForge release history, file sizes, and download links.
-              - Gallery tab with live screenshots & interactive Lightbox viewer.
-              - Relations tab displaying required mod dependencies and child addons.
-            - **🖼️ Interactive Lightbox Gallery Viewer**:
-              - Next/Prev navigation buttons (`←` / `→`) and keyboard arrow shortcuts (`ArrowLeft`, `ArrowRight`, `A`, `D`, `Escape`).
-              - Thumbnail preview strip and image counter indicator.
-            - **🧩 Installed Mods UI & Sync Overhaul**:
-              - Modern glassmorphic cards with Status filter tabs (All, Enabled, Disabled).
-              - Server Sync banner (`ActiveMods=...`) with 1-click order saving & mod active toggles.
-              - 1-click Copy Mod ID (`#935408`) and high-contrast badges.
-            - **📂 Real Server Directory Explorer Access**:
-              - Added 1-click "Open Explorer Folder" (`<ExternalLink />`) button next to Profile badges in Grid and List views to directly open server installation directories on disk.
+            ### 🆕 New Features in v4.6.7
+            - **⚡ Steam Auto-Update Engine with In-Game RCON Broadcasts**:
+              - Automated background monitoring of Steam Web API build IDs for ARK: Survival Ascended (AppID: `2430930`) and Survival Evolved (AppID: `237090`).
+              - 3-Minute in-game RCON Broadcast & ServerChat warning notice + Discord notification (`"⚠️ NEW GAME UPDATE DETECTED!"`).
+              - 1-Minute in-game RCON Broadcast notice + automatic `SaveWorld` execution before graceful server shutdown, update, and auto-restart.
+            - **⚙️ Per-Server Auto-Update & Update-on-Start Toggles**:
+              - Added interactive **Auto-Update on Steam Release** toggle switches in both the AUTOMATION row at the bottom of server cards and in the top-right Update Options dropdown menu.
+              - Per-server toggles persist cleanly in SQLite database (`auto_update`, `update_on_start`).
+            - **🎨 Redesigned Release Notes Modal**:
+              - Automated Markdown parser rendering raw release text into rich styled headings, code badges, glowing bullet points, and high-contrast pill tags.
+              - Added 1-click **Copy Notes** (`📋`) button for instant Discord announcement copying.
+            - **📊 Interactive Engram Points Per Level Customizer**:
+              - Custom level-by-level engram points editor with Quick Generator (`2400` points per level across `300` levels), Apply to All, level grid, and raw INI live output preview.
 
-            ### 🐛 Bug Fixes in v4.6.6
-            - **🔧 CurseForge Image Proxy Fix**: Fixed missing screenshots and blank images in Mod Review modal by implementing backend `get_mod_screenshots` CurseForge API proxying.
-            - **🔧 Isolated Profile Name Persistence**: Fixed profile renaming resetting on refresh/tab switch. Profile display names (`displayName`) now persist safely to SQLite without modifying or corrupting `GameUserSettings.ini` `SessionName`.
-            - **🔧 List View Missing Profile Name Fix**: Restored profile rename controls (`<Edit2 />`), Profile badges, and Open Folder links in the List View layout.
+            ### 🐛 Bug Fixes in v4.6.7
+            - **🔧 ASA Engram Points Per Level Saving Bug Fix**: Fixed `OverridePlayerLevelEngramPoints` escaping newlines into single line string literals (`\n`). Array values are now correctly serialized as separate repeated INI keys (`OverridePlayerLevelEngramPoints=2400`) required by Unreal Engine INI parser.
+            - **🔧 Backup Loop & Disk Space Fix**: Resolved 1-minute auto-backup execution loop causing hard drive saturation by adding SQLite timestamp parser and 50-minute safety floor guard.
+            - **🔧 AM/PM Restart Time Parsing**: Fixed scheduled restart times failing on 12-hour AM/PM formats (`"02:30 PM"`).
+            - **🔧 Config Category Name Sync**: Renamed "Boot Launch Parameters" tab to "Advanced" across Config Editor and i18n locales.
+            - **🔧 Draggable Component Render Crash**: Fixed unhandled icon reference crash inside `@hello-pangea/dnd` `<Draggable>` container.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.6 — 5-Tab Mod Inspector, Lightbox Gallery & Directory Explorer</summary>
+
+            - **📦 Advanced Mod Details 5-Tab Inspector**: Overview & Description, Comments & Admin Notes, Files history, Gallery Lightbox, and Mod Relations.
+            - **🖼️ Interactive Lightbox Gallery Viewer**: Keyboard shortcuts (`ArrowLeft`, `ArrowRight`, `Escape`), thumbnail strip, and full resolution preview.
+            - **🧩 Installed Mods UI & Sync Overhaul**: Status filter tabs, Server Sync banner, and 1-click Copy Mod ID.
+            - **📂 Real Server Directory Explorer Access**: 1-click Open Folder button directly opening server install directory in Windows Explorer.
+            - **🔧 CurseForge Image Proxy Fix**: Resolved missing screenshots and blank images in Mod Review modal via backend proxying.
+            - **🔧 Isolated Profile Name Persistence**: Profile display names (`displayName`) persist to SQLite without modifying or corrupting `GameUserSettings.ini` `SessionName`.
+            </details>
             <details>
             <summary>v4.6.5 — Game Selection Redesign, Categories & Deep Repair Fixes</summary>
 

@@ -4486,3 +4486,40 @@ pub async fn start_servers_staggered(
     });
     Ok(())
 }
+
+#[tauri::command]
+pub async fn set_auto_update(server_id: i64, enabled: bool, state: State<'_, AppState>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let val = if enabled { 1 } else { 0 };
+    conn.execute("UPDATE servers SET auto_update = ?1 WHERE id = ?2", [val, server_id])
+        .map_err(|e| e.to_string())?;
+    println!("⚙️ Updated server {} auto_update setting to {}", server_id, enabled);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_update_on_start(server_id: i64, enabled: bool, state: State<'_, AppState>) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let val = if enabled { 1 } else { 0 };
+    conn.execute("UPDATE servers SET update_on_start = ?1 WHERE id = ?2", [val, server_id])
+        .map_err(|e| e.to_string())?;
+    println!("⚙️ Updated server {} update_on_start setting to {}", server_id, enabled);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_server_update_settings(server_id: i64, state: State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let (auto_update, update_on_start): (bool, bool) = conn.query_row(
+        "SELECT COALESCE(auto_update, 0) != 0, COALESCE(update_on_start, 0) != 0 FROM servers WHERE id = ?1",
+        [server_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    ).unwrap_or((false, false));
+    Ok(serde_json::json!({
+        "auto_update": auto_update,
+        "update_on_start": update_on_start
+    }))
+}

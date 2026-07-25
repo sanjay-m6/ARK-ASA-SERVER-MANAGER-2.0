@@ -1,7 +1,7 @@
 {
   "name": "ark-asa-server-manager",
   "private": true,
-  "version": "4.6.6",
+  "version": "4.6.7",
   "author": "Sanjay",
   "description": "ARK: Survival Ascended Server Manager",
   "type": "module",

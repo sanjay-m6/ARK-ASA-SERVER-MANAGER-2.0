@@ -225,6 +225,48 @@ pub async fn save_config(
         } else {
             println!("  ⚠️ [Debug] Game.ini DOES NOT contain Player Stats Multipliers!");
         }
+
+        // ── ASA Engram Points Verification & Backend Logging ──
+        let expected_engram_lines: Vec<&str> = final_content
+            .lines()
+            .map(|l| l.trim())
+            .filter(|l| l.to_lowercase().starts_with("overrideplayerlevelengrampoints="))
+            .collect();
+
+        let expected_count = expected_engram_lines.len();
+        if expected_count > 0 {
+            println!("  [ASA ENGRAM] Saving Engram Points");
+            println!("  [ASA ENGRAM] Server ID: {}", server_id);
+            println!("  [ASA ENGRAM] Server Path: {:?}", install_path);
+            println!("  [ASA ENGRAM] Game.ini: {:?}", file_path);
+            println!("  [ASA ENGRAM] Number of Levels: {}", expected_count);
+            println!("  [ASA ENGRAM] Writing OverridePlayerLevelEngramPoints...");
+
+            // Re-read Game.ini from disk to verify actual serialization
+            let written_disk_content = fs::read_to_string(&file_path).unwrap_or_default();
+            let written_engram_lines: Vec<&str> = written_disk_content
+                .lines()
+                .map(|l| l.trim())
+                .filter(|l| l.to_lowercase().starts_with("overrideplayerlevelengrampoints="))
+                .collect();
+
+            println!("  [ASA ENGRAM] Written Entries: {}", written_engram_lines.len());
+
+            if written_engram_lines.len() == expected_count && written_engram_lines == expected_engram_lines {
+                println!("  [ASA ENGRAM] Verification: PASS ({} entries verified)", expected_count);
+            } else {
+                println!(
+                    "  ❌ [ASA ENGRAM] Verification: FAIL (Expected: {}, Found: {})",
+                    expected_count,
+                    written_engram_lines.len()
+                );
+                return Err(format!(
+                    "[ASA ENGRAM] Verification FAILED: Expected {} OverridePlayerLevelEngramPoints entries in Game.ini but found {}",
+                    expected_count,
+                    written_engram_lines.len()
+                ));
+            }
+        }
     }
 
     // If we're saving GameUserSettings.ini, we need to sync critical values to the database

@@ -387,18 +387,14 @@ impl AseLauncher {
             }
         }
 
-        let (server, config, active_mods, cluster_dir) = {
+        let config = crate::ase::commands::config::read_ase_config_internal(server_id, state).await
+            .unwrap_or_default();
+
+        let (server, active_mods, cluster_dir) = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let conn = db.get_connection().map_err(|e| e.to_string())?;
             let mut stmt = conn.prepare("SELECT id, name, install_path, map_name, port, query_port, rcon_port, rcon_password, max_players, server_password, admin_password, session_name, active_mods, cluster_id, battleye, extra_args, status, process_id, created_at, updated_at, auto_start, auto_stop, intelligent_mode, startup_delay, startup_priority, branch FROM ase_servers WHERE id = ?1").map_err(|e| e.to_string())?;
             let server = stmt.query_row([server_id], |row| Self::read_server_row(row)).map_err(|e| e.to_string())?;
-            
-            let config_json: String = conn.query_row(
-                "SELECT settings_json FROM ase_game_settings WHERE server_id = ?1",
-                [server_id], |row| row.get(0)
-            ).unwrap_or_else(|_| "{}".to_string());
-            
-            let config: AseGameConfig = serde_json::from_str(&config_json).unwrap_or_default();
             
             let active_mods = Self::fetch_active_mod_ids(&conn, server_id, &server.active_mods)?;
             
@@ -412,7 +408,7 @@ impl AseLauncher {
                 None
             };
             
-            (server, config, active_mods, cluster_dir)
+            (server, active_mods, cluster_dir)
         };
 
         // If user config folder is active, copy the INI files from the custom folder to the default directory before starting the server

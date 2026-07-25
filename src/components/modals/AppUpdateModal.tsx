@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Sparkles, Download, CheckCircle, RefreshCw, X, AlertCircle, ExternalLink, Loader2 } from 'lucide-react';
+import { Sparkles, Download, CheckCircle, RefreshCw, X, AlertCircle, ExternalLink, Loader2, FileText, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -17,6 +17,87 @@ interface AppUpdateModalProps {
     isOpen: boolean;
     onClose: () => void;
     autoCheckOnMount?: boolean;
+}
+
+function formatInlineMarkdown(str: string) {
+    // Regex split for **bold** and `code`
+    const parts = str.split(/(\*\*.*?\*\*|`.*?`)/g);
+
+    return parts.map((part, index) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            const boldText = part.slice(2, -2);
+            return (
+                <span key={index} className="font-semibold text-white bg-slate-800/80 px-1.5 py-0.5 rounded border border-white/10">
+                    {boldText}
+                </span>
+            );
+        }
+        if (part.startsWith('`') && part.endsWith('`')) {
+            const codeText = part.slice(1, -1);
+            return (
+                <code key={index} className="font-mono text-[11px] font-semibold bg-sky-500/10 text-sky-300 border border-sky-500/20 px-1.5 py-0.5 rounded-md">
+                    {codeText}
+                </code>
+            );
+        }
+        return part;
+    });
+}
+
+function renderFormattedMarkdown(text: string) {
+    if (!text) return null;
+
+    const lines = text.split('\n');
+
+    return (
+        <div className="space-y-2.5 text-xs leading-relaxed text-slate-300 select-text">
+            {lines.map((line, idx) => {
+                const trimmed = line.trim();
+                if (!trimmed) return <div key={idx} className="h-1" />;
+
+                // ## Header
+                if (trimmed.startsWith('## ')) {
+                    const title = trimmed.replace(/^##\s+/, '');
+                    return (
+                        <h4 key={idx} className="text-sm font-bold text-sky-400 flex items-center gap-2 pt-2 pb-1 border-b border-sky-500/20">
+                            {formatInlineMarkdown(title)}
+                        </h4>
+                    );
+                }
+
+                // ### Header
+                if (trimmed.startsWith('### ')) {
+                    const title = trimmed.replace(/^###\s+/, '');
+                    return (
+                        <h5 key={idx} className="text-[11px] font-bold uppercase tracking-wider text-indigo-300 mt-3 mb-1 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block" />
+                            {formatInlineMarkdown(title)}
+                        </h5>
+                    );
+                }
+
+                // List item '- ' or '* '
+                if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                    const itemText = trimmed.replace(/^[-*]\s+/, '');
+                    return (
+                        <div key={idx} className="flex items-start gap-2.5 pl-1 group">
+                            <div className="w-1.5 h-1.5 rounded-full bg-sky-400 mt-1.5 shrink-0 group-hover:scale-125 transition-transform" />
+                            <div className="flex-1 text-slate-200">
+                                {formatInlineMarkdown(itemText)}
+                            </div>
+                        </div>
+                    );
+                }
+
+                // Normal paragraph
+                return (
+                    <p key={idx} className="text-slate-300 leading-relaxed">
+                        {formatInlineMarkdown(trimmed)}
+                    </p>
+                );
+            })}
+        </div>
+    );
 }
 
 export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps) {
@@ -150,12 +231,29 @@ export default function AppUpdateModal({ isOpen, onClose }: AppUpdateModalProps)
                                 </div>
                             )}
 
-                            {/* Release Notes */}
+                            {/* Release Notes Header & Formatted Body */}
                             {updateInfo.release_notes && (
-                                <div className="space-y-1.5">
-                                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Release Notes</span>
-                                    <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl max-h-40 overflow-y-auto text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed">
-                                        {updateInfo.release_notes}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                            <FileText className="w-3.5 h-3.5 text-sky-400" />
+                                            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Release Notes</span>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(String(updateInfo.release_notes));
+                                                toast.success("Release notes copied to clipboard!", { icon: "📋" });
+                                            }}
+                                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-slate-700 shadow-sm"
+                                            title="Copy release notes to clipboard"
+                                        >
+                                            <Copy className="w-3 h-3 text-sky-400" />
+                                            <span>Copy Notes</span>
+                                        </button>
+                                    </div>
+
+                                    <div className="p-4 bg-slate-950/90 border border-slate-800/90 rounded-2xl max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-600 shadow-inner">
+                                        {renderFormattedMarkdown(String(updateInfo.release_notes))}
                                     </div>
                                 </div>
                             )}

@@ -88,7 +88,7 @@ export default function Sidebar() {
       icon: Wrench,
       children: [
         { name: t('sidebar.aiAssistant', 'AI Assistant'), path: '/tools/ai', icon: Bot },
-        { name: t('sidebar.advanced'), path: '/tools/advanced', icon: Cpu },
+        { name: t('sidebar.advanced', 'Boot Launch Parameter'), path: '/tools/advanced', icon: Cpu },
         { name: 'Hardware Allocation', path: '/hardware', icon: Cpu },
         { name: t('sidebar.discordBot'), path: '/tools/discord', icon: MessageSquare },
         { name: t('sidebar.plugins'), path: '/tools/plugins', icon: Plug },
@@ -117,7 +117,7 @@ export default function Sidebar() {
       icon: Wrench,
       children: [
         { name: 'AI Assistant', path: '/ase/tools/ai', icon: Bot },
-        { name: 'Advanced Config', path: '/ase/tools/advanced', icon: Cpu },
+        { name: 'Boot Launch Parameter', path: '/ase/tools/advanced', icon: Cpu },
         { name: 'Hardware Allocation', path: '/ase/hardware', icon: Cpu },
         { name: 'File Manager', path: '/ase/files', icon: Folder },
         { name: 'Discord Bot', path: '/ase/discord', icon: MessageSquare },

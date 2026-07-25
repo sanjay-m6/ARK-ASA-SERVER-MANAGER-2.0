@@ -3,7 +3,7 @@
 
 import { MODDED_MAP_PRESETS } from './moddedMapRegistry';
 
-export type FieldType = 'text' | 'number' | 'boolean' | 'slider' | 'dropdown' | 'array' | 'textarea' | 'crafting_costs' | 'engram_entries' | 'loot_crates' | 'dino_spawns';
+export type FieldType = 'text' | 'number' | 'boolean' | 'slider' | 'dropdown' | 'array' | 'textarea' | 'crafting_costs' | 'engram_entries' | 'loot_crates' | 'dino_spawns' | 'engram_points_per_level';
 
 export interface ConfigField {
     section: string;
@@ -2070,9 +2070,9 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 section: '/Script/ShooterGame.ShooterGameMode',
                 key: 'OverridePlayerLevelEngramPoints',
                 label: 'Engram Points Per Level',
-                type: 'textarea',
+                type: 'engram_points_per_level',
                 defaultValue: '',
-                description: 'Engram points granted for each level up. Enter one value per line.',
+                description: 'Engram points granted for each level up. Configures repeated OverridePlayerLevelEngramPoints entries in Game.ini.',
                 wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#OverridePlayerLevelEngramPoints'
             }
         ]
@@ -2184,15 +2184,16 @@ export function generateIniContent(sections: Map<string, Map<string, string>>): 
                 const escapedValue = value.replace(/\n/g, '\\n');
                 content += `${key}=${escapedValue}\n`;
             } else if (value.includes('\n')) {
-                // Handle multiline values as duplicates
+                // Handle multiline values as duplicates (e.g. repeated OverridePlayerLevelEngramPoints)
                 const parts = value.split('\n');
                 for (const part of parts) {
-                    if (part.trim()) {
-                        content += `${key}=${part.trim()}\n`;
+                    const trimmed = part.trim();
+                    if (trimmed !== '') {
+                        content += `${key}=${trimmed}\n`;
                     }
                 }
-            } else {
-                content += `${key}=${value}\n`;
+            } else if (value.trim() !== '') {
+                content += `${key}=${value.trim()}\n`;
             }
         }
         content += '\n';

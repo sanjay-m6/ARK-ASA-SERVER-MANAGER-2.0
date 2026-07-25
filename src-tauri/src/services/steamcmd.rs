@@ -158,6 +158,29 @@ impl SteamCmdService {
         Ok(())
     }
 
+    /// Clear downloading cache, temp folder, and appmanifest for a target server installation
+    pub fn clear_target_manifest_and_cache(&self, install_path: &PathBuf, app_id: &str) -> Result<()> {
+        let manifest = install_path.join("steamapps").join(format!("appmanifest_{}.acf", app_id));
+        if manifest.exists() {
+            let _ = std::fs::remove_file(&manifest);
+            println!("Cleared target appmanifest: {:?}", manifest);
+        }
+
+        let downloading = install_path.join("steamapps").join("downloading");
+        if downloading.exists() {
+            let _ = std::fs::remove_dir_all(&downloading);
+            println!("Cleared target downloading cache: {:?}", downloading);
+        }
+
+        let temp = install_path.join("steamapps").join("temp");
+        if temp.exists() {
+            let _ = std::fs::remove_dir_all(&temp);
+            println!("Cleared target temp cache: {:?}", temp);
+        }
+
+        Ok(())
+    }
+
     /// Check if SteamCMD is healthy (exists, non-zero size, basic structure)
     pub fn check_health(&self) -> Result<SteamCmdHealth> {
         let exe_path = self.get_steamcmd_exe()?;
@@ -202,7 +225,7 @@ pub struct SteamCmdHealth {
 }
 
 /// Get available disk space in GB for the drive containing the given path
-fn get_available_disk_space(path: &PathBuf) -> f64 {
+pub fn get_available_disk_space(path: &PathBuf) -> f64 {
     #[cfg(windows)]
     {
         use std::ffi::OsStr;

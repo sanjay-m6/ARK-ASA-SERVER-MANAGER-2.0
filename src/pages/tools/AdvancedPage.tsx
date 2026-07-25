@@ -1,19 +1,73 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useServerStore } from '../../stores/serverStore';
 import { updateServerSettings, optimizeMemory, setProcessPriority, toggleEcoMode } from '../../utils/tauri';
-import { Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Leaf, Copy, Flame } from 'lucide-react';
+import { 
+  Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Leaf, Copy, 
+  Flame, Shield, Check, Terminal, Sparkles, Filter, CheckCircle2, RotateCcw, 
+  Globe, Radio, Settings2
+} from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
-
 import { MODDED_MAP_PRESETS, buildLaunchArgs } from '../../data/moddedMapRegistry';
+
+interface FlagDefinition {
+  flag: string;
+  label: string;
+  desc: string;
+  category: 'security' | 'gameplay' | 'performance' | 'network' | 'events';
+}
+
+const COMMON_FLAGS: FlagDefinition[] = [
+  // Security & Anti-Cheat
+  { flag: '-NoBattlEye', label: 'Disable BattlEye', desc: 'Disables BattlEye anti-cheat verification for client connections.', category: 'security' },
+  { flag: '-insecure', label: 'Insecure Mode', desc: 'Disables VAC security checks on the server process.', category: 'security' },
+  { flag: '-AdditionalDupeProtection', label: 'Dupe Protection', desc: 'Enforces strict item and dino duplicate validation on transfer.', category: 'security' },
+  { flag: '-ValidateItemDinoSpawns', label: 'Validate Spawns', desc: 'Validates spawned item and creature data structures.', category: 'security' },
+
+  // Gameplay & World Rules
+  { flag: '-ForceAllowCaveFlyers', label: 'Force Allow Cave Flyers', desc: 'Allows players to mount and ride flying creatures inside cave volumes.', category: 'gameplay' },
+  { flag: '-PreventUploadDinos', label: 'Prevent Dino Uploads', desc: 'Blocks players from uploading tamed dinosaurs to cluster transfer.', category: 'gameplay' },
+  { flag: '-ForceRespawnDinos', label: 'Force Wipe Wild Dinos', desc: 'Executes wild dinosaur wipe on server boot up.', category: 'gameplay' },
+  { flag: '-ServerAllowAnsel', label: 'Allow NVIDIA Ansel', desc: 'Enables 3D Ansel photography mode for connected clients.', category: 'gameplay' },
+
+  // Engine & Performance
+  { flag: '-StructureMemoryOptimizations', label: 'Structure Memory Opts', desc: 'Compresses structure mesh footprint in system RAM.', category: 'performance' },
+  { flag: '-StructureStasisGrid', label: 'Structure Stasis Grid', desc: 'Puts distant structures into low-overhead stasis grids.', category: 'performance' },
+  { flag: '-NoMemoryBias', label: 'No Memory Bias', desc: 'Bypasses engine memory allocation bias thresholds.', category: 'performance' },
+  { flag: '-lowmemory', label: 'Low RAM Mode (4GB)', desc: 'Optimizes engine buffers for system memory constraints.', category: 'performance' },
+  { flag: '-nomansky', label: 'Disable Dynamic Sky', desc: 'Disables clouds and sky mesh rendering to reduce GPU/CPU load.', category: 'performance' },
+  { flag: '-d3d10', label: 'DirectX 10 Shader Fallback', desc: 'Forces legacy D3D10 renderer pipeline.', category: 'performance' },
+  { flag: '-sm4', label: 'Shader Model 4', desc: 'Forces Shader Model 4 for lower hardware rendering.', category: 'performance' },
+  { flag: '-DisablePhysX', label: 'Disable PhysX Check', desc: 'Disables strict PhysX movement validation checks.', category: 'performance' },
+
+  // Network & Connectivity
+  { flag: '-crossplay', label: 'Enable Crossplay', desc: 'Enables multi-platform player crossplay connectivity.', category: 'network' },
+  { flag: '-PublicIPForEpic', label: 'Public IP for EGS', desc: 'Broadcasting public IP for Epic Games Store master server.', category: 'network' },
+  { flag: '-epiconly', label: 'Epic Players Only', desc: 'Restricts server connection exclusively to Epic Games clients.', category: 'network' },
+  { flag: '-AllowSharedConnections', label: 'Shared Connections', desc: 'Allows multiple client connections from shared network adapters.', category: 'network' },
+  { flag: '-exclusivejoin', label: 'Exclusive Join Only', desc: 'Only permits players listed in the exclusive join whitelist.', category: 'network' },
+
+  // Seasonal Events
+  { flag: '-activeevent=WinterWonderland', label: 'Winter Wonderland', desc: 'Activates the Winter Wonderland holiday event.', category: 'events' },
+  { flag: '-activeevent=Easter', label: 'Eggcellent Adventure', desc: 'Activates the Easter holiday event.', category: 'events' },
+  { flag: '-activeevent=vday', label: 'Love Evolved', desc: 'Activates the Valentine\'s Day event.', category: 'events' },
+  { flag: '-activeevent=Summer', label: 'Summer Bash', desc: 'Activates the Summer Bash event.', category: 'events' },
+  { flag: '-activeevent=FearEvolved', label: 'Fear Evolved', desc: 'Activates the Halloween Fear Evolved event.', category: 'events' },
+  { flag: '-activeevent=Thanksgiving', label: 'Turkey Trial', desc: 'Activates the Thanksgiving event.', category: 'events' },
+];
 
 export default function AdvancedPage() {
     const location = useLocation();
     const { servers, refreshServers, activeServer } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
     const [customArgs, setCustomArgs] = useState('');
+    const [originalArgs, setOriginalArgs] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [highPriority, setHighPriority] = useState(false);
+    const [ecoModeActive, setEcoModeActive] = useState(false);
 
     useEffect(() => {
         if (activeServer) {
@@ -29,10 +83,18 @@ export default function AdvancedPage() {
         if (!selectedServerId) return;
         const server = servers.find(s => s.id === selectedServerId);
         if (server) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setCustomArgs(server.config.custom_args || '');
+            const args = server.config.custom_args || '';
+            setCustomArgs(args);
+            setOriginalArgs(args);
         }
     }, [selectedServerId, servers]);
+
+    const isDirty = useMemo(() => customArgs !== originalArgs, [customArgs, originalArgs]);
+
+    const activeFlagCount = useMemo(() => {
+        if (!customArgs.trim()) return 0;
+        return customArgs.trim().split(/\s+/).filter(Boolean).length;
+    }, [customArgs]);
 
     const handleSave = async () => {
         if (!selectedServerId) return;
@@ -43,7 +105,8 @@ export default function AdvancedPage() {
                 customArgs: customArgs
             });
             await refreshServers();
-            toast.success('Advanced settings saved');
+            setOriginalArgs(customArgs);
+            toast.success('Boot Launch Parameters saved successfully');
         } catch (err) {
             console.error(err);
             toast.error('Failed to save settings');
@@ -56,7 +119,7 @@ export default function AdvancedPage() {
         setIsOptimizing(true);
         try {
             await optimizeMemory();
-            toast.success('Memory optimized successfully');
+            toast.success('Memory vacuumed & optimized successfully');
         } catch (err) {
             console.error(err);
             toast.error('Failed to optimize memory');
@@ -68,240 +131,536 @@ export default function AdvancedPage() {
     const handleSetPriority = async (high: boolean) => {
         try {
             await setProcessPriority(high);
-            toast.success(`Priority set to ${high ? 'High' : 'Normal'}`);
+            setHighPriority(high);
+            toast.success(`Process priority set to ${high ? 'High' : 'Normal'}`);
         } catch (err) {
             console.error(err);
-            toast.error('Failed to change priority');
+            toast.error('Failed to change process priority');
         }
     };
 
+    const handleToggleEco = async () => {
+        try {
+            const nextState = !ecoModeActive;
+            await toggleEcoMode(nextState);
+            setEcoModeActive(nextState);
+            toast.success(nextState ? 'Ultra Eco Mode Enabled' : 'Eco Mode Disabled');
+        } catch (err) {
+            console.error(err);
+            toast.error('Failed to toggle Eco Mode');
+        }
+    };
+
+    const toggleFlag = (flag: string) => {
+        const lowerArgs = customArgs.toLowerCase();
+        const lowerFlag = flag.toLowerCase();
+
+        if (lowerArgs.includes(lowerFlag)) {
+            // Remove flag
+            const regex = new RegExp(`\\s*${flag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}`, 'gi');
+            const updated = customArgs.replace(regex, '').trim();
+            setCustomArgs(updated);
+        } else {
+            // Append flag
+            const updated = customArgs ? `${customArgs.trim()} ${flag}` : flag;
+            setCustomArgs(updated);
+        }
+    };
+
+    const isFlagActive = (flag: string) => {
+        return customArgs.toLowerCase().includes(flag.toLowerCase());
+    };
+
+    const applyTuningPreset = (presetFlags: string, name: string) => {
+        let current = customArgs;
+        const flags = presetFlags.split(/\s+/).filter(Boolean);
+        flags.forEach(f => {
+            if (!current.toLowerCase().includes(f.toLowerCase())) {
+                current = current ? `${current.trim()} ${f}` : f;
+            }
+        });
+        setCustomArgs(current);
+        toast.success(`Applied ${name} profile`);
+    };
+
+    const currentServer = useMemo(() => {
+        return servers.find(s => s.id === selectedServerId);
+    }, [servers, selectedServerId]);
+
+    const filteredFlags = useMemo(() => {
+        return COMMON_FLAGS.filter(f => {
+            const matchesCat = selectedCategory === 'all' || f.category === selectedCategory;
+            const matchesSearch = !searchQuery || 
+                f.label.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                f.flag.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                f.desc.toLowerCase().includes(searchQuery.toLowerCase());
+            return matchesCat && matchesSearch;
+        });
+    }, [selectedCategory, searchQuery]);
+
+    const assembledCommandLine = useMemo(() => {
+        if (!currentServer) return 'ArkAscendedServer.exe TheIsland_WP?listen';
+        const map = currentServer.config?.mapName || 'TheIsland_WP';
+        const port = currentServer.ports?.gamePort || 7777;
+        const queryPort = currentServer.ports?.queryPort || 27015;
+        const rconPort = currentServer.ports?.rconPort || 32330;
+        const maxPlayers = currentServer.config?.maxPlayers || 70;
+        let base = `ArkAscendedServer.exe ${map}?listen?SessionName="${currentServer.name}"?Port=${port}?QueryPort=${queryPort}?RCONPort=${rconPort}?MaxPlayers=${maxPlayers}?RCONEnabled=True`;
+        if (customArgs.trim()) {
+            base += ` ${customArgs.trim()}`;
+        }
+        return base;
+    }, [currentServer, customArgs]);
+
     return (
-        <div className="h-full flex flex-col bg-slate-950/50 backdrop-blur-sm rounded-xl overflow-hidden border border-slate-800/50">
-            {/* Header */}
-            <div className="p-4 border-b border-white/5 flex flex-col gap-4 bg-slate-900/50">
-                <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1">
-                        <h2 className="text-xl font-bold bg-gradient-to-r from-red-400 to-orange-500 bg-clip-text text-transparent flex items-center gap-2">
-                            <Cpu className="w-5 h-5 text-red-500" />
-                            Advanced Configuration
-                        </h2>
+        <div className="h-full flex flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 rounded-xl overflow-hidden border border-slate-800/80 shadow-2xl">
+            {/* Top Control Bar */}
+            <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-br from-red-500/20 to-orange-500/20 border border-red-500/30 rounded-xl shadow-inner">
+                        <Cpu className="w-6 h-6 text-red-400" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xl font-bold text-white tracking-tight">Boot Launch Parameters</h1>
+                            {isDirty && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full animate-pulse">
+                                    Unsaved Changes
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Manage command-line switches, performance flags, and execution priority
+                        </p>
+                    </div>
+                </div>
 
-
+                {/* Server Switcher & Save Action */}
+                <div className="flex items-center gap-3 flex-wrap">
+                    {/* Server Selector */}
+                    <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-1.5 shadow-inner">
+                        <Radio className="w-4 h-4 text-red-400" />
+                        <select
+                            value={selectedServerId || ''}
+                            onChange={(e) => setSelectedServerId(Number(e.target.value))}
+                            className="bg-transparent text-sm text-white font-medium outline-none cursor-pointer pr-2"
+                        >
+                            {servers.length === 0 ? (
+                                <option value="">No servers available</option>
+                            ) : (
+                                servers.map(s => (
+                                    <option key={s.id} value={s.id} className="bg-slate-900 text-white">
+                                        {s.name} ({s.status})
+                                    </option>
+                                ))
+                            )}
+                        </select>
                     </div>
 
+                    {/* Reset Button */}
+                    {isDirty && (
+                        <button
+                            onClick={() => setCustomArgs(originalArgs)}
+                            className="px-3 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 rounded-xl text-xs font-semibold transition-all border border-slate-700/60 flex items-center gap-1.5"
+                            title="Discard unsaved changes"
+                        >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Discard
+                        </button>
+                    )}
+
+                    {/* Save Button */}
                     <button
                         onClick={handleSave}
                         disabled={isLoading || !selectedServerId}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white rounded-lg shadow-lg shadow-red-900/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all ${
+                            isDirty 
+                                ? 'bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow-red-900/40 hover:scale-[1.02] active:scale-[0.98]'
+                                : 'bg-slate-800 text-slate-400 border border-slate-700/50 hover:text-white'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        Save
+                        <span>{isLoading ? 'Saving...' : 'Save Parameters'}</span>
                     </button>
                 </div>
             </div>
 
-            {/* Main Content */}
-            <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                <div className="max-w-2xl mx-auto space-y-6">
-                    <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/50">
-                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                            <Cpu className="w-6 h-6 text-red-400" />
-                            Advanced Launch Arguments
-                        </h2>
-                        <p className="text-slate-400 mb-6">
-                            Specify additional command-line arguments to be passed to the server executable.
-                            <br />
-                            <span className="flex items-center gap-1 text-red-400/80 text-xs font-semibold uppercase tracking-wider mt-2">
-                                <AlertTriangle className="w-3 h-3" />
-                                Warning: Incorrect arguments may prevent the server from starting.
-                            </span>
-                        </p>
+            {/* Scrollable Main Workspace */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                {/* 1. Notice Banner */}
+                <div className="bg-gradient-to-r from-red-950/40 via-slate-900/60 to-slate-900/40 border border-red-500/20 rounded-2xl p-4 flex items-start justify-between gap-4 shadow-xl">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 flex-shrink-0 mt-0.5">
+                            <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                Boot Command Line Safety & Override Matrix
+                            </h3>
+                            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                                Parameters added here are directly passed to <code className="text-red-400 font-mono bg-slate-950/80 px-1.5 py-0.5 rounded border border-red-500/20">ArkAscendedServer.exe</code> on boot. Use visual flag toggles below to prevent syntax typos.
+                            </p>
+                        </div>
+                    </div>
+                    {activeFlagCount > 0 && (
+                        <div className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-xl text-right flex-shrink-0">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 block">Active Switches</span>
+                            <span className="text-sm font-mono font-black text-white">{activeFlagCount} Flags</span>
+                        </div>
+                    )}
+                </div>
 
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300">Custom Arguments</label>
+                {/* 2. Raw Command Input & Real-Time Terminal Preview (MOVED TO TOP) */}
+                <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Terminal className="w-4 h-4 text-emerald-400" />
+                            Raw Custom Arguments & Command Inspector
+                        </h2>
+                        {customArgs.trim() && (
+                            <button
+                                onClick={() => setCustomArgs('')}
+                                className="text-xs text-slate-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                            >
+                                <Eraser className="w-3.5 h-3.5" /> Clear All Flags
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Input Field */}
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-300">Custom Launch Arguments</label>
+                        <input
+                            type="text"
+                            value={customArgs}
+                            onChange={(e) => setCustomArgs(e.target.value)}
+                            placeholder="-NoBattlEye -ForceAllowCaveFlyers -structurememopts ..."
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-red-500 outline-none font-mono text-xs shadow-inner"
+                        />
+                        <p className="text-[11px] text-slate-400">
+                            Space-separated flags appended to the boot executable. Quote string parameters if necessary.
+                        </p>
+                    </div>
+
+                    {/* Mods Warning Box */}
+                    {customArgs.toLowerCase().includes('-mods=') && (
+                        <div className="flex items-start gap-2.5 p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                            <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                            <div className="text-xs">
+                                <p className="font-bold text-amber-300">Conditional -mods= configuration detected</p>
+                                <p className="text-amber-400/80 mt-0.5">
+                                    If active mods are enabled in the Mod Manager, any manual <code className="font-mono bg-amber-500/20 px-1 rounded">-mods=</code> here will be automatically formatted at boot time.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Live Terminal Synthesizer Box */}
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 relative overflow-hidden shadow-inner">
+                        <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                                <span className="text-xs font-mono text-slate-400 ml-2">Boot Executable Command Line</span>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(assembledCommandLine);
+                                    toast.success('Full command line copied to clipboard');
+                                }}
+                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
+                            >
+                                <Copy className="w-3.5 h-3.5" /> Copy Command
+                            </button>
+                        </div>
+                        <pre className="text-xs font-mono text-emerald-400/90 whitespace-pre-wrap break-all leading-relaxed p-1">
+                            {assembledCommandLine}
+                        </pre>
+                    </div>
+                </div>
+
+                {/* 3. Quick Profile Presets Bar */}
+                <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-amber-400" />
+                            One-Click Parameter Presets
+                        </h2>
+                        <span className="text-xs text-slate-400">Click to append optimized flag profiles</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {/* Preset 1: Max Performance */}
+                        <button
+                            onClick={() => applyTuningPreset('-structurememopts -StructureStasisGrid -NoMemoryBias -lowmemory -nomansky', 'Max Performance')}
+                            className="p-3.5 bg-gradient-to-br from-amber-500/10 to-slate-900/60 hover:from-amber-500/20 hover:to-slate-900/80 border border-amber-500/20 hover:border-amber-500/40 rounded-xl text-left transition-all group flex items-start gap-3"
+                        >
+                            <Zap className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                            <div>
+                                <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">⚡ Max Performance Profile</h4>
+                                <p className="text-[11px] text-slate-400 mt-0.5">RAM & mesh stasis tuning (-structurememopts -nomansky -lowmemory)</p>
+                            </div>
+                        </button>
+
+                        {/* Preset 2: Hardened PvP */}
+                        <button
+                            onClick={() => applyTuningPreset('-NoBattlEye -AdditionalDupeProtection -ValidateItemDinoSpawns -PreventUploadDinos', 'Hardened Security')}
+                            className="p-3.5 bg-gradient-to-br from-red-500/10 to-slate-900/60 hover:from-red-500/20 hover:to-slate-900/80 border border-red-500/20 hover:border-red-500/40 rounded-xl text-left transition-all group flex items-start gap-3"
+                        >
+                            <Shield className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                            <div>
+                                <h4 className="text-xs font-bold text-white group-hover:text-red-300 transition-colors">🛡️ Hardened Security & Anti-Dupe</h4>
+                                <p className="text-[11px] text-slate-400 mt-0.5">Strict spawn validation & dupe prevention flags</p>
+                            </div>
+                        </button>
+
+                        {/* Preset 3: Cave Flyer Unlocked */}
+                        <button
+                            onClick={() => applyTuningPreset('-ForceAllowCaveFlyers', 'Cave Flyers Unlocked')}
+                            className="p-3.5 bg-gradient-to-br from-emerald-500/10 to-slate-900/60 hover:from-emerald-500/20 hover:to-slate-900/80 border border-emerald-500/20 hover:border-emerald-500/40 rounded-xl text-left transition-all group flex items-start gap-3"
+                        >
+                            <Globe className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                            <div>
+                                <h4 className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">🦅 Cave Flyer Unlocked</h4>
+                                <p className="text-[11px] text-slate-400 mt-0.5">Force allow mounting & flying in cave volumes</p>
+                            </div>
+                        </button>
+                    </div>
+
+                    {/* Modded Maps Presets */}
+                    <div className="pt-2 border-t border-slate-800/60">
+                        <div className="text-xs font-semibold text-slate-400 mb-2.5 flex items-center gap-1.5">
+                            <Flame className="w-3.5 h-3.5 text-orange-400" />
+                            Modded Map Launch Presets
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASA').map(preset => {
+                                const hasPreset = preset.mapModId ? customArgs.includes(`-MapModID=${preset.mapModId}`) : false;
+                                return (
+                                    <button
+                                        key={preset.id}
+                                        onClick={() => {
+                                            if (!preset.mapModId) return;
+                                            if (hasPreset) {
+                                                toast('Map preset already applied', { icon: '✓' });
+                                                return;
+                                            }
+                                            const newArgs = buildLaunchArgs(preset, customArgs);
+                                            setCustomArgs(newArgs);
+                                            toast.success(`${preset.name} launch parameters applied`);
+                                        }}
+                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all text-xs ${
+                                            hasPreset 
+                                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 font-semibold' 
+                                                : 'bg-slate-950/60 hover:bg-slate-800/80 border-slate-800 hover:border-slate-700 text-slate-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            <span>{preset.icon}</span>
+                                            <span className="truncate">{preset.name}</span>
+                                            {preset.author && <span className="text-[10px] text-slate-500 font-normal">({preset.author})</span>}
+                                        </div>
+                                        {hasPreset ? (
+                                            <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full font-bold">Active</span>
+                                        ) : (
+                                            <span className="text-[10px] text-orange-400 font-mono">+ Apply</span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                {/* 4. Interactive Parameter Matrix (Visual Flag Switcher) */}
+                <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                                <Settings2 className="w-4 h-4 text-red-400" />
+                                Visual Parameter Matrix
+                            </h2>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                                Toggle standard server switches directly into your boot configuration
+                            </p>
+                        </div>
+
+                        {/* Search & Category Filter */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div className="relative">
+                                <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                 <input
                                     type="text"
-                                    value={customArgs}
-                                    onChange={(e) => setCustomArgs(e.target.value)}
-                                    placeholder="-NoBattlEye -forceallowcaveflyers ..."
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-1 focus:ring-red-500 outline-none font-mono text-sm"
+                                    placeholder="Filter parameters..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-red-500 outline-none w-44"
                                 />
-                                <p className="text-xs text-slate-500">
-                                    Arguments are appended to the start command. Do not use quotes unless necessary.
-                                </p>
-                                {customArgs.toLowerCase().includes('-mods=') && (
-                                    <div className="flex items-start gap-2 mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-                                        <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                                        <div>
-                                            <p className="text-xs font-semibold text-amber-300">
-                                                Conditional -mods= configuration
-                                            </p>
-                                            <p className="text-xs text-amber-400/80 mt-0.5">
-                                                If there are active mods enabled in the Mod Manager, any <code className="font-mono bg-amber-500/10 px-1 rounded">-mods=</code> arguments here will be stripped at launch. Otherwise, your manual list will be preserved.
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
 
-                            {/* Active Arguments Preview */}
-                            {selectedServerId && (() => {
-                                const server = servers.find(s => s.id === selectedServerId);
-                                if (!server) return null;
-                                const mapName = server.config?.mapName || 'TheIsland_WP';
-                                const activeArgs = customArgs ? customArgs.trim() : '(none)';
-                                return (
-                                    <div className="bg-slate-900/70 rounded-lg p-4 border border-slate-700/30 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-sm font-semibold text-slate-300">Active Configuration Preview</h4>
-                                            <button
-                                                onClick={() => {
-                                                    navigator.clipboard.writeText(`Map: ${mapName}\nCustom Args: ${activeArgs}`);
-                                                    toast.success('Copied to clipboard');
-                                                }}
-                                                className="p-1.5 hover:bg-slate-700 rounded-md transition-colors"
-                                                title="Copy to clipboard"
-                                            >
-                                                <Copy className="w-3.5 h-3.5 text-slate-400" />
-                                            </button>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Map Name</span>
-                                                <p className="text-sm text-white font-mono mt-0.5">{mapName}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Custom Launch Args</span>
-                                                <p className={`text-sm font-mono mt-0.5 ${activeArgs === '(none)' ? 'text-slate-500 italic' : 'text-emerald-400'}`}>{activeArgs}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Quick Presets for Mod Maps */}
-                            <div className="border-t border-slate-700/30 pt-4">
-                                <h4 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-                                    <Flame className="w-4 h-4 text-orange-400" />
-                                    Quick Presets
-                                </h4>
-                                <div className="space-y-2">
-                                    {MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASA').map(preset => {
-                                        const hasPreset = preset.mapModId ? customArgs.includes(`-MapModID=${preset.mapModId}`) : false;
-                                        return (
-                                            <button
-                                                key={preset.id}
-                                                onClick={() => {
-                                                    if (!preset.mapModId) return;
-                                                    if (hasPreset) {
-                                                        toast('Already applied', { icon: '✓' });
-                                                        return;
-                                                    }
-                                                    const newArgs = buildLaunchArgs(preset, customArgs);
-                                                    setCustomArgs(newArgs);
-                                                    toast.success(`${preset.name} launch arguments applied`);
-                                                }}
-                                                className={`w-full flex items-center gap-3 px-4 py-3 border rounded-lg transition-all group text-left ${
-                                                    hasPreset 
-                                                        ? 'bg-emerald-500/5 border-emerald-500/20 text-slate-300' 
-                                                        : 'bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20 hover:border-orange-500/40 text-slate-200'
-                                                }`}
-                                            >
-                                                <span className="text-lg">{preset.icon}</span>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="text-sm font-medium text-white flex items-center gap-1.5">
-                                                        <span>{preset.name}</span>
-                                                        {preset.author && <span className="text-[10px] text-slate-400 font-normal">by {preset.author}</span>}
-                                                        {hasPreset && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">Applied</span>}
-                                                    </div>
-                                                    <div className="text-xs text-slate-400 font-mono truncate">
-                                                        -MapModID={preset.mapModId} -mods={preset.mapModId}
-                                                    </div>
-                                                </div>
-                                                {!hasPreset && (
-                                                    <span className="text-xs text-orange-400/70 font-medium opacity-0 group-hover:opacity-100 transition-opacity">Apply</span>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                            <div className="flex items-center gap-1 bg-slate-950 p-1 border border-slate-800 rounded-xl text-xs">
+                                {['all', 'security', 'gameplay', 'performance', 'network', 'events'].map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => setSelectedCategory(cat)}
+                                        className={`px-2.5 py-1 rounded-lg capitalize font-semibold transition-colors text-[11px] ${
+                                            selectedCategory === cat 
+                                                ? 'bg-red-600 text-white shadow-md' 
+                                                : 'text-slate-400 hover:text-white'
+                                        }`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700/50">
-                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                            <Zap className="w-6 h-6 text-yellow-400" />
-                            Performance Optimizer
-                        </h2>
-                        <p className="text-slate-400 mb-6">
-                            Tools to optimize the Server Manager's performance and system resource usage.
-                        </p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="font-semibold text-white">Memory Optimization</h3>
-                                    <Activity className="w-4 h-4 text-slate-400" />
-                                </div>
-                                <p className="text-sm text-slate-400 mb-4">
-                                    Trim unused memory from the application to free up resources for your servers.
-                                </p>
+                    {/* Flag Cards Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {filteredFlags.map(f => {
+                            const active = isFlagActive(f.flag);
+                            return (
                                 <button
-                                    onClick={handleOptimizeMemory}
-                                    disabled={isOptimizing}
-                                    className="w-full flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors border border-slate-700"
+                                    key={f.flag}
+                                    onClick={() => toggleFlag(f.flag)}
+                                    className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-3 group relative overflow-hidden ${
+                                        active 
+                                            ? 'bg-gradient-to-br from-red-950/40 via-slate-900 to-slate-900 border-red-500/40 shadow-lg shadow-red-950/20' 
+                                            : 'bg-slate-950/50 hover:bg-slate-900/80 border-slate-800/80 hover:border-slate-700'
+                                    }`}
                                 >
-                                    {isOptimizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eraser className="w-4 h-4" />}
-                                    Optimize RAM Now
-                                </button>
-                            </div>
+                                    {active && (
+                                        <div className="absolute top-0 right-0 w-16 h-16 bg-red-500/10 rounded-bl-full pointer-events-none" />
+                                    )}
 
-                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="font-semibold text-white">Process Priority</h3>
-                                    <BarChart2 className="w-4 h-4 text-slate-400" />
-                                </div>
-                                <p className="text-sm text-slate-400 mb-4">
-                                    Set the application process priority to High to ensure responsiveness under load.
-                                </p>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => handleSetPriority(false)}
-                                        className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors text-sm border border-slate-700"
-                                    >
-                                        Normal
-                                    </button>
-                                    <button
-                                        onClick={() => handleSetPriority(true)}
-                                        className="flex-1 py-2 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 rounded-lg transition-colors text-sm border border-yellow-600/30 font-medium"
-                                    >
-                                        High Priority
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50 md:col-span-2">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="font-semibold text-white flex items-center gap-2">
-                                        <Leaf className="w-4 h-4 text-green-400" />
-                                        Ultra Eco Mode
-                                    </h3>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs text-green-400/80 font-mono bg-green-400/10 px-2 py-0.5 rounded">Target &lt;50MB RAM</span>
+                                    <div>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <code className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
+                                                active 
+                                                    ? 'bg-red-500/20 text-red-300 border-red-500/40' 
+                                                    : 'bg-slate-900 text-slate-400 border-slate-800 group-hover:text-slate-200'
+                                            }`}>
+                                                {f.flag}
+                                            </code>
+                                            <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ${
+                                                active ? 'bg-red-500 text-white' : 'bg-slate-800 text-slate-600'
+                                            }`}>
+                                                <Check className="w-3 h-3 stroke-[3]" />
+                                            </div>
+                                        </div>
+                                        <h4 className="text-xs font-bold text-white mt-2">{f.label}</h4>
+                                        <p className="text-[11px] text-slate-400 mt-1 leading-snug">{f.desc}</p>
                                     </div>
+
+                                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-800/40 mt-1">
+                                        <span className="uppercase tracking-wider font-semibold">{f.category}</span>
+                                        <span className={`font-bold uppercase tracking-wider ${active ? 'text-red-400' : 'text-slate-600'}`}>
+                                            {active ? 'Enabled' : 'Disabled'}
+                                        </span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* 5. Performance & Hardware Optimizer Suite */}
+                <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4">
+                    <div>
+                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-amber-400" />
+                            Server Manager Performance & Hardware Optimizer
+                        </h2>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Real-time memory vacuuming, process scheduling priority, and eco-mode controls
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Memory Vacuum */}
+                        <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between gap-3">
+                            <div>
+                                <div className="flex items-center justify-between mb-1">
+                                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                                        <Activity className="w-3.5 h-3.5 text-sky-400" /> Memory Vacuum
+                                    </h3>
                                 </div>
-                                <p className="text-sm text-slate-400 mb-4">
-                                    Aggressively trims memory every few seconds. May cause slight stuttering when returning to the app.
+                                <p className="text-[11px] text-slate-400">
+                                    Force garbage collection to trim unused background RAM allocation.
                                 </p>
+                            </div>
+                            <button
+                                onClick={handleOptimizeMemory}
+                                disabled={isOptimizing}
+                                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-all border border-slate-700 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eraser className="w-3.5 h-3.5" />}
+                                Optimize System RAM
+                            </button>
+                        </div>
+
+                        {/* Process Priority */}
+                        <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between gap-3">
+                            <div>
+                                <div className="flex items-center justify-between mb-1">
+                                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                                        <BarChart2 className="w-3.5 h-3.5 text-amber-400" /> Process Priority
+                                    </h3>
+                                </div>
+                                <p className="text-[11px] text-slate-400">
+                                    Raise manager CPU scheduling thread priority under heavy cluster load.
+                                </p>
+                            </div>
+                            <div className="flex gap-2">
                                 <button
-                                    onClick={() => toggleEcoMode(true).then(() => toast.success('Eco Mode Enabled')).catch(() => toast.error('Failed'))}
-                                    className="w-full flex items-center justify-center gap-2 py-2 bg-green-900/20 hover:bg-green-900/30 text-green-400 rounded-lg transition-colors border border-green-900/30"
+                                    onClick={() => handleSetPriority(false)}
+                                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                                        !highPriority 
+                                            ? 'bg-slate-800 text-white border-slate-600' 
+                                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                                    }`}
                                 >
-                                    Enable Eco Mode
+                                    Normal
+                                </button>
+                                <button
+                                    onClick={() => handleSetPriority(true)}
+                                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                                        highPriority 
+                                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-md' 
+                                            : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20'
+                                    }`}
+                                >
+                                    High Priority
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Ultra Eco Mode */}
+                        <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between gap-3">
+                            <div>
+                                <div className="flex items-center justify-between mb-1">
+                                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                                        <Leaf className="w-3.5 h-3.5 text-emerald-400" /> Ultra Eco Mode
+                                    </h3>
+                                    <span className="text-[9px] font-mono bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold">&lt;50MB RAM</span>
+                                </div>
+                                <p className="text-[11px] text-slate-400">
+                                    Aggressively trims memory footprint when running idle in background.
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleToggleEco}
+                                className={`w-full py-2 rounded-xl transition-all border text-xs font-semibold flex items-center justify-center gap-2 ${
+                                    ecoModeActive
+                                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg shadow-emerald-950/40'
+                                        : 'bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-400 border-emerald-800/40'
+                                }`}
+                            >
+                                {ecoModeActive ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Leaf className="w-3.5 h-3.5" />}
+                                {ecoModeActive ? 'Eco Mode Active' : 'Enable Eco Mode'}
+                            </button>
                         </div>
                     </div>
                 </div>

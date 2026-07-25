@@ -4,7 +4,7 @@ import {
     Plus, Play, Square, RotateCw, Trash2, Download, Settings, Terminal, Globe, Shield,
     ChevronDown, ChevronUp, Copy, AppWindow, RefreshCw, ExternalLink,
     Check, XCircle, GripVertical, Network, FolderOpen, Users, PenLine, Cpu, HelpCircle,
-    Loader2, AlertTriangle, GitBranch, FileText, Edit2, LayoutGrid, LayoutList
+    Loader2, AlertTriangle, GitBranch, FileText, Edit2, LayoutGrid, LayoutList, Sparkles
 } from 'lucide-react';
 import { useServerStore } from '../stores/serverStore';
 import { useInstallStore, normalizePath } from '../stores/installStore';
@@ -23,6 +23,7 @@ import { startServer, stopServer, restartServer, deleteServer, checkServerHasSav
 import { updateServerCustomization as apiUpdateServerCustomization } from '../utils/serverOrganization';
 import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 
 import { useNavigate } from 'react-router-dom';
@@ -58,7 +59,7 @@ export default function ServerManager() {
     const [expandedConsoles, setExpandedConsoles] = useState<Record<number, boolean>>({});
     const [showUpdateConsole, setShowUpdateConsole] = useState<Record<number, boolean>>({});
     const consoleRefs = useRef<Record<number, HTMLDivElement | null>>({});
-    const [appVersion] = useState<string>('4.5.2');
+    const [appVersion] = useState<string>('4.6.7');
     const [cloneModalServer, setCloneModalServer] = useState<Server | null>(null);
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
     const [deleteSaveInfo, setDeleteSaveInfo] = useState<ServerSaveInfo | null>(null);
@@ -66,6 +67,44 @@ export default function ServerManager() {
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showNonDedicatedImport, setShowNonDedicatedImport] = useState(false);
     const [updateOnStart, setUpdateOnStart] = useState(false);
+    const [serverUpdateSettings, setServerUpdateSettings] = useState<Record<number, { auto_update: boolean, update_on_start: boolean }>>({});
+
+    useEffect(() => {
+        servers.forEach(async (srv) => {
+            try {
+                const res = await invoke<{ auto_update: boolean, update_on_start: boolean }>('get_server_update_settings', { serverId: srv.id });
+                setServerUpdateSettings(prev => ({ ...prev, [srv.id]: res }));
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    }, [servers]);
+
+    const handleToggleAutoUpdate = async (serverId: number, enabled: boolean) => {
+        try {
+            await invoke('set_auto_update', { serverId, enabled });
+            setServerUpdateSettings(prev => ({
+                ...prev,
+                [serverId]: { ...prev[serverId], auto_update: enabled }
+            }));
+            toast.success(enabled ? 'Auto-Update enabled! Server will broadcast and update on new release.' : 'Auto-Update disabled');
+        } catch (err: any) {
+            toast.error(`Failed to update setting: ${err}`);
+        }
+    };
+
+    const handleToggleUpdateOnStart = async (serverId: number, enabled: boolean) => {
+        try {
+            await invoke('set_update_on_start', { serverId, enabled });
+            setServerUpdateSettings(prev => ({
+                ...prev,
+                [serverId]: { ...prev[serverId], update_on_start: enabled }
+            }));
+            toast.success(enabled ? 'Update on Start enabled' : 'Update on Start disabled');
+        } catch (err: any) {
+            toast.error(`Failed to update setting: ${err}`);
+        }
+    };
     const [selectedServers, setSelectedServers] = useState<number[]>([]);
     const [showGuide, setShowGuide] = useState(false);
     
@@ -1328,22 +1367,37 @@ export default function ServerManager() {
                                 <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
                             )}
                         </button>
-                        <div className="absolute bottom-full right-0 mb-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/gridupdate:opacity-100 group-hover/gridupdate:visible transition-all duration-200 z-50 overflow-hidden scale-95 group-hover/gridupdate:scale-100">
+                        <div className="absolute bottom-full right-0 mb-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/gridupdate:opacity-100 group-hover/gridupdate:visible transition-all duration-200 z-50 overflow-hidden scale-95 group-hover/gridupdate:scale-100">
                             <button
                                 onClick={() => handleUpdateServer(server.id)}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 font-medium"
                             >
-                                <Download className="w-3.5 h-3.5" />
+                                <Download className="w-3.5 h-3.5 text-sky-400" />
                                 <span>{t('serverManager.tooltips.update', 'Update Server Now')}</span>
                             </button>
-                            <label className="w-full text-left px-3 py-2 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 border-t border-slate-800 cursor-pointer text-xs">
+                            <label className="w-full text-left px-3 py-2 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center justify-between border-t border-slate-800 cursor-pointer text-xs">
+                                <div className="flex items-center gap-2">
+                                    <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span className="text-xs font-semibold">{t('serverManager.buttons.updateOnStart', 'Update on Start')}</span>
+                                </div>
                                 <input
                                     type="checkbox"
-                                    checked={updateOnStart}
-                                    onChange={(e) => setUpdateOnStart(e.target.checked)}
-                                    className="w-3.5 h-3.5 rounded bg-slate-800 border-slate-600 text-sky-500 focus:ring-sky-500/50 cursor-pointer"
+                                    checked={!!serverUpdateSettings[server.id]?.update_on_start}
+                                    onChange={(e) => handleToggleUpdateOnStart(server.id, e.target.checked)}
+                                    className="w-3.5 h-3.5 rounded bg-slate-800 border-slate-600 text-emerald-500 focus:ring-emerald-500/50 cursor-pointer"
                                 />
-                                <span>{t('serverManager.buttons.updateOnStart', 'Update on Start')}</span>
+                            </label>
+                            <label className="w-full text-left px-3 py-2 hover:bg-amber-500/10 text-amber-300 hover:text-amber-200 transition-colors flex items-center justify-between border-t border-slate-800 cursor-pointer text-xs">
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                                    <span className="text-xs font-semibold">Auto-Update on Release</span>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    checked={!!serverUpdateSettings[server.id]?.auto_update}
+                                    onChange={(e) => handleToggleAutoUpdate(server.id, e.target.checked)}
+                                    className="w-3.5 h-3.5 rounded bg-slate-800 border-slate-600 text-amber-500 focus:ring-amber-500/50 cursor-pointer"
+                                />
                             </label>
                         </div>
                     </div>
@@ -2405,22 +2459,39 @@ export default function ServerManager() {
                                                                  </button>
                                                                  
                                                                  {/* Update Options Dropdown */}
-                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/update:opacity-100 group-hover/update:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/update:scale-100">
+                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-64 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/update:opacity-100 group-hover/update:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/update:scale-100">
                                                                      <button
                                                                          onClick={() => handleUpdateServer(server.id)}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
+                                                                         className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 font-medium"
                                                                      >
-                                                                         <Download className="w-4 h-4" />
+                                                                         <Download className="w-4 h-4 text-sky-400" />
                                                                          <span>{t('serverManager.tooltips.update', 'Update Server Now')}</span>
                                                                      </button>
-                                                                     <label className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 border-t border-slate-800 cursor-pointer">
+
+                                                                     <label className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center justify-between border-t border-slate-800 cursor-pointer">
+                                                                         <div className="flex items-center gap-2">
+                                                                             <RefreshCw className="w-4 h-4 text-emerald-400" />
+                                                                             <span className="text-xs font-semibold">{t('serverManager.buttons.updateOnStart', 'Update on Start')}</span>
+                                                                         </div>
                                                                          <input
                                                                              type="checkbox"
-                                                                             checked={updateOnStart}
-                                                                             onChange={(e) => setUpdateOnStart(e.target.checked)}
-                                                                             className="w-4 h-4 rounded bg-slate-800 border-slate-600 text-sky-500 focus:ring-sky-500/50 cursor-pointer"
+                                                                             checked={!!serverUpdateSettings[server.id]?.update_on_start}
+                                                                             onChange={(e) => handleToggleUpdateOnStart(server.id, e.target.checked)}
+                                                                             className="w-4 h-4 rounded bg-slate-800 border-slate-600 text-emerald-500 focus:ring-emerald-500/50 cursor-pointer"
                                                                          />
-                                                                         <span>{t('serverManager.buttons.updateOnStart', 'Update on Start')}</span>
+                                                                     </label>
+
+                                                                     <label className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-300 hover:text-amber-200 transition-colors flex items-center justify-between border-t border-slate-800 cursor-pointer">
+                                                                         <div className="flex items-center gap-2">
+                                                                             <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+                                                                             <span className="text-xs font-semibold">Auto-Update on Steam Release</span>
+                                                                         </div>
+                                                                         <input
+                                                                             type="checkbox"
+                                                                             checked={!!serverUpdateSettings[server.id]?.auto_update}
+                                                                             onChange={(e) => handleToggleAutoUpdate(server.id, e.target.checked)}
+                                                                             className="w-4 h-4 rounded bg-slate-800 border-slate-600 text-amber-500 focus:ring-amber-500/50 cursor-pointer"
+                                                                         />
                                                                      </label>
                                                                  </div>
                                                              </div>
@@ -2643,6 +2714,25 @@ export default function ServerManager() {
                                     <div className="flex flex-col">
                                         <span className="text-slate-400 text-sm font-bold group-hover/toggle:text-slate-200 transition-colors">{t('serverManager.serverDetails.autoStop')}</span>
                                         <span className="text-[10px] text-slate-500">{t('serverManager.serverDetails.onConfigChange')}</span>
+                                    </div>
+                                </label>
+
+                                <label className="flex items-center gap-2.5 cursor-pointer group/toggle select-none">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={!!serverUpdateSettings[server.id]?.auto_update}
+                                            onChange={(e) => handleToggleAutoUpdate(server.id, e.target.checked)}
+                                        />
+                                        <div className="relative w-10 h-6 bg-slate-950/60 border border-slate-700/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-[16px] rtl:peer-checked:after:-translate-x-[16px] peer-checked:after:border-white/10 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-slate-400 peer-checked:after:bg-amber-400 after:rounded-full after:h-[18px] after:w-[18px] after:transition-all peer-checked:bg-amber-500/20 peer-checked:border-amber-500/40 shadow-inner after:shadow-md peer-checked:after:shadow-[0_0_8px_rgba(245,158,11,0.5)] transition-all"></div>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-1.5">
+                                            <Sparkles className={cn("w-4 h-4 transition-colors", serverUpdateSettings[server.id]?.auto_update ? "text-amber-400 animate-pulse" : "text-slate-500")} />
+                                            <span className={cn("text-sm font-bold transition-colors", serverUpdateSettings[server.id]?.auto_update ? "text-amber-400" : "text-slate-400")}>Auto-Update</span>
+                                        </div>
+                                        <span className="text-[10px] text-slate-500">Steam Web API Release</span>
                                     </div>
                                 </label>
 

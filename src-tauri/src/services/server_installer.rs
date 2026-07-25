@@ -125,21 +125,72 @@ impl ServerInstaller {
     }
 
     /// Install or update ARK server with explicit force_update option
-    pub async fn install_server_ext(&self, install_path: &PathBuf, server_type: &str, branch: Option<String>, force_update: bool) -> Result<bool, String> {
+    pub async fn install_server_ext(&self, raw_install_path: &PathBuf, server_type: &str, branch: Option<String>, force_update: bool) -> Result<bool, String> {
         self.emit_progress("preparing", 5.0, "Preparing installation...");
         self.emit_console(
-            &format!("Starting ARK: Survival {} server installation...", if server_type == "ASE" { "Evolved" } else { "Ascended" }),
+            &format!("Starting ARK: Survival {} server update pipeline...", if server_type == "ASE" { "Evolved" } else { "Ascended" }),
             "info",
         );
 
+        // ---------------------------------------------------------
+        // PATH AUDIT & PRE-FLIGHT VALIDATION
+        // ---------------------------------------------------------
+        let mut install_path = raw_install_path.clone();
+        if install_path.file_name() == Some(std::ffi::OsStr::new("ShooterGame")) {
+            if let Some(parent) = install_path.parent() {
+                install_path = parent.to_path_buf();
+            }
+        }
+
+        let normalized_path_str = install_path.to_string_lossy().to_string();
+        let drive_comp = install_path.components().next();
+        if drive_comp.is_none() {
+            let err = format!("Invalid target install path: '{}'. Path must contain a valid root drive.", normalized_path_str);
+            self.emit_error(&err);
+            return Err(err);
+        }
+
+        let root_drive_str = drive_comp.unwrap().as_os_str().to_string_lossy().to_string();
+        let root_drive_path = PathBuf::from(&root_drive_str);
+        if !root_drive_path.exists() {
+            let err = format!("Target drive '{}' does not exist or is disconnected. Configured path: '{}'", root_drive_str, normalized_path_str);
+            self.emit_error(&err);
+            return Err(err);
+        }
+
+        // Prevent silent fallback to AppData / C: drive if server path was intended elsewhere
+        if let Ok(app_dir) = self.app_handle.path().app_data_dir() {
+            if install_path.starts_with(&app_dir) && !self.install_path.contains("AppData") {
+                let err = format!("Path Mismatch Error: Server target path resolved to AppData ('{}') but configured path was '{}'. Aborting to prevent silent fallback.", install_path.display(), self.install_path);
+                self.emit_error(&err);
+                return Err(err);
+            }
+        }
+
         // Create install directory if it doesn't exist
         if !install_path.exists() {
-            self.emit_console(
-                &format!("Creating directory: {}", install_path.display()),
-                "info",
-            );
-            std::fs::create_dir_all(install_path)
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
+            self.emit_console(&format!("Creating target server directory: {}", install_path.display()), "info");
+            std::fs::create_dir_all(&install_path).map_err(|e| {
+                let err_msg = format!("Failed to create directory '{}': {}. Please check disk permissions or run as Administrator.", install_path.display(), e);
+                self.emit_error(&err_msg);
+                err_msg
+            })?;
+        }
+
+        // Validate Write Permissions on Target Path
+        let test_perm_file = install_path.join(".sm_write_perm_test");
+        match std::fs::File::create(&test_perm_file) {
+            Ok(_) => {
+                let _ = std::fs::remove_file(&test_perm_file);
+            }
+            Err(e) => {
+                let err_msg = format!(
+                    "Permissions Error: Write test failed on '{}': {}. Ensure the folder is not read-only and run ARK Server Manager as Administrator.",
+                    install_path.display(), e
+                );
+                self.emit_error(&err_msg);
+                return Err(err_msg);
+            }
         }
 
         let (server_exe_name, app_id) = if server_type == "ASE" {
@@ -156,7 +207,7 @@ impl ServerInstaller {
             .join(server_exe_name);
 
         // Smart Up-To-Date Check: Verify local BuildID against Steam API
-        let local_build = get_local_build_id(install_path, app_id);
+        let local_build = get_local_build_id(&install_path, app_id);
         if server_exe.exists() && local_build.is_some() {
             let current_local = local_build.clone().unwrap();
             self.emit_console("Checking Steam Web API for latest server build version...", "info");
@@ -210,7 +261,7 @@ impl ServerInstaller {
         self.emit_progress("preparing", 10.0, "Finding SteamCMD...");
         self.emit_console("Locating SteamCMD executable...", "info");
 
-        // Get SteamCMD path (supports custom path override via settings)
+        // Get SteamCMD path (supports custom path override via settings & target-aware low-space fallback)
         let steamcmd_dir = {
             let app_dir = self
                 .app_handle
@@ -218,9 +269,8 @@ impl ServerInstaller {
                 .app_data_dir()
                 .map_err(|e| format!("Failed to get app dir: {}", e))?;
 
-            // Try to read custom_steamcmd_path from settings DB
             if let Some(state) = self.app_handle.try_state::<crate::AppState>() {
-                crate::services::resolve_steamcmd_dir_from_state(&state, &self.app_handle)
+                crate::services::resolve_steamcmd_dir_from_state_for_target(&state, &self.app_handle, Some(&install_path))
                     .unwrap_or_else(|_| app_dir.join("steamcmd"))
             } else {
                 app_dir.join("steamcmd")
@@ -228,9 +278,6 @@ impl ServerInstaller {
         };
         let steamcmd_exe = steamcmd_dir.join("steamcmd.exe");
 
-        // Self-heal: if SteamCMD isn't present in the resolved (possibly custom)
-        // folder, provision it there now instead of failing. This covers the case
-        // where the user set a custom SteamCMD path that hasn't been populated yet.
         if !steamcmd_exe.exists() {
             self.emit_console(
                 &format!(
@@ -266,40 +313,53 @@ impl ServerInstaller {
         );
 
         // Acquire global lock to ensure server updates/installations execute sequentially
-        // preventing concurrent SteamCMD file lock collisions and Error 8.
         let _exec_guard = STEAMCMD_EXECUTION_LOCK.lock().await;
 
+        // Disk space audit on BOTH target drive and SteamCMD staging drive
+        let install_drive_space = crate::services::steamcmd::get_available_disk_space(&install_path);
+        let steamcmd_drive_space = crate::services::steamcmd::get_available_disk_space(&steamcmd_dir);
+
+        let force_install_dir_val = install_path.to_string_lossy().to_string();
+        let cmd_preview = format!(
+            "steamcmd.exe +force_install_dir \"{}\" +login anonymous +app_update {} validate +quit",
+            force_install_dir_val, app_id
+        );
+
         self.emit_console("", "info");
-        self.emit_console(
-            "═══════════════════════════════════════════════════════════",
-            "info",
-        );
-        self.emit_console(
-            &format!("  SteamCMD - ARK: Survival {} Dedicated Server", if server_type == "ASE" { "Evolved" } else { "Ascended" }),
-            "info",
-        );
-        self.emit_console(&format!("  App ID: {}", app_id), "info");
-        self.emit_console(&format!("  Target: {}", install_path.display()), "info");
-        self.emit_console(
-            "═══════════════════════════════════════════════════════════",
-            "info",
-        );
+        self.emit_console("═══════════════════════════════════════════════════════════", "info");
+        self.emit_console(&format!("  PATH AUDIT & STEAMCMD LAUNCH REPORT ({})", if server_type == "ASE" { "ASE" } else { "ASA" }), "info");
+        self.emit_console("═══════════════════════════════════════════════════════════", "info");
+        self.emit_console(&format!("  • Server App ID        : {}", app_id), "info");
+        self.emit_console(&format!("  • Configured Path     : {}", self.install_path), "info");
+        self.emit_console(&format!("  • Target Install Path : {}", install_path.display()), "info");
+        self.emit_console(&format!("  • Target Drive Space  : {:.1} GB Free", install_drive_space), if install_drive_space < 50.0 { "warning" } else { "info" });
+        self.emit_console(&format!("  • SteamCMD Directory  : {}", steamcmd_dir.display()), "info");
+        self.emit_console(&format!("  • SteamCMD Executable : {}", steamcmd_exe.display()), "info");
+        self.emit_console(&format!("  • SteamCMD Drive Space: {:.1} GB Free", steamcmd_drive_space), if steamcmd_drive_space < 50.0 { "warning" } else { "info" });
+        self.emit_console(&format!("  • Working Directory   : {}", steamcmd_dir.display()), "info");
+        self.emit_console(&format!("  • +force_install_dir  : \"{}\"", force_install_dir_val), "info");
+        self.emit_console(&format!("  • Command Line        : {}", cmd_preview), "info");
+        self.emit_console("═══════════════════════════════════════════════════════════", "info");
         self.emit_console("", "info");
 
-        // Pre-flight disk space check
-        let disks = sysinfo::Disks::new_with_refreshed_list();
-        if let Some(disk) = disks.list().iter().find(|d| install_path.starts_with(d.mount_point())) {
-            let free_gb = (disk.available_space() as f64) / (1024.0 * 1024.0 * 1024.0);
-            self.emit_console(&format!("  💾 Available Disk Space on target drive: {:.1} GB", free_gb), if free_gb < 50.0 { "warning" } else { "info" });
-            if free_gb < 45.0 {
-                self.emit_console("  ⚠️ WARNING: ASA server requires ~60 GB disk space. Please ensure sufficient space.", "warning");
-            }
+        if steamcmd_drive_space < 50.0 {
+            self.emit_console(
+                "  ⚠️ WARNING: SteamCMD staging drive has < 50 GB free space. SteamCMD temporarily downloads patch files inside its installation folder.",
+                "warning",
+            );
+            self.emit_console(
+                "  👉 TIP: If SteamCMD fails with Error 8 / State 0x6, set a Custom SteamCMD Path in Settings to a drive with at least 60 GB free space.",
+                "warning",
+            );
+        }
+        if install_drive_space < 45.0 {
+            self.emit_console("  ⚠️ WARNING: Target server drive has < 45 GB space. ASA server update requires ~60 GB disk space.", "warning");
         }
 
         // Build the SteamCMD command
         let mut steamcmd_args = vec![
             "+force_install_dir".to_string(),
-            install_path.to_string_lossy().to_string(),
+            force_install_dir_val,
             "+login".to_string(),
             "anonymous".to_string(),
             "+app_update".to_string(),
@@ -312,19 +372,17 @@ impl ServerInstaller {
                 steamcmd_args.push("-beta".to_string());
                 steamcmd_args.push(b_trimmed.to_string());
             } else {
-                // Clear any cached beta branch in appmanifest rather than passing -beta public (which fails)
-                clear_beta_from_manifest(install_path, app_id);
+                clear_beta_from_manifest(&install_path, app_id);
             }
         } else {
-            // No branch specified, clear cached beta if any exists
-            clear_beta_from_manifest(install_path, app_id);
+            clear_beta_from_manifest(&install_path, app_id);
         }
 
         steamcmd_args.push("validate".to_string());
         steamcmd_args.push("+quit".to_string());
 
         // Backup AsaApi and proxy DLLs so validate doesn't wipe installed plugins
-        let api_backup = backup_plugins(install_path);
+        let api_backup = backup_plugins(&install_path);
 
         let mut last_error_msg = String::new();
 
@@ -341,20 +399,23 @@ impl ServerInstaller {
 
             if attempt > 1 {
                 self.emit_console(
-                    &format!("  🔄 [AUTO-HEAL] Retrying SteamCMD operation (Attempt {}/3) after clearing download cache...", attempt),
+                    &format!("  🔄 [AUTO-HEAL] Retrying SteamCMD operation (Attempt {}/3) after clearing download cache & appmanifests...", attempt),
                     "warning",
                 );
                 if let Err(e) = steamcmd_service.clear_cache() {
-                    self.emit_console(&format!("  ⚠️ [AUTO-HEAL] Cache clear notice: {}", e), "warning");
-                } else {
-                    self.emit_console("  ✅ [AUTO-HEAL] SteamCMD appcache & downloading folders cleared successfully.", "success");
+                    self.emit_console(&format!("  ⚠️ [AUTO-HEAL] SteamCMD cache clear notice: {}", e), "warning");
                 }
+                if let Err(e) = steamcmd_service.clear_target_manifest_and_cache(&install_path, app_id) {
+                    self.emit_console(&format!("  ⚠️ [AUTO-HEAL] Target manifest clear notice: {}", e), "warning");
+                }
+                self.emit_console("  ✅ [AUTO-HEAL] Stale appmanifest, appcache & downloading folders cleared successfully.", "success");
                 tokio::time::sleep(std::time::Duration::from_secs(3)).await;
             }
 
             self.emit_progress("downloading", 15.0, &format!("Starting SteamCMD (Attempt {}/3)...", attempt));
 
             let mut child = match Command::new(&steamcmd_exe)
+                .current_dir(&steamcmd_dir)
                 .args(&steamcmd_args)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -477,7 +538,7 @@ impl ServerInstaller {
                             "success",
                         );
                         self.emit_complete("Server installed successfully!");
-                        restore_plugins(install_path, api_backup);
+                        restore_plugins(&install_path, api_backup);
                         return Ok(true);
                     } else {
                         let code = status.code();
@@ -490,7 +551,7 @@ impl ServerInstaller {
 
                         if attempt < 3 {
                             self.emit_console(
-                                &format!("  ⚠️ [AUTO-HEAL] {} — Cleared SteamCMD cache, retrying attempt {}/3...", last_error_msg, attempt + 1),
+                                &format!("  ⚠️ [AUTO-HEAL] {} — Cleared SteamCMD cache & appmanifests, retrying attempt {}/3...", last_error_msg, attempt + 1),
                                 "warning",
                             );
                             let steamcmd_service = crate::services::steamcmd::SteamCmdService::with_custom_dir(
@@ -498,17 +559,7 @@ impl ServerInstaller {
                                 steamcmd_dir.clone(),
                             );
                             let _ = steamcmd_service.clear_cache();
-
-                            // Also clear target server's downloading and temp cache
-                            let target_dl = install_path.join("steamapps").join("downloading");
-                            if target_dl.exists() {
-                                let _ = std::fs::remove_dir_all(&target_dl);
-                                self.emit_console("  ✅ [AUTO-HEAL] Cleared target server steamapps/downloading cache.", "success");
-                            }
-                            let target_tmp = install_path.join("steamapps").join("temp");
-                            if target_tmp.exists() {
-                                let _ = std::fs::remove_dir_all(&target_tmp);
-                            }
+                            let _ = steamcmd_service.clear_target_manifest_and_cache(&install_path, app_id);
 
                             tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                             continue;
@@ -527,10 +578,15 @@ impl ServerInstaller {
         }
 
         let full_error = format!(
-            "{}\n\nType: Disk/Network Error\nFix:\n1. Check disk space (approx 60GB required)\n2. Ensure stable internet connection\n3. Run as Administrator\n4. SteamCMD cache cleared automatically.",
+            "SteamCMD Update Failed for Server at {}\n\nDiagnostic Summary:\n• Target Server Path: {} ({:.1} GB Free)\n• SteamCMD Staging Dir: {} ({:.1} GB Free)\n• Error Details: {}\n\nActionable Fix Steps:\n1. Disk Space: Ensure at least 60 GB free space on both server drive and SteamCMD drive.\n2. Permissions: Verify the target directory is writeable and run ARK Server Manager as Administrator.\n3. Custom Path: Configure a Custom SteamCMD Path in Settings on a drive with ample disk space.\n4. Cache Recovery: Stale manifests and download caches have been auto-cleared.",
+            self.install_path,
+            install_path.display(),
+            install_drive_space,
+            steamcmd_dir.display(),
+            steamcmd_drive_space,
             last_error_msg
         );
-        restore_plugins(install_path, api_backup);
+        restore_plugins(&install_path, api_backup);
         self.emit_error(&full_error);
         Err(full_error)
     }
@@ -546,7 +602,7 @@ impl ServerInstaller {
 }
 
 /// Helper to extract local buildid from appmanifest file
-fn get_local_build_id(install_path: &PathBuf, app_id: &str) -> Option<String> {
+pub(crate) fn get_local_build_id(install_path: &PathBuf, app_id: &str) -> Option<String> {
     let manifest_path = install_path.join("steamapps").join(format!("appmanifest_{}.acf", app_id));
     if !manifest_path.exists() {
         return None;
@@ -568,7 +624,7 @@ fn get_local_build_id(install_path: &PathBuf, app_id: &str) -> Option<String> {
 }
 
 /// Helper to fetch remote buildid from SteamCMD API or Steam Web API
-async fn get_remote_build_id(app_id: &str) -> Option<String> {
+pub(crate) async fn get_remote_build_id(app_id: &str) -> Option<String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
         .build()

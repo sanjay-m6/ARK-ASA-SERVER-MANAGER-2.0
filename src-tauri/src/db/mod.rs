@@ -373,6 +373,24 @@ impl Database {
             )?;
         }
 
+        // Add auto_update column if missing
+        if !columns.contains(&"auto_update".to_string()) {
+            println!("📦 Migration: Adding 'auto_update' column to servers table");
+            conn.execute(
+                "ALTER TABLE servers ADD COLUMN auto_update INTEGER DEFAULT 0",
+                [],
+            )?;
+        }
+
+        // Add update_on_start column if missing
+        if !columns.contains(&"update_on_start".to_string()) {
+            println!("📦 Migration: Adding 'update_on_start' column to servers table");
+            conn.execute(
+                "ALTER TABLE servers ADD COLUMN update_on_start INTEGER DEFAULT 0",
+                [],
+            )?;
+        }
+
         // Initialize scheduler_settings table for existing DBs
         conn.execute(
             "CREATE TABLE IF NOT EXISTS scheduler_settings (
