@@ -202,7 +202,7 @@ impl ModWatchdogService {
         println!("🔧 [Watchdog Orchestrator] Starting sequence for server {}", server_id);
         
         let rcon_state = app_handle.state::<crate::commands::rcon::RconState>();
-        let rcon = &rcon_state.0;
+        let rcon = &rcon_state.inner().0;
 
         let (rcon_port, admin_password, ip_address, install_path) = {
             let state = app_handle.state::<AppState>();

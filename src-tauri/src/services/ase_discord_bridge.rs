@@ -503,7 +503,7 @@ impl SerenityEventHandler for GatewayHandler {
                     match get_all_servers_status(&state).await {
                         Ok(servers) => {
                             let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                            let rcon_service = &rcon_state.0;
+                            let rcon_service = &rcon_state.inner().0;
                             let mut lines = Vec::new();
                             for s in servers {
                                 if s.status == "online" || s.status == "running" {
@@ -538,7 +538,7 @@ impl SerenityEventHandler for GatewayHandler {
                 "kick" => {
                     if let (Some(srv_id), Some(steam_id)) = (server_id, steam_id) {
                         let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                        let rcon_service = &rcon_state.0;
+                        let rcon_service = &rcon_state.inner().0;
                         match rcon_service.kick_player(srv_id, &steam_id, Some("Kicked via Discord Command")).await {
                             Ok(_) => format!("👢 Successfully kicked player `{}` from server `#{}`.", steam_id, srv_id),
                             Err(e) => format!("❌ Failed to kick player: {}", e),
@@ -550,7 +550,7 @@ impl SerenityEventHandler for GatewayHandler {
                 "ban" => {
                     if let (Some(srv_id), Some(steam_id)) = (server_id, steam_id) {
                         let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                        let rcon_service = &rcon_state.0;
+                        let rcon_service = &rcon_state.inner().0;
                         match rcon_service.ban_player(srv_id, &steam_id).await {
                             Ok(_) => format!("🚫 Successfully banned player `{}` from server `#{}`.", steam_id, srv_id),
                             Err(e) => format!("❌ Failed to ban player: {}", e),
@@ -706,7 +706,7 @@ impl SerenityEventHandler for GatewayHandler {
                 };
 
                 let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                let rcon_service = &rcon_state.0;
+                let rcon_service = &rcon_state.inner().0;
 
                 for server in servers {
                     if server.status == "online" || server.status == "running" {
@@ -936,7 +936,7 @@ impl SerenityEventHandler for GatewayHandler {
                         .await;
 
                     let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                    let rcon_service = &rcon_state.0;
+                    let rcon_service = &rcon_state.inner().0;
 
                     match rcon_service.broadcast(server_id, &message).await {
                         Ok(_) => {
@@ -970,7 +970,7 @@ impl SerenityEventHandler for GatewayHandler {
                         .await;
 
                     let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                    let rcon_service = &rcon_state.0;
+                    let rcon_service = &rcon_state.inner().0;
 
                     match rcon_service
                         .kick_player(server_id, steam_id, Some("Kicked by Admin via Discord"))

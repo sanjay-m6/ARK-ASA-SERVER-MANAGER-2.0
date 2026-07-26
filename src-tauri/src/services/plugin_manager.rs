@@ -223,15 +223,53 @@ impl PluginManagerService {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        conn.execute(
+        let res = conn.execute(
             "INSERT INTO server_plugins (server_id, folder_name, enabled, updated_at)
              VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
              ON CONFLICT(server_id, folder_name)
              DO UPDATE SET enabled = ?3, updated_at = CURRENT_TIMESTAMP",
             rusqlite::params![server_id, folder_name, enabled as i32],
-        )
-        .map_err(|e| format!("Failed to update plugin state: {}", e))?;
+        );
 
+        if let Err(ref e) = res {
+            if e.to_string().contains("servers_old") {
+                println!("⚠️ Foreign key error referencing servers_old in server_plugins! Repairing schema...");
+                let _ = conn.execute_batch("
+                    PRAGMA foreign_keys = OFF;
+                    BEGIN TRANSACTION;
+                    ALTER TABLE server_plugins RENAME TO server_plugins_broken_fk;
+                    CREATE TABLE server_plugins (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL,
+                        folder_name TEXT NOT NULL,
+                        enabled INTEGER DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+                        UNIQUE(server_id, folder_name)
+                    );
+                    INSERT OR IGNORE INTO server_plugins (id, server_id, folder_name, enabled, created_at, updated_at)
+                        SELECT id, server_id, folder_name, enabled, created_at, updated_at FROM server_plugins_broken_fk;
+                    DROP TABLE server_plugins_broken_fk;
+                    COMMIT;
+                    PRAGMA foreign_keys = ON;
+                ");
+
+                // Retry the insert after repairing the table
+                conn.execute(
+                    "INSERT INTO server_plugins (server_id, folder_name, enabled, updated_at)
+                     VALUES (?1, ?2, ?3, CURRENT_TIMESTAMP)
+                     ON CONFLICT(server_id, folder_name)
+                     DO UPDATE SET enabled = ?3, updated_at = CURRENT_TIMESTAMP",
+                    rusqlite::params![server_id, folder_name, enabled as i32],
+                )
+                .map_err(|e2| format!("Failed to update plugin state after schema repair: {}", e2))?;
+
+                return Ok(());
+            }
+        }
+
+        res.map_err(|e| format!("Failed to update plugin state: {}", e))?;
         Ok(())
     }
 

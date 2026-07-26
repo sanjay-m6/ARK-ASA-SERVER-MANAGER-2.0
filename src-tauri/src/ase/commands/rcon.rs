@@ -173,6 +173,42 @@ pub async fn send_ase_rcon_internal(server_id: i64, command: &str, state: &AppSt
         if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
             command_owned = format!("Broadcast \"{}\"", msg_trimmed);
         }
+    } else if lower.starts_with("serverchat ") {
+        let msg = &trimmed[11..];
+        let msg_trimmed = msg.trim();
+        if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+            command_owned = format!("ServerChat \"{}\"", msg_trimmed);
+        }
+    } else if lower.starts_with("cheat serverchat ") {
+        let msg = &trimmed[17..];
+        let msg_trimmed = msg.trim();
+        if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+            command_owned = format!("ServerChat \"{}\"", msg_trimmed);
+        }
+    } else if lower.starts_with("admincheat serverchat ") {
+        let msg = &trimmed[22..];
+        let msg_trimmed = msg.trim();
+        if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+            command_owned = format!("ServerChat \"{}\"", msg_trimmed);
+        }
+    } else if lower.starts_with("serverchatsilent ") {
+        let msg = &trimmed[17..];
+        let msg_trimmed = msg.trim();
+        if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+            command_owned = format!("ServerChatSilent \"{}\"", msg_trimmed);
+        }
+    } else if lower.starts_with("cheat serverchatsilent ") {
+        let msg = &trimmed[23..];
+        let msg_trimmed = msg.trim();
+        if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+            command_owned = format!("ServerChatSilent \"{}\"", msg_trimmed);
+        }
+    } else if lower.starts_with("admincheat serverchatsilent ") {
+        let msg = &trimmed[28..];
+        let msg_trimmed = msg.trim();
+        if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
+            command_owned = format!("ServerChatSilent \"{}\"", msg_trimmed);
+        }
     }
 
     if command_owned.trim().eq_ignore_ascii_case("DoExit") {

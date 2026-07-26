@@ -76,28 +76,38 @@ jobs:
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
             - **Fresh Install**: Download the `.exe` installer below and run it.
 
-            ### 🆕 New Features in v4.6.7
-            - **⚡ Steam Auto-Update Engine with In-Game RCON Broadcasts**:
-              - Automated background monitoring of Steam Web API build IDs for ARK: Survival Ascended (AppID: `2430930`) and Survival Evolved (AppID: `237090`).
-              - 3-Minute in-game RCON Broadcast & ServerChat warning notice + Discord notification (`"⚠️ NEW GAME UPDATE DETECTED!"`).
-              - 1-Minute in-game RCON Broadcast notice + automatic `SaveWorld` execution before graceful server shutdown, update, and auto-restart.
-            - **⚙️ Per-Server Auto-Update & Update-on-Start Toggles**:
-              - Added interactive **Auto-Update on Steam Release** toggle switches in both the AUTOMATION row at the bottom of server cards and in the top-right Update Options dropdown menu.
-              - Per-server toggles persist cleanly in SQLite database (`auto_update`, `update_on_start`).
-            - **🎨 Redesigned Release Notes Modal**:
-              - Automated Markdown parser rendering raw release text into rich styled headings, code badges, glowing bullet points, and high-contrast pill tags.
-              - Added 1-click **Copy Notes** (`📋`) button for instant Discord announcement copying.
-            - **📊 Interactive Engram Points Per Level Customizer**:
-              - Custom level-by-level engram points editor with Quick Generator (`2400` points per level across `300` levels), Apply to All, level grid, and raw INI live output preview.
+            ### 🆕 New Features in v4.6.8
+            - **🎨 Hardware Allocation UI/UX Overhaul**:
+              - Redesigned the **Hardware Allocation** page with a modern dark glassmorphic interface, ambient neon glow, and live CPU telemetry header (logical cores, physical cores, and cluster core usage).
+              - Added **Interactive One-Click Core Affinity Presets**: All Cores, Physical Cores Only (Even), Hyperthreads Only (Odd), OS Reserved (Skip Cores 0-1), First Half, and Second Half split.
+            - **🧮 Live Hexadecimal & Binary Affinity Mask Calculator**:
+              - Computes real-time Windows process affinity mask in Hexadecimal (`0x000000FF`) with 1-click **Copy Mask** to clipboard.
+            - **🔍 Multi-Server Core Conflict Detector**:
+              - Real-time cluster core inspection highlighting cores already shared with or assigned to other active servers (`Shared (N)` badge) to prevent thread contention.
+            - **🛡️ Process Priority Cards & RealTime Safety Guard**:
+              - Color-coded process priority selector cards (`Idle`, `BelowNormal`, `Normal`, `AboveNormal`, `High`, `RealTime`) with a safety warning confirmation modal when selecting `RealTime` priority to protect host OS stability.
 
-            ### 🐛 Bug Fixes in v4.6.7
-            - **🔧 ASA Engram Points Per Level Saving Bug Fix**: Fixed `OverridePlayerLevelEngramPoints` escaping newlines into single line string literals (`\n`). Array values are now correctly serialized as separate repeated INI keys (`OverridePlayerLevelEngramPoints=2400`) required by Unreal Engine INI parser.
-            - **🔧 Backup Loop & Disk Space Fix**: Resolved 1-minute auto-backup execution loop causing hard drive saturation by adding SQLite timestamp parser and 50-minute safety floor guard.
-            - **🔧 AM/PM Restart Time Parsing**: Fixed scheduled restart times failing on 12-hour AM/PM formats (`"02:30 PM"`).
-            - **🔧 Config Category Name Sync**: Renamed "Boot Launch Parameters" tab to "Advanced" across Config Editor and i18n locales.
-            - **🔧 Draggable Component Render Crash**: Fixed unhandled icon reference crash inside `@hello-pangea/dnd` `<Draggable>` container.
+            ### 🐛 Bug Fixes in v4.6.8
+            - **🔧 RCON Scheduled Maintenance Warning Broadcasts**:
+              - Fixed warning notifications by auto-sanitizing and double-quoting RCON message strings (`ServerChat "..."` and `Broadcast "..."`) for ARK ASA and ASE game servers.
+            - **🔧 Tauri 2 State Access Fixes**:
+              - Replaced direct tuple field access (`state.0`) with `.inner().0` across `commands/rcon.rs`, `services/scheduler.rs`, `services/mod_watchdog.rs`, `services/discord_bridge.rs`, and `services/ase_discord_bridge.rs`.
+            - **🔧 Database Plugin Migration Foreign Key Repair**:
+              - Fixed `Failed to update plugin state: no such table: main.servers_old` error by updating SQLite schema repair routines (`repair_broken_fks`) and adding in-line auto-repair fallback when toggling plugins.
+            - **🔧 Hardware Core Selection Validation**:
+              - Fixed `You must select at least one CPU core if not using all cores` validation error by auto-populating logical cores when unticking "Use All Cores" and auto-falling back safely during save.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.7 — Steam Auto-Update Engine, In-Game Broadcasts & Engram Editor Fixes</summary>
+
+            - **⚡ Steam Auto-Update Engine with In-Game RCON Broadcasts**: Automated background monitoring of Steam Web API build IDs for ASA and ASE with 3-minute/1-minute warning broadcasts and automated server saves.
+            - **⚙️ Per-Server Auto-Update & Update-on-Start Toggles**: Per-server toggle switches in server cards and Update Options dropdown menu.
+            - **🎨 Redesigned Release Notes Modal**: Markdown parser rendering release text into styled headings, code badges, and tags with 1-click Copy Notes.
+            - **📊 Interactive Engram Points Per Level Customizer**: Custom level-by-level engram points editor with Quick Generator.
+            - **🔧 ASA Engram Points Per Level Saving Bug Fix**: Fixed `OverridePlayerLevelEngramPoints` line escaping.
+            - **🔧 Backup Loop & Disk Space Fix**: Resolved 1-minute auto-backup execution loop with SQLite timestamp parser guard.
+            </details>
             <details>
             <summary>v4.6.6 — 5-Tab Mod Inspector, Lightbox Gallery & Directory Explorer</summary>
 

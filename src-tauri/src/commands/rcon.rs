@@ -16,7 +16,7 @@ pub async fn rcon_connect(
     port: u16,
     password: String,
 ) -> Result<RconResponse, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     // Sanitize any corrupted ?ServerPassword= suffixes from the database
     let clean_password = password
         .split("?ServerPassword=")
@@ -34,7 +34,7 @@ pub async fn rcon_disconnect(
     state: State<'_, RconState>,
     server_id: i64,
 ) -> Result<RconResponse, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     service.disconnect(server_id).await
 }
 
@@ -56,7 +56,7 @@ pub async fn rcon_send_command(
             state.process_manager.set_pending_stop_reason(server_id, crate::services::process_manager::StopReason::UserAction);
         }
     }
-    let service = &state.0;
+    let service = &state.inner().0;
     service.send_command(server_id, &command).await
 }
 
@@ -66,7 +66,7 @@ pub async fn rcon_get_players(
     state: State<'_, RconState>,
     server_id: i64,
 ) -> Result<Vec<RconPlayer>, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     service.get_players(server_id).await
 }
 
@@ -77,7 +77,7 @@ pub async fn rcon_broadcast(
     server_id: i64,
     message: String,
 ) -> Result<RconResponse, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     service.broadcast(server_id, &message).await
 }
 
@@ -89,7 +89,7 @@ pub async fn rcon_kick_player(
     steam_id: String,
     reason: Option<String>,
 ) -> Result<RconResponse, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     service
         .kick_player(server_id, &steam_id, reason.as_deref())
         .await
@@ -102,7 +102,7 @@ pub async fn rcon_ban_player(
     server_id: i64,
     steam_id: String,
 ) -> Result<RconResponse, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     service.ban_player(server_id, &steam_id).await
 }
 
@@ -113,7 +113,7 @@ pub async fn rcon_unban_player(
     server_id: i64,
     steam_id: String,
 ) -> Result<RconResponse, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     service.unban_player(server_id, &steam_id).await
 }
 
@@ -123,7 +123,7 @@ pub async fn rcon_save_world(
     state: State<'_, RconState>,
     server_id: i64,
 ) -> Result<RconResponse, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     service.save_world(server_id).await
 }
 
@@ -133,7 +133,7 @@ pub async fn rcon_destroy_wild_dinos(
     state: State<'_, RconState>,
     server_id: i64,
 ) -> Result<RconResponse, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     service.destroy_wild_dinos(server_id).await
 }
 
@@ -145,7 +145,7 @@ pub async fn rcon_set_time(
     hour: u8,
     minute: u8,
 ) -> Result<RconResponse, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     service.set_time(server_id, hour, minute).await
 }
 
@@ -157,7 +157,7 @@ pub async fn rcon_message_player(
     steam_id: String,
     message: String,
 ) -> Result<RconResponse, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     service.message_player(server_id, &steam_id, &message).await
 }
 
@@ -167,7 +167,7 @@ pub async fn rcon_is_connected(
     state: State<'_, RconState>,
     server_id: i64,
 ) -> Result<bool, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     Ok(service.is_connected(server_id).await)
 }
 
@@ -223,7 +223,7 @@ pub async fn rcon_execute_cluster_command(
     server_ids: Vec<i64>,
     command: String,
 ) -> Result<std::collections::HashMap<i64, RconResponse>, String> {
-    let service = &state.0;
+    let service = &state.inner().0;
     let mut futures = Vec::new();
     for id in server_ids {
         let cmd = command.clone();

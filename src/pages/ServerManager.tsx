@@ -32,6 +32,8 @@ import ServerStatusBar from '../components/server/ServerStatusBar';
 import ServerOrganizationBar from '../components/server/ServerOrganizationBar';
 import serverBrowserGuide from '../assets/server_browser_guide.png';
 
+import versionData from '../version.json';
+
 interface ServerLogEvent {
     server_id: number;
     line: string;
@@ -59,7 +61,7 @@ export default function ServerManager() {
     const [expandedConsoles, setExpandedConsoles] = useState<Record<number, boolean>>({});
     const [showUpdateConsole, setShowUpdateConsole] = useState<Record<number, boolean>>({});
     const consoleRefs = useRef<Record<number, HTMLDivElement | null>>({});
-    const [appVersion] = useState<string>('4.6.7');
+    const [appVersion] = useState<string>(versionData.version);
     const [cloneModalServer, setCloneModalServer] = useState<Server | null>(null);
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
     const [deleteSaveInfo, setDeleteSaveInfo] = useState<ServerSaveInfo | null>(null);

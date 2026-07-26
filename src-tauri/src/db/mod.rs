@@ -882,6 +882,11 @@ impl Database {
             "anti_cheat_config",
             "anti_cheat_logs",
             "scheduler_settings",
+            "server_plugins",
+            "hardware_allocation",
+            "server_folder_members",
+            "server_activity_log",
+            "boost_profiles",
         ];
 
         let mut repaired_any = false;
@@ -1069,6 +1074,57 @@ impl Database {
                         advanced_dino_wipe INTEGER DEFAULT 0,
                         watchdog_enabled INTEGER DEFAULT 0,
                         FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
+                    )",
+                    "server_plugins" => "CREATE TABLE server_plugins (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL,
+                        folder_name TEXT NOT NULL,
+                        enabled INTEGER DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+                        UNIQUE(server_id, folder_name)
+                    )",
+                    "hardware_allocation" => "CREATE TABLE hardware_allocation (
+                        server_id INTEGER PRIMARY KEY,
+                        use_all_cores INTEGER DEFAULT 1,
+                        cpu_affinity TEXT,
+                        process_priority TEXT DEFAULT 'Normal',
+                        FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
+                    )",
+                    "server_folder_members" => "CREATE TABLE server_folder_members (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL,
+                        folder_id INTEGER NOT NULL,
+                        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+                        FOREIGN KEY (folder_id) REFERENCES server_folders(id) ON DELETE CASCADE,
+                        UNIQUE(server_id, folder_id)
+                    )",
+                    "server_activity_log" => "CREATE TABLE server_activity_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL,
+                        activity_type TEXT NOT NULL,
+                        player_count INTEGER,
+                        uptime_seconds INTEGER,
+                        cpu_usage REAL,
+                        ram_usage REAL,
+                        description TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+                    )",
+                    "boost_profiles" => "CREATE TABLE boost_profiles (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        server_id INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        xp_multiplier REAL DEFAULT 1.0,
+                        taming_multiplier REAL DEFAULT 1.0,
+                        harvest_multiplier REAL DEFAULT 1.0,
+                        mating_multiplier REAL DEFAULT 1.0,
+                        hatch_multiplier REAL DEFAULT 1.0,
+                        mature_multiplier REAL DEFAULT 1.0,
+                        active INTEGER DEFAULT 0,
+                        FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
                     )",
                     _ => "",
                 };

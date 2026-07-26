@@ -504,10 +504,10 @@ impl SchedulerService {
             if diff > 0 && warning_mins.contains(&diff) && time.second() < 10 {
                 log::warn!("⚠️ Advanced ASA Scheduler: Warning Server {} - {} mins left before maintenance", server_id, diff);
                 if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-                    let rcon = &rcon_state.0;
+                    let rcon = &rcon_state.inner().0;
                     let msg = format!("⚠️ SERVER RESTART & MAINTENANCE IN {} MINUTE(S)!", diff);
-                    let _ = rcon.send_command(server_id, &format!("ServerChat {}", msg)).await;
-                    let _ = rcon.send_command(server_id, &format!("Broadcast {}", msg)).await;
+                    let _ = rcon.send_command(server_id, &format!("ServerChat \"{}\"", msg)).await;
+                    let _ = rcon.send_command(server_id, &format!("Broadcast \"{}\"", msg)).await;
                 }
 
                 let app_handle_clone = app_handle.clone();
@@ -533,7 +533,7 @@ impl SchedulerService {
             
             // Step 0: SaveWorld & Final RCON Notice
             if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-                let rcon = &rcon_state.0;
+                let rcon = &rcon_state.inner().0;
                 log::info!("  [Advanced ASA] Step 0: Executing RCON SaveWorld & Final Warning");
                 let _ = rcon.send_command(server_id, "SaveWorld").await;
                 let _ = rcon.send_command(server_id, "Broadcast ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!").await;
@@ -568,7 +568,7 @@ impl SchedulerService {
                     tauri::async_runtime::spawn(async move {
                         sleep(Duration::from_secs(180)).await;
                         if let Some(rcon_state) = app.try_state::<RconState>() {
-                            let rcon = &rcon_state.0;
+                            let rcon = &rcon_state.inner().0;
                             let _ = rcon.send_command(server_id, "DestroyWildDinos").await;
                         }
                     });
@@ -621,8 +621,8 @@ impl SchedulerService {
             log::warn!("⚠️ Basic ASE Scheduler: Warning Server {} - {} mins left", server_id, minutes_left);
             let state = app_handle.state::<AppState>();
             let msg = format!("SERVER RESTARTING IN {} MINUTES", minutes_left);
-            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat {}", msg), state.clone()).await;
-            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast {}", msg), state.clone()).await;
+            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat \"{}\"", msg), state.clone()).await;
+            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast \"{}\"", msg), state.clone()).await;
         }
     }
 
@@ -704,8 +704,8 @@ impl SchedulerService {
                 log::warn!("⚠️ Advanced ASE Scheduler: Warning Server {} - {} mins left before maintenance", server_id, diff);
                 let state = app_handle.state::<AppState>();
                 let msg = format!("⚠️ SERVER RESTART & MAINTENANCE IN {} MINUTE(S)!", diff);
-                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat {}", msg), state.clone()).await;
-                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast {}", msg), state.clone()).await;
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat \"{}\"", msg), state.clone()).await;
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast \"{}\"", msg), state.clone()).await;
             }
         }
 
@@ -817,7 +817,7 @@ impl SchedulerService {
             );
 
             if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-                let rcon = &rcon_state.0;
+                let rcon = &rcon_state.inner().0;
                 let _ = rcon.send_command(setting.server_id, "SaveWorld").await;
                 let _ = rcon.send_command(setting.server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!").await;
                 sleep(Duration::from_secs(3)).await;
@@ -865,13 +865,13 @@ impl SchedulerService {
                 minutes_left
             );
             let rcon_state = app_handle.state::<RconState>();
-            let rcon = &rcon_state.0;
+            let rcon = &rcon_state.inner().0;
             let msg = format!("SERVER RESTARTING IN {} MINUTES", minutes_left);
             let _ = rcon
-                .send_command(setting.server_id, &format!("ServerChat {}", msg))
+                .send_command(setting.server_id, &format!("ServerChat \"{}\"", msg))
                 .await;
             let _ = rcon
-                .send_command(setting.server_id, &format!("Broadcast {}", msg))
+                .send_command(setting.server_id, &format!("Broadcast \"{}\"", msg))
                 .await;
         }
     }
@@ -1122,26 +1122,26 @@ impl SchedulerService {
             "rcon-command" | "RconCommand" => {
                 if let Some(cmd) = &task.command {
                     let rcon_state = app_handle.state::<RconState>();
-                    let rcon = &rcon_state.0;
+                    let rcon = &rcon_state.inner().0;
                     let _ = rcon.send_command(task.server_id, cmd).await;
                 }
             }
             "announcement" | "Announcement" => {
                 if let Some(msg) = &task.message {
                     let rcon_state = app_handle.state::<RconState>();
-                    let rcon = &rcon_state.0;
+                    let rcon = &rcon_state.inner().0;
                     let _ = rcon.send_command(task.server_id, &format!("ServerChat \"{}\"", msg)).await;
                     let _ = rcon.send_command(task.server_id, &format!("Broadcast \"{}\"", msg)).await;
                 }
             }
             "save-world" | "SaveWorld" => {
                 let rcon_state = app_handle.state::<RconState>();
-                let rcon = &rcon_state.0;
+                let rcon = &rcon_state.inner().0;
                 let _ = rcon.send_command(task.server_id, "SaveWorld").await;
             }
             "destroy-wild-dinos" | "DestroyWildDinos" => {
                 let rcon_state = app_handle.state::<RconState>();
-                let rcon = &rcon_state.0;
+                let rcon = &rcon_state.inner().0;
                 let _ = rcon.send_command(task.server_id, "SaveWorld").await;
                 let _ = rcon.send_command(task.server_id, "DestroyWildDinos").await;
             }
@@ -1260,16 +1260,16 @@ impl SchedulerService {
 
                                 // 3. Broadcast Warning
                                 let rcon_state = app.state::<RconState>();
-                                let rcon = &rcon_state.0;
+                                let rcon = &rcon_state.inner().0;
                                 let msg = format!(
                                     "⚠️ SERVER UPDATING MODS IN {} MINUTES!",
                                     pre_warning_minutes
                                 );
                                 let _ = rcon
-                                    .send_command(server_id, &format!("Broadcast {}", msg))
+                                    .send_command(server_id, &format!("Broadcast \"{}\"", msg))
                                     .await;
                                 let _ = rcon
-                                    .send_command(server_id, &format!("ServerChat {}", msg))
+                                    .send_command(server_id, &format!("ServerChat \"{}\"", msg))
                                     .await;
 
                                 // 4. Wait for the warning window
@@ -1475,7 +1475,7 @@ async fn run_task_pre_warnings(app_handle: &AppHandle, task: &ScheduledTask) {
     let mins = task.pre_warning_minutes;
 
     if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-        let rcon = &rcon_state.0;
+        let rcon = &rcon_state.inner().0;
         for min_left in (1..=mins).rev() {
             let msg = format_warning_message(task.message.as_deref(), &task.task_type, min_left, &server_name);
             let _ = rcon.send_command(task.server_id, &format!("Broadcast \"{}\"", msg)).await;
@@ -1514,7 +1514,7 @@ async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
 
     // Save world via RCON before restart
     if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-        let rcon = &rcon_state.0;
+        let rcon = &rcon_state.inner().0;
         let _ = rcon.send_command(task.server_id, "SaveWorld").await;
         let _ = rcon.send_command(task.server_id, "Broadcast \"⚠️ RESTARTING SERVER NOW!\"").await;
         sleep(Duration::from_secs(3)).await;
@@ -1857,7 +1857,7 @@ impl SchedulerService {
 
                     // Step 1: 3-Minute Warning Broadcast
                     if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-                        let rcon = &rcon_state.0;
+                        let rcon = &rcon_state.inner().0;
                         let msg = "⚠️ NEW GAME UPDATE DETECTED! Server will perform a graceful save, update & restart in 3 minutes.";
                         let _ = rcon.send_command(server_id, &format!("ServerChat {}", msg)).await;
                         let _ = rcon.send_command(server_id, &format!("Broadcast {}", msg)).await;
@@ -1881,7 +1881,7 @@ impl SchedulerService {
 
                     // Step 2: 1-Minute Warning Broadcast & Save World
                     if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-                        let rcon = &rcon_state.0;
+                        let rcon = &rcon_state.inner().0;
                         let msg = "⚠️ SERVER UPDATE IN 1 MINUTE! Saving world data...";
                         let _ = rcon.send_command(server_id, "SaveWorld").await;
                         let _ = rcon.send_command(server_id, &format!("ServerChat {}", msg)).await;
@@ -1892,7 +1892,7 @@ impl SchedulerService {
 
                     // Step 3: Shutdown, Backup, Update, Restart
                     if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-                        let rcon = &rcon_state.0;
+                        let rcon = &rcon_state.inner().0;
                         let _ = rcon.send_command(server_id, "Broadcast ⚠️ RESTARTING FOR GAME UPDATE NOW!").await;
                         sleep(Duration::from_secs(3)).await;
                     }
