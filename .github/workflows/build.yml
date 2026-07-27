@@ -79,36 +79,45 @@ jobs:
         with:
           tagName: ${{ steps.version.outputs.version }}
           releaseName: 'ARK Server Manager ${{ steps.version.outputs.version }}'
+          prerelease: true
           releaseBody: |
-            ## 🚀 ARK Server Manager ${{ steps.version.outputs.version }}
+            ## 🚀 ARK Server Manager ${{ steps.version.outputs.version }} (Pre-Release)
 
             ### Installation
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
-            - **Fresh Install**: Download the `.exe` installer below and run it.
+            - **Windows**: Download the `.exe` installer below.
+            - **Linux**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
 
-            ### 🆕 New Features in v4.6.9
-            - **🏷️ Interactive Launch Arguments Tag Editor**:
-              - Introduced interactive chip tags with 1-click removal (`[X]`), category filters, and active state indicators in `AdvancedPage` and `ASEAdvancedPage`.
-            - **📣 ASA RCON Broadcast In-Game Fix**:
-              - Automatically dual-dispatches RCON announcements to both `ServerChat` and `Broadcast` to ensure messages render properly on ARK: Survival Ascended servers.
-            - **🔒 Default PC-Only Enforcement**:
-              - Automatically injects `-UseServerPCOnly` when crossplay is disabled, ensuring `ArkAscendedServer.exe` logs `"isServerPcOnly": true` and prevents unauthorized console connections.
-            - **⚡ Non-Blocking Pre-Warning Countdown Engine**:
-              - Refactored warning countdowns to run in non-blocking asynchronous `tokio` tasks, keeping the scheduler loop fast and responsive.
+            ### 🆕 New Features in v4.6.10
+            - **🐧 Native Cross-Platform Linux Support**:
+              - Complete platform abstraction architecture (`src-tauri/src/platform/`) supporting Windows and Linux natively.
+              - Linux SteamCMD installer (`steamcmd_linux.tar.gz`) with automatic `chmod +x` executable permission management.
+              - Linux firewall integration with automatic UFW and Firewalld status detection.
+              - OS-aware default directory paths (`~/ASA_Backups` and `~/ASA_Clusters` on Linux, `C:\...` on Windows).
+              - Created `LINUX_SETUP.md` documentation guide for Linux installation, 32-bit `lib32gcc-s1` dependencies, and limits setup.
+            - **⚡ Multi-Platform CI/CD Build Matrix**:
+              - Configured GitHub Actions build pipeline (`ubuntu-24.04` and `windows-2025`) to automatically compile and release Windows `.exe` installers alongside Linux `.AppImage` and `.deb` packages.
+            - **🏷️ Cluster Cross-Chat Map & Server Display Names**:
+              - Added custom map alias settings in Cluster Cross-Chat configuration, allowing short map names (e.g. `[Island]`, `[Ragnarok]`) to render cleanly in cross-server chat instead of full server titles.
+              - Added interactive map display name tag editor in `CrossChatConfigDialog`.
 
-            ### 🐛 Bug Fixes in v4.6.9
-            - **🔧 Custom Network Port Binding Fix**:
-              - Added explicit `-port=`, `-Port=`, `-queryport=`, `-QueryPort=`, `-peerport=`, `-PeerPort=` command-line switches to `ArkAscendedServer.exe` and `ShooterGameServer.exe` launch arguments so UDP sockets bind properly to custom ports (e.g. `7050`) instead of defaulting to `7777`.
-            - **🔧 Astraeos Expansion Map & INI Purge Fix**:
-              - Removed Astraeos from `get_mod_id_for_map` to prevent force-loading Mod ID `988598` for the official DLC map, and added automatic INI key purge for legacy `ActiveMapMod` lines in `GameUserSettings.ini`.
-            - **🔧 Automated Backup 1-Minute Execution Loop Fix**:
-              - Upgraded date parsing with `parse_db_datetime_local` (handling both SQLite ISO formats and RFC3339 strings), added a 55-second minimum execution threshold, and updated policy queries to check the most recent backup timestamp of any type.
-            - **🔧 User Settings & .ini File Preservation Fix**:
-              - Fixed `sync_custom_user_folder_if_configured` so template sync only initializes missing `.ini` files and never overwrites or deletes existing user settings in `ShooterGame/Saved/Config/WindowsServer/`.
-            - **🔧 TopBar UI Status Confusion Fix**:
-              - Updated the top bar status badge label to explicitly display `SERVERS: OFFLINE` / `SERVERS: ONLINE` with descriptive hover tooltips to avoid confusion between Manager app status and game server status.
+            ### 🐛 Bug Fixes in v4.6.10
+            - **🔧 RCON Local Loopback Fallback Fix**:
+              - Resolved `Connection Refused (os error 10061)` by adding automatic `127.0.0.1` local loopback fallback to RCON connection attempts when servers are hosted locally with a public IP address.
+            - **🔧 Scheduled Maintenance Warning Countdown Fix**:
+              - Restored in-game `ServerChat` and `Broadcast` warning notifications at 30, 15, 10, 5, and 1 minute intervals prior to scheduled server restarts.
+            - **🔧 Cross-Chat `[ANNOUNCEMENT]` Prefix Banner Removal**:
+              - Switched cross-chat message relaying from `broadcast()` to `server_chat()`, removing the duplicate `[ANNOUNCEMENT]` banner on player messages.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.9 — Launch Tags, PC-Only Enforcement & Backup Loop Fixes</summary>
+
+            - **🏷️ Interactive Launch Arguments Tag Editor**: Introduced chip tags with 1-click removal (`[X]`), category filters, and active indicators in `AdvancedPage`.
+            - **📣 ASA RCON Broadcast In-Game Fix**: Dual-dispatches RCON announcements to both `ServerChat` and `Broadcast`.
+            - **🔒 Default PC-Only Enforcement**: Injects `-UseServerPCOnly` when crossplay is disabled.
+            - **⚡ Non-Blocking Pre-Warning Countdown Engine**: Async warning countdowns in tokio tasks.
+            </details>
             <details>
             <summary>v4.6.8 — Hardware Allocation UI/UX Overhaul & RCON Broadcast Fixes</summary>
 
