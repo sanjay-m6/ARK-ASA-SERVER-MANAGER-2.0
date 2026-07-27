@@ -760,10 +760,6 @@ impl SchedulerService {
                 } else { None };
 
                 if let Some(path) = install_path {
-                    #[cfg(target_os = "windows")]
-                    const CREATE_NO_WINDOW: u32 = 0x08000000;
-                    #[cfg(not(target_os = "windows"))]
-                    const CREATE_NO_WINDOW: u32 = 0;
 
                     if let Ok(app_dir) = app_handle.path().app_data_dir() {
                         let steamcmd_exe = app_dir.join("steamcmd").join(crate::platform::Platform::steamcmd_executable_name());

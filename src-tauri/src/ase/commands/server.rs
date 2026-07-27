@@ -1182,6 +1182,7 @@ pub async fn diagnose_ase_server_visibility(
         false
     };
 
+    #[allow(unused_mut)]
     let mut firewall_rules_exist = false;
     #[cfg(target_os = "windows")]
     {

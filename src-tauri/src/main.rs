@@ -2,9 +2,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::env;
+#[cfg(windows)]
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Write;
+#[cfg(windows)]
 use std::os::windows::ffi::OsStrExt;
 use std::panic;
 use std::path::PathBuf;
@@ -126,6 +128,11 @@ fn get_app_data_dir() -> PathBuf {
     if let Ok(app_data) = env::var("APPDATA") {
         let mut path = PathBuf::from(app_data);
         path.push("asa-manager");
+        let _ = std::fs::create_dir_all(&path);
+        path
+    } else if let Ok(home) = env::var("HOME") {
+        let mut path = PathBuf::from(home);
+        path.push(".asa-manager");
         let _ = std::fs::create_dir_all(&path);
         path
     } else {

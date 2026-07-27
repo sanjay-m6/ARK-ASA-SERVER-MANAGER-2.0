@@ -69,6 +69,7 @@ pub fn set_windows_registry_run(enabled: bool, minimized: bool) -> Result<(), St
 
 /// Configure Windows Task Scheduler task for elevated login startup.
 /// Registers a task named "ASAServerManager" that triggers on logon with highest privileges.
+#[allow(dead_code)]
 pub fn set_windows_task_scheduler(enabled: bool) -> Result<(), String> {
     let current_exe = env::current_exe().map_err(|e| format!("Failed to get current executable path: {}", e))?;
     let exe_path = current_exe.to_string_lossy();
