@@ -4,6 +4,7 @@ mod models;
 mod utils;
 mod services;
 pub mod ase;
+pub mod platform;
 
 use commands::rcon::RconState;
 use db::Database;
@@ -934,6 +935,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::system::set_process_priority,
             commands::system::toggle_eco_mode,
             commands::system::request_admin_privileges, // <-- New Command
+            commands::system::get_platform_info,
             
             // Hardware commands
             commands::hardware::get_cpu_topology,

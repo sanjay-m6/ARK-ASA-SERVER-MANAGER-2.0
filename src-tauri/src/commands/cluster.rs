@@ -4,7 +4,9 @@ use serde::Serialize;
 use std::path::PathBuf;
 use tauri::State;
 
-const DEFAULT_CLUSTER_ROOT: &str = "C:/ASA_Clusters";
+pub fn get_default_cluster_root() -> String {
+    crate::platform::Platform::default_cluster_dir().to_string_lossy().to_string()
+}
 
 #[derive(Serialize)]
 pub struct DiscoveredClusterFolder {
@@ -19,7 +21,7 @@ pub async fn scan_existing_clusters(
     state: State<'_, AppState>,
     search_root: Option<String>,
 ) -> Result<Vec<DiscoveredClusterFolder>, String> {
-    let root_path = search_root.unwrap_or_else(|| DEFAULT_CLUSTER_ROOT.to_string());
+    let root_path = search_root.unwrap_or_else(get_default_cluster_root);
     let path = std::path::Path::new(&root_path);
     if !path.exists() {
         return Ok(Vec::new());
@@ -93,7 +95,7 @@ pub async fn create_cluster(
             }
             p.trim().replace('\\', "/")
         }
-        _ => format!("{}/{}", DEFAULT_CLUSTER_ROOT, name.replace(' ', "_")),
+        _ => format!("{}/{}", get_default_cluster_root(), name.replace(' ', "_")),
     };
 
     // Create the cluster directory

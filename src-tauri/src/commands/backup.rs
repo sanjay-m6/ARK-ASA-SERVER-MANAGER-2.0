@@ -50,7 +50,7 @@ pub async fn create_backup(
             .map_err(|e| format!("Server not found: {}", e))?;
 
         // Get app data dir for backups
-        let app_data_dir = PathBuf::from("C:/ASA_Backups");
+        let app_data_dir = crate::platform::Platform::default_backup_dir();
         (install_path, app_data_dir, server_name)
     };
 

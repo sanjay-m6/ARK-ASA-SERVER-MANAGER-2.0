@@ -78,6 +78,10 @@ fn parse_firewall_rules_json(
 
 /// Fetch all relevant firewall rules (filtered for ARK to avoid hanging)
 fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
+    if !cfg!(target_os = "windows") {
+        return fetch_all_firewall_rules_linux();
+    }
+
     // Use -DisplayName 'ARK Server*' with -ErrorAction SilentlyContinue so an empty
     // result set doesn't throw a terminating error.
     let script = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; \
@@ -160,6 +164,31 @@ fn fetch_firewall_rules_ps_broad() -> std::collections::HashSet<(u16, String)> {
         }
         Err(e) => {
             log::error!("[FIREWALL] Broad PS fallback also failed: {}", e);
+        }
+    }
+
+    rules_set
+}
+
+fn fetch_all_firewall_rules_linux() -> std::collections::HashSet<(u16, String)> {
+    let mut rules_set = std::collections::HashSet::new();
+
+    // Check UFW status output
+    if let Ok(output) = Command::new("ufw").arg("status").output() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        for line in stdout.lines() {
+            let line = line.trim();
+            if line.contains("ALLOW") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if let Some(port_proto) = parts.first() {
+                    let mut split = port_proto.split('/');
+                    if let (Some(port_str), Some(proto_str)) = (split.next(), split.next()) {
+                        if let Ok(port) = port_str.parse::<u16>() {
+                            rules_set.insert((port, proto_str.to_uppercase()));
+                        }
+                    }
+                }
+            }
         }
     }
 

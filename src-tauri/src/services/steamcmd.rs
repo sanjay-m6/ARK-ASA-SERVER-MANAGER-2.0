@@ -29,7 +29,8 @@ impl SteamCmdService {
     }
 
     pub fn get_steamcmd_exe(&self) -> Result<PathBuf> {
-        Ok(self.get_steamcmd_dir()?.join("steamcmd.exe"))
+        let exe_name = crate::platform::Platform::steamcmd_executable_name();
+        Ok(self.get_steamcmd_dir()?.join(exe_name))
     }
 
     pub fn check_installation(&self) -> bool {
@@ -45,8 +46,15 @@ impl SteamCmdService {
             std::fs::create_dir_all(&install_dir)?;
         }
 
-        println!("Downloading SteamCMD...");
-        let response = reqwest::get("https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip")
+        let is_windows = cfg!(target_os = "windows");
+        let download_url = if is_windows {
+            "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip"
+        } else {
+            "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz"
+        };
+
+        println!("Downloading SteamCMD from {}...", download_url);
+        let response = reqwest::get(download_url)
             .await
             .context("Failed to download SteamCMD")?;
 
@@ -55,10 +63,21 @@ impl SteamCmdService {
         println!("Extracting SteamCMD...");
         let target_dir = install_dir.clone();
         tokio::task::spawn_blocking(move || -> Result<()> {
-            let mut archive = zip::ZipArchive::new(Cursor::new(bytes))?;
-            archive.extract(&target_dir)?;
+            if is_windows {
+                let mut archive = zip::ZipArchive::new(Cursor::new(bytes))?;
+                archive.extract(&target_dir)?;
+            } else {
+                use flate2::read::GzDecoder;
+                use tar::Archive;
+                let tar = GzDecoder::new(Cursor::new(bytes));
+                let mut archive = Archive::new(tar);
+                archive.unpack(&target_dir)?;
+            }
             Ok(())
         }).await??;
+
+        let exe_path = self.get_steamcmd_exe()?;
+        let _ = crate::platform::Platform::ensure_executable_permissions(&exe_path);
 
         println!("SteamCMD installed successfully at {:?}", install_dir);
         Ok(())
@@ -69,7 +88,7 @@ impl SteamCmdService {
         let install_dir = self.get_steamcmd_dir()?;
 
         // Remove existing steamcmd files but keep steamapps (server data)
-        let exe_path = install_dir.join("steamcmd.exe");
+        let exe_path = self.get_steamcmd_exe()?;
         if exe_path.exists() {
             let _ = std::fs::remove_file(&exe_path);
         }
@@ -88,7 +107,7 @@ impl SteamCmdService {
         self.install().await
     }
 
-    /// Terminate any running steamcmd.exe processes to release file locks on cache files
+    /// Terminate any running steamcmd processes to release file locks on cache files
     pub fn kill_existing_processes(&self) -> Result<()> {
         #[cfg(target_os = "windows")]
         {
@@ -100,7 +119,18 @@ impl SteamCmdService {
                 .args(["/F", "/IM", "steamcmd.exe"])
                 .creation_flags(CREATE_NO_WINDOW)
                 .output();
-            // Sleep briefly to let the OS release file locks
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            use std::process::Command;
+            println!("Killing any existing steamcmd processes...");
+            let _ = Command::new("pkill")
+                .args(["-9", "steamcmd"])
+                .output();
+            let _ = Command::new("pkill")
+                .args(["-9", "steamcmd.sh"])
+                .output();
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
         Ok(())

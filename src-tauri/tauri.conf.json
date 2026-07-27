@@ -53,6 +53,14 @@
         "language": "en-US"
       }
     },
+    "linux": {
+      "deb": {
+        "files": {}
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
     "createUpdaterArtifacts": true
   },
   "plugins": {

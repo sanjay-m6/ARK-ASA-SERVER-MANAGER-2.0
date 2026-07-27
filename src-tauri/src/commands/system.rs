@@ -669,3 +669,29 @@ pub async fn install_app_update(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+pub struct PlatformInfoResponse {
+    pub os: &'static str,
+    pub is_windows: bool,
+    pub is_linux: bool,
+    pub default_backup_dir: String,
+    pub default_cluster_dir: String,
+    pub steamcmd_executable: &'static str,
+}
+
+#[tauri::command]
+pub async fn get_platform_info() -> Result<PlatformInfoResponse, String> {
+    use crate::platform::{OperatingSystem, Platform};
+
+    let os = OperatingSystem::current();
+    Ok(PlatformInfoResponse {
+        os: os.as_str(),
+        is_windows: os.is_windows(),
+        is_linux: os.is_linux(),
+        default_backup_dir: Platform::default_backup_dir().to_string_lossy().to_string(),
+        default_cluster_dir: Platform::default_cluster_dir().to_string_lossy().to_string(),
+        steamcmd_executable: Platform::steamcmd_executable_name(),
+    })
+}
+
+

@@ -975,7 +975,7 @@ impl SchedulerService {
                 .ok()?;
 
             // Keep consistent with backup commands
-            let app_data_dir = PathBuf::from("C:/ASA_Backups");
+            let app_data_dir = crate::platform::Platform::default_backup_dir();
             (install_path, app_data_dir)
         };
 
