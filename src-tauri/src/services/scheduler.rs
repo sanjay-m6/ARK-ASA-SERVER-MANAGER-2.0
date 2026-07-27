@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 use tokio::time::sleep;
+use crate::platform::CommandNoWindowExt;
 
 pub struct SchedulerService {
     app_handle: AppHandle,
@@ -265,11 +266,6 @@ impl SchedulerService {
                                     } else { None };
 
                                     if let Some(path) = install_path {
-                                        #[cfg(target_os = "windows")]
-                                        const CREATE_NO_WINDOW: u32 = 0x08000000;
-                                        #[cfg(not(target_os = "windows"))]
-                                        const CREATE_NO_WINDOW: u32 = 0;
-
                                         let _ = tokio::process::Command::new(&steamcmd_exe)
                                             .args([
                                                 "+force_install_dir", &path,
@@ -277,7 +273,7 @@ impl SchedulerService {
                                                 "+app_update", "376030", "validate",
                                                 "+quit",
                                             ])
-                                            .creation_flags(CREATE_NO_WINDOW)
+                                            .no_window()
                                             .output()
                                             .await;
                                     }
@@ -770,7 +766,7 @@ impl SchedulerService {
                     const CREATE_NO_WINDOW: u32 = 0;
 
                     if let Ok(app_dir) = app_handle.path().app_data_dir() {
-                        let steamcmd_exe = app_dir.join("steamcmd").join("steamcmd.exe");
+                        let steamcmd_exe = app_dir.join("steamcmd").join(crate::platform::Platform::steamcmd_executable_name());
                         if steamcmd_exe.exists() {
                             let _ = tokio::process::Command::new(&steamcmd_exe)
                                 .args([
@@ -779,7 +775,7 @@ impl SchedulerService {
                                     "+app_update", "376030", "validate",
                                     "+quit",
                                 ])
-                                .creation_flags(CREATE_NO_WINDOW)
+                                .no_window()
                                 .output()
                                 .await;
                         }

@@ -131,6 +131,7 @@ dependencies = [
  "indexmap 2.14.0",
  "ini",
  "lazy_static",
+ "libc",
  "local-ip-address",
  "log",
  "notify",

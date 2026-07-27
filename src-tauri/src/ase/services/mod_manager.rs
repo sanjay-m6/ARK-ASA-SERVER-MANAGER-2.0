@@ -3,8 +3,7 @@ use crate::AppState;
 use crate::ase::models::AseInstalledMod;
 use std::path::{Path, PathBuf};
 use crate::ase::ini_parser::IniDocument;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
+use crate::platform::CommandNoWindowExt;
 use std::io::{Read as _, Write as _};
 use tokio::io::{AsyncBufReadExt, BufReader as TokioBufReader};
 use std::process::Stdio;
@@ -281,7 +280,7 @@ fn find_steam_library_paths() -> Vec<PathBuf> {
             "/v",
             "SteamPath",
         ])
-        .creation_flags(0x08000000) // CREATE_NO_WINDOW
+        .no_window()
         .output()
         .ok()
         .and_then(|out| {
@@ -473,7 +472,7 @@ impl AseModManager {
                 ])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
-                .creation_flags(0x08000000) // CREATE_NO_WINDOW
+                .no_window()
                 .spawn();
 
             let mut child = match child {

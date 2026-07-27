@@ -146,3 +146,28 @@ pub fn home_dir() -> Option<PathBuf> {
         .ok()
         .map(PathBuf::from)
 }
+
+pub trait CommandNoWindowExt {
+    fn no_window(&mut self) -> &mut Self;
+}
+
+impl CommandNoWindowExt for std::process::Command {
+    fn no_window(&mut self) -> &mut Self {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            self.creation_flags(0x08000000);
+        }
+        self
+    }
+}
+
+impl CommandNoWindowExt for tokio::process::Command {
+    fn no_window(&mut self) -> &mut Self {
+        #[cfg(target_os = "windows")]
+        {
+            self.creation_flags(0x08000000);
+        }
+        self
+    }
+}

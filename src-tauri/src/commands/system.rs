@@ -288,7 +288,7 @@ pub async fn optimize_memory() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn set_process_priority(high: bool) -> Result<(), String> {
+pub async fn set_process_priority(_high: bool) -> Result<(), String> {
     #[cfg(windows)]
     {
         use windows_sys::Win32::System::Threading::{
@@ -296,7 +296,7 @@ pub async fn set_process_priority(high: bool) -> Result<(), String> {
         };
         unsafe {
             let process = GetCurrentProcess();
-            let priority = if high {
+            let priority = if _high {
                 HIGH_PRIORITY_CLASS
             } else {
                 NORMAL_PRIORITY_CLASS
@@ -373,16 +373,17 @@ pub async fn request_admin_privileges(app: tauri::AppHandle) -> Result<(), Strin
                 // Give a moment for windows to close
                 tokio::time::sleep(std::time::Duration::from_millis(300)).await;
                 app.exit(0);
+                Ok(())
             } else {
-                return Err("Failed to request admin privileges".to_string());
+                Err("Failed to request admin privileges".to_string())
             }
         }
     }
     #[cfg(not(windows))]
     {
-        return Err("Admin elevation is only supported on Windows".to_string());
+        let _ = app;
+        Err("Admin elevation is only supported on Windows".to_string())
     }
-    Ok(())
 }
 
 #[tauri::command]

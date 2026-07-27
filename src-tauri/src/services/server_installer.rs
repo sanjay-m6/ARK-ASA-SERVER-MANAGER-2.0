@@ -6,6 +6,7 @@ use std::process::Stdio;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
+use crate::platform::CommandNoWindowExt;
 
 /// Progress event payload for frontend
 #[derive(Clone, serde::Serialize)]
@@ -419,7 +420,7 @@ impl ServerInstaller {
                 .args(&steamcmd_args)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
-                .creation_flags(0x08000000) // CREATE_NO_WINDOW
+                .no_window()
                 .spawn()
             {
                 Ok(c) => c,

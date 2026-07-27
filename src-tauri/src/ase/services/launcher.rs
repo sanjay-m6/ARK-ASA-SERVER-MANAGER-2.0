@@ -773,13 +773,13 @@ impl AseLauncher {
             conn.query_row("SELECT process_id FROM ase_servers WHERE id = ?1", [server_id], |row| row.get(0)).unwrap_or(None)
         };
 
-        if let Some(pid) = pid {
+        if let Some(_pid) = pid {
             #[cfg(target_os = "windows")]
             unsafe {
                 let handle = windows_sys::Win32::System::Threading::OpenProcess(
                     windows_sys::Win32::System::Threading::PROCESS_TERMINATE,
                     0,
-                    pid,
+                    _pid,
                 );
                 if !handle.is_null() {
                     windows_sys::Win32::System::Threading::TerminateProcess(handle, 1);

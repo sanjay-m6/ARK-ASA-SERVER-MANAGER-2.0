@@ -4,11 +4,7 @@ use tauri::{AppHandle, State, Emitter};
 use std::path::PathBuf;
 use crate::ase::services::launcher::AseLauncher;
 
-#[cfg(target_os = "windows")]
-use std::os::windows::process::CommandExt;
-
-#[cfg(target_os = "windows")]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+use crate::platform::CommandNoWindowExt;
 
 const SELECT_COLS: &str = "id, name, install_path, map_name, port, query_port, rcon_port, \
     rcon_password, max_players, server_password, admin_password, session_name, active_mods, \
@@ -1199,7 +1195,7 @@ pub async fn diagnose_ase_server_visibility(
         );
         if let Ok(output) = std::process::Command::new("powershell")
             .args(["-NoProfile", "-NonInteractive", "-Command", &check_script])
-            .creation_flags(CREATE_NO_WINDOW)
+            .no_window()
             .output()
         {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -1246,7 +1242,7 @@ pub async fn join_ase_server(server_id: i64, state: State<'_, AppState>) -> Resu
     {
         let _ = std::process::Command::new("cmd")
             .args(["/C", "start", "", &steam_url])
-            .creation_flags(CREATE_NO_WINDOW)
+            .no_window()
             .spawn()
             .map_err(|e| format!("Failed to open Steam URL: {}", e))?;
     }

@@ -11,9 +11,8 @@ use tauri::{AppHandle, Emitter};
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
+use crate::platform::CommandNoWindowExt;
 
-#[cfg(target_os = "windows")]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
 #[cfg(target_os = "windows")]
 const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
 #[cfg(target_os = "windows")]
@@ -565,13 +564,12 @@ impl ProcessManager {
                                         let mut reasons = monitor_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
                                         reasons.insert(id, StopReason::StartupTimeout);
                                     }
-                                    // Kill Process
-                                    let pid = proc.pid;
+                                    let _pid = proc.pid;
                                     #[cfg(target_os = "windows")]
                                     {
                                         let _ = Command::new("taskkill")
-                                            .args(["/F", "/T", "/PID", &pid.to_string()])
-                                            .creation_flags(CREATE_NO_WINDOW)
+                                            .args(["/F", "/T", "/PID", &_pid.to_string()])
+                                            .no_window()
                                             .output();
                                     }
                                     if let Some(ref mut child) = proc.child {
@@ -876,7 +874,7 @@ impl ProcessManager {
                 if !is_dead && proc.pid > 0 {
                     let output = Command::new("tasklist")
                         .args(["/FI", &format!("PID eq {}", proc.pid), "/NH"])
-                        .creation_flags(CREATE_NO_WINDOW)
+                        .no_window()
                         .output();
                     if let Ok(out) = output {
                         let text = String::from_utf8_lossy(&out.stdout);
@@ -1191,7 +1189,7 @@ impl ProcessManager {
             if is_loader {
                 command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NEW_CONSOLE);
             } else {
-                command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
+                command.creation_flags(CREATE_NEW_PROCESS_GROUP | 0x08000000);
             }
         }
 
@@ -1732,20 +1730,17 @@ impl ProcessManager {
         reasons.insert(server_id, reason);
     }
 
-    fn kill_processes_on_ports(ports: &[u16]) {
+    fn kill_processes_on_ports(_ports: &[u16]) {
         #[cfg(target_os = "windows")]
         {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-
             let current_pid = std::process::id();
-            let valid_ports: Vec<u16> = ports.iter().cloned().filter(|&p| p > 0).collect();
+            let valid_ports: Vec<u16> = _ports.iter().cloned().filter(|&p| p > 0).collect();
             if valid_ports.is_empty() { return; }
 
             for protocol in ["UDP", "TCP"] {
                 if let Ok(output) = Command::new("netstat")
                     .args(["-ano", "-p", protocol])
-                    .creation_flags(CREATE_NO_WINDOW)
+                    .no_window()
                     .output()
                 {
                     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -1758,7 +1753,7 @@ impl ProcessManager {
                                         if pid > 4 && pid != current_pid {
                                             if let Ok(task_out) = Command::new("tasklist")
                                                 .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
-                                                .creation_flags(CREATE_NO_WINDOW)
+                                                .no_window()
                                                 .output()
                                             {
                                                 let task_str = String::from_utf8_lossy(&task_out.stdout).to_lowercase();
@@ -1771,7 +1766,7 @@ impl ProcessManager {
                                             println!("  🧹 [BACKGROUND CLEANUP] Terminating background server process on port {}: PID {}", port, pid);
                                             let _ = Command::new("taskkill")
                                                 .args(["/F", "/PID", &pid.to_string()])
-                                                .creation_flags(CREATE_NO_WINDOW)
+                                                .no_window()
                                                 .output();
                                         }
                                     }
@@ -1833,12 +1828,12 @@ impl ProcessManager {
             server_proc.stop_flag.store(true, Ordering::SeqCst);
 
             // Force kill the process tree on Windows
-            let pid = server_proc.pid;
+            let _pid = server_proc.pid;
             #[cfg(target_os = "windows")]
             {
                 let _ = Command::new("taskkill")
-                    .args(["/F", "/T", "/PID", &pid.to_string()])
-                    .creation_flags(CREATE_NO_WINDOW)
+                    .args(["/F", "/T", "/PID", &_pid.to_string()])
+                    .no_window()
                     .output();
             }
 
@@ -1919,7 +1914,7 @@ impl ProcessManager {
                                 {
                                     let _ = Command::new("taskkill")
                                         .args(["/F", "/T", "/PID", &pid.to_string()])
-                                        .creation_flags(CREATE_NO_WINDOW)
+                                        .no_window()
                                         .output();
                                 }
                             }

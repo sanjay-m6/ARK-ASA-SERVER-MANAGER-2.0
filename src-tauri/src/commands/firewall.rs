@@ -1,11 +1,9 @@
 use crate::AppState;
 use serde::{Deserialize, Serialize};
-use std::os::windows::process::CommandExt;
+use crate::platform::CommandNoWindowExt;
 use std::path::PathBuf;
 use std::process::Command;
 use tauri::State;
-
-const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// Status of firewall rules for a specific port
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -93,7 +91,7 @@ fn fetch_all_firewall_rules() -> std::collections::HashSet<(u16, String)> {
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .creation_flags(CREATE_NO_WINDOW)
+        .no_window()
         .output();
 
     let mut rules_set = std::collections::HashSet::new();
@@ -147,7 +145,7 @@ fn fetch_firewall_rules_ps_broad() -> std::collections::HashSet<(u16, String)> {
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .creation_flags(CREATE_NO_WINDOW)
+        .no_window()
         .output();
 
     let mut rules_set = std::collections::HashSet::new();
@@ -276,7 +274,7 @@ if (-not $existingRule) {{
             "-Command",
             &launcher_script,
         ])
-        .creation_flags(CREATE_NO_WINDOW)
+        .no_window()
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 
@@ -373,7 +371,7 @@ if (-not $existingRule) {{
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &launcher_script])
-        .creation_flags(CREATE_NO_WINDOW)
+        .no_window()
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 
@@ -438,7 +436,7 @@ $results | Out-File -FilePath $logFile -Encoding UTF8"#,
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &launcher_script])
-        .creation_flags(CREATE_NO_WINDOW)
+        .no_window()
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 
@@ -488,7 +486,7 @@ fn remove_firewall_rules_elevated(rule_names: Vec<String>) -> Result<(), String>
 
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &launcher_script])
-        .creation_flags(CREATE_NO_WINDOW)
+        .no_window()
         .output()
         .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
 
@@ -689,7 +687,7 @@ fn delete_firewall_rules_raw(server_id: i64) -> Result<(), String> {
     for name in rule_names {
         let output = Command::new("netsh")
             .args(["advfirewall", "firewall", "delete", "rule", &format!("name={}", name)])
-            .creation_flags(CREATE_NO_WINDOW)
+            .no_window()
             .output()
             .map_err(|e| format!("Failed to run netsh: {}", e))?;
 
@@ -1516,7 +1514,7 @@ fn is_elevation_error(err: &str) -> bool {
 fn get_netsh_rule_info(rule_name: &str) -> NetshRuleInfo {
     let output = match Command::new("netsh")
         .args(["advfirewall", "firewall", "show", "rule", &format!("name={}", rule_name)])
-        .creation_flags(CREATE_NO_WINDOW)
+        .no_window()
         .output()
     {
         Ok(out) => out,
@@ -1572,7 +1570,7 @@ fn delete_ase_firewall_rules_raw(server_id: i64) -> Result<(), String> {
     for name in rule_names {
         let output = Command::new("netsh")
             .args(["advfirewall", "firewall", "delete", "rule", &format!("name={}", name)])
-            .creation_flags(CREATE_NO_WINDOW)
+            .no_window()
             .output()
             .map_err(|e| format!("Failed to run netsh: {}", e))?;
 
@@ -1595,7 +1593,7 @@ fn delete_ase_firewall_rules_raw(server_id: i64) -> Result<(), String> {
 fn execute_netsh(args: &[&str]) -> Result<(), String> {
     let output = Command::new("netsh")
         .args(args)
-        .creation_flags(CREATE_NO_WINDOW)
+        .no_window()
         .output()
         .map_err(|e| format!("Failed to run netsh: {}", e))?;
 
