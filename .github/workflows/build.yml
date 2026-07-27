@@ -240,7 +240,6 @@ jobs:
             - **⚡ Layout Overhauls**: Optimized settings sliders, grids, and Config Editor layouts.
             </details>
           releaseDraft: false
-          prerelease: ${{ contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}
           includeUpdaterJson: true
 
       - name: Verify Release Signatures
