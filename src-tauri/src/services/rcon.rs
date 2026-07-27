@@ -51,6 +51,7 @@ impl RconService {
     /// Connect to a server's RCON with timeout and retry logic.
     /// ARK: ASA servers can take 30–120s to fully start RCON, so we retry
     /// up to MAX_RETRIES times with linear backoff before giving up.
+    /// Includes automatic fallback to 127.0.0.1 if public IP connection is refused by Windows loopback.
     pub async fn connect(
         &self,
         server_id: i64,
@@ -58,68 +59,76 @@ impl RconService {
         port: u16,
         password: &str,
     ) -> Result<RconResponse, String> {
-        let addr = format!("{}:{}", address, port);
+        let targets = if address != "127.0.0.1" && address != "localhost" && address != "0.0.0.0" {
+            vec![format!("{}:{}", address, port), format!("127.0.0.1:{}", port)]
+        } else {
+            vec![format!("{}:{}", address, port)]
+        };
+
         log::info!(
-            "[RCON] Attempting to connect to server {} at {}",
+            "[RCON] Attempting to connect to server {} at targets {:?}",
             server_id,
-            addr
+            targets
         );
 
         let mut last_error = String::new();
 
         for attempt in 1..=MAX_RETRIES {
-            log::info!(
-                "[RCON] Connection attempt {}/{} for server {} at {}",
-                attempt,
-                MAX_RETRIES,
-                server_id,
-                addr
-            );
+            for addr in &targets {
+                log::info!(
+                    "[RCON] Connection attempt {}/{} for server {} at {}",
+                    attempt,
+                    MAX_RETRIES,
+                    server_id,
+                    addr
+                );
 
-            match ArkRconClient::connect(&addr, password).await {
-                Ok(conn) => {
-                    let mut sessions = self.sessions.lock().await;
-                    sessions.insert(
-                        server_id,
-                        RconSession {
-                            connection: conn,
-                            address: address.to_string(),
-                            port,
-                            password: password.to_string(),
-                        },
-                    );
-                    log::info!(
-                        "[RCON] Successfully connected and authenticated to server {} at {} on attempt {}",
-                        server_id,
-                        addr,
-                        attempt
-                    );
-                    return Ok(RconResponse {
-                        success: true,
-                        message: format!("Connected to RCON at {}", addr),
-                        data: None,
-                    });
-                }
-                Err(err_str) => {
-                    if err_str.contains("Authentication Failed") {
-                        log::error!(
-                            "[RCON] Authentication failed for server {} at {} — wrong admin password",
+                match ArkRconClient::connect(addr, password).await {
+                    Ok(conn) => {
+                        let mut sessions = self.sessions.lock().await;
+                        sessions.insert(
                             server_id,
-                            addr
+                            RconSession {
+                                connection: conn,
+                                address: address.to_string(),
+                                port,
+                                password: password.to_string(),
+                            },
                         );
-                        return Err(
-                            "Authentication Failed: The admin password was rejected by the server."
-                                .to_string(),
+                        log::info!(
+                            "[RCON] Successfully connected and authenticated to server {} at {} on attempt {}",
+                            server_id,
+                            addr,
+                            attempt
+                        );
+                        return Ok(RconResponse {
+                            success: true,
+                            message: format!("Connected to RCON at {}", addr),
+                            data: None,
+                        });
+                    }
+                    Err(err_str) => {
+                        if err_str.contains("Authentication Failed") {
+                            log::error!(
+                                "[RCON] Authentication failed for server {} at {} — wrong admin password",
+                                server_id,
+                                addr
+                            );
+                            return Err(
+                                "Authentication Failed: The admin password was rejected by the server."
+                                    .to_string(),
+                            );
+                        }
+                        last_error = err_str;
+                        log::warn!(
+                            "[RCON] Attempt {}/{} failed for server {} at {}: {}",
+                            attempt,
+                            MAX_RETRIES,
+                            server_id,
+                            addr,
+                            last_error
                         );
                     }
-                    last_error = err_str;
-                    log::warn!(
-                        "[RCON] Attempt {}/{} failed for server {}: {}",
-                        attempt,
-                        MAX_RETRIES,
-                        server_id,
-                        last_error
-                    );
                 }
             }
 
@@ -136,10 +145,9 @@ impl RconService {
         }
 
         log::error!(
-            "[RCON] All {} connection attempts exhausted for server {} at {}. Last error: {}",
+            "[RCON] All {} connection attempts exhausted for server {}. Last error: {}",
             MAX_RETRIES,
             server_id,
-            addr,
             last_error
         );
         Err(format!(
@@ -398,7 +406,26 @@ impl RconService {
         password: &str,
         command: &str,
     ) -> Result<RconResponse, String> {
-        match ArkRconClient::connect(addr, password).await {
+        let port_part = addr.split(':').nth(1).unwrap_or("");
+        let fallback_addr = if !port_part.is_empty() && !addr.starts_with("127.0.0.1") && !addr.starts_with("localhost") {
+            Some(format!("127.0.0.1:{}", port_part))
+        } else {
+            None
+        };
+
+        let conn_res = match ArkRconClient::connect(addr, password).await {
+            Ok(conn) => Ok(conn),
+            Err(e) => {
+                if let Some(ref fb) = fallback_addr {
+                    log::info!("[RCON] Primary auto-reconnect to {} failed ({}), trying local fallback {}...", addr, e, fb);
+                    ArkRconClient::connect(fb, password).await
+                } else {
+                    Err(e)
+                }
+            }
+        };
+
+        match conn_res {
             Ok(new_conn) => {
                 log::info!("[RCON] Auto-reconnect successful for server {}", server_id);
                 let mut sessions = self.sessions.lock().await;
@@ -472,6 +499,18 @@ impl RconService {
         };
         self.send_command(server_id, &command).await
     }
+
+    /// Send a global in-game chat message to players (ServerChat - without [ANNOUNCEMENT] banner prefix)
+    pub async fn server_chat(&self, server_id: i64, message: &str) -> Result<RconResponse, String> {
+        let trimmed = message.trim();
+        let command = if trimmed.starts_with('"') && trimmed.ends_with('"') {
+            format!("ServerChat {}", trimmed)
+        } else {
+            format!("ServerChat \"{}\"", trimmed)
+        };
+        self.send_command(server_id, &command).await
+    }
+
 
     /// Kick a player
     pub async fn kick_player(

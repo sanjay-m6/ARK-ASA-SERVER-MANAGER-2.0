@@ -983,26 +983,91 @@ pub async fn toggle_cluster_cross_chat(
         }
     }
 
+pub fn auto_clean_map_name(map_name: &str) -> String {
+    let lower = map_name.to_lowercase();
+    if lower.contains("theisland") || lower.contains("island") {
+        "Island".to_string()
+    } else if lower.contains("scorched") {
+        "Scorched Earth".to_string()
+    } else if lower.contains("aberration") {
+        "Aberration".to_string()
+    } else if lower.contains("extinction") {
+        "Extinction".to_string()
+    } else if lower.contains("blinkingfluid") || lower.contains("genesis") {
+        "Genesis".to_string()
+    } else if lower.contains("ragnarok") {
+        "Ragnarok".to_string()
+    } else if lower.contains("valguero") {
+        "Valguero".to_string()
+    } else if lower.contains("crystalisles") || lower.contains("crystal") {
+        "Crystal Isles".to_string()
+    } else if lower.contains("center") {
+        "The Center".to_string()
+    } else if lower.contains("lostisland") {
+        "Lost Island".to_string()
+    } else if lower.contains("fjordur") {
+        "Fjordur".to_string()
+    } else if lower.contains("astral") {
+        "Astral".to_string()
+    } else {
+        let clean = map_name.trim_end_matches("_WP").trim_end_matches("_P");
+        if clean.is_empty() {
+            map_name.to_string()
+        } else {
+            clean.to_string()
+        }
+    }
+}
+
     if enabled {
         let servers = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let conn = db.get_connection().map_err(|e| e.to_string())?;
 
+            let aliases_json: Option<String> = conn
+                .query_row(
+                    "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_server_aliases'",
+                    [cluster_id],
+                    |row| row.get(0),
+                )
+                .ok();
+
+            let aliases: std::collections::HashMap<String, String> = aliases_json
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default();
+
             let mut stmt = conn
                 .prepare(
-                    "SELECT id, name, install_path, ip_address, rcon_port, admin_password FROM servers WHERE cluster_id = ?1",
+                    "SELECT id, name, install_path, ip_address, rcon_port, admin_password, map_name FROM servers WHERE cluster_id = ?1",
                 )
                 .map_err(|e| e.to_string())?;
 
             let rows = stmt
                 .query_map([cluster_id], |row| {
+                    let server_id: i64 = row.get(0)?;
+                    let server_name: String = row.get(1)?;
+                    let install_path: String = row.get(2)?;
+                    let ip_addr: Option<String> = row.get(3)?;
+                    let rcon_port: i64 = row.get(4)?;
                     let rcon_pwd: Option<String> = row.get(5)?;
+                    let map_name: String = row.get::<_, Option<String>>(6)?.unwrap_or_default();
+
+                    let custom_alias = aliases.get(&server_id.to_string()).cloned().filter(|s| !s.trim().is_empty());
+                    let display_name = custom_alias.or_else(|| {
+                        if !map_name.trim().is_empty() {
+                            Some(auto_clean_map_name(&map_name))
+                        } else {
+                            None
+                        }
+                    });
+
                     Ok(crate::services::cross_chat::CrossChatServer {
-                        server_id: row.get(0)?,
-                        server_name: row.get(1)?,
-                        install_path: row.get(2)?,
-                        rcon_address: row.get::<_, Option<String>>(3)?.unwrap_or_else(|| "127.0.0.1".to_string()),
-                        rcon_port: row.get::<_, i64>(4)? as u16,
+                        server_id,
+                        server_name,
+                        display_name,
+                        install_path,
+                        rcon_address: ip_addr.unwrap_or_else(|| "127.0.0.1".to_string()),
+                        rcon_port: rcon_port as u16,
                         rcon_password: rcon_pwd.unwrap_or_default(),
                     })
                 })
@@ -1060,6 +1125,7 @@ pub struct ClusterCrossChatConfig {
     pub port: i32,
     pub fetch_interval: f32,
     pub debug: bool,
+    pub server_aliases: Option<std::collections::HashMap<String, String>>,
     pub is_plugin_installed: Option<bool>,
     pub is_lacc_installed: Option<bool>,
 }
@@ -1139,6 +1205,16 @@ pub async fn get_cluster_cross_chat_config(
         .unwrap_or_else(|_| "false".to_string());
     let debug = debug_str == "true";
 
+    let aliases_json = conn
+        .query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_server_aliases'",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        )
+        .ok();
+    let server_aliases: Option<std::collections::HashMap<String, String>> = aliases_json
+        .and_then(|s| serde_json::from_str(&s).ok());
+
     // Check if plugin is installed in any cluster server
     let mut is_plugin_installed = false;
     let mut is_lacc_installed = false;
@@ -1178,6 +1254,7 @@ pub async fn get_cluster_cross_chat_config(
         port,
         fetch_interval,
         debug,
+        server_aliases,
         is_plugin_installed: Some(is_plugin_installed),
         is_lacc_installed: Some(is_lacc_installed),
     })
@@ -1225,6 +1302,30 @@ pub async fn save_cluster_cross_chat_config(
                 rusqlite::params![cluster_id, key, val],
             )
             .map_err(|e| e.to_string())?;
+        }
+    }
+
+    if let Some(aliases) = &config.server_aliases {
+        if let Ok(json_str) = serde_json::to_string(aliases) {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) > 0 FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_server_aliases'",
+                    rusqlite::params![cluster_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
+
+            if exists {
+                let _ = conn.execute(
+                    "UPDATE cluster_settings SET value = ?1 WHERE cluster_id = ?2 AND key = 'cross_chat_server_aliases'",
+                    rusqlite::params![json_str, cluster_id],
+                );
+            } else {
+                let _ = conn.execute(
+                    "INSERT INTO cluster_settings (cluster_id, key, value) VALUES (?1, 'cross_chat_server_aliases', ?2)",
+                    rusqlite::params![cluster_id, json_str],
+                );
+            }
         }
     }
 

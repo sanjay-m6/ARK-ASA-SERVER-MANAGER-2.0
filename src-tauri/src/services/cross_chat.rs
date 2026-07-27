@@ -37,6 +37,7 @@ pub struct ChatMessage {
 pub struct CrossChatServer {
     pub server_id: i64,
     pub server_name: String,
+    pub display_name: Option<String>,
     pub install_path: String,
     pub rcon_address: String,
     pub rcon_port: u16,
@@ -137,24 +138,31 @@ impl CrossChatService {
         player_name: &str,
         message: &str,
     ) -> Result<(), String> {
+        // Resolve custom display name/alias for the source server if configured
+        let name_to_show = cluster_servers
+            .iter()
+            .find(|s| s.server_id == source_server_id)
+            .and_then(|s| s.display_name.as_deref().filter(|n| !n.trim().is_empty()))
+            .unwrap_or(source_server_name);
+
         let formatted_message = if player_name.is_empty() {
-            format!("[{}] {}", source_server_name, message)
+            format!("[{}] {}", name_to_show, message)
         } else {
-            format!("[{}] {}: {}", source_server_name, player_name, message)
+            format!("[{}] {}: {}", name_to_show, player_name, message)
         };
 
         for server in cluster_servers {
             if server.server_id != source_server_id {
-                // Broadcast to this server
+                // Relay chat via ServerChat (avoiding [ANNOUNCEMENT] broadcast banner)
                 match self
                     .rcon_service
-                    .broadcast(server.server_id, &formatted_message)
+                    .server_chat(server.server_id, &formatted_message)
                     .await
                 {
                     Ok(_) => {
                         println!(
                             "  📤 Relayed message to {} from {}",
-                            server.server_name, source_server_name
+                            server.server_name, name_to_show
                         );
                     }
                     Err(e) => {
@@ -169,7 +177,7 @@ impl CrossChatService {
             use tauri::Manager;
             if let Some(state) = app.try_state::<crate::AppState>() {
                 let discord = state.discord_bridge.clone();
-                let src_name = source_server_name.to_string();
+                let src_name = name_to_show.to_string();
                 let plr_name = player_name.to_string();
                 let msg_text = message.to_string();
                 tokio::spawn(async move {

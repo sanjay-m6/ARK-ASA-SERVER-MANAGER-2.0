@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Database, Loader2, Sparkles, Check, Copy, Wifi, Layers, MessageSquare, Terminal, Wand2, CheckCircle2, ChevronDown, ChevronUp, BookOpen } from 'lucide-react';
+import { X, Database, Loader2, Sparkles, Check, Copy, Wifi, Layers, MessageSquare, Terminal, Wand2, CheckCircle2, ChevronDown, ChevronUp, BookOpen, Tag } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { Cluster } from '../../types';
 import {
@@ -25,6 +25,25 @@ interface CrossChatConfigDialogProps {
     onSaved: (enabled: boolean) => void;
 }
 
+const getSuggestedMapAlias = (mapName?: string, serverName?: string): string => {
+    if (!mapName) return serverName || 'Server';
+    const lower = mapName.toLowerCase();
+    if (lower.includes('theisland') || lower.includes('island')) return 'Island';
+    if (lower.includes('scorched')) return 'Scorched Earth';
+    if (lower.includes('aberration')) return 'Aberration';
+    if (lower.includes('extinction')) return 'Extinction';
+    if (lower.includes('blinkingfluid') || lower.includes('genesis')) return 'Genesis';
+    if (lower.includes('ragnarok')) return 'Ragnarok';
+    if (lower.includes('valguero')) return 'Valguero';
+    if (lower.includes('crystalisles') || lower.includes('crystal')) return 'Crystal Isles';
+    if (lower.includes('center')) return 'The Center';
+    if (lower.includes('lostisland')) return 'Lost Island';
+    if (lower.includes('fjordur')) return 'Fjordur';
+    if (lower.includes('astral')) return 'Astral';
+    const clean = mapName.replace(/_WP$/i, '').replace(/_P$/i, '');
+    return clean || serverName || 'Server';
+};
+
 export default function CrossChatConfigDialog({
     isOpen,
     cluster,
@@ -32,8 +51,12 @@ export default function CrossChatConfigDialog({
     onSaved,
 }: CrossChatConfigDialogProps) {
     const { t } = useTranslation();
+    const allServers = useServerStore(state => state.servers);
+    const clusterServers = allServers.filter(s => cluster.serverIds.includes(s.id));
+
     const [activeTab, setActiveTab] = useState<'lacc' | 'asa_api' | 'native'>('lacc');
     const [isEnabled, setIsEnabled] = useState(false);
+    const [serverAliases, setServerAliases] = useState<Record<string, string>>({});
     const [config, setConfig] = useState<ClusterCrossChatConfig>({
         mode: 'lacc',
         host: 'localhost',
@@ -64,6 +87,9 @@ export default function CrossChatConfigDialog({
                     setConfig(data);
                     if (data.mode) {
                         setActiveTab(data.mode);
+                    }
+                    if (data.serverAliases) {
+                        setServerAliases(data.serverAliases);
                     }
                     if (data.isPluginInstalled) setIsPluginInstalled(true);
                     if (data.isLaccInstalled) setIsLaccInstalled(true);
@@ -153,7 +179,7 @@ export default function CrossChatConfigDialog({
 
         setIsSaving(true);
         try {
-            const updatedConfig = { ...config, mode: activeTab };
+            const updatedConfig = { ...config, mode: activeTab, serverAliases };
             await saveClusterCrossChatConfig(cluster.id, updatedConfig);
             await toggleClusterCrossChat(cluster.id, isEnabled);
 
@@ -578,6 +604,56 @@ export default function CrossChatConfigDialog({
                             </div>
                         </div>
                     )}
+
+                    {/* Map & Server Cross-Chat Display Names */}
+                    <div className="bg-slate-950/60 rounded-xl border border-white/10 p-5 space-y-4">
+                        <div>
+                            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                                <Tag className="w-4 h-4 text-emerald-400" />
+                                Map & Server Cross-Chat Display Names
+                            </h4>
+                            <p className="text-xs text-slate-400 mt-1">
+                                Customize the map prefix displayed in in-game chat when messages are relayed across cluster servers (e.g. <code className="text-emerald-400">[Island]</code> or <code className="text-emerald-400">[Ragnarok]</code> instead of full server names).
+                            </p>
+                        </div>
+
+                        {clusterServers.length === 0 ? (
+                            <p className="text-xs text-slate-500 italic">No servers linked to this cluster yet.</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {clusterServers.map((srv) => {
+                                    const mapName = srv.config?.mapName;
+                                    const gamePort = srv.ports?.gamePort;
+                                    const currentAlias = serverAliases[srv.id] ?? '';
+                                    const suggested = getSuggestedMapAlias(mapName, srv.name);
+                                    return (
+                                        <div key={srv.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-900/60 border border-white/5 rounded-xl">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-xs font-bold text-white truncate">{srv.name}</div>
+                                                <div className="text-[11px] font-mono text-slate-400 flex items-center gap-2 mt-0.5">
+                                                    <span>Map: <span className="text-sky-300">{mapName || 'Unknown'}</span></span>
+                                                    <span>•</span>
+                                                    <span>Port: <span className="text-slate-300">{gamePort || 'Auto'}</span></span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <span className="text-xs text-slate-400 font-mono hidden sm:inline">[</span>
+                                                <input
+                                                    type="text"
+                                                    value={currentAlias}
+                                                    onChange={(e) => setServerAliases({ ...serverAliases, [srv.id]: e.target.value })}
+                                                    placeholder={suggested}
+                                                    className="w-36 px-3 py-1.5 bg-slate-950 border border-white/10 rounded-lg text-xs font-semibold text-emerald-300 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                                                />
+                                                <span className="text-xs text-slate-400 font-mono hidden sm:inline">]</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Modal Footer */}

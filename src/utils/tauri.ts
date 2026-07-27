@@ -690,6 +690,7 @@ export interface ClusterCrossChatConfig {
     port: number;
     fetchInterval: number;
     debug: boolean;
+    serverAliases?: Record<string, string>;
     isPluginInstalled?: boolean;
     isLaccInstalled?: boolean;
 }
