@@ -277,6 +277,21 @@ impl AseLauncher {
         
         // Essential flags
         args.push("-server".to_string());       // CRITICAL: required for Steam master server registration
+
+        // Add explicit port flags required for network binding
+        if server.port > 0 {
+            args.push(format!("-port={}", server.port));
+            args.push(format!("-Port={}", server.port));
+            args.push(format!("-peerport={}", server.port + 1));
+            args.push(format!("-PeerPort={}", server.port + 1));
+        }
+        if server.query_port > 0 {
+            args.push(format!("-queryport={}", server.query_port));
+            args.push(format!("-QueryPort={}", server.query_port));
+        }
+        if server.rcon_port > 0 {
+            args.push(format!("-RCONPort={}", server.rcon_port));
+        }
         
         // We always pass -log and -servergamelog so that ShooterGame.log is created,
         // which is required for the status watcher thread to detect when the server goes online.

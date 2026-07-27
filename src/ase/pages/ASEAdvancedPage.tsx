@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAseServerStore } from '../stores/aseServerStore';
 import { updateAseServer } from '../utils/aseCommands';
 import { optimizeMemory, setProcessPriority } from '../../utils/tauri';
@@ -7,9 +7,10 @@ import {
   Flame, Shield, Check, Terminal, Sparkles, Filter, RotateCcw, 
   Globe, Radio, Settings2
 } from 'lucide-react';
-import { MODDED_MAP_PRESETS, buildLaunchArgs } from '../../data/moddedMapRegistry';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { MODDED_MAP_PRESETS, buildLaunchArgs } from '../../data/moddedMapRegistry';
+import LaunchArgsEditor from '../../components/ui/LaunchArgsEditor';
 
 interface FlagDefinition {
   flag: string;
@@ -32,18 +33,16 @@ const ASE_COMMON_FLAGS: FlagDefinition[] = [
   { flag: '-ServerAllowAnsel', label: 'Allow NVIDIA Ansel', desc: 'Enables 3D Ansel photography mode for connected clients.', category: 'gameplay' },
 
   // Engine & Performance
-  { flag: '-structurememopts', label: 'Structure Memory Opts', desc: 'Compresses structure mesh footprint in system RAM.', category: 'performance' },
+  { flag: '-StructureMemoryOptimizations', label: 'Structure Memory Opts', desc: 'Compresses structure mesh footprint in system RAM.', category: 'performance' },
   { flag: '-StructureStasisGrid', label: 'Structure Stasis Grid', desc: 'Puts distant structures into low-overhead stasis grids.', category: 'performance' },
   { flag: '-NoMemoryBias', label: 'No Memory Bias', desc: 'Bypasses engine memory allocation bias thresholds.', category: 'performance' },
   { flag: '-lowmemory', label: 'Low RAM Mode (4GB)', desc: 'Optimizes engine buffers for system memory constraints.', category: 'performance' },
   { flag: '-nomansky', label: 'Disable Dynamic Sky', desc: 'Disables clouds and sky mesh rendering to reduce GPU/CPU load.', category: 'performance' },
   { flag: '-d3d10', label: 'DirectX 10 Shader Fallback', desc: 'Forces legacy D3D10 renderer pipeline.', category: 'performance' },
   { flag: '-sm4', label: 'Shader Model 4', desc: 'Forces Shader Model 4 for lower hardware rendering.', category: 'performance' },
-  { flag: '-DisablePhysX', label: 'Disable PhysX Check', desc: 'Disables strict PhysX movement validation checks.', category: 'performance' },
-  { flag: '-usecache', label: 'Use Disk Cache', desc: 'Utilizes cached world assets for faster level loading.', category: 'performance' },
 
   // Network & Connectivity
-  { flag: '-crossplay', label: 'Enable Crossplay', desc: 'Enables multi-platform player crossplay connectivity (Steam + Epic).', category: 'network' },
+  { flag: '-crossplay', label: 'Enable Crossplay', desc: 'Enables multi-platform player crossplay connectivity.', category: 'network' },
   { flag: '-PublicIPForEpic', label: 'Public IP for EGS', desc: 'Broadcasting public IP for Epic Games Store master server.', category: 'network' },
   { flag: '-epiconly', label: 'Epic Players Only', desc: 'Restricts server connection exclusively to Epic Games clients.', category: 'network' },
   { flag: '-AllowSharedConnections', label: 'Shared Connections', desc: 'Allows multiple client connections from shared network adapters.', category: 'network' },
@@ -70,6 +69,8 @@ export default function ASEAdvancedPage() {
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const [highPriority, setHighPriority] = useState(false);
 
+    const loadedServerIdRef = useRef<number | null>(null);
+
     useEffect(() => {
         if (activeServer) {
             setSelectedServerId(activeServer.id);
@@ -79,14 +80,17 @@ export default function ASEAdvancedPage() {
         }
     }, [activeServer, servers, selectedServerId, location.state]);
 
-    // Load custom args
+    // Load custom args only when selected server ID changes or initial load happens
     useEffect(() => {
         if (!selectedServerId) return;
-        const server = servers.find(s => s.id === selectedServerId);
-        if (server) {
-            const args = server.extraArgs || '';
-            setCustomArgs(args);
-            setOriginalArgs(args);
+        if (loadedServerIdRef.current !== selectedServerId) {
+            const server = servers.find(s => s.id === selectedServerId);
+            if (server) {
+                const args = server.extraArgs || '';
+                setCustomArgs(args);
+                setOriginalArgs(args);
+                loadedServerIdRef.current = selectedServerId;
+            }
         }
     }, [selectedServerId, servers]);
 
@@ -139,22 +143,40 @@ export default function ASEAdvancedPage() {
         }
     };
 
-    const toggleFlag = (flag: string) => {
-        const lowerArgs = customArgs.toLowerCase();
-        const lowerFlag = flag.toLowerCase();
-
-        if (lowerArgs.includes(lowerFlag)) {
-            const regex = new RegExp(`\\s*${flag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}`, 'gi');
-            const updated = customArgs.replace(regex, '').trim();
-            setCustomArgs(updated);
-        } else {
-            const updated = customArgs ? `${customArgs.trim()} ${flag}` : flag;
-            setCustomArgs(updated);
+    const isFlagActive = (flag: string) => {
+        if (!customArgs.trim()) return false;
+        if (flag.includes('=')) {
+            const [key, val] = flag.split('=');
+            const regex = new RegExp(`(?:^|\\s)${key.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}=([^\\s]+)`, 'i');
+            const match = customArgs.match(regex);
+            return match ? match[1].toLowerCase() === val.toLowerCase() : false;
         }
+        const regex = new RegExp(`(?:^|\\s)${flag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}(?=\\s|$)`, 'i');
+        return regex.test(customArgs);
     };
 
-    const isFlagActive = (flag: string) => {
-        return customArgs.toLowerCase().includes(flag.toLowerCase());
+    const toggleFlag = (flag: string) => {
+        if (flag.includes('=')) {
+            const [key] = flag.split('=');
+            const keyRegex = new RegExp(`(?:^|\\s)${key.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}=([^\\s]+)`, 'gi');
+            if (isFlagActive(flag)) {
+                const updated = customArgs.replace(keyRegex, '').trim();
+                setCustomArgs(updated);
+            } else {
+                let updated = customArgs.replace(keyRegex, '').trim();
+                updated = updated ? `${updated} ${flag}` : flag;
+                setCustomArgs(updated.trim());
+            }
+        } else {
+            const flagRegex = new RegExp(`(?:^|\\s)${flag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}(?=\\s|$)`, 'gi');
+            if (isFlagActive(flag)) {
+                const updated = customArgs.replace(flagRegex, '').trim();
+                setCustomArgs(updated);
+            } else {
+                const updated = customArgs ? `${customArgs.trim()} ${flag}` : flag;
+                setCustomArgs(updated);
+            }
+        }
     };
 
     const applyTuningPreset = (presetFlags: string, name: string) => {
@@ -313,19 +335,15 @@ export default function ASEAdvancedPage() {
                         )}
                     </div>
 
-                    {/* Input Field */}
+                    {/* Tag & Text Launch Args Editor */}
                     <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-slate-300">Custom Command Line Arguments</label>
-                        <input
-                            type="text"
+                        <LaunchArgsEditor
                             value={customArgs}
-                            onChange={(e) => setCustomArgs(e.target.value)}
+                            onChange={setCustomArgs}
+                            accentColor="amber"
                             placeholder="-NoBattlEye -ForceAllowCaveFlyers -structurememopts ..."
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-amber-500 outline-none font-mono text-xs shadow-inner"
                         />
-                        <p className="text-[11px] text-slate-400">
-                            Space-separated arguments appended to ShooterGameServer.exe.
-                        </p>
                     </div>
 
                     {/* Mods Warning Box */}

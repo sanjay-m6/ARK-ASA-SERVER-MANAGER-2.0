@@ -1001,6 +1001,7 @@ impl ConfigGenerator {
         let config_dir = install_path.join("ShooterGame").join("Saved").join("Config").join(sub_dir);
 
         // Fetch settings from DB to sync into GameUserSettings.ini
+        let mut map_name = String::new();
         let mut session_name = String::new();
         let mut server_password: Option<String> = None;
         let mut admin_password = String::new();
@@ -1013,35 +1014,37 @@ impl ConfigGenerator {
 
         if server_type == "ASE" {
             db_conn.query_row(
-                "SELECT session_name, server_password, admin_password, max_players, port, query_port, rcon_port FROM ase_servers WHERE id = ?1",
+                "SELECT map_name, session_name, server_password, admin_password, max_players, port, query_port, rcon_port FROM ase_servers WHERE id = ?1",
                 [server_id],
                 |row| {
-                    session_name = row.get(0)?;
-                    let pwd = row.get::<_, String>(1)?;
+                    map_name = row.get(0)?;
+                    session_name = row.get(1)?;
+                    let pwd = row.get::<_, String>(2)?;
                     server_password = if pwd.is_empty() { None } else { Some(pwd) };
-                    admin_password = row.get(2)?;
-                    max_players = row.get(3)?;
-                    game_port = row.get(4)?;
-                    query_port = row.get(5)?;
-                    rcon_port = row.get(6)?;
+                    admin_password = row.get(3)?;
+                    max_players = row.get(4)?;
+                    game_port = row.get(5)?;
+                    query_port = row.get(6)?;
+                    rcon_port = row.get(7)?;
                     rcon_enabled = rcon_port > 0;
                     Ok(())
                 }
             ).map_err(|e| format!("Failed to query ase_servers: {}", e))?;
         } else {
             db_conn.query_row(
-                "SELECT session_name, server_password, admin_password, max_players, game_port, query_port, rcon_port, rcon_enabled, ip_address FROM servers WHERE id = ?1",
+                "SELECT map_name, session_name, server_password, admin_password, max_players, game_port, query_port, rcon_port, rcon_enabled, ip_address FROM servers WHERE id = ?1",
                 [server_id],
                 |row| {
-                    session_name = row.get(0)?;
-                    server_password = row.get(1)?;
-                    admin_password = row.get(2)?;
-                    max_players = row.get(3)?;
-                    game_port = row.get(4)?;
-                    query_port = row.get(5)?;
-                    rcon_port = row.get(6)?;
-                    rcon_enabled = row.get(7)?;
-                    ip_address = row.get(8)?;
+                    map_name = row.get(0)?;
+                    session_name = row.get(1)?;
+                    server_password = row.get(2)?;
+                    admin_password = row.get(3)?;
+                    max_players = row.get(4)?;
+                    game_port = row.get(5)?;
+                    query_port = row.get(6)?;
+                    rcon_port = row.get(7)?;
+                    rcon_enabled = row.get(8)?;
+                    ip_address = row.get(9)?;
                     Ok(())
                 }
             ).map_err(|e| format!("Failed to query servers: {}", e))?;
@@ -1064,29 +1067,35 @@ impl ConfigGenerator {
             if user_dir.exists() && user_dir.is_dir() {
                 let _ = fs::create_dir_all(&config_dir);
                 
-                // Copy GameUserSettings.ini
-                let user_gus = user_dir.join("GameUserSettings.ini");
-                if user_gus.exists() {
-                    let _ = fs::copy(&user_gus, config_dir.join("GameUserSettings.ini"));
-                    println!("  🔄 [Startup Sync] Copied GameUserSettings.ini from custom folder to default config dir");
-                } else {
-                    let user_sub_gus = user_dir.join(format!("ShooterGame/Saved/Config/{}/GameUserSettings.ini", sub_dir));
-                    if user_sub_gus.exists() {
-                        let _ = fs::copy(&user_sub_gus, config_dir.join("GameUserSettings.ini"));
-                        println!("  🔄 [Startup Sync] Copied GameUserSettings.ini (sub-path) from custom folder to default config dir");
+                // Copy GameUserSettings.ini only if destination does not exist
+                let gus_dest = config_dir.join("GameUserSettings.ini");
+                if !gus_dest.exists() {
+                    let user_gus = user_dir.join("GameUserSettings.ini");
+                    if user_gus.exists() {
+                        let _ = fs::copy(&user_gus, &gus_dest);
+                        println!("  🔄 [Startup Sync] Initialized GameUserSettings.ini from custom folder to config dir");
+                    } else {
+                        let user_sub_gus = user_dir.join(format!("ShooterGame/Saved/Config/{}/GameUserSettings.ini", sub_dir));
+                        if user_sub_gus.exists() {
+                            let _ = fs::copy(&user_sub_gus, &gus_dest);
+                            println!("  🔄 [Startup Sync] Initialized GameUserSettings.ini (sub-path) from custom folder to config dir");
+                        }
                     }
                 }
 
-                // Copy Game.ini
-                let user_game = user_dir.join("Game.ini");
-                if user_game.exists() {
-                    let _ = fs::copy(&user_game, config_dir.join("Game.ini"));
-                    println!("  🔄 [Startup Sync] Copied Game.ini from custom folder to default config dir");
-                } else {
-                    let user_sub_game = user_dir.join(format!("ShooterGame/Saved/Config/{}/Game.ini", sub_dir));
-                    if user_sub_game.exists() {
-                        let _ = fs::copy(&user_sub_game, config_dir.join("Game.ini"));
-                        println!("  🔄 [Startup Sync] Copied Game.ini (sub-path) from custom folder to default config dir");
+                // Copy Game.ini only if destination does not exist
+                let game_dest = config_dir.join("Game.ini");
+                if !game_dest.exists() {
+                    let user_game = user_dir.join("Game.ini");
+                    if user_game.exists() {
+                        let _ = fs::copy(&user_game, &game_dest);
+                        println!("  🔄 [Startup Sync] Initialized Game.ini from custom folder to config dir");
+                    } else {
+                        let user_sub_game = user_dir.join(format!("ShooterGame/Saved/Config/{}/Game.ini", sub_dir));
+                        if user_sub_game.exists() {
+                            let _ = fs::copy(&user_sub_game, &game_dest);
+                            println!("  🔄 [Startup Sync] Initialized Game.ini (sub-path) from custom folder to config dir");
+                        }
                     }
                 }
             }
@@ -1290,6 +1299,33 @@ impl ConfigGenerator {
             );
         }
 
+        // 5.6. Purge legacy ActiveMapMod / ActiveModMap keys for official DLC maps (like Astraeos_WP)
+        let effective_map = normalize_map_name(&map_name);
+        if let Some(map_mod_id) = get_mod_id_for_map(&effective_map) {
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "ActiveMapMod",
+                map_mod_id,
+            );
+        } else {
+            final_gus = crate::services::ini_parser::IniParser::remove_key(
+                &final_gus,
+                "ServerSettings",
+                "ActiveMapMod",
+            );
+            final_gus = crate::services::ini_parser::IniParser::remove_key(
+                &final_gus,
+                "ServerSettings",
+                "ActiveModMap",
+            );
+            final_gus = crate::services::ini_parser::IniParser::remove_key(
+                &final_gus,
+                "ServerSettings",
+                "ActiveMapMods",
+            );
+        }
+
         // 6. Write GUS
         println!("  💾 Overwriting GameUserSettings.ini with Event/Policy modifications...");
         fs::write(&gus_path, final_gus).map_err(|e| e.to_string())?;
@@ -1329,7 +1365,7 @@ pub fn normalize_map_name(map: &str) -> String {
 
 pub fn get_mod_id_for_map(map: &str) -> Option<&'static str> {
     match map.trim() {
-        "Astraeos_WP" | "Astraeos" | "Astraos_WP" | "Astraos" => Some("988598"),
+        // Astraeos is an official expansion DLC map; do not auto-inject CurseForge mod ID 988598.
         "Svartalfheim_WP" | "Svartalfheim" | "SVARTALFHEIM" => Some("927083"),
         "Forglar_WP" | "Forglar" => Some("952876"),
         "Amissa_WP" | "Amissa" => Some("927598"),

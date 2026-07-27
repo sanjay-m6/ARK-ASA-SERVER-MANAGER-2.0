@@ -76,28 +76,39 @@ jobs:
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
             - **Fresh Install**: Download the `.exe` installer below and run it.
 
-            ### 🆕 New Features in v4.6.8
-            - **🎨 Hardware Allocation UI/UX Overhaul**:
-              - Redesigned the **Hardware Allocation** page with a modern dark glassmorphic interface, ambient neon glow, and live CPU telemetry header (logical cores, physical cores, and cluster core usage).
-              - Added **Interactive One-Click Core Affinity Presets**: All Cores, Physical Cores Only (Even), Hyperthreads Only (Odd), OS Reserved (Skip Cores 0-1), First Half, and Second Half split.
-            - **🧮 Live Hexadecimal & Binary Affinity Mask Calculator**:
-              - Computes real-time Windows process affinity mask in Hexadecimal (`0x000000FF`) with 1-click **Copy Mask** to clipboard.
-            - **🔍 Multi-Server Core Conflict Detector**:
-              - Real-time cluster core inspection highlighting cores already shared with or assigned to other active servers (`Shared (N)` badge) to prevent thread contention.
-            - **🛡️ Process Priority Cards & RealTime Safety Guard**:
-              - Color-coded process priority selector cards (`Idle`, `BelowNormal`, `Normal`, `AboveNormal`, `High`, `RealTime`) with a safety warning confirmation modal when selecting `RealTime` priority to protect host OS stability.
+            ### 🆕 New Features in v4.6.9
+            - **🏷️ Interactive Launch Arguments Tag Editor**:
+              - Introduced interactive chip tags with 1-click removal (`[X]`), category filters, and active state indicators in `AdvancedPage` and `ASEAdvancedPage`.
+            - **📣 ASA RCON Broadcast In-Game Fix**:
+              - Automatically dual-dispatches RCON announcements to both `ServerChat` and `Broadcast` to ensure messages render properly on ARK: Survival Ascended servers.
+            - **🔒 Default PC-Only Enforcement**:
+              - Automatically injects `-UseServerPCOnly` when crossplay is disabled, ensuring `ArkAscendedServer.exe` logs `"isServerPcOnly": true` and prevents unauthorized console connections.
+            - **⚡ Non-Blocking Pre-Warning Countdown Engine**:
+              - Refactored warning countdowns to run in non-blocking asynchronous `tokio` tasks, keeping the scheduler loop fast and responsive.
 
-            ### 🐛 Bug Fixes in v4.6.8
-            - **🔧 RCON Scheduled Maintenance Warning Broadcasts**:
-              - Fixed warning notifications by auto-sanitizing and double-quoting RCON message strings (`ServerChat "..."` and `Broadcast "..."`) for ARK ASA and ASE game servers.
-            - **🔧 Tauri 2 State Access Fixes**:
-              - Replaced direct tuple field access (`state.0`) with `.inner().0` across `commands/rcon.rs`, `services/scheduler.rs`, `services/mod_watchdog.rs`, `services/discord_bridge.rs`, and `services/ase_discord_bridge.rs`.
-            - **🔧 Database Plugin Migration Foreign Key Repair**:
-              - Fixed `Failed to update plugin state: no such table: main.servers_old` error by updating SQLite schema repair routines (`repair_broken_fks`) and adding in-line auto-repair fallback when toggling plugins.
-            - **🔧 Hardware Core Selection Validation**:
-              - Fixed `You must select at least one CPU core if not using all cores` validation error by auto-populating logical cores when unticking "Use All Cores" and auto-falling back safely during save.
+            ### 🐛 Bug Fixes in v4.6.9
+            - **🔧 Custom Network Port Binding Fix**:
+              - Added explicit `-port=`, `-Port=`, `-queryport=`, `-QueryPort=`, `-peerport=`, `-PeerPort=` command-line switches to `ArkAscendedServer.exe` and `ShooterGameServer.exe` launch arguments so UDP sockets bind properly to custom ports (e.g. `7050`) instead of defaulting to `7777`.
+            - **🔧 Astraeos Expansion Map & INI Purge Fix**:
+              - Removed Astraeos from `get_mod_id_for_map` to prevent force-loading Mod ID `988598` for the official DLC map, and added automatic INI key purge for legacy `ActiveMapMod` lines in `GameUserSettings.ini`.
+            - **🔧 Automated Backup 1-Minute Execution Loop Fix**:
+              - Upgraded date parsing with `parse_db_datetime_local` (handling both SQLite ISO formats and RFC3339 strings), added a 55-second minimum execution threshold, and updated policy queries to check the most recent backup timestamp of any type.
+            - **🔧 User Settings & .ini File Preservation Fix**:
+              - Fixed `sync_custom_user_folder_if_configured` so template sync only initializes missing `.ini` files and never overwrites or deletes existing user settings in `ShooterGame/Saved/Config/WindowsServer/`.
+            - **🔧 TopBar UI Status Confusion Fix**:
+              - Updated the top bar status badge label to explicitly display `SERVERS: OFFLINE` / `SERVERS: ONLINE` with descriptive hover tooltips to avoid confusion between Manager app status and game server status.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.8 — Hardware Allocation UI/UX Overhaul & RCON Broadcast Fixes</summary>
+
+            - **🎨 Hardware Allocation UI/UX Overhaul**: Redesigned Hardware Allocation page with modern dark glassmorphic interface and live CPU telemetry header.
+            - **🧮 Live Hexadecimal & Binary Affinity Mask Calculator**: Real-time process affinity mask calculator with 1-click Copy.
+            - **🔍 Multi-Server Core Conflict Detector**: Cluster core inspection highlighting cores already shared with active servers.
+            - **🛡️ Process Priority Cards & RealTime Safety Guard**: Color-coded priority selector cards with safety confirmation modal.
+            - **🔧 RCON Scheduled Maintenance Warning Broadcasts**: Double-quoting RCON message strings for ASA and ASE servers.
+            - **🔧 Database Plugin Migration Foreign Key Repair**: SQLite schema repair routines and auto-repair fallback when toggling plugins.
+            </details>
             <details>
             <summary>v4.6.7 — Steam Auto-Update Engine, In-Game Broadcasts & Engram Editor Fixes</summary>
 

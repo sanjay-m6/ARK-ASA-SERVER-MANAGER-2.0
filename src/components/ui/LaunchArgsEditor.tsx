@@ -70,13 +70,44 @@ export default function LaunchArgsEditor({
     const colors = colorMap[accentColor] || colorMap.red;
 
 
+    const handleRemoveArg = (indexToRemove: number) => {
+        const newArgs = args.filter((_, idx) => idx !== indexToRemove);
+        onChange(newArgs.join(' '));
+    };
+
     const handleClear = () => {
         onChange('');
         inputRef.current?.focus();
     };
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-3">
+            {/* Active Chips List */}
+            {args.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 p-2 bg-slate-950/80 border border-slate-800 rounded-xl">
+                    {args.map((arg, idx) => (
+                        <div
+                            key={`${arg}-${idx}`}
+                            className={cn(
+                                'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono border transition-all',
+                                colors.chip,
+                                colors.chipHover
+                            )}
+                        >
+                            <span>{arg}</span>
+                            <button
+                                type="button"
+                                onClick={() => handleRemoveArg(idx)}
+                                className={cn('p-0.5 rounded transition-colors', colors.close)}
+                                title={`Remove ${arg}`}
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             <div
                 className={cn(
                     'relative flex items-center bg-slate-900 border rounded-lg transition-all duration-200 overflow-hidden',
@@ -100,6 +131,7 @@ export default function LaunchArgsEditor({
                 
                 {value && (
                     <button
+                        type="button"
                         onClick={handleClear}
                         className={cn(
                             'absolute right-2 p-1.5 rounded-md transition-colors opacity-70 hover:opacity-100',

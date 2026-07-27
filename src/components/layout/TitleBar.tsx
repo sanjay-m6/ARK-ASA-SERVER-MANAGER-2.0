@@ -189,14 +189,23 @@ export default function TitleBar() {
 
       {/* ═══ RIGHT: Status + Clock + Controls ═══ */}
       <div className="flex items-center gap-4 pr-3 z-10 h-full">
-        {/* Status Badge */}
-        <div className={`flex items-center gap-2 px-2.5 py-1 rounded-full border shadow-sm transition-all ${
-          runningServers > 0
-            ? 'bg-emerald-500/10 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
-            : totalServers > 0
-            ? 'bg-amber-500/10 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
-            : 'bg-slate-500/10 border-slate-500/20'
-        }`}>
+        {/* Game Server Status Badge */}
+        <div 
+          title={
+            runningServers > 0
+              ? `Game Server Status: ${runningServers} active server instance(s) running`
+              : totalServers > 0
+              ? `Game Server Status: All ${totalServers} configured servers are currently stopped (Standby)`
+              : 'Game Server Status: No game servers created or running currently (Offline)'
+          }
+          className={`flex items-center gap-2 px-2.5 py-1 rounded-full border shadow-sm transition-all cursor-help ${
+            runningServers > 0
+              ? 'bg-emerald-500/10 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+              : totalServers > 0
+              ? 'bg-amber-500/10 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
+              : 'bg-slate-500/10 border-slate-500/20'
+          }`}
+        >
           <div className="relative flex items-center justify-center w-2 h-2">
             {runningServers > 0 && <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-50" />}
             <div className={`w-1.5 h-1.5 rounded-full ${
@@ -206,7 +215,7 @@ export default function TitleBar() {
           <span className={`text-[10px] font-bold tracking-wider ${
             runningServers > 0 ? 'text-emerald-400' : totalServers > 0 ? 'text-amber-400' : 'text-slate-400'
           }`}>
-            {runningServers > 0 ? 'ONLINE' : totalServers > 0 ? 'STANDBY' : 'OFFLINE'}
+            {runningServers > 0 ? 'SERVERS: ONLINE' : totalServers > 0 ? 'SERVERS: STANDBY' : 'SERVERS: OFFLINE'}
           </span>
         </div>
 

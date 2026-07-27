@@ -174,64 +174,67 @@ impl RconService {
         server_id: i64,
         command: &str,
     ) -> Result<RconResponse, String> {
-        let mut command_owned = command.to_string();
-
-        // Sanitize broadcast command syntax (wrap message in quotes if it has spaces or is not quoted)
-        let trimmed = command_owned.trim();
+        let trimmed = command.trim();
         let lower = trimmed.to_lowercase();
+        let mut command_owned = trimmed.to_string();
+        let mut broadcast_msg: Option<String> = None;
+
         if lower.starts_with("broadcast ") {
-            let msg = &trimmed[10..];
-            let msg_trimmed = msg.trim();
-            if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
-                command_owned = format!("Broadcast \"{}\"", msg_trimmed);
+            let msg_trimmed = trimmed[10..].trim();
+            if !msg_trimmed.is_empty() {
+                let clean = msg_trimmed.trim_matches('"');
+                broadcast_msg = Some(clean.to_string());
+                if !msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"') {
+                    command_owned = format!("Broadcast \"{}\"", clean);
+                }
             }
         } else if lower.starts_with("cheat broadcast ") {
-            let msg = &trimmed[16..];
-            let msg_trimmed = msg.trim();
-            if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
-                command_owned = format!("Broadcast \"{}\"", msg_trimmed);
+            let msg_trimmed = trimmed[16..].trim();
+            if !msg_trimmed.is_empty() {
+                let clean = msg_trimmed.trim_matches('"');
+                broadcast_msg = Some(clean.to_string());
+                if !msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"') {
+                    command_owned = format!("Broadcast \"{}\"", clean);
+                }
             }
         } else if lower.starts_with("admincheat broadcast ") {
-            let msg = &trimmed[21..];
-            let msg_trimmed = msg.trim();
-            if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
-                command_owned = format!("Broadcast \"{}\"", msg_trimmed);
+            let msg_trimmed = trimmed[21..].trim();
+            if !msg_trimmed.is_empty() {
+                let clean = msg_trimmed.trim_matches('"');
+                broadcast_msg = Some(clean.to_string());
+                if !msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"') {
+                    command_owned = format!("Broadcast \"{}\"", clean);
+                }
             }
         } else if lower.starts_with("serverchat ") {
-            let msg = &trimmed[11..];
-            let msg_trimmed = msg.trim();
+            let msg_trimmed = trimmed[11..].trim();
             if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
-                command_owned = format!("ServerChat \"{}\"", msg_trimmed);
+                command_owned = format!("ServerChat \"{}\"", msg_trimmed.trim_matches('"'));
             }
         } else if lower.starts_with("cheat serverchat ") {
-            let msg = &trimmed[17..];
-            let msg_trimmed = msg.trim();
+            let msg_trimmed = trimmed[17..].trim();
             if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
-                command_owned = format!("ServerChat \"{}\"", msg_trimmed);
+                command_owned = format!("ServerChat \"{}\"", msg_trimmed.trim_matches('"'));
             }
         } else if lower.starts_with("admincheat serverchat ") {
-            let msg = &trimmed[22..];
-            let msg_trimmed = msg.trim();
+            let msg_trimmed = trimmed[22..].trim();
             if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
-                command_owned = format!("ServerChat \"{}\"", msg_trimmed);
+                command_owned = format!("ServerChat \"{}\"", msg_trimmed.trim_matches('"'));
             }
         } else if lower.starts_with("serverchatsilent ") {
-            let msg = &trimmed[17..];
-            let msg_trimmed = msg.trim();
+            let msg_trimmed = trimmed[17..].trim();
             if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
-                command_owned = format!("ServerChatSilent \"{}\"", msg_trimmed);
+                command_owned = format!("ServerChatSilent \"{}\"", msg_trimmed.trim_matches('"'));
             }
         } else if lower.starts_with("cheat serverchatsilent ") {
-            let msg = &trimmed[23..];
-            let msg_trimmed = msg.trim();
+            let msg_trimmed = trimmed[23..].trim();
             if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
-                command_owned = format!("ServerChatSilent \"{}\"", msg_trimmed);
+                command_owned = format!("ServerChatSilent \"{}\"", msg_trimmed.trim_matches('"'));
             }
         } else if lower.starts_with("admincheat serverchatsilent ") {
-            let msg = &trimmed[28..];
-            let msg_trimmed = msg.trim();
+            let msg_trimmed = trimmed[28..].trim();
             if !msg_trimmed.is_empty() && (!msg_trimmed.starts_with('"') || !msg_trimmed.ends_with('"')) {
-                command_owned = format!("ServerChatSilent \"{}\"", msg_trimmed);
+                command_owned = format!("ServerChatSilent \"{}\"", msg_trimmed.trim_matches('"'));
             }
         }
 
@@ -243,6 +246,16 @@ impl RconService {
                 server_id,
                 command_owned
             );
+
+            // In ASA, native RCON Broadcast commands are bugged/suppressed in ArkAscendedServer.exe.
+            // Dual-dispatch ServerChat so announcements render reliably in the in-game chat box for players.
+            if let Some(clean_msg) = &broadcast_msg {
+                if !clean_msg.is_empty() {
+                    let chat_cmd = format!("ServerChat \"[ANNOUNCEMENT] {}\"", clean_msg);
+                    log::info!("[RCON] Dual-dispatching ServerChat for ASA announcement on server {}: '{}'", server_id, chat_cmd);
+                    let _ = session.connection.send_command(&chat_cmd).await;
+                }
+            }
 
             match session.connection.send_command(&command_owned).await {
                 Ok(response) => {

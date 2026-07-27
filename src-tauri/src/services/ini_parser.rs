@@ -169,6 +169,27 @@ impl IniParser {
 
         Self::serialize_ordered(&parsed)
     }
+
+    /// Remove a specific key from a section, case-insensitively.
+    pub fn remove_key(content: &str, section: &str, key: &str) -> String {
+        let mut parsed = Self::parse_ordered(content);
+
+        let target_section = parsed
+            .keys()
+            .find(|k| k.eq_ignore_ascii_case(section))
+            .cloned();
+
+        if let Some(target) = target_section {
+            if let Some(entries) = parsed.get_mut(&target) {
+                let existing_key = entries.keys().find(|k| k.eq_ignore_ascii_case(key)).cloned();
+                if let Some(existing) = existing_key {
+                    entries.shift_remove(&existing);
+                }
+            }
+        }
+
+        Self::serialize_ordered(&parsed)
+    }
 }
 
 #[cfg(test)]

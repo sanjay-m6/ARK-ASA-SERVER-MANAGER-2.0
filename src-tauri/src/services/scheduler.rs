@@ -100,6 +100,15 @@ impl SchedulerService {
         };
 
         for task in advanced_tasks {
+            // Guard: Never re-run a task if it executed within the last 55 seconds
+            if let Some(ref lr) = task.last_run {
+                if let Some(lr_dt) = parse_db_datetime_local(lr) {
+                    if (time - lr_dt).num_seconds() < 55 {
+                        continue;
+                    }
+                }
+            }
+
             if Self::is_due(&task.cron_expression, &time) {
                 log::info!(
                     "🚀 Scheduler: Executing Advanced Task {} ({})",
@@ -108,11 +117,12 @@ impl SchedulerService {
                 );
                 Self::execute_task(app_handle, &task).await;
 
+                let now_str = Local::now().to_rfc3339();
                 if let Ok(db) = state.db.lock() {
                     if let Ok(conn) = db.get_connection() {
                         let _ = conn.execute(
-                            "UPDATE scheduled_tasks SET last_run = CURRENT_TIMESTAMP WHERE id = ?1",
-                            [task.id],
+                            "UPDATE scheduled_tasks SET last_run = ?1 WHERE id = ?2",
+                            rusqlite::params![now_str, task.id],
                         );
                     }
                 }
@@ -182,6 +192,14 @@ impl SchedulerService {
         };
 
         for task in ase_tasks {
+            if let Some(ref lr) = task.last_run {
+                if let Some(lr_dt) = parse_db_datetime_local(lr) {
+                    if (time - lr_dt).num_seconds() < 55 {
+                        continue;
+                    }
+                }
+            }
+
             if Self::is_due(&task.cron_expr, &time) {
                 log::info!("🚀 ASE Scheduler: Executing Task {} ({})", task.id, task.task_type);
                 
@@ -283,11 +301,12 @@ impl SchedulerService {
                     }
                 }
 
+                let now_str = Local::now().to_rfc3339();
                 if let Ok(db) = state.db.lock() {
                     if let Ok(conn) = db.get_connection() {
                         let _ = conn.execute(
-                            "UPDATE ase_scheduled_tasks SET last_run = CURRENT_TIMESTAMP WHERE id = ?1",
-                            [task.id],
+                            "UPDATE ase_scheduled_tasks SET last_run = ?1 WHERE id = ?2",
+                            rusqlite::params![now_str, task.id],
                         );
                     }
                 }
@@ -791,9 +810,9 @@ impl SchedulerService {
 
         // 1. Determine Target Time
         let next_run = if let Some(nr_str) = &setting.next_run {
-            match DateTime::parse_from_rfc3339(nr_str) {
-                Ok(dt) => dt.with_timezone(&Local),
-                Err(_) => {
+            match parse_db_datetime_local(nr_str) {
+                Some(dt) => dt,
+                None => {
                     // Invalid, reset
                     Self::update_next_run(app_handle, setting.server_id, setting.interval, now)
                         .await
@@ -1471,24 +1490,29 @@ async fn run_task_pre_warnings(app_handle: &AppHandle, task: &ScheduledTask) {
     if task.pre_warning_minutes <= 0 {
         return;
     }
-    let server_name = get_server_name(app_handle, task.server_id);
-    let mins = task.pre_warning_minutes;
+    let app_handle_clone = app_handle.clone();
+    let task_clone = task.clone();
 
-    if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-        let rcon = &rcon_state.inner().0;
+    tauri::async_runtime::spawn(async move {
+        let server_name = get_server_name(&app_handle_clone, task_clone.server_id);
+        let mins = task_clone.pre_warning_minutes;
+
         for min_left in (1..=mins).rev() {
-            let msg = format_warning_message(task.message.as_deref(), &task.task_type, min_left, &server_name);
-            let _ = rcon.send_command(task.server_id, &format!("Broadcast \"{}\"", msg)).await;
-            let _ = rcon.send_command(task.server_id, &format!("ServerChat \"{}\"", msg)).await;
+            let msg = format_warning_message(task_clone.message.as_deref(), &task_clone.task_type, min_left, &server_name);
+            if let Some(rcon_state) = app_handle_clone.try_state::<RconState>() {
+                let rcon = &rcon_state.inner().0;
+                let _ = rcon.send_command(task_clone.server_id, &format!("Broadcast \"{}\"", msg)).await;
+                let _ = rcon.send_command(task_clone.server_id, &format!("ServerChat \"{}\"", msg)).await;
+            }
 
-            let app_handle_clone = app_handle.clone();
+            let app_clone = app_handle_clone.clone();
             let name_clone = server_name.clone();
-            let task_type_clone = task.task_type.clone();
+            let task_type_clone = task_clone.task_type.clone();
             let msg_clone = msg.clone();
 
             tauri::async_runtime::spawn(async move {
                 crate::services::discord::send_discord_webhook(
-                    &app_handle_clone,
+                    &app_clone,
                     "scheduledTasks",
                     crate::services::discord::DiscordEmbed::scheduled_task(
                         &name_clone,
@@ -1500,68 +1524,71 @@ async fn run_task_pre_warnings(app_handle: &AppHandle, task: &ScheduledTask) {
 
             sleep(Duration::from_secs(60)).await;
         }
-    }
+    });
 }
 
 // Logic helpers
 async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
-    let name = get_server_name(app_handle, task.server_id);
+    let state = app_handle.state::<AppState>();
+    let server_id = task.server_id;
+    let name = get_server_name(app_handle, server_id);
 
     // Warn players & countdown if pre_warning_minutes > 0
     if task.pre_warning_minutes > 0 {
         run_task_pre_warnings(app_handle, task).await;
     }
 
-    // Save world via RCON before restart
-    if let Some(rcon_state) = app_handle.try_state::<RconState>() {
-        let rcon = &rcon_state.inner().0;
-        let _ = rcon.send_command(task.server_id, "SaveWorld").await;
-        let _ = rcon.send_command(task.server_id, "Broadcast \"⚠️ RESTARTING SERVER NOW!\"").await;
-        sleep(Duration::from_secs(3)).await;
-    }
+    // Determine if server is ASE or ASA
+    let server_type: String = {
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                conn.query_row(
+                    "SELECT server_type FROM servers WHERE id = ?1",
+                    [server_id],
+                    |row| row.get(0),
+                ).unwrap_or_else(|_| "ASA".to_string())
+            } else { "ASA".to_string() }
+        } else { "ASA".to_string() }
+    };
 
-    // Call restart command from server module
-    let state = app_handle.state::<AppState>();
-    match crate::commands::server::restart_server(state, task.server_id, None).await {
-        Ok(_) => {
-            log::info!(
-                "  Ok Scheduled restart initiated for server {}",
-                task.server_id
-            );
-            let app_handle_clone = app_handle.clone();
-            let name_clone = name.clone();
-            tauri::async_runtime::spawn(async move {
-                crate::services::discord::send_discord_webhook(
-                    &app_handle_clone,
-                    "scheduledRestarts",
-                    crate::services::discord::DiscordEmbed::scheduled_task(
-                        &name_clone,
-                        "Server Restart Initiated",
-                        "Scheduled server restart initiated successfully.",
-                    ),
-                ).await;
-            });
+    if server_type.to_uppercase() == "ASE" {
+        log::info!("🚀 [Scheduled Restart] Restarting ASE Server {}", server_id);
+        let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
+        let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!".into(), state.clone()).await;
+        sleep(Duration::from_secs(3)).await;
+        let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
+        sleep(Duration::from_secs(5)).await;
+        let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
+    } else {
+        log::info!("🚀 [Scheduled Restart] Restarting ASA Server {}", server_id);
+        if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+            let rcon = &rcon_state.inner().0;
+            let _ = rcon.send_command(server_id, "SaveWorld").await;
+            let _ = rcon.send_command(server_id, "Broadcast \"⚠️ RESTARTING SERVER NOW!\"").await;
+            sleep(Duration::from_secs(3)).await;
         }
-        Err(e) => {
-            log::error!(
-                "  Err Scheduled restart failed for server {}: {}",
-                task.server_id,
-                e
-            );
-            let app_handle_clone = app_handle.clone();
-            let name_clone = name.clone();
-            let err_msg = e.to_string();
-            tauri::async_runtime::spawn(async move {
-                crate::services::discord::send_discord_webhook(
-                    &app_handle_clone,
-                    "scheduledRestarts",
-                    crate::services::discord::DiscordEmbed::scheduled_task(
-                        &name_clone,
-                        "Server Restart Failed",
-                        &format!("❌ Scheduled server restart failed: **{}**", err_msg),
-                    ),
-                ).await;
-            });
+
+        match crate::commands::server::restart_server(state, server_id, None).await {
+            Ok(_) => {
+                log::info!("  ✅ Scheduled restart initiated for server {}", server_id);
+            }
+            Err(e) => {
+                log::error!("  ⚠️ Scheduled restart failed for server {}: {}", server_id, e);
+                let app_handle_clone = app_handle.clone();
+                let name_clone = name.clone();
+                let err_msg = e.to_string();
+                tauri::async_runtime::spawn(async move {
+                    crate::services::discord::send_discord_webhook(
+                        &app_handle_clone,
+                        "scheduledRestarts",
+                        crate::services::discord::DiscordEmbed::scheduled_task(
+                            &name_clone,
+                            "Server Restart Failed",
+                            &format!("❌ Scheduled server restart failed: **{}**", err_msg),
+                        ),
+                    ).await;
+                });
+            }
         }
     }
 }
@@ -1738,12 +1765,12 @@ impl SchedulerService {
 
             let effective_interval_mins = (interval_hours.max(1) as i64) * 60;
 
-            // Check when the last auto backup was created for this server
+            // Check when the last backup of any type was created for this server
             let last_backup_time: Option<DateTime<Utc>> = {
                 if let Ok(db) = state.db.lock() {
                     if let Ok(conn) = db.get_connection() {
                         conn.query_row(
-                            "SELECT created_at FROM backups WHERE server_id = ?1 AND LOWER(backup_type) = 'auto' ORDER BY id DESC LIMIT 1",
+                            "SELECT created_at FROM backups WHERE server_id = ?1 ORDER BY id DESC LIMIT 1",
                             [server_id],
                             |row| row.get::<_, String>(0),
                         ).ok().and_then(|s| parse_db_datetime(&s))
@@ -1960,6 +1987,23 @@ pub fn parse_db_datetime(s: &str) -> Option<DateTime<Utc>> {
     }
     if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
         return Some(DateTime::from_naive_utc_and_offset(naive, Utc));
+    }
+    None
+}
+
+pub fn parse_db_datetime_local(s: &str) -> Option<DateTime<Local>> {
+    let s = s.trim();
+    if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
+        return Some(dt.with_timezone(&Local));
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
+        return naive.and_local_timezone(Local).single();
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S%.f") {
+        return naive.and_local_timezone(Local).single();
+    }
+    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S") {
+        return naive.and_local_timezone(Local).single();
     }
     None
 }

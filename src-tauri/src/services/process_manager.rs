@@ -960,6 +960,17 @@ impl ProcessManager {
         // Add MaxPlayers as a launch argument (Required for ASA)
         args.push(format!("-WinLiveMaxPlayers={}", max_players));
 
+        // Add explicit port flags required by Unreal Engine 5 / ShooterGame network binding
+        args.push(format!("-port={}", game_port));
+        args.push(format!("-Port={}", game_port));
+        args.push(format!("-queryport={}", query_port));
+        args.push(format!("-QueryPort={}", query_port));
+        args.push(format!("-peerport={}", game_port + 1));
+        args.push(format!("-PeerPort={}", game_port + 1));
+        if rcon_port > 0 {
+            args.push(format!("-RCONPort={}", rcon_port));
+        }
+
         // Add MultiHome for IP binding only if a specific local IP is provided
         if let Some(ip) = ip_address {
             let trimmed_ip = ip.trim();
@@ -1014,13 +1025,16 @@ impl ProcessManager {
             None => Vec::new(),
         };
 
-        // AUTO FIX: If launching a modded map (like Astraeos_WP, Forglar_WP, etc.),
+        // AUTO FIX: If launching a modded map (like Forglar_WP, Svartalfheim_WP, etc.),
         // automatically inject the map's CurseForge Mod ID so the server engine loads the map files!
         if let Some(map_mod_id) = crate::services::config_generator::get_mod_id_for_map(&effective_map) {
             if !valid_mods.contains(&map_mod_id.to_string()) {
                 valid_mods.insert(0, map_mod_id.to_string());
                 println!("  ✨ Auto-injected required map mod ID {} for map {}", map_mod_id, effective_map);
             }
+        } else if effective_map == "Astraeos_WP" || effective_map == "Astraeos" {
+            // Astraeos is an official expansion DLC map — do not send -mods=988598
+            valid_mods.retain(|m| m != "988598");
         }
 
         if !valid_mods.is_empty() {
@@ -1047,7 +1061,7 @@ impl ProcessManager {
             }
         }
 
-        // Automatically check GameUserSettings.ini for Culture setting and append -culture arg
+        // Automatically check GameUserSettings.ini for Culture setting and sanitize legacy ActiveMapMod keys
         let sub_dir = if server_type == "ASE" { "WindowsServer" } else { "WindowsServer" };
         let gus_path = install_path
             .join("ShooterGame")
@@ -1058,6 +1072,19 @@ impl ProcessManager {
 
         if gus_path.exists() {
             if let Ok(content) = std::fs::read_to_string(&gus_path) {
+                // If launching an official DLC map (like Astraeos_WP), strip any legacy ActiveMapMod keys from INI on disk
+                if crate::services::config_generator::get_mod_id_for_map(&effective_map).is_none() {
+                    if content.contains("ActiveMapMod") || content.contains("ActiveModMap") || content.contains("ActiveMapMods") {
+                        let mut cleaned = crate::services::ini_parser::IniParser::remove_key(&content, "ServerSettings", "ActiveMapMod");
+                        cleaned = crate::services::ini_parser::IniParser::remove_key(&cleaned, "ServerSettings", "ActiveModMap");
+                        cleaned = crate::services::ini_parser::IniParser::remove_key(&cleaned, "ServerSettings", "ActiveMapMods");
+                        if cleaned != content {
+                            let _ = std::fs::write(&gus_path, cleaned);
+                            println!("  🧹 Sanitized legacy ActiveMapMod from GameUserSettings.ini for server {}", server_id);
+                        }
+                    }
+                }
+
                 let mut in_server_settings = false;
                 for line in content.lines() {
                     let trimmed = line.trim();
@@ -1132,6 +1159,18 @@ impl ProcessManager {
                     }
                 }
             }
+        }
+
+        // Ensure ASA server defaults to PC-Only if -crossplay is not explicitly present
+        let has_crossplay = args.iter().any(|arg| arg.to_lowercase() == "-crossplay");
+        let has_pc_only = args.iter().any(|arg| {
+            let lower = arg.to_lowercase();
+            lower == "-useserverpconly" || lower == "-pconly" || lower == "-nocrossplay"
+        });
+
+        if !has_crossplay && !has_pc_only {
+            println!("  🔒 Crossplay disabled for server {} — adding -UseServerPCOnly flag", server_id);
+            args.push("-UseServerPCOnly".to_string());
         }
 
         println!("  🚀 Executing Command: {:?} {:?}", executable, args);

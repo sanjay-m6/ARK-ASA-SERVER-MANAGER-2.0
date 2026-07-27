@@ -460,11 +460,11 @@ pub async fn install_server(
             session_name.clone()
         };
 
-        // Build custom_args with crossplay flag if enabled
+        // Build custom_args with crossplay or PC-Only flag
         let custom_args: Option<String> = if crossplay {
             Some("-crossplay".to_string())
         } else {
-            None
+            Some("-UseServerPCOnly".to_string())
         };
 
         conn.execute(

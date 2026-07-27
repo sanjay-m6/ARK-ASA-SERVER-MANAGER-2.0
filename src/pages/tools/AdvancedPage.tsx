@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useServerStore } from '../../stores/serverStore';
 import { updateServerSettings, optimizeMemory, setProcessPriority, toggleEcoMode } from '../../utils/tauri';
 import { 
@@ -9,6 +9,7 @@ import {
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { MODDED_MAP_PRESETS, buildLaunchArgs } from '../../data/moddedMapRegistry';
+import LaunchArgsEditor from '../../components/ui/LaunchArgsEditor';
 
 interface FlagDefinition {
   flag: string;
@@ -42,6 +43,7 @@ const COMMON_FLAGS: FlagDefinition[] = [
 
   // Network & Connectivity
   { flag: '-crossplay', label: 'Enable Crossplay', desc: 'Enables multi-platform player crossplay connectivity.', category: 'network' },
+  { flag: '-UseServerPCOnly', label: 'PC-Only Mode', desc: 'Restricts server connection exclusively to PC players (Disables Crossplay).', category: 'network' },
   { flag: '-PublicIPForEpic', label: 'Public IP for EGS', desc: 'Broadcasting public IP for Epic Games Store master server.', category: 'network' },
   { flag: '-epiconly', label: 'Epic Players Only', desc: 'Restricts server connection exclusively to Epic Games clients.', category: 'network' },
   { flag: '-AllowSharedConnections', label: 'Shared Connections', desc: 'Allows multiple client connections from shared network adapters.', category: 'network' },
@@ -69,6 +71,8 @@ export default function AdvancedPage() {
     const [highPriority, setHighPriority] = useState(false);
     const [ecoModeActive, setEcoModeActive] = useState(false);
 
+    const loadedServerIdRef = useRef<number | null>(null);
+
     useEffect(() => {
         if (activeServer) {
             setSelectedServerId(activeServer.id);
@@ -78,14 +82,17 @@ export default function AdvancedPage() {
         }
     }, [activeServer, servers, selectedServerId, location.state]);
 
-    // Load custom args
+    // Load custom args only when selected server ID changes or initial load happens
     useEffect(() => {
         if (!selectedServerId) return;
-        const server = servers.find(s => s.id === selectedServerId);
-        if (server) {
-            const args = server.config.custom_args || '';
-            setCustomArgs(args);
-            setOriginalArgs(args);
+        if (loadedServerIdRef.current !== selectedServerId) {
+            const server = servers.find(s => s.id === selectedServerId);
+            if (server) {
+                const args = server.config.custom_args || '';
+                setCustomArgs(args);
+                setOriginalArgs(args);
+                loadedServerIdRef.current = selectedServerId;
+            }
         }
     }, [selectedServerId, servers]);
 
@@ -151,24 +158,42 @@ export default function AdvancedPage() {
         }
     };
 
-    const toggleFlag = (flag: string) => {
-        const lowerArgs = customArgs.toLowerCase();
-        const lowerFlag = flag.toLowerCase();
-
-        if (lowerArgs.includes(lowerFlag)) {
-            // Remove flag
-            const regex = new RegExp(`\\s*${flag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}`, 'gi');
-            const updated = customArgs.replace(regex, '').trim();
-            setCustomArgs(updated);
-        } else {
-            // Append flag
-            const updated = customArgs ? `${customArgs.trim()} ${flag}` : flag;
-            setCustomArgs(updated);
+    const isFlagActive = (flag: string) => {
+        if (!customArgs.trim()) return false;
+        if (flag.includes('=')) {
+            const [key, val] = flag.split('=');
+            const regex = new RegExp(`(?:^|\\s)${key.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}=([^\\s]+)`, 'i');
+            const match = customArgs.match(regex);
+            return match ? match[1].toLowerCase() === val.toLowerCase() : false;
         }
+        const regex = new RegExp(`(?:^|\\s)${flag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}(?=\\s|$)`, 'i');
+        return regex.test(customArgs);
     };
 
-    const isFlagActive = (flag: string) => {
-        return customArgs.toLowerCase().includes(flag.toLowerCase());
+    const toggleFlag = (flag: string) => {
+        if (flag.includes('=')) {
+            const [key] = flag.split('=');
+            const keyRegex = new RegExp(`(?:^|\\s)${key.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}=([^\\s]+)`, 'gi');
+            if (isFlagActive(flag)) {
+                // Remove existing flag
+                const updated = customArgs.replace(keyRegex, '').trim();
+                setCustomArgs(updated);
+            } else {
+                // Remove any existing instance of this key first, then append new value
+                let updated = customArgs.replace(keyRegex, '').trim();
+                updated = updated ? `${updated} ${flag}` : flag;
+                setCustomArgs(updated.trim());
+            }
+        } else {
+            const flagRegex = new RegExp(`(?:^|\\s)${flag.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}(?=\\s|$)`, 'gi');
+            if (isFlagActive(flag)) {
+                const updated = customArgs.replace(flagRegex, '').trim();
+                setCustomArgs(updated);
+            } else {
+                const updated = customArgs ? `${customArgs.trim()} ${flag}` : flag;
+                setCustomArgs(updated);
+            }
+        }
     };
 
     const applyTuningPreset = (presetFlags: string, name: string) => {
@@ -327,19 +352,15 @@ export default function AdvancedPage() {
                         )}
                     </div>
 
-                    {/* Input Field */}
+                    {/* Tag & Text Launch Args Editor */}
                     <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-slate-300">Custom Launch Arguments</label>
-                        <input
-                            type="text"
+                        <LaunchArgsEditor
                             value={customArgs}
-                            onChange={(e) => setCustomArgs(e.target.value)}
+                            onChange={setCustomArgs}
+                            accentColor="red"
                             placeholder="-NoBattlEye -ForceAllowCaveFlyers -structurememopts ..."
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-red-500 outline-none font-mono text-xs shadow-inner"
                         />
-                        <p className="text-[11px] text-slate-400">
-                            Space-separated flags appended to the boot executable. Quote string parameters if necessary.
-                        </p>
                     </div>
 
                     {/* Mods Warning Box */}
