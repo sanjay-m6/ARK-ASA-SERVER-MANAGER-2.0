@@ -1127,6 +1127,7 @@ pub struct ClusterCrossChatConfig {
     pub port: i32,
     pub fetch_interval: f32,
     pub debug: bool,
+    pub hide_world_save_notifs: Option<bool>,
     pub server_aliases: Option<std::collections::HashMap<String, String>>,
     pub is_plugin_installed: Option<bool>,
     pub is_lacc_installed: Option<bool>,
@@ -1207,6 +1208,15 @@ pub async fn get_cluster_cross_chat_config(
         .unwrap_or_else(|_| "false".to_string());
     let debug = debug_str == "true";
 
+    let hide_save_str = conn
+        .query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_hide_world_save_notifs'",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "true".to_string());
+    let hide_world_save_notifs = hide_save_str == "true";
+
     let aliases_json = conn
         .query_row(
             "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_server_aliases'",
@@ -1256,6 +1266,7 @@ pub async fn get_cluster_cross_chat_config(
         port,
         fetch_interval,
         debug,
+        hide_world_save_notifs: Some(hide_world_save_notifs),
         server_aliases,
         is_plugin_installed: Some(is_plugin_installed),
         is_lacc_installed: Some(is_lacc_installed),
@@ -1272,6 +1283,7 @@ pub async fn save_cluster_cross_chat_config(
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
     let mode_str = config.mode.unwrap_or_else(|| "lacc".to_string());
+    let hide_save_val = config.hide_world_save_notifs.unwrap_or(true).to_string();
     let settings = vec![
         ("cross_chat_mode", mode_str.clone()),
         ("cross_chat_mysql_host", config.host.clone()),
@@ -1281,6 +1293,7 @@ pub async fn save_cluster_cross_chat_config(
         ("cross_chat_mysql_port", config.port.to_string()),
         ("cross_chat_fetch_interval", config.fetch_interval.to_string()),
         ("cross_chat_debug", config.debug.to_string()),
+        ("cross_chat_hide_world_save_notifs", hide_save_val),
     ];
 
     for (key, val) in settings {

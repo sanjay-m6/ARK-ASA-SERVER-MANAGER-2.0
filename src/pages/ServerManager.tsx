@@ -30,6 +30,7 @@ import { useNavigate } from 'react-router-dom';
 import { Server, ServerStartupProgressEvent } from '../types';
 import ServerStatusBar from '../components/server/ServerStatusBar';
 import ServerOrganizationBar from '../components/server/ServerOrganizationBar';
+import { usePublicIP } from '../hooks/usePublicIP';
 import serverBrowserGuide from '../assets/server_browser_guide.png';
 
 import versionData from '../version.json';
@@ -43,6 +44,8 @@ interface ServerLogEvent {
 export default function ServerManager() {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const { data: publicIp } = usePublicIP();
+    const getServerDisplayIp = (ip?: string | null) => (ip && ip !== "0.0.0.0" && ip !== "127.0.0.1") ? ip : (publicIp || "0.0.0.0");
     const { 
         servers, 
         setServers, 
@@ -1507,7 +1510,7 @@ export default function ServerManager() {
                                         <p className="text-[10px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.connection')}</p>
                                     </div>
                                     <p className="text-slate-300 font-mono text-[11px] bg-slate-950/40 p-2 rounded-lg border border-white/5 hover:border-white/10 transition-colors shadow-inner truncate">
-                                        {server.ipAddress ? server.ipAddress : "0.0.0.0"} : {server.ports.gamePort}
+                                        {getServerDisplayIp(server.ipAddress)} : {server.ports.gamePort}
                                     </p>
                                 </div>
                             </div>
@@ -2611,7 +2614,7 @@ export default function ServerManager() {
                                              <p className="text-[11px] uppercase tracking-wider font-bold select-none">{t('serverManager.serverDetails.connection')}</p>
                                          </div>
                                          <p className="text-slate-300 font-mono text-xs bg-slate-950/40 p-2.5 rounded-xl border border-white/5 hover:border-white/10 transition-colors shadow-inner truncate">
-                                             {server.ipAddress ? server.ipAddress : "0.0.0.0"} : {server.ports.gamePort}
+                                             {getServerDisplayIp(server.ipAddress)} : {server.ports.gamePort}
                                          </p>
                                      </div>
                                  </div>

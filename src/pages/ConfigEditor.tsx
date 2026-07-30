@@ -24,6 +24,7 @@ import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
 import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboard';
 import { MODDED_MAP_PRESETS, buildLaunchArgs, getModdedMapByMapArg } from '../data/moddedMapRegistry';
+import PlatformSelector from '../components/config/PlatformSelector';
 
 // Map images
 import mapTheIsland from '../assets/maps/the_island.png';
@@ -2292,6 +2293,9 @@ export default function ConfigEditor() {
                                 </div>
                             ) : filteredGroups.length > 0 ? (
                                 <div className="space-y-10 max-w-4xl mx-auto">
+                                    {activeCategory === 'server' && activeFileFilter === 'GameUserSettings' && !searchQuery && (
+                                        <PlatformSelector serverId={selectedServerId} />
+                                    )}
                                     {filteredGroups.map((group, idx) => (
                                         <div key={idx} className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 50}ms` }}>
                                             {/* Section Header with dynamic gradient decoration */}

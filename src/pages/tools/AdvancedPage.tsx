@@ -4,12 +4,13 @@ import { updateServerSettings, optimizeMemory, setProcessPriority, toggleEcoMode
 import { 
   Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Leaf, Copy, 
   Flame, Shield, Check, Terminal, Sparkles, Filter, CheckCircle2, RotateCcw, 
-  Globe, Radio, Settings2
+  Globe, Radio, Settings2, FileText
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { MODDED_MAP_PRESETS, buildLaunchArgs } from '../../data/moddedMapRegistry';
 import LaunchArgsEditor from '../../components/ui/LaunchArgsEditor';
+import PlatformSelector from '../../components/config/PlatformSelector';
 
 interface FlagDefinition {
   flag: string;
@@ -73,28 +74,26 @@ export default function AdvancedPage() {
 
     const loadedServerIdRef = useRef<number | null>(null);
 
+    // Initialize selectedServerId on mount or location state without overriding manual dropdown switches
     useEffect(() => {
-        if (activeServer) {
-            setSelectedServerId(activeServer.id);
-        } else if (selectedServerId === null) {
+        if (selectedServerId === null) {
             if (location.state?.serverId) setSelectedServerId(location.state.serverId);
+            else if (activeServer) setSelectedServerId(activeServer.id);
             else if (servers.length > 0) setSelectedServerId(servers[0].id);
         }
     }, [activeServer, servers, selectedServerId, location.state]);
 
-    // Load custom args only when selected server ID changes or initial load happens
+    // Load custom args when selected server ID changes or initial server list loads
     useEffect(() => {
         if (!selectedServerId) return;
-        if (loadedServerIdRef.current !== selectedServerId) {
-            const server = servers.find(s => s.id === selectedServerId);
-            if (server) {
-                const args = server.config.custom_args || '';
-                setCustomArgs(args);
-                setOriginalArgs(args);
-                loadedServerIdRef.current = selectedServerId;
-            }
+        const server = servers.find(s => s.id === selectedServerId) || (activeServer?.id === selectedServerId ? activeServer : null);
+        if (server && loadedServerIdRef.current !== selectedServerId) {
+            const args = server.config?.custom_args || '';
+            setCustomArgs(args);
+            setOriginalArgs(args);
+            loadedServerIdRef.current = selectedServerId;
         }
-    }, [selectedServerId, servers]);
+    }, [selectedServerId, servers, activeServer]);
 
     const isDirty = useMemo(() => customArgs !== originalArgs, [customArgs, originalArgs]);
 
@@ -113,10 +112,11 @@ export default function AdvancedPage() {
             });
             await refreshServers();
             setOriginalArgs(customArgs);
+            loadedServerIdRef.current = selectedServerId;
             toast.success('Boot Launch Parameters saved successfully');
         } catch (err) {
-            console.error(err);
-            toast.error('Failed to save settings');
+            console.error('Failed to save boot launch parameters:', err);
+            toast.error(`Failed to save settings: ${err}`);
         } finally {
             setIsLoading(false);
         }
@@ -267,7 +267,15 @@ export default function AdvancedPage() {
                         <Radio className="w-4 h-4 text-red-400" />
                         <select
                             value={selectedServerId || ''}
-                            onChange={(e) => setSelectedServerId(Number(e.target.value))}
+                            onChange={(e) => {
+                                const newId = Number(e.target.value);
+                                setSelectedServerId(newId);
+                                const server = servers.find(s => s.id === newId);
+                                const args = server?.config?.custom_args || '';
+                                setCustomArgs(args);
+                                setOriginalArgs(args);
+                                loadedServerIdRef.current = newId;
+                            }}
                             className="bg-transparent text-sm text-white font-medium outline-none cursor-pointer pr-2"
                         >
                             {servers.length === 0 ? (
@@ -335,6 +343,13 @@ export default function AdvancedPage() {
                     )}
                 </div>
 
+                {/* Platform Selection Checklist */}
+                <PlatformSelector
+                    serverId={selectedServerId}
+                    customArgs={customArgs}
+                    onChange={setCustomArgs}
+                />
+
                 {/* 2. Raw Command Input & Real-Time Terminal Preview (MOVED TO TOP) */}
                 <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4">
                     <div className="flex items-center justify-between">
@@ -359,7 +374,7 @@ export default function AdvancedPage() {
                             value={customArgs}
                             onChange={setCustomArgs}
                             accentColor="red"
-                            placeholder="-NoBattlEye -ForceAllowCaveFlyers -structurememopts ..."
+                            placeholder="e.g. -NoBattlEye -ForceAllowCaveFlyers (toggle flags below to add)"
                         />
                     </div>
 
@@ -385,15 +400,30 @@ export default function AdvancedPage() {
                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                                 <span className="text-xs font-mono text-slate-400 ml-2">Boot Executable Command Line</span>
                             </div>
-                            <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(assembledCommandLine);
-                                    toast.success('Full command line copied to clipboard');
-                                }}
-                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
-                            >
-                                <Copy className="w-3.5 h-3.5" /> Copy Command
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(assembledCommandLine);
+                                        toast.success('Full command line copied to clipboard');
+                                    }}
+                                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
+                                >
+                                    <Copy className="w-3.5 h-3.5" /> Copy Command
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const server = servers.find(s => s.id === selectedServerId);
+                                        const pathStr = server ? (typeof server.installPath === 'string' ? server.installPath : String(server.installPath)) : 'C:/path/to/ShooterGame';
+                                        const win64Path = `${pathStr.replace(/\\/g, '/')}/ShooterGame/Binaries/Win64`;
+                                        const batContent = `@echo off\r\n:: Auto-generated launch script by ARK ASA Server Manager\r\ntitle ASA Server - ${server?.name || 'Server'}\r\ncd /d "${win64Path}"\r\n"ArkAscendedServer.exe" ${assembledCommandLine}\r\npause\r\n`;
+                                        navigator.clipboard.writeText(batContent);
+                                        toast.success('Copied start_server.bat script to clipboard! (Also auto-generated in server folder on boot)');
+                                    }}
+                                    className="px-2.5 py-1 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
+                                >
+                                    <FileText className="w-3.5 h-3.5 text-violet-400" /> Copy .bat Script
+                                </button>
+                            </div>
                         </div>
                         <pre className="text-xs font-mono text-emerald-400/90 whitespace-pre-wrap break-all leading-relaxed p-1">
                             {assembledCommandLine}

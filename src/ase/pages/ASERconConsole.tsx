@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Users,
   Ban,
+  Copy,
   XCircle,
   Layers,
   Search,
@@ -2414,9 +2415,29 @@ export default function ASERconConsole() {
                   <div key={idx} className="bg-slate-950 border border-white/5 p-3 rounded-xl flex flex-col gap-2.5">
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-white truncate" title={p.name}>{p.name}</div>
-                      <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate" title={p.steamId}>{p.steamId}</div>
+                      <div 
+                        onClick={() => {
+                          navigator.clipboard.writeText(p.steamId);
+                          toast.success('Player ID copied to clipboard');
+                        }}
+                        className="text-[10px] font-mono text-slate-500 hover:text-cyan-400 mt-0.5 truncate cursor-pointer flex items-center gap-1 group/id transition-colors"
+                        title="Click to copy Player ID"
+                      >
+                        <span className="truncate">{p.steamId}</span>
+                        <Copy className="w-3 h-3 opacity-0 group-hover/id:opacity-100 transition-opacity text-cyan-400 shrink-0" />
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5">
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(p.steamId);
+                          toast.success('Player ID copied to clipboard');
+                        }}
+                        className="flex-1 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-colors border border-cyan-500/15"
+                        title="Copy Player ID"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> Copy ID
+                      </button>
                       <button 
                         onClick={() => { setCommand(`kickplayer ${p.steamId}`); setTimeout(() => handleSend(`kickplayer ${p.steamId}`), 0); }}
                         className="flex-1 py-1.5 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1.5 transition-colors border border-orange-500/15"

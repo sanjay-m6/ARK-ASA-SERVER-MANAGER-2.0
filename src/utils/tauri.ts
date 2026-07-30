@@ -276,10 +276,55 @@ export interface UpdateServerSettingsParams {
 }
 
 export async function updateServerSettings(params: UpdateServerSettingsParams): Promise<void> {
-    await invoke('update_server_settings', { ...params });
+    const payload: Record<string, any> = {
+        server_id: params.serverId,
+        serverId: params.serverId,
+    };
+    if (params.maxPlayers !== undefined) {
+        payload.max_players = params.maxPlayers;
+        payload.maxPlayers = params.maxPlayers;
+    }
+    if (params.serverPassword !== undefined) {
+        payload.server_password = params.serverPassword;
+        payload.serverPassword = params.serverPassword;
+    }
+    if (params.adminPassword !== undefined) {
+        payload.admin_password = params.adminPassword;
+        payload.adminPassword = params.adminPassword;
+    }
+    if (params.mapName !== undefined) {
+        payload.map_name = params.mapName;
+        payload.mapName = params.mapName;
+    }
+    if (params.sessionName !== undefined) {
+        payload.session_name = params.sessionName;
+        payload.sessionName = params.sessionName;
+    }
+    if (params.gamePort !== undefined) {
+        payload.game_port = params.gamePort;
+        payload.gamePort = params.gamePort;
+    }
+    if (params.queryPort !== undefined) {
+        payload.query_port = params.queryPort;
+        payload.queryPort = params.queryPort;
+    }
+    if (params.rconPort !== undefined) {
+        payload.rcon_port = params.rconPort;
+        payload.rconPort = params.rconPort;
+    }
+    if (params.ipAddress !== undefined) {
+        payload.ip_address = params.ipAddress;
+        payload.ipAddress = params.ipAddress;
+    }
+    if (params.customArgs !== undefined) {
+        payload.custom_args = params.customArgs;
+        payload.customArgs = params.customArgs;
+    }
+
+    await invoke('update_server_settings', payload);
     // Proactively trigger firewall rule creation for updated ports
     try {
-        await invoke('create_firewall_rules', { serverId: params.serverId });
+        await invoke('create_firewall_rules', { serverId: params.serverId, server_id: params.serverId });
     } catch (e) {
         console.warn('Firewall auto-sync warning:', e);
     }
@@ -690,6 +735,7 @@ export interface ClusterCrossChatConfig {
     port: number;
     fetchInterval: number;
     debug: boolean;
+    hideWorldSaveNotifs?: boolean;
     serverAliases?: Record<string, string>;
     isPluginInstalled?: boolean;
     isLaccInstalled?: boolean;

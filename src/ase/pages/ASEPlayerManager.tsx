@@ -805,8 +805,29 @@ export default function ASEPlayerManager() {
                         return (
                           <tr key={player.steamId} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                             <td className="py-3 font-medium text-slate-200">{player.name}</td>
-                            <td className="py-3 font-mono text-slate-400">{player.steamId}</td>
+                            <td 
+                              onClick={() => {
+                                navigator.clipboard.writeText(player.steamId);
+                                toast.success('SteamID copied to clipboard');
+                              }}
+                              className="py-3 font-mono text-slate-400 hover:text-cyan-400 cursor-pointer transition-colors inline-flex items-center gap-1.5 group/id"
+                              title="Click to copy SteamID"
+                            >
+                              <span>{player.steamId}</span>
+                              <Copy className="w-3 h-3 opacity-0 group-hover/id:opacity-100 transition-opacity text-cyan-400" />
+                            </td>
                             <td className="py-3 text-right space-x-1.5">
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(player.steamId);
+                                  toast.success('SteamID copied to clipboard');
+                                }}
+                                className="px-2 py-1 rounded text-[10px] font-bold transition-all border bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 text-cyan-400 border-cyan-500/20 inline-flex items-center gap-1"
+                                title="Copy SteamID to clipboard"
+                              >
+                                <Copy className="w-3 h-3" />
+                                Copy ID
+                              </button>
                               <button
                                 disabled={isPlayerAdmin}
                                 onClick={() => handleMovePlayer('whitelist', 'admins', pObj)}

@@ -163,7 +163,8 @@ export default function Backups() {
             fetchBackups();
         } catch (error) {
             console.error('Failed to restore backup:', error);
-            toast.error(t('backups.restoreFailed'));
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || String(error);
+            toast.error(t('backups.restoreFailed', { error: errStr, defaultValue: `Failed to restore backup: ${errStr}` }));
         } finally {
             setIsConfirmLoading(false);
             setIsConfirmOpen(false);
@@ -179,7 +180,8 @@ export default function Backups() {
             fetchBackups();
         } catch (error) {
             console.error('Failed to delete backup:', error);
-            toast.error(t('backups.deleteFailed'));
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || String(error);
+            toast.error(t('backups.deleteFailed', { error: errStr, defaultValue: `Failed to delete backup: ${errStr}` }));
         } finally {
             setIsConfirmLoading(false);
             setIsConfirmOpen(false);

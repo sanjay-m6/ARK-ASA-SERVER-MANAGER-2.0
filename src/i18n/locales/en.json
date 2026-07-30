@@ -1899,6 +1899,8 @@
     "connectToView": "Connect to view players",
     "welcomeMsg": "Connected. Type a command and press Enter...",
     "connectMsg": "Connect to a server to start sending RCON commands...",
+    "idCopied": "Player ID copied to clipboard",
+    "copyPlayerId": "Copy Player ID",
     "quickCommands": {
       "title": "Quick Commands",
       "saveWorld": "Save World",
@@ -1906,6 +1908,7 @@
       "broadcast": "Broadcast",
       "kickPlayer": "Kick Player",
       "banPlayer": "Ban Player",
+      "copyPlayerId": "Copy Player ID",
       "destroyWild": "Destroy Wild Dinos",
       "dayTime": "Day Time",
       "nightTime": "Night Time",

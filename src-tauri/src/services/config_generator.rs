@@ -1367,11 +1367,14 @@ pub fn get_mod_id_for_map(map: &str) -> Option<&'static str> {
     match map.trim() {
         // Astraeos is an official expansion DLC map; do not auto-inject CurseForge mod ID 988598.
         "Svartalfheim_WP" | "Svartalfheim" | "SVARTALFHEIM" => Some("927083"),
-        "Forglar_WP" | "Forglar" => Some("952876"),
-        "Amissa_WP" | "Amissa" => Some("927598"),
-        "Insaluna_WP" | "Insaluna" => Some("935639"),
-        "TemptressLagoon_WP" | "TemptressLagoon" => Some("935048"),
-        "Reverence_WP" | "Reverence" => Some("932906"),
+        "Forglar_WP" | "Forglar" | "FORGLAR" => Some("952876"),
+        "Amissa_WP" | "Amissa" | "AMISSA" => Some("965379"),
+        "Insaluna_WP" | "Insaluna" | "INSALUNA" => Some("935639"),
+        "TemptressLagoon_WP" | "TemptressLagoon" | "Temptress_Lagoon" => Some("935048"),
+        "Reverence_WP" | "Reverence" | "REVERENCE" => Some("932906"),
+        "ScorchedEarthRM_WP" | "ScorchedEarthRM" | "ScorchedEarthReborn" => Some("1465909"),
+        "TheIslandReforged" | "IslandReforged" => Some("1460513"),
+        "ClubARK_WP" | "ClubARK" | "ClubArk" => Some("949666"),
         _ => None,
     }
 }

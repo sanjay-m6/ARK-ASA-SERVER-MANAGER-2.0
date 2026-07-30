@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Database, Loader2, Sparkles, Check, Copy, Wifi, Layers, MessageSquare, Terminal, Wand2, CheckCircle2, ChevronDown, ChevronUp, BookOpen, Tag } from 'lucide-react';
+import { X, Database, Loader2, Sparkles, Check, Copy, Wifi, Layers, MessageSquare, Terminal, Wand2, CheckCircle2, ChevronDown, ChevronUp, BookOpen, Tag, BellOff } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { Cluster } from '../../types';
 import {
@@ -604,6 +604,34 @@ export default function CrossChatConfigDialog({
                             </div>
                         </div>
                     )}
+
+                    {/* World Save Notifications Filter Toggle */}
+                    <div className="bg-slate-950/60 rounded-xl border border-white/10 p-5 flex items-center justify-between gap-4">
+                        <div className="space-y-0.5">
+                            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                                <BellOff className="w-4 h-4 text-amber-400" />
+                                Disable World Save Notifications in Cross-Chat
+                            </h4>
+                            <p className="text-xs text-slate-400">
+                                Automatically suppress <code className="text-amber-300 font-mono">[MapName] World Save Complete</code> messages from being broadcast into in-game cross-chat during map saves.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setConfig({ ...config, hideWorldSaveNotifs: !(config.hideWorldSaveNotifs ?? true) })}
+                            className={cn(
+                                "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
+                                (config.hideWorldSaveNotifs ?? true) ? "bg-amber-600" : "bg-slate-800"
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    "pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                                    (config.hideWorldSaveNotifs ?? true) ? "translate-x-5" : "translate-x-0"
+                                )}
+                            />
+                        </button>
+                    </div>
 
                     {/* Map & Server Cross-Chat Display Names */}
                     <div className="bg-slate-950/60 rounded-xl border border-white/10 p-5 space-y-4">

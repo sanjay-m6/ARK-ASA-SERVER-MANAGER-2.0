@@ -1023,11 +1023,29 @@ impl ProcessManager {
             None => Vec::new(),
         };
 
-        // AUTO FIX: If launching a modded map (like Forglar_WP, Svartalfheim_WP, etc.),
-        // automatically inject the map's CurseForge Mod ID so the server engine loads the map files!
-        if let Some(map_mod_id) = crate::services::config_generator::get_mod_id_for_map(&effective_map) {
-            if !valid_mods.contains(&map_mod_id.to_string()) {
-                valid_mods.insert(0, map_mod_id.to_string());
+        // DYNAMIC MAP MOD DETECTION & AUTO-INJECTION
+        // Detect map mod ID from: 1) preset lookup, 2) custom_args (-MapModID=xxxx)
+        let mut detected_map_mod: Option<String> = crate::services::config_generator::get_mod_id_for_map(&effective_map)
+            .map(|s| s.to_string());
+
+        if detected_map_mod.is_none() {
+            if let Some(custom) = custom_args {
+                for part in custom.split_whitespace() {
+                    if part.to_lowercase().starts_with("-mapmodid=") {
+                        let id = part.split_once('=').map(|(_, v)| v.trim()).unwrap_or("");
+                        if !id.is_empty() && id != "0" && id.chars().all(|c| c.is_ascii_digit()) {
+                            detected_map_mod = Some(id.to_string());
+                            println!("  🔍 Detected custom map mod ID from launch args: {}", id);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(ref map_mod_id) = detected_map_mod {
+            if !valid_mods.contains(map_mod_id) {
+                valid_mods.insert(0, map_mod_id.clone());
                 println!("  ✨ Auto-injected required map mod ID {} for map {}", map_mod_id, effective_map);
             }
         } else if effective_map == "Astraeos_WP" || effective_map == "Astraeos" {
@@ -1163,7 +1181,7 @@ impl ProcessManager {
         let has_crossplay = args.iter().any(|arg| arg.to_lowercase() == "-crossplay");
         let has_pc_only = args.iter().any(|arg| {
             let lower = arg.to_lowercase();
-            lower == "-useserverpconly" || lower == "-pconly" || lower == "-nocrossplay"
+            lower == "-useserverpconly" || lower == "-pconly" || lower == "-nocrossplay" || lower.starts_with("-serverplatform=")
         });
 
         if !has_crossplay && !has_pc_only {
@@ -1172,8 +1190,24 @@ impl ProcessManager {
         }
 
         println!("  🚀 Executing Command: {:?} {:?}", executable, args);
-
         println!("  📂 Setting Working Directory: {:?}", win64_dir);
+
+        // Auto-generate start_server.bat file for easy manual execution and inspection
+        let bat_content = format!(
+            "@echo off\r\n\
+             :: Auto-generated launch script by ARK ASA Server Manager\r\n\
+             title ASA Server - {}\r\n\
+             cd /d \"{}\"\r\n\
+             \"{}\" {}\r\n\
+             pause\r\n",
+            session_name,
+            win64_dir.display(),
+            executable.display(),
+            args.join(" ")
+        );
+        let _ = std::fs::write(win64_dir.join("start_server.bat"), &bat_content);
+        let _ = std::fs::write(install_path.join("start_server.bat"), &bat_content);
+        println!("  📝 Auto-generated launch batch script at: {:?}", install_path.join("start_server.bat"));
 
         let mut command = Command::new(&executable);
         command

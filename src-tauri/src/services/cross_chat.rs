@@ -356,7 +356,7 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
         cleaned = cleaned[7..].trim();
     }
 
-    // 4. Filter out system messages, commands, and noise
+    // 4. Filter out system messages, commands, noise, and world save notifications
     let lower = cleaned.to_lowercase();
     if lower.starts_with("command:")
         || lower.starts_with("rcon:")
@@ -367,6 +367,11 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
         || lower.starts_with("shootergame:")
         || lower.starts_with("server :")
         || lower.starts_with("setmessage")
+        || lower.contains("world save complete")
+        || lower.contains("server save loaded")
+        || lower.contains("world save took")
+        || lower.contains("save complete")
+        || lower.contains("world save")
     {
         return None;
     }

@@ -12,6 +12,7 @@ import {
     Megaphone,
     UserX,
     Ban,
+    Copy,
     Clock,
     RefreshCw,
     HelpCircle,
@@ -2337,7 +2338,17 @@ export default function RconConsole() {
                                                             ) : resolvedPlayerIds[giveSelectedPlayerId] ? (
                                                                 <span className="text-emerald-400 font-medium flex items-center gap-1">
                                                                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                                                    Resolved UE4 Player ID: <code className="bg-emerald-950/40 px-1 py-0.5 rounded font-mono text-emerald-300 text-[10px]">{resolvedPlayerIds[giveSelectedPlayerId]}</code>
+                                                                    Resolved UE4 Player ID: <code 
+                                                                        onClick={() => {
+                                                                            navigator.clipboard.writeText(resolvedPlayerIds[giveSelectedPlayerId]);
+                                                                            toast.success(t('rcon.idCopied', 'Player ID copied to clipboard'));
+                                                                        }}
+                                                                        className="bg-emerald-950/40 hover:bg-emerald-900/60 px-1.5 py-0.5 rounded font-mono text-emerald-300 text-[10px] cursor-pointer inline-flex items-center gap-1 transition-colors"
+                                                                        title={t('rcon.copyPlayerId', 'Click to copy Player ID')}
+                                                                    >
+                                                                        {resolvedPlayerIds[giveSelectedPlayerId]}
+                                                                        <Copy className="w-2.5 h-2.5 opacity-70" />
+                                                                    </code>
                                                                 </span>
                                                             ) : (
                                                                 <span className="text-rose-400 font-medium flex items-center gap-1 leading-normal">
@@ -2674,11 +2685,31 @@ export default function RconConsole() {
                                     className="bg-slate-950 border border-slate-850/80 hover:border-slate-800 rounded-xl p-3.5 transition-colors duration-250"
                                 >
                                     <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
+                                        <div className="min-w-0 flex-1">
                                             <p className="text-xs font-semibold text-white truncate">{player.name}</p>
-                                            <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">{player.steamId}</p>
+                                            <div
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(player.steamId);
+                                                    toast.success(t('rcon.idCopied', 'Player ID copied to clipboard'));
+                                                }}
+                                                className="text-[10px] text-slate-500 hover:text-cyan-400 font-mono mt-0.5 truncate cursor-pointer flex items-center gap-1.5 group/id transition-colors"
+                                                title={t('rcon.copyPlayerId', 'Click to copy Player ID')}
+                                            >
+                                                <span className="truncate">{player.steamId}</span>
+                                                <Copy className="w-3 h-3 opacity-0 group-hover/id:opacity-100 transition-opacity text-cyan-400 shrink-0" />
+                                            </div>
                                         </div>
                                         <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(player.steamId);
+                                                    toast.success(t('rcon.idCopied', 'Player ID copied to clipboard'));
+                                                }}
+                                                className="p-1.5 bg-cyan-950/20 border border-cyan-900/20 hover:bg-cyan-900/20 text-cyan-400 rounded-lg transition-colors"
+                                                title={t('rcon.quickCommands.copyPlayerId', 'Copy Player ID')}
+                                            >
+                                                <Copy className="w-4 h-4" />
+                                            </button>
                                             <button
                                                 onClick={() => kickPlayer(player.steamId)}
                                                 className="p-1.5 bg-amber-950/20 border border-amber-900/20 hover:bg-amber-900/20 text-amber-400 rounded-lg transition-colors"

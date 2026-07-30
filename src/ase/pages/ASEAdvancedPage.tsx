@@ -71,28 +71,26 @@ export default function ASEAdvancedPage() {
 
     const loadedServerIdRef = useRef<number | null>(null);
 
+    // Initialize selectedServerId on mount or location state without overriding manual dropdown switches
     useEffect(() => {
-        if (activeServer) {
-            setSelectedServerId(activeServer.id);
-        } else if (selectedServerId === null) {
+        if (selectedServerId === null) {
             if (location.state?.serverId) setSelectedServerId(location.state.serverId);
+            else if (activeServer) setSelectedServerId(activeServer.id);
             else if (servers.length > 0) setSelectedServerId(servers[0].id);
         }
     }, [activeServer, servers, selectedServerId, location.state]);
 
-    // Load custom args only when selected server ID changes or initial load happens
+    // Load custom args when selected server ID changes or initial server list loads
     useEffect(() => {
         if (!selectedServerId) return;
-        if (loadedServerIdRef.current !== selectedServerId) {
-            const server = servers.find(s => s.id === selectedServerId);
-            if (server) {
-                const args = server.extraArgs || '';
-                setCustomArgs(args);
-                setOriginalArgs(args);
-                loadedServerIdRef.current = selectedServerId;
-            }
+        const server = servers.find(s => s.id === selectedServerId) || (activeServer?.id === selectedServerId ? activeServer : null);
+        if (server && loadedServerIdRef.current !== selectedServerId) {
+            const args = server.extraArgs || '';
+            setCustomArgs(args);
+            setOriginalArgs(args);
+            loadedServerIdRef.current = selectedServerId;
         }
-    }, [selectedServerId, servers]);
+    }, [selectedServerId, servers, activeServer]);
 
     const isDirty = useMemo(() => customArgs !== originalArgs, [customArgs, originalArgs]);
 
@@ -110,6 +108,7 @@ export default function ASEAdvancedPage() {
             });
             await refreshServers();
             setOriginalArgs(customArgs);
+            loadedServerIdRef.current = selectedServerId;
             toast.success('ASE Boot Launch Parameters saved');
         } catch (err) {
             console.error(err);

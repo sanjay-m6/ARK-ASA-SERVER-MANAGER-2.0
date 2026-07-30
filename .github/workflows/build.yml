@@ -88,28 +88,28 @@ jobs:
             - **Windows**: Download the `.exe` installer below.
             - **Linux**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
 
-            ### 🆕 New Features in v4.6.10
-            - **🐧 Native Cross-Platform Linux Support**:
-              - Complete platform abstraction architecture (`src-tauri/src/platform/`) supporting Windows and Linux natively.
-              - Linux SteamCMD installer (`steamcmd_linux.tar.gz`) with automatic `chmod +x` executable permission management.
-              - Linux firewall integration with automatic UFW and Firewalld status detection.
-              - OS-aware default directory paths (`~/ASA_Backups` and `~/ASA_Clusters` on Linux, `C:\...` on Windows).
-              - Created `LINUX_SETUP.md` documentation guide for Linux installation, 32-bit `lib32gcc-s1` dependencies, and limits setup.
-            - **⚡ Multi-Platform CI/CD Build Matrix**:
-              - Configured GitHub Actions build pipeline (`ubuntu-24.04` and `windows-2025`) to automatically compile and release Windows `.exe` installers alongside Linux `.AppImage` and `.deb` packages.
-            - **🏷️ Cluster Cross-Chat Map & Server Display Names**:
-              - Added custom map alias settings in Cluster Cross-Chat configuration, allowing short map names (e.g. `[Island]`, `[Ragnarok]`) to render cleanly in cross-server chat instead of full server titles.
-              - Added interactive map display name tag editor in `CrossChatConfigDialog`.
+            ### 🆕 New Features in v4.6.11
+            - **📋 Copy Player ID Quick Action**:
+              - Added quick click-to-copy Player ID / SteamID / EOS ID buttons and interactive copy feedback to ASA and ASE RCON Consoles and Player Manager.
+              - Added target survivor dropdown quick-copy support in RCON Console.
+            - **🔕 Disable World Save Chat Notifications Option**:
+              - Added automated log & chat pattern filtering for `[MapName] World Save Complete`, `Server Save Loaded`, and `World Save Took` system messages.
+              - Added a **Disable World Save Notifications in Cross-Chat** toggle switch in Cluster Cross-Chat settings (`CrossChatConfigDialog`).
 
-            ### 🐛 Bug Fixes in v4.6.10
-            - **🔧 RCON Local Loopback Fallback Fix**:
-              - Resolved `Connection Refused (os error 10061)` by adding automatic `127.0.0.1` local loopback fallback to RCON connection attempts when servers are hosted locally with a public IP address.
-            - **🔧 Scheduled Maintenance Warning Countdown Fix**:
-              - Restored in-game `ServerChat` and `Broadcast` warning notifications at 30, 15, 10, 5, and 1 minute intervals prior to scheduled server restarts.
-            - **🔧 Cross-Chat `[ANNOUNCEMENT]` Prefix Banner Removal**:
-              - Switched cross-chat message relaying from `broadcast()` to `server_chat()`, removing the duplicate `[ANNOUNCEMENT]` banner on player messages.
+            ### 🐛 Bug Fixes in v4.6.11
+            - **🔧 Boot Launch Parameters Parameter Deserialization & Persistence**:
+              - Fixed Tauri IPC payload deserialization bug where optional parameter fields passed with `undefined` values caused backend `update_server_settings` invocation failures.
+              - Fixed store re-hydration race condition in `AdvancedPage.tsx` and `ASEAdvancedPage.tsx` where background store refreshes wiped out unsaved user launch argument toggles.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.10 — Native Linux Support, Cross-Chat Map Aliases & RCON Loopback Fixes</summary>
+
+            - **🐧 Native Cross-Platform Linux Support**: Complete platform abstraction architecture (`src-tauri/src/platform/`) supporting Windows and Linux natively.
+            - **🏷️ Cluster Cross-Chat Map & Server Display Names**: Custom map alias settings in Cluster Cross-Chat configuration (`CrossChatConfigDialog`).
+            - **🔧 RCON Local Loopback Fallback Fix**: Resolved `Connection Refused (os error 10061)` with automatic `127.0.0.1` local loopback fallback.
+            - **🔧 Scheduled Maintenance Warning Countdown Fix**: In-game warning notifications at 30, 15, 10, 5, and 1 minute intervals.
+            </details>
             <details>
             <summary>v4.6.9 — Launch Tags, PC-Only Enforcement & Backup Loop Fixes</summary>
 

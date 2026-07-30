@@ -151,7 +151,7 @@ export const useServerStore = create<ServerStore>((set, get) => ({
                 });
 
                 // Auto-restore or maintain activeServer reference
-                let newActive = state.activeServer;
+                let newActive = state.activeServer ? merged.find(s => s.id === state.activeServer!.id) || state.activeServer : null;
                 if (savedActiveId !== null) {
                     const found = merged.find(s => s.id === savedActiveId);
                     if (found) newActive = found;

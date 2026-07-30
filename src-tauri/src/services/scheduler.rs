@@ -1735,6 +1735,13 @@ impl SchedulerService {
         };
 
         for (server_id, interval_hours) in policies {
+            // Reconcile retention policy for this server (prunes expired, excess > max_count, and over-quota backups)
+            if let Ok(db) = state.db.lock() {
+                if let Ok(conn) = db.get_connection() {
+                    let _ = crate::commands::backup::enforce_retention_policy_conn(&conn, server_id);
+                }
+            }
+
             // STRICT CHECK: Skip auto-backup if server is offline
             let is_running = state.process_manager.is_running(server_id);
             let db_status = {
@@ -1755,27 +1762,32 @@ impl SchedulerService {
                 continue;
             }
 
+            // Skip if a backup for this server is already in progress
+            if crate::commands::backup::BackupLockGuard::is_in_progress(server_id) {
+                log::debug!("⏳ Backup lock active for server {}. Skipping scheduler tick.", server_id);
+                continue;
+            }
+
             let effective_interval_mins = (interval_hours.max(1) as i64) * 60;
 
-            // Check when the last backup of any type was created for this server
-            let last_backup_time: Option<DateTime<Utc>> = {
+            // Check when the last SCHEDULED ('auto') backup was created for this server
+            let last_scheduled_backup_time: Option<DateTime<Utc>> = {
                 if let Ok(db) = state.db.lock() {
                     if let Ok(conn) = db.get_connection() {
                         conn.query_row(
-                            "SELECT created_at FROM backups WHERE server_id = ?1 ORDER BY id DESC LIMIT 1",
+                            "SELECT created_at FROM backups WHERE server_id = ?1 AND backup_type = 'auto' ORDER BY created_at DESC, id DESC LIMIT 1",
                             [server_id],
                             |row| row.get::<_, String>(0),
-                        ).ok().and_then(|s| parse_db_datetime(&s))
+                        ).ok().and_then(|s| crate::commands::backup::parse_any_datetime(&s))
                     } else { None }
                 } else { None }
             };
 
             let now_utc = Utc::now();
-            let should_backup = match last_backup_time {
+            let should_backup = match last_scheduled_backup_time {
                 Some(last_time) => {
                     let elapsed_mins = (now_utc - last_time).num_minutes();
-                    // Extra safety guard: never run auto backup if less than 50 minutes have passed
-                    elapsed_mins >= effective_interval_mins && elapsed_mins >= 50
+                    elapsed_mins >= effective_interval_mins
                 }
                 None => true,
             };
@@ -1966,6 +1978,7 @@ pub fn parse_time_str(time_str: &str) -> Option<[u32; 2]> {
     }
 }
 
+#[allow(dead_code)]
 pub fn parse_db_datetime(s: &str) -> Option<DateTime<Utc>> {
     let s = s.trim();
     if let Ok(dt) = DateTime::parse_from_rfc3339(s) {
