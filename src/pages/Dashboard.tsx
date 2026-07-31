@@ -5,7 +5,7 @@ import {
   Server, Activity, Zap, Copy, Puzzle,
   Play, Square, RotateCw, FileEdit, Edit2, Check, X,
   Folder, FolderOpen, Heart, Bookmark, Search, ExternalLink,
-  GitBranch, AlertTriangle, RefreshCw, ShieldCheck, Cpu, Radio, Sparkles
+  GitBranch, AlertTriangle, RefreshCw, ShieldCheck, Cpu, Radio, Sparkles, Timer
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -19,10 +19,11 @@ import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, c
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../components/performance/PerformanceMonitor';
-// import { useRconStore } from '../stores/rconStore';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import SponsorBanner from '../components/ui/SponsorBanner';
 import ServerOrganizationBar from '../components/server/ServerOrganizationBar';
+import { TimedShutdownModal } from '../components/server/TimedShutdownModal';
+import { ServerTimedShutdownBanner } from '../components/server/ServerTimedShutdownBanner';
 import { Server as ServerType } from '../types';
 
 // Animation Variants
@@ -306,6 +307,7 @@ export default function Dashboard() {
 
   // Clone Modal state
   const [cloneModalServer, setCloneModalServer] = useState<ServerType | null>(null);
+  const [timedShutdownServer, setTimedShutdownServer] = useState<ServerType | null>(null);
 
   const openCloneModal = (server: ServerType) => {
     setCloneModalServer(server);
@@ -847,12 +849,12 @@ export default function Dashboard() {
                   return (
                     <div
                       key={server.id}
-                      className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] hover:border-violet-500/20 hover:scale-[1.01] hover:shadow-[0_0_15px_rgba(139,92,246,0.05)] transition-all duration-300 group gap-4 lg:gap-0 relative overflow-hidden"
+                      className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] hover:border-violet-500/20 hover:scale-[1.01] hover:shadow-[0_0_15px_rgba(139,92,246,0.05)] transition-all duration-300 group gap-4 lg:gap-0 relative hover:z-50 z-10"
                     >
                       {/* Custom Brand line indicator */}
                       {hasColor && (
                         <div
-                          className="absolute left-0 top-0 bottom-0 w-1"
+                          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
                           style={{ backgroundColor: cust.color_tag }}
                         />
                       )}
@@ -989,6 +991,7 @@ export default function Dashboard() {
                               </span>
                             ))}
                           </div>
+                          <ServerTimedShutdownBanner serverId={server.id} className="mt-2" />
                         </div>
                       </div>
 
@@ -1004,14 +1007,40 @@ export default function Dashboard() {
                             <Play className="w-4 h-4 fill-current ml-0.5" />
                           </button>
                         ) : (server.status === 'running' || server.status === 'online') && !stoppingServers.includes(server.id) ? (
-                          <button
-                            onClick={() => handleStopServer(server.id)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
-                            title="Stop Server"
-                            aria-label={`Stop Server ${displayName}`}
-                          >
-                            <Square className="w-4 h-4 fill-current" />
-                          </button>
+                          <div className="relative group/stop" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => setTimedShutdownServer(server)}
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95"
+                              title="Stop / Shutdown Options"
+                              aria-label={`Stop Server ${displayName}`}
+                            >
+                              <Square className="w-4 h-4 fill-current" />
+                            </button>
+
+                            {/* Stop Options Dropdown */}
+                            <div className="absolute bottom-full right-0 mb-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-bottom-right scale-95 group-hover/stop:scale-100">
+                              <button
+                                onClick={() => setTimedShutdownServer(server)}
+                                className="w-full text-left px-3 py-2.5 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 text-xs font-bold"
+                              >
+                                <Timer className="w-4 h-4 text-amber-400 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span>Timed Shutdown</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Countdown with broadcasts</span>
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => handleStopServer(server.id)}
+                                className="w-full text-left px-3 py-2.5 hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs font-bold"
+                              >
+                                <Square className="w-4 h-4 fill-current text-rose-400 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span>Immediate Stop</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Halt process right away</span>
+                                </div>
+                              </button>
+                            </div>
+                          </div>
                         ) : (
                           <button
                             disabled
@@ -1305,6 +1334,17 @@ export default function Dashboard() {
           onCloneServer={handleCloneServer}
           onTransferSettings={handleTransferSettings}
           onExtractData={handleExtractData}
+        />
+      )}
+
+      {timedShutdownServer && (
+        <TimedShutdownModal
+          isOpen={!!timedShutdownServer}
+          onClose={() => setTimedShutdownServer(null)}
+          serverId={timedShutdownServer.id}
+          serverName={timedShutdownServer.name}
+          serverType="ASA"
+          onImmediateStop={() => handleStopServer(timedShutdownServer.id)}
         />
       )}
     </motion.div>

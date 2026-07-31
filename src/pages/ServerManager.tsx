@@ -4,7 +4,7 @@ import {
     Plus, Play, Square, RotateCw, Trash2, Download, Settings, Terminal, Globe, Shield,
     ChevronDown, ChevronUp, Copy, AppWindow, RefreshCw, ExternalLink,
     Check, XCircle, GripVertical, Network, FolderOpen, Users, PenLine, Cpu, HelpCircle,
-    Loader2, AlertTriangle, GitBranch, FileText, Edit2, LayoutGrid, LayoutList, Sparkles
+    Loader2, AlertTriangle, GitBranch, FileText, Edit2, LayoutGrid, LayoutList, Sparkles, Timer
 } from 'lucide-react';
 import { useServerStore } from '../stores/serverStore';
 import { useInstallStore, normalizePath } from '../stores/installStore';
@@ -15,6 +15,8 @@ import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import MoveServerDialog from '../components/server/MoveServerDialog';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import PortConflictModal from '../components/server/PortConflictModal';
+import { TimedShutdownModal } from '../components/server/TimedShutdownModal';
+import { ServerTimedShutdownBanner } from '../components/server/ServerTimedShutdownBanner';
 import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -69,6 +71,7 @@ export default function ServerManager() {
     const [deleteConfirmServer, setDeleteConfirmServer] = useState<Server | null>(null);
     const [deleteSaveInfo, setDeleteSaveInfo] = useState<ServerSaveInfo | null>(null);
     const [forceStopServerId, setForceStopServerId] = useState<number | null>(null);
+    const [timedShutdownServer, setTimedShutdownServer] = useState<Server | null>(null);
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showNonDedicatedImport, setShowNonDedicatedImport] = useState(false);
     const [updateOnStart, setUpdateOnStart] = useState(false);
@@ -1026,7 +1029,7 @@ export default function ServerManager() {
                 zIndex: snapshot.isDragging ? 100 : (orderedServers.length - index) * 10
             }}
             className={cn(
-                "bg-slate-900/60 backdrop-blur-xl border rounded-2xl p-6 shadow-xl relative group flex flex-col transition-all duration-300 cursor-pointer hover:z-30",
+                "bg-slate-900/60 backdrop-blur-xl border rounded-2xl p-6 shadow-xl relative group flex flex-col transition-all duration-300 cursor-pointer hover:z-50 z-10",
                 snapshot.isDragging 
                     ? "shadow-2xl shadow-sky-500/20 ring-2 ring-sky-500/50 cursor-grabbing scale-[1.02] z-[100]" 
                     : "hover:border-sky-500/50 hover:shadow-[0_12px_35px_rgba(14,165,233,0.18)]",
@@ -1290,17 +1293,41 @@ export default function ServerManager() {
                         </div>
                     </div>
                 ) : (server.status === 'running' || server.status === 'online') ? (
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleStopServer(server.id);
-                        }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-red-500/10"
-                        title="Stop Server"
-                    >
-                        <Square className="w-3.5 h-3.5 fill-current" />
-                        <span>Stop</span>
-                    </button>
+                    <div className="relative group/stop" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            onClick={() => setTimedShutdownServer(server)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-red-500/10"
+                            title="Stop / Shutdown Options"
+                        >
+                            <Square className="w-3.5 h-3.5 fill-current" />
+                            <span>Stop</span>
+                            <ChevronDown className="w-3 h-3 text-red-400/70" />
+                        </button>
+
+                        {/* Stop Options Dropdown */}
+                        <div className="absolute bottom-full right-0 mb-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-bottom-right scale-95 group-hover/stop:scale-100">
+                            <button
+                                onClick={() => setTimedShutdownServer(server)}
+                                className="w-full text-left px-3 py-2.5 text-xs hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 font-medium"
+                            >
+                                <Timer className="w-4 h-4 text-amber-400 shrink-0" />
+                                <div className="flex flex-col">
+                                    <span className="font-bold">Timed Shutdown</span>
+                                    <span className="text-[10px] text-slate-400 font-normal">Countdown with broadcasts</span>
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => handleStopServer(server.id)}
+                                className="w-full text-left px-3 py-2.5 text-xs hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2 border-t border-slate-800 font-medium"
+                            >
+                                <Square className="w-4 h-4 fill-current text-red-400 shrink-0" />
+                                <div className="flex flex-col">
+                                    <span className="font-bold">Immediate Stop</span>
+                                    <span className="text-[10px] text-slate-400 font-normal">Halt process right away</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
                 ) : (
                     <span className="text-xs text-yellow-400 font-bold flex items-center gap-1">
                         <RefreshCw className="w-3 h-3 animate-spin" /> Busy
@@ -1469,6 +1496,9 @@ export default function ServerManager() {
                     </div>
                 </div>
             </div>
+
+            {/* Timed Shutdown Banner - always visible */}
+            <ServerTimedShutdownBanner serverId={server.id} className="mt-3" />
 
             {/* Collapsible Details Section */}
             <AnimatePresence initial={false}>
@@ -2386,13 +2416,39 @@ export default function ServerManager() {
                                                                      </div>
                                                                  </div>
                                                              ) : (server.status === 'running' || server.status === 'online') ? (
-                                                                 <button
-                                                                     onClick={() => handleStopServer(server.id)}
-                                                                     className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-full transition-all flex items-center justify-center"
-                                                                     title={t('serverManager.tooltips.stop')}
-                                                                 >
-                                                                     <Square className="w-5 h-5 fill-current" />
-                                                                 </button>
+                                                                 <div className="relative group/stop" onClick={(e) => e.stopPropagation()}>
+                                                                     <button
+                                                                         onClick={() => setTimedShutdownServer(server)}
+                                                                         className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-full transition-all flex items-center justify-center"
+                                                                         title="Stop / Shutdown Options"
+                                                                     >
+                                                                         <Square className="w-5 h-5 fill-current" />
+                                                                     </button>
+
+                                                                     {/* Stop Options Dropdown */}
+                                                                     <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/stop:scale-100">
+                                                                         <button
+                                                                             onClick={() => setTimedShutdownServer(server)}
+                                                                             className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2.5 text-xs font-bold"
+                                                                         >
+                                                                             <Timer className="w-4 h-4 text-amber-400 shrink-0" />
+                                                                             <div className="flex flex-col">
+                                                                                 <span className="font-bold">Timed Shutdown</span>
+                                                                                 <span className="text-[10px] text-slate-400 font-normal">Countdown with broadcasts</span>
+                                                                             </div>
+                                                                         </button>
+                                                                         <button
+                                                                             onClick={() => handleStopServer(server.id)}
+                                                                             className="w-full text-left px-4 py-3 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2.5 border-t border-slate-800 text-xs font-bold"
+                                                                         >
+                                                                             <Square className="w-4 h-4 fill-current text-red-400 shrink-0" />
+                                                                             <div className="flex flex-col">
+                                                                                 <span className="font-bold">Immediate Stop</span>
+                                                                                 <span className="text-[10px] text-slate-400 font-normal">Halt process right away</span>
+                                                                             </div>
+                                                                         </button>
+                                                                     </div>
+                                                                 </div>
                                                              ) : null}
 
                                                              <div className="relative group/dropdown">
@@ -2572,6 +2628,9 @@ export default function ServerManager() {
                             <div className="absolute right-6 top-6 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {collapsedServers[server.id] ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                             </div>
+
+                            {/* Timed Shutdown Banner - always visible in expanded view */}
+                            <ServerTimedShutdownBanner serverId={server.id} className="mt-4 mx-6" />
 
                             {/* Collapsible Section */}
                             <AnimatePresence initial={false}>
@@ -3097,6 +3156,17 @@ export default function ServerManager() {
                 serverCount={selectedServers.length}
                 serverName={moveServerTarget?.name}
             />
+
+            {timedShutdownServer && (
+                <TimedShutdownModal
+                    isOpen={!!timedShutdownServer}
+                    onClose={() => setTimedShutdownServer(null)}
+                    serverId={timedShutdownServer.id}
+                    serverName={timedShutdownServer.name}
+                    serverType="ASA"
+                    onImmediateStop={() => handleStopServer(timedShutdownServer.id)}
+                />
+            )}
         </div>
     );
 }

@@ -5,7 +5,7 @@ import {
   Server, Activity, Zap,
   Play, Square, RotateCw, FileEdit,
   Folder, FolderOpen, Heart, Bookmark, Search, Copy, RefreshCw,
-  ShieldCheck, Cpu, Radio, Sparkles
+  ShieldCheck, Cpu, Radio, Sparkles, Timer
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -19,6 +19,8 @@ import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../../components/performance/PerformanceMonitor';
 import SponsorBanner from '../../components/ui/SponsorBanner';
 import { getAseMapDisplayName } from '../data/aseMaps';
+import { TimedShutdownModal } from '../../components/server/TimedShutdownModal';
+import { ServerTimedShutdownBanner } from '../../components/server/ServerTimedShutdownBanner';
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -49,6 +51,7 @@ export default function ASEDashboard() {
   const [snapshot, setSnapshot] = useState<any>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [timedShutdownServer, setTimedShutdownServer] = useState<any | null>(null);
 
   // Live Operations Feed
   const [liveLogs, setLiveLogs] = useState<string[]>([
@@ -666,12 +669,12 @@ export default function ASEDashboard() {
                 return (
                   <div
                     key={srv.id}
-                    className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] hover:border-amber-500/20 hover:scale-[1.01] hover:shadow-[0_0_15px_rgba(245,158,11,0.05)] transition-all duration-300 group gap-4 lg:gap-0 relative overflow-hidden"
+                    className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] hover:border-amber-500/20 hover:scale-[1.01] hover:shadow-[0_0_15px_rgba(245,158,11,0.05)] transition-all duration-300 group gap-4 lg:gap-0 relative hover:z-50 z-10"
                   >
                     {/* Custom Brand line indicator */}
                     {hasColor && (
                       <div
-                        className="absolute left-0 top-0 bottom-0 w-1"
+                        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
                         style={{ backgroundColor: cust.color_tag }}
                       />
                     )}
@@ -709,6 +712,7 @@ export default function ASEDashboard() {
                             </span>
                           ))}
                         </div>
+                        <ServerTimedShutdownBanner serverId={srv.id} className="mt-2" />
                       </div>
                     </div>
                     <div className="flex items-center gap-2.5">
@@ -723,14 +727,40 @@ export default function ASEDashboard() {
                         </button>
                       ) : (srv.status === 'running' || srv.status === 'online') && !stoppingServers.includes(srv.id) ? (
                         <>
-                          <button
-                            onClick={() => handleStop(srv.id)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
-                            title="Stop Server"
-                            aria-label={`Stop Server ${displayName}`}
-                          >
-                            <Square className="w-4 h-4 fill-current" />
-                          </button>
+                          <div className="relative group/stop">
+                            <button
+                              onClick={() => setTimedShutdownServer(srv)}
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95"
+                              title="Stop / Shutdown Options"
+                              aria-label={`Stop Server ${displayName}`}
+                            >
+                              <Square className="w-4 h-4 fill-current" />
+                            </button>
+
+                            {/* Stop Options Dropdown */}
+                            <div className="absolute bottom-full right-0 mb-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-bottom-right scale-95 group-hover/stop:scale-100">
+                              <button
+                                onClick={() => setTimedShutdownServer(srv)}
+                                className="w-full text-left px-3 py-2.5 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 text-xs font-bold"
+                              >
+                                <Timer className="w-4 h-4 text-amber-400 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span>Timed Shutdown</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Countdown with broadcasts</span>
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => handleStop(srv.id)}
+                                className="w-full text-left px-3 py-2.5 hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs font-bold"
+                              >
+                                <Square className="w-4 h-4 fill-current text-rose-400 shrink-0" />
+                                <div className="flex flex-col">
+                                  <span>Immediate Stop</span>
+                                  <span className="text-[10px] text-slate-400 font-normal">Halt process right away</span>
+                                </div>
+                              </button>
+                            </div>
+                          </div>
 
                           <div className="relative group/dropdown">
                             <button
@@ -1005,6 +1035,16 @@ export default function ASEDashboard() {
           </div>
         </div>
       </div>
+      {timedShutdownServer && (
+        <TimedShutdownModal
+          isOpen={!!timedShutdownServer}
+          onClose={() => setTimedShutdownServer(null)}
+          serverId={timedShutdownServer.id}
+          serverName={timedShutdownServer.name}
+          serverType="ASE"
+          onImmediateStop={() => handleStop(timedShutdownServer.id)}
+        />
+      )}
     </motion.div>
   );
 }

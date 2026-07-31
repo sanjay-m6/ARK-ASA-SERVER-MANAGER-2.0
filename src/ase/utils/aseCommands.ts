@@ -403,3 +403,11 @@ export async function saveAsePlayers(
     return invoke('save_ase_players', { serverId, admins, whitelist, exclusive });
 }
 
+export async function aseRconBroadcast(serverId: number, message: string): Promise<string> {
+    return invoke('ase_rcon_broadcast', { serverId, message });
+}
+
+export async function aseRconCommand(serverId: number, command: string): Promise<string> {
+    return invoke('ase_rcon_command', { serverId, command });
+}
+

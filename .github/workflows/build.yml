@@ -89,6 +89,10 @@ jobs:
             - **Linux**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
 
             ### 🆕 New Features in v4.6.12
+            - **⏳ Timed Graceful Shutdown System**:
+              - Added a full timed shutdown system with configurable countdown timer (1m, 2m, 5m, 10m, 15m, or custom duration), in-game RCON broadcast announcements at standard checkpoints (15m, 10m, 5m, 2m, 1m, 30s, 10s), optional world save before shutdown, and real-time countdown banner on server cards. Available across ASA & ASE Dashboard and Server Manager views.
+            - **🔴 Stop Options Dropdown Menu**:
+              - Replaced the single Stop button with a unified "Stop Options" hover dropdown across all server card views (Dashboard grid, Server Manager grid, and Server Manager expanded XL view) containing "Timed Shutdown" and "Immediate Stop" actions.
             - **📂 Custom Mod Categories & Folders System**:
               - Create, edit, and organize custom mod folders (e.g. "Mod Important", "Mod Gameplay", "Dino Mods") with custom colors, icons, and descriptions in ASA & ASE Mod Managers.
             - **🏷️ Live Mod Count Badges & Category Filtering**:
@@ -101,6 +105,10 @@ jobs:
               - Integrated real-time 4-chart performance monitor tracking CPU Usage (%), RAM Memory Utilization (%), Active Player Concurrency, and System Disk/IO metrics across Dashboard and Topology views.
 
             ### 🐛 Bug Fixes in v4.6.12
+            - **⏱️ Timed Shutdown Banner Visibility Fix**:
+              - Moved the countdown banner outside collapsible card sections so it remains visible when cards are collapsed in both grid and expanded XL views.
+            - **📋 Stop Options Dropdown Clipping Fix**:
+              - Removed `overflow-hidden` from server card containers across Dashboard, ServerManager, ASEDashboard, and ASEServerManager to prevent dropdown menus from being clipped by parent containers.
             - **🎨 React Portal Z-Index Modal Stacking Fix**:
               - Resolved UI layout overlap bug where the fixed left sidebar menu masked over the Category Management modal dialog. All modals (`showManageModal`, `showShareModal`, `showImportModal`) now render cleanly via `createPortal` to `document.body` with `z-[9999]` backdrop blur.
             - **✨ Mod Manager Header Action Bar Redesign**:

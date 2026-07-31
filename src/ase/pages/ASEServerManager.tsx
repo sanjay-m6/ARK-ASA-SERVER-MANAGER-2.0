@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2, Copy, AlertTriangle, FileText } from 'lucide-react';
+import { Server, Plus, Play, Square, RotateCw, Trash2, Search, Settings, Terminal, Globe, Shield, RefreshCw, Download, Save, ChevronDown, ChevronUp, FolderOpen, Users, PenLine, Cpu, Network, GripVertical, GitBranch, Loader2, Copy, AlertTriangle, FileText, Timer } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
@@ -12,6 +12,8 @@ import ASEResetDialog from '../components/server/ASEResetDialog';
 import ASEImportServerDialog from '../components/server/ASEImportServerDialog';
 import ASEImportSaveDialog from '../components/server/ASEImportSaveDialog';
 import ASECloneOptionsModal from '../components/server/ASECloneOptionsModal';
+import { TimedShutdownModal } from '../../components/server/TimedShutdownModal';
+import { ServerTimedShutdownBanner } from '../../components/server/ServerTimedShutdownBanner';
 import { AseServer } from '../types/ase.types';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +54,7 @@ export default function ASEServerManager() {
   const [resetServer, setResetServer] = useState<{id: number, name: string} | null>(null);
   const [serverToDelete, setServerToDelete] = useState<{id: number, name: string} | null>(null);
   const [cloneModalServer, setCloneModalServer] = useState<AseServer | null>(null);
+  const [timedShutdownServer, setTimedShutdownServer] = useState<AseServer | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedServers, setSelectedServers] = useState<number[]>([]);
@@ -653,7 +656,7 @@ export default function ASEServerManager() {
                             zIndex: snapshot.isDragging ? 100 : (orderedServers.length - index) * 10
                         }}
                         className={cn(
-                          "glass-panel rounded-2xl p-6 group relative cursor-pointer hover:z-30",
+                          "glass-panel rounded-2xl p-6 group relative cursor-pointer hover:z-50 z-10",
                           snapshot.isDragging
                             ? "shadow-2xl shadow-amber-500/20 ring-2 ring-amber-500/50 cursor-grabbing scale-[1.02] z-[100]"
                             : "transition-all duration-300 hover:border-amber-500/50 hover:shadow-[0_8px_30px_rgba(245,158,11,0.15)] hover:-translate-y-1"
@@ -793,9 +796,39 @@ export default function ASEServerManager() {
                     </button>
                   ) : (
                     <>
-                      <button onClick={()=>handleStop(srv.id)} className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner" title="Stop Server">
-                        <Square className="w-5 h-5 fill-current" />
-                      </button>
+                      <div className="relative group/stop">
+                        <button
+                          onClick={() => setTimedShutdownServer(srv)}
+                          className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner"
+                          title="Stop / Shutdown Options"
+                        >
+                          <Square className="w-5 h-5 fill-current" />
+                        </button>
+
+                        {/* Stop Options Dropdown */}
+                        <div className="absolute bottom-full right-0 mb-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-bottom-right scale-95 group-hover/stop:scale-100">
+                          <button
+                            onClick={() => setTimedShutdownServer(srv)}
+                            className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2.5 text-xs font-bold"
+                          >
+                            <Timer className="w-4 h-4 text-amber-400 shrink-0" />
+                            <div className="flex flex-col">
+                              <span>Timed Shutdown</span>
+                              <span className="text-[10px] text-slate-400 font-normal">Countdown with broadcasts</span>
+                            </div>
+                          </button>
+                          <button
+                            onClick={() => handleStop(srv.id)}
+                            className="w-full text-left px-4 py-3 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2.5 border-t border-slate-800 text-xs font-bold"
+                          >
+                            <Square className="w-4 h-4 fill-current text-red-400 shrink-0" />
+                            <div className="flex flex-col">
+                              <span>Immediate Stop</span>
+                              <span className="text-[10px] text-slate-400 font-normal">Halt process right away</span>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
 
                       <div className="relative group/dropdown">
                         <button className="p-2.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner" title="Restart Options">
@@ -1182,7 +1215,8 @@ export default function ASEServerManager() {
                        </div>
                      </div>
                    </div>
-                  <ServerStatusBar serverId={srv.id} serverType="ASE" />
+                   <ServerTimedShutdownBanner serverId={srv.id} className="mt-3" />
+                   <ServerStatusBar serverId={srv.id} serverType="ASE" />
                 </div>
                     )}
                       </div>
@@ -1231,6 +1265,17 @@ export default function ASEServerManager() {
         serverCount={selectedServers.length}
         serverName={moveServerTarget?.name}
       />
+
+      {timedShutdownServer && (
+        <TimedShutdownModal
+          isOpen={!!timedShutdownServer}
+          onClose={() => setTimedShutdownServer(null)}
+          serverId={timedShutdownServer.id}
+          serverName={timedShutdownServer.name}
+          serverType="ASE"
+          onImmediateStop={() => handleStop(timedShutdownServer.id)}
+        />
+      )}
     </motion.div>
   );
 }

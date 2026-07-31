@@ -1258,3 +1258,12 @@ export async function cancelInstallation(
     });
 }
 
+// RCON Commands
+export async function rconBroadcast(serverId: number, message: string): Promise<string> {
+    return await invoke('rcon_broadcast', { serverId, message });
+}
+
+export async function rconCommand(serverId: number, command: string): Promise<string> {
+    return await invoke('rcon_command', { serverId, command });
+}
+
