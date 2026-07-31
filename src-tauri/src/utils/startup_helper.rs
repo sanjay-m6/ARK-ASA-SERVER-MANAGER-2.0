@@ -22,6 +22,20 @@ pub fn set_windows_registry_run(enabled: bool, minimized: bool) -> Result<(), St
 
     if enabled {
         println!("🚀 Setting Registry Run entry: {} (minimized: {})", exe_path, minimized);
+        
+        // Clean up any legacy or alternate value names to prevent duplicate autostarts
+        let legacy_names = ["ARK Server Manager", "ark-asa-server-manager", "com.ark.asaservermanager"];
+        for legacy in &legacy_names {
+            let mut del_cmd = Command::new("reg");
+            #[cfg(target_os = "windows")]
+            del_cmd.creation_flags(CREATE_NO_WINDOW);
+            let _ = del_cmd
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .args(&["delete", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", legacy, "/f"])
+                .status();
+        }
+
         let mut cmd = Command::new("reg");
         #[cfg(target_os = "windows")]
         cmd.creation_flags(CREATE_NO_WINDOW);
@@ -48,23 +62,62 @@ pub fn set_windows_registry_run(enabled: bool, minimized: bool) -> Result<(), St
         }
     } else {
         println!("🚀 Removing Registry Run entry for ASAServerManager");
-        let mut cmd = Command::new("reg");
-        #[cfg(target_os = "windows")]
-        cmd.creation_flags(CREATE_NO_WINDOW);
+        let legacy_names = ["ASAServerManager", "ARK Server Manager", "ark-asa-server-manager", "com.ark.asaservermanager"];
+        for legacy in &legacy_names {
+            let mut cmd = Command::new("reg");
+            #[cfg(target_os = "windows")]
+            cmd.creation_flags(CREATE_NO_WINDOW);
 
-        let _ = cmd
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
+            let _ = cmd
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .args(&[
+                    "delete",
+                    "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                    "/v",
+                    legacy,
+                    "/f",
+                ])
+                .status();
+        }
+        Ok(())
+    }
+}
+
+/// Refreshes the autostart entry if global auto-start is enabled or if an autostart registry key exists.
+pub fn sync_windows_autostart_path_on_startup(global_auto_start_enabled: bool, start_minimized: bool) {
+    #[cfg(target_os = "windows")]
+    {
+        let exists = is_autostart_registry_entry_present();
+        if global_auto_start_enabled || exists {
+            if let Err(e) = set_windows_registry_run(true, start_minimized) {
+                println!("⚠️ Failed to update Windows autostart registry path: {}", e);
+            } else {
+                println!("✅ Synced Windows autostart registry path to current executable");
+            }
+        }
+    }
+}
+
+pub fn is_autostart_registry_entry_present() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        let mut cmd = Command::new("reg");
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let output = cmd
             .args(&[
-                "delete",
+                "query",
                 "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
                 "/v",
                 "ASAServerManager",
-                "/f",
             ])
-            .status();
-        Ok(())
+            .output();
+
+        if let Ok(out) = output {
+            return out.status.success();
+        }
     }
+    false
 }
 
 /// Configure Windows Task Scheduler task for elevated login startup.

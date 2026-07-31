@@ -1795,7 +1795,7 @@ export default function ConfigEditor() {
                 const moddedPreset = getModdedMapByMapArg(mapName, 'ASA');
                 if (moddedPreset) {
                     const server = useServerStore.getState().servers.find(s => s.id === selectedServerId);
-                    const currentCustomArgs = server?.config?.custom_args || '';
+                    const currentCustomArgs = server?.config?.customArgs || server?.config?.custom_args || '';
                     const newCustomArgs = buildLaunchArgs(moddedPreset, currentCustomArgs);
                     if (newCustomArgs !== currentCustomArgs) {
                         updateParams.customArgs = newCustomArgs;

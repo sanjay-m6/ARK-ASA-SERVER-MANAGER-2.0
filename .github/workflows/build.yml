@@ -88,20 +88,34 @@ jobs:
             - **Windows**: Download the `.exe` installer below.
             - **Linux**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
 
-            ### 🆕 New Features in v4.6.11
-            - **📋 Copy Player ID Quick Action**:
-              - Added quick click-to-copy Player ID / SteamID / EOS ID buttons and interactive copy feedback to ASA and ASE RCON Consoles and Player Manager.
-              - Added target survivor dropdown quick-copy support in RCON Console.
-            - **🔕 Disable World Save Chat Notifications Option**:
-              - Added automated log & chat pattern filtering for `[MapName] World Save Complete`, `Server Save Loaded`, and `World Save Took` system messages.
-              - Added a **Disable World Save Notifications in Cross-Chat** toggle switch in Cluster Cross-Chat settings (`CrossChatConfigDialog`).
+            ### 🆕 New Features in v4.6.12
+            - **📂 Custom Mod Categories & Folders System**:
+              - Create, edit, and organize custom mod folders (e.g. "Mod Important", "Mod Gameplay", "Dino Mods") with custom colors, icons, and descriptions in ASA & ASE Mod Managers.
+            - **🏷️ Live Mod Count Badges & Category Filtering**:
+              - Dynamic real-time mod counters on category filter pills (e.g., `Mod Important (3)`) with instant 1-click filtering for Available and Installed mod lists.
+            - **📊 Interactive Mod Category Tag Selector**:
+              - Assign mods to custom folders directly from mod cards using the colored tag selector dropdown (`ModCategorySelector`).
+            - **📋 Mod Setup Export & Import**:
+              - Share custom mod folder configurations and category mappings via Base64 share URLs or raw JSON setup codes.
+            - **📈 Comprehensive 4-Chart ASA Telemetry Suite**:
+              - Integrated real-time 4-chart performance monitor tracking CPU Usage (%), RAM Memory Utilization (%), Active Player Concurrency, and System Disk/IO metrics across Dashboard and Topology views.
 
-            ### 🐛 Bug Fixes in v4.6.11
-            - **🔧 Boot Launch Parameters Parameter Deserialization & Persistence**:
-              - Fixed Tauri IPC payload deserialization bug where optional parameter fields passed with `undefined` values caused backend `update_server_settings` invocation failures.
-              - Fixed store re-hydration race condition in `AdvancedPage.tsx` and `ASEAdvancedPage.tsx` where background store refreshes wiped out unsaved user launch argument toggles.
+            ### 🐛 Bug Fixes in v4.6.12
+            - **🎨 React Portal Z-Index Modal Stacking Fix**:
+              - Resolved UI layout overlap bug where the fixed left sidebar menu masked over the Category Management modal dialog. All modals (`showManageModal`, `showShareModal`, `showImportModal`) now render cleanly via `createPortal` to `document.body` with `z-[9999]` backdrop blur.
+            - **✨ Mod Manager Header Action Bar Redesign**:
+              - Standardized button heights (`h-11`), added `whitespace-nowrap` to prevent text wrapping on action buttons, and grouped utility icon buttons (*Export Modpack*, *Import Modpack*, *Scan Conflicts*, *Transfer Mods*) into a unified glassmorphic toolbar segment.
+            - **🔧 ASA & ASE Multi-Server Category State Sync**:
+              - Synchronized custom category state across ASA and ASE Mod Managers with local persistence (`modOrganizationStore`).
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.11 — Copy Player ID, World Save Notification Suppression & Launch Parameter Fixes</summary>
+
+            - **📋 Copy Player ID Quick Action**: Added quick click-to-copy Player ID / SteamID / EOS ID buttons and interactive copy feedback to ASA and ASE RCON Consoles and Player Manager.
+            - **🔕 Disable World Save Chat Notifications Option**: Added automated log & chat pattern filtering for `World Save Complete` system messages and cluster cross-chat toggle.
+            - **🔧 Boot Launch Parameters Parameter Deserialization & Persistence**: Fixed Tauri IPC payload deserialization bug for launch argument toggles.
+            </details>
             <details>
             <summary>v4.6.10 — Native Linux Support, Cross-Chat Map Aliases & RCON Loopback Fixes</summary>
 

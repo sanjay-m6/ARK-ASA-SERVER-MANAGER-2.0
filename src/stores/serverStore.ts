@@ -124,8 +124,12 @@ export const useServerStore = create<ServerStore>((set, get) => ({
         const { serverVersions, latestPublicVersion } = get();
         const localVer = serverVersions[serverId];
         if (!localVer || !latestPublicVersion) return false;
+        const match = localVer.match(/Build\s+(\d+)/i);
+        if (match && match[1]) {
+            return match[1].trim() !== latestPublicVersion.trim();
+        }
         if (localVer.startsWith('Build ')) {
-            return !localVer.includes(latestPublicVersion);
+            return !localVer.includes(latestPublicVersion.trim());
         }
         return false;
     },
@@ -164,8 +168,9 @@ export const useServerStore = create<ServerStore>((set, get) => ({
                 return { servers: merged, activeServer: newActive };
             });
 
-            // Automatically trigger fetching server versions for newly refreshed servers
+            // Automatically trigger fetching server versions and latest public version
             get().fetchAllServerVersions();
+            get().fetchLatestPublicVersion().catch(console.error);
         } catch (error) {
             console.error('Failed to refresh servers:', error);
             import('react-hot-toast').then(({ default: toast }) => {
@@ -174,3 +179,12 @@ export const useServerStore = create<ServerStore>((set, get) => ({
         }
     }
 }));
+
+// Automatic background update checking every 10 minutes
+if (typeof window !== 'undefined') {
+    setInterval(() => {
+        const store = useServerStore.getState();
+        store.fetchLatestPublicVersion().catch(console.error);
+        store.fetchAllServerVersions(true).catch(console.error);
+    }, 600000);
+}

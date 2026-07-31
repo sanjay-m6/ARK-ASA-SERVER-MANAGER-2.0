@@ -99,7 +99,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
 
     const effectiveCustomArgs = externalCustomArgs !== undefined 
         ? externalCustomArgs 
-        : (server?.config?.custom_args || '');
+        : (server?.config?.customArgs || server?.config?.custom_args || '');
 
     const [selection, setSelection] = useState<PlatformSelection>(() =>
         parsePlatformSelection(effectiveCustomArgs)

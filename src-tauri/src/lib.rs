@@ -585,6 +585,21 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                         } else { false }
                     };
 
+                    let start_minimized = {
+                        if let Ok(db_guard) = state.db.lock() {
+                            if let Ok(conn) = db_guard.get_connection() {
+                                conn.query_row(
+                                    "SELECT value FROM settings WHERE key = 'start_minimized_to_tray'",
+                                    [],
+                                    |row| row.get::<_, String>(0)
+                                ).map(|v| v == "true").unwrap_or(false)
+                            } else { false }
+                        } else { false }
+                    };
+
+                    // Ensure Windows Registry autostart key points to current executable
+                    crate::utils::startup_helper::sync_windows_autostart_path_on_startup(global_auto_start, start_minimized);
+
                     if global_auto_start {
                         println!("🚀 Global Auto-Start is ENABLED. Starting boot sequence...");
 
@@ -1039,6 +1054,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
               ase::commands::server::diagnose_ase_server_visibility,
               ase::commands::server::join_ase_server,
               ase::commands::server::get_ase_server_version,
+              ase::commands::server::get_latest_ase_server_version,
               ase::commands::import::import_ase_save,
               // ASE Mod commands
               ase::commands::mods::search_ase_workshop,

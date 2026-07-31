@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { createPortal } from 'react-dom';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
@@ -14,6 +14,9 @@ import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseModStore } from '../stores/aseModStore';
 import { useAseServerStore } from '../stores/aseServerStore';
+import ModOrganizationBar from '../../components/mods/ModOrganizationBar';
+import ModCategorySelector from '../../components/mods/ModCategorySelector';
+import { useModOrganizationStore } from '../../stores/modOrganizationStore';
 
 import { 
   searchWorkshop, downloadWorkshopMod, removeWorkshopMod, 
@@ -118,8 +121,13 @@ export default function ASEModManager() {
     setIsInstalling
   } = useAseModStore();
 
+  const { categories: orgCategories, activeCategoryId, isModInCategory } = useModOrganizationStore();
+
   const [query, setQuery] = useState('');
   const [installedFilter, setInstalledFilter] = useState('');
+
+
+
   const [selectedServer, setSelectedServer] = useState<number | null>(() => activeServer?.id || null);
 
   useEffect(() => {
@@ -570,8 +578,8 @@ export default function ASEModManager() {
     newFilteredMods.splice(destinationIndex, 0, removed);
 
     // Build the new order of ALL installed mods by mapping the visual list changes
-    const filteredIdsSet = new Set(filteredInstalledMods.map(m => m.workshopId));
-    const newFilteredIds = newFilteredMods.map(m => m.workshopId);
+    const filteredIdsSet = new Set(filteredInstalledMods.map((m: any) => m.workshopId));
+    const newFilteredIds = newFilteredMods.map((m: any) => m.workshopId);
 
     const orderedIds: string[] = [];
     let filteredPtr = 0;
@@ -729,10 +737,12 @@ export default function ASEModManager() {
   const isInstalled = (id: string) => installedMods.some(m => m.workshopId === id);
 
   const filteredInstalledMods = [...installedMods]
-    .filter(mod => 
-      mod.name.toLowerCase().includes(installedFilter.toLowerCase()) ||
-      mod.workshopId.includes(installedFilter)
-    )
+    .filter(mod => {
+      const matchesSearch = !installedFilter || mod.name.toLowerCase().includes(installedFilter.toLowerCase()) || mod.workshopId.includes(installedFilter);
+      if (!matchesSearch) return false;
+      if (activeCategoryId !== 'all' && !isModInCategory(mod.workshopId, activeCategoryId)) return false;
+      return true;
+    })
     .sort((a, b) => {
       // 1. Pinned mods always stay on top
       const aPinned = pinnedModIds.includes(a.workshopId);
@@ -761,7 +771,25 @@ export default function ASEModManager() {
     ? searchResults 
     : baseModsList.filter(mod => discoverCategory === 'All' || mod.tags.includes(discoverCategory));
 
-  const slicedDisplayMods = displayMods.slice(0, visibleModsCount);
+  const categoryFilteredDisplayMods = useMemo(() => {
+    if (activeCategoryId === 'all') return displayMods;
+    return displayMods.filter(mod => isModInCategory(mod.workshopId || mod.id, activeCategoryId));
+  }, [displayMods, activeCategoryId, isModInCategory]);
+
+  const slicedDisplayMods = categoryFilteredDisplayMods.slice(0, visibleModsCount);
+
+  const modCountMap = useMemo(() => {
+    const counts: Record<string, number> = {};
+    orgCategories.forEach((cat) => {
+      if (cat.id === 'all') {
+        counts[cat.id] = activeTab === 'installed' ? installedMods.length : displayMods.length;
+      } else {
+        const list = activeTab === 'installed' ? installedMods : displayMods;
+        counts[cat.id] = list.filter((mod) => isModInCategory(mod.workshopId || mod.id, cat.id)).length;
+      }
+    });
+    return counts;
+  }, [orgCategories, activeTab, installedMods, displayMods, isModInCategory]);
 
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -789,6 +817,9 @@ export default function ASEModManager() {
           The <code className="bg-amber-950/50 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/20 text-xs">ActiveMods=</code> line in <code className="text-slate-300">GameUserSettings.ini</code> is managed for you automatically.
         </p>
       </div>
+
+      {/* Custom Mod Category Organization Bar */}
+      <ModOrganizationBar className="mb-2" modCountMap={modCountMap} />
 
       {/* Search and Tabs Panel */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-[#0A0F1C]/60 p-5 rounded-2xl border border-white/5 backdrop-blur-xl shadow-2xl">
@@ -1118,9 +1149,11 @@ export default function ASEModManager() {
                               <h3 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors line-clamp-1">{mod.name}</h3>
                               <p className="text-xs text-slate-400 mt-2 line-clamp-2 leading-relaxed flex-grow">{mod.description}</p>
                               
-                              <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-4 text-[10px] font-medium text-slate-500">
-                                <span>ID: {workshopId}</span>
-                                <span>{mod.subscriberCount.toLocaleString()} subs</span>
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-4 mt-4 text-[10px] font-medium text-slate-500">
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  <ModCategorySelector modId={workshopId} modName={mod.name} modDescription={mod.description} />
+                                </div>
+                                <span>{mod.subscriberCount ? mod.subscriberCount.toLocaleString() : '100K+'} subs</span>
                               </div>
                             </div>
                           </div>
@@ -1216,10 +1249,10 @@ export default function ASEModManager() {
                             {mod.description || 'No description available on Steam Workshop.'}
                           </p>
                           
-                          <div className="flex items-center justify-between pt-3.5 border-t border-white/5 mt-auto">
-                            <span className="text-[10px] text-slate-500 font-mono">
-                              {mod.subscriptions ? `${mod.subscriptions.toLocaleString()} subs` : mod.subscriberCount ? `${mod.subscriberCount.toLocaleString()} subs` : '0 subs'}
-                            </span>
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-3.5 border-t border-white/5 mt-auto">
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <ModCategorySelector modId={workshopId} modName={mod.name} modDescription={mod.description} />
+                            </div>
                             
                             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                               <a 
@@ -1454,7 +1487,7 @@ export default function ASEModManager() {
                       </p>
                     </div>
                   ) : (
-                    filteredInstalledMods.map((mod, i) => {
+                    filteredInstalledMods.map((mod: any, i: number) => {
                       const isExpanded = expandedModId === mod.workshopId;
                       const resolved = resolveModDetails(mod);
 
@@ -1504,6 +1537,9 @@ export default function ASEModManager() {
                                       {!mod.enabled && (
                                         <span className="px-2 py-0.5 rounded bg-slate-950 border border-white/5 text-[8px] text-slate-500 font-black uppercase tracking-wider">Disabled</span>
                                       )}
+                                      <div onClick={(e) => e.stopPropagation()}>
+                                        <ModCategorySelector modId={mod.workshopId} modName={resolved.name} modDescription={resolved.description} />
+                                      </div>
                                     </h4>
                                     <p className="text-[10px] text-slate-500 mt-1 font-mono flex items-center gap-1.5 flex-wrap">
                                       <span>ID: {mod.workshopId}</span>

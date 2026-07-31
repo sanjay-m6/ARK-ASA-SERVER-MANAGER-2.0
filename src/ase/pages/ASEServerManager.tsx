@@ -23,7 +23,7 @@ import { moveServer } from '../../utils/tauri';
 import { open } from '@tauri-apps/plugin-dialog';
 
 export default function ASEServerManager() {
-  const { servers, setServers, updateServerStatus, refreshServers, removeServer } = useAseServerStore();
+  const { servers, setServers, updateServerStatus, refreshServers, removeServer, isServerOutdated } = useAseServerStore();
   const { setDraftOpen, setDraftSetup } = useInstallStore();
   const [showImport, setShowImport] = useState(false);
 
@@ -757,6 +757,12 @@ export default function ASEServerManager() {
                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800/40 rounded-lg shadow-inner border border-slate-700/30" title="Server Executable Build Timestamp">
                             <GitBranch className="w-3.5 h-3.5 text-indigo-400" />
                             <span className="font-mono text-xs text-indigo-300">{serverVersions[srv.id]}</span>
+                        </div>
+                      )}
+                      {isServerOutdated(srv.id) && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 rounded-lg shadow-inner border border-amber-500/30 text-amber-400 font-bold" title="New update available on Steam! Click Update Server to install.">
+                            <Download className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
+                            <span className="text-xs">Update Available</span>
                         </div>
                       )}
                       {(() => {

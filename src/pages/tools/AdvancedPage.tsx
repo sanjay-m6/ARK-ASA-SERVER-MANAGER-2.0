@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useServerStore } from '../../stores/serverStore';
-import { updateServerSettings, optimizeMemory, setProcessPriority, toggleEcoMode } from '../../utils/tauri';
+import { updateServerSettings, optimizeMemory, setProcessPriority, toggleEcoMode, startServer, restartServer } from '../../utils/tauri';
 import { 
   Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Leaf, Copy, 
   Flame, Shield, Check, Terminal, Sparkles, Filter, CheckCircle2, RotateCcw, 
-  Globe, Radio, Settings2, FileText
+  Globe, Radio, Settings2, FileText, Play
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -87,13 +87,20 @@ export default function AdvancedPage() {
     useEffect(() => {
         if (!selectedServerId) return;
         const server = servers.find(s => s.id === selectedServerId) || (activeServer?.id === selectedServerId ? activeServer : null);
-        if (server && loadedServerIdRef.current !== selectedServerId) {
-            const args = server.config?.custom_args || '';
-            setCustomArgs(args);
-            setOriginalArgs(args);
-            loadedServerIdRef.current = selectedServerId;
+        if (server) {
+            const args = server.config?.customArgs || server.config?.custom_args || '';
+            if (loadedServerIdRef.current !== selectedServerId) {
+                setCustomArgs(args);
+                setOriginalArgs(args);
+                loadedServerIdRef.current = selectedServerId;
+            } else if (args !== originalArgs) {
+                if (customArgs === originalArgs) {
+                    setCustomArgs(args);
+                }
+                setOriginalArgs(args);
+            }
         }
-    }, [selectedServerId, servers, activeServer]);
+    }, [selectedServerId, servers, activeServer, customArgs, originalArgs]);
 
     const isDirty = useMemo(() => customArgs !== originalArgs, [customArgs, originalArgs]);
 
@@ -101,6 +108,8 @@ export default function AdvancedPage() {
         if (!customArgs.trim()) return 0;
         return customArgs.trim().split(/\s+/).filter(Boolean).length;
     }, [customArgs]);
+
+    const [isExecuting, setIsExecuting] = useState(false);
 
     const handleSave = async () => {
         if (!selectedServerId) return;
@@ -119,6 +128,43 @@ export default function AdvancedPage() {
             toast.error(`Failed to save settings: ${err}`);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleExecute = async () => {
+        if (!selectedServerId) {
+            toast.error('No server selected');
+            return;
+        }
+        setIsExecuting(true);
+        try {
+            if (isDirty) {
+                await updateServerSettings({
+                    serverId: selectedServerId,
+                    customArgs: customArgs
+                });
+                setOriginalArgs(customArgs);
+                loadedServerIdRef.current = selectedServerId;
+            }
+
+            const currentSrv = servers.find(s => s.id === selectedServerId) || activeServer;
+            const isRunning = currentSrv?.status === 'running' || currentSrv?.status === 'online' || currentSrv?.status === 'starting';
+
+            if (isRunning) {
+                toast.loading('Restarting server with updated boot parameters...', { id: 'execute-server-toast' });
+                await restartServer(selectedServerId);
+                toast.success('Server restart initiated with custom boot parameters!', { id: 'execute-server-toast' });
+            } else {
+                toast.loading('Launching server with custom boot parameters...', { id: 'execute-server-toast' });
+                await startServer(selectedServerId);
+                toast.success('Server executed successfully with custom boot parameters!', { id: 'execute-server-toast' });
+            }
+            await refreshServers();
+        } catch (err) {
+            console.error('Failed to execute server:', err);
+            toast.error(`Execution failed: ${err}`, { id: 'execute-server-toast' });
+        } finally {
+            setIsExecuting(false);
         }
     };
 
@@ -271,7 +317,7 @@ export default function AdvancedPage() {
                                 const newId = Number(e.target.value);
                                 setSelectedServerId(newId);
                                 const server = servers.find(s => s.id === newId);
-                                const args = server?.config?.custom_args || '';
+                                const args = server?.config?.customArgs || server?.config?.custom_args || '';
                                 setCustomArgs(args);
                                 setOriginalArgs(args);
                                 loadedServerIdRef.current = newId;
@@ -314,6 +360,17 @@ export default function AdvancedPage() {
                     >
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         <span>{isLoading ? 'Saving...' : 'Save Parameters'}</span>
+                    </button>
+
+                    {/* Execute Button */}
+                    <button
+                        onClick={handleExecute}
+                        disabled={isExecuting || !selectedServerId}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white shadow-lg shadow-emerald-950/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        title="Execute server directly with configured boot parameters"
+                    >
+                        {isExecuting ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Play className="w-4 h-4 fill-white text-white" />}
+                        <span>{isExecuting ? 'Executing...' : 'Execute Server'}</span>
                     </button>
                 </div>
             </div>
@@ -400,13 +457,25 @@ export default function AdvancedPage() {
                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                                 <span className="text-xs font-mono text-slate-400 ml-2">Boot Executable Command Line</span>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                    onClick={handleExecute}
+                                    disabled={isExecuting || !selectedServerId}
+                                    className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-emerald-950/40 border border-emerald-400/30 flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
+                                >
+                                    {isExecuting ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                                    ) : (
+                                        <Play className="w-3.5 h-3.5 fill-white text-white" />
+                                    )}
+                                    Execute Server
+                                </button>
                                 <button
                                     onClick={() => {
                                         navigator.clipboard.writeText(assembledCommandLine);
                                         toast.success('Full command line copied to clipboard');
                                     }}
-                                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
+                                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
                                 >
                                     <Copy className="w-3.5 h-3.5" /> Copy Command
                                 </button>
@@ -419,7 +488,7 @@ export default function AdvancedPage() {
                                         navigator.clipboard.writeText(batContent);
                                         toast.success('Copied start_server.bat script to clipboard! (Also auto-generated in server folder on boot)');
                                     }}
-                                    className="px-2.5 py-1 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
+                                    className="px-2.5 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
                                 >
                                     <FileText className="w-3.5 h-3.5 text-violet-400" /> Copy .bat Script
                                 </button>

@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAseServerStore } from '../stores/aseServerStore';
-import { updateAseServer } from '../utils/aseCommands';
+import { updateAseServer, startAseServer, restartAseServer } from '../utils/aseCommands';
 import { optimizeMemory, setProcessPriority } from '../../utils/tauri';
 import { 
   Cpu, Save, Loader2, AlertTriangle, Zap, Activity, Eraser, BarChart2, Copy, 
   Flame, Shield, Check, Terminal, Sparkles, Filter, RotateCcw, 
-  Globe, Radio, Settings2
+  Globe, Radio, Settings2, FileText, Play
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -84,13 +84,20 @@ export default function ASEAdvancedPage() {
     useEffect(() => {
         if (!selectedServerId) return;
         const server = servers.find(s => s.id === selectedServerId) || (activeServer?.id === selectedServerId ? activeServer : null);
-        if (server && loadedServerIdRef.current !== selectedServerId) {
+        if (server) {
             const args = server.extraArgs || '';
-            setCustomArgs(args);
-            setOriginalArgs(args);
-            loadedServerIdRef.current = selectedServerId;
+            if (loadedServerIdRef.current !== selectedServerId) {
+                setCustomArgs(args);
+                setOriginalArgs(args);
+                loadedServerIdRef.current = selectedServerId;
+            } else if (args !== originalArgs) {
+                if (customArgs === originalArgs) {
+                    setCustomArgs(args);
+                }
+                setOriginalArgs(args);
+            }
         }
-    }, [selectedServerId, servers, activeServer]);
+    }, [selectedServerId, servers, activeServer, customArgs, originalArgs]);
 
     const isDirty = useMemo(() => customArgs !== originalArgs, [customArgs, originalArgs]);
 
@@ -98,6 +105,8 @@ export default function ASEAdvancedPage() {
         if (!customArgs.trim()) return 0;
         return customArgs.trim().split(/\s+/).filter(Boolean).length;
     }, [customArgs]);
+
+    const [isExecuting, setIsExecuting] = useState(false);
 
     const handleSave = async () => {
         if (!selectedServerId) return;
@@ -115,6 +124,42 @@ export default function ASEAdvancedPage() {
             toast.error('Failed to save ASE settings');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleExecute = async () => {
+        if (!selectedServerId) {
+            toast.error('No ASE server selected');
+            return;
+        }
+        setIsExecuting(true);
+        try {
+            if (isDirty) {
+                await updateAseServer(selectedServerId, {
+                    extraArgs: customArgs
+                });
+                setOriginalArgs(customArgs);
+                loadedServerIdRef.current = selectedServerId;
+            }
+
+            const currentSrv = servers.find(s => s.id === selectedServerId) || activeServer;
+            const isRunning = currentSrv?.status === 'running' || currentSrv?.status === 'online' || currentSrv?.status === 'starting';
+
+            if (isRunning) {
+                toast.loading('Restarting ASE server with updated parameters...', { id: 'execute-ase-toast' });
+                await restartAseServer(selectedServerId);
+                toast.success('ASE Server restart initiated with parameters!', { id: 'execute-ase-toast' });
+            } else {
+                toast.loading('Launching ASE server with boot parameters...', { id: 'execute-ase-toast' });
+                await startAseServer(selectedServerId);
+                toast.success('ASE Server executed successfully with parameters!', { id: 'execute-ase-toast' });
+            }
+            await refreshServers();
+        } catch (err) {
+            console.error('Failed to execute ASE server:', err);
+            toast.error(`Execution failed: ${err}`, { id: 'execute-ase-toast' });
+        } finally {
+            setIsExecuting(false);
         }
     };
 
@@ -289,6 +334,17 @@ export default function ASEAdvancedPage() {
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         <span>{isLoading ? 'Saving...' : 'Save Parameters'}</span>
                     </button>
+
+                    {/* Execute Button */}
+                    <button
+                        onClick={handleExecute}
+                        disabled={isExecuting || !selectedServerId}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-lg shadow-amber-950/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        title="Execute ASE server directly with configured boot parameters"
+                    >
+                        {isExecuting ? <Loader2 className="w-4 h-4 animate-spin text-slate-950" /> : <Play className="w-4 h-4 fill-slate-950 text-slate-950" />}
+                        <span>{isExecuting ? 'Executing...' : 'Execute Server'}</span>
+                    </button>
                 </div>
             </div>
 
@@ -367,15 +423,42 @@ export default function ASEAdvancedPage() {
                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                                 <span className="text-xs font-mono text-slate-400 ml-2">ShooterGameServer.exe Command Line</span>
                             </div>
-                            <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(assembledCommandLine);
-                                    toast.success('Full command line copied to clipboard');
-                                }}
-                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
-                            >
-                                <Copy className="w-3.5 h-3.5" /> Copy Command
-                            </button>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <button
+                                    onClick={handleExecute}
+                                    disabled={isExecuting || !selectedServerId}
+                                    className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 rounded-lg text-xs font-bold transition-all shadow-md shadow-amber-950/40 border border-amber-400/40 flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
+                                >
+                                    {isExecuting ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                                    ) : (
+                                        <Play className="w-3.5 h-3.5 fill-slate-950 text-slate-950" />
+                                    )}
+                                    Execute Server
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(assembledCommandLine);
+                                        toast.success('Full command line copied to clipboard');
+                                    }}
+                                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+                                >
+                                    <Copy className="w-3.5 h-3.5" /> Copy Command
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const server = servers.find(s => s.id === selectedServerId);
+                                        const pathStr = server ? (typeof server.installPath === 'string' ? server.installPath : String(server.installPath)) : 'C:/path/to/ShooterGame';
+                                        const win64Path = `${pathStr.replace(/\\/g, '/')}/ShooterGame/Binaries/Win64`;
+                                        const batContent = `@echo off\r\n:: Auto-generated launch script by ARK Server Manager\r\ntitle ASE Server - ${server?.name || 'Server'}\r\ncd /d "${win64Path}"\r\n"ShooterGameServer.exe" ${assembledCommandLine}\r\npause\r\n`;
+                                        navigator.clipboard.writeText(batContent);
+                                        toast.success('Copied start_server.bat script to clipboard!');
+                                    }}
+                                    className="px-2.5 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+                                >
+                                    <FileText className="w-3.5 h-3.5 text-amber-400" /> Copy .bat Script
+                                </button>
+                            </div>
                         </div>
                         <pre className="text-xs font-mono text-amber-400/90 whitespace-pre-wrap break-all leading-relaxed p-1">
                             {assembledCommandLine}

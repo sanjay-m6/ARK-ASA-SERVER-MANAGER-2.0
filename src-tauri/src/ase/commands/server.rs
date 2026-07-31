@@ -1251,24 +1251,28 @@ pub async fn join_ase_server(server_id: i64, state: State<'_, AppState>) -> Resu
     Ok(())
 }
 
-/// FIX 4: Read the server executable version for mismatch detection.
-/// Returns the file version string of ShooterGameServer.exe.
+/// Read the ASE server executable version and Steam buildid for mismatch detection.
 #[tauri::command]
 pub async fn get_ase_server_version(server_id: i64, state: State<'_, AppState>) -> Result<String, String> {
     let server = get_ase_server_by_id(server_id, state).await?;
 
-    let exe_path = PathBuf::from(&server.install_path)
+    let install_dir = PathBuf::from(&server.install_path);
+    let manifest_path = install_dir.join("steamapps").join("appmanifest_376030.acf");
+    let build_id = crate::commands::server::parse_acf_build_id(&manifest_path);
+
+    let exe_path = install_dir
         .join("ShooterGame")
         .join("Binaries")
         .join("Win64")
         .join("ShooterGameServer.exe");
 
     if !exe_path.exists() {
+        if let Some(id) = build_id {
+            return Ok(format!("Build {}", id));
+        }
         return Err("Server executable not found.".to_string());
     }
 
-    // Read the file's last-modified timestamp as a proxy for version
-    // (full Win32 version info requires the winver crate, so we use file metadata)
     let metadata = std::fs::metadata(&exe_path)
         .map_err(|e| format!("Failed to read exe metadata: {}", e))?;
 
@@ -1276,10 +1280,16 @@ pub async fn get_ase_server_version(server_id: i64, state: State<'_, AppState>) 
         .map_err(|e| format!("Failed to read modified time: {}", e))?;
 
     let datetime: chrono::DateTime<chrono::Utc> = modified.into();
-    let version_string = datetime.format("%Y.%m.%d-%H%M").to_string();
-
-    // Also get file size as a secondary identifier
+    let time_string = datetime.format("%Y.%m.%d-%H%M").to_string();
     let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
 
-    Ok(format!("{} ({:.1} MB)", version_string, size_mb))
+    match build_id {
+        Some(id) => Ok(format!("Build {} ({} - {:.1} MB)", id, time_string, size_mb)),
+        None => Ok(format!("{} ({:.1} MB)", time_string, size_mb)),
+    }
+}
+
+#[tauri::command]
+pub async fn get_latest_ase_server_version() -> Result<String, String> {
+    crate::commands::server::fetch_steam_app_build_id("376030").await
 }

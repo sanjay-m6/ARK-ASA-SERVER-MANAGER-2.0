@@ -365,6 +365,10 @@ export async function getAseServerVersion(serverId: number): Promise<string> {
     return invoke('get_ase_server_version', { serverId });
 }
 
+export async function getLatestAseServerVersion(): Promise<string> {
+    return invoke('get_latest_ase_server_version');
+}
+
 // ─── Firewall Rules Management ──────────────────────────────────────
 
 export interface AseFirewallPorts {

@@ -47,6 +47,7 @@ export interface ServerConfig {
     mapName: string;
     sessionName: string;
     motd?: string;
+    customArgs?: string;
     custom_args?: string;
 
     // Cluster Integration

@@ -269,6 +269,12 @@ impl AseLauncher {
                         "  ⚠️ Stripped conflicting -mods= from extra_args for ASE server {} (mods are managed automatically)",
                         server.id
                     );
+                } else if arg.starts_with('?') {
+                    args[0].push_str(&arg);
+                    println!(
+                        "  🔗 Appended URL parameter to connection string for ASE server {}: {}",
+                        server.id, arg
+                    );
                 } else {
                     args.push(arg);
                 }

@@ -200,6 +200,79 @@ pub async fn show_server_console(state: State<'_, AppState>, server_id: i64) -> 
         .map_err(|e| e.to_string())
 }
 
+pub fn parse_acf_build_id(manifest_path: &std::path::Path) -> Option<String> {
+    if !manifest_path.exists() {
+        return None;
+    }
+    if let Ok(content) = std::fs::read_to_string(manifest_path) {
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.contains("\"buildid\"") {
+                let parts: Vec<&str> = trimmed.split('"').collect();
+                for (idx, part) in parts.iter().enumerate() {
+                    if *part == "buildid" && idx + 2 < parts.len() {
+                        let id = parts[idx + 2].trim();
+                        if !id.is_empty() && id.chars().all(|c| c.is_ascii_digit()) {
+                            return Some(id.to_string());
+                        }
+                    }
+                }
+                let ws_parts: Vec<&str> = trimmed.split_whitespace().collect();
+                if ws_parts.len() >= 2 {
+                    let id = ws_parts[ws_parts.len() - 1].trim_matches('"');
+                    if !id.is_empty() && id.chars().all(|c| c.is_ascii_digit()) {
+                        return Some(id.to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+pub async fn fetch_steam_app_build_id(app_id: &str) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(6))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    // Primary: api.steamcmd.net
+    let primary_url = format!("https://api.steamcmd.net/v1/info/{}", app_id);
+    if let Ok(resp) = client.get(&primary_url).header("User-Agent", "ARK-ASA-Server-Manager").send().await {
+        if let Ok(json) = resp.json::<serde_json::Value>().await {
+            if let Some(data) = json.get("data").and_then(|d| d.get(app_id)) {
+                if let Some(buildid) = data
+                    .get("depots")
+                    .and_then(|d| d.get("branches"))
+                    .and_then(|b| b.get("public"))
+                    .and_then(|p| p.get("buildid"))
+                {
+                    if let Some(id_str) = buildid.as_str() { return Ok(id_str.to_string()); }
+                    if let Some(id_u64) = buildid.as_u64() { return Ok(id_u64.to_string()); }
+                }
+                if let Some(buildid) = data
+                    .get("branches")
+                    .and_then(|b| b.get("public"))
+                    .and_then(|p| p.get("buildid"))
+                {
+                    if let Some(id_str) = buildid.as_str() { return Ok(id_str.to_string()); }
+                    if let Some(id_u64) = buildid.as_u64() { return Ok(id_u64.to_string()); }
+                }
+            }
+        }
+    }
+
+    // Secondary: Steam Web API
+    let web_url = format!("https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={}", app_id);
+    if let Ok(resp) = client.get(&web_url).header("User-Agent", "ARK-ASA-Server-Manager").send().await {
+        if resp.status().is_success() {
+            // App exists on Steam, try appdetails fallback if buildid endpoint fails
+        }
+    }
+
+    Err(format!("Could not fetch latest buildid for app {}", app_id))
+}
+
 #[tauri::command]
 pub async fn get_server_version(server_id: i64, state: State<'_, AppState>) -> Result<String, String> {
     let server = get_server_by_id(state.clone(), server_id).await?
@@ -209,21 +282,7 @@ pub async fn get_server_version(server_id: i64, state: State<'_, AppState>) -> R
         .join("steamapps")
         .join("appmanifest_2430930.acf");
 
-    let mut build_id = None;
-    if manifest_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&manifest_path) {
-            for line in content.lines() {
-                if line.contains("\"buildid\"") {
-                    let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 2 {
-                        let id = parts[parts.len() - 1].replace("\"", "");
-                        build_id = Some(id);
-                    }
-                    break;
-                }
-            }
-        }
-    }
+    let build_id = parse_acf_build_id(&manifest_path);
 
     let exe_path = server.install_path
         .join("ShooterGame")
@@ -256,53 +315,7 @@ pub async fn get_server_version(server_id: i64, state: State<'_, AppState>) -> R
 
 #[tauri::command]
 pub async fn get_latest_server_version() -> Result<String, String> {
-    let url = "https://api.steamcmd.net/v1/info/2430930";
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    let resp = client.get(url)
-        .header("User-Agent", "ARK-ASA-Server-Manager")
-        .send()
-        .await
-        .map_err(|e| format!("Failed to fetch latest version: {}", e))?;
-
-    let json: serde_json::Value = resp.json()
-        .await
-        .map_err(|e| format!("Failed to parse JSON: {}", e))?;
-
-    if let Some(data) = json.get("data").and_then(|d| d.get("2430930")) {
-        // Try Option A: depots -> branches -> public -> buildid
-        if let Some(buildid) = data
-            .get("depots")
-            .and_then(|d| d.get("branches"))
-            .and_then(|b| b.get("public"))
-            .and_then(|p| p.get("buildid"))
-        {
-            if let Some(id_str) = buildid.as_str() {
-                return Ok(id_str.to_string());
-            }
-            if let Some(id_u64) = buildid.as_u64() {
-                return Ok(id_u64.to_string());
-            }
-        }
-        // Try Option B: branches -> public -> buildid
-        if let Some(buildid) = data
-            .get("branches")
-            .and_then(|b| b.get("public"))
-            .and_then(|p| p.get("buildid"))
-        {
-            if let Some(id_str) = buildid.as_str() {
-                return Ok(id_str.to_string());
-            }
-            if let Some(id_u64) = buildid.as_u64() {
-                return Ok(id_u64.to_string());
-            }
-        }
-    }
-
-    Err("Could not find buildid in response".to_string())
+    fetch_steam_app_build_id("2430930").await
 }
 
 #[tauri::command]

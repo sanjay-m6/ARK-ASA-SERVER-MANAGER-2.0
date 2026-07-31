@@ -296,6 +296,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                         serverId: server.id,
                         customArgs: newCustomArgs
                     });
+                    server.config.customArgs = newCustomArgs;
                     server.config.custom_args = newCustomArgs;
                 } catch (err) {
                     console.error('Failed to auto-configure modded map launch args:', err);

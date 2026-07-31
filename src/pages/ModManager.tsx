@@ -13,6 +13,9 @@ import { ModWatchdogDashboard } from '../components/mods/ModWatchdogDashboard';
 import CurseForgeKeyModal from '../components/modals/CurseForgeKeyModal';
 import ServerSelect from '../components/ui/ServerSelect';
 import { useServerStore } from '../stores/serverStore';
+import ModOrganizationBar from '../components/mods/ModOrganizationBar';
+import ModCategorySelector from '../components/mods/ModCategorySelector';
+import { useModOrganizationStore } from '../stores/modOrganizationStore';
 
 interface ServerBasic {
     id: number;
@@ -158,37 +161,43 @@ const ModCard = memo(({
                 </p>
 
                 {/* Interactive Multi-Action Bottom Toolbar */}
-                <div className="pt-3 border-t border-white/5 flex items-center justify-between gap-2 mt-auto">
-                    <button
-                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); onSelectDetail(mod); }}
-                        className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/10 text-xs font-bold transition-all flex items-center gap-1.5"
-                    >
-                        <ScanSearch className="w-3.5 h-3.5 text-sky-400" />
-                        <span>Inspect</span>
-                    </button>
+                <div className="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 mt-auto">
+                    <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                        <ModCategorySelector modId={mod.id} modName={mod.name} modDescription={cleanSummary} />
+                    </div>
 
-                    <button
-                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); onInstall(mod); }}
-                        disabled={mod.id === '0'}
-                        className={cn(
-                            "px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md active:scale-95",
-                            mod.id === '0'
-                                ? "bg-red-500/20 text-red-400 border border-red-500/30 cursor-not-allowed"
-                                : "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-sky-500/20 hover:shadow-sky-500/40"
-                        )}
-                    >
-                        {mod.id === '0' ? (
-                            <>
-                                <AlertTriangle className="w-3.5 h-3.5" />
-                                <span>{t('modManager.checkVersion')}</span>
-                            </>
-                        ) : (
-                            <>
-                                <Download className="w-3.5 h-3.5" />
-                                <span>{t('common.install')}</span>
-                            </>
-                        )}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={(e: React.MouseEvent) => { e.stopPropagation(); onSelectDetail(mod); }}
+                            className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/10 text-xs font-bold transition-all flex items-center gap-1.5"
+                        >
+                            <ScanSearch className="w-3.5 h-3.5 text-sky-400" />
+                            <span>Inspect</span>
+                        </button>
+
+                        <button
+                            onClick={(e: React.MouseEvent) => { e.stopPropagation(); onInstall(mod); }}
+                            disabled={mod.id === '0'}
+                            className={cn(
+                                "px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md active:scale-95",
+                                mod.id === '0'
+                                    ? "bg-red-500/20 text-red-400 border border-red-500/30 cursor-not-allowed"
+                                    : "bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white shadow-sky-500/20 hover:shadow-sky-500/40"
+                            )}
+                        >
+                            {mod.id === '0' ? (
+                                <>
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                    <span>{t('modManager.checkVersion')}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Download className="w-3.5 h-3.5" />
+                                    <span>{t('common.install')}</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -475,6 +484,9 @@ export default function ModManager() {
     const [showKeyModal, setShowKeyModal] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
 
+    // Mod Organization Store
+    const { activeCategoryId, isModInCategory, categories: orgCategories } = useModOrganizationStore();
+
     // Filters
     const [categories, setCategories] = useState<CurseForgeCategory[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined);
@@ -487,10 +499,30 @@ export default function ModManager() {
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+    // Filter available mods by active category selection
+    const filteredAvailableMods = useMemo(() => {
+        if (activeCategoryId === 'all') return availableMods;
+        return availableMods.filter((mod) => isModInCategory(mod.id, activeCategoryId));
+    }, [availableMods, activeCategoryId, isModInCategory]);
+
     // Installed Mods State
     const [installedMods, setInstalledMods] = useState<ModInfo[]>([]);
     const [installedFilter, setInstalledFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
     const [isSyncing, setIsSyncing] = useState(false);
+
+    // Compute mod counts per category folder
+    const modCountMap = useMemo(() => {
+        const counts: Record<string, number> = {};
+        orgCategories.forEach((cat) => {
+            if (cat.id === 'all') {
+                counts[cat.id] = activeTab === 'installed' ? installedMods.length : availableMods.length;
+            } else {
+                const list = activeTab === 'installed' ? installedMods : availableMods;
+                counts[cat.id] = list.filter((mod) => isModInCategory(mod.id, cat.id)).length;
+            }
+        });
+        return counts;
+    }, [orgCategories, activeTab, installedMods, availableMods, isModInCategory]);
 
     const [isLoading, setIsLoading] = useState(false);
     const [servers, setServers] = useState<ServerBasic[]>([]);
@@ -1229,83 +1261,88 @@ export default function ModManager() {
     return (
         <div className="space-y-8 animate-in fade-in duration-500 relative pb-20">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-white/5 pb-6">
                 <div>
-                    <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-violet-400">
+                    <h1 className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-blue-400 to-violet-400 tracking-tight">
                         {t('modManager.title')}
                     </h1>
-                    <p className="text-slate-400 mt-2 text-lg">{t('modManager.subtitle')}</p>
+                    <p className="text-slate-400 mt-1 text-sm sm:text-base font-medium">{t('modManager.subtitle')}</p>
                 </div>
 
-                {/* Server Selector & Actions */}
-                <div className="flex items-center space-x-4">
-                    {/* CurseForge API Key Settings Link (Pop-up Modal) */}
+                {/* Header Action Toolbar */}
+                <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                    {/* CurseForge API Key Button */}
                     <button
                         onClick={() => setShowKeyModal(true)}
-                        className="flex items-center space-x-2 px-4 py-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl transition-all shadow-lg shadow-amber-950/20"
+                        className="h-11 flex items-center gap-2 px-4 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 rounded-xl transition-all font-bold text-xs whitespace-nowrap shadow-sm active:scale-95 shrink-0"
                         title={t('modManager.configureApiKeyTooltip', 'Configure CurseForge API Key in Settings')}
                     >
-                        <Key className="w-5 h-5 text-amber-400" />
-                        <span className="font-bold text-sm hidden lg:inline">{t('modManager.apiKeySetting', 'CurseForge API Key')}</span>
+                        <Key className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span>{t('modManager.apiKeySetting', 'CurseForge API Key')}</span>
                     </button>
 
-                    {/* Add Mod by ID Button (No API Key Required) */}
+                    {/* Add Mod by ID Button */}
                     <button
                         onClick={() => setShowAdvancedMode(true)}
                         disabled={!selectedServerId}
-                        className="flex items-center space-x-2 px-4 py-3 bg-sky-600/20 hover:bg-sky-500 text-sky-400 hover:text-white border border-sky-500/30 rounded-xl transition-all disabled:opacity-50 shadow-lg shadow-sky-950/20"
+                        className="h-11 flex items-center gap-2 px-4 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 border border-sky-500/30 rounded-xl transition-all font-bold text-xs whitespace-nowrap disabled:opacity-50 shadow-sm active:scale-95 shrink-0"
                         title={t('modManager.addModByIdTooltip', 'Install Mod directly by Mod ID (No API Key Required)')}
                     >
-                        <PackagePlus className="w-5 h-5 text-sky-400" />
-                        <span className="font-bold text-sm hidden md:inline">{t('modManager.addModById', 'Add Mod by ID')}</span>
+                        <PackagePlus className="w-4 h-4 text-sky-400 shrink-0" />
+                        <span>{t('modManager.addModById', 'Add Mod by ID')}</span>
                     </button>
 
-                    {/* Modpack Export */}
-                    <button
-                        onClick={() => setShowModpackExport(true)}
-                        disabled={!selectedServerId}
-                        className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-all disabled:opacity-50"
-                        title={t('modManager.exportModpack', 'Export Modpack')}
-                    >
-                        <Upload className="w-5 h-5" />
-                    </button>
+                    {/* Grouped Icon Utility Toolbar */}
+                    <div className="h-11 bg-slate-900/80 border border-slate-800 rounded-xl p-1 flex items-center gap-1 backdrop-blur-md shrink-0 shadow-inner">
+                        {/* Export Modpack */}
+                        <button
+                            onClick={() => setShowModpackExport(true)}
+                            disabled={!selectedServerId}
+                            className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all disabled:opacity-40"
+                            title={t('modManager.exportModpack', 'Export Modpack')}
+                        >
+                            <Upload className="w-4 h-4" />
+                        </button>
 
-                    {/* Modpack Import */}
-                    <button
-                        onClick={() => setShowModpackImport(true)}
-                        disabled={!selectedServerId}
-                        className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-all disabled:opacity-50"
-                        title={t('modManager.importModpack', 'Import Modpack')}
-                    >
-                        <PackagePlus className="w-5 h-5" />
-                    </button>
+                        {/* Import Modpack */}
+                        <button
+                            onClick={() => setShowModpackImport(true)}
+                            disabled={!selectedServerId}
+                            className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all disabled:opacity-40"
+                            title={t('modManager.importModpack', 'Import Modpack')}
+                        >
+                            <PackagePlus className="w-4 h-4" />
+                        </button>
 
-                    {/* Conflict Scanner */}
-                    <button
-                        onClick={handleScanConflicts}
-                        disabled={!selectedServerId || isScanning}
-                        className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-all disabled:opacity-50"
-                        title={t('modManager.scanConflicts', 'Scan for Conflicts')}
-                    >
-                        {isScanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <ScanSearch className="w-5 h-5" />}
-                    </button>
+                        {/* Conflict Scanner */}
+                        <button
+                            onClick={handleScanConflicts}
+                            disabled={!selectedServerId || isScanning}
+                            className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all disabled:opacity-40"
+                            title={t('modManager.scanConflicts', 'Scan for Conflicts')}
+                        >
+                            {isScanning ? <Loader2 className="w-4 h-4 animate-spin text-sky-400" /> : <ScanSearch className="w-4 h-4" />}
+                        </button>
 
-                    <button
-                        onClick={() => setShowTransferDialog(true)}
-                        disabled={!selectedServerId}
-                        className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 rounded-xl transition-all disabled:opacity-50"
-                        title={t('modManager.transferModsTooltip')}
-                    >
-                        <ArrowUp className="w-5 h-5" />
-                    </button>
+                        {/* Transfer Mods */}
+                        <button
+                            onClick={() => setShowTransferDialog(true)}
+                            disabled={!selectedServerId}
+                            className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all disabled:opacity-40"
+                            title={t('modManager.transferModsTooltip', 'Transfer Mods to another server')}
+                        >
+                            <ArrowUp className="w-4 h-4" />
+                        </button>
+                    </div>
 
+                    {/* Primary Action Button: Apply Changes */}
                     <button
                         onClick={handlePreviewConfig}
                         disabled={!selectedServerId || isGenerating}
-                        className="flex items-center space-x-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 hover:text-white text-slate-300 border border-slate-700 rounded-xl transition-all disabled:opacity-50"
+                        className="h-11 flex items-center gap-2 px-5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 shadow-lg shadow-sky-500/20 active:scale-95 shrink-0 whitespace-nowrap"
                     >
-                        {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        <span className="font-bold">{t('modManager.applyChanges')}</span>
+                        {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        <span>{t('modManager.applyChanges', 'Apply Changes')}</span>
                     </button>
                 </div>
             </div>
@@ -1367,7 +1404,7 @@ export default function ModManager() {
                                     <label className="text-sm font-medium text-slate-300">{t('modManager.selectServer')}</label>
                                     <ServerSelect 
                                         value={transferTargetId} 
-                                        onChange={(id) => setTransferTargetId(id)} 
+                                        onChange={(id: number | null) => setTransferTargetId(id)} 
                                         servers={servers.filter(s => s.id !== selectedServerId)}
                                         accentColor="sky" 
                                         className="w-full"
@@ -2075,6 +2112,9 @@ export default function ModManager() {
                 )
             }
 
+            {/* Custom Mod Category Organization Bar */}
+            <ModOrganizationBar modCountMap={modCountMap} className="mb-4" />
+
             {/* Filters Section (Available Mods Only) */}
             {activeTab === 'available' && (
                 <div className="mb-6 flex flex-wrap items-center gap-4 bg-[#0A0F1C]/40 p-4 rounded-2xl border border-white/5 backdrop-blur-xl shadow-2xl">
@@ -2317,8 +2357,14 @@ export default function ModManager() {
                                     </div>
                                 </div>
                             </div>
+                        ) : filteredAvailableMods.length === 0 ? (
+                            <div className="col-span-full text-center py-16 glass-panel rounded-2xl border-dashed border-2 border-slate-700/50">
+                                <Package className="w-14 h-14 text-slate-600 mx-auto mb-3" />
+                                <h3 className="text-lg font-semibold text-slate-300">No mods in active category filter</h3>
+                                <p className="text-xs text-slate-500 mt-1">Assign mods to this category or select "All Mods" to view all results.</p>
+                            </div>
                         ) : (
-                            availableMods.map((mod) => (
+                            filteredAvailableMods.map((mod) => (
                                 <ModCard
                                     key={mod.id}
                                     mod={mod}
@@ -2476,6 +2522,7 @@ export default function ModManager() {
                                                     if (!matchesSearch) return false;
                                                     if (installedFilter === 'enabled') return mod.enabled;
                                                     if (installedFilter === 'disabled') return !mod.enabled;
+                                                    if (activeCategoryId !== 'all' && !isModInCategory(mod.id, activeCategoryId)) return false;
                                                     return true;
                                                 })
                                                 .map((mod, index) => {
@@ -2518,22 +2565,21 @@ export default function ModManager() {
                                                                                 className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-sky-300 disabled:opacity-20 transition-colors"
                                                                                 title="Move Up"
                                                                             >
-                                                                                <ArrowUp className="w-3.5 h-3.5" />
+                                                                                <ChevronUp className="w-3.5 h-3.5" />
                                                                             </button>
-                                                                            <span className="font-mono text-xs font-bold text-sky-400 px-1.5 py-0.5 bg-slate-950 rounded-md border border-white/10">
-                                                                                #{originalIndex + 1}
-                                                                            </span>
+                                                                            <span className="text-[10px] font-bold font-mono text-slate-500">#{originalIndex + 1}</span>
                                                                             <button
                                                                                 onClick={() => handleMoveMod(originalIndex, 'down')}
                                                                                 disabled={originalIndex === installedMods.length - 1 || searchQuery.length > 0 || installedFilter !== 'all'}
                                                                                 className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-sky-300 disabled:opacity-20 transition-colors"
+                                                                                title="Move Down"
                                                                             >
-                                                                                <ArrowDown className="w-3.5 h-3.5" />
+                                                                                <ChevronDown className="w-3.5 h-3.5" />
                                                                             </button>
                                                                         </div>
 
-                                                                        {/* Mod Thumbnail Icon */}
-                                                                        <div className="w-12 h-12 rounded-2xl border border-white/10 bg-slate-950 overflow-hidden shrink-0 flex items-center justify-center shadow-md group-hover:border-sky-500/40 transition-colors">
+                                                                        {/* Mod Thumbnail */}
+                                                                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-950 shrink-0 border border-white/10">
                                                                             <InstalledModImage url={mod.thumbnailUrl} name={mod.name} />
                                                                         </div>
 
@@ -2564,6 +2610,10 @@ export default function ModManager() {
                                                                                         Disabled
                                                                                     </span>
                                                                                 )}
+
+                                                                                <div onClick={(e) => e.stopPropagation()}>
+                                                                                    <ModCategorySelector modId={mod.id} modName={mod.name} modDescription={mod.description} />
+                                                                                </div>
                                                                             </div>
 
                                                                             <p className="text-xs text-slate-300/80 mt-1 line-clamp-1 leading-relaxed">
