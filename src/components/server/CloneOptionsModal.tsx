@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Copy, Settings, Database, X, Server, ArrowRight, Loader2 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { Server as ServerType } from '../../types';
@@ -57,8 +58,8 @@ export default function CloneOptionsModal({
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
+    const modalContent = (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-200">
             <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b border-slate-700/50">
@@ -235,4 +236,6 @@ export default function CloneOptionsModal({
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 }

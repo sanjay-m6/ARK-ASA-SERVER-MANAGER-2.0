@@ -260,6 +260,14 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
                         <Globe className="w-3 h-3 text-indigo-400" />
                         <span className="text-[10px] font-bold text-indigo-400">{nodes.length} Nodes</span>
                     </div>
+                    {(cluster.clusterPath.startsWith('\\\\') || cluster.clusterPath.startsWith('//') || cluster.clusterPath.includes(':')) && (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20" title={`Cluster storage path: ${cluster.clusterPath}`}>
+                            <HardDrive className="w-3 h-3 text-purple-400" />
+                            <span className="text-[10px] font-bold text-purple-300">
+                                {cluster.clusterPath.startsWith('\\\\') || cluster.clusterPath.startsWith('//') ? 'Network Share' : 'Custom Path'}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-2">

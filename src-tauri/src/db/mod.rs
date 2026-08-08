@@ -92,6 +92,27 @@ impl Database {
         // Mod thumbnail migration
         Self::run_mods_thumbnail_migration(conn)?;
 
+        // Cross-computer cluster linking (cluster_id_string column)
+        Self::run_cluster_id_string_migration(conn)?;
+
+        Ok(())
+    }
+
+    fn run_cluster_id_string_migration(conn: &Connection) -> Result<()> {
+        let mut stmt = conn.prepare("PRAGMA table_info(clusters)")?;
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if !columns.contains(&"cluster_id_string".to_string()) {
+            println!("📦 Migration: Adding cluster_id_string column to clusters table");
+            conn.execute(
+                "ALTER TABLE clusters ADD COLUMN cluster_id_string TEXT",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 

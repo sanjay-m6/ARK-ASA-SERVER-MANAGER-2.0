@@ -1,7 +1,7 @@
 use crate::models::SystemInfo;
 use crate::AppState;
 use serde::Serialize;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use sysinfo::Disks;
 use tauri::Manager;
@@ -10,6 +10,38 @@ use tokio::time::{sleep, Duration};
 
 // Global flag for Eco Mode
 static ECO_MODE_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+// Disk info cache — disk partitions don't change rapidly, refresh every 60s
+static LAST_DISK_REFRESH: AtomicU64 = AtomicU64::new(0);
+static CACHED_DISK_TOTAL: AtomicU64 = AtomicU64::new(0);
+static CACHED_DISK_AVAILABLE: AtomicU64 = AtomicU64::new(0);
+
+fn get_cached_disk_info() -> (u64, u64) {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let last = LAST_DISK_REFRESH.load(Ordering::Relaxed);
+
+    if now - last >= 60 || last == 0 {
+        let disks = Disks::new_with_refreshed_list();
+        let mut total = 0u64;
+        let mut available = 0u64;
+        for disk in disks.list() {
+            total += disk.total_space();
+            available += disk.available_space();
+        }
+        CACHED_DISK_TOTAL.store(total, Ordering::Relaxed);
+        CACHED_DISK_AVAILABLE.store(available, Ordering::Relaxed);
+        LAST_DISK_REFRESH.store(now, Ordering::Relaxed);
+        (total, available)
+    } else {
+        (
+            CACHED_DISK_TOTAL.load(Ordering::Relaxed),
+            CACHED_DISK_AVAILABLE.load(Ordering::Relaxed),
+        )
+    }
+}
 
 #[tauri::command]
 pub async fn get_system_info(state: State<'_, AppState>) -> Result<SystemInfo, String> {
@@ -32,23 +64,7 @@ pub async fn get_system_info(state: State<'_, AppState>) -> Result<SystemInfo, S
         total / cpus.len() as f32
     };
 
-    // Debug print backend-side
-    println!(
-        "DEBUG CPU: {} cores, {}% global, {}% per-core",
-        cpus.len(),
-        sys.global_cpu_usage(),
-        cpu
-    );
-
-    let disks = Disks::new_with_refreshed_list();
-    let mut total_disk = 0u64;
-    let mut available_disk = 0u64;
-
-    for disk in disks.list() {
-        total_disk += disk.total_space();
-        available_disk += disk.available_space();
-    }
-
+    let (total_disk, available_disk) = get_cached_disk_info();
     let used_disk = total_disk.saturating_sub(available_disk);
 
     Ok(SystemInfo {
@@ -90,6 +106,32 @@ pub async fn select_file(
 
     Ok(file_path.map(|p| p.to_string()))
 }
+
+#[tauri::command]
+pub async fn save_file_dialog(
+    app: tauri::AppHandle,
+    title: String,
+    default_name: Option<String>,
+    extensions: Option<Vec<String>>,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let mut dialog = app.dialog().file().set_title(title);
+
+    if let Some(ref name) = default_name {
+        dialog = dialog.set_file_name(name);
+    }
+
+    if let Some(ref exts) = extensions {
+        let ext_slices: Vec<&str> = exts.iter().map(|s| s.as_str()).collect();
+        dialog = dialog.add_filter("Export Files", &ext_slices);
+    }
+
+    let file_path = dialog.blocking_save_file();
+
+    Ok(file_path.map(|p| p.to_string()))
+}
+
 
 #[tauri::command]
 pub async fn select_plugin_zip(app: tauri::AppHandle) -> Result<Option<String>, String> {

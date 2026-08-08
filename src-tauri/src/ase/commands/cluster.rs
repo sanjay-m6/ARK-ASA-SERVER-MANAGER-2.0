@@ -125,6 +125,7 @@ pub async fn create_ase_cluster(
         name,
         cluster_path: PathBuf::from(&cluster_dir),
         server_ids,
+        cluster_id_string: None,
         created_at: chrono::Local::now().to_rfc3339(),
     };
 
@@ -276,6 +277,7 @@ pub async fn get_ase_clusters(state: State<'_, AppState>) -> Result<Vec<Cluster>
                     name,
                     cluster_path: PathBuf::from(cluster_dir),
                     server_ids,
+                    cluster_id_string: None,
                     created_at,
                 });
             }

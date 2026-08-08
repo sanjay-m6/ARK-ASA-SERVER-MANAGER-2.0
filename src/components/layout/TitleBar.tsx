@@ -15,15 +15,52 @@ import AppUpdateModal from '../modals/AppUpdateModal';
 const appleSpring = { type: 'spring' as const, stiffness: 500, damping: 30, mass: 0.8 };
 
 
+function LiveClock() {
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>;
+
+    const startClock = () => {
+      setCurrentTime(new Date());
+      timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    };
+
+    const stopClock = () => {
+      clearInterval(timer);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        startClock();
+      } else {
+        stopClock();
+      }
+    };
+
+    startClock();
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      stopClock();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
+
+  return (
+    <div className="flex items-center text-sm font-medium text-white tracking-wide">
+      {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+    </div>
+  );
+}
+
 export default function TitleBar() {
   const { activeGame } = useGameStore();
   const { servers } = useServerStore();
   const isASE = activeGame === 'ASE';
   const [isMaximized, setIsMaximized] = useState(false);
   const [appVersion, setAppVersion] = useState('');
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
-
 
   const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
   const appWindow = isTauri ? getCurrentWindow() : null;
@@ -50,7 +87,7 @@ export default function TitleBar() {
     });
 
     return () => {
-      unlistenResize.then((unlisten) => unlisten());
+      unlistenResize.then((unlisten: () => void) => unlisten());
     };
   }, [appWindow]);
 
@@ -58,18 +95,6 @@ export default function TitleBar() {
   useEffect(() => {
     getVersion().then((v) => setAppVersion(v)).catch(() => setAppVersion(''));
   }, []);
-
-  // Live clock
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-  };
 
   const handleMinimize = useCallback(async () => {
     try {
@@ -92,7 +117,7 @@ export default function TitleBar() {
   // Intercept window close requested event
   useEffect(() => {
     if (!appWindow) return;
-    const unlistenPromise = appWindow.onCloseRequested(async (event) => {
+    const unlistenPromise = appWindow.onCloseRequested(async (event: any) => {
       const remember = localStorage.getItem('rememberCloseAction') === 'true';
       const pref = localStorage.getItem('closeActionPreference');
 
@@ -117,7 +142,7 @@ export default function TitleBar() {
     });
 
     return () => {
-      unlistenPromise.then((unlisten) => unlisten());
+      unlistenPromise.then((unlisten: () => void) => unlisten());
     };
   }, [appWindow]);
 
@@ -222,9 +247,7 @@ export default function TitleBar() {
         <div className="w-px h-5 bg-white/10" />
 
         {/* Clock */}
-        <div className="flex items-center text-sm font-medium text-white tracking-wide">
-          {formatTime(currentTime)}
-        </div>
+        <LiveClock />
 
         {/* Window Controls Pill */}
         <div

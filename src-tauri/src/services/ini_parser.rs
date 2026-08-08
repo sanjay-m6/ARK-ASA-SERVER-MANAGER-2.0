@@ -3,37 +3,51 @@ use indexmap::IndexMap;
 pub struct IniParser;
 
 impl IniParser {
+    /// Normalize text by stripping UTF-8 BOM, converting OpenOffice/smart quotes to ASCII,
+    /// and normalizing non-breaking spaces and Unicode dashes.
+    pub fn normalize_ini_text(text: &str) -> String {
+        text.trim_start_matches('\u{feff}')
+            .replace(['\u{201c}', '\u{201d}', '\u{201e}', '\u{201f}', '«', '»'], "\"")
+            .replace(['\u{2018}', '\u{2019}', '\u{201a}', '\u{201b}'], "'")
+            .replace(['\u{2013}', '\u{2014}'], "-")
+            .replace('\u{00a0}', " ")
+    }
+
     /// Parse INI content into an ordered map of sections -> keys -> values.
     /// Duplicate keys are preserved by joining their values with `\n`.
     /// This mirrors the frontend `parseIniContent` behaviour so that
     /// round-tripping through parse → serialize never loses data.
     pub fn parse_ordered(content: &str) -> IndexMap<String, IndexMap<String, String>> {
+        let normalized = Self::normalize_ini_text(content);
         let mut result = IndexMap::new();
         let mut current_section = "__global__".to_string();
         result.insert(current_section.clone(), IndexMap::<String, String>::new());
 
-        for line in content.lines() {
+        for line in normalized.lines() {
             let line = line.trim();
 
             // Skip empty lines and comments
-            if line.is_empty() || line.starts_with(';') || line.starts_with('#') {
+            if line.is_empty() || line.starts_with(';') || line.starts_with('#') || line.starts_with("//") {
                 continue;
             }
 
-            // Section header
-            if line.starts_with('[') && line.ends_with(']') {
-                let section_name = line[1..line.len() - 1].to_string();
+            // Section header: handle [SectionName] with optional inline comment or whitespace
+            if line.starts_with('[') {
+                if let Some(end_bracket) = line.find(']') {
+                    let section_name = line[1..end_bracket].trim().to_string();
+                    if !section_name.is_empty() {
+                        // Use a case-insensitive search to find existing section
+                        let existing_section = result.keys().find(|k| k.eq_ignore_ascii_case(&section_name)).cloned();
 
-                // Use a case-insensitive search to find existing section
-                let existing_section = result.keys().find(|k| k.eq_ignore_ascii_case(&section_name)).cloned();
-
-                if let Some(existing) = existing_section {
-                    current_section = existing;
-                } else {
-                    current_section = section_name.clone();
-                    result.insert(current_section.clone(), IndexMap::<String, String>::new());
+                        if let Some(existing) = existing_section {
+                            current_section = existing;
+                        } else {
+                            current_section = section_name.clone();
+                            result.insert(current_section.clone(), IndexMap::<String, String>::new());
+                        }
+                        continue;
+                    }
                 }
-                continue;
             }
 
             // Key=Value pair
@@ -300,5 +314,22 @@ bAllowFlyerSpeedLeveling=True\r
                 assert_eq!(value, re_value, "Value mismatch for {}.{}", section, key);
             }
         }
+    }
+
+    #[test]
+    fn test_utf8_bom_and_smart_quotes() {
+        // Simulates an OpenOffice/LibreOffice or Nitrado export with UTF-8 BOM and curly quotes
+        let bom_ini = "\u{feff}[ServerSettings] ; main server configs\r\nSessionName=“Matthias Server”\r\nMaxPlayers=70\r\n\r\n[/Script/ShooterGame.ShooterGameMode]\r\nConfigOverrideItemMaxQuantity=(ItemClassString=“PrimalItemResource_Wood_C”,Quantity=(MaxItemQuantity=500,bIgnoreMultiplier=True))\r\nLevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=5,ExperiencePointsForLevel[1]=20)\r\n";
+        
+        let parsed = IniParser::parse_ordered(bom_ini);
+        
+        // Section without BOM should match ServerSettings
+        let server_settings = parsed.get("ServerSettings").expect("ServerSettings section must be parsed despite BOM and comment");
+        assert_eq!(server_settings.get("SessionName").unwrap(), "\"Matthias Server\"");
+        assert_eq!(server_settings.get("MaxPlayers").unwrap(), "70");
+
+        let game_mode = parsed.get("/Script/ShooterGame.ShooterGameMode").expect("ShooterGameMode section must be parsed");
+        let stack_override = game_mode.get("ConfigOverrideItemMaxQuantity").unwrap();
+        assert!(stack_override.contains("\"PrimalItemResource_Wood_C\""), "Smart quotes should be converted to standard ASCII double quotes");
     }
 }

@@ -15,17 +15,15 @@ const generateParticles = (count: number) => {
     }));
 };
 
-const ASA_PARTICLES = generateParticles(20);
-const ASE_PARTICLES = generateParticles(15);
+const ASA_PARTICLES = generateParticles(3);
+const ASE_PARTICLES = generateParticles(2);
 
 // Circuit tech nodes positions
 const TECH_NODES = [
-    { top: '15%', left: '20%', delay: '0.2s' },
+    { top: '20%', left: '20%', delay: '0.2s' },
     { top: '35%', left: '15%', delay: '1.2s' },
     { top: '25%', left: '80%', delay: '0.8s' },
     { top: '65%', left: '85%', delay: '2.1s' },
-    { top: '80%', left: '10%', delay: '1.5s' },
-    { top: '75%', left: '75%', delay: '2.8s' },
 ];
 
 export default function GameTransitionHero() {
@@ -82,7 +80,6 @@ export default function GameTransitionHero() {
                         initial={{ opacity: 0, scale: 1 }}
                         animate={{ 
                             opacity: [0, 0.95, 0.95, 0],
-                            backdropFilter: ['blur(0px)', 'blur(12px)', 'blur(12px)', 'blur(0px)'],
                         }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.7, ease: "easeInOut" }}
@@ -106,20 +103,18 @@ export default function GameTransitionHero() {
                                 transition={{ delay: 0.1, duration: 0.4 }}
                                 className="w-28 h-28 md:w-36 md:h-36 mb-4 flex items-center justify-center relative"
                             >
-                                <div className={`absolute inset-0 rounded-full blur-2xl opacity-30 ${
+                                <div className={`absolute inset-0 rounded-full opacity-30 ${
                                     isASE ? 'bg-amber-500' : 'bg-cyan-500'
-                                }`} />
+                                }`} style={{ background: isASE ? 'radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)' : 'radial-gradient(circle, rgba(6,182,212,0.4) 0%, transparent 70%)' }} />
                                 <img
                                     src={isASE ? aseHero : asaHero}
                                     alt={isASE ? "ARK Survival Evolved" : "ARK Survival Ascended"}
-                                    className={`w-full h-full object-contain pointer-events-none select-none relative z-10 filter drop-shadow-[0_0_20px_${
-                                        isASE ? 'rgba(245,158,11,0.5)' : 'rgba(34,211,238,0.5)'
-                                    }]`}
+                                    className="w-full h-full object-contain pointer-events-none select-none relative z-10"
                                 />
                             </motion.div>
 
                             <h2 className={`text-3xl font-black tracking-[0.3em] font-display uppercase ${
-                                isASE ? "text-amber-400 drop-shadow-[0_0_15px_rgba(245,158,11,0.6)]" : "text-cyan-400 drop-shadow-[0_0_15px_rgba(6,182,212,0.6)]"
+                                isASE ? "text-amber-400" : "text-cyan-400"
                             }`}>
                                 {isASE ? "SURVIVAL EVOLVED" : "SURVIVAL ASCENDED"}
                             </h2>
@@ -132,7 +127,7 @@ export default function GameTransitionHero() {
             {/* Background Grid and Circuit Overlay */}
             <div className="absolute inset-0 cyber-grid-overlay opacity-60"></div>
 
-            {/* Staggered Ambient Radial Bloom */}
+            {/* Staggered Ambient Radial Bloom (High Performance Gradients) */}
             <AnimatePresence mode="wait">
                 <motion.div
                     key={activeGame}
@@ -145,16 +140,14 @@ export default function GameTransitionHero() {
                     {isASE ? (
                         /* ASE Amber, Green & Metallic Deep Glow */
                         <>
-                            <div className="absolute top-[-10%] left-[30%] w-[550px] h-[550px] bg-amber-500/10 rounded-full blur-[140px] pointer-events-none"></div>
-                            <div className="absolute bottom-[10%] right-[10%] w-[450px] h-[450px] bg-red-600/5 rounded-full blur-[120px] pointer-events-none"></div>
-                            <div className="absolute top-[40%] left-[10%] w-[350px] h-[350px] bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
+                            <div className="absolute top-[-10%] left-[30%] w-[550px] h-[550px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%)' }}></div>
+                            <div className="absolute bottom-[10%] right-[10%] w-[450px] h-[450px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(220,38,38,0.04) 0%, transparent 70%)' }}></div>
                         </>
                     ) : (
                         /* ASA Futuristic Blue & Cyan Intense Glow */
                         <>
-                            <div className="absolute top-[-10%] left-[25%] w-[600px] h-[600px] bg-cyan-500/15 rounded-full blur-[150px] pointer-events-none"></div>
-                            <div className="absolute bottom-[5%] right-[15%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[130px] pointer-events-none"></div>
-                            <div className="absolute top-[30%] left-[5%] w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[110px] pointer-events-none"></div>
+                            <div className="absolute top-[-10%] left-[25%] w-[600px] h-[600px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.09) 0%, transparent 70%)' }}></div>
+                            <div className="absolute bottom-[5%] right-[15%] w-[500px] h-[500px] rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%)' }}></div>
                         </>
                     )}
                 </motion.div>

@@ -306,19 +306,75 @@ impl CrossChatService {
 
 /// Helper to parse any format of ARK: Survival Ascended or Evolved chat line into (player_name, message)
 pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
-    let line = raw_line.trim();
+    let mut line = raw_line.trim();
     if line.is_empty() {
         return None;
     }
 
-    // 1. If line starts with relayed tag [ServerName], ignore to prevent echo loops
-    if line.starts_with('[') && line.contains("] ") && !line.starts_with("[202") {
+    // Immediately reject non-chat engine logs, mod loading, Sentry SDK, and server parameters
+    let lower_raw = raw_line.to_lowercase();
+    if lower_raw.contains("ushooterengine")
+        || lower_raw.contains("loadgamemods")
+        || lower_raw.contains("merging mod asset")
+        || lower_raw.contains("primalgamedata")
+        || lower_raw.contains("isserverpconly")
+        || lower_raw.contains("logsentrysdk")
+        || lower_raw.contains("sentry.io")
+        || lower_raw.contains("crashpad")
+        || lower_raw.contains("winhttp")
+        || lower_raw.contains("package /")
+        || lower_raw.contains("primalgamedataoverride")
+        || lower_raw.contains("lognet")
+        || lower_raw.contains("loghttp")
+    {
         return None;
     }
 
-    // 2. Strip standard ARK log timestamp headers:
-    // e.g., "[2024.02.05-12.00.00:123][  0]" or "[2024.02.05_12.00.00]" or "2024.02.05_12.00.00:"
-    let mut cleaned = line;
+    // 1. Strip leading noise chars such as colons, quotes, spaces (added by RCON, logs, or echoes)
+    line = line.trim_start_matches(|c: char| c == ':' || c == '"' || c == '\'' || c.is_whitespace());
+    if line.is_empty() {
+        return None;
+    }
+
+    // 2. Echo Prevention & Timestamp stripping:
+    // Strip leading timestamp e.g. "[2024.02.05-12.00.00:123][  0]" or "[2024.02.05_12.00.00]"
+    let mut check_str = line;
+    while check_str.starts_with('[') {
+        if let Some(end_bracket) = check_str.find(']') {
+            let inner = check_str[1..end_bracket].trim();
+            // Is it a timestamp, frame count, or log index?
+            if inner.starts_with("202")
+                || inner.contains('-')
+                || inner.contains('.')
+                || inner.chars().all(|c| c.is_ascii_digit() || c.is_whitespace())
+            {
+                check_str = check_str[end_bracket + 1..].trim();
+            } else {
+                // It's a server tag like [Ragnarok], [Valguero], [Extinction], etc. -> ECHO! Ignore.
+                return None;
+            }
+        } else {
+            break;
+        }
+    }
+
+    // Check if line contains a server tag like "] " or "] \"" after a bracket tag
+    if line.contains("] ") || line.contains("] \"") || line.contains("]: ") {
+        if let Some(close_pos) = line.find("] ") {
+            if let Some(open_pos) = line[..close_pos].rfind('[') {
+                let tag = &line[open_pos + 1..close_pos];
+                if !tag.starts_with("202")
+                    && !tag.chars().all(|c| c.is_ascii_digit() || c.is_whitespace())
+                {
+                    return None; // Echo detected!
+                }
+            }
+        }
+    }
+
+    let mut cleaned = check_str;
+
+    // 3. Strip standard ARK log timestamp headers & frame counters if any remain:
     if let Some(pos) = cleaned.find("][") {
         if let Some(end_bracket) = cleaned[pos + 2..].find(']') {
             cleaned = cleaned[pos + 3 + end_bracket..].trim();
@@ -327,36 +383,35 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
     if cleaned.starts_with('[') {
         if let Some(closing) = cleaned.find(']') {
             let inner = &cleaned[1..closing];
-            if inner.contains('-') || inner.contains('.') || inner.contains(':') || inner.contains('_') {
+            if inner.starts_with("202")
+                || inner.contains('-')
+                || inner.contains('.')
+                || inner.contains(':')
+                || inner.contains('_')
+                || inner.chars().all(|c| c.is_ascii_digit() || c.is_whitespace())
+            {
                 cleaned = cleaned[closing + 1..].trim();
             }
         }
     }
-    if let Some(colon_pos) = cleaned.find(": ") {
-        let prefix = &cleaned[..colon_pos];
-        if prefix.contains('_') || prefix.contains('.') {
-            cleaned = cleaned[colon_pos + 2..].trim();
-        }
-    }
 
-    // 3. Strip Log category prefixes
+    // 4. Strip Log category prefixes:
     if cleaned.starts_with("LogServer:") {
         cleaned = cleaned[10..].trim();
-    }
-    if cleaned.starts_with("LogShooterGame:") {
+    } else if cleaned.starts_with("LogShooterGame:") {
         cleaned = cleaned[15..].trim();
-    }
-    if cleaned.starts_with("Server:") || cleaned.starts_with("SERVER:") {
+    } else if cleaned.starts_with("Server:") || cleaned.starts_with("SERVER:") {
         cleaned = cleaned[7..].trim();
-    }
-    if cleaned.starts_with("Chat:") || cleaned.starts_with("CHAT:") {
+    } else if cleaned.starts_with("Chat:") || cleaned.starts_with("CHAT:") {
         cleaned = cleaned[5..].trim();
-    }
-    if cleaned.starts_with("Global:") || cleaned.starts_with("GLOBAL:") {
+    } else if cleaned.starts_with("Global:") || cleaned.starts_with("GLOBAL:") {
         cleaned = cleaned[7..].trim();
     }
 
-    // 4. Filter out system messages, commands, noise, and world save notifications
+    // Trim again leading colons/quotes/spaces
+    cleaned = cleaned.trim_start_matches(|c: char| c == ':' || c == '"' || c == '\'' || c.is_whitespace());
+
+    // 5. Filter out system noise, engine logs, Sentry SDK, commands, and headers
     let lower = cleaned.to_lowercase();
     if lower.starts_with("command:")
         || lower.starts_with("rcon:")
@@ -367,6 +422,12 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
         || lower.starts_with("shootergame:")
         || lower.starts_with("server :")
         || lower.starts_with("setmessage")
+        || lower.contains("ushooterengine")
+        || lower.contains("logsentrysdk")
+        || lower.contains("sentry-native")
+        || lower.contains("cross-origin")
+        || lower.contains("sending envelope")
+        || lower.contains("using database path")
         || lower.contains("world save complete")
         || lower.contains("server save loaded")
         || lower.contains("world save took")
@@ -376,21 +437,39 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
         return None;
     }
 
-    // 5. Parse "PlayerName: Message" or "PlayerName (TribeName): Message"
+    // 6. Parse "PlayerName: Message" or "PlayerName (TribeName): Message"
     let parts: Vec<&str> = cleaned.splitn(2, ':').collect();
     if parts.len() == 2 {
-        let player = parts[0].trim();
-        let msg = parts[1].trim();
+        let player = parts[0].trim().trim_matches('"').trim_matches('\'').trim_matches('[').trim_matches(']');
+        let msg = parts[1].trim().trim_matches('"').trim_matches('\'');
 
         if player.is_empty() || msg.is_empty() {
             return None;
         }
 
-        // Filter out system speaker names
-        if player.eq_ignore_ascii_case("server")
-            || player.eq_ignore_ascii_case("admin")
-            || player.eq_ignore_ascii_case("logserver")
-            || player.starts_with('[')
+        let player_lower = player.to_lowercase();
+
+        // Reject Unreal Engine class names (e.g. UShooterEngine, UPrimalGameData, etc.)
+        if player.starts_with('U') && player.chars().nth(1).map_or(false, |c| c.is_uppercase()) {
+            return None;
+        }
+
+        if player_lower.starts_with("log")
+            || player_lower.contains("engine")
+            || player_lower.contains("shooter")
+            || player_lower.contains("sentry")
+            || player_lower.contains("crashpad")
+            || player_lower.contains("winhttp")
+            || player_lower.contains('-')
+            || player_lower.contains("policy")
+            || player_lower.contains("http")
+            || player_lower.contains("origin")
+            || player_lower == "server"
+            || player_lower == "admin"
+            || player_lower == "logserver"
+            || player_lower == "system"
+            || player.contains('\\')
+            || player.contains('/')
         {
             return None;
         }
@@ -429,4 +508,49 @@ mod tests {
         assert!(config.enabled);
         assert_eq!(config.poll_interval_ms, 2000);
     }
+
+    #[test]
+    fn test_parse_ark_chat_line_valid_player_chat() {
+        let line = "[2026.08.04-10.00.00:123][  0]LogServer: Survivor1 (Tribe Alpha): Hello everyone!";
+        let parsed = parse_ark_chat_line(line);
+        assert_eq!(parsed, Some(("Survivor1 (Tribe Alpha)".to_string(), "Hello everyone!".to_string())));
+
+        let rcon_line = "Bob: Looking for a giga mutation";
+        let parsed_rcon = parse_ark_chat_line(rcon_line);
+        assert_eq!(parsed_rcon, Some(("Bob".to_string(), "Looking for a giga mutation".to_string())));
+    }
+
+    #[test]
+    fn test_parse_ark_chat_line_filters_sentry_and_engine_logs() {
+        let sentry1 = ": [Ragnarok] LogSentrySdk: Verbose: sending envelope";
+        assert_eq!(parse_ark_chat_line(sentry1), None);
+
+        let sentry2 = ": \"[Valguero] \"[Extinction] \"[Astraeos] LogSentrySdk: using database path \"F:\\Astraeos\\ShooterGame\\.sentry-native\"\"\"\"\"";
+        assert_eq!(parse_ark_chat_line(sentry2), None);
+
+        let sentry3 = "LogSentrySdk: Verbose: sending envelope";
+        assert_eq!(parse_ark_chat_line(sentry3), None);
+
+        let http = ": [Genesis] cross-origin-resource-policy: cross-origin";
+        assert_eq!(parse_ark_chat_line(http), None);
+
+        let engine = "LogNet: NetConnection::Close()";
+        assert_eq!(parse_ark_chat_line(engine), None);
+
+        let mod_merge = ": 2026.08.05_10.02.39: SERVER: \"[Island] UShooterEngine: :LoadGameMods Merging mod asset Package /DinoDepot/PrimalGameData_BP_DinoDepot with PrimalGameDataOverride.";
+        assert_eq!(parse_ark_chat_line(mod_merge), None);
+
+        let pc_only = ": 2026.08.05_10.02.42: SERVER: \"[TheCenter] \"[Genesis] \"isServerPcOnly\": false,\"";
+        assert_eq!(parse_ark_chat_line(pc_only), None);
+    }
+
+    #[test]
+    fn test_parse_ark_chat_line_filters_echoed_server_tags() {
+        let echo = "[Ragnarok] Bob: Hello from Ragnarok";
+        assert_eq!(parse_ark_chat_line(echo), None);
+
+        let echo2 = ": [Valguero] Alice: Hello from Valguero";
+        assert_eq!(parse_ark_chat_line(echo2), None);
+    }
 }
+

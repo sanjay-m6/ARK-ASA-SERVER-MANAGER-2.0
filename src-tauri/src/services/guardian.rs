@@ -166,10 +166,11 @@ impl GuardianService {
         let pids = self.server_pids.lock().await;
         let pid = pids.get(&server_id)?;
 
+        let target_pid = Pid::from_u32(*pid);
         let mut sys = System::new();
-        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target_pid]), true);
 
-        let process = sys.process(Pid::from_u32(*pid));
+        let process = sys.process(target_pid);
         let is_alive = process.is_some();
 
         let (memory_mb, cpu_percent) = if let Some(p) = process {

@@ -5,14 +5,14 @@ import {
   Server, Activity, Zap,
   Play, Square, RotateCw, FileEdit,
   Folder, FolderOpen, Heart, Bookmark, Search, Copy, RefreshCw,
-  ShieldCheck, Cpu, Radio, Sparkles, Timer
+  Timer
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../utils/helpers';
-import { getSystemInfo, optimizeMemory } from '../../utils/tauri';
+import { getSystemInfo } from '../../utils/tauri';
 import { startAseServer, stopAseServer, restartAseServer } from '../utils/aseCommands';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
@@ -53,44 +53,7 @@ export default function ASEDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [timedShutdownServer, setTimedShutdownServer] = useState<any | null>(null);
 
-  // Live Operations Feed
-  const [liveLogs, setLiveLogs] = useState<string[]>([
-    `[SYS] UE4 Operations center initialized.`,
-    `[SYS] Core metrics check: ACTIVE.`,
-    `[AI] Monitoring configuration files...`,
-  ]);
 
-  useEffect(() => {
-    const messages = [
-      "Verifying ShooterGame configurations...",
-      "Config validation check: completed.",
-      "Steam Workshop API update scanner...",
-      "Workshop status check: nominal.",
-      "Syncing active port listeners for ASE...",
-      "ASE network routing: verified.",
-      "Auditing Game.ini overrides...",
-      "Server parameter verification: OK.",
-      "RCON communication pipeline audit...",
-      "Heartbeat ping response: SUCCESS.",
-      "Local backup catalog verification: OK.",
-    ];
-
-    let index = 0;
-    const interval = setInterval(() => {
-      const now = new Date();
-      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-      const prefix = index % 3 === 0 ? "AI" : "SYS";
-      const nextLog = `[${timeStr}] [${prefix}] ${messages[index]}`;
-      setLiveLogs(prev => {
-        const updated = [...prev, nextLog];
-        if (updated.length > 25) updated.shift();
-        return updated;
-      });
-      index = (index + 1) % messages.length;
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const handleCopyIp = (port: number) => {
     const address = `127.0.0.1:${port}`;
@@ -252,8 +215,8 @@ export default function ASEDashboard() {
     fetchSys();
     let unsub: () => void;
     listen<{ server_id: number; status: any }>('server-status-change', (e) => { updateServerStatus(e.payload.server_id, e.payload.status); }).then(u => { unsub = u; });
-    const i1 = setInterval(fetchSys, 10000);
-    const i2 = setInterval(refreshServers, 3000);
+    const i1 = setInterval(() => { if (document.visibilityState === 'visible') fetchSys(); }, 10000);
+    const i2 = setInterval(() => { if (document.visibilityState === 'visible') refreshServers(); }, 10000);
     return () => { clearInterval(i1); clearInterval(i2); if (unsub) unsub(); };
   }, []);
 
@@ -953,85 +916,7 @@ export default function ASEDashboard() {
 
 
 
-            {/* AI Sentinel & Live Telemetry Operations Center */}
-            <div className="glass-panel rounded-2xl p-5 relative overflow-hidden group border border-amber-500/10 hover:border-amber-500/20 transition-all space-y-4">
-              {/* Top Bar */}
-              <div className="flex items-start justify-between gap-3 border-b border-white/5 pb-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="p-2 bg-amber-500/10 rounded-xl text-amber-400 shrink-0">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xs font-extrabold text-white tracking-wide uppercase whitespace-nowrap">
-                        ASE Sentinel Watchdog
-                      </h3>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
-                        99% OPTIMAL
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">Automated telemetry &amp; resource sentinel</p>
-                  </div>
-                </div>
-                <button
-                  onClick={async () => {
-                    try {
-                      await optimizeMemory();
-                      toast.success('System RAM optimized & working set trimmed');
-                    } catch (e) {
-                      toast.error('Optimization notice: ' + String(e));
-                    }
-                  }}
-                  className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition-all focus:outline-none hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
-                  title="Trim process working set and reclaim standby memory"
-                >
-                  <Zap className="w-3 h-3 text-amber-400 shrink-0" />
-                  <span>Purge RAM</span>
-                </button>
-              </div>
 
-              {/* Quick Metrics Grid */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 bg-black/30 rounded-xl border border-white/5 flex items-center gap-2.5 min-w-0">
-                  <div className="p-1.5 bg-amber-500/10 rounded-lg text-amber-400 shrink-0">
-                    <Cpu className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">CPU Target</p>
-                    <p className="text-[11px] font-bold text-slate-200 truncate">Normal (&lt;80%)</p>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-black/30 rounded-xl border border-white/5 flex items-center gap-2.5 min-w-0">
-                  <div className="p-1.5 bg-emerald-500/10 rounded-lg text-emerald-400 shrink-0">
-                    <Radio className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Port Sentinel</p>
-                    <p className="text-[11px] font-bold text-emerald-400 truncate">0 Conflicts</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Event Feed */}
-              <div className="bg-black/30 rounded-xl p-3 border border-white/5 space-y-2">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-slate-400 font-semibold flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
-                    Live Event Feed
-                  </span>
-                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">REALTIME</span>
-                </div>
-                <div className="space-y-1.5 max-h-[120px] overflow-y-auto custom-scrollbar font-mono text-[10px]">
-                  {liveLogs.slice(-4).map((log, index) => (
-                    <div key={index} className="flex items-center gap-2 text-slate-300 py-1 px-2 rounded-lg bg-white/[0.02] border border-white/[0.03]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0 animate-pulse" />
-                      <span className="truncate text-slate-300" title={log}>{log}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

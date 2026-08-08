@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Pencil, FolderOpen, Plus, Minus, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, Pencil, FolderOpen, Plus, Minus, AlertTriangle, Loader2, Copy, Check, Info } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { Cluster, Server } from '../../types';
 import { updateCluster, addServerToCluster, removeServerFromCluster, selectFolder, validateClusterPath } from '../../utils/tauri';
@@ -24,9 +24,11 @@ export default function EditClusterDialog({
     const { t } = useTranslation();
     const [clusterName, setClusterName] = useState(cluster.name);
     const [clusterPath, setClusterPath] = useState(cluster.clusterPath);
+    const [clusterIdString, setClusterIdString] = useState(cluster.clusterIdString || cluster.name.replace(/\s+/g, '_'));
     const [moveData, setMoveData] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [pathError, setPathError] = useState('');
+    const [copied, setCopied] = useState(false);
     const [confirmRemoveServer, setConfirmRemoveServer] = useState<number | null>(null);
 
     // Servers in this cluster vs available
@@ -37,6 +39,7 @@ export default function EditClusterDialog({
     useEffect(() => {
         setClusterName(cluster.name);
         setClusterPath(cluster.clusterPath);
+        setClusterIdString(cluster.clusterIdString || cluster.name.replace(/\s+/g, '_'));
         setMoveData(false);
         setPathError('');
         setConfirmRemoveServer(null);
@@ -46,6 +49,14 @@ export default function EditClusterDialog({
 
     const pathChanged = clusterPath !== cluster.clusterPath;
     const nameChanged = clusterName.trim() !== cluster.name;
+    const idStringChanged = clusterIdString.trim() !== (cluster.clusterIdString || cluster.name.replace(/\s+/g, '_'));
+
+    const handleCopyId = () => {
+        navigator.clipboard.writeText(clusterIdString);
+        setCopied(true);
+        toast.success(t('clusterManager.clusterIdCopied', 'Cluster ID copied to clipboard!'));
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     const handleBrowse = async () => {
         const selected = await selectFolder(t('clusterManager.selectClusterDir'));
@@ -74,7 +85,7 @@ export default function EditClusterDialog({
 
     const handleSave = async () => {
         if (pathError) return;
-        if (!nameChanged && !pathChanged) {
+        if (!nameChanged && !pathChanged && !idStringChanged) {
             onClose();
             return;
         }
@@ -85,6 +96,7 @@ export default function EditClusterDialog({
                 cluster.id,
                 nameChanged ? clusterName.trim() : undefined,
                 pathChanged ? clusterPath.trim() : undefined,
+                idStringChanged ? clusterIdString.trim() : undefined,
                 pathChanged ? moveData : undefined,
             );
             toast.success(t('clusterManager.updateSuccess'));
@@ -155,6 +167,35 @@ export default function EditClusterDialog({
                             className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
                             placeholder="My Cluster"
                         />
+                    </div>
+
+                    {/* Shared Cluster ID (For Cross-Computer Travel) */}
+                    <div>
+                        <label className="text-sm font-medium text-slate-300 flex items-center justify-between mb-2">
+                            <span>{t('clusterManager.clusterIdString', 'Shared Cluster ID (Cross-Computer Travel)')}</span>
+                            <span className="text-xs text-slate-400 font-normal">Passed as <code className="text-emerald-400 font-mono">-clusterid</code> launch arg</span>
+                        </label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={clusterIdString}
+                                onChange={e => setClusterIdString(e.target.value)}
+                                className="flex-1 px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+                                placeholder="MyCluster123"
+                            />
+                            <button
+                                type="button"
+                                onClick={handleCopyId}
+                                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-semibold"
+                            >
+                                {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                                {copied ? t('common.copied', 'Copied!') : t('common.copy', 'Copy')}
+                            </button>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
+                            <Info className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                            {t('clusterManager.clusterIdHint', 'Must match EXACTLY on all computers in this cluster.')}
+                        </p>
                     </div>
 
                     {/* Cluster Path */}

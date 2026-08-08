@@ -56,6 +56,17 @@ pub async fn rcon_send_command(
             state.process_manager.set_pending_stop_reason(server_id, crate::services::process_manager::StopReason::UserAction);
         }
     }
+    let trimmed_cmd = command.trim();
+    if trimmed_cmd.eq_ignore_ascii_case("wilddinodestroy")
+        || trimmed_cmd.eq_ignore_ascii_case("destroywilddinos")
+        || trimmed_cmd.eq_ignore_ascii_case("wipe_dinos")
+        || trimmed_cmd.eq_ignore_ascii_case("dino_wipe")
+    {
+        let service = &state.inner().0;
+        let _ = service.send_command(server_id, "cheat DestroyWildDinos").await;
+        return service.send_command(server_id, "DestroyWildDinos").await;
+    }
+
     let service = &state.inner().0;
     service.send_command(server_id, &command).await
 }

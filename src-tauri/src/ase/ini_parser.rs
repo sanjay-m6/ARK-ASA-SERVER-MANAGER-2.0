@@ -43,10 +43,11 @@ impl IniDocument {
     /// Handles multi-line values (parenthesized arrays), comments, blank lines,
     /// duplicate keys, and unknown content.
     pub fn parse(content: &str) -> Self {
+        let normalized = crate::services::ini_parser::IniParser::normalize_ini_text(content);
         let mut doc = IniDocument::new();
         let mut paren_depth: i32 = 0;
 
-        for raw_line in content.lines() {
+        for raw_line in normalized.lines() {
             let trimmed = raw_line.trim();
 
             // If we're inside a multi-line value (open parens), accumulate as Continuation
@@ -70,19 +71,23 @@ impl IniDocument {
             }
 
             // Comment line
-            if trimmed.starts_with(';') || trimmed.starts_with('#') {
+            if trimmed.starts_with(';') || trimmed.starts_with('#') || trimmed.starts_with("//") {
                 doc.lines.push(IniLine::Comment(raw_line.to_string()));
                 continue;
             }
 
             // Section header
-            if trimmed.starts_with('[') && trimmed.ends_with(']') {
-                let name = trimmed[1..trimmed.len() - 1].to_string();
-                doc.lines.push(IniLine::SectionHeader {
-                    raw: raw_line.to_string(),
-                    name,
-                });
-                continue;
+            if trimmed.starts_with('[') {
+                if let Some(end_bracket) = trimmed.find(']') {
+                    let name = trimmed[1..end_bracket].trim().to_string();
+                    if !name.is_empty() {
+                        doc.lines.push(IniLine::SectionHeader {
+                            raw: raw_line.to_string(),
+                            name,
+                        });
+                        continue;
+                    }
+                }
             }
 
             // Key=Value entry

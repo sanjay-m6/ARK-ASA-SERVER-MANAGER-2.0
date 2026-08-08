@@ -59,6 +59,7 @@ pub async fn create_cluster(
     name: String,
     server_ids: Vec<i64>,
     cluster_path: Option<String>,
+    cluster_id_string: Option<String>,
     auto_link_existing: Option<bool>,
 ) -> Result<Cluster, String> {
     println!(
@@ -66,6 +67,11 @@ pub async fn create_cluster(
         name,
         server_ids.len()
     );
+
+    let cluster_id_str_val = match cluster_id_string {
+        Some(s) if !s.trim().is_empty() => Some(s.trim().to_string()),
+        _ => Some(name.trim().replace(' ', "_")),
+    };
 
     // Check if cluster name matches existing one
     let should_auto_link = auto_link_existing.unwrap_or(false);
@@ -116,8 +122,8 @@ pub async fn create_cluster(
             .map_err(|e| format!("Failed to serialize server_ids: {}", e))?;
 
         let cid = match tx.execute(
-            "INSERT INTO clusters (name, cluster_path, server_ids) VALUES (?1, ?2, ?3)",
-            rusqlite::params![name, cluster_dir, server_ids_json],
+            "INSERT INTO clusters (name, cluster_path, server_ids, cluster_id_string) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![name, cluster_dir, server_ids_json, cluster_id_str_val],
         ) {
             Ok(_) => tx.last_insert_rowid(),
             Err(e) => {
@@ -151,15 +157,11 @@ pub async fn create_cluster(
             }
 
             // Update server's GameUserSettings.ini with ClusterDirOverride
-            // Note: We can only query inside the transaction or need to fetch paths before?
-            // rusqlite transaction allows queries.
             if let Ok(install_path) = tx.query_row::<String, _, _>(
                 "SELECT install_path FROM servers WHERE id = ?1",
                 [server_id],
                 |row| row.get(0),
             ) {
-                // Side effect outside DB - nice to have, but if it fails we don't rollback DB usually
-                // But for consistency we should log it
                 update_cluster_config(&install_path, &cluster_dir);
             }
         }
@@ -178,6 +180,7 @@ pub async fn create_cluster(
         name,
         cluster_path: PathBuf::from(&cluster_dir),
         server_ids,
+        cluster_id_string: cluster_id_str_val,
         created_at: chrono::Local::now().to_rfc3339(),
     };
 
@@ -191,6 +194,7 @@ pub async fn update_cluster(
     cluster_id: i64,
     name: Option<String>,
     new_path: Option<String>,
+    cluster_id_string: Option<String>,
     move_data: Option<bool>,
 ) -> Result<(), String> {
     println!("✏️ Updating cluster: {}", cluster_id);
@@ -222,6 +226,21 @@ pub async fn update_cluster(
                 current_name,
                 new_name.trim()
             );
+        }
+    }
+
+    // Update cluster_id_string if provided
+    if let Some(ref new_cid_str) = cluster_id_string {
+        let trimmed = new_cid_str.trim();
+        if !trimmed.is_empty() {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE clusters SET cluster_id_string = ?1 WHERE id = ?2",
+                rusqlite::params![trimmed, cluster_id],
+            )
+            .map_err(|e| e.to_string())?;
+            println!("  🔗 Cluster ID string updated to: '{}'", trimmed);
         }
     }
 
@@ -298,7 +317,7 @@ pub async fn get_clusters(state: State<'_, AppState>) -> Result<Vec<Cluster>, St
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
         let mut stmt = conn
-            .prepare("SELECT id, name, cluster_path, created_at FROM clusters")
+            .prepare("SELECT id, name, cluster_path, created_at, cluster_id_string FROM clusters")
             .map_err(|e| e.to_string())?;
 
         let cluster_iter = stmt
@@ -308,13 +327,14 @@ pub async fn get_clusters(state: State<'_, AppState>) -> Result<Vec<Cluster>, St
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     row.get::<_, String>(3)?,
+                    row.get::<_, Option<String>>(4)?,
                 ))
             })
             .map_err(|e| e.to_string())?;
 
         let mut clusters = Vec::new();
         for cluster_result in cluster_iter {
-            if let Ok((id, name, cluster_path, created_at)) = cluster_result {
+            if let Ok((id, name, cluster_path, created_at, cluster_id_string)) = cluster_result {
                 // Get linked server IDs
                 let server_ids: Vec<i64> = conn
                     .prepare("SELECT server_id FROM cluster_servers WHERE cluster_id = ?1")
@@ -329,6 +349,7 @@ pub async fn get_clusters(state: State<'_, AppState>) -> Result<Vec<Cluster>, St
                     name,
                     cluster_path: PathBuf::from(cluster_path),
                     server_ids,
+                    cluster_id_string,
                     created_at,
                 });
             }
@@ -513,11 +534,11 @@ fn validate_path(path: &str) -> PathValidation {
     // If path doesn't exist, check that the parent exists or can be created
     else if let Some(parent) = p.parent() {
         if !parent.exists() {
-            // Try to determine if the path looks valid (has a drive letter etc)
-            if cfg!(windows) && !path.contains(':') {
+            // Try to determine if the path looks valid (has a drive letter or is UNC path)
+            if cfg!(windows) && !path.contains(':') && !path.starts_with("\\\\") && !path.starts_with("//") {
                 return PathValidation {
                     valid: false,
-                    error: Some("Path must include a drive letter (e.g. D:\\Clusters)".to_string()),
+                    error: Some("Path must include a drive letter (e.g. D:\\Clusters) or network share (e.g. \\\\192.168.1.6\\ARKCluster)".to_string()),
                 };
             }
         }

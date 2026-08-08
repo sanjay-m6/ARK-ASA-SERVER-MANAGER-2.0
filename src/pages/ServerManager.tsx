@@ -11,6 +11,7 @@ import { useInstallStore, normalizePath } from '../stores/installStore';
 import { cn } from '../utils/helpers';
 import ImportServerDialog from '../components/server/ImportServerDialog';
 import ImportNonDedicatedDialog from '../components/server/ImportNonDedicatedDialog';
+import ExportProfileModal from '../components/server/ExportProfileModal';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import MoveServerDialog from '../components/server/MoveServerDialog';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -21,7 +22,7 @@ import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-import { startServer, stopServer, restartServer, deleteServer, checkServerHasSaves, ServerSaveInfo, updateServer, updateServerSettings, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, moveServer, clearModCache, exportServerInstanceProfile, openInExplorer } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, checkServerHasSaves, ServerSaveInfo, updateServer, updateServerSettings, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, moveServer, clearModCache, openInExplorer } from '../utils/tauri';
 import { updateServerCustomization as apiUpdateServerCustomization } from '../utils/serverOrganization';
 import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
@@ -74,6 +75,8 @@ export default function ServerManager() {
     const [timedShutdownServer, setTimedShutdownServer] = useState<Server | null>(null);
     const [showImportDialog, setShowImportDialog] = useState(false);
     const [showNonDedicatedImport, setShowNonDedicatedImport] = useState(false);
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [exportTargetServerIds, setExportTargetServerIds] = useState<number[]>([]);
     const [updateOnStart, setUpdateOnStart] = useState(false);
     const [serverUpdateSettings, setServerUpdateSettings] = useState<Record<number, { auto_update: boolean, update_on_start: boolean }>>({});
 
@@ -231,15 +234,16 @@ export default function ServerManager() {
         setCollapsedServers(prev => ({ ...prev, [serverId]: !prev[serverId] }));
     };
 
-    const handleExportProfile = async (server: Server, e?: React.MouseEvent) => {
+    const handleExportProfile = (server?: Server, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
-        try {
-            const json = await exportServerInstanceProfile(server);
-            await navigator.clipboard.writeText(json);
-            toast.success(`Server Instance profile "${server.name}" copied to clipboard!`, { icon: '📋' });
-        } catch (err) {
-            toast.error(`Failed to export server profile: ${err}`);
+        if (server) {
+            setExportTargetServerIds([server.id]);
+        } else if (selectedServers.length > 0) {
+            setExportTargetServerIds(selectedServers);
+        } else {
+            setExportTargetServerIds(servers.map(s => s.id));
         }
+        setShowExportModal(true);
     };
 
     // Baseline: number of log lines at server start, so we only detect startup in NEW lines
@@ -537,8 +541,10 @@ export default function ServerManager() {
         // Initial fetch
         refreshServers();
 
-        // Poll for updates (heartbeat)
-        const interval = setInterval(refreshServers, 3000);
+        // Poll for server status updates
+        const interval = setInterval(() => {
+            if (document.visibilityState === 'visible') refreshServers();
+        }, 10000);
 
         return () => {
             isMounted = false;
@@ -1187,15 +1193,15 @@ export default function ServerManager() {
                     )}
 
                     {/* Profile Badge & Real Server Folder Link */}
-                    <div className="flex items-center gap-1.5 max-w-full">
+                    <div className="flex items-center gap-2 max-w-full mb-3">
                         <div 
                             onClick={(e) => handleRenameStart(server, e)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/40 rounded-md text-[11px] text-sky-300 font-mono font-medium cursor-pointer transition-all no-collapse max-w-full truncate"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 hover:border-sky-500/40 rounded-lg text-xs text-sky-300 font-mono font-medium cursor-pointer transition-all no-collapse max-w-full truncate"
                             title={`Click to rename profile | Server Path: ${server.installPath}`}
                         >
                             <FolderOpen className="w-3.5 h-3.5 text-sky-400 shrink-0" />
                             <span className="truncate">Profile: {customizations.get(server.id)?.displayName || server.name}</span>
-                            <Edit2 className="w-3 h-3 text-sky-400/70 shrink-0" />
+                            <Edit2 className="w-3 h-3 text-sky-400/70 shrink-0 ml-0.5" />
                         </div>
                         {server.installPath && (
                             <button
@@ -1208,31 +1214,31 @@ export default function ServerManager() {
                                         toast.error(`Cannot open folder: ${err}`);
                                     }
                                 }}
-                                className="p-1 bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/40 rounded-md transition-all shrink-0"
+                                className="p-1.5 bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/40 rounded-lg transition-all shrink-0 cursor-pointer"
                                 title={`Open real server folder on disk:\n${server.installPath}`}
                             >
-                                <ExternalLink className="w-3 h-3 text-sky-400" />
+                                <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
                             </button>
                         )}
                     </div>
                 </div>
 
                 {/* Grid Bento Meta Chips */}
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 truncate" title="Map">
+                <div className="grid grid-cols-2 gap-2.5 mb-3">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 truncate" title="Map">
                         <Globe className="w-3.5 h-3.5 text-sky-400/80 shrink-0" />
                         <span className="truncate">{server.config.mapName}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 truncate" title="Port">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 truncate" title="Port">
                         <Terminal className="w-3.5 h-3.5 text-violet-400/80 shrink-0" />
                         <span className="font-mono text-xs truncate">Port {server.ports.gamePort}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 truncate" title="App Version">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 truncate" title="App Version">
                         <Shield className="w-3.5 h-3.5 text-emerald-400/80 shrink-0" />
                         <span className="font-mono text-xs truncate">v{appVersion}</span>
                     </div>
                     {serverVersions[server.id] && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 truncate" title="Server Build">
+                        <div className="col-span-2 flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 truncate" title="Server Build">
                             <GitBranch className="w-3.5 h-3.5 text-sky-400/80 shrink-0" />
                             <span className="font-mono text-xs truncate">{serverVersions[server.id]}</span>
                         </div>
@@ -1927,6 +1933,14 @@ export default function ServerManager() {
                         <span>{t('serverManager.buttons.importSave')}</span>
                     </button>
                     <button
+                        onClick={(e) => handleExportProfile(undefined, e)}
+                        className="flex items-center gap-2 h-11 px-4 bg-violet-500/10 backdrop-blur-md border border-violet-500/30 hover:bg-violet-500/20 text-violet-300 rounded-xl transition-all text-xs font-semibold whitespace-nowrap shadow-md shadow-violet-500/10 active:scale-95 cursor-pointer"
+                        title="Export single, selected, or all server profiles to JSON"
+                    >
+                        <Download className="w-4 h-4 text-violet-400" />
+                        <span>{t('serverManager.buttons.exportProfiles', 'Export Profiles')}</span>
+                    </button>
+                    <button
                         onClick={() => setDraftOpen(true)}
                         className="flex items-center gap-2 h-11 px-5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl transition-all shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40 text-xs font-bold whitespace-nowrap active:scale-95 cursor-pointer group"
                     >
@@ -2104,10 +2118,7 @@ export default function ServerManager() {
                             <span>{t('serverManager.buttons.moveSelected', 'Move Selected')}</span>
                         </button>
                         <button
-                            onClick={() => {
-                                const targetServer = servers.find(s => selectedServers.includes(s.id)) || servers[0];
-                                if (targetServer) handleExportProfile(targetServer);
-                            }}
+                            onClick={(e) => handleExportProfile(undefined, e)}
                             disabled={selectedServers.length === 0 && servers.length === 0}
                             className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-violet-500/10 text-violet-400 border border-violet-500/20 hover:bg-violet-500/20 hover:border-violet-500/30 rounded-full transition-all text-xs font-semibold disabled:opacity-20 disabled:pointer-events-none"
                             title="Export selected server configuration profile to JSON"
@@ -2127,13 +2138,11 @@ export default function ServerManager() {
                     className="glass-panel rounded-2xl p-16 text-center border border-slate-700/50 relative overflow-hidden"
                 >
                     <div className="absolute inset-0 bg-gradient-to-br from-sky-500/5 via-transparent to-blue-500/5 animate-pulse"></div>
-                    <motion.div 
-                        animate={{ y: [0, -10, 0] }}
-                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    <div 
                         className="relative w-24 h-24 bg-gradient-to-br from-slate-800 to-slate-900 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_30px_rgba(14,165,233,0.1)] border border-slate-700/50"
                     >
                         <Plus className="w-12 h-12 text-sky-400" />
-                    </motion.div>
+                    </div>
                     <h3 className="text-2xl font-bold text-white mb-3 relative z-10">{t('serverManager.emptyState.title', 'No Servers Found')}</h3>
                     <p className="text-slate-400 mb-8 max-w-md mx-auto relative z-10 text-lg">
                         {t('serverManager.emptyState.description', 'Get started by deploying your first ARK: Survival Ascended server.')}
@@ -2275,112 +2284,112 @@ export default function ServerManager() {
                                                                          </div>
                                                                      )}
 
-                                                                     {/* Profile Badge & Real Server Folder Link */}
-                                                                     <div className="flex items-center gap-1.5 no-collapse" onClick={(e) => e.stopPropagation()}>
-                                                                         <div 
-                                                                             onClick={(e) => handleRenameStart(server, e)}
-                                                                             className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 hover:border-sky-500/40 rounded-md text-[11px] text-sky-300 font-mono font-medium cursor-pointer transition-all no-collapse max-w-full truncate"
-                                                                             title={`Click to rename profile | Server Path: ${server.installPath}`}
-                                                                         >
-                                                                             <FolderOpen className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                                                                             <span className="truncate">Profile: {customizations.get(server.id)?.displayName || server.name}</span>
-                                                                             <Edit2 className="w-3 h-3 text-sky-400/70 shrink-0" />
-                                                                         </div>
-                                                                         {server.installPath && (
-                                                                             <button
-                                                                                 onClick={async (e) => {
-                                                                                     e.stopPropagation();
-                                                                                     try {
-                                                                                         await openInExplorer(server.installPath);
-                                                                                         toast.success("Opened server directory in Explorer");
-                                                                                     } catch (err) {
-                                                                                         toast.error(`Cannot open folder: ${err}`);
-                                                                                     }
-                                                                                 }}
-                                                                                 className="p-1 bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/40 rounded-md transition-all shrink-0"
-                                                                                 title={`Open real server folder on disk:\n${server.installPath}`}
-                                                                             >
-                                                                                 <ExternalLink className="w-3 h-3 text-sky-400" />
-                                                                             </button>
-                                                                         )}
-                                                                     </div>
+                                                                      {/* Profile Badge & Real Server Folder Link */}
+                                                                      <div className="flex items-center gap-2 no-collapse" onClick={(e) => e.stopPropagation()}>
+                                                                          <div 
+                                                                              onClick={(e) => handleRenameStart(server, e)}
+                                                                              className="inline-flex items-center gap-2 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 hover:border-sky-500/40 rounded-lg text-xs text-sky-300 font-mono font-medium cursor-pointer transition-all no-collapse max-w-full truncate"
+                                                                              title={`Click to rename profile | Server Path: ${server.installPath}`}
+                                                                          >
+                                                                              <FolderOpen className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                                                              <span className="truncate">Profile: {customizations.get(server.id)?.displayName || server.name}</span>
+                                                                              <Edit2 className="w-3 h-3 text-sky-400/70 shrink-0 ml-0.5" />
+                                                                          </div>
+                                                                          {server.installPath && (
+                                                                              <button
+                                                                                  onClick={async (e) => {
+                                                                                      e.stopPropagation();
+                                                                                      try {
+                                                                                          await openInExplorer(server.installPath);
+                                                                                          toast.success("Opened server directory in Explorer");
+                                                                                      } catch (err) {
+                                                                                          toast.error(`Cannot open folder: ${err}`);
+                                                                                      }
+                                                                                  }}
+                                                                                  className="p-1.5 bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/40 rounded-lg transition-all shrink-0 cursor-pointer"
+                                                                                  title={`Open real server folder on disk:\n${server.installPath}`}
+                                                                              >
+                                                                                  <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+                                                                              </button>
+                                                                          )}
+                                                                      </div>
 
-                                                                     <div className="flex items-center gap-2 shrink-0">
-                                                                         <span className={cn(
-                                                                             'px-3 py-0.5 rounded-full text-[11px] uppercase tracking-wider font-bold border flex items-center gap-2 shadow-inner',
-                                                                             server.status === 'online' && 'bg-green-500/10 text-green-400 border-green-500/20',
-                                                                             server.status === 'running' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-                                                                             server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
-                                                                             server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
-                                                                             server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-                                                                             server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-                                                                             server.status === 'repairing' && 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-                                                                             server.status === 'startup_timeout' && 'bg-red-500/10 text-red-400 border-red-500/20'
-                                                                         )}>
-                                                                             {server.status === 'running' || server.status === 'starting' ? (
-                                                                                 <>
-                                                                                     <RefreshCw className="w-3 h-3 animate-spin" />
-                                                                                     {t('serverManager.serverStatus.loading')}
-                                                                                     {startupProgress[server.id] && (
-                                                                                         <span className="opacity-75">
-                                                                                             ({formatElapsedTime(startupProgress[server.id].elapsed)})
-                                                                                         </span>
-                                                                                     )}
-                                                                                     {startupProgress[server.id]?.confirmed && (
-                                                                                         <Check className="w-3 h-3 text-green-400 ml-1" />
-                                                                                     )}
-                                                                                 </>
-                                                                             ) : server.status === 'repairing' ? (
-                                                                                 t('serverManager.serverStatus.repairing')
-                                                                             ) : server.status === 'startup_timeout' ? (
-                                                                                 t('serverManager.serverStatus.startup_timeout')
-                                                                             ) : (
-                                                                                 t(`serverManager.serverStatus.${server.status}`, (server.status || 'UNKNOWN').toUpperCase())
-                                                                             )}
-                                                                         </span>
+                                                                      <div className="flex items-center gap-2 shrink-0">
+                                                                          <span className={cn(
+                                                                              'px-3.5 py-1 rounded-full text-xs uppercase tracking-wider font-bold border flex items-center gap-2 shadow-inner',
+                                                                              server.status === 'online' && 'bg-green-500/10 text-green-400 border-green-500/20',
+                                                                              server.status === 'running' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+                                                                              server.status === 'stopped' && 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+                                                                              server.status === 'crashed' && 'bg-red-500/10 text-red-400 border-red-500/20',
+                                                                              server.status === 'starting' && 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+                                                                              server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                                                                              server.status === 'repairing' && 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+                                                                              server.status === 'startup_timeout' && 'bg-red-500/10 text-red-400 border-red-500/20'
+                                                                          )}>
+                                                                              {server.status === 'running' || server.status === 'starting' ? (
+                                                                                  <>
+                                                                                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                                                                      {t('serverManager.serverStatus.loading')}
+                                                                                      {startupProgress[server.id] && (
+                                                                                          <span className="opacity-75">
+                                                                                              ({formatElapsedTime(startupProgress[server.id].elapsed)})
+                                                                                          </span>
+                                                                                      )}
+                                                                                      {startupProgress[server.id]?.confirmed && (
+                                                                                          <Check className="w-3.5 h-3.5 text-green-400 ml-1" />
+                                                                                      )}
+                                                                                  </>
+                                                                              ) : server.status === 'repairing' ? (
+                                                                                  t('serverManager.serverStatus.repairing')
+                                                                              ) : server.status === 'startup_timeout' ? (
+                                                                                  t('serverManager.serverStatus.startup_timeout')
+                                                                              ) : (
+                                                                                  t(`serverManager.serverStatus.${server.status}`, (server.status || 'UNKNOWN').toUpperCase())
+                                                                              )}
+                                                                          </span>
 
-                                                                         {(server.status === 'running' || server.status === 'starting' || server.status === 'startup_timeout') && (
-                                                                             <button
-                                                                                 onClick={(e) => handleForceStop(server.id, e)}
-                                                                                 className="px-2 py-0.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-md text-xs font-bold transition-colors flex items-center gap-1"
-                                                                                 title={t('serverManager.tooltips.forceStop')}
-                                                                             >
-                                                                                 <XCircle className="w-3 h-3" />
-                                                                                 {server.status === 'starting' ? t('serverManager.buttons.cancel') : t('serverManager.buttons.forceStop')}
-                                                                             </button>
-                                                                         )}
-                                                                     </div>
-                                                                 </div>
+                                                                          {(server.status === 'running' || server.status === 'starting' || server.status === 'startup_timeout') && (
+                                                                              <button
+                                                                                  onClick={(e) => handleForceStop(server.id, e)}
+                                                                                  className="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                                                                                  title={t('serverManager.tooltips.forceStop')}
+                                                                              >
+                                                                                  <XCircle className="w-3.5 h-3.5" />
+                                                                                  {server.status === 'starting' ? t('serverManager.buttons.cancel') : t('serverManager.buttons.forceStop')}
+                                                                              </button>
+                                                                          )}
+                                                                      </div>
+                                                                  </div>
 
-                                                                 {/* Metadata Tags row */}
-                                                                 <div className="flex flex-wrap items-center gap-2 mt-2">
-                                                                     <div className="flex items-center gap-1 px-2.5 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300">
-                                                                         <Globe className="w-3.5 h-3.5 text-sky-400/80" />
-                                                                         <span>{server.config.mapName}</span>
-                                                                     </div>
-                                                                     <div className="flex items-center gap-1 px-2.5 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300">
-                                                                         <Terminal className="w-3.5 h-3.5 text-violet-400/80" />
-                                                                         <span className="font-mono">{t('common.port')} {server.ports.gamePort}</span>
-                                                                     </div>
-                                                                     <div className="flex items-center gap-1 px-2.5 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300">
-                                                                         <Shield className="w-3.5 h-3.5 text-emerald-400/80" />
-                                                                         <span>v{appVersion}</span>
-                                                                     </div>
-                                                                     {serverVersions[server.id] && (
-                                                                         <div className="flex items-center gap-1 px-2.5 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300" title={t('serverManager.tooltips.serverVersion', 'Local Server Version')}>
-                                                                             <GitBranch className="w-3.5 h-3.5 text-sky-400/80" />
-                                                                             <span className="font-mono text-xs">{serverVersions[server.id]}</span>
-                                                                         </div>
-                                                                     )}
-                                                                     {isServerOutdated(server.id) && (
-                                                                         <div className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-md text-xs font-bold animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version is available! Click the download button to update.')}>
-                                                                             <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                                                                             <span>{t('serverManager.status.updateAvailable', 'Update Available')}</span>
-                                                                         </div>
-                                                                     )}
-                                                                 </div>
-                                                             </div>
-                                                         </div>
+                                                                  {/* Metadata Tags row */}
+                                                                  <div className="flex flex-wrap items-center gap-2.5 mt-2.5">
+                                                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300">
+                                                                          <Globe className="w-3.5 h-3.5 text-sky-400/80" />
+                                                                          <span>{server.config.mapName}</span>
+                                                                      </div>
+                                                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300">
+                                                                          <Terminal className="w-3.5 h-3.5 text-violet-400/80" />
+                                                                          <span className="font-mono">{t('common.port')} {server.ports.gamePort}</span>
+                                                                      </div>
+                                                                      <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300">
+                                                                          <Shield className="w-3.5 h-3.5 text-emerald-400/80" />
+                                                                          <span>v{appVersion}</span>
+                                                                      </div>
+                                                                      {serverVersions[server.id] && (
+                                                                          <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300" title={t('serverManager.tooltips.serverVersion', 'Local Server Version')}>
+                                                                              <GitBranch className="w-3.5 h-3.5 text-sky-400/80" />
+                                                                              <span className="font-mono text-xs">{serverVersions[server.id]}</span>
+                                                                          </div>
+                                                                      )}
+                                                                      {isServerOutdated(server.id) && (
+                                                                          <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg text-xs font-bold animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version is available! Click the download button to update.')}>
+                                                                              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                                                                              <span>{t('serverManager.status.updateAvailable', 'Update Available')}</span>
+                                                                          </div>
+                                                                      )}
+                                                                  </div>
+                                                              </div>
+                                                          </div>
 
                                                          {/* Actions Toolbar (Server Action Pod) */}
                                                          <div 
@@ -3082,6 +3091,14 @@ export default function ServerManager() {
             {showNonDedicatedImport && (
                 <ImportNonDedicatedDialog onClose={handleDialogClose} servers={servers} />
             )}
+
+            {/* Export Profile Modal */}
+            <ExportProfileModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                servers={servers}
+                initialSelectedServerIds={exportTargetServerIds}
+            />
 
             {/* Clone Options Modal */}
             {cloneModalServer && (

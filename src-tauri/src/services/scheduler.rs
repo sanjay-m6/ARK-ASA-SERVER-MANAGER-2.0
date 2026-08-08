@@ -206,26 +206,38 @@ impl SchedulerService {
                 
                 match task.task_type.as_str() {
                     "restart" => {
+                        let app = (*app_handle).clone();
+                        let server_id = task.server_id;
                         let pre_warning_minutes = task.pre_warning_minutes;
-                        if pre_warning_minutes > 0 {
-                            for min_left in (1..=pre_warning_minutes).rev() {
-                                let msg = format!("⚠️ SERVER RESTARTING IN {} MINUTE(S)!", min_left);
-                                let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("Broadcast {}", msg), state.clone()).await;
-                                let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, format!("ServerChat {}", msg), state.clone()).await;
-                                sleep(Duration::from_secs(60)).await;
+
+                        tauri::async_runtime::spawn(async move {
+                            let state = app.state::<AppState>();
+                            if pre_warning_minutes > 0 {
+                                for min_left in (1..=pre_warning_minutes).rev() {
+                                    let msg = format!("⚠️ SERVER RESTARTING IN {} MINUTE(S)!", min_left);
+                                    let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast {}", msg), state.clone()).await;
+                                    let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat {}", msg), state.clone()).await;
+                                    sleep(Duration::from_secs(60)).await;
+                                }
                             }
-                        }
 
-                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "SaveWorld".into(), state.clone()).await;
-                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!".into(), state.clone()).await;
-                        sleep(Duration::from_secs(3)).await;
+                            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
+                            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!".into(), state.clone()).await;
+                            sleep(Duration::from_secs(3)).await;
 
-                        let _ = crate::ase::commands::server::stop_ase_server(task.server_id, state.clone()).await;
-                        sleep(Duration::from_secs(5)).await;
-                        let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), task.server_id, state.clone()).await;
+                            let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
+                            sleep(Duration::from_secs(5)).await;
+                            let _ = crate::ase::commands::server::start_ase_server(app.clone(), server_id, state.clone()).await;
+                        });
                     }
-                    "wipe_dinos" => {
-                        let _ = crate::ase::commands::rcon::send_ase_rcon(task.server_id, "DestroyWildDinos".into(), state.clone()).await;
+                    "wipe_dinos" | "dino_wipe" | "destroy_wild_dinos" | "destroy-wild-dinos" | "DestroyWildDinos" | "wilddinodestroy" | "destroywilddinos" => {
+                        let app = (*app_handle).clone();
+                        let server_id = task.server_id;
+                        tauri::async_runtime::spawn(async move {
+                            let state = app.state::<AppState>();
+                            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "DestroyWildDinos".into(), state.clone()).await;
+                            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "cheat DestroyWildDinos".into(), state.clone()).await;
+                        });
                     }
                     "backup" => {
                         let _ = crate::ase::commands::backup::create_ase_backup(task.server_id, state.clone()).await;
@@ -578,13 +590,19 @@ impl SchedulerService {
                 let _ = crate::commands::server::start_server(app, server_id, false).await;
                 
                 if dino_wipe {
-                    log::info!("  [Advanced ASA] Step 5/5: Queuing DestroyWildDinos command");
+                    log::info!("  [Advanced ASA] Step 5/5: Queuing DestroyWildDinos command (retrying post-startup)");
                     let app = (*app_handle).clone();
                     tauri::async_runtime::spawn(async move {
-                        sleep(Duration::from_secs(180)).await;
-                        if let Some(rcon_state) = app.try_state::<RconState>() {
-                            let rcon = &rcon_state.inner().0;
-                            let _ = rcon.send_command(server_id, "DestroyWildDinos").await;
+                        for attempt in 1..=10 {
+                            sleep(Duration::from_secs(20)).await;
+                            if let Some(rcon_state) = app.try_state::<RconState>() {
+                                let rcon = &rcon_state.inner().0;
+                                if let Ok(res) = rcon.send_command(server_id, "DestroyWildDinos").await {
+                                    let _ = rcon.send_command(server_id, "cheat DestroyWildDinos").await;
+                                    log::info!("✅ [ASA] DestroyWildDinos executed on attempt {}: {:?}", attempt, res.data);
+                                    break;
+                                }
+                            }
                         }
                     });
                 }
@@ -784,12 +802,18 @@ impl SchedulerService {
                 let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
                 
                 if dino_wipe {
-                    log::info!("  [Advanced ASE] Step 5/5: Queuing DestroyWildDinos command");
+                    log::info!("  [Advanced ASE] Step 5/5: Queuing DestroyWildDinos command (retrying post-startup)");
                     let app = (*app_handle).clone();
                     tauri::async_runtime::spawn(async move {
-                        sleep(Duration::from_secs(180)).await;
-                        if let Some(state) = app.try_state::<AppState>() {
-                            let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "DestroyWildDinos".into(), state.clone()).await;
+                        for attempt in 1..=10 {
+                            sleep(Duration::from_secs(20)).await;
+                            if let Some(state) = app.try_state::<AppState>() {
+                                if let Ok(res) = crate::ase::commands::rcon::send_ase_rcon(server_id, "DestroyWildDinos".into(), state.clone()).await {
+                                    let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "cheat DestroyWildDinos".into(), state.clone()).await;
+                                    log::info!("✅ [ASE] DestroyWildDinos executed on attempt {}: {:?}", attempt, res);
+                                    break;
+                                }
+                            }
                         }
                     });
                 }
@@ -1150,11 +1174,12 @@ impl SchedulerService {
                 let rcon = &rcon_state.inner().0;
                 let _ = rcon.send_command(task.server_id, "SaveWorld").await;
             }
-            "destroy-wild-dinos" | "DestroyWildDinos" => {
+            "destroy-wild-dinos" | "DestroyWildDinos" | "wilddinodestroy" | "destroywilddinos" | "wipe_dinos" | "dino_wipe" | "wild_dino_wipe" => {
                 let rcon_state = app_handle.state::<RconState>();
                 let rcon = &rcon_state.inner().0;
                 let _ = rcon.send_command(task.server_id, "SaveWorld").await;
                 let _ = rcon.send_command(task.server_id, "DestroyWildDinos").await;
+                let _ = rcon.send_command(task.server_id, "cheat DestroyWildDinos").await;
             }
             "backup" | "Backup" => {
                 execute_backup(app_handle, task).await;
@@ -1174,11 +1199,12 @@ impl SchedulerService {
 
                     // 1. Get Server Details & Mods
                     let state = app.state::<AppState>();
-                    let (last_started, enabled_mods) = {
-                        let db = state.db.lock().map_err(|e| e.to_string());
-                        if let Ok(db) = db {
+                    let (last_started, enabled_mods): (Option<String>, Vec<i32>) = {
+                        let mut last = None;
+                        let mut mods = Vec::new();
+                        if let Ok(db) = state.db.lock() {
                             if let Ok(conn) = db.get_connection() {
-                                let last_started: Option<String> = conn
+                                last = conn
                                     .query_row(
                                         "SELECT last_started FROM servers WHERE id = ?1",
                                         [server_id],
@@ -1186,36 +1212,22 @@ impl SchedulerService {
                                     )
                                     .unwrap_or(None);
 
-                                let stmt_result = conn.prepare(
+                                if let Ok(mut stmt) = conn.prepare(
                                     "SELECT mod_id FROM mods WHERE server_id = ?1 AND enabled = 1"
-                                );
-
-                                let mods: Vec<i32> = match stmt_result {
-                                    Ok(mut stmt) => {
-                                        match stmt.query_map([server_id], |row| {
-                                            let s: String = row.get(0)?;
-                                            Ok(s.parse::<i32>().unwrap_or(0))
-                                        }) {
-                                            Ok(rows) => rows
-                                                .filter_map(|r| r.ok())
-                                                .filter(|&id| id > 0)
-                                                .collect(),
-                                            Err(_) => vec![],
-                                        }
+                                ) {
+                                    if let Ok(rows) = stmt.query_map([server_id], |row| {
+                                        let s: String = row.get(0)?;
+                                        Ok(s.parse::<i32>().unwrap_or(0))
+                                    }) {
+                                        mods = rows
+                                            .filter_map(|r| r.ok())
+                                            .filter(|&id| id > 0)
+                                            .collect();
                                     }
-                                    Err(e) => {
-                                        log::warn!("[SCHEDULER] Failed to query mods: {}", e);
-                                        vec![]
-                                    }
-                                };
-
-                                (last_started, mods)
-                            } else {
-                                (None, vec![])
+                                }
                             }
-                        } else {
-                            (None, vec![])
                         }
+                        (last, mods)
                     };
 
                     if enabled_mods.is_empty() {
@@ -1439,20 +1451,18 @@ impl SchedulerService {
 }
 
 fn get_server_name(app_handle: &AppHandle, server_id: i64) -> String {
-    if let Some(state) = app_handle.try_state::<AppState>() {
-        if let Ok(db) = state.db.lock() {
-            if let Ok(conn) = db.get_connection() {
-                if let Ok(name) = conn.query_row(
-                    "SELECT name FROM servers WHERE id = ?1",
-                    [server_id],
-                    |row| row.get::<_, String>(0),
-                ) {
-                    return name;
-                }
-            }
-        }
-    }
-    format!("Server #{}", server_id)
+    let name_opt: Option<String> = (|| {
+        let state = app_handle.try_state::<AppState>()?;
+        let db = state.db.lock().ok()?;
+        let conn = db.get_connection().ok()?;
+        conn.query_row(
+            "SELECT name FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get::<_, String>(0),
+        ).ok()
+    })();
+
+    name_opt.unwrap_or_else(|| format!("Server #{}", server_id))
 }
 
 fn format_warning_message(custom_template: Option<&str>, task_type: &str, min_left: i32, server_name: &str) -> String {

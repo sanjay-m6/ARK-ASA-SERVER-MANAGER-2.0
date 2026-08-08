@@ -178,6 +178,7 @@ pub struct Cluster {
     pub name: String,
     pub cluster_path: PathBuf,
     pub server_ids: Vec<i64>,
+    pub cluster_id_string: Option<String>,
     pub created_at: String,
 }
 

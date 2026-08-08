@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS clusters (
     name TEXT NOT NULL UNIQUE,
     cluster_path TEXT NOT NULL,
     server_ids TEXT NOT NULL, -- JSON array of server IDs
+    cluster_id_string TEXT, -- Shared cluster ID for cross-computer linking (used as -clusterid= launch arg)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

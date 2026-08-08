@@ -88,35 +88,28 @@ jobs:
             - **Windows**: Download the `.exe` installer below.
             - **Linux**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
 
-            ### 🆕 New Features in v4.6.12
-            - **⏳ Timed Graceful Shutdown System**:
-              - Added a full timed shutdown system with configurable countdown timer (1m, 2m, 5m, 10m, 15m, or custom duration), in-game RCON broadcast announcements at standard checkpoints (15m, 10m, 5m, 2m, 1m, 30s, 10s), optional world save before shutdown, and real-time countdown banner on server cards. Available across ASA & ASE Dashboard and Server Manager views.
-            - **🔴 Stop Options Dropdown Menu**:
-              - Replaced the single Stop button with a unified "Stop Options" hover dropdown across all server card views (Dashboard grid, Server Manager grid, and Server Manager expanded XL view) containing "Timed Shutdown" and "Immediate Stop" actions.
-            - **📂 Custom Mod Categories & Folders System**:
-              - Create, edit, and organize custom mod folders (e.g. "Mod Important", "Mod Gameplay", "Dino Mods") with custom colors, icons, and descriptions in ASA & ASE Mod Managers.
-            - **🏷️ Live Mod Count Badges & Category Filtering**:
-              - Dynamic real-time mod counters on category filter pills (e.g., `Mod Important (3)`) with instant 1-click filtering for Available and Installed mod lists.
-            - **📊 Interactive Mod Category Tag Selector**:
-              - Assign mods to custom folders directly from mod cards using the colored tag selector dropdown (`ModCategorySelector`).
-            - **📋 Mod Setup Export & Import**:
-              - Share custom mod folder configurations and category mappings via Base64 share URLs or raw JSON setup codes.
-            - **📈 Comprehensive 4-Chart ASA Telemetry Suite**:
-              - Integrated real-time 4-chart performance monitor tracking CPU Usage (%), RAM Memory Utilization (%), Active Player Concurrency, and System Disk/IO metrics across Dashboard and Topology views.
+            ### 🆕 New Features in v4.6.13
+            - **📚 Knowledge Base & Documentation Reader Overhaul**:
+              - Complete redesign of the Knowledge Base (`Wiki.tsx` & `HelpDocumentation.tsx`). Categorized 25 technical guides into 5 distinct categories (*Core Services*, *Automation & AI*, *Mods & Files*, *Monitoring & Logs*, *Integrations & Tools*). Added custom syntax-highlighted code blocks with 1-click copy buttons, styled callout alert cards (Notes, Tips, Warnings), category filter pills, reading time estimates, and fixed acronym formatting (e.g. `AI Assistant`).
+            - **💬 Realtime Discord Bridge & Chat Composer**:
+              - Redesigned chat composer interface in `DiscordHub.tsx` with a custom segmented target picker (Both, Discord, Game), active status badges, and live Discord bot connection management.
 
-            ### 🐛 Bug Fixes in v4.6.12
-            - **⏱️ Timed Shutdown Banner Visibility Fix**:
-              - Moved the countdown banner outside collapsible card sections so it remains visible when cards are collapsed in both grid and expanded XL views.
-            - **📋 Stop Options Dropdown Clipping Fix**:
-              - Removed `overflow-hidden` from server card containers across Dashboard, ServerManager, ASEDashboard, and ASEServerManager to prevent dropdown menus from being clipped by parent containers.
-            - **🎨 React Portal Z-Index Modal Stacking Fix**:
-              - Resolved UI layout overlap bug where the fixed left sidebar menu masked over the Category Management modal dialog. All modals (`showManageModal`, `showShareModal`, `showImportModal`) now render cleanly via `createPortal` to `document.body` with `z-[9999]` backdrop blur.
-            - **✨ Mod Manager Header Action Bar Redesign**:
-              - Standardized button heights (`h-11`), added `whitespace-nowrap` to prevent text wrapping on action buttons, and grouped utility icon buttons (*Export Modpack*, *Import Modpack*, *Scan Conflicts*, *Transfer Mods*) into a unified glassmorphic toolbar segment.
-            - **🔧 ASA & ASE Multi-Server Category State Sync**:
-              - Synchronized custom category state across ASA and ASE Mod Managers with local persistence (`modOrganizationStore`).
+            ### 🐛 Bug Fixes & Optimizations in v4.6.13
+            - **⚡ High CPU Usage & Background Process Optimization**:
+              - Fixed high CPU utilization caused by high-frequency system process table scans (`sysinfo::ProcessesToUpdate::All`). Refactored `ProcessManager` monitoring loop (3s interval) and `GuardianService` health checks to use targeted single-PID updates (`ProcessesToUpdate::Some(&[pid])`). Added 60s disk info caching to eliminate disk IO polling spam.
+            - **⚡ Application Animation & Render Performance Tuning**:
+              - Neutralized continuous background pulsing/bouncing animations, particle floaters, and `repeat: Infinity` Framer Motion loops across the app (`globals.css`, `ServerManager.tsx`, `ASEModManager.tsx`), significantly reducing GPU compositor overhead and eliminating UI lag.
+            - **🧹 Dashboard UI Cleanup**:
+              - Removed cluttered AI Sentinel Watchdog panel from ASA & ASE Dashboards to streamline telemetry layout and conserve system resources.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.12 — Timed Graceful Shutdown, Custom Mod Folders & 4-Chart Telemetry</summary>
+
+            - **⏳ Timed Graceful Shutdown System**: Full timed shutdown system with configurable countdown timer, in-game RCON broadcast announcements, optional world save before shutdown, and real-time countdown banner on server cards.
+            - **📂 Custom Mod Categories & Folders System**: Create, edit, and organize custom mod folders in ASA & ASE Mod Managers with live mod count badges and category filtering.
+            - **📈 4-Chart Telemetry Suite**: Real-time performance monitor tracking CPU, RAM, Player Concurrency, and Disk/IO metrics.
+            </details>
             <details>
             <summary>v4.6.11 — Copy Player ID, World Save Notification Suppression & Launch Parameter Fixes</summary>
 

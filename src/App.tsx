@@ -25,7 +25,7 @@ const LogsConsole = lazy(() => import('./pages/LogsConsole'));
 const RconConsole = lazy(() => import('./pages/RconConsole'));
 const Scheduler = lazy(() => import('./pages/Scheduler'));
 const Settings = lazy(() => import('./pages/Settings'));
-const DiscordBot = lazy(() => import('./pages/DiscordBot'));
+const DiscordHub = lazy(() => import('./pages/DiscordHub'));
 const DiscordControlPanel = lazy(() => import('./pages/DiscordControlPanel'));
 const AdvancedPage = lazy(() => import('./pages/tools/AdvancedPage'));
 const PluginManager = lazy(() => import('./pages/PluginManager'));
@@ -51,7 +51,6 @@ const ASEScheduler = lazy(() => import('./ase/pages/ASEScheduler'));
 const ASEHardware = lazy(() => import('./ase/pages/ASEHardware'));
 const ASEFileManager = lazy(() => import('./ase/pages/ASEFileManager'));
 const ASESettings = lazy(() => import('./ase/pages/ASESettings'));
-const ASEDiscordBot = lazy(() => import('./ase/pages/ASEDiscordBot'));
 const ASEProfileSync = lazy(() => import('./ase/pages/ASEProfileSync'));
 const ASEPlayerManager = lazy(() => import('./ase/pages/ASEPlayerManager'));
 const ASEAIAssistant = lazy(() => import('./ase/pages/ASEAIAssistant'));
@@ -97,6 +96,7 @@ const router = createBrowserRouter(
             <Route index element={<IndexRedirect />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="servers" element={<ServerManager />} />
+            <Route path="discord" element={<DiscordHub />} />
             <Route path="mods" element={<ModManager />} />
             <Route path="config" element={<ConfigEditor />} />
             <Route path="clusters" element={<ClusterManager />} />
@@ -105,7 +105,7 @@ const router = createBrowserRouter(
             <Route path="scheduler" element={<Scheduler />} />
             <Route path="logs" element={<LogsConsole />} />
             <Route path="tools/advanced" element={<AdvancedPage />} />
-            <Route path="tools/discord" element={<DiscordBot />} />
+            <Route path="tools/discord" element={<DiscordHub />} />
             <Route path="tools/discord-control" element={<DiscordControlPanel />} />
             <Route path="tools/plugins" element={<PluginManager />} />
             <Route path="tools/chat-translator" element={<ChatTranslator />} />
@@ -121,6 +121,7 @@ const router = createBrowserRouter(
             {/* ASE Module Routes */}
             <Route path="ase/dashboard" element={<ASEDashboard />} />
             <Route path="ase/servers" element={<ASEServerManager />} />
+            <Route path="ase/discord" element={<DiscordHub />} />
             <Route path="ase/mods" element={<ASEModManager />} />
             <Route path="ase/config" element={<ASEConfigEditor />} />
             <Route path="ase/clusters" element={<ASEClusterManager />} />
@@ -131,7 +132,6 @@ const router = createBrowserRouter(
             <Route path="ase/hardware" element={<ASEHardware />} />
             <Route path="ase/files" element={<ASEFileManager />} />
             <Route path="ase/settings" element={<ASESettings />} />
-            <Route path="ase/discord" element={<ASEDiscordBot />} />
             <Route path="ase/profile-sync" element={<ASEProfileSync />} />
             <Route path="ase/players" element={<ASEPlayerManager />} />
             <Route path="ase/tools/ai" element={<ASEAIAssistant />} />

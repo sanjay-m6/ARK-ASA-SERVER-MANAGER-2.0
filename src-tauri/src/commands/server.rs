@@ -1212,7 +1212,7 @@ async fn perform_server_startup_inner(
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address, s.cluster_id,
-             c.name, c.cluster_path, s.custom_args, s.server_type, s.battleye
+             COALESCE(c.cluster_id_string, c.name), c.cluster_path, s.custom_args, s.server_type, s.battleye
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
@@ -2872,6 +2872,7 @@ fn detect_batch_settings(install_path: &std::path::Path, _server_type: &str) -> 
 }
 
 /// Helper to read UE4 config files that might be UTF-16 with BOM
+/// Helper to read UE4 config files that might be UTF-16 with BOM or UTF-8 with BOM
 fn read_ue4_string(path: &std::path::Path) -> std::io::Result<String> {
     use std::fs::File;
     use std::io::Read;
@@ -2879,26 +2880,32 @@ fn read_ue4_string(path: &std::path::Path) -> std::io::Result<String> {
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes)?;
 
+    // UTF-16 LE with BOM
     if bytes.len() >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE {
         let u16_data: Vec<u16> = bytes[2..]
             .chunks_exact(2)
             .map(|c| u16::from_le_bytes([c[0], c[1]]))
             .collect();
         if let Ok(s) = String::from_utf16(&u16_data) {
-            return Ok(s);
+            return Ok(s.trim_start_matches('\u{feff}').to_string());
         }
     }
+    // UTF-16 BE with BOM
     if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
         let u16_data: Vec<u16> = bytes[2..]
             .chunks_exact(2)
             .map(|c| u16::from_be_bytes([c[0], c[1]]))
             .collect();
         if let Ok(s) = String::from_utf16(&u16_data) {
-            return Ok(s);
+            return Ok(s.trim_start_matches('\u{feff}').to_string());
         }
     }
+    // UTF-8 with BOM
+    if bytes.len() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF {
+        return Ok(String::from_utf8_lossy(&bytes[3..]).into_owned());
+    }
 
-    Ok(String::from_utf8_lossy(&bytes).into_owned())
+    Ok(String::from_utf8_lossy(&bytes).trim_start_matches('\u{feff}').to_string())
 }
 
 /// Detect the map name from an ARK server installation path.
@@ -2928,15 +2935,18 @@ fn detect_map_name(install_path: &std::path::Path, server_type: &str) -> Option<
             let mut in_server_settings = false;
             for line in content.lines() {
                 let trimmed = line.trim();
-                if trimmed.starts_with('[') && trimmed.ends_with(']') {
-                    in_server_settings = &trimmed[1..trimmed.len() - 1] == "ServerSettings";
-                    continue;
+                if trimmed.starts_with('[') {
+                    if let Some(end_bracket) = trimmed.find(']') {
+                        let sec = trimmed[1..end_bracket].trim();
+                        in_server_settings = sec.eq_ignore_ascii_case("ServerSettings");
+                        continue;
+                    }
                 }
                 if in_server_settings {
                     if let Some((key, value)) = trimmed.split_once('=') {
                         let key = key.trim();
                         let value = value.trim();
-                        if (key == "ServerMap" || key == "MapName") && !value.is_empty() {
+                        if (key.eq_ignore_ascii_case("ServerMap") || key.eq_ignore_ascii_case("MapName")) && !value.is_empty() {
                             println!("   📍 Detected map from INI: {}", value);
                             return Some((value.to_string(), "GameUserSettings.ini".to_string(), "High (Config INI)".to_string()));
                         }
@@ -2974,9 +2984,9 @@ fn detect_ip_address(install_path: &std::path::Path) -> Option<String> {
             for line in content.lines() {
                 let trimmed = line.trim();
                 if let Some((key, value)) = trimmed.split_once('=') {
-                    if key.trim() == "MultiHome" && !value.trim().is_empty() {
+                    if key.trim().eq_ignore_ascii_case("MultiHome") && !value.trim().is_empty() {
                         let ip = value.trim();
-                        if ip.to_lowercase() != "true" && ip.to_lowercase() != "false" {
+                        if !ip.eq_ignore_ascii_case("true") && !ip.eq_ignore_ascii_case("false") {
                             return Some(ip.to_string());
                         }
                     }
@@ -2990,19 +3000,25 @@ fn detect_ip_address(install_path: &std::path::Path) -> Option<String> {
 
 /// Helper to parse UE4-style INI files in a case-insensitive manner
 pub fn parse_ini(content: &str) -> std::collections::HashMap<String, std::collections::HashMap<String, String>> {
+    let normalized = crate::services::ini_parser::IniParser::normalize_ini_text(content);
     let mut sections: std::collections::HashMap<String, std::collections::HashMap<String, String>> = std::collections::HashMap::new();
     let mut current_section = String::from("__root__");
 
-    for line in content.lines() {
+    for line in normalized.lines() {
         let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with(';') || trimmed.starts_with('#') {
+        if trimmed.is_empty() || trimmed.starts_with(';') || trimmed.starts_with('#') || trimmed.starts_with("//") {
             continue;
         }
 
-        if trimmed.starts_with('[') && trimmed.ends_with(']') {
-            current_section = trimmed[1..trimmed.len() - 1].to_string();
-            sections.entry(current_section.clone()).or_default();
-        } else if let Some(eq_pos) = trimmed.find('=') {
+        if trimmed.starts_with('[') {
+            if let Some(end_bracket) = trimmed.find(']') {
+                current_section = trimmed[1..end_bracket].trim().to_string();
+                sections.entry(current_section.clone()).or_default();
+                continue;
+            }
+        }
+        
+        if let Some(eq_pos) = trimmed.find('=') {
             let key = trimmed[..eq_pos].trim().to_string();
             let value = trimmed[eq_pos + 1..].trim().to_string();
             let section_map = sections.entry(current_section.clone()).or_default();

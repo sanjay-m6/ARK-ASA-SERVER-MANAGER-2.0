@@ -1,4 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react';
+import { useIdleAnimations } from '../../hooks/useIdleAnimations';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
@@ -18,6 +19,7 @@ import { cn } from '../../utils/helpers';
 const InfinityCopilot = lazy(() => import('../ai/InfinityCopilot'));
 
 export default function AppLayout() {
+    useIdleAnimations();
     const location = useLocation();
     const navigate = useNavigate();
     const { activeInstalls, currentlyViewingPath, setViewingPath, isDraftOpen, setDraftOpen, draftSetup } = useInstallStore();
@@ -44,12 +46,11 @@ export default function AppLayout() {
     }, [hasInstalledServers, isASE, location.pathname, navigate]);
 
     useEffect(() => {
-        // Aggressive memory optimization: Trim working set every 10 seconds
-        // This keeps the visible RAM usage low ("locked" behavior requested by user)
+        // Memory optimization: Trim working set periodically without page-fault churn
         const trimMemory = () => optimizeMemory().catch(() => { });
 
         trimMemory();
-        const interval = setInterval(trimMemory, 10000);
+        const interval = setInterval(trimMemory, 180000);
 
         return () => clearInterval(interval);
     }, []);

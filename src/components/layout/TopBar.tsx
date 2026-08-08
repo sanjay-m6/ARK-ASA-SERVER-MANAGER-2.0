@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getVersion } from '@tauri-apps/api/app';
-import { Copy, Bell, Loader2, AlertCircle, RefreshCw, ChevronDown, Plus, Server, Users } from 'lucide-react';
+import { Copy, Bell, Loader2, AlertCircle, RefreshCw, ChevronDown, Plus, Server, Users, Check, Info } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../utils/helpers';
 import { useServerStore } from '../../stores/serverStore';
@@ -14,6 +14,7 @@ import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
+import ServerOverviewModal from '../server/ServerOverviewModal';
 
 export default function TopBar() {
     const asaServers = useServerStore((state) => state.servers);
@@ -28,13 +29,20 @@ export default function TopBar() {
     const [appVersion, setAppVersion] = useState<string>('?.?.?');
     const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
     const [isChecking, setIsChecking] = useState(false);
+    const [isOverviewOpen, setIsOverviewOpen] = useState(false);
 
     // IP Hook
     const { data: publicIp, isLoading: isLoadingIp, isError: isErrorIp, refetch: refetchIp } = usePublicIP();
 
 
+    // Helper accessors supporting both ASA (Server) and ASE (AseServer) types
+    const getGamePort = (srv: any) => srv?.ports?.gamePort ?? srv?.port ?? 7777;
+    const getMapName = (srv: any) => srv?.config?.mapName ?? srv?.mapName ?? 'TheIsland';
+    const getMaxPlayers = (srv: any) => srv?.config?.maxPlayers ?? srv?.maxPlayers ?? 70;
+    const getPlayerCount = (srv: any) => srv?.players?.length ?? srv?.playerCount ?? 0;
+
     // Server Status Logic
-    const runningServers = servers.filter((s) => 
+    const runningServers = servers.filter((s: any) => 
         s.status === 'running' || 
         s.status === 'online' || 
         s.status === 'starting' || 
@@ -74,7 +82,6 @@ export default function TopBar() {
 
     const handleUpdateClick = () => {
         // Trigger existing update checker UI or handle download
-        // We can dispatch a custom event to open the UpdateChecker banner if we want
         window.dispatchEvent(new Event('show-update-banner'));
     };
 
@@ -85,7 +92,6 @@ export default function TopBar() {
             const result = await manualCheckForUpdates();
             if (result.available && result.update) {
                 toast.success(t('settings.updatesTab.updateAvailable', `Update v${result.update.version} is available!`));
-                // Open the update wizard modal immediately
                 window.dispatchEvent(new Event('show-update-banner'));
             } else if (result.error) {
                 toast.error(result.error);
@@ -118,7 +124,7 @@ export default function TopBar() {
                     <div className="flex items-center gap-1.5 text-slate-300">
                         <Users className="w-3.5 h-3.5 text-emerald-400" />
                         <span className="font-bold text-white">
-                            {servers.reduce((acc: number, s: any) => acc + (s.players?.length || s.playerCount || 0), 0)}
+                            {servers.reduce((acc: number, s: any) => acc + getPlayerCount(s), 0)}
                         </span>
                         <span className="text-slate-400 text-[11px] font-semibold">Players</span>
                     </div>
@@ -129,25 +135,39 @@ export default function TopBar() {
                     {({ open }) => (
                         <>
                             <Menu.Button className={cn(
-                                "flex items-center gap-2.5 h-10 px-3.5 rounded-xl border transition-all duration-200 outline-none shadow-sm",
+                                "flex items-center gap-3 h-10 px-3.5 rounded-xl border transition-all duration-200 outline-none shadow-sm group",
                                 isASE
-                                    ? "bg-slate-900/80 border-amber-500/30 hover:border-amber-400 text-slate-200"
-                                    : "bg-slate-900/80 border-sky-500/30 hover:border-sky-400 text-slate-200"
+                                    ? open
+                                        ? "bg-slate-900 border-amber-500 text-white shadow-amber-500/10"
+                                        : "bg-slate-900/80 border-amber-500/30 hover:border-amber-400 text-slate-200"
+                                    : open
+                                        ? "bg-slate-900 border-sky-500 text-white shadow-sky-500/10"
+                                        : "bg-slate-900/80 border-sky-500/30 hover:border-sky-400 text-slate-200"
                             )}>
                                 <div className={cn(
-                                    "w-2 h-2 rounded-full flex-shrink-0 animate-pulse",
+                                    "w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all",
                                     activeServer?.status === 'running' || activeServer?.status === 'online'
-                                        ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                                        ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)] animate-pulse"
                                         : activeServer?.status === 'starting' || activeServer?.status === 'updating'
-                                        ? "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"
+                                        ? "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.9)] animate-pulse"
                                         : "bg-slate-500"
                                 )}></div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex-shrink-0">Server:</span>
-                                <span className="text-xs font-bold text-white max-w-[150px] truncate">
-                                    {activeServer ? activeServer.name : 'No Active Server'}
-                                </span>
-                                <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ml-0.5", open ? "rotate-180" : "")} />
+                                <div className="flex flex-col items-start leading-tight">
+                                    <span className="text-[9px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1">
+                                        EDITING TARGET
+                                    </span>
+                                    <span className="text-xs font-extrabold text-white max-w-[150px] truncate">
+                                        {activeServer ? activeServer.name : 'No Active Server'}
+                                    </span>
+                                </div>
+                                {activeServer && (
+                                    <span className="hidden sm:inline-flex text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-white/5">
+                                        :{getGamePort(activeServer)}
+                                    </span>
+                                )}
+                                <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ml-0.5 group-hover:text-white", open ? "rotate-180 text-sky-400" : "")} />
                             </Menu.Button>
+
                             <Transition
                                 as={Fragment}
                                 enter="transition ease-out duration-100"
@@ -157,53 +177,190 @@ export default function TopBar() {
                                 leaveFrom="transform opacity-100 scale-100"
                                 leaveTo="transform opacity-0 scale-95"
                             >
-                                <Menu.Items className="absolute left-0 mt-2 w-72 origin-top-left rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl shadow-black/80 focus:outline-none overflow-hidden z-50 p-1.5">
-                                    <div className="px-3 py-2 border-b border-slate-800 flex justify-between items-center">
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Servers</span>
-                                        <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">{servers.length} {servers.length === 1 ? 'Server' : 'Servers'}</span>
+                                <Menu.Items className="absolute left-0 mt-2.5 w-[380px] max-w-[calc(100vw-2.5rem)] origin-top-left rounded-2xl bg-slate-950/95 border border-slate-700/80 shadow-[0_25px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl focus:outline-none overflow-hidden z-50 p-4 space-y-4 font-sans animate-in fade-in zoom-in-95 duration-150">
+                                    {/* Header */}
+                                    <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className={cn(
+                                                "p-2 rounded-xl border shadow-sm",
+                                                isASE ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-sky-500/10 border-sky-500/20 text-sky-400"
+                                            )}>
+                                                <Server className="w-4 h-4" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                                                    Server Switcher
+                                                    <span className={cn(
+                                                        "text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider",
+                                                        isASE ? "bg-amber-500/15 border-amber-500/30 text-amber-300" : "bg-sky-500/15 border-sky-500/30 text-sky-300"
+                                                    )}>
+                                                        {isASE ? 'ASE' : 'ASA'}
+                                                    </span>
+                                                </h3>
+                                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Select a server instance to edit settings</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] font-mono bg-slate-900 border border-slate-800 text-sky-400 px-2.5 py-0.5 rounded-full font-black shadow-inner">
+                                            {servers.length} {servers.length === 1 ? 'Server' : 'Servers'}
+                                        </span>
                                     </div>
-                                    <div className="max-h-60 overflow-y-auto space-y-1 my-1">
-                                        {servers.length === 0 ? (
-                                            <div className="p-4 text-center text-xs text-slate-500">No servers found</div>
-                                        ) : (
-                                            servers.map((srv: any) => (
-                                                <Menu.Item key={srv.id}>
-                                                    {({ active }) => (
-                                                        <button
-                                                            onClick={() => {
-                                                                if (isASE) {
-                                                                    useAseServerStore.getState().setActiveServer(srv);
-                                                                } else {
-                                                                    useServerStore.getState().setActiveServer(srv);
-                                                                }
-                                                                toast.success(`Active Server: ${srv.name}`);
-                                                            }}
-                                                            className={cn(
-                                                                "w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center justify-between",
-                                                                activeServer?.id === srv.id
-                                                                    ? "bg-sky-500/15 border border-sky-500/30 text-white"
-                                                                    : active ? "bg-slate-800 text-slate-200" : "text-slate-300"
+
+                                    {/* Active Server Spotlight Card */}
+                                    {activeServer ? (
+                                        <div className={cn(
+                                            "p-3.5 rounded-xl border relative overflow-hidden transition-all shadow-md",
+                                            isASE
+                                                ? "bg-slate-900/90 border-amber-500/30"
+                                                : "bg-slate-900/90 border-sky-500/30"
+                                        )}>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="relative flex h-2 w-2">
+                                                        <span className={cn(
+                                                            "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                                                            activeServer.status === 'running' || activeServer.status === 'online' ? "bg-emerald-400" : "bg-sky-400"
+                                                        )}></span>
+                                                        <span className={cn(
+                                                            "relative inline-flex rounded-full h-2 w-2",
+                                                            activeServer.status === 'running' || activeServer.status === 'online' ? "bg-emerald-400" : "bg-slate-400"
+                                                        )}></span>
+                                                    </span>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-sky-400">CURRENTLY EDITING SERVER</span>
+                                                </div>
+                                                <span className={cn(
+                                                    "text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide",
+                                                    activeServer.status === 'running' || activeServer.status === 'online'
+                                                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                                        : activeServer.status === 'starting' || activeServer.status === 'updating'
+                                                        ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                                        : "bg-slate-800 text-slate-400 border border-slate-700"
+                                                )}>
+                                                    {activeServer.status || 'STOPPED'}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-baseline justify-between mb-2.5">
+                                                <h4 className="text-base font-black text-white truncate pr-2 tracking-wide">{activeServer.name}</h4>
+                                                <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">ID: {activeServer.id}</span>
+                                            </div>
+
+                                            {/* Specs Grid */}
+                                            <div className="grid grid-cols-3 gap-2 pt-2.5 border-t border-slate-800 text-[10px]">
+                                                <div className="bg-slate-950/80 p-2 rounded-xl border border-white/5 shadow-inner">
+                                                    <span className="text-slate-500 font-bold block text-[9px] uppercase tracking-wider">MAP</span>
+                                                    <span className="text-slate-200 font-mono font-bold truncate block mt-0.5">{getMapName(activeServer)}</span>
+                                                </div>
+                                                <div className="bg-slate-950/80 p-2 rounded-xl border border-white/5 shadow-inner">
+                                                    <span className="text-slate-500 font-bold block text-[9px] uppercase tracking-wider">GAME PORT</span>
+                                                    <span className="text-sky-400 font-mono font-bold block mt-0.5">{getGamePort(activeServer)}</span>
+                                                </div>
+                                                <div className="bg-slate-950/80 p-2 rounded-xl border border-white/5 shadow-inner">
+                                                    <span className="text-slate-500 font-bold block text-[9px] uppercase tracking-wider">PLAYERS</span>
+                                                    <span className="text-emerald-400 font-mono font-bold block mt-0.5">
+                                                        {getPlayerCount(activeServer)} / {getMaxPlayers(activeServer)}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Full Overview & Things We Know Modal Trigger */}
+                                            <button
+                                                onClick={() => setIsOverviewOpen(true)}
+                                                className="w-full mt-3 py-2 bg-gradient-to-r from-sky-500/20 via-sky-500/15 to-indigo-500/20 hover:from-sky-500/30 hover:to-indigo-500/30 text-sky-300 border border-sky-500/40 rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-2 shadow-md group tracking-wide"
+                                            >
+                                                <Info className="w-4 h-4 group-hover:scale-110 transition-transform text-sky-400" />
+                                                <span>View Full Server Overview & Details</span>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
+                                            No server selected for editing. Pick one below.
+                                        </div>
+                                    )}
+
+                                    {/* All Servers List */}
+                                    <div className="space-y-1.5">
+                                        <div className="flex justify-between items-center px-1">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                SELECT SERVER TO EDIT
+                                            </span>
+                                        </div>
+                                        <div className="max-h-60 overflow-y-auto space-y-2 pr-0.5 custom-scrollbar">
+                                            {servers.length === 0 ? (
+                                                <div className="p-4 text-center text-xs text-slate-500 bg-slate-900/50 rounded-xl border border-slate-800">
+                                                    No servers created yet
+                                                </div>
+                                            ) : (
+                                                servers.map((srv: any) => {
+                                                    const isSelected = activeServer?.id === srv.id;
+                                                    return (
+                                                        <Menu.Item key={srv.id}>
+                                                            {({ active }) => (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (isASE) {
+                                                                            useAseServerStore.getState().setActiveServer(srv);
+                                                                        } else {
+                                                                            useServerStore.getState().setActiveServer(srv);
+                                                                        }
+                                                                        toast.success(`Active Server: ${srv.name} (Port: ${getGamePort(srv)})`, {
+                                                                            icon: '⚙️',
+                                                                            style: { background: '#0f172a', color: '#fff', border: '1px solid #38bdf8' }
+                                                                        });
+                                                                    }}
+                                                                    className={cn(
+                                                                        "w-full text-left p-3 rounded-xl transition-all flex items-center justify-between group border cursor-pointer",
+                                                                        isSelected
+                                                                            ? "bg-sky-500/15 border-sky-500/50 text-white shadow-md shadow-sky-500/10 ring-1 ring-sky-500/30"
+                                                                            : active
+                                                                            ? "bg-slate-900 border-slate-700 text-slate-200"
+                                                                            : "bg-slate-900/50 border-slate-800/80 text-slate-300 hover:bg-slate-900 hover:border-slate-700"
+                                                                    )}
+                                                                >
+                                                                    <div className="flex items-center gap-3 min-w-0 pr-2">
+                                                                        <div className={cn(
+                                                                            "w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors shadow-sm",
+                                                                            isSelected
+                                                                                ? "bg-sky-500 text-slate-950 font-bold"
+                                                                                : "bg-slate-800/90 text-slate-400 group-hover:text-slate-200 border border-white/5"
+                                                                        )}>
+                                                                            {isSelected ? <Check className="w-4 h-4 stroke-[3]" /> : <Server className="w-4 h-4" />}
+                                                                        </div>
+                                                                        <div className="flex flex-col truncate">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="text-xs font-black truncate text-white">{srv.name}</span>
+                                                                                {isSelected && (
+                                                                                    <span className="text-[8px] font-black uppercase px-2 py-0.5 bg-sky-500/20 text-sky-300 rounded-full border border-sky-500/40 tracking-wider">
+                                                                                        EDITING NOW
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            <span className="text-[10px] font-mono text-slate-400 truncate mt-0.5">
+                                                                                Port: <strong className="text-slate-300">{getGamePort(srv)}</strong> | Map: <strong className="text-slate-300">{getMapName(srv)}</strong>
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <span className={cn(
+                                                                        "text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0 ml-1.5 shadow-sm border",
+                                                                        srv.status === 'running' || srv.status === 'online'
+                                                                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                                                            : srv.status === 'starting' || srv.status === 'updating'
+                                                                            ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                                                                            : "bg-slate-800 text-slate-400 border-slate-700"
+                                                                    )}>
+                                                                        {srv.status || 'stopped'}
+                                                                    </span>
+                                                                </button>
                                                             )}
-                                                        >
-                                                            <div className="flex flex-col truncate pr-2">
-                                                                <span className="text-xs font-bold truncate">{srv.name}</span>
-                                                                <span className="text-[10px] font-mono text-slate-400">
-                                                                    Port: {srv.ports?.gamePort || 7777} | Map: {srv.config?.mapName || 'TheIsland'}
-                                                                </span>
-                                                            </div>
-                                                            <span className={cn(
-                                                                "text-[9px] font-bold px-2 py-0.5 rounded-full uppercase",
-                                                                srv.status === 'running' || srv.status === 'online' ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-slate-800 text-slate-400"
-                                                            )}>
-                                                                {srv.status || 'stopped'}
-                                                            </span>
-                                                        </button>
-                                                    )}
-                                                </Menu.Item>
-                                            ))
-                                        )}
+                                                        </Menu.Item>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="pt-1.5 mt-1 border-t border-slate-800">
+
+                                    {/* Footer Button */}
+                                    <div className="pt-2.5 border-t border-slate-800/80">
                                         <Menu.Item>
                                             {({ active }) => (
                                                 <button
@@ -211,13 +368,13 @@ export default function TopBar() {
                                                         useInstallStore.getState().setDraftOpen(true);
                                                     }}
                                                     className={cn(
-                                                        "w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-sm",
-                                                        isASE
-                                                            ? active ? "bg-amber-500/25 text-amber-300 border border-amber-500/40" : "bg-amber-500/10 text-amber-400 border border-amber-500/25"
-                                                            : active ? "bg-sky-500/25 text-sky-300 border border-sky-500/40" : "bg-sky-500/10 text-sky-400 border border-sky-500/25"
+                                                        "w-full py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg active:scale-[0.98]",
+                                                        active
+                                                            ? "bg-gradient-to-r from-sky-500 to-sky-400 text-white shadow-sky-500/25"
+                                                            : "bg-gradient-to-r from-sky-600 to-sky-500 text-white shadow-sky-500/20"
                                                     )}
                                                 >
-                                                    <Plus className="w-3.5 h-3.5" />
+                                                    <Plus className="w-4 h-4 stroke-[3]" />
                                                     <span>Create New Server</span>
                                                 </button>
                                             )}
@@ -385,6 +542,14 @@ export default function TopBar() {
                     )}
                 </Menu>
             </div>
+
+            {/* Server Overview & All Known Specs Modal */}
+            <ServerOverviewModal
+                isOpen={isOverviewOpen}
+                onClose={() => setIsOverviewOpen(false)}
+                server={activeServer}
+                publicIp={publicIp}
+            />
         </div>
     );
 }

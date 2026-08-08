@@ -741,6 +741,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::system::install_app_update,
             commands::system::select_folder,
             commands::system::select_file, // <-- New Command
+            commands::system::save_file_dialog,
             commands::system::select_plugin_zip,
              commands::system::get_setting,
              commands::system::set_setting,

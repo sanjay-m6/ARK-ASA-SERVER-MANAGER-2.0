@@ -12,6 +12,10 @@ import type {
     PlayerSession,
     BoostProfile,
     AseBoostProfile,
+    ServerConfig,
+    ProfileExportOptions,
+    ServerExportProfile,
+    ProfileExportBundle,
 } from '../types';
 
 export type {
@@ -24,6 +28,9 @@ export type {
     ServerType,
     PlayerStats,
     PlayerSession,
+    ProfileExportOptions,
+    ServerExportProfile,
+    ProfileExportBundle,
 };
 
 // ============================================================================
@@ -42,6 +49,10 @@ export async function selectFile(title: string, extensions?: string[]): Promise<
     return await invoke('select_file', { title, extensions });
 }
 
+export async function saveFileDialog(title: string, defaultName?: string, extensions?: string[]): Promise<string | null> {
+    return await invoke('save_file_dialog', { title, defaultName: defaultName || null, extensions: extensions || null });
+}
+
 // File Manager commands
 export async function readDirectory(path: string): Promise<any[]> {
     return await invoke('read_directory', { path });
@@ -49,6 +60,10 @@ export async function readDirectory(path: string): Promise<any[]> {
 
 export async function readFileContent(path: string): Promise<string> {
     return await invoke('read_file_content', { path });
+}
+
+export async function writeFileContent(path: string, content: string): Promise<void> {
+    return await invoke('write_file_content', { path, content });
 }
 
 export async function getParentDirectory(path: string): Promise<string> {
@@ -674,8 +689,8 @@ export async function scanExistingClusters(searchRoot?: string): Promise<Discove
     return await invoke('scan_existing_clusters', { searchRoot: searchRoot || null });
 }
 
-export async function createCluster(name: string, serverIds: number[], clusterPath?: string, autoLinkExisting?: boolean): Promise<Cluster> {
-    return await invoke('create_cluster', { name, serverIds, clusterPath: clusterPath || null, autoLinkExisting: autoLinkExisting || false });
+export async function createCluster(name: string, serverIds: number[], clusterPath?: string, clusterIdString?: string, autoLinkExisting?: boolean): Promise<Cluster> {
+    return await invoke('create_cluster', { name, serverIds, clusterPath: clusterPath || null, clusterIdString: clusterIdString || null, autoLinkExisting: autoLinkExisting || false });
 }
 
 export async function getClusters(): Promise<Cluster[]> {
@@ -686,8 +701,8 @@ export async function deleteCluster(clusterId: number): Promise<void> {
     return await invoke('delete_cluster', { clusterId });
 }
 
-export async function updateCluster(clusterId: number, name?: string, newPath?: string, moveData?: boolean): Promise<void> {
-    return await invoke('update_cluster', { clusterId, name: name || null, newPath: newPath || null, moveData: moveData || false });
+export async function updateCluster(clusterId: number, name?: string, newPath?: string, clusterIdString?: string, moveData?: boolean): Promise<void> {
+    return await invoke('update_cluster', { clusterId, name: name || null, newPath: newPath || null, clusterIdString: clusterIdString || null, moveData: moveData || false });
 }
 
 export async function addServerToCluster(clusterId: number, serverId: number): Promise<void> {
@@ -789,7 +804,7 @@ export interface DiscordBridgeConfig {
     bot_token: string;
     guild_id: string;
     channel_id: string;
-    admin_channel_id: string; // New field
+    admin_channel_id: string;
     admin_role_ids: string[];
     moderator_role_ids: string[];
     game_to_discord: boolean;
@@ -802,6 +817,15 @@ export interface DiscordBridgeConfig {
     player_list_message_id: string;
     show_tribe_names: boolean;
     show_playtime: boolean;
+    notifications_channel_id?: string;
+    notify_player_join_leave?: boolean;
+    notify_server_crashes?: boolean;
+    notify_server_recovery?: boolean;
+    notify_scheduled_restarts?: boolean;
+    notify_backup_completion?: boolean;
+    notify_performance_alerts?: boolean;
+    notify_mod_watchdog?: boolean;
+    notify_anti_cheat?: boolean;
     status_update_interval?: number;
 }
 
@@ -1226,24 +1250,111 @@ export async function deactivateAseBoostProfile(serverId: number): Promise<void>
 // Server Instance Profile Export / Import Utilities
 // ============================================================================
 
-export async function exportServerInstanceProfile(server: Server): Promise<string> {
-    const profile = {
+export async function exportServerProfiles(
+    servers: Server[],
+    options: ProfileExportOptions
+): Promise<string> {
+    const exportedProfiles: ServerExportProfile[] = [];
+
+    for (const s of servers) {
+        const profile: ServerExportProfile = {
+            id: s.id,
+            name: s.name,
+            serverType: s.serverType,
+            installPath: s.installPath,
+            createdAt: s.createdAt,
+            lastStarted: s.lastStarted,
+            tags: s.tags,
+            colorBadge: s.colorBadge,
+        };
+
+        if (options.includePorts && s.ports) {
+            profile.ports = s.ports;
+        }
+
+        if (options.includeConfig && s.config) {
+            const configCopy: Partial<ServerConfig> = { ...s.config };
+            if (!options.includePasswords) {
+                delete configCopy.adminPassword;
+                delete configCopy.serverPassword;
+            }
+            if (!options.includeCluster) {
+                delete configCopy.clusterId;
+                delete configCopy.clusterPath;
+            }
+            profile.config = configCopy;
+        }
+
+        if (options.includeAutomation) {
+            profile.autoStart = s.autoStart;
+            profile.autoStop = s.autoStop;
+            profile.intelligentMode = s.intelligentMode;
+            profile.startupDelay = s.startupDelay;
+            profile.startupPriority = s.startupPriority;
+            profile.battleye = s.battleye;
+        }
+
+        if (options.includeMods) {
+            try {
+                const installedMods = await getInstalledMods(s.id);
+                profile.installedMods = installedMods.map(m => ({
+                    id: m.id,
+                    name: m.name,
+                    version: m.version,
+                }));
+            } catch (e) {
+                console.warn(`Could not fetch installed mods for server ${s.name} (${s.id}):`, e);
+                profile.installedMods = [];
+            }
+        }
+
+        exportedProfiles.push(profile);
+    }
+
+    const bundle: ProfileExportBundle = {
         version: '2.0',
         exportedAt: new Date().toISOString(),
-        server: {
-            name: server.name,
-            serverType: server.serverType,
-            ports: server.ports,
-            config: server.config,
-            autoStart: server.autoStart,
-            autoStop: server.autoStop,
-            intelligentMode: server.intelligentMode,
-            battleye: server.battleye,
-            tags: server.tags,
-            colorBadge: server.colorBadge,
-        }
+        appName: 'ARK Server Manager 2.0',
+        profileCount: exportedProfiles.length,
+        optionsIncluded: options,
+        profiles: exportedProfiles,
     };
-    return JSON.stringify(profile, null, 2);
+
+    return JSON.stringify(bundle, null, 2);
+}
+
+export async function saveProfilesToFile(jsonContent: string, defaultFilename: string = 'ark_server_profiles.json'): Promise<boolean> {
+    try {
+        const filePath = await saveFileDialog('Save Server Profiles', defaultFilename, ['json']);
+        if (filePath) {
+            await writeFileContent(filePath, jsonContent);
+            return true;
+        }
+        return false;
+    } catch (err) {
+        console.warn('Native save dialog failed or cancelled, fallback to browser download:', err);
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = defaultFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return true;
+    }
+}
+
+export async function exportServerInstanceProfile(server: Server): Promise<string> {
+    return exportServerProfiles([server], {
+        includeConfig: true,
+        includePorts: true,
+        includeMods: true,
+        includeAutomation: true,
+        includeCluster: true,
+        includePasswords: false,
+    });
 }
 
 export async function cancelInstallation(

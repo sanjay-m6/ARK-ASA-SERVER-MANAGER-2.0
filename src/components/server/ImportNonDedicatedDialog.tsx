@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, FolderOpen, Save, Loader2, CheckCircle, AlertCircle, FileUp, Info } from 'lucide-react';
 import type { Server } from '../../types';
 import { importNonDedicatedSave, selectFolder, selectFile } from '../../utils/tauri';
@@ -90,9 +91,9 @@ export default function ImportNonDedicatedDialog({ onClose, servers }: Props) {
         }
     };
 
-    return (
+    const dialogContent = (
         <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-[100] p-4"
             onClick={(e) => e.target === e.currentTarget && !isImporting && onClose()}
         >
             <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-slate-700/50 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
@@ -228,4 +229,6 @@ export default function ImportNonDedicatedDialog({ onClose, servers }: Props) {
             </div>
         </div>
     );
+
+    return createPortal(dialogContent, document.body);
 }

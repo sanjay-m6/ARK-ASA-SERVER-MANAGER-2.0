@@ -136,20 +136,30 @@ impl SteamCmdService {
         Ok(())
     }
 
+    /// Clear SteamCMD downloading & temp folders (without wiping appcache)
+    pub fn clear_downloading_cache(&self) -> Result<()> {
+        let _ = self.kill_existing_processes();
+        let install_dir = self.get_steamcmd_dir()?;
+
+        let downloading = install_dir.join("steamapps").join("downloading");
+        if downloading.exists() {
+            let _ = std::fs::remove_dir_all(&downloading);
+        }
+
+        let temp = install_dir.join("steamapps").join("temp");
+        if temp.exists() {
+            let _ = std::fs::remove_dir_all(&temp);
+        }
+
+        Ok(())
+    }
+
     /// Clear SteamCMD download cache to fix stale download issues
     pub fn clear_cache(&self) -> Result<()> {
         // First kill any running steamcmd processes to release locks
         let _ = self.kill_existing_processes();
 
         let install_dir = self.get_steamcmd_dir()?;
-
-        // Clear appcache
-        let appcache = install_dir.join("appcache");
-        if appcache.exists() {
-            std::fs::remove_dir_all(&appcache)
-                .context("Failed to remove appcache directory")?;
-            println!("Cleared SteamCMD appcache");
-        }
 
         // Clear downloading folder inside steamapps
         let downloading = install_dir.join("steamapps").join("downloading");

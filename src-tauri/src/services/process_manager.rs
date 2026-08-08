@@ -303,7 +303,7 @@ impl ProcessManager {
                                 Ok(Some(status)) => {
                                     // Parent exited. Check if handoff exists (with retry since it may take a moment to spawn)
                                     let mut handoff_pid = None;
-                                    for _ in 0..20 {
+                                    for _ in 0..10 {
                                         if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, Some(proc.pid)) {
                                             handoff_pid = Some(new_pid);
                                             break;
@@ -355,10 +355,12 @@ impl ProcessManager {
                             }
                         } else {
                             // Tracking by system PID (child is None)
+                            // Use targeted single-PID refresh instead of scanning all processes
                             let is_alive = {
+                                let target_pid = sysinfo::Pid::from_u32(proc.pid);
                                 let mut sys = sysinfo::System::new();
-                                sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
-                                sys.process(sysinfo::Pid::from_u32(proc.pid)).is_some()
+                                sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target_pid]), true);
+                                sys.process(target_pid).is_some()
                             };
                             if !is_alive {
                                 has_exited = true;
@@ -2144,11 +2146,12 @@ impl ProcessManager {
                     }
                 }
             } else {
-                // Tracking by system PID
+                // Tracking by system PID — targeted single-PID refresh
                 let is_alive = {
+                    let target_pid = sysinfo::Pid::from_u32(server_proc.pid);
                     let mut sys = sysinfo::System::new();
-                    sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
-                    sys.process(sysinfo::Pid::from_u32(server_proc.pid)).is_some()
+                    sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target_pid]), true);
+                    sys.process(target_pid).is_some()
                 };
 
                 if !is_alive {

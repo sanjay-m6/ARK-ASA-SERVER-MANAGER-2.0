@@ -12,7 +12,6 @@ import {
   ScrollText,
   Terminal,
   Clock,
-  MessageSquare,
   Settings as SettingsIcon,
   Wrench,
   Cpu,
@@ -37,6 +36,8 @@ import { useAseServerStore } from '../../ase/stores/aseServerStore';
 import { useGameStore } from '../../stores/gameStore';
 import asaLogo from '../../assets/ASA.png';
 import aseLogo from '../../assets/ASE.png';
+
+import DiscordIcon from '../ui/DiscordIcon';
 
 interface NavigationItem {
   name: string;
@@ -90,7 +91,7 @@ export default function Sidebar() {
         { name: t('sidebar.aiAssistant', 'AI Assistant'), path: '/tools/ai', icon: Bot },
         { name: t('sidebar.advanced', 'Boot Launch Parameter'), path: '/tools/advanced', icon: Cpu },
         { name: 'Hardware Allocation', path: '/hardware', icon: Cpu },
-        { name: t('sidebar.discordBot'), path: '/tools/discord', icon: MessageSquare },
+        { name: t('sidebar.discordBot'), path: '/tools/discord', icon: DiscordIcon },
         { name: t('sidebar.plugins'), path: '/tools/plugins', icon: Plug },
         { name: t('sidebar.fileManager'), path: '/tools/files', icon: Folder },
         { name: t('sidebar.tribeLogs', 'Tribe Logs'), path: '/tools/tribe-logs', icon: ScrollText },
@@ -120,7 +121,7 @@ export default function Sidebar() {
         { name: 'Boot Launch Parameter', path: '/ase/tools/advanced', icon: Cpu },
         { name: 'Hardware Allocation', path: '/ase/hardware', icon: Cpu },
         { name: 'File Manager', path: '/ase/files', icon: Folder },
-        { name: 'Discord Bot', path: '/ase/discord', icon: MessageSquare },
+        { name: 'Discord Bot', path: '/ase/discord', icon: DiscordIcon },
         { name: 'Profile Sync', path: '/ase/profile-sync', icon: RefreshCw },
         { name: 'Plugins Manager', path: '/ase/tools/plugins', icon: Plug },
         { name: 'Chat Translator', path: '/ase/tools/chat-translator', icon: Languages },

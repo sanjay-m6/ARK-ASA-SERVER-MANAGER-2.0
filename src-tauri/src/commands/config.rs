@@ -7,17 +7,18 @@ use std::path::PathBuf;
 use tauri::State;
 
 /// Strip ARK engine's `?ServerPassword=<value>` corruption from ServerAdminPassword lines.
-///
-/// The ARK server engine modifies GameUserSettings.ini at runtime and appends the server
-/// password onto the admin password value (e.g. `ServerAdminPassword=Admin123?ServerPassword=Ark123`).
-/// This function scans the full INI text and repairs any such lines in-place.
+/// Strip ARK engine's `?ServerPassword=<value>` corruption from ServerAdminPassword lines,
+/// normalize OpenOffice/smart quotes, and strip UTF-8 BOM.
 fn sanitize_ini_content(content: &str) -> String {
-    content
+    let normalized = IniParser::normalize_ini_text(content);
+    normalized
         .lines()
         .filter_map(|line| {
             let trimmed = line.trim();
-            // BUG FIX: Prevent "Ticking loop" on Club Ark/Mod Maps by stripping ActiveMapMods=0
-            if trimmed == "ActiveMapMods=0" || trimmed == "ActiveModMap=0" {
+            // BUG FIX: Prevent "Ticking loop" on Club Ark/Mod Maps by stripping ActiveMapMods=0 / ActiveMapMod=0
+            if trimmed.eq_ignore_ascii_case("ActiveMapMods=0") 
+                || trimmed.eq_ignore_ascii_case("ActiveModMap=0")
+                || trimmed.eq_ignore_ascii_case("ActiveMapMod=0") {
                 return None;
             }
             if let Some(rest) = trimmed.strip_prefix("ServerAdminPassword=") {

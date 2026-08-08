@@ -5,7 +5,7 @@ import {
   Server, Activity, Zap, Copy, Puzzle,
   Play, Square, RotateCw, FileEdit, Edit2, Check, X,
   Folder, FolderOpen, Heart, Bookmark, Search, ExternalLink,
-  GitBranch, AlertTriangle, RefreshCw, ShieldCheck, Cpu, Radio, Sparkles, Timer
+  GitBranch, AlertTriangle, RefreshCw, Timer
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -15,7 +15,7 @@ import { useInstallStore } from '../stores/installStore';
 import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { updateServerCustomization as apiUpdateServerCustomization } from '../utils/serverOrganization';
 import { cn } from '../utils/helpers';
-import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData, optimizeMemory, openInExplorer } from '../utils/tauri';
+import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData, openInExplorer } from '../utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../components/performance/PerformanceMonitor';
@@ -66,44 +66,7 @@ export default function Dashboard() {
   });
   const [isSavingStartup, setIsSavingStartup] = useState(false);
 
-  // Live Operations Feed
-  const [liveLogs, setLiveLogs] = useState<string[]>([
-    `[SYS] Operations center initialized.`,
-    `[SYS] Host metrics listener: active.`,
-    `[AI] Listening for log anomalies...`,
-  ]);
 
-  useEffect(() => {
-    const messages = [
-      "Auditing database integrity...",
-      "DB health check: 100% nominal.",
-      "Scanning server ports for conflicts...",
-      "Port scanning complete: no conflicts.",
-      "Syncing active UPnP port mappings...",
-      "UPnP leases active and verified.",
-      "Analyzing server logs for warnings...",
-      "Log audit: 0 warnings, 0 crash patterns.",
-      "Validating configuration caches...",
-      "Configuration cache status: FRESH.",
-      "Host heartbeat monitor check: OK.",
-    ];
-
-    let index = 0;
-    const interval = setInterval(() => {
-      const now = new Date();
-      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-      const prefix = index % 3 === 0 ? "AI" : "SYS";
-      const nextLog = `[${timeStr}] [${prefix}] ${messages[index]}`;
-      setLiveLogs(prev => {
-        const updated = [...prev, nextLog];
-        if (updated.length > 25) updated.shift();
-        return updated;
-      });
-      index = (index + 1) % messages.length;
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const fetchOrgSnapshot = async () => {
     try {
@@ -443,9 +406,13 @@ export default function Dashboard() {
     setupListener();
 
     // Poll every 10s for smooth chart data (60 points = 10 min history)
-    const perfInterval = setInterval(fetchSystemInfo, 10000);
-    // Poll for updates (heartbeat)
-    const serverInterval = setInterval(refreshServers, 3000);
+    const perfInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchSystemInfo();
+    }, 10000);
+    // Poll for server status updates
+    const serverInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') refreshServers();
+    }, 10000);
 
     return () => {
       clearInterval(perfInterval);
@@ -921,12 +888,12 @@ export default function Dashboard() {
                               </div>
                               <span
                                 onClick={(e) => handleRenameStart(server, e)}
-                                className="text-[10px] px-2 py-0.5 rounded-md bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 hover:border-sky-500/40 font-mono font-medium flex items-center gap-1 cursor-pointer transition-all"
+                                className="inline-flex items-center gap-2 px-3 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 hover:border-sky-500/40 rounded-lg text-xs text-sky-300 font-mono font-medium cursor-pointer transition-all no-collapse max-w-full truncate"
                                 title={`Click to rename profile | Server Path: ${server.installPath}`}
                               >
-                                <FolderOpen className="w-3 h-3 text-sky-400" />
-                                <span>Profile: {displayName}</span>
-                                <Edit2 className="w-2.5 h-2.5 text-sky-400/70" />
+                                <FolderOpen className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                                <span className="truncate">Profile: {displayName}</span>
+                                <Edit2 className="w-3 h-3 text-sky-400/70 shrink-0 ml-0.5" />
                               </span>
                               {server.installPath && (
                                 <button
@@ -939,22 +906,22 @@ export default function Dashboard() {
                                       toast.error(`Cannot open folder: ${err}`);
                                     }
                                   }}
-                                  className="p-0.5 bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/40 rounded transition-all shrink-0"
+                                  className="p-1.5 bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/40 rounded-lg transition-all shrink-0 cursor-pointer"
                                   title={`Open real server folder on disk:\n${server.installPath}`}
                                 >
-                                  <ExternalLink className="w-2.5 h-2.5 text-sky-400" />
+                                  <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
                                 </button>
                               )}
                               {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
                               {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-400 fill-sky-400" />}
                               {server.autoStart && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold tracking-wide uppercase">
+                                <span className="text-[9px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold tracking-wide uppercase">
                                   AUTOSTART
                                 </span>
                               )}
                             </div>
                           )}
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
                             <p className="text-xs text-slate-400">
                               {server.config.sessionName && server.config.sessionName !== server.name && (
                                 <span className="text-slate-300 font-medium mr-1.5 font-mono">
@@ -964,14 +931,14 @@ export default function Dashboard() {
                               {server.config.mapName} • Game: {server.ports.gamePort} • Query: {server.ports.queryPort}
                             </p>
                             {serverVersions[server.id] && (
-                              <span className="flex items-center gap-1 px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] text-slate-300 font-medium font-mono animate-in fade-in" title={t('serverManager.tooltips.serverVersion', 'Local Server Version')}>
-                                <GitBranch className="w-3 h-3 text-sky-400/80" />
+                              <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 font-medium font-mono animate-in fade-in" title={t('serverManager.tooltips.serverVersion', 'Local Server Version')}>
+                                <GitBranch className="w-3.5 h-3.5 text-sky-400/80" />
                                 <span>{serverVersions[server.id]}</span>
                               </span>
                             )}
                             {isServerOutdated(server.id) && (
-                              <span className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded text-[9px] font-bold animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version is available!')}>
-                                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                              <span className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg text-xs font-bold animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version is available!')}>
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
                                 <span>{t('serverManager.status.updateAvailable', 'Update Available')}</span>
                               </span>
                             )}
@@ -1240,85 +1207,7 @@ export default function Dashboard() {
 
 
 
-            {/* AI Sentinel & Live Telemetry Operations Center */}
-            <div className="glass-panel rounded-2xl p-5 relative overflow-hidden group border border-sky-500/10 hover:border-sky-500/20 transition-all space-y-4">
-              {/* Top Bar */}
-              <div className="flex items-start justify-between gap-3 border-b border-white/5 pb-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="p-2 bg-sky-500/10 rounded-xl text-sky-400 shrink-0">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xs font-extrabold text-white tracking-wide uppercase whitespace-nowrap">
-                        AI Sentinel Watchdog
-                      </h3>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
-                        99% OPTIMAL
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-400 mt-0.5 truncate">Automated telemetry &amp; resource sentinel</p>
-                  </div>
-                </div>
-                <button
-                  onClick={async () => {
-                    try {
-                      await optimizeMemory();
-                      toast.success('System RAM optimized & working set trimmed');
-                    } catch (e) {
-                      toast.error('Optimization notice: ' + String(e));
-                    }
-                  }}
-                  className="px-2.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl text-[10px] font-bold flex items-center gap-1.5 transition-all focus:outline-none hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap shrink-0"
-                  title="Trim process working set and reclaim standby memory"
-                >
-                  <Zap className="w-3 h-3 text-sky-400 shrink-0" />
-                  <span>Purge RAM</span>
-                </button>
-              </div>
 
-              {/* Quick Metrics Grid */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 bg-black/30 rounded-xl border border-white/5 flex items-center gap-2.5 min-w-0">
-                  <div className="p-1.5 bg-sky-500/10 rounded-lg text-sky-400 shrink-0">
-                    <Cpu className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">CPU Target</p>
-                    <p className="text-[11px] font-bold text-slate-200 truncate">Normal (&lt;80%)</p>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-black/30 rounded-xl border border-white/5 flex items-center gap-2.5 min-w-0">
-                  <div className="p-1.5 bg-emerald-500/10 rounded-lg text-emerald-400 shrink-0">
-                    <Radio className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Port Sentinel</p>
-                    <p className="text-[11px] font-bold text-emerald-400 truncate">0 Conflicts</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Event Feed */}
-              <div className="bg-black/30 rounded-xl p-3 border border-white/5 space-y-2">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="text-slate-400 font-semibold flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3 text-amber-400 shrink-0" />
-                    Live Event Feed
-                  </span>
-                  <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider">REALTIME</span>
-                </div>
-                <div className="space-y-1.5 max-h-[120px] overflow-y-auto custom-scrollbar font-mono text-[10px]">
-                  {liveLogs.slice(-4).map((log, index) => (
-                    <div key={index} className="flex items-center gap-2 text-slate-300 py-1 px-2 rounded-lg bg-white/[0.02] border border-white/[0.03]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0 animate-pulse" />
-                      <span className="truncate text-slate-300" title={log}>{log}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

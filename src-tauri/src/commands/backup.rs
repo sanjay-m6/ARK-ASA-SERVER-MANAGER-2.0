@@ -288,7 +288,6 @@ pub fn enforce_retention_policy_conn(conn: &rusqlite::Connection, server_id: i64
 
     let now_utc = chrono::Utc::now();
     let retention_days = policy.retention_days as i64;
-    let max_count = policy.retention_count.max(1) as usize;
     let quota_bytes = (policy.storage_quota_gb.max(1.0) * 1024.0 * 1024.0 * 1024.0) as i64;
 
     // 1. RETENTION DURATION (Days)
@@ -315,12 +314,15 @@ pub fn enforce_retention_policy_conn(conn: &rusqlite::Connection, server_id: i64
     }
 
     // 2. MAX BACKUP COUNT (per server)
-    if items.len() > max_count {
-        let to_delete: Vec<BackupItem> = items.drain(max_count..).collect();
-        for item in to_delete {
-            log::info!("[Retention] Server {}: Deleting excess backup ID {} path {} (Reason: MAX_COUNT)", server_id, item.id, item.file_path);
-            delete_backup_record_and_file(conn, item.id, &item.file_path);
-            deleted_paths.push(item.file_path);
+    if policy.retention_count > 0 {
+        let max_count = policy.retention_count as usize;
+        if items.len() > max_count {
+            let to_delete: Vec<BackupItem> = items.drain(max_count..).collect();
+            for item in to_delete {
+                log::info!("[Retention] Server {}: Deleting excess backup ID {} path {} (Reason: MAX_COUNT)", server_id, item.id, item.file_path);
+                delete_backup_record_and_file(conn, item.id, &item.file_path);
+                deleted_paths.push(item.file_path);
+            }
         }
     }
 

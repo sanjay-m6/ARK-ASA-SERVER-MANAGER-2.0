@@ -1941,22 +1941,9 @@ export default function ASEModManager() {
                   scale: 1, 
                   opacity: 1,
                   borderColor: activeDownloadsCount > 0 ? "rgba(245, 158, 11, 0.4)" : "rgba(255, 255, 255, 0.1)",
-                  boxShadow: activeDownloadsCount > 0 
-                    ? [
-                        "0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 15px rgba(245, 158, 11, 0.05)",
-                        "0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 15px rgba(245, 158, 11, 0.15)",
-                        "0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 15px rgba(245, 158, 11, 0.05)"
-                      ]
-                    : "0 25px 50px -12px rgba(0, 0, 0, 0.85)",
+                  boxShadow: activeDownloadsCount > 0 ? "0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 15px rgba(245, 158, 11, 0.15)" : "0 25px 50px -12px rgba(0, 0, 0, 0.85)",
                 }}
-                transition={{
-                  boxShadow: {
-                    repeat: Infinity,
-                    duration: 2,
-                    ease: "easeInOut"
-                  },
-                  default: { duration: 0.3 }
-                }}
+                transition={{ duration: 0.3 }}
                 exit={{ y: 50, scale: 0.95, opacity: 0 }}
                 className="bg-slate-900/95 border rounded-2xl shadow-2xl backdrop-blur-md overflow-hidden flex flex-col"
               >

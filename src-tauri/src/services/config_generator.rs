@@ -187,17 +187,18 @@ fn ark_bool(value: bool) -> &'static str {
 }
 
 impl ConfigGenerator {
-    /// Strip `?ServerPassword=<value>` corruption from ServerAdminPassword lines in INI content.
-    ///
-    /// The ARK server engine appends the server password to the admin password line at runtime.
-    /// This method cleans that corruption from raw INI text.
-    fn sanitize_ini_content(content: &str) -> String {
-        content
+    /// Strip `?ServerPassword=<value>` corruption from ServerAdminPassword lines in INI content,
+    /// normalize OpenOffice/smart quotes, strip UTF-8 BOM, and remove broken mod map zero keys.
+    pub fn sanitize_ini_content(content: &str) -> String {
+        let normalized = crate::services::ini_parser::IniParser::normalize_ini_text(content);
+        normalized
             .lines()
             .filter_map(|line| {
                 let trimmed = line.trim();
-                // BUG FIX: Prevent "Ticking loop" on Club Ark/Mod Maps by stripping ActiveMapMods=0
-                if trimmed == "ActiveMapMods=0" || trimmed == "ActiveModMap=0" {
+                // BUG FIX: Prevent "Ticking loop" on Club Ark/Mod Maps by stripping ActiveMapMods=0 / ActiveMapMod=0
+                if trimmed.eq_ignore_ascii_case("ActiveMapMods=0") 
+                    || trimmed.eq_ignore_ascii_case("ActiveModMap=0")
+                    || trimmed.eq_ignore_ascii_case("ActiveMapMod=0") {
                     return None;
                 }
                 if let Some(rest) = trimmed.strip_prefix("ServerAdminPassword=") {

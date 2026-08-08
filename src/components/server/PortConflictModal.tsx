@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertTriangle, ShieldAlert, Wand2, Server } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { useTranslation } from 'react-i18next';
@@ -45,8 +46,8 @@ export default function PortConflictModal({
         }
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+    const modalContent = (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200">
             <div className={cn(
                 "bg-slate-900/95 border rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 backdrop-blur-xl",
                 isHardConflict ? "border-red-500/30 shadow-red-950/20" : "border-amber-500/30 shadow-amber-950/20"
@@ -197,4 +198,6 @@ export default function PortConflictModal({
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 }

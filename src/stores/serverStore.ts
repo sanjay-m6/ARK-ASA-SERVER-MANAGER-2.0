@@ -154,7 +154,21 @@ export const useServerStore = create<ServerStore>((set, get) => ({
                     return s;
                 });
 
-                // Auto-restore or maintain activeServer reference
+                // Compare merged servers with state.servers to prevent redundant state mutations
+                const isChanged =
+                    state.servers.length !== merged.length ||
+                    merged.some((s, i) => {
+                        const prev = state.servers[i];
+                        if (!prev) return true;
+                        return (
+                            prev.id !== s.id ||
+                            prev.status !== s.status ||
+                            prev.name !== s.name ||
+                            prev.reachability !== s.reachability ||
+                            prev.config?.maxPlayers !== s.config?.maxPlayers
+                        );
+                    });
+
                 let newActive = state.activeServer ? merged.find(s => s.id === state.activeServer!.id) || state.activeServer : null;
                 if (savedActiveId !== null) {
                     const found = merged.find(s => s.id === savedActiveId);
@@ -165,12 +179,12 @@ export const useServerStore = create<ServerStore>((set, get) => ({
                     localStorage.setItem('activeAsaServerId', newActive.id.toString());
                 }
 
+                if (!isChanged && state.activeServer?.id === newActive?.id) {
+                    return state;
+                }
+
                 return { servers: merged, activeServer: newActive };
             });
-
-            // Automatically trigger fetching server versions and latest public version
-            get().fetchAllServerVersions();
-            get().fetchLatestPublicVersion().catch(console.error);
         } catch (error) {
             console.error('Failed to refresh servers:', error);
             import('react-hot-toast').then(({ default: toast }) => {

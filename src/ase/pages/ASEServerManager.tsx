@@ -122,7 +122,9 @@ export default function ASEServerManager() {
   useEffect(() => {
     // Initial load and periodic refresh
     refreshServers();
-    const intervalId = setInterval(refreshServers, 3000);
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') refreshServers();
+    }, 10000);
 
     // Listen for backend status change events
     const setupListener = async () => {

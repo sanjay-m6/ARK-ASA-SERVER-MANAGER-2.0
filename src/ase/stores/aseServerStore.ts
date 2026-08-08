@@ -116,11 +116,26 @@ export const useAseServerStore = create<AseServerStore>((set, get) => ({
                     }
                     return s;
                 });
+
+                const isChanged =
+                    state.servers.length !== merged.length ||
+                    merged.some((s, i) => {
+                        const prev = state.servers[i];
+                        if (!prev) return true;
+                        return (
+                            prev.id !== s.id ||
+                            prev.status !== s.status ||
+                            prev.name !== s.name ||
+                            prev.maxPlayers !== s.maxPlayers
+                        );
+                    });
+
+                if (!isChanged) {
+                    return state;
+                }
+
                 return { servers: merged };
             });
-
-            get().fetchAllServerVersions();
-            get().fetchLatestPublicVersion().catch(console.error);
         } catch (error) {
             console.error('[ASE] Failed to refresh servers:', error);
             import('react-hot-toast').then(({ default: toast }) => {

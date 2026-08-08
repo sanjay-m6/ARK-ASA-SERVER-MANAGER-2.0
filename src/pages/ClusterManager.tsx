@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Network, Trash2, Loader2, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen, Search, Clock } from 'lucide-react';
+import { Plus, Network, Trash2, Loader2, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen, Search, Clock, Globe, X } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, addServerToCluster, removeServerFromCluster, scanExistingClusters, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
 import { startServer, stopServer } from '../utils/tauri';
@@ -21,12 +21,14 @@ export default function ClusterManager() {
     const [isCreating, setIsCreating] = useState(false);
     const [newClusterName, setNewClusterName] = useState('');
     const [newClusterPath, setNewClusterPath] = useState('');
+    const [newClusterIdString, setNewClusterIdString] = useState('');
     const [selectedServers, setSelectedServers] = useState<number[]>([]);
     const [startingCluster, setStartingCluster] = useState<number | null>(null);
     const [stoppingCluster, setStoppingCluster] = useState<number | null>(null);
     const [crossChatStatus, setCrossChatStatus] = useState<Record<number, boolean>>({});
     const [expandedDiscord, setExpandedDiscord] = useState<number | null>(null);
     const [editCluster, setEditCluster] = useState<Cluster | null>(null);
+    const [showGuide, setShowGuide] = useState(false);
     const [validationResult, setValidationResult] = useState<ClusterValidationResult | null>(null);
     const [validatingClusterId, setValidatingClusterId] = useState<number | null>(null);
     const { servers, refreshServers } = useServerStore();
@@ -74,8 +76,8 @@ export default function ClusterManager() {
             toast.error(t('clusterManager.clusterNameReq'));
             return;
         }
-        if (selectedServers.length < 2) {
-            toast.error(t('clusterManager.selectServersReq'));
+        if (selectedServers.length < 1) {
+            toast.error(t('clusterManager.selectServersReq', 'Please select at least 1 server'));
             return;
         }
 
@@ -84,11 +86,13 @@ export default function ClusterManager() {
                 newClusterName,
                 selectedServers,
                 newClusterPath.trim() || undefined,
+                newClusterIdString.trim() || newClusterName.trim().replace(/\s+/g, '_'),
                 true,
             );
             toast.success(t('clusterManager.clusterCreated'));
             setNewClusterName('');
             setNewClusterPath('');
+            setNewClusterIdString('');
             setSelectedServers([]);
             setIsCreating(false);
             fetchClusters();
@@ -218,22 +222,31 @@ export default function ClusterManager() {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">
                         {t('clusterManager.title')}
                     </h1>
                     <p className="text-slate-400 mt-2 text-lg">{t('clusterManager.subtitle')}</p>
                 </div>
-                {!isCreating && (
+                <div className="flex items-center gap-3">
                     <button
-                        onClick={() => setIsCreating(true)}
-                        className="flex items-center space-x-2 px-6 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg transition-colors shadow-lg shadow-pink-500/20 font-medium"
+                        onClick={() => setShowGuide(true)}
+                        className="flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-sky-400 border border-sky-500/30 rounded-lg transition-colors text-sm font-semibold shadow-md shadow-sky-500/5"
                     >
-                        <Plus className="w-5 h-5" />
-                        <span>{t('clusterManager.createCluster')}</span>
+                        <Globe className="w-4 h-4 text-sky-400" />
+                        <span>{t('clusterManager.crossComputerGuide', 'Cross-Computer Cluster Guide')}</span>
                     </button>
-                )}
+                    {!isCreating && (
+                        <button
+                            onClick={() => setIsCreating(true)}
+                            className="flex items-center space-x-2 px-6 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg transition-colors shadow-lg shadow-pink-500/20 font-medium"
+                        >
+                            <Plus className="w-5 h-5" />
+                            <span>{t('clusterManager.createCluster')}</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Create Cluster Form */}
@@ -241,15 +254,35 @@ export default function ClusterManager() {
                 <div className="glass-panel rounded-2xl p-6 border-pink-500/30 shadow-lg shadow-pink-500/10">
                     <h3 className="text-xl font-semibold text-white mb-4">{t('clusterManager.clusterConfig')}</h3>
                     <div className="space-y-6">
-                        <div>
-                            <label className="text-sm font-medium text-slate-300 block mb-2">{t('clusterManager.clusterName')}</label>
-                            <input
-                                type="text"
-                                value={newClusterName}
-                                onChange={(e) => setNewClusterName(e.target.value)}
-                                className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
-                                placeholder={t('clusterManager.placeholderName')}
-                            />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-sm font-medium text-slate-300 block mb-2">{t('clusterManager.clusterName')}</label>
+                                <input
+                                    type="text"
+                                    value={newClusterName}
+                                    onChange={(e) => {
+                                        setNewClusterName(e.target.value);
+                                        if (!newClusterIdString) {
+                                            setNewClusterIdString(e.target.value.replace(/\s+/g, '_'));
+                                        }
+                                    }}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-pink-500"
+                                    placeholder={t('clusterManager.placeholderName')}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium text-slate-300 flex items-center justify-between mb-2">
+                                    <span>{t('clusterManager.clusterIdString', 'Shared Cluster ID (-clusterid)')}</span>
+                                    <span className="text-xs text-sky-400">Match across machines</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newClusterIdString}
+                                    onChange={(e) => setNewClusterIdString(e.target.value)}
+                                    className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-pink-500"
+                                    placeholder="MyCrossCluster123"
+                                />
+                            </div>
                         </div>
 
                         {/* Cluster Folder Path & Auto-Connect */}
@@ -394,9 +427,15 @@ export default function ClusterManager() {
                                     <Network className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-white">{cluster.name}</h3>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-xl font-bold text-white">{cluster.name}</h3>
+                                        <span className="px-2 py-0.5 bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-mono rounded-md flex items-center gap-1">
+                                            <span className="text-[10px] text-purple-400 font-sans">ID:</span>
+                                            {cluster.clusterIdString || cluster.name.replace(/\s+/g, '_')}
+                                        </span>
+                                    </div>
                                     <p className="text-sm text-slate-400">
-                                        ID: {cluster.id} • {cluster.serverIds.length} Servers •
+                                        DB #{cluster.id} • {cluster.serverIds.length} Servers •
                                         <span className={cn(
                                             "ml-1 font-medium",
                                             getClusterRunningCount(cluster) > 0 ? "text-emerald-400" : "text-slate-500"
@@ -619,6 +658,83 @@ export default function ClusterManager() {
                     }
                     confirmText={t('common.ok', 'OK')}
                 />
+            )}
+            {/* Cross-Computer Setup Guide Modal */}
+            {showGuide && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+                    <div className="bg-slate-900 border border-slate-700/60 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between border-b border-slate-700/50 pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-sky-500/20 text-sky-400 rounded-xl">
+                                    <Globe className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">Cross-Computer Cluster Setup Guide</h3>
+                                    <p className="text-xs text-slate-400">How to link ARK servers hosted across 2 or more physical PCs</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowGuide(false)} className="p-2 text-slate-400 hover:text-white rounded-lg">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4 text-sm text-slate-300">
+                            <div className="p-4 bg-sky-500/10 border border-sky-500/20 rounded-xl space-y-2">
+                                <h4 className="font-semibold text-sky-300 flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-sky-500 text-slate-950 font-bold text-xs flex items-center justify-center">1</span>
+                                    Set Up Shared Storage Folder (LAN SMB / Network Drive)
+                                </h4>
+                                <p className="text-slate-300 text-xs leading-relaxed">
+                                    ARK clusters use a shared folder to write character, dino, and item transfer files.
+                                </p>
+                                <ul className="list-disc list-inside text-xs text-slate-400 space-y-1 pl-2">
+                                    <li>On <strong className="text-white">Computer A (Primary)</strong>: Create a folder like <code className="text-emerald-400">C:\ARKClusterData</code> and Share it on LAN (<code className="text-emerald-400">\\192.168.1.100\ARKClusterData</code>).</li>
+                                    <li>On <strong className="text-white">Computer B (Secondary)</strong>: Access the shared network path or Map Network Drive (e.g. <code className="text-emerald-400">Z:\ARKClusterData</code>).</li>
+                                </ul>
+                            </div>
+
+                            <div className="p-4 bg-purple-500/10 border border-purple-500/20 rounded-xl space-y-2">
+                                <h4 className="font-semibold text-purple-300 flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-purple-500 text-slate-950 font-bold text-xs flex items-center justify-center">2</span>
+                                    Use the EXACT SAME Cluster ID String
+                                </h4>
+                                <p className="text-slate-300 text-xs leading-relaxed">
+                                    Both Manager instances must launch their servers with the identical <code className="text-purple-300">-clusterid</code> value (e.g., <code className="text-purple-300">MyAwesomeARKCluster</code>).
+                                </p>
+                            </div>
+
+                            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-2">
+                                <h4 className="font-semibold text-emerald-300 flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-emerald-500 text-slate-950 font-bold text-xs flex items-center justify-center">3</span>
+                                    Create Cluster on Both Computers
+                                </h4>
+                                <div className="text-xs text-slate-300 space-y-1.5 pl-2">
+                                    <p>• On <strong className="text-white">Computer A (5 maps)</strong>: Create cluster with ID <code className="text-emerald-400">MyAwesomeARKCluster</code>, path <code className="text-emerald-400">C:\ARKClusterData</code>, and add your 5 local maps.</p>
+                                    <p>• On <strong className="text-white">Computer B (2 maps)</strong>: Create cluster with the SAME ID <code className="text-emerald-400">MyAwesomeARKCluster</code>, path <code className="text-emerald-400">\\192.168.1.100\ARKClusterData</code>, and add your 2 local maps.</p>
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2">
+                                <h4 className="font-semibold text-amber-300 flex items-center gap-2">
+                                    <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-bold text-xs flex items-center justify-center">4</span>
+                                    Start Servers & Travel Across Maps
+                                </h4>
+                                <p className="text-slate-300 text-xs leading-relaxed">
+                                    Start all 7 servers. In-game Obelisks & Supply Drops will automatically list all 7 maps across both computers for seamless player transfers!
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2 border-t border-slate-700/50">
+                            <button
+                                onClick={() => setShowGuide(false)}
+                                className="px-5 py-2 bg-pink-600 hover:bg-pink-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-pink-500/20"
+                            >
+                                Got It!
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

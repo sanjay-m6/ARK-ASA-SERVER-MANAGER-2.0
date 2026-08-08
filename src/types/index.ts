@@ -76,6 +76,44 @@ export interface ServerConfig {
     allow_tek_suit_powers_in_genesis?: boolean;
 }
 
+export interface ProfileExportOptions {
+    includeConfig: boolean;
+    includePorts: boolean;
+    includeMods: boolean;
+    includeAutomation: boolean;
+    includeCluster: boolean;
+    includePasswords: boolean;
+}
+
+export interface ServerExportProfile {
+    id: number;
+    name: string;
+    serverType: ServerType;
+    installPath?: string;
+    createdAt?: string;
+    lastStarted?: string;
+    tags?: string[];
+    colorBadge?: string;
+    ports?: ServerPorts;
+    config?: Partial<ServerConfig>;
+    autoStart?: boolean;
+    autoStop?: boolean;
+    intelligentMode?: boolean;
+    startupDelay?: number;
+    startupPriority?: number;
+    battleye?: boolean;
+    installedMods?: Array<{ id: string; name?: string; version?: string }>;
+}
+
+export interface ProfileExportBundle {
+    version: string;
+    exportedAt: string;
+    appName: string;
+    profileCount: number;
+    optionsIncluded: ProfileExportOptions;
+    profiles: ServerExportProfile[];
+}
+
 export interface ServerInstanceProfile {
     version: string;
     exportedAt: string;
@@ -165,6 +203,7 @@ export interface Cluster {
     name: string;
     serverIds: number[];
     clusterPath: string;
+    clusterIdString?: string;
     createdAt: string;
 }
 
