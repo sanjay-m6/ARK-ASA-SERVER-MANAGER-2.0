@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { 
     X, Server as ServerIcon, Globe, HardDrive, Shield, Wifi, 
-    Copy, Eye, EyeOff, FolderOpen, Hash
+    Copy, Eye, EyeOff, FolderOpen, Hash, GitBranch
 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { toast } from 'react-hot-toast';
 import { openInExplorer } from '../../utils/tauri';
+import { useServerStore } from '../../stores/serverStore';
+import { useAseServerStore } from '../../ase/stores/aseServerStore';
 
 interface ServerOverviewModalProps {
     isOpen: boolean;
@@ -37,6 +39,10 @@ export default function ServerOverviewModal({
     const installPath = server.installPath || 'N/A';
     const displayIp = publicIp || '127.0.0.1';
     const clusterId = server.config?.clusterId ?? server.clusterId ?? null;
+
+    const asaVersions = useServerStore((state) => state.serverVersions);
+    const aseVersions = useAseServerStore((state) => state.serverVersions);
+    const serverVersion = isASE ? aseVersions[server.id] : asaVersions[server.id];
 
     const handleCopy = (text: string, label: string) => {
         navigator.clipboard.writeText(text);
@@ -82,13 +88,22 @@ export default function ServerOverviewModal({
                                         {isASE ? 'ASE' : 'ASA'}
                                     </span>
                                 </div>
-                                <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2">
+                                <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
                                     <span className="font-mono">ID: {server.id}</span>
                                     <span>•</span>
                                     <span className="flex items-center gap-1 text-slate-300 truncate">
                                         <Hash className="w-3 h-3 text-slate-500 flex-shrink-0" />
                                         Map: <strong className="text-white font-mono">{mapName}</strong>
                                     </span>
+                                    {serverVersion && (
+                                        <>
+                                            <span>•</span>
+                                            <span className="flex items-center gap-1 text-sky-400 truncate">
+                                                <GitBranch className="w-3 h-3 text-sky-400 flex-shrink-0" />
+                                                Build: <strong className="text-sky-300 font-mono">{serverVersion}</strong>
+                                            </span>
+                                        </>
+                                    )}
                                 </p>
                             </div>
                         </div>

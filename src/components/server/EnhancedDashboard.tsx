@@ -40,7 +40,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
   onRestoreServer,
   onMoveServer,
 }) => {
-  const { servers } = useServerStore();
+  const { servers, serverVersions } = useServerStore();
   const {
     folders,
     selectedFolder,
@@ -353,6 +353,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
                     >
                       <EnhancedServerCard
                         server={server}
+                        serverVersion={serverVersions[server.id]}
                         isArchived={archivedServers.has(server.id)}
                         onOpenServer={onServerSelect}
                         onStartServer={onStartServer}
@@ -402,6 +403,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
                     >
                       <EnhancedServerCard
                         server={server}
+                        serverVersion={serverVersions[server.id]}
                         isArchived={archivedServers.has(server.id)}
                         onOpenServer={onServerSelect}
                         onStartServer={onStartServer}

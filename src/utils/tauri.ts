@@ -733,6 +733,10 @@ export async function stopCluster(clusterId: number): Promise<void> {
     return await invoke('stop_cluster', { clusterId });
 }
 
+export async function restartCluster(clusterId: number, delaySeconds?: number): Promise<void> {
+    return await invoke('restart_cluster', { clusterId, delaySeconds: delaySeconds || null });
+}
+
 export async function toggleClusterCrossChat(clusterId: number, enabled: boolean): Promise<void> {
     return await invoke('toggle_cluster_cross_chat', { clusterId, enabled });
 }

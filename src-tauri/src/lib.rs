@@ -850,6 +850,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::cluster::get_cluster_status,
             commands::cluster::start_cluster,
             commands::cluster::stop_cluster,
+            commands::cluster::restart_cluster,
             commands::cluster::toggle_cluster_cross_chat,
             commands::cluster::get_cluster_cross_chat_status,
             commands::cluster::get_cluster_cross_chat_config,

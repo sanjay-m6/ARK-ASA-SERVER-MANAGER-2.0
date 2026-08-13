@@ -794,7 +794,7 @@ pub async fn start_cluster(
                         s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address, s.custom_args, s.battleye
                  FROM servers s
                  INNER JOIN cluster_servers cs ON s.id = cs.server_id
-                 WHERE cs.cluster_id = ?1 AND s.status = 'stopped'",
+                 WHERE cs.cluster_id = ?1 AND s.status NOT IN ('running', 'online', 'starting', 'updating', 'restarting')",
             )
             .map_err(|e| e.to_string())?;
 
@@ -961,6 +961,19 @@ pub async fn stop_cluster(state: State<'_, AppState>, cluster_id: i64) -> Result
     }
 
     Ok(())
+}
+
+/// Restart all servers in a cluster with graceful shutdown and configurable launch delay
+#[tauri::command]
+pub async fn restart_cluster(
+    state: State<'_, AppState>,
+    cluster_id: i64,
+    delay_seconds: Option<u64>,
+) -> Result<(), String> {
+    println!("🔄 Restarting all servers in cluster {}", cluster_id);
+    let _ = stop_cluster(state.clone(), cluster_id).await;
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    start_cluster(state, cluster_id, delay_seconds).await
 }
 
 /// Toggle cross-server chat for a cluster

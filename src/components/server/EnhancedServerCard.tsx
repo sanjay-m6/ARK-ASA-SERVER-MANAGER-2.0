@@ -15,6 +15,7 @@ import {
   RotateCw,
   Square,
   HardDrive,
+  GitBranch,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useServerOrganizationStore } from '../../stores/serverOrganizationStore';
@@ -23,6 +24,7 @@ import { cn } from '../../utils/helpers';
 
 interface EnhancedServerCardProps {
   server: Server;
+  serverVersion?: string;
   isArchived?: boolean;
   isDragging?: boolean;
   onOpenServer?: (server: Server) => void;
@@ -37,6 +39,7 @@ interface EnhancedServerCardProps {
 
 export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
   server,
+  serverVersion,
   isArchived = false,
   isDragging = false,
   onOpenServer,
@@ -411,6 +414,14 @@ export const EnhancedServerCard: React.FC<EnhancedServerCardProps> = ({
                     0/{server.config.maxPlayers}
                   </p>
                 </div>
+                {serverVersion && (
+                  <div className="col-span-2 rounded bg-slate-700/50 p-2 flex items-center justify-between border border-white/5">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <GitBranch className="w-3.5 h-3.5 text-sky-400" /> Version
+                    </span>
+                    <span className="font-mono text-xs font-bold text-sky-300 truncate">{serverVersion}</span>
+                  </div>
+                )}
               </div>
 
               {/* Tags */}

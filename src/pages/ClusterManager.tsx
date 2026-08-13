@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, Network, Trash2, Loader2, Play, Square, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen, Search, Clock, Globe, X } from 'lucide-react';
+import { Plus, Network, Trash2, Loader2, Play, Square, RotateCw, MessageCircle, FlaskConical, ChevronDown, ChevronUp, Pencil, FolderOpen, Search, Clock, Globe, X } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, addServerToCluster, removeServerFromCluster, scanExistingClusters, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
+import { createCluster, getClusters, deleteCluster, startCluster, stopCluster, restartCluster, getClusterCrossChatStatus, selectFolder, validateClusterConfiguration, addServerToCluster, removeServerFromCluster, scanExistingClusters, type ClusterValidationResult, type ClusterValidationIssue } from '../utils/tauri';
 import { startServer, stopServer } from '../utils/tauri';
 import { Cluster, Server } from '../types';
 import toast from 'react-hot-toast';
@@ -25,6 +25,7 @@ export default function ClusterManager() {
     const [selectedServers, setSelectedServers] = useState<number[]>([]);
     const [startingCluster, setStartingCluster] = useState<number | null>(null);
     const [stoppingCluster, setStoppingCluster] = useState<number | null>(null);
+    const [restartingCluster, setRestartingCluster] = useState<number | null>(null);
     const [crossChatStatus, setCrossChatStatus] = useState<Record<number, boolean>>({});
     const [expandedDiscord, setExpandedDiscord] = useState<number | null>(null);
     const [editCluster, setEditCluster] = useState<Cluster | null>(null);
@@ -165,6 +166,20 @@ export default function ClusterManager() {
             toast.error(t('clusterManager.stopFailed'));
         } finally {
             setStoppingCluster(null);
+        }
+    };
+
+    const handleRestartCluster = async (clusterId: number) => {
+        setRestartingCluster(clusterId);
+        try {
+            await restartCluster(clusterId, staggerDelay);
+            toast.success(`Restarting all cluster servers with ${staggerDelay}s launch delay`);
+            refreshServers();
+        } catch (error) {
+            console.error('Failed to restart cluster:', error);
+            toast.error('Failed to restart cluster');
+        } finally {
+            setRestartingCluster(null);
         }
     };
 
@@ -487,6 +502,19 @@ export default function ClusterManager() {
                                             <Square className="w-4 h-4" />
                                         )}
                                         <span>{t('clusterManager.stopAll')}</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleRestartCluster(cluster.id)}
+                                        disabled={restartingCluster === cluster.id}
+                                        className="flex items-center space-x-1 px-3 py-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                        title="Restart all servers in this cluster with staggered delay"
+                                    >
+                                        {restartingCluster === cluster.id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <RotateCw className="w-4 h-4" />
+                                        )}
+                                        <span>Restart All</span>
                                     </button>
                                     <button
                                         onClick={() => handleValidateCluster(cluster.id)}
