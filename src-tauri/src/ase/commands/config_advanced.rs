@@ -36,7 +36,7 @@ pub async fn read_ase_ini(server_id: i64, filename: String, state: State<'_, App
         return Ok(IniData::new());
     }
 
-    let content = fs::read_to_string(&target_file)
+    let content = crate::services::ini_parser::IniParser::read_file_to_string(&target_file)
         .map_err(|e| format!("Failed to read {}: {}", filename, e))?;
 
     Ok(IniData::parse(&content))
@@ -91,7 +91,7 @@ pub async fn read_ase_ini_raw(server_id: i64, filename: String, state: State<'_,
         return Ok(String::new());
     }
 
-    let content = fs::read_to_string(&target_file)
+    let content = crate::services::ini_parser::IniParser::read_file_to_string(&target_file)
         .map_err(|e| format!("Failed to read {}: {}", filename, e))?;
 
     Ok(content)

@@ -558,7 +558,7 @@ fn update_ase_cluster_config(install_path: &str, cluster_dir: &str) {
             .join("ShooterGame/Saved/Config/Windows/GameUserSettings.ini");
     }
 
-    if let Ok(content) = std::fs::read_to_string(&config_path) {
+    if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&config_path) {
         let cluster_line = format!("ClusterDirOverride={}", cluster_dir);
 
         let new_content = if content.contains("ClusterDirOverride=") {
@@ -1125,7 +1125,7 @@ pub async fn validate_ase_cluster_configuration(
                 .join("WindowsServer")
                 .join("GameUserSettings.ini");
 
-            if let Ok(content) = std::fs::read_to_string(&ini_path) {
+            if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&ini_path) {
                 let mut found = false;
                 for line in content.lines() {
                     if let Some(value) = line.strip_prefix("ClusterDirOverride=") {

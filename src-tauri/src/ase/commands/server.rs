@@ -463,7 +463,7 @@ pub async fn import_ase_server(
         .join("GameUserSettings.ini");
 
     if gus_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&gus_path) {
+        if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path) {
             let sections = crate::commands::server::parse_ini(&content);
             let mut no_be = false;
             let mut be_enforcer = true;
@@ -742,7 +742,7 @@ pub async fn clone_ase_server(
 
         let gus_path = dest_config_dir.join("GameUserSettings.ini");
         if gus_path.exists() {
-            if let Ok(content) = std::fs::read_to_string(&gus_path) {
+            if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path) {
                 let mut gus_data = crate::ase::ini_parser::IniData::parse(&content);
                 let ss = gus_data.ensure_section("ServerSettings");
                 
@@ -1089,7 +1089,7 @@ pub async fn run_ase_preflight_check(
 
     let mut active_mods_synced = false;
     if gus_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&gus_path) {
+        if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path) {
             let mut in_server_settings = false;
             let mut ini_active_mods = String::new();
             for line in content.lines() {

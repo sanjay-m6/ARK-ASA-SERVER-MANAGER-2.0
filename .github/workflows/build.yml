@@ -104,10 +104,11 @@ jobs:
               - Added collapsible RCON Admin Terminal dock with instant quick action buttons (`SaveWorld`, `ListPlayers`, `Broadcast`, `DestroyWildDinos`, `SetTimeOfDay`).
 
             ### 🐛 Bug Fixes in v4.6.14
-            - **⚙️ Fixed ASA Server Settings Resetting on Return**:
+            - **⚙️ Fixed ASA & ASE Server Settings Resetting on Save/Return**:
               - Fixed the critical bug where saving server settings in the interface reverted back to default values upon returning.
+              - Resolved `write_ase_config` serialization error (`missing field "allowCryoCooldownonPve"`) by adding `#[serde(default)]` and serde aliases for all camelCase/PvE/PvP fields on `AseGameConfig`.
+              - Upgraded file parsers across ASA & ASE (`src/services/ini_parser.rs`, `src-tauri/src/ase/commands/config.rs`, etc.) to automatically detect and handle UTF-16 LE/BE, UTF-8 BOM, and Windows-1252 encodings, preventing corrupted/unreadable `.cfg` and `.ini` files.
               - Implemented `CaseInsensitiveMap` in `configMappings.ts` to bridge PascalCase schemas with INI keys on disk.
-              - Implemented multi-encoding auto-detection in Rust backend (`ini_parser.rs`) supporting UTF-16 LE/BE and UTF-8 BOM files from Unreal Engine 5.
               - Hardened database synchronization in `ConfigEditor.tsx` to prevent `generate_config` from overwriting custom INI configs with stale defaults.
             - **⚡ Root Import & White Screen Fix**:
               - Fixed import hoisting and client environment types in `main.tsx` and added `vite-env.d.ts` to eliminate startup blank white screen issues in Tauri.

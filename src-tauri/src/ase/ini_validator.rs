@@ -259,14 +259,14 @@ pub async fn validate_ase_config(
 
     // 1. Validate GameUserSettings.ini
     if gus_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&gus_path) {
+        if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path) {
             validate_file(&content, "GameUserSettings.ini", &mut issues);
         }
     }
 
     // 2. Validate Game.ini
     if game_ini_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&game_ini_path) {
+        if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&game_ini_path) {
             validate_file(&content, "Game.ini", &mut issues);
         }
     }

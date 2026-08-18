@@ -104,6 +104,7 @@ pub struct AseCluster {
 /// Matches all classic ARK Server Manager configuration sections
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct AseGameConfig {
     // ── Identity ──
     pub session_name: String,
@@ -154,10 +155,13 @@ pub struct AseGameConfig {
     pub raid_dino_character_food_drain_multiplier: f64,
     pub force_allow_cave_flyers: bool,
     pub prevent_dino_mate_boost: bool,
+    #[serde(alias = "disableDinoDecayPvE", alias = "disableDinoDecayPve", alias = "DisableDinoDecayPvE")]
     pub disable_dino_decay_pve: bool,
     pub allow_dino_level_up_animation: bool,
     pub b_allow_flying_stamina_recovery: bool,
+    #[serde(alias = "bAllowMultipleAttachedC4", alias = "bAllowMultipleAttachedc4")]
     pub b_allow_multiple_attached_c4: bool,
+    #[serde(alias = "disableDinoDecayPvP", alias = "disableDinoDecayPvp", alias = "DisableDinoDecayPvP")]
     pub disable_dino_decay_pvp: bool,
     pub b_allow_flyer_speed_leveling: bool,
     pub b_allow_unclaim_dinos: bool,
@@ -211,7 +215,9 @@ pub struct AseGameConfig {
     pub structure_resistance_multiplier: f64,
     pub per_platform_max_structures_multiplier: f64,
     pub auto_destroy_decayed_dinos: bool,
+    #[serde(alias = "disableStructureDecayPvE", alias = "disableStructureDecayPve", alias = "DisableStructureDecayPvE")]
     pub disable_structure_decay_pve: bool,
+    #[serde(alias = "pveAllowStructuresAtSupplyDrops", alias = "pvEAllowStructuresAtSupplyDrops", alias = "PVEAllowStructuresAtSupplyDrops")]
     pub pve_allow_structures_at_supply_drops: bool,
     pub force_all_structure_locking: bool,
     pub auto_destroy_old_structures_multiplier: f64,
@@ -222,11 +228,17 @@ pub struct AseGameConfig {
     pub ignore_structures_prevention_volumes: bool,
 
     // ── PvP Rules ──
+    #[serde(alias = "serverPve", alias = "serverPvE", alias = "ServerPVE", alias = "ServerPvE")]
     pub server_pve: bool,
+    #[serde(alias = "allowCaveBuildingPvp", alias = "allowCaveBuildingPvP")]
     pub allow_cave_building_pvp: bool,
+    #[serde(alias = "disableRailgunPvp", alias = "disableRailgunPvP")]
     pub disable_railgun_pvp: bool,
+    #[serde(alias = "enablePvpGamma", alias = "enablePvPGamma")]
     pub enable_pvp_gamma: bool,
+    #[serde(alias = "pvpStructureDecay", alias = "pvPStructureDecay")]
     pub pvp_structure_decay: bool,
+    #[serde(alias = "pvpDinoDecay", alias = "pvPDinoDecay")]
     pub pvp_dino_decay: bool,
     pub global_powered_battery_durability_decrease_per_second: f64,
 
@@ -234,6 +246,7 @@ pub struct AseGameConfig {
     pub allow_third_person_player: bool,
     pub server_crosshair: bool,
     pub show_map_player_location: bool,
+    #[serde(alias = "allowFlyerCarryPve", alias = "allowFlyerCarryPvE")]
     pub allow_flyer_carry_pve: bool,
     pub disable_weather_fog: bool,
     pub allow_anyone_baby_imprint_cuddle: bool,
@@ -374,9 +387,12 @@ pub struct AseGameConfig {
     pub b_disable_friendly_fire: bool,
     pub non_permanent_diseases: bool,
     pub prevent_diseases: bool,
+    #[serde(alias = "allowCryoCooldownOnPvE", alias = "allowCryoCooldownonPve", alias = "AllowCryoCooldownOnPvE", alias = "allowCryoCooldownOnPve")]
     pub allow_cryo_cooldown_on_pve: bool,
     pub disable_cryopod_enemy_check: bool,
+    #[serde(alias = "enableCryoSicknessPvP", alias = "enableCryoSicknessPvp", alias = "EnableCryoSicknessPVP")]
     pub enable_cryo_sickness_pvp: bool,
+    #[serde(alias = "pvpZoneStructureDamageMultiplier", alias = "pvPZoneStructureDamageMultiplier", alias = "PVPZoneStructureDamageMultiplier")]
     pub pvp_zone_structure_damage_multiplier: f64,
     pub structure_damage_repair_cooldown: f64,
 
@@ -390,6 +406,7 @@ pub struct AseGameConfig {
 
     // ── Decay & Platforms ──
     pub structure_decay_period_multiplier: f64,
+    #[serde(alias = "pveDinoDecayPeriodMultiplier", alias = "pvEDinoDecayPeriodMultiplier")]
     pub pve_dino_decay_period_multiplier: f64,
     pub fast_decay_unsnapped_core_structures: bool,
     pub b_allow_platform_saddle_multi_floors: bool,
@@ -399,14 +416,20 @@ pub struct AseGameConfig {
     pub flyer_platform_max_structures_multiplier: f64,
 
     // ── Classic ASM Full Server Options Feature Integration ──
+    #[serde(alias = "badWordListUrl", alias = "badWordListURL")]
     pub bad_word_list_url: String,
+    #[serde(alias = "badWordWhiteListUrl", alias = "badWordWhiteListURL")]
     pub bad_word_white_list_url: String,
     pub b_filter_tribe_names: bool,
     pub b_filter_character_names: bool,
     pub b_filter_chat: bool,
+    #[serde(alias = "banListUrl", alias = "banListURL")]
     pub ban_list_url: String,
+    #[serde(alias = "useBanListUrl", alias = "useBanListURL")]
     pub use_ban_list_url: bool,
+    #[serde(alias = "useDynamicConfigUrl", alias = "useDynamicConfigURL")]
     pub use_dynamic_config_url: bool,
+    #[serde(alias = "useCustomLiveTuningUrl", alias = "useCustomLiveTuningURL")]
     pub use_custom_live_tuning_url: bool,
     pub kick_idle_players_period: f64,
     pub enable_idle_timeout: bool,
@@ -427,6 +450,7 @@ pub struct AseGameConfig {
     pub force_respawn_dinos_on_startup: bool,
     pub enable_auto_force_respawn_dinos: bool,
     pub auto_force_respawn_dinos_interval: f64,
+    #[serde(alias = "forceDirectX10", alias = "forceDirectx10")]
     pub force_direct_x10: bool,
     pub force_shader_model4: bool,
     pub force_low_memory: bool,
@@ -437,6 +461,7 @@ pub struct AseGameConfig {
     pub structure_memory_optimizations: bool,
     pub structure_stasis_grid: bool,
     pub enable_crossplay: bool,
+    #[serde(alias = "enablePublicIpForEpic", alias = "enablePublicIPForEpic")]
     pub enable_public_ip_for_epic: bool,
     pub epic_store_players_only: bool,
     pub alternate_save_directory_name: String,

@@ -25,6 +25,7 @@ import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
 import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboard';
 import { MODDED_MAP_PRESETS, buildLaunchArgs, getModdedMapByMapArg } from '../data/moddedMapRegistry';
 import PlatformSelector from '../components/config/PlatformSelector';
+import ServerSelect from '../components/ui/ServerSelect';
 
 // Map images
 import mapTheIsland from '../assets/maps/the_island.png';
@@ -2056,7 +2057,7 @@ export default function ConfigEditor() {
             {/* Header */}
             <div className="p-6 border-b border-[#1e1e3a]/80 flex flex-col gap-5 bg-[#12121f]">
                 <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-5 flex-1">
+                    <div className="flex items-center gap-4 flex-1 flex-wrap">
                         <h2 className="text-2xl font-bold text-white flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
                                 <Sliders className="w-5 h-5 text-white" />
@@ -2064,7 +2065,13 @@ export default function ConfigEditor() {
                             <span className="bg-gradient-to-r from-white via-violet-200 to-indigo-200 bg-clip-text text-transparent">{t('configEditor.title')}</span>
                         </h2>
 
-
+                        <div className="w-56">
+                            <ServerSelect
+                                value={selectedServerId}
+                                onChange={(id) => setSelectedServerId(id)}
+                                accentColor="purple"
+                            />
+                        </div>
 
                         <PresetSelector
                             onApplyPreset={handleApplyPreset}

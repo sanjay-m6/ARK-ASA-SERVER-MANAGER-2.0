@@ -226,7 +226,7 @@ pub async fn read_ase_config_internal(
 
     // Parse GameUserSettings.ini
     if gus_path.exists() {
-        let content = std::fs::read_to_string(&gus_path)
+        let content = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path)
             .map_err(|e| format!("Failed to read GameUserSettings.ini: {}", e))?;
         let sections = IniDocument::parse(&content);
         let ss = "ServerSettings";
@@ -640,7 +640,7 @@ pub async fn read_ase_config_internal(
 
     // Parse Game.ini for breeding settings
     if game_ini_path.exists() {
-        let content = std::fs::read_to_string(&game_ini_path)
+        let content = crate::services::ini_parser::IniParser::read_file_to_string(&game_ini_path)
             .map_err(|e| format!("Failed to read Game.ini: {}", e))?;
         let sections = IniDocument::parse(&content);
         let sgm = "/Script/ShooterGame.ShooterGameMode";
@@ -863,7 +863,7 @@ pub async fn write_ase_config(
 
     let gus_path = config_dir.join("GameUserSettings.ini");
     let mut gus_doc = if gus_path.exists() {
-        let content = std::fs::read_to_string(&gus_path)
+        let content = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path)
             .map_err(|e| format!("Failed to read GameUserSettings.ini: {}", e))?;
         IniDocument::parse(&content)
     } else {
@@ -1888,7 +1888,7 @@ pub async fn write_ase_config(
     // Now write Game.ini
     let game_ini_path = config_dir.join("Game.ini");
     let mut game_doc = if game_ini_path.exists() {
-        let content = std::fs::read_to_string(&game_ini_path)
+        let content = crate::services::ini_parser::IniParser::read_file_to_string(&game_ini_path)
             .map_err(|e| format!("Failed to read Game.ini: {}", e))?;
         IniDocument::parse(&content)
     } else {
@@ -2312,13 +2312,13 @@ pub async fn get_ase_config_diagnostics(
     let mut hasher = Sha256::new();
     let mut hashed = false;
     if gus_exists {
-        if let Ok(content) = std::fs::read_to_string(&gus_path) {
+        if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path) {
             hasher.update(content.as_bytes());
             hashed = true;
         }
     }
     if game_ini_exists {
-        if let Ok(content) = std::fs::read_to_string(&game_ini_path) {
+        if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&game_ini_path) {
             hasher.update(content.as_bytes());
             hashed = true;
         }
