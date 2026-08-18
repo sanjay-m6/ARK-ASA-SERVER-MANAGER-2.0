@@ -134,7 +134,7 @@ pub async fn read_config(
 
     if path.exists() {
         println!("📖 Reading config from: {:?}", path);
-        let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let content = IniParser::read_file_to_string(&path).map_err(|e| e.to_string())?;
 
         // BUG FIX: The ARK server engine appends ?ServerPassword=<value> to the
         // ServerAdminPassword line in GameUserSettings.ini at runtime. Strip it on
@@ -181,7 +181,7 @@ pub async fn save_config(
 
     // Use merge strategy to preserve existing keys (like per-level stats)
     let final_content = if file_path.exists() {
-        let existing_raw = fs::read_to_string(&file_path).unwrap_or_default();
+        let existing_raw = IniParser::read_file_to_string(&file_path).unwrap_or_default();
         if !existing_raw.is_empty() {
             // Sanitize the existing file too — ARK may have corrupted it at runtime
             let existing_content = if config_type == "GameUserSettings" {
@@ -545,7 +545,7 @@ pub async fn load_server_config(
     // Parse GameUserSettings.ini for gameplay multipliers
     let gus_path = config_dir.join("GameUserSettings.ini");
     if gus_path.exists() {
-        let gus_content = fs::read_to_string(&gus_path).unwrap_or_default();
+        let gus_content = IniParser::read_file_to_string(&gus_path).unwrap_or_default();
 
         // Helper to parse float values from INI
         let get_f32 = |section: &str, key: &str, default: f32| -> f32 {
@@ -613,7 +613,7 @@ pub async fn load_server_config(
     // Parse Game.ini for breeding/per-level stats
     let game_path = config_dir.join("Game.ini");
     if game_path.exists() {
-        let game_content = fs::read_to_string(&game_path).unwrap_or_default();
+        let game_content = IniParser::read_file_to_string(&game_path).unwrap_or_default();
         let sgm = "/Script/ShooterGame.ShooterGameMode";
 
         let get_f32_game = |key: &str, default: f32| -> f32 {

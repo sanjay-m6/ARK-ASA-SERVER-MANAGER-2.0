@@ -79,30 +79,47 @@ jobs:
         with:
           tagName: ${{ steps.version.outputs.version }}
           releaseName: 'ARK Server Manager ${{ steps.version.outputs.version }}'
-          prerelease: true
+          prerelease: false
           releaseBody: |
-            ## 🚀 ARK Server Manager ${{ steps.version.outputs.version }} (Pre-Release)
+            ## 🚀 ARK Server Manager ${{ steps.version.outputs.version }} (Latest Release)
 
             ### Installation
             - **Auto-Update**: If you already have the app installed, it will auto-detect this release and prompt you to update.
             - **Windows**: Download the `.exe` installer below.
-            - **Linux**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
+            - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
+            - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features in v4.6.13
-            - **📚 Knowledge Base & Documentation Reader Overhaul**:
-              - Complete redesign of the Knowledge Base (`Wiki.tsx` & `HelpDocumentation.tsx`). Categorized 25 technical guides into 5 distinct categories (*Core Services*, *Automation & AI*, *Mods & Files*, *Monitoring & Logs*, *Integrations & Tools*). Added custom syntax-highlighted code blocks with 1-click copy buttons, styled callout alert cards (Notes, Tips, Warnings), category filter pills, reading time estimates, and fixed acronym formatting (e.g. `AI Assistant`).
-            - **💬 Realtime Discord Bridge & Chat Composer**:
-              - Redesigned chat composer interface in `DiscordHub.tsx` with a custom segmented target picker (Both, Discord, Game), active status badges, and live Discord bot connection management.
+            ### 🆕 New Features & Improvements in v4.6.14
+            - **🗺️ Bjarnheim Map Integration (ASA)**:
+              - Added official mod map support for **Bjarnheim** (`Bjarnheim_WP`, CurseForge Mod ID `1376189`) by Nekatus.
+              - Implemented automatic Map Argument normalization and auto-injection of `-mods=1376189` on server boot.
+              - Added Bjarnheim to map selection in Install Server dialog and Config Editor.
+            - **🐧 Linux Headless Daemon & CLI Installer**:
+              - Added [`scripts/install.sh`](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/blob/main/scripts/install.sh) for one-line automated installation of the headless CLI daemon (`asa_manager`).
+              - Documented headless installation, source compilation with Cargo, and GTK troubleshooting for headless Linux servers in `LINUX_SETUP.md`.
+            - **📊 Logs & RCON Console UI/UX Overhaul**:
+              - Redesigned the entire `LogsConsole.tsx` interface with a modern glassmorphic terminal theme.
+              - Eliminated horizontal scrollbars in the toolbar with a responsive layout.
+              - Added syntax-highlighted log levels (`INFO`, `WARN`, `ERROR`, `MODS`, `RCON`), search term highlights, line numbers, word-wrap toggles, and 1-click line copy buttons.
+              - Added collapsible RCON Admin Terminal dock with instant quick action buttons (`SaveWorld`, `ListPlayers`, `Broadcast`, `DestroyWildDinos`, `SetTimeOfDay`).
 
-            ### 🐛 Bug Fixes & Optimizations in v4.6.13
-            - **⚡ High CPU Usage & Background Process Optimization**:
-              - Fixed high CPU utilization caused by high-frequency system process table scans (`sysinfo::ProcessesToUpdate::All`). Refactored `ProcessManager` monitoring loop (3s interval) and `GuardianService` health checks to use targeted single-PID updates (`ProcessesToUpdate::Some(&[pid])`). Added 60s disk info caching to eliminate disk IO polling spam.
-            - **⚡ Application Animation & Render Performance Tuning**:
-              - Neutralized continuous background pulsing/bouncing animations, particle floaters, and `repeat: Infinity` Framer Motion loops across the app (`globals.css`, `ServerManager.tsx`, `ASEModManager.tsx`), significantly reducing GPU compositor overhead and eliminating UI lag.
-            - **🧹 Dashboard UI Cleanup**:
-              - Removed cluttered AI Sentinel Watchdog panel from ASA & ASE Dashboards to streamline telemetry layout and conserve system resources.
+            ### 🐛 Bug Fixes in v4.6.14
+            - **⚙️ Fixed ASA Server Settings Resetting on Return**:
+              - Fixed the critical bug where saving server settings in the interface reverted back to default values upon returning.
+              - Implemented `CaseInsensitiveMap` in `configMappings.ts` to bridge PascalCase schemas with INI keys on disk.
+              - Implemented multi-encoding auto-detection in Rust backend (`ini_parser.rs`) supporting UTF-16 LE/BE and UTF-8 BOM files from Unreal Engine 5.
+              - Hardened database synchronization in `ConfigEditor.tsx` to prevent `generate_config` from overwriting custom INI configs with stale defaults.
+            - **⚡ Root Import & White Screen Fix**:
+              - Fixed import hoisting and client environment types in `main.tsx` and added `vite-env.d.ts` to eliminate startup blank white screen issues in Tauri.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.13 — Knowledge Base Redesign & Discord Bridge</summary>
+
+            - **📚 Knowledge Base & Documentation Reader Overhaul**: Complete redesign of the Knowledge Base with categorized technical guides, code blocks with 1-click copy, and styled alert callouts.
+            - **💬 Realtime Discord Bridge & Chat Composer**: Redesigned chat composer interface in `DiscordHub.tsx` with segmented target picker (Both, Discord, Game).
+            - **⚡ High CPU Usage & Background Process Optimization**: Refactored `ProcessManager` monitoring loop to use targeted single-PID updates and added 60s disk IO caching.
+            </details>
             <details>
             <summary>v4.6.12 — Timed Graceful Shutdown, Custom Mod Folders & 4-Chart Telemetry</summary>
 

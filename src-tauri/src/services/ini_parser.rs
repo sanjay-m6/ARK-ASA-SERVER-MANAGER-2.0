@@ -115,6 +115,58 @@ impl IniParser {
         result
     }
 
+    /// Read an INI file safely from disk, supporting UTF-16 LE, UTF-16 BE, UTF-8 with BOM,
+    /// and standard UTF-8 encodings commonly produced by Unreal Engine and Windows editors.
+    pub fn read_file_to_string(path: &std::path::Path) -> std::io::Result<String> {
+        use std::fs::File;
+        use std::io::Read;
+
+        let mut file = File::open(path)?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)?;
+
+        if bytes.is_empty() {
+            return Ok(String::new());
+        }
+
+        // UTF-16 LE with BOM
+        if bytes.len() >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE {
+            let u16_data: Vec<u16> = bytes[2..]
+                .chunks_exact(2)
+                .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                .collect();
+            if let Ok(s) = String::from_utf16(&u16_data) {
+                return Ok(s.trim_start_matches('\u{feff}').to_string());
+            }
+        }
+        // UTF-16 BE with BOM
+        if bytes.len() >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF {
+            let u16_data: Vec<u16> = bytes[2..]
+                .chunks_exact(2)
+                .map(|c| u16::from_be_bytes([c[0], c[1]]))
+                .collect();
+            if let Ok(s) = String::from_utf16(&u16_data) {
+                return Ok(s.trim_start_matches('\u{feff}').to_string());
+            }
+        }
+        // UTF-16 LE without BOM (heuristically detected: second byte is 0 for typical ASCII/Latin characters)
+        if bytes.len() >= 4 && bytes[1] == 0 && bytes[3] == 0 {
+            let u16_data: Vec<u16> = bytes
+                .chunks_exact(2)
+                .map(|c| u16::from_le_bytes([c[0], c[1]]))
+                .collect();
+            if let Ok(s) = String::from_utf16(&u16_data) {
+                return Ok(s.trim_start_matches('\u{feff}').to_string());
+            }
+        }
+        // UTF-8 with BOM
+        if bytes.len() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF {
+            return Ok(String::from_utf8_lossy(&bytes[3..]).into_owned());
+        }
+
+        Ok(String::from_utf8_lossy(&bytes).trim_start_matches('\u{feff}').to_string())
+    }
+
     /// Merge two INI contents. `updates` take precedence over `base`.
     /// Duplicate keys are properly preserved through the merge.
     pub fn merge(base: &str, updates: &str) -> String {
@@ -129,7 +181,7 @@ impl IniParser {
                 .cloned()
                 .unwrap_or_else(|| {
                     base_sections.insert(section_name.clone(), IndexMap::new());
-                    section_name
+                    section_name.clone()
                 });
 
             let base_entries = base_sections.get_mut(&target_section).unwrap();
@@ -137,8 +189,13 @@ impl IniParser {
             for (k, v) in update_entries {
                 let existing_key = base_entries.keys().find(|bk| bk.eq_ignore_ascii_case(&k)).cloned();
                 if let Some(existing) = existing_key {
-                    // Replace entirely with the update value (which may contain \n for duplicates)
-                    base_entries.insert(existing, v);
+                    // If the update key uses canonical/different casing, adopt the update key name
+                    if existing != k {
+                        base_entries.shift_remove(&existing);
+                        base_entries.insert(k, v);
+                    } else {
+                        base_entries.insert(existing, v);
+                    }
                 } else {
                     base_entries.insert(k, v);
                 }
@@ -176,7 +233,12 @@ impl IniParser {
 
         let existing_key = entries.keys().find(|k| k.eq_ignore_ascii_case(key)).cloned();
         if let Some(existing) = existing_key {
-            entries.insert(existing, value.to_string());
+            if existing != key {
+                entries.shift_remove(&existing);
+                entries.insert(key.to_string(), value.to_string());
+            } else {
+                entries.insert(existing, value.to_string());
+            }
         } else {
             entries.insert(key.to_string(), value.to_string());
         }

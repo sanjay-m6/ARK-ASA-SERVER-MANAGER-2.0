@@ -395,6 +395,16 @@ impl ConfigGenerator {
                 recommended_mods: vec![],
                 custom_settings: HashMap::new(),
             },
+            MapProfile {
+                map_id: "Bjarnheim_WP".to_string(),
+                map_name: "Bjarnheim".to_string(),
+                difficulty_offset: 1.0,
+                xp_multiplier: 1.0,
+                harvest_multiplier: 1.0,
+                taming_multiplier: 1.0,
+                recommended_mods: vec!["1376189".to_string()],
+                custom_settings: HashMap::new(),
+            },
         ]
     }
 
@@ -865,7 +875,7 @@ impl ConfigGenerator {
         let gus_content = Self::generate_game_user_settings(config);
         let gus_path = config_dir.join("GameUserSettings.ini");
         if gus_path.exists() {
-            let raw_existing = fs::read_to_string(&gus_path).unwrap_or_default();
+            let raw_existing = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path).unwrap_or_default();
             if !raw_existing.is_empty() {
                 // BUG FIX: Strip ?ServerPassword= corruption from existing file before merge
                 // ARK engine may have appended it at runtime
@@ -891,7 +901,7 @@ impl ConfigGenerator {
         let game_path = config_dir.join("Game.ini");
         let new_game_content = Self::generate_game_ini(config);
         if game_path.exists() {
-            let existing = fs::read_to_string(&game_path).unwrap_or_default();
+            let existing = crate::services::ini_parser::IniParser::read_file_to_string(&game_path).unwrap_or_default();
             let merged =
                 crate::services::ini_parser::IniParser::merge(&existing, &new_game_content);
             println!("  📝 Merging Game.ini (preserving custom keys, updating multipliers)");
@@ -907,7 +917,7 @@ impl ConfigGenerator {
         let engine_path = config_dir.join("Engine.ini");
         let new_engine_content = Self::generate_engine_ini(config);
         if engine_path.exists() {
-            let existing = fs::read_to_string(&engine_path).unwrap_or_default();
+            let existing = crate::services::ini_parser::IniParser::read_file_to_string(&engine_path).unwrap_or_default();
             let merged =
                 crate::services::ini_parser::IniParser::merge(&existing, &new_engine_content);
             println!("  📝 Merging Engine.ini (preserving custom optimizations, updating netcode defaults)");
@@ -1105,7 +1115,7 @@ impl ConfigGenerator {
         // 2. Read existing Configs (as Base)
         let gus_path = config_dir.join("GameUserSettings.ini");
         let initial_gus_content = if gus_path.exists() {
-            fs::read_to_string(&gus_path).map_err(|e| e.to_string())?
+            crate::services::ini_parser::IniParser::read_file_to_string(&gus_path).map_err(|e| e.to_string())?
         } else {
             return Err("Cannot regenerate config: GameUserSettings.ini missing".to_string());
         };
@@ -1242,7 +1252,7 @@ impl ConfigGenerator {
             // Apply Multipliers to Game.ini
             let game_path = config_dir.join("Game.ini");
             let mut game_content = if game_path.exists() {
-                fs::read_to_string(&game_path).unwrap_or_default()
+                crate::services::ini_parser::IniParser::read_file_to_string(&game_path).unwrap_or_default()
             } else {
                 String::new()
             };
@@ -1361,6 +1371,9 @@ pub fn normalize_map_name(map: &str) -> String {
     if trimmed.eq_ignore_ascii_case("Reverence") {
         return "Reverence_WP".to_string();
     }
+    if trimmed.eq_ignore_ascii_case("Bjarnheim") || trimmed.eq_ignore_ascii_case("Bjarnheim_WP") {
+        return "Bjarnheim_WP".to_string();
+    }
     trimmed.to_string()
 }
 
@@ -1373,6 +1386,7 @@ pub fn get_mod_id_for_map(map: &str) -> Option<&'static str> {
         "Insaluna_WP" | "Insaluna" | "INSALUNA" => Some("935639"),
         "TemptressLagoon_WP" | "TemptressLagoon" | "Temptress_Lagoon" => Some("935048"),
         "Reverence_WP" | "Reverence" | "REVERENCE" => Some("932906"),
+        "Bjarnheim_WP" | "Bjarnheim" | "BJARNHEIM" => Some("1376189"),
         "ScorchedEarthRM_WP" | "ScorchedEarthRM" | "ScorchedEarthReborn" => Some("1465909"),
         "TheIslandReforged" | "IslandReforged" => Some("1460513"),
         "ClubARK_WP" | "ClubARK" | "ClubArk" => Some("949666"),

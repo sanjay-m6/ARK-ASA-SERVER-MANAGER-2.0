@@ -2130,40 +2130,180 @@ export function getAllCategories(): { category: string; info: typeof CATEGORY_IN
     })).filter(c => c.groups.length > 0);
 }
 
+// Build canonical lookup dictionaries for known sections and keys
+const CANONICAL_SECTIONS = new Map<string, string>();
+const CANONICAL_KEYS = new Map<string, string>();
+
+function registerCanonicalName(section: string, key?: string) {
+    if (section) {
+        CANONICAL_SECTIONS.set(section.toLowerCase(), section);
+    }
+    if (key) {
+        CANONICAL_KEYS.set(key.toLowerCase(), key);
+        if (section) {
+            CANONICAL_KEYS.set(`${section.toLowerCase()}.${key.toLowerCase()}`, key);
+        }
+    }
+}
+
+// Pre-register well-known section names
+['ServerSettings', 'SessionSettings', '/Script/ShooterGame.ShooterGameMode', 'URL', 'Multipliers', 'MessageOfTheDay', '/Script/Engine.GameSession', '/Script/ShooterGame.ShooterGameUserSettings', 'RCON'].forEach(s => registerCanonicalName(s));
+
+// Pre-register all sections and keys from schemas
+[...GAME_USER_SETTINGS_SCHEMA, ...GAME_INI_SCHEMA].forEach(group => {
+    group.fields.forEach(field => {
+        registerCanonicalName(field.section, field.key);
+    });
+});
+
+export function getCanonicalSectionName(section: string): string {
+    const trimmed = section.trim();
+    return CANONICAL_SECTIONS.get(trimmed.toLowerCase()) || trimmed;
+}
+
+export function getCanonicalKeyName(section: string, key: string): string {
+    const trimmedKey = key.trim();
+    const trimmedSec = section.trim();
+    return CANONICAL_KEYS.get(`${trimmedSec.toLowerCase()}.${trimmedKey.toLowerCase()}`)
+        || CANONICAL_KEYS.get(trimmedKey.toLowerCase())
+        || trimmedKey;
+}
+
+/**
+ * Map implementation with case-insensitive string keys while preserving canonical/insertion casing.
+ */
+export class CaseInsensitiveMap<T> extends Map<string, T> {
+    private keyCaseMap = new Map<string, string>();
+
+    constructor(entries?: Iterable<readonly [string, T]> | Map<string, T> | null) {
+        super();
+        if (entries) {
+            const iter = entries instanceof Map ? entries.entries() : entries;
+            for (const [k, v] of iter) {
+                this.set(k, v);
+            }
+        }
+    }
+
+    clone(): CaseInsensitiveMap<T> {
+        const copy = new CaseInsensitiveMap<T>();
+        for (const [k, v] of this.entries()) {
+            copy.set(k, v);
+        }
+        return copy;
+    }
+
+    set(key: string, value: T): this {
+        const lower = key.toLowerCase();
+        const existingKey = this.keyCaseMap.get(lower);
+        if (existingKey && existingKey !== key) {
+            super.delete(existingKey);
+        }
+        this.keyCaseMap.set(lower, key);
+        super.set(key, value);
+        return this;
+    }
+
+    get(key: string): T | undefined {
+        const lower = key.toLowerCase();
+        const actualKey = this.keyCaseMap.get(lower);
+        return actualKey ? super.get(actualKey) : super.get(key);
+    }
+
+    has(key: string): boolean {
+        const lower = key.toLowerCase();
+        return this.keyCaseMap.has(lower) || super.has(key);
+    }
+
+    delete(key: string): boolean {
+        const lower = key.toLowerCase();
+        const actualKey = this.keyCaseMap.get(lower);
+        if (actualKey) {
+            this.keyCaseMap.delete(lower);
+            return super.delete(actualKey);
+        }
+        return super.delete(key);
+    }
+
+    clear(): void {
+        this.keyCaseMap.clear();
+        super.clear();
+    }
+}
+
 // Parse INI content into key-value map
 // Handles duplicate keys by joining values with \n
-export function parseIniContent(content: string): Map<string, Map<string, string>> {
-    const sections = new Map<string, Map<string, string>>();
-    let currentSection = '';
+// Case-insensitive lookups and automatic section/key canonicalization
+export function parseIniContent(content: string): CaseInsensitiveMap<CaseInsensitiveMap<string>> {
+    const sections = new CaseInsensitiveMap<CaseInsensitiveMap<string>>();
+    if (!content) return sections;
 
-    for (const line of content.split('\n')) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-            currentSection = trimmed.slice(1, -1);
-            if (!sections.has(currentSection)) {
-                sections.set(currentSection, new Map());
+    // Normalize BOM, smart quotes, non-breaking spaces
+    const normalized = content
+        .replace(/^\uFEFF/, '')
+        .replace(/[\u201C\u201D\u201E\u201F«»]/g, '"')
+        .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+        .replace(/[\u2013\u2014]/g, '-')
+        .replace(/\u00A0/g, ' ');
+
+    let currentSection = '__global__';
+
+    for (const rawLine of normalized.split(/\r?\n/)) {
+        const trimmed = rawLine.trim();
+        // Skip empty lines and full line comments
+        if (!trimmed || trimmed.startsWith(';') || trimmed.startsWith('#') || trimmed.startsWith('//')) {
+            continue;
+        }
+
+        // Section header: [SectionName] with optional inline comment or whitespace
+        if (trimmed.startsWith('[')) {
+            const endBracket = trimmed.indexOf(']');
+            if (endBracket !== -1) {
+                const rawSection = trimmed.slice(1, endBracket).trim();
+                if (rawSection) {
+                    currentSection = getCanonicalSectionName(rawSection);
+                    if (!sections.has(currentSection)) {
+                        sections.set(currentSection, new CaseInsensitiveMap<string>());
+                    }
+                    continue;
+                }
             }
-        } else if (trimmed.includes('=') && currentSection) {
-            const [key, ...valueParts] = trimmed.split('=');
-            const cleanKey = key.trim();
-            const value = valueParts.join('='); // Rejoin value in case it contained =
-            const cleanValue = value.trim();
+        }
 
-            const sectionMap = sections.get(currentSection);
-            if (sectionMap) {
-                // If it is a textarea field, unescape literal \n to real newlines
-                let finalValue = cleanValue;
-                if (isTextareaField(cleanKey)) {
-                    finalValue = cleanValue.replace(/\\n/g, '\n');
-                }
+        // Key=Value pair
+        const equalsIdx = trimmed.indexOf('=');
+        if (equalsIdx !== -1) {
+            const rawKey = trimmed.slice(0, equalsIdx).trim();
+            let rawValue = trimmed.slice(equalsIdx + 1).trim();
 
-                if (sectionMap.has(cleanKey)) {
-                    // Key already exists, this is a duplicate (multiline)
-                    const existingValue = sectionMap.get(cleanKey);
-                    sectionMap.set(cleanKey, existingValue + '\n' + finalValue);
-                } else {
-                    sectionMap.set(cleanKey, finalValue);
+            if (!rawKey) continue;
+
+            const cleanKey = getCanonicalKeyName(currentSection, rawKey);
+
+            // Strip inline comments if not inside quotes and not an array/struct/JSON block
+            if (!rawValue.startsWith('"') && !rawValue.startsWith('(') && !rawValue.startsWith('{')) {
+                const commentIdx = rawValue.search(/\s+[;#]/);
+                if (commentIdx !== -1) {
+                    rawValue = rawValue.slice(0, commentIdx).trim();
                 }
+            }
+
+            let finalValue = rawValue;
+            if (isTextareaField(cleanKey)) {
+                finalValue = rawValue.replace(/\\n/g, '\n');
+            }
+
+            let sectionMap = sections.get(currentSection);
+            if (!sectionMap) {
+                sectionMap = new CaseInsensitiveMap<string>();
+                sections.set(currentSection, sectionMap);
+            }
+
+            if (sectionMap.has(cleanKey)) {
+                const existing = sectionMap.get(cleanKey);
+                sectionMap.set(cleanKey, `${existing}\n${finalValue}`);
+            } else {
+                sectionMap.set(cleanKey, finalValue);
             }
         }
     }
@@ -2173,15 +2313,19 @@ export function parseIniContent(content: string): Map<string, Map<string, string
 
 // Generate INI content from sections map
 // Handles multiline values (containing \n) by splitting into duplicate keys
-export function generateIniContent(sections: Map<string, Map<string, string>>): string {
+export function generateIniContent(sections: Map<string, Map<string, string>> | CaseInsensitiveMap<CaseInsensitiveMap<string>>): string {
     let content = '';
 
     for (const [section, values] of sections) {
-        content += `[${section}]\n`;
+        if (!values || values.size === 0) continue;
+        if (section !== '__global__') {
+            content += `[${section}]\n`;
+        }
         for (const [key, value] of values) {
+            if (value === undefined || value === null) continue;
             if (isTextareaField(key)) {
                 // For textarea fields, escape real newlines to literal \n and write as a single line
-                const escapedValue = value.replace(/\n/g, '\\n');
+                const escapedValue = value.replace(/\r?\n/g, '\\n');
                 content += `${key}=${escapedValue}\n`;
             } else if (value.includes('\n')) {
                 // Handle multiline values as duplicates (e.g. repeated OverridePlayerLevelEngramPoints)

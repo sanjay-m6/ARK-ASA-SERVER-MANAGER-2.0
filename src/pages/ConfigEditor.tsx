@@ -8,7 +8,7 @@ import { readConfig, saveConfig, updateServerSettings } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
 import { useLocation } from 'react-router-dom';
-import { getAllCategories, ConfigField, parseIniContent, generateIniContent } from '../data/configMappings';
+import { getAllCategories, ConfigField, parseIniContent, generateIniContent, CaseInsensitiveMap } from '../data/configMappings';
 import { SettingsSlider } from '../components/settings/SettingsSlider';
 import { CodeEditor } from '../components/ui/CodeEditor';
 import { PresetSelector } from '../components/config/PresetSelector';
@@ -213,6 +213,15 @@ const MAP_METADATA: Record<string, MapInfo> = {
         size: 'Large (~6 GB)',
         image: mapScorchedEarth,
         dlcType: 'Modded Expansion'
+    },
+    'Bjarnheim_WP': {
+        name: 'Bjarnheim',
+        description: '144km² Nordic fantasy map by Nekatus inspired by Skyrim, featuring Fimbulwinter, custom bosses, and harsh winter biomes.',
+        color: '#38bdf8',
+        icon: '❄️',
+        size: 'Large (~12 GB)',
+        image: mapFjordur,
+        dlcType: 'CurseForge Mod'
     },
     'Genesis_WP': {
         name: 'Genesis Part 1',
@@ -1569,13 +1578,13 @@ export default function ConfigEditor() {
     const [currentPreset, setCurrentPreset] = useState<string | undefined>();
     const [modifiedSettings, setModifiedSettings] = useState<Set<string>>(new Set());
 
-    // Store parsed configs: Map<Section, Map<Key, Value>>
+    // Store parsed configs: CaseInsensitiveMap<Section, CaseInsensitiveMap<Key, Value>>
     const [configs, setConfigs] = useState<{
-        GameUserSettings: Map<string, Map<string, string>>,
-        Game: Map<string, Map<string, string>>
+        GameUserSettings: CaseInsensitiveMap<CaseInsensitiveMap<string>> | Map<string, Map<string, string>>,
+        Game: CaseInsensitiveMap<CaseInsensitiveMap<string>> | Map<string, Map<string, string>>
     }>({
-        GameUserSettings: new Map(),
-        Game: new Map()
+        GameUserSettings: new CaseInsensitiveMap(),
+        Game: new CaseInsensitiveMap()
     });
 
     // Store raw text for direct editing
@@ -1604,8 +1613,8 @@ export default function ConfigEditor() {
         const load = async () => {
             setIsLoading(true);
             setConfigs({
-                GameUserSettings: new Map(),
-                Game: new Map()
+                GameUserSettings: new CaseInsensitiveMap(),
+                Game: new CaseInsensitiveMap()
             });
             try {
                 const [gusContent, gameContent] = await Promise.all([
@@ -1648,7 +1657,7 @@ export default function ConfigEditor() {
 
     // Check for modifications against defaults
     const checkModifications = (
-        currentConfigs: { GameUserSettings: Map<string, Map<string, string>>, Game: Map<string, Map<string, string>> }
+        currentConfigs: { GameUserSettings: Map<string, Map<string, string>> | CaseInsensitiveMap<CaseInsensitiveMap<string>>, Game: Map<string, Map<string, string>> | CaseInsensitiveMap<CaseInsensitiveMap<string>> }
     ) => {
         const modified = new Set<string>();
         const allCats = getAllCategories();
@@ -1656,9 +1665,8 @@ export default function ConfigEditor() {
         allCats.forEach(cat => {
             cat.groups.forEach(group => {
                 group.fields.forEach(field => {
-                    const currentVal = currentConfigs[group.source as 'GameUserSettings' | 'Game']
-                        ?.get(field.section)
-                        ?.get(field.key);
+                    const sourceMap = currentConfigs[group.source as 'GameUserSettings' | 'Game'];
+                    const currentVal = sourceMap?.get(field.section)?.get(field.key);
 
                     // Normalize for comparison (handle float strings "1.0" == "1")
                     // String comparison fallback if parse fails or distinct string values
@@ -1680,9 +1688,16 @@ export default function ConfigEditor() {
     const handleSwitchToVisual = () => {
         if (viewMode === 'visual') return;
 
+        const parsedGus = parseIniContent(rawText.gus);
+        const parsedGame = parseIniContent(rawText.game);
+
         setConfigs({
-            GameUserSettings: parseIniContent(rawText.gus),
-            Game: parseIniContent(rawText.game)
+            GameUserSettings: parsedGus,
+            Game: parsedGame
+        });
+        checkModifications({
+            GameUserSettings: parsedGus,
+            Game: parsedGame
         });
         // Optimization: Clear raw text from memory when in visual mode
         setRawText({ gus: '', game: '' });
@@ -1691,11 +1706,6 @@ export default function ConfigEditor() {
 
     const handleSwitchToRaw = (target: 'gus' | 'game') => {
         if (viewMode === target) return;
-
-        // Only regenerate if coming from visual mode or if we need to sync
-        // If switching between raw views (gus <-> game), we should keep existing edits?
-        // Actually, rawText holds both. switching viewMode just changes what is displayed.
-        // But if we come from Visual, we must regenerate.
 
         if (viewMode === 'visual') {
             setRawText({
@@ -1708,9 +1718,14 @@ export default function ConfigEditor() {
 
     const handleUpdate = useCallback((source: 'GameUserSettings' | 'Game', section: string, key: string, val: string, defaultValue?: string) => {
         setConfigs(prev => {
-            const fileMap = prev[source];
-            const newFileMap = new Map(fileMap);
-            const sectionMap = new Map(newFileMap.get(section) || []);
+            const fileMap = prev[source] || new CaseInsensitiveMap<CaseInsensitiveMap<string>>();
+            const newFileMap = fileMap instanceof CaseInsensitiveMap 
+                ? (fileMap as CaseInsensitiveMap<CaseInsensitiveMap<string>>).clone() 
+                : new Map(fileMap);
+            const existingSection = fileMap.get(section);
+            const sectionMap = existingSection instanceof CaseInsensitiveMap 
+                ? (existingSection as CaseInsensitiveMap<string>).clone() 
+                : new CaseInsensitiveMap<string>(existingSection || []);
             sectionMap.set(key, val);
             newFileMap.set(section, sectionMap);
 
@@ -1782,12 +1797,17 @@ export default function ConfigEditor() {
             const serverSettings = parsedConfigs.GameUserSettings.get('ServerSettings');
             const urlSettings = parsedConfigs.GameUserSettings.get('URL');
 
+            const getSetting = (map: Map<string, string> | undefined, key: string): string | undefined => {
+                if (!map) return undefined;
+                return map.get(key);
+            };
+
             const updateParams: Parameters<typeof updateServerSettings>[0] = {
                 serverId: selectedServerId
             };
 
             // Map name
-            const mapName = serverSettings?.get('MapName');
+            const mapName = getSetting(serverSettings, 'MapName') || getSetting(serverSettings, 'ServerMap');
             if (mapName) {
                 updateParams.mapName = mapName;
 
@@ -1809,40 +1829,40 @@ export default function ConfigEditor() {
             }
 
             // Session name
-            const sessionName = serverSettings?.get('SessionName');
+            const sessionName = getSetting(serverSettings, 'SessionName');
             if (sessionName) updateParams.sessionName = sessionName;
 
             // Max players
-            const maxPlayers = serverSettings?.get('MaxPlayers');
-            if (maxPlayers) updateParams.maxPlayers = parseInt(maxPlayers);
+            const maxPlayers = getSetting(serverSettings, 'MaxPlayers');
+            if (maxPlayers) updateParams.maxPlayers = parseInt(maxPlayers, 10);
 
             // Passwords
-            const serverPassword = serverSettings?.get('ServerPassword');
+            const serverPassword = getSetting(serverSettings, 'ServerPassword');
             if (serverPassword !== undefined) updateParams.serverPassword = serverPassword;
 
-            const adminPassword = serverSettings?.get('ServerAdminPassword');
+            const adminPassword = getSetting(serverSettings, 'ServerAdminPassword');
             if (adminPassword) updateParams.adminPassword = adminPassword;
 
             // Ports from URL or ServerSettings section
-            const gamePort = urlSettings?.get('Port') || serverSettings?.get('Port') || serverSettings?.get('GamePort');
-            if (gamePort) updateParams.gamePort = parseInt(gamePort);
+            const gamePort = getSetting(urlSettings, 'Port') || getSetting(serverSettings, 'Port') || getSetting(serverSettings, 'GamePort');
+            if (gamePort) updateParams.gamePort = parseInt(gamePort, 10);
 
-            const queryPort = urlSettings?.get('QueryPort') || serverSettings?.get('QueryPort');
-            if (queryPort) updateParams.queryPort = parseInt(queryPort);
+            const queryPort = getSetting(urlSettings, 'QueryPort') || getSetting(serverSettings, 'QueryPort');
+            if (queryPort) updateParams.queryPort = parseInt(queryPort, 10);
 
             // RCON port from ServerSettings
-            const rconPort = serverSettings?.get('RCONPort');
-            if (rconPort) updateParams.rconPort = parseInt(rconPort);
+            const rconPort = getSetting(serverSettings, 'RCONPort');
+            if (rconPort) updateParams.rconPort = parseInt(rconPort, 10);
 
             // IP Address from ServerSettings
-            const ipAddress = serverSettings?.get('IPAddress');
+            const ipAddress = getSetting(serverSettings, 'IPAddress') || getSetting(urlSettings, 'MultiHome');
             if (ipAddress !== undefined) updateParams.ipAddress = ipAddress;
 
             // Sync critical settings to database
             await updateServerSettings(updateParams);
 
             // Refresh servers list to reflect updates in UI
-            useServerStore.getState().refreshServers();
+            await useServerStore.getState().refreshServers();
 
             toast.success(t('configEditor.toasts.saveSuccess'));
             toast((toastItem) => (
@@ -1871,7 +1891,11 @@ export default function ConfigEditor() {
     };
 
     const getValue = (source: 'GameUserSettings' | 'Game', section: string, key: string, defaultValue?: string) => {
-        return configs[source]?.get(section)?.get(key) ?? defaultValue ?? '';
+        const fileMap = configs[source];
+        if (!fileMap) return defaultValue ?? '';
+        const sectionMap = fileMap.get(section);
+        if (!sectionMap) return defaultValue ?? '';
+        return sectionMap.get(key) ?? defaultValue ?? '';
     };
 
     const categories = useMemo(() => getAllCategories(), []);

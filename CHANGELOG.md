@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.6.14] — 2026-08-18
+
+### Added
+- **🗺️ Bjarnheim Map Support (ASA)**: Official map support for custom community map *Bjarnheim* (`Bjarnheim_WP`, CurseForge Mod ID `1376189`) by Nekatus with automatic mod injection (`-mods=1376189`) and map preset configurations.
+- **🐧 Linux Headless CLI Installer**: Added `scripts/install.sh` for 1-line installation of headless daemon `asa_manager` on Linux servers with setup guide in `LINUX_SETUP.md`.
+- **📊 Logs & RCON Console Overhaul**: Modernized dark glassmorphic terminal interface in `LogsConsole.tsx` with syntax highlighting, search highlight, line numbers, 1-click line copy, responsive toolbar without scrollbars, and expanded RCON admin suite.
+
+### Fixed
+- **⚙️ ASA Server Settings Reset on Return**: Fixed critical bug where saving server settings reverted to default values by implementing `CaseInsensitiveMap`, multi-encoding UTF-16 LE/BE and UTF-8 BOM auto-detection in Rust backend (`ini_parser.rs`), and hardened DB sync in `ConfigEditor.tsx`.
+- **⚡ Application Startup & White Screen**: Fixed ES import order in `main.tsx` and added `vite-env.d.ts` client declarations.
+
+---
+
 ## [4.4.8] — 2026-06-15
 
 ### Added

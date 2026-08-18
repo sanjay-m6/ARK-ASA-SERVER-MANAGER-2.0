@@ -53,6 +53,19 @@ export const MODDED_MAP_PRESETS: ModdedMapPreset[] = [
     mapModId: '1460513',
     dlcType: 'CurseForge Mod',
     size: 'Large (~8 GB)'
+  },
+  {
+    id: 'asa_bjarnheim',
+    serverType: 'ASA',
+    name: 'Bjarnheim',
+    author: 'Nekatus',
+    description: 'A 144km² Nordic fantasy map by Nekatus inspired by Skyrim, featuring harsh snowy biomes, Fimbulwinter, custom bosses (Duneyrr), merchant NPCs, and wild Griffin nests.',
+    icon: '❄️',
+    color: '#38bdf8',
+    mapArgument: 'Bjarnheim_WP',
+    mapModId: '1376189',
+    dlcType: 'CurseForge Mod',
+    size: 'Large (~12 GB)'
   }
 ];
 
