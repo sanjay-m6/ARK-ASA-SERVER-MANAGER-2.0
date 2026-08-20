@@ -527,7 +527,7 @@ impl IniDocument {
         }
 
         // Trim trailing newlines and add exactly one CRLF
-        let trimmed = out.trim_end_matches("\r\n");
+        let trimmed = out.trim_end_matches(&['\r', '\n'][..]);
         if trimmed.is_empty() {
             String::new()
         } else {
@@ -675,7 +675,7 @@ impl IniData {
             out.push_str("\r\n");
         }
 
-        let trimmed = out.trim_end_matches("\r\n");
+        let trimmed = out.trim_end_matches(&['\r', '\n'][..]);
         if trimmed.is_empty() {
             String::new()
         } else {

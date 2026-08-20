@@ -767,7 +767,7 @@ pub async fn clone_ase_server(
                     });
                 }
                 
-                let _ = std::fs::write(&gus_path, gus_data.serialize());
+                let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &gus_data.serialize());
             }
         }
     }

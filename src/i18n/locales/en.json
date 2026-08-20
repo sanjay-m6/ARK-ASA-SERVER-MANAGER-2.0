@@ -337,8 +337,8 @@
       "deployServer": "Deploy Server",
       "installFirst": "Install Your First Server",
       "debugDatabase": "Debug Database",
-      "cancel": "CANCEL",
-      "forceStop": "FORCE STOP",
+      "cancel": "Cancel",
+      "forceStop": "Force Stop",
       "start": "Start",
       "updateOnStart": "Update on Start",
       "startNoMods": "Start (No Mods)",
@@ -382,7 +382,8 @@
       "waitingOutput": "Waiting for server output...",
       "showConsole": "Show Server Console"
     },
-    "confirmForceStop": "Are you sure you want to FORCE STOP this server? This allows you to restart a hung process.",
+    "confirmForceStopTitle": "Force Stop Server",
+    "confirmForceStop": "Are you sure you want to force stop this server? The server process will be terminated immediately.\n\n⚠️ Note: Any unsaved game progress since the last world save may be lost.",
     "confirmDeepRepair": "Deep Repair will stop the server, delete the mod cache (.temp folder), and force a fresh download. This may take longer than a normal restart. Continue?"
   },
   "configEditor": {

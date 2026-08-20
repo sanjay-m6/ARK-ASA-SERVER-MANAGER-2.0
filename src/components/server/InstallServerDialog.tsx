@@ -149,6 +149,8 @@ export default function InstallServerDialog({ onClose }: Props) {
         gamePort: initialPorts.gamePort,
         queryPort: initialPorts.queryPort,
         rconPort: initialPorts.rconPort,
+        crossplay: true,
+        pveMode: true,
         maxPlayers: 70,
         adminPassword: '',
         serverPassword: '',

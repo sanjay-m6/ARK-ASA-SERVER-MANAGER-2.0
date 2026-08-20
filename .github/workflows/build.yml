@@ -89,31 +89,30 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Improvements in v4.6.14
-            - **🗺️ Bjarnheim Map Integration (ASA)**:
-              - Added official mod map support for **Bjarnheim** (`Bjarnheim_WP`, CurseForge Mod ID `1376189`) by Nekatus.
-              - Implemented automatic Map Argument normalization and auto-injection of `-mods=1376189` on server boot.
-              - Added Bjarnheim to map selection in Install Server dialog and Config Editor.
-            - **🐧 Linux Headless Daemon & CLI Installer**:
-              - Added [`scripts/install.sh`](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/blob/main/scripts/install.sh) for one-line automated installation of the headless CLI daemon (`asa_manager`).
-              - Documented headless installation, source compilation with Cargo, and GTK troubleshooting for headless Linux servers in `LINUX_SETUP.md`.
-            - **📊 Logs & RCON Console UI/UX Overhaul**:
-              - Redesigned the entire `LogsConsole.tsx` interface with a modern glassmorphic terminal theme.
-              - Eliminated horizontal scrollbars in the toolbar with a responsive layout.
-              - Added syntax-highlighted log levels (`INFO`, `WARN`, `ERROR`, `MODS`, `RCON`), search term highlights, line numbers, word-wrap toggles, and 1-click line copy buttons.
-              - Added collapsible RCON Admin Terminal dock with instant quick action buttons (`SaveWorld`, `ListPlayers`, `Broadcast`, `DestroyWildDinos`, `SetTimeOfDay`).
-
-            ### 🐛 Bug Fixes in v4.6.14
-            - **⚙️ Fixed ASA & ASE Server Settings Resetting on Save/Return**:
-              - Fixed the critical bug where saving server settings in the interface reverted back to default values upon returning.
-              - Resolved `write_ase_config` serialization error (`missing field "allowCryoCooldownonPve"`) by adding `#[serde(default)]` and serde aliases for all camelCase/PvE/PvP fields on `AseGameConfig`.
-              - Upgraded file parsers across ASA & ASE (`src/services/ini_parser.rs`, `src-tauri/src/ase/commands/config.rs`, etc.) to automatically detect and handle UTF-16 LE/BE, UTF-8 BOM, and Windows-1252 encodings, preventing corrupted/unreadable `.cfg` and `.ini` files.
-              - Implemented `CaseInsensitiveMap` in `configMappings.ts` to bridge PascalCase schemas with INI keys on disk.
-              - Hardened database synchronization in `ConfigEditor.tsx` to prevent `generate_config` from overwriting custom INI configs with stale defaults.
-            - **⚡ Root Import & White Screen Fix**:
-              - Fixed import hoisting and client environment types in `main.tsx` and added `vite-env.d.ts` to eliminate startup blank white screen issues in Tauri.
+            ### 🆕 New Features & Improvements in v4.6.15
+            - **🔄 ASA Server Restart & Scheduled Maintenance Stabilization**:
+              - Fixed server restart and maintenance shutdown crash misclassifications (Unreal Engine 5 exit codes `3`, `0`, and `1`).
+              - Suppressed false-positive Discord crash alerts and watchdog restart conflicts during intentional maintenance windows and planned restarts.
+              - Implemented synchronous stop-and-wait polling in the scheduler and server manager to guarantee full process termination and socket release (with a 2s stabilization pause) before booting a server.
+              - Added immediate PID registration to Guardian watchdog on server startup to eliminate supervisory race conditions during initialization.
+            - **⚙️ ASE Configuration Save & Unified UTF-8 Encoding Pipeline**:
+              - Fixed intermittent ASE configuration save errors (`missing field "allowCryoCooldownonPve"`) by implementing flexible serde aliases and case-insensitive fallback mapping in `write_ase_config`.
+              - Upgraded INI file reading to automatically detect and normalize standard UTF-8, UTF-8 with BOM, UTF-16 LE/BE (with/without BOM), and Windows-1252/ANSI with Latin-1 character preservation.
+              - Standardized atomic pure UTF-8 writing with CRLF endings across all ASE INI files (`GameUserSettings.ini`, `Game.ini`, cluster configurations, and mod manager).
+              - Guaranteed preservation of canonical key casing `AllowCryoCooldownOnPvE=False` in `[ServerSettings]`.
+            - **🛡️ Scheduler Debounce & Watchdog Optimization**:
+              - Added debounce tracking (`LAST_ADVANCED_RUN`) to prevent duplicate scheduled restart triggers.
+              - Unified process tracking between Guardian, ProcessManager, and Scheduler.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.14 — Bjarnheim Map, Linux Headless Installer & Terminal Overhaul</summary>
+
+            - **🗺️ Bjarnheim Map Integration (ASA)**: Added official mod map support for **Bjarnheim** (`Bjarnheim_WP`, CurseForge Mod ID `1376189`) with auto-injection of `-mods=1376189`.
+            - **🐧 Linux Headless Daemon & CLI Installer**: Added `scripts/install.sh` for one-line automated installation of the headless CLI daemon (`asa_manager`).
+            - **📊 Logs & RCON Console UI/UX Overhaul**: Redesigned glassmorphic terminal interface with syntax-highlighted log levels, search term highlights, line numbers, word-wrap toggles, and RCON quick action dock.
+            - **⚙️ Fixed ASA & ASE Server Settings Resetting on Save/Return**: Resolved INI file parsing encodings and schema bridging.
+            </details>
             <details>
             <summary>v4.6.13 — Knowledge Base Redesign & Discord Bridge</summary>
 

@@ -1311,7 +1311,7 @@ export default function ServerManager() {
                         </button>
 
                         {/* Stop Options Dropdown */}
-                        <div className="absolute bottom-full right-0 mb-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-bottom-right scale-95 group-hover/stop:scale-100">
+                        <div className="absolute top-full right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/stop:scale-100">
                             <button
                                 onClick={() => setTimedShutdownServer(server)}
                                 className="w-full text-left px-3 py-2.5 text-xs hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 font-medium"
@@ -2000,6 +2000,17 @@ export default function ServerManager() {
                                     <strong className="text-slate-400 font-bold block mb-1">Additional Filters & Mods Checklist:</strong>
                                     Make sure that the server filters for <strong className="text-slate-400">Maps</strong> and <strong className="text-slate-400">PvP/PvE</strong> are either set to <strong className="text-slate-400">All</strong> or match your server's current settings exactly, and that the list is not being filtered by any active mods.
                                 </div>
+                                <div className="bg-purple-950/20 border border-purple-500/20 rounded-xl p-4 mt-3 text-xs text-slate-400 leading-relaxed">
+                                    <strong className="text-purple-300 font-bold flex items-center gap-1.5 mb-1">
+                                        🎮 Console (PS5 / Xbox) & Local LAN Direct Connect:
+                                    </strong>
+                                    If console or LAN players receive <span className="text-amber-300 font-mono">"Login Failed, Connection Lost"</span> when clicking the server from the browser (caused by router NAT loopback), they can direct-connect in seconds:
+                                    <ol className="list-decimal pl-5 mt-1.5 space-y-1 text-slate-300">
+                                        <li>On console, go to <strong className="text-white">Settings</strong> → <strong className="text-white">Advanced</strong> and toggle <strong className="text-purple-300">Console Access: ON</strong>.</li>
+                                        <li>Press <kbd className="bg-slate-900 px-1.5 py-0.5 rounded border border-white/10 text-[11px] font-mono text-purple-300">L1 + R1 + Square + Triangle</kbd> (or Options → console icon) in the main menu.</li>
+                                        <li>Type <code className="bg-slate-900 px-2 py-0.5 rounded text-cyan-300 font-mono">open &lt;Host_Local_IP&gt;:7777</code> (e.g. <code className="text-emerald-300 font-mono">open 192.168.1.50:7777</code>) and press enter to connect directly across your home network.</li>
+                                    </ol>
+                                </div>
                             </div>
                         </div>
                     </motion.div>
@@ -2391,247 +2402,318 @@ export default function ServerManager() {
                                                               </div>
                                                           </div>
 
-                                                         {/* Actions Toolbar (Server Action Pod) */}
-                                                         <div 
-                                                             onClick={(e) => e.stopPropagation()}
-                                                             className="flex items-center gap-4 p-1.5 bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-full shadow-lg xl:mr-8 shrink-0 no-collapse w-fit mx-auto xl:mx-0 self-center xl:self-auto mt-4 xl:mt-0"
-                                                         >
-                                                             {server.status === 'stopped' || server.status === 'crashed' ? (
-                                                                 <div className="relative group/start">
-                                                                     <button
-                                                                         onClick={() => handleStartServer(server.id)}
-                                                                         className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-full transition-all flex items-center justify-center"
-                                                                         title={t('serverManager.tooltips.start')}
-                                                                     >
-                                                                         <Play className="w-5 h-5 fill-current" />
-                                                                     </button>
-                                                                     {/* Start Options Dropdown */}
-                                                                     <div className="absolute top-full left-1/2 -translate-x-1/2 xl:translate-x-0 xl:left-0 xl:right-auto mt-2 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/start:opacity-100 group-hover/start:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-left scale-95 group-hover/start:scale-100">
-                                                                         <button
-                                                                             onClick={() => handleStartServer(server.id)}
-                                                                             className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
-                                                                         >
-                                                                             <Play className="w-4 h-4" />
-                                                                             <span>{t('serverManager.buttons.start')}</span>
-                                                                         </button>
-                                                                         <button
-                                                                             onClick={() => handleStartServerNoMods(server.id)}
-                                                                             className="w-full text-left px-4 py-3 hover:bg-yellow-500/10 text-yellow-400 hover:text-yellow-300 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                                             title={t('serverManager.tooltips.startNoMods')}
-                                                                         >
-                                                                             <Shield className="w-4 h-4" />
-                                                                             <span>{t('serverManager.buttons.startNoMods')}</span>
-                                                                         </button>
-                                                                     </div>
-                                                                 </div>
-                                                             ) : (server.status === 'running' || server.status === 'online') ? (
-                                                                 <div className="relative group/stop" onClick={(e) => e.stopPropagation()}>
-                                                                     <button
-                                                                         onClick={() => setTimedShutdownServer(server)}
-                                                                         className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-full transition-all flex items-center justify-center"
-                                                                         title="Stop / Shutdown Options"
-                                                                     >
-                                                                         <Square className="w-5 h-5 fill-current" />
-                                                                     </button>
+                                                          {/* Actions Toolbar (Server Action Pod) */}
+                                                          <div 
+                                                              onClick={(e) => e.stopPropagation()}
+                                                              className="relative flex items-center gap-3 px-4 py-2 bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)] hover:border-slate-700/80 transition-all duration-300 xl:mr-8 shrink-0 no-collapse w-fit mx-auto xl:mx-0 self-center xl:self-auto mt-4 xl:mt-0 ring-1 ring-white/5"
+                                                          >
+                                                              {server.status === 'stopped' || server.status === 'crashed' ? (
+                                                                  <div className="relative group/start">
+                                                                      <button
+                                                                          onClick={() => handleStartServer(server.id)}
+                                                                          className="relative flex items-center justify-center w-11 h-11 rounded-full bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/60 shadow-[0_0_12px_rgba(16,185,129,0.2)] hover:shadow-[0_0_22px_rgba(16,185,129,0.45)] transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn"
+                                                                          title={t('serverManager.tooltips.start')}
+                                                                      >
+                                                                          <Play className="w-5 h-5 fill-current ml-0.5" />
+                                                                      </button>
+                                                                      {/* Start Options Dropdown */}
+                                                                      <div className="absolute top-full left-1/2 -translate-x-1/2 xl:translate-x-0 xl:left-0 xl:right-auto mt-3 w-52 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/start:opacity-100 group-hover/start:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-left scale-95 group-hover/start:scale-100 p-1.5 space-y-1">
+                                                                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-emerald-400/80">Launch Options</div>
+                                                                          <button
+                                                                              onClick={() => handleStartServer(server.id)}
+                                                                              className="w-full text-left px-3 py-2.5 hover:bg-emerald-500/15 text-slate-200 hover:text-white rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer"
+                                                                          >
+                                                                              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400 group-hover/item:scale-110 transition-transform">
+                                                                                  <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                                                                              </div>
+                                                                              <div className="flex flex-col">
+                                                                                  <span>{t('serverManager.buttons.start', 'Normal Start')}</span>
+                                                                                  <span className="text-[10px] text-slate-400 font-normal">Launch with active mods</span>
+                                                                              </div>
+                                                                          </button>
+                                                                          <button
+                                                                              onClick={() => handleStartServerNoMods(server.id)}
+                                                                              className="w-full text-left px-3 py-2.5 hover:bg-amber-500/15 text-slate-200 hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer border-t border-slate-800/80 pt-2"
+                                                                              title={t('serverManager.tooltips.startNoMods')}
+                                                                          >
+                                                                              <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                                                                                  <Shield className="w-3.5 h-3.5" />
+                                                                              </div>
+                                                                              <div className="flex flex-col">
+                                                                                  <span>{t('serverManager.buttons.startNoMods', 'Safe Mode (No Mods)')}</span>
+                                                                                  <span className="text-[10px] text-slate-400 font-normal">Bypass custom mods</span>
+                                                                              </div>
+                                                                          </button>
+                                                                      </div>
+                                                                  </div>
+                                                              ) : (server.status === 'running' || server.status === 'online') ? (
+                                                                  <div className="relative group/stop" onClick={(e) => e.stopPropagation()}>
+                                                                      <button
+                                                                          onClick={() => setTimedShutdownServer(server)}
+                                                                          className="relative flex items-center justify-center w-11 h-11 rounded-full bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 hover:text-rose-300 border border-rose-500/35 hover:border-rose-400/70 shadow-[0_0_14px_rgba(244,63,94,0.3)] hover:shadow-[0_0_24px_rgba(244,63,94,0.55)] transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn"
+                                                                          title="Stop / Shutdown Options"
+                                                                      >
+                                                                          <Square className="w-4 h-4 fill-current" />
+                                                                      </button>
 
-                                                                     {/* Stop Options Dropdown */}
-                                                                     <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/stop:scale-100">
-                                                                         <button
-                                                                             onClick={() => setTimedShutdownServer(server)}
-                                                                             className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2.5 text-xs font-bold"
-                                                                         >
-                                                                             <Timer className="w-4 h-4 text-amber-400 shrink-0" />
-                                                                             <div className="flex flex-col">
-                                                                                 <span className="font-bold">Timed Shutdown</span>
-                                                                                 <span className="text-[10px] text-slate-400 font-normal">Countdown with broadcasts</span>
-                                                                             </div>
-                                                                         </button>
-                                                                         <button
-                                                                             onClick={() => handleStopServer(server.id)}
-                                                                             className="w-full text-left px-4 py-3 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2.5 border-t border-slate-800 text-xs font-bold"
-                                                                         >
-                                                                             <Square className="w-4 h-4 fill-current text-red-400 shrink-0" />
-                                                                             <div className="flex flex-col">
-                                                                                 <span className="font-bold">Immediate Stop</span>
-                                                                                 <span className="text-[10px] text-slate-400 font-normal">Halt process right away</span>
-                                                                             </div>
-                                                                         </button>
-                                                                     </div>
-                                                                 </div>
-                                                             ) : null}
+                                                                      {/* Stop Options Dropdown */}
+                                                                      <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-3 w-56 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/stop:scale-100 p-1.5 space-y-1">
+                                                                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-rose-400/80">Shutdown Options</div>
+                                                                          <button
+                                                                              onClick={() => setTimedShutdownServer(server)}
+                                                                              className="w-full text-left px-3 py-2.5 hover:bg-amber-500/15 text-slate-200 hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer"
+                                                                          >
+                                                                              <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                                                                                  <Timer className="w-3.5 h-3.5" />
+                                                                              </div>
+                                                                              <div className="flex flex-col">
+                                                                                  <span className="font-bold">Timed Shutdown</span>
+                                                                                  <span className="text-[10px] text-slate-400 font-normal">Countdown with broadcasts</span>
+                                                                              </div>
+                                                                          </button>
+                                                                          <button
+                                                                              onClick={() => handleStopServer(server.id)}
+                                                                              className="w-full text-left px-3 py-2.5 hover:bg-rose-500/15 text-slate-200 hover:text-rose-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer border-t border-slate-800/80 pt-2"
+                                                                          >
+                                                                              <div className="w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-400 group-hover/item:scale-110 transition-transform">
+                                                                                  <Square className="w-3.5 h-3.5 fill-current" />
+                                                                              </div>
+                                                                              <div className="flex flex-col">
+                                                                                  <span className="font-bold">Immediate Stop</span>
+                                                                                  <span className="text-[10px] text-slate-400 font-normal">Halt process immediately</span>
+                                                                              </div>
+                                                                          </button>
+                                                                      </div>
+                                                                  </div>
+                                                              ) : (
+                                                                  <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.25)]" title={server.status === 'updating' ? 'Updating...' : 'Starting...'}>
+                                                                      <RefreshCw className="w-5 h-5 animate-spin" />
+                                                                  </div>
+                                                              )}
 
-                                                             <div className="relative group/dropdown">
-                                                                 <button
-                                                                     disabled={server.status === 'stopped'}
-                                                                     className="p-2 text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent flex items-center justify-center"
-                                                                     title={t('serverManager.tooltips.restartOptions')}
-                                                                 >
-                                                                     <RotateCw className="w-5 h-5" />
-                                                                 </button>
+                                                              <div className="relative group/dropdown">
+                                                                  <button
+                                                                      disabled={server.status === 'stopped'}
+                                                                      className="relative flex items-center justify-center w-11 h-11 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/20 hover:border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer group/btn"
+                                                                      title={t('serverManager.tooltips.restartOptions')}
+                                                                  >
+                                                                      <RotateCw className="w-5 h-5 group-hover/btn:rotate-180 transition-transform duration-500" />
+                                                                  </button>
 
-                                                                 {/* Dropdown Menu */}
-                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/dropdown:scale-100">
-                                                                     <button
-                                                                         onClick={() => handleRestartServer(server.id)}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
-                                                                     >
-                                                                         <RotateCw className="w-4 h-4" />
-                                                                         <span>{t('serverManager.buttons.normalRestart', 'Normal Restart')}</span>
-                                                                     </button>
-                                                                     <button
-                                                                         onClick={() => handleRestartServer(server.id, true)}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                                         title="Gracefully restart the server and wipe all wild dinosaurs"
-                                                                     >
-                                                                         <RefreshCw className="w-4 h-4 text-amber-400" />
-                                                                         <span>{t('serverManager.buttons.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
-                                                                     </button>
-                                                                     <button
-                                                                         onClick={() => handleHardcoreRetry(server.id)}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                                         title={t('serverManager.tooltips.deepRepair')}
-                                                                     >
-                                                                         <Shield className="w-4 h-4" />
-                                                                         <span>{t('serverManager.buttons.deepRepair')}</span>
-                                                                     </button>
-                                                                 </div>
-                                                             </div>
+                                                                  {/* Dropdown Menu */}
+                                                                  <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-3 w-56 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/dropdown:scale-100 p-1.5 space-y-1">
+                                                                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-amber-400/80">Restart Control</div>
+                                                                      <button
+                                                                          onClick={() => handleRestartServer(server.id)}
+                                                                          className="w-full text-left px-3 py-2.5 hover:bg-slate-800 text-slate-200 hover:text-white rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                                                                      >
+                                                                          <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                                                                              <RotateCw className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <div className="flex flex-col">
+                                                                              <span>{t('serverManager.buttons.normalRestart', 'Normal Restart')}</span>
+                                                                              <span className="text-[10px] text-slate-400 font-normal">Graceful server restart</span>
+                                                                          </div>
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={() => handleRestartServer(server.id, true)}
+                                                                          className="w-full text-left px-3 py-2.5 hover:bg-amber-500/15 text-slate-200 hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-slate-800/80 pt-2"
+                                                                          title="Gracefully restart the server and wipe all wild dinosaurs"
+                                                                      >
+                                                                          <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                                                                              <RefreshCw className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <div className="flex flex-col">
+                                                                              <span>{t('serverManager.buttons.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
+                                                                              <span className="text-[10px] text-slate-400 font-normal">DestroyWildDinos on boot</span>
+                                                                          </div>
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={() => handleHardcoreRetry(server.id)}
+                                                                          className="w-full text-left px-3 py-2.5 hover:bg-rose-500/15 text-slate-200 hover:text-rose-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-slate-800/80 pt-2"
+                                                                          title={t('serverManager.tooltips.deepRepair')}
+                                                                      >
+                                                                          <div className="w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-400 group-hover/item:scale-110 transition-transform">
+                                                                              <Shield className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <div className="flex flex-col">
+                                                                              <span>{t('serverManager.buttons.deepRepair', 'Deep Repair')}</span>
+                                                                              <span className="text-[10px] text-slate-400 font-normal">Revalidate mods & files</span>
+                                                                          </div>
+                                                                      </button>
+                                                                  </div>
+                                                              </div>
 
-                                                             <button
-                                                                 onClick={() => handleShowConsole(server.id)}
-                                                                 disabled={server.status === 'stopped'}
-                                                                 className="p-2 text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 rounded-full transition-all disabled:opacity-30 disabled:hover:bg-transparent flex items-center justify-center"
-                                                                 title={t('serverManager.tooltips.showConsole')}
-                                                             >
-                                                                 <AppWindow className="w-5 h-5" />
-                                                             </button>
+                                                              <button
+                                                                  onClick={() => handleShowConsole(server.id)}
+                                                                  disabled={server.status === 'stopped'}
+                                                                  className="relative flex items-center justify-center w-11 h-11 rounded-full bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 hover:text-violet-300 border border-violet-500/20 hover:border-violet-500/50 shadow-[0_0_10px_rgba(139,92,246,0.15)] hover:shadow-[0_0_20px_rgba(139,92,246,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer group/btn"
+                                                                  title={t('serverManager.tooltips.showConsole')}
+                                                              >
+                                                                  <AppWindow className="w-5 h-5" />
+                                                              </button>
 
-                                                             <div className="w-px h-6 bg-white/10 mx-1"></div>
+                                                              <div className="w-[1.5px] h-6 bg-gradient-to-b from-transparent via-white/20 to-transparent mx-1 shrink-0" />
 
-                                                             {/* Update Server Dropdown */}
-                                                             <div className="relative group/update">
-                                                                 <button
-                                                                     onClick={() => handleUpdateServer(server.id)}
-                                                                     className={cn(
-                                                                         "p-2 rounded-full transition-all flex items-center justify-center relative",
-                                                                         isServerOutdated(server.id)
-                                                                             ? "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 bg-amber-500/5 shadow-[0_0_10px_rgba(245,158,11,0.15)] border border-amber-500/30"
-                                                                             : updateOnStart 
-                                                                                 ? "text-green-400 hover:text-green-300 hover:bg-green-500/10 bg-green-500/5 shadow-[0_0_10px_rgba(34,197,94,0.1)]" 
-                                                                                 : "text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-                                                                     )}
-                                                                     title={isServerOutdated(server.id) ? t('serverManager.tooltips.updateRequired', 'New update available! Click to install.') : t('serverManager.tooltips.update')}
-                                                                 >
-                                                                     <Download className="w-5 h-5" />
-                                                                     {isServerOutdated(server.id) && (
-                                                                         <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-                                                                     )}
-                                                                 </button>
-                                                                 
-                                                                 {/* Update Options Dropdown */}
-                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-64 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/update:opacity-100 group-hover/update:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/update:scale-100">
-                                                                     <button
-                                                                         onClick={() => handleUpdateServer(server.id)}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 font-medium"
-                                                                     >
-                                                                         <Download className="w-4 h-4 text-sky-400" />
-                                                                         <span>{t('serverManager.tooltips.update', 'Update Server Now')}</span>
-                                                                     </button>
+                                                              {/* Update Server Dropdown */}
+                                                              <div className="relative group/update">
+                                                                  <button
+                                                                      onClick={() => handleUpdateServer(server.id)}
+                                                                      className={cn(
+                                                                          "relative flex items-center justify-center w-11 h-11 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn",
+                                                                          isServerOutdated(server.id)
+                                                                              ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 hover:text-amber-200 border border-amber-400/50 hover:border-amber-400/80 shadow-[0_0_16px_rgba(245,158,11,0.35)] hover:shadow-[0_0_24px_rgba(245,158,11,0.6)]"
+                                                                              : updateOnStart 
+                                                                                  ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.15)]" 
+                                                                                  : "bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 border border-sky-500/20 hover:border-sky-500/50 shadow-[0_0_10px_rgba(56,189,248,0.15)] hover:shadow-[0_0_20px_rgba(56,189,248,0.35)]"
+                                                                      )}
+                                                                      title={isServerOutdated(server.id) ? t('serverManager.tooltips.updateRequired', 'New update available! Click to install.') : t('serverManager.tooltips.update')}
+                                                                  >
+                                                                      <Download className="w-5 h-5" />
+                                                                      {isServerOutdated(server.id) && (
+                                                                          <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                                                                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-80" />
+                                                                              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500 border-2 border-slate-900 shadow-sm" />
+                                                                          </span>
+                                                                      )}
+                                                                  </button>
+                                                                  
+                                                                  {/* Update Options Dropdown */}
+                                                                  <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-3 w-64 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/update:opacity-100 group-hover/update:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/update:scale-100 p-1.5 space-y-1">
+                                                                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-sky-400/80">SteamCMD Updates</div>
+                                                                      <button
+                                                                          onClick={() => handleUpdateServer(server.id)}
+                                                                          className="w-full text-left px-3 py-2.5 hover:bg-slate-800 text-slate-200 hover:text-white rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer"
+                                                                      >
+                                                                          <div className="w-7 h-7 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-400 group-hover/item:scale-110 transition-transform">
+                                                                              <Download className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <div className="flex flex-col">
+                                                                              <span>{t('serverManager.tooltips.update', 'Update Server Now')}</span>
+                                                                              <span className="text-[10px] text-slate-400 font-normal">Check and apply Steam updates</span>
+                                                                          </div>
+                                                                      </button>
 
-                                                                     <label className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center justify-between border-t border-slate-800 cursor-pointer">
-                                                                         <div className="flex items-center gap-2">
-                                                                             <RefreshCw className="w-4 h-4 text-emerald-400" />
-                                                                             <span className="text-xs font-semibold">{t('serverManager.buttons.updateOnStart', 'Update on Start')}</span>
-                                                                         </div>
-                                                                         <input
-                                                                             type="checkbox"
-                                                                             checked={!!serverUpdateSettings[server.id]?.update_on_start}
-                                                                             onChange={(e) => handleToggleUpdateOnStart(server.id, e.target.checked)}
-                                                                             className="w-4 h-4 rounded bg-slate-800 border-slate-600 text-emerald-500 focus:ring-emerald-500/50 cursor-pointer"
-                                                                         />
-                                                                     </label>
+                                                                      <label className="w-full text-left px-3 py-2.5 hover:bg-slate-800 text-slate-200 hover:text-white rounded-xl transition-all flex items-center justify-between border-t border-slate-800/80 cursor-pointer pt-2">
+                                                                          <div className="flex items-center gap-2.5">
+                                                                              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                                                                                  <RefreshCw className="w-3.5 h-3.5" />
+                                                                              </div>
+                                                                              <div className="flex flex-col">
+                                                                                  <span className="text-xs font-semibold">{t('serverManager.buttons.updateOnStart', 'Update on Start')}</span>
+                                                                                  <span className="text-[10px] text-slate-400 font-normal">Verify files before launch</span>
+                                                                              </div>
+                                                                          </div>
+                                                                          <input
+                                                                              type="checkbox"
+                                                                              checked={!!serverUpdateSettings[server.id]?.update_on_start}
+                                                                              onChange={(e) => handleToggleUpdateOnStart(server.id, e.target.checked)}
+                                                                              className="w-4 h-4 rounded bg-slate-800 border-slate-600 text-emerald-500 focus:ring-emerald-500/50 cursor-pointer"
+                                                                          />
+                                                                      </label>
 
-                                                                     <label className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-300 hover:text-amber-200 transition-colors flex items-center justify-between border-t border-slate-800 cursor-pointer">
-                                                                         <div className="flex items-center gap-2">
-                                                                             <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
-                                                                             <span className="text-xs font-semibold">Auto-Update on Steam Release</span>
-                                                                         </div>
-                                                                         <input
-                                                                             type="checkbox"
-                                                                             checked={!!serverUpdateSettings[server.id]?.auto_update}
-                                                                             onChange={(e) => handleToggleAutoUpdate(server.id, e.target.checked)}
-                                                                             className="w-4 h-4 rounded bg-slate-800 border-slate-600 text-amber-500 focus:ring-amber-500/50 cursor-pointer"
-                                                                         />
-                                                                     </label>
-                                                                 </div>
-                                                             </div>
+                                                                      <label className="w-full text-left px-3 py-2.5 hover:bg-amber-500/10 text-amber-200 hover:text-amber-100 rounded-xl transition-all flex items-center justify-between border-t border-slate-800/80 cursor-pointer pt-2">
+                                                                          <div className="flex items-center gap-2.5">
+                                                                              <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400">
+                                                                                  <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                                                                              </div>
+                                                                              <div className="flex flex-col">
+                                                                                  <span className="text-xs font-semibold">Auto-Update on Release</span>
+                                                                                  <span className="text-[10px] text-slate-400 font-normal">Install Steam patches automatically</span>
+                                                                              </div>
+                                                                          </div>
+                                                                          <input
+                                                                              type="checkbox"
+                                                                              checked={!!serverUpdateSettings[server.id]?.auto_update}
+                                                                              onChange={(e) => handleToggleAutoUpdate(server.id, e.target.checked)}
+                                                                              className="w-4 h-4 rounded bg-slate-800 border-slate-600 text-amber-500 focus:ring-amber-500/50 cursor-pointer"
+                                                                          />
+                                                                      </label>
+                                                                  </div>
+                                                              </div>
 
-                                                             {/* Server Settings Dropdown */}
-                                                             <div className="relative group/settings">
-                                                                 <button
-                                                                     onClick={() => navigate('/config', { state: { serverId: server.id } })}
-                                                                     className="p-2 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-full transition-all flex items-center justify-center"
-                                                                     title={t('serverManager.tooltips.settings')}
-                                                                 >
-                                                                     <Settings className="w-5 h-5" />
-                                                                 </button>
+                                                              {/* Server Settings Dropdown */}
+                                                              <div className="relative group/settings">
+                                                                  <button
+                                                                      onClick={() => navigate('/config', { state: { serverId: server.id } })}
+                                                                      className="relative flex items-center justify-center w-11 h-11 rounded-full bg-slate-800/70 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/50 hover:border-violet-500/40 shadow-inner hover:shadow-[0_0_15px_rgba(139,92,246,0.25)] transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn"
+                                                                      title={t('serverManager.tooltips.settings')}
+                                                                  >
+                                                                      <Settings className="w-5 h-5 group-hover/btn:rotate-45 transition-transform duration-300" />
+                                                                  </button>
 
-                                                                 {/* Settings Options Dropdown */}
-                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/settings:opacity-100 group-hover/settings:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/settings:scale-100">
-                                                                     <button
-                                                                         onClick={() => navigate('/config', { state: { serverId: server.id } })}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
-                                                                     >
-                                                                         <Settings className="w-4 h-4 text-violet-400" />
-                                                                         <span>{t('serverManager.tooltips.settings')}</span>
-                                                                     </button>
-                                                                     <button
-                                                                         onClick={() => navigate('/config', { state: { serverId: server.id, initialMode: 'gus' } })}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-300 hover:text-amber-200 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                                     >
-                                                                         <FileText className="w-4 h-4 text-amber-400" />
-                                                                         <span>{t('serverManager.buttons.editRawIni', 'Edit Files Manually (IDE)')}</span>
-                                                                     </button>
-                                                                     <button
-                                                                         onClick={() => navigate('/tools/files', { state: { initialPath: server.installPath } })}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-sky-500/10 text-sky-300 hover:text-sky-200 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                                     >
-                                                                         <FolderOpen className="w-4 h-4 text-sky-400" />
-                                                                         <span>{t('serverManager.buttons.fileManager', 'File Manager (Browse)')}</span>
-                                                                     </button>
-                                                                     <button
-                                                                         onClick={() => handleMoveServer(server.id)}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                                     >
-                                                                         <FolderOpen className="w-4 h-4" />
-                                                                         <span>{t('serverManager.tooltips.move', 'Move Server')}</span>
-                                                                     </button>
-                                                                     <button
-                                                                         onClick={() => openCloneModal(server)}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-sky-500/10 text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                                     >
-                                                                         <Copy className="w-4 h-4" />
-                                                                         <span>{t('serverManager.tooltips.clone')}</span>
-                                                                     </button>
-                                                                     <button
-                                                                         onClick={() => handleClearModCache(server.id)}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-orange-500/10 text-orange-400 hover:text-orange-300 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                                         title={t('serverManager.modCache.tooltip', 'Clear cached mod files to fix mod loading issues')}
-                                                                     >
-                                                                         <RefreshCw className="w-4 h-4" />
-                                                                         <span>{t('serverManager.modCache.button', 'Clear Mod Cache')}</span>
-                                                                     </button>
-                                                                     <button
-                                                                         onClick={() => handleInitiateDeleteServer(server)}
-                                                                         className="w-full text-left px-4 py-3 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2 border-t border-slate-800"
-                                                                     >
-                                                                         <Trash2 className="w-4 h-4" />
-                                                                         <span>{t('serverManager.tooltips.delete')}</span>
-                                                                     </button>
-                                                                 </div>
-                                                             </div>
-                                                         </div>
-                                                     </div>
+                                                                  {/* Settings Options Dropdown */}
+                                                                  <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-60 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/settings:opacity-100 group-hover/settings:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/settings:scale-100 p-1.5 space-y-0.5">
+                                                                      <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-violet-400/80">Management & Config</div>
+                                                                      <button
+                                                                          onClick={() => navigate('/config', { state: { serverId: server.id } })}
+                                                                          className="w-full text-left px-3 py-2 hover:bg-slate-800 text-slate-200 hover:text-white rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                                                                      >
+                                                                          <div className="w-6 h-6 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-400 group-hover/item:scale-110 transition-transform">
+                                                                              <Settings className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <span>{t('serverManager.tooltips.settings', 'Visual Config Editor')}</span>
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={() => navigate('/config', { state: { serverId: server.id, initialMode: 'gus' } })}
+                                                                          className="w-full text-left px-3 py-2 hover:bg-amber-500/15 text-slate-200 hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                                                                      >
+                                                                          <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                                                                              <FileText className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <span>{t('serverManager.buttons.editRawIni', 'Edit Files Manually (IDE)')}</span>
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={() => navigate('/tools/files', { state: { initialPath: server.installPath } })}
+                                                                          className="w-full text-left px-3 py-2 hover:bg-sky-500/15 text-slate-200 hover:text-sky-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                                                                      >
+                                                                          <div className="w-6 h-6 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-400 group-hover/item:scale-110 transition-transform">
+                                                                              <FolderOpen className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <span>{t('serverManager.buttons.fileManager', 'File Manager (Browse)')}</span>
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={() => handleMoveServer(server.id)}
+                                                                          className="w-full text-left px-3 py-2 hover:bg-amber-500/15 text-slate-200 hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                                                                      >
+                                                                          <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                                                                              <FolderOpen className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <span>{t('serverManager.tooltips.move', 'Move Server')}</span>
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={() => openCloneModal(server)}
+                                                                          className="w-full text-left px-3 py-2 hover:bg-sky-500/15 text-slate-200 hover:text-sky-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                                                                      >
+                                                                          <div className="w-6 h-6 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-400 group-hover/item:scale-110 transition-transform">
+                                                                              <Copy className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <span>{t('serverManager.tooltips.clone', 'Clone Server')}</span>
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={() => handleClearModCache(server.id)}
+                                                                          className="w-full text-left px-3 py-2 hover:bg-orange-500/15 text-slate-200 hover:text-orange-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                                                                          title={t('serverManager.modCache.tooltip', 'Clear cached mod files to fix mod loading issues')}
+                                                                      >
+                                                                          <div className="w-6 h-6 rounded-lg bg-orange-500/15 flex items-center justify-center text-orange-400 group-hover/item:scale-110 transition-transform">
+                                                                              <RefreshCw className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <span>{t('serverManager.modCache.button', 'Clear Mod Cache')}</span>
+                                                                      </button>
+                                                                      <div className="border-t border-slate-800/80 my-1"></div>
+                                                                      <button
+                                                                          onClick={() => handleInitiateDeleteServer(server)}
+                                                                          className="w-full text-left px-3 py-2 hover:bg-rose-500/15 text-rose-400 hover:text-rose-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                                                                      >
+                                                                          <div className="w-6 h-6 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-400 group-hover/item:scale-110 transition-transform">
+                                                                              <Trash2 className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <span>{t('serverManager.tooltips.delete', 'Delete Server')}</span>
+                                                                      </button>
+                                                                  </div>
+                                                              </div>
+                                                          </div>
+                                                      </div>
 
                             {/* Expand/Collapse Toggle Indicator */}
                             <div className="absolute right-6 top-6 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -3137,9 +3219,9 @@ export default function ServerManager() {
                 isOpen={forceStopServerId !== null}
                 onClose={() => setForceStopServerId(null)}
                 onConfirm={confirmForceStop}
-                title={t('serverManager.buttons.forceStop')}
+                title={t('serverManager.confirmForceStopTitle', 'Force Stop Server')}
                 message={t('serverManager.confirmForceStop')}
-                confirmText={t('serverManager.buttons.forceStop')}
+                confirmText={t('serverManager.buttons.forceStop', 'Force Stop')}
                 variant="danger"
             />
 

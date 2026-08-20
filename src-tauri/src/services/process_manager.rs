@@ -22,6 +22,7 @@ const CREATE_NEW_CONSOLE: u32 = 0x00000010;
 #[derive(Debug, Clone, Serialize)]
 pub enum StopReason {
     UserAction,
+    RestartRequested,
     ScheduledRestart,
     UpdateRequired,
     CrashDetected,
@@ -34,6 +35,7 @@ impl std::fmt::Display for StopReason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             StopReason::UserAction => write!(f, "USER_ACTION"),
+            StopReason::RestartRequested => write!(f, "RESTART_REQUESTED"),
             StopReason::ScheduledRestart => write!(f, "SCHEDULED_RESTART"),
             StopReason::UpdateRequired => write!(f, "UPDATE_REQUIRED"),
             StopReason::CrashDetected => write!(f, "CRASH_DETECTED"),
@@ -392,7 +394,7 @@ impl ProcessManager {
                                 "server-lifecycle-event",
                                 ServerLifecycleEvent {
                                     server_id: *id,
-                                    event: if status_code == 0 || is_authorized { "STOP".to_string() } else { "CRASH".to_string() },
+                                    event: if status_code == 0 || status_code == 1 || status_code == 3 || is_authorized { "STOP".to_string() } else { "CRASH".to_string() },
                                     reason: Some(reason_str),
                                     exit_code: Some(status_code),
                                     uptime_seconds: Some(uptime),
@@ -682,8 +684,8 @@ impl ProcessManager {
                                 id, exit_code, query_port
                             );
                             "online" // Port is in use, server process still alive
-                        } else if exit_code == 0 {
-                            "stopped" // Clean exit without being authorized and not running
+                        } else if exit_code == 0 || exit_code == 1 || exit_code == 3 {
+                            "stopped" // Clean or standard UE5 shutdown exit without being authorized and not running
                         } else {
                             println!(
                                 "  💥 Server {} genuinely crashed (code {}, port {} free, not reachable).",
@@ -698,8 +700,8 @@ impl ProcessManager {
                         id, status, exit_code
                     );
 
-                    // Send Discord webhook for crash
-                    if exit_code != 0 {
+                    // Send Discord webhook ONLY for genuine unexpected crashes (never for clean exits or UE5 standard stops: 0, 1, 3)
+                    if status == "crashed" && !is_authorized && exit_code != 0 && exit_code != 1 && exit_code != 3 {
                         let wh_handle = monitor_handle.clone();
                         tauri::async_runtime::spawn(async move {
                             let name = get_server_name(&wh_handle, id);
@@ -905,24 +907,21 @@ impl ProcessManager {
             ));
         }
 
-        // Check ports before starting
-        if network::is_port_in_use(game_port) {
-            return Err(anyhow::anyhow!(
-                "Game Port {} is already in use by another application.",
-                game_port
-            ));
-        }
-        if network::is_port_in_use(query_port) {
-            return Err(anyhow::anyhow!(
-                "Query Port {} is already in use by another application.",
-                query_port
-            ));
-        }
-        if network::is_port_in_use(rcon_port) {
-            return Err(anyhow::anyhow!(
-                "RCON Port {} is already in use by another application.",
-                rcon_port
-            ));
+        // Check ports before starting with graceful wait for sockets in TIME_WAIT from recent stops
+        for &(port_name, port_val) in &[("Game", game_port), ("Query", query_port), ("RCON", rcon_port)] {
+            let mut wait_attempts = 0;
+            while network::is_port_in_use(port_val) {
+                if wait_attempts < 10 {
+                    wait_attempts += 1;
+                    println!("  ⏳ [Startup Port Check] {} Port {} still busy/closing. Waiting 1s (attempt {}/10)...", port_name, port_val, wait_attempts);
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "{} Port {} is already in use by another application.",
+                        port_name, port_val
+                    ));
+                }
+            }
         }
 
         // Log file path
@@ -1179,16 +1178,35 @@ impl ProcessManager {
             }
         }
 
-        // Ensure ASA server defaults to PC-Only if -crossplay is not explicitly present
+        // Platform & Crossplay Resolution for ASA dedicated server
         let has_crossplay = args.iter().any(|arg| arg.to_lowercase() == "-crossplay");
-        let has_pc_only = args.iter().any(|arg| {
+        let has_platform_flag = args.iter().any(|arg| arg.to_lowercase().starts_with("-serverplatform="));
+        let is_explicit_pc_only = args.iter().any(|arg| {
             let lower = arg.to_lowercase();
-            lower == "-useserverpconly" || lower == "-pconly" || lower == "-nocrossplay" || lower.starts_with("-serverplatform=")
+            lower == "-useserverpconly" || lower == "-pconly" || lower == "-nocrossplay" || lower == "-serverplatform=pc"
         });
 
-        if !has_crossplay && !has_pc_only {
-            println!("  🔒 Crossplay disabled for server {} — adding -UseServerPCOnly flag", server_id);
-            args.push("-UseServerPCOnly".to_string());
+        if is_explicit_pc_only {
+            println!("  🔒 PC-Only mode configured for server {} — ensuring -UseServerPCOnly flag", server_id);
+            if !args.iter().any(|arg| arg.to_lowercase() == "-useserverpconly") {
+                args.push("-UseServerPCOnly".to_string());
+            }
+        } else if has_platform_flag {
+            // If custom platform flag is specified (e.g. -ServerPlatform=ALL or -ServerPlatform=PC+PS5+XSX),
+            // ensure -crossplay is also present so EOS accepts console clients (PS5 / Xbox)
+            let is_cross_platform = args.iter().any(|arg| {
+                let lower = arg.to_lowercase();
+                lower.starts_with("-serverplatform=") && (lower.contains("ps5") || lower.contains("xsx") || lower.contains("all") || lower.contains("wingdk"))
+            });
+            if is_cross_platform && !has_crossplay {
+                println!("  🌐 Adding -crossplay flag to match multi-platform selection for server {}", server_id);
+                args.push("-crossplay".to_string());
+            }
+        } else if !has_crossplay {
+            // Default for ASA: Full Crossplay enabled (PC + PS5 + Xbox)
+            println!("  🌐 Defaulting ASA server {} to Full Crossplay (-ServerPlatform=ALL -crossplay)", server_id);
+            args.push("-ServerPlatform=ALL".to_string());
+            args.push("-crossplay".to_string());
         }
 
         println!("  🚀 Executing Command: {:?} {:?}", executable, args);
@@ -1524,6 +1542,21 @@ impl ProcessManager {
                 ip_address: ip_address.map(|s| s.to_string()),
                 startup_confirmed,
                 has_been_online: false,
+            });
+        }
+
+        // Register in Guardian Watchdog immediately on process spawn
+        if let Some(guardian) = self.app_handle.try_state::<crate::services::guardian::GuardianState>() {
+            let guardian_inner = guardian.0.clone();
+            let app_clone = self.app_handle.clone();
+            let is_ase = server_type == "ASE";
+            tauri::async_runtime::spawn(async move {
+                let guard = guardian_inner.lock().await;
+                if is_ase {
+                    guard.register_ase_server(app_clone, server_id, child_pid).await;
+                } else {
+                    guard.register_server(app_clone, server_id, child_pid).await;
+                }
             });
         }
 
@@ -2111,11 +2144,16 @@ impl ProcessManager {
                         }
 
                         let exit_code = status.code().unwrap_or(-1);
-                        let status_str = if exit_code == 0 { "stopped" } else { "crashed" };
+                        let is_authorized = {
+                            let mut reasons = self.pending_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
+                            reasons.remove(&server_id).is_some()
+                        };
+                        let is_clean_exit = exit_code == 0 || exit_code == 1 || exit_code == 3;
+                        let status_str = if is_authorized || is_clean_exit { "stopped" } else { "crashed" };
 
                         println!(
-                            "  ⚠️ Server {} exited with status: {:?} (code: {}, status: {})",
-                            server_id, status, exit_code, status_str
+                            "  ⚠️ Server {} exited with status: {:?} (code: {}, status: {}, authorized: {})",
+                            server_id, status, exit_code, status_str, is_authorized
                         );
                         server_proc.stop_flag.store(true, Ordering::SeqCst);
                         let server_type = server_proc.server_type.clone();

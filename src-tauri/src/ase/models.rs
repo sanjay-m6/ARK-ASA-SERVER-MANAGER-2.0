@@ -313,24 +313,24 @@ pub struct AseGameConfig {
     // ── Network / Admin ──
     pub rcon_enabled: bool,
     pub rcon_port: u16,
-    #[serde(rename = "RCONServerLogBuffer")]
+    #[serde(alias = "rconServerLogBuffer", alias = "RCONServerLogBuffer")]
     pub rcon_server_log_buffer: u32,
     pub battle_eye_enforcer: bool,
     pub enable_creative_mode: bool,
     pub server_force_no_hud: bool,
     pub kick_idle_player_period: f64,
     pub destroy_tames_over_level_clamp: u32,
-    #[serde(rename = "MaxDifficulty")]
+    #[serde(alias = "maxDifficulty", alias = "MaxDifficulty")]
     pub max_difficulty: bool,
-    #[serde(rename = "PreventOfflinePvP")]
+    #[serde(alias = "preventOfflinePvP", alias = "preventOfflinePvp", alias = "PreventOfflinePvP")]
     pub prevent_offline_pvp: bool,
-    #[serde(rename = "PreventOfflinePvPInterval")]
+    #[serde(alias = "preventOfflinePvPInterval", alias = "preventOfflinePvpInterval", alias = "PreventOfflinePvPInterval")]
     pub prevent_offline_pvp_interval: u32,
     pub b_disable_structure_placement_collision: bool,
     pub b_use_corpse_locator: bool,
     pub b_show_status_types: bool,
     pub b_allow_unlimited_respecs: bool,
-    #[serde(rename = "SpectatorPassword")]
+    #[serde(alias = "spectatorPassword", alias = "SpectatorPassword")]
     pub spectator_password: String,
 
     // ── Mods ──

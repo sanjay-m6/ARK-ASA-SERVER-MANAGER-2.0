@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Laptop, Gamepad2, Smartphone, Monitor, ShieldCheck, Terminal, 
-  Check, Info
+  Check, Info, Copy, CheckCheck, Sparkles, Layers, Globe
 } from 'lucide-react';
 import { useServerStore } from '../../stores/serverStore';
 import { updateServerSettings } from '../../utils/tauri';
 import toast from 'react-hot-toast';
+import { cn } from '../../utils/helpers';
 
 export interface PlatformSelection {
     pc: boolean;
@@ -96,6 +97,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
     const { servers, activeServer, refreshServers } = useServerStore();
     const targetServerId = serverId ?? activeServer?.id;
     const server = servers.find(s => s.id === targetServerId);
+    const [copied, setCopied] = useState(false);
 
     const effectiveCustomArgs = externalCustomArgs !== undefined 
         ? externalCustomArgs 
@@ -118,17 +120,24 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
         if (selection.xbox) activePlatforms.push('XSX');
         if (selection.msStore) activePlatforms.push('WinGDK');
 
-        if (activePlatforms.length === 4) return '-ServerPlatform=ALL -crossplay (Full Crossplay)';
-        if (activePlatforms.length === 1 && activePlatforms[0] === 'PC') return '-ServerPlatform=PC -UseServerPCOnly (PC Exclusive)';
-        if (activePlatforms.length === 0) return 'None (Blocked)';
+        if (activePlatforms.length === 4) return '-ServerPlatform=ALL -crossplay';
+        if (activePlatforms.length === 1 && activePlatforms[0] === 'PC') return '-ServerPlatform=PC -UseServerPCOnly';
+        if (activePlatforms.length === 0) return 'None (All Blocked)';
         return `-ServerPlatform=${activePlatforms.join('+')}`;
     }, [selection]);
+
+    const handleCopyFlag = () => {
+        navigator.clipboard.writeText(generatedFlag);
+        setCopied(true);
+        toast.success('Launch flag copied to clipboard!');
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     const handleToggle = async (key: keyof PlatformSelection) => {
         const newSelection = { ...selection, [key]: !selection[key] };
         
         if (!newSelection.pc && !newSelection.ps5 && !newSelection.xbox && !newSelection.msStore) {
-            toast.error('At least one target platform must remain enabled.');
+            toast.error('At least one platform must remain enabled.');
             return;
         }
 
@@ -146,7 +155,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                     customArgs: newCustomArgs
                 });
                 await refreshServers();
-                toast.success('Platform launch options saved!');
+                toast.success('Platform settings updated!');
             } catch (err) {
                 console.error(err);
                 toast.error('Failed to update platform settings');
@@ -154,20 +163,20 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
         }
     };
 
-    const applyPreset = (preset: 'pcOnly' | 'fullCrossplay' | 'consolesPlusPc' | 'steamEpicOnly') => {
+    const applyPreset = (preset: 'fullCrossplay' | 'pcOnly' | 'consolesOnly' | 'allPcClients') => {
         let newSel: PlatformSelection;
         switch (preset) {
-            case 'pcOnly':
-                newSel = { pc: true, ps5: false, xbox: false, msStore: false };
-                break;
             case 'fullCrossplay':
                 newSel = { pc: true, ps5: true, xbox: true, msStore: true };
                 break;
-            case 'consolesPlusPc':
-                newSel = { pc: true, ps5: true, xbox: true, msStore: false };
-                break;
-            case 'steamEpicOnly':
+            case 'pcOnly':
                 newSel = { pc: true, ps5: false, xbox: false, msStore: false };
+                break;
+            case 'consolesOnly':
+                newSel = { pc: false, ps5: true, xbox: true, msStore: false };
+                break;
+            case 'allPcClients':
+                newSel = { pc: true, ps5: false, xbox: false, msStore: true };
                 break;
         }
         setSelection(newSel);
@@ -175,45 +184,63 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
         if (onChange) onChange(newCustomArgs);
         if (targetServerId && externalCustomArgs === undefined) {
             updateServerSettings({ serverId: targetServerId, customArgs: newCustomArgs }).then(refreshServers);
+            toast.success('Preset applied!');
         }
     };
+
+    const isFullCrossplay = selection.pc && selection.ps5 && selection.xbox && selection.msStore;
+    const isPcOnly = selection.pc && !selection.ps5 && !selection.xbox && !selection.msStore;
+    const isConsolesOnly = !selection.pc && selection.ps5 && selection.xbox && !selection.msStore;
+    const isAllPcClients = selection.pc && !selection.ps5 && !selection.xbox && selection.msStore;
 
     const platformCards = [
         {
             id: 'pc' as const,
             name: 'PC (Steam & Epic)',
-            tag: 'Steam / Epic',
+            tag: 'Steam + Epic Games',
             flagCode: 'PC',
             desc: 'Windows Steam & Epic Games Store players',
             icon: Laptop,
-            activeGradient: 'from-blue-600/30 via-cyan-600/20 to-slate-900',
-            activeBorder: 'border-cyan-500/60 shadow-[0_0_20px_rgba(6,182,212,0.2)]',
-            badgeBg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
-            iconColor: 'text-cyan-400'
+            activeTheme: {
+                bg: 'bg-cyan-950/30 hover:bg-cyan-950/40',
+                border: 'border-cyan-500/50 shadow-[0_0_25px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/30',
+                iconBox: 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300 shadow-sm',
+                badge: 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300',
+                toggle: 'bg-cyan-500 shadow-cyan-500/40',
+                dot: 'bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.8)]'
+            }
         },
         {
             id: 'ps5' as const,
             name: 'PlayStation 5',
-            tag: 'PS5',
+            tag: 'PS5 Console',
             flagCode: 'PS5',
-            desc: 'PlayStation 5 console players',
+            desc: 'PlayStation 5 cross-network console survivors',
             icon: Gamepad2,
-            activeGradient: 'from-blue-700/30 via-indigo-600/20 to-slate-900',
-            activeBorder: 'border-blue-500/60 shadow-[0_0_20px_rgba(59,130,246,0.2)]',
-            badgeBg: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-            iconColor: 'text-blue-400'
+            activeTheme: {
+                bg: 'bg-blue-950/30 hover:bg-blue-950/40',
+                border: 'border-blue-500/50 shadow-[0_0_25px_rgba(59,130,246,0.15)] ring-1 ring-blue-500/30',
+                iconBox: 'bg-blue-500/20 border-blue-500/40 text-blue-300 shadow-sm',
+                badge: 'bg-blue-500/15 border-blue-500/30 text-blue-300',
+                toggle: 'bg-blue-500 shadow-blue-500/40',
+                dot: 'bg-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.8)]'
+            }
         },
         {
             id: 'xbox' as const,
             name: 'Xbox Series X/S',
-            tag: 'Xbox XSX',
+            tag: 'Xbox XSX | XSS',
             flagCode: 'XSX',
-            desc: 'Xbox Series X and Series S consoles',
+            desc: 'Xbox Series X and Series S console players',
             icon: Smartphone,
-            activeGradient: 'from-emerald-600/30 via-teal-600/20 to-slate-900',
-            activeBorder: 'border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.2)]',
-            badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-            iconColor: 'text-emerald-400'
+            activeTheme: {
+                bg: 'bg-emerald-950/30 hover:bg-emerald-950/40',
+                border: 'border-emerald-500/50 shadow-[0_0_25px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30',
+                iconBox: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 shadow-sm',
+                badge: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
+                toggle: 'bg-emerald-500 shadow-emerald-500/40',
+                dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+            }
         },
         {
             id: 'msStore' as const,
@@ -222,21 +249,25 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
             flagCode: 'WinGDK',
             desc: 'PC Xbox App & Windows GDK store clients',
             icon: Monitor,
-            activeGradient: 'from-sky-600/30 via-indigo-600/20 to-slate-900',
-            activeBorder: 'border-sky-500/60 shadow-[0_0_20px_rgba(14,165,233,0.2)]',
-            badgeBg: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
-            iconColor: 'text-sky-400'
+            activeTheme: {
+                bg: 'bg-sky-950/30 hover:bg-sky-950/40',
+                border: 'border-sky-500/50 shadow-[0_0_25px_rgba(14,165,233,0.15)] ring-1 ring-sky-500/30',
+                iconBox: 'bg-sky-500/20 border-sky-500/40 text-sky-300 shadow-sm',
+                badge: 'bg-sky-500/15 border-sky-500/30 text-sky-300',
+                toggle: 'bg-sky-500 shadow-sky-500/40',
+                dot: 'bg-sky-400 shadow-[0_0_8px_rgba(14,165,233,0.8)]'
+            }
         }
     ];
 
     if (compact) {
         return (
-            <div className="bg-[#121225] border border-[#232342] rounded-xl p-4 space-y-3">
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-white flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4 text-violet-400" /> Platform Compatibility
                     </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/30">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/30 font-semibold">
                         {activeCount}/4 Enabled
                     </span>
                 </div>
@@ -249,18 +280,20 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                                 type="button"
                                 key={p.id}
                                 onClick={() => handleToggle(p.id)}
-                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition-all duration-200 text-left ${
+                                className={cn(
+                                    "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium border transition-all duration-200 text-left",
                                     isChecked
-                                        ? 'bg-violet-600/20 border-violet-500/50 text-white shadow-sm'
-                                        : 'bg-[#18182e]/40 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300'
-                                }`}
+                                        ? "bg-violet-600/20 border-violet-500/50 text-white shadow-sm"
+                                        : "bg-slate-950/40 border-white/5 text-slate-400 hover:border-white/10 hover:text-slate-200"
+                                )}
                             >
-                                <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
-                                    isChecked ? 'bg-violet-600 border-violet-400 text-white' : 'border-slate-700 bg-slate-900'
-                                }`}>
+                                <div className={cn(
+                                    "w-4 h-4 rounded-md flex items-center justify-center border transition-all",
+                                    isChecked ? "bg-violet-600 border-violet-400 text-white" : "border-slate-700 bg-slate-900"
+                                )}>
                                     {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                                 </div>
-                                <Icon className={`w-3.5 h-3.5 ${p.iconColor}`} />
+                                <Icon className="w-4 h-4 text-slate-300" />
                                 <span className="truncate">{p.name.split(' ')[0]}</span>
                             </button>
                         );
@@ -271,108 +304,187 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
     }
 
     return (
-        <div className="relative bg-gradient-to-br from-[#121225] via-[#15152c] to-[#0d0d1a] border border-[#27274a] rounded-2xl p-6 shadow-2xl space-y-6 overflow-hidden">
-            {/* Ambient Background Glow */}
-            <div className="absolute -top-24 -right-24 w-72 h-72 bg-violet-600/10 blur-3xl rounded-full pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-indigo-600/10 blur-3xl rounded-full pointer-events-none" />
+        <div className="relative bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6 overflow-hidden">
+            {/* Ambient Background Glow Spots */}
+            <div className="absolute -top-24 -right-24 w-80 h-80 bg-violet-600/15 blur-3xl rounded-full pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-cyan-600/10 blur-3xl rounded-full pointer-events-none" />
 
             {/* Header Section */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
-                <div className="flex items-start gap-3.5">
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 shadow-lg shadow-violet-500/25 flex-shrink-0">
+            <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-white/10 pb-5">
+                <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 border border-violet-400/30 flex items-center justify-center shadow-lg shadow-violet-600/30 shrink-0">
                         <ShieldCheck className="w-6 h-6 text-white" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2.5 flex-wrap">
-                            <h3 className="text-lg font-extrabold text-white tracking-tight">
+                            <h3 className="text-lg font-bold text-white tracking-tight">
                                 Platform Access Control
                             </h3>
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-violet-500/10 border border-violet-500/30 text-violet-300">
-                                {activeCount === 4 ? '🌐 Full Crossplay' : activeCount === 1 && selection.pc ? '🖥️ PC Only' : `🎮 Custom (${activeCount} Active)`}
+                            <span className={cn(
+                                "px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1.5",
+                                isFullCrossplay
+                                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                    : isPcOnly
+                                    ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
+                                    : "bg-violet-500/15 border-violet-500/30 text-violet-300"
+                            )}>
+                                <span className={cn(
+                                    "w-1.5 h-1.5 rounded-full",
+                                    isFullCrossplay ? "bg-emerald-400 animate-pulse" : isPcOnly ? "bg-cyan-400" : "bg-violet-400"
+                                )} />
+                                {isFullCrossplay ? 'Full Crossplay' : isPcOnly ? 'PC Exclusive' : isConsolesOnly ? 'Consoles Only' : `Custom (${activeCount}/4)`}
                             </span>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                            Control which platforms can connect to your server via the native <code className="text-violet-300 font-mono bg-slate-900 px-1.5 py-0.5 rounded border border-violet-500/20">-ServerPlatform</code> engine flag.
+                        <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
+                            Control multi-platform player connectivity with native Unreal Engine <code className="text-violet-300 font-mono bg-slate-950/70 px-1.5 py-0.5 rounded border border-white/10">-ServerPlatform</code> arguments.
                         </p>
                     </div>
                 </div>
 
-                {/* Preset Quick Toggles */}
-                <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                        type="button"
-                        onClick={() => applyPreset('pcOnly')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                            activeCount === 1 && selection.pc
-                                ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 shadow-md shadow-cyan-500/10'
-                                : 'bg-[#1a1a33] border-[#2e2e50] text-slate-400 hover:text-white hover:border-slate-600'
-                        }`}
-                    >
-                        PC Only
-                    </button>
+                {/* 1-Click Fast Presets */}
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 mr-1">
+                        <Sparkles className="w-3.5 h-3.5 text-violet-400" /> Presets:
+                    </span>
+
                     <button
                         type="button"
                         onClick={() => applyPreset('fullCrossplay')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                            activeCount === 4
-                                ? 'bg-violet-600/30 border-violet-500/60 text-violet-200 shadow-md shadow-violet-500/20'
-                                : 'bg-[#1a1a33] border-[#2e2e50] text-slate-400 hover:text-white hover:border-slate-600'
-                        }`}
+                        className={cn(
+                            "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
+                            isFullCrossplay
+                                ? "bg-violet-600 border-violet-400 text-white shadow-lg shadow-violet-600/30"
+                                : "bg-slate-800/70 hover:bg-slate-700/80 border-white/10 text-slate-300 hover:text-white"
+                        )}
                     >
-                        Full Crossplay (All 4)
+                        <Globe className="w-3.5 h-3.5" /> Full Crossplay
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => applyPreset('pcOnly')}
+                        className={cn(
+                            "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
+                            isPcOnly
+                                ? "bg-cyan-600 border-cyan-400 text-white shadow-lg shadow-cyan-600/30"
+                                : "bg-slate-800/70 hover:bg-slate-700/80 border-white/10 text-slate-300 hover:text-white"
+                        )}
+                    >
+                        <Laptop className="w-3.5 h-3.5" /> PC Only
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => applyPreset('consolesOnly')}
+                        className={cn(
+                            "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
+                            isConsolesOnly
+                                ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-600/30"
+                                : "bg-slate-800/70 hover:bg-slate-700/80 border-white/10 text-slate-300 hover:text-white"
+                        )}
+                    >
+                        <Gamepad2 className="w-3.5 h-3.5" /> Consoles Only
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => applyPreset('allPcClients')}
+                        className={cn(
+                            "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
+                            isAllPcClients
+                                ? "bg-sky-600 border-sky-400 text-white shadow-lg shadow-sky-600/30"
+                                : "bg-slate-800/70 hover:bg-slate-700/80 border-white/10 text-slate-300 hover:text-white"
+                        )}
+                    >
+                        <Layers className="w-3.5 h-3.5" /> All PC Stores
                     </button>
                 </div>
             </div>
 
             {/* Platform Selection Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 {platformCards.map(p => {
                     const Icon = p.icon;
                     const isChecked = selection[p.id];
+                    const theme = p.activeTheme;
+
                     return (
                         <div
                             key={p.id}
                             onClick={() => handleToggle(p.id)}
-                            className={`group relative p-4 rounded-2xl border transition-all duration-300 cursor-pointer select-none overflow-hidden ${
+                            className={cn(
+                                "group relative p-5 rounded-2xl border transition-all duration-200 cursor-pointer select-none flex flex-col justify-between min-h-[195px] hover:scale-[1.01] active:scale-[0.99]",
                                 isChecked
-                                    ? `bg-gradient-to-br ${p.activeGradient} ${p.activeBorder}`
-                                    : 'bg-[#111122]/70 border-[#222240] hover:border-slate-700 text-slate-500 hover:text-slate-300 hover:bg-[#15152a]'
-                            }`}
+                                    ? cn(theme.bg, theme.border)
+                                    : "bg-slate-950/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900/60 shadow-lg"
+                            )}
                         >
-                            <div className="flex items-center justify-between gap-2 mb-3">
-                                <div className="flex items-center gap-2.5">
-                                    <div className={`p-2 rounded-xl border transition-all ${
-                                        isChecked ? 'bg-white/10 border-white/20' : 'bg-slate-900/60 border-slate-800'
-                                    }`}>
-                                        <Icon className={`w-5 h-5 ${p.iconColor}`} />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-sm font-bold text-white group-hover:text-violet-200 transition-colors">
-                                            {p.name}
-                                        </h4>
-                                        <span className={`inline-block text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md border mt-0.5 ${p.badgeBg}`}>
-                                            {p.tag}
-                                        </span>
-                                    </div>
+                            {/* Top row: Brand Icon & Deterministic iOS-style Pill Switch */}
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                                <div className={cn(
+                                    "w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-all",
+                                    isChecked
+                                        ? theme.iconBox
+                                        : "bg-slate-900 border-slate-700/80 text-slate-300 group-hover:text-white"
+                                )}>
+                                    <Icon className="w-5 h-5" />
                                 </div>
 
-                                {/* Toggle Checkbox */}
-                                <div className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
+                                {/* Deterministic iOS-style Pill Switch */}
+                                <div className={cn(
+                                    "w-11 h-6 rounded-full p-0.5 transition-all duration-200 ease-in-out relative border shrink-0",
                                     isChecked
-                                        ? 'bg-gradient-to-br from-violet-500 to-indigo-600 border-violet-400 text-white shadow-md shadow-violet-500/30'
-                                        : 'border-slate-700 bg-slate-900/80 group-hover:border-slate-600'
-                                }`}>
-                                    {isChecked && <Check className="w-4 h-4 stroke-[3]" />}
+                                        ? cn(theme.toggle, "border-transparent shadow-sm")
+                                        : "bg-slate-800/90 border-slate-700/80"
+                                )}>
+                                    <div className={cn(
+                                        "w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center transition-all duration-200 ease-out",
+                                        isChecked ? "translate-x-5" : "translate-x-0"
+                                    )}>
+                                        {isChecked ? (
+                                            <Check className="w-3 h-3 text-slate-900 stroke-[3]" />
+                                        ) : (
+                                            <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
-                            <p className="text-[11.5px] text-slate-400 leading-snug">
-                                {p.desc}
-                            </p>
+                            {/* Middle row: Platform Name, Tag, Description */}
+                            <div className="space-y-1.5 mb-3.5 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                    <h4 className={cn(
+                                        "text-sm font-bold tracking-tight transition-colors truncate",
+                                        isChecked ? "text-white group-hover:text-violet-200" : "text-slate-100 group-hover:text-white"
+                                    )}>
+                                        {p.name}
+                                    </h4>
+                                </div>
+                                <span className={cn(
+                                    "inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md border",
+                                    isChecked ? theme.badge : "bg-slate-900/90 border-slate-700/70 text-slate-300"
+                                )}>
+                                    {p.tag}
+                                </span>
+                                <p className="text-xs text-slate-400 leading-snug pt-0.5 line-clamp-2">
+                                    {p.desc}
+                                </p>
+                            </div>
 
-                            <div className="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                                <span>Engine Flag:</span>
-                                <span className={isChecked ? 'text-violet-300 font-bold' : 'text-slate-600'}>
+                            {/* Bottom row: Status & Engine Tag */}
+                            <div className="pt-2.5 border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                                <div className="flex items-center gap-2">
+                                    <span className={cn("w-2 h-2 rounded-full", isChecked ? theme.dot : "bg-slate-500")} />
+                                    <span className={isChecked ? "text-emerald-300 font-bold" : "text-slate-400 font-medium"}>
+                                        {isChecked ? 'Allowed' : 'Blocked'}
+                                    </span>
+                                </div>
+                                <span className={cn(
+                                    "px-2 py-0.5 rounded border text-[10px] font-bold",
+                                    isChecked
+                                        ? "bg-white/10 border-white/20 text-white shadow-sm"
+                                        : "bg-slate-900 border-slate-700/60 text-slate-400"
+                                )}>
                                     {p.flagCode}
                                 </span>
                             </div>
@@ -382,24 +494,35 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
             </div>
 
             {/* Generated Command Preview Box */}
-            <div className="bg-[#0b0b18] border border-[#1f1f3a] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            <div className="bg-slate-950/60 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
                         <Terminal className="w-4 h-4" />
                     </div>
-                    <div>
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                            Active Flag Generated
+                    <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                            Active Generated Engine Flag
                         </span>
-                        <code className="text-xs font-mono font-bold text-emerald-300">
+                        <code className="text-xs font-mono font-bold text-emerald-300 truncate block">
                             {generatedFlag}
                         </code>
                     </div>
                 </div>
 
-                <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                    <Info className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    Automatically injected on server launch & batch export
+                <div className="flex items-center gap-2.5 shrink-0">
+                    <button
+                        type="button"
+                        onClick={handleCopyFlag}
+                        className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/10 flex items-center gap-1.5 transition-all cursor-pointer"
+                        title="Copy launch flag"
+                    >
+                        {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copied ? 'Copied' : 'Copy'}</span>
+                    </button>
+                    <div className="text-[11px] text-slate-400 hidden md:flex items-center gap-1.5 border-l border-white/10 pl-2.5">
+                        <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        Auto-injected on launch
+                    </div>
                 </div>
             </div>
         </div>

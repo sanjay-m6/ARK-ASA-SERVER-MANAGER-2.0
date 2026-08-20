@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.6.15] — 2026-08-20
+
+### Fixed
+- **🔄 ASA Server Restart & Scheduled Maintenance Stabilization**:
+  - Resolved server crash misclassification on restart (Unreal Engine 5 exit codes `3`, `0`, `1`) during scheduled maintenance and restarts.
+  - Eliminated false-positive Discord crash notifications during planned stops and maintenance windows.
+  - Enforced synchronous stop-and-wait lifecycle polling in `scheduler.rs` and `server.rs` to ensure server processes cleanly release socket ports and resources before new process spawn.
+  - Added immediate PID registration to Guardian watchdog on server startup to prevent race conditions during boot.
+- **⚙️ ASE Configuration Save & Unified UTF-8 Encoding Pipeline**:
+  - Fixed intermittent ASE configuration save error (`missing field "allowCryoCooldownonPve"`) by adding flexible serde aliases and case-insensitive fallback mapping in `write_ase_config`.
+  - Built a unified multi-encoding detection reader in `IniParser` supporting standard UTF-8, UTF-8 with BOM, UTF-16 LE/BE (with/without BOM), and Windows-1252/ANSI with Latin-1 character normalization.
+  - Implemented atomic pure UTF-8 writing with CRLF endings across all ASE configuration routines (`GameUserSettings.ini`, `Game.ini`, cluster configurations, and mod manager).
+  - Preserved canonical casing `AllowCryoCooldownOnPvE=False` in `[ServerSettings]`.
+- **🛡️ Scheduler Debounce & Watchdog Optimization**:
+  - Added debounce tracking (`LAST_ADVANCED_RUN`) to prevent duplicate scheduled restart executions.
+
+---
+
 ## [4.6.14] — 2026-08-18
 
 ### Added

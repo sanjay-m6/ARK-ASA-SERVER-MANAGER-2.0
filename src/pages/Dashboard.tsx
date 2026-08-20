@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import {
   Server, Activity, Zap, Copy, Puzzle,
   Play, Square, RotateCw, FileEdit, Edit2, Check, X,
-  Folder, FolderOpen, Heart, Bookmark, Search, ExternalLink,
-  GitBranch, AlertTriangle, RefreshCw, Timer
+  Folder, FolderOpen, Heart, Bookmark, Search,
+  GitBranch, AlertTriangle, RefreshCw, Timer, CheckCheck
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, Variants } from 'framer-motion';
@@ -145,17 +145,36 @@ export default function Dashboard() {
     }
   };
 
+  // Status Filter & Copied States
+  const [statusFilter, setStatusFilter] = useState<'all' | 'online' | 'stopped' | 'outdated'>('all');
+  const [copiedServerId, setCopiedServerId] = useState<number | null>(null);
+
   const filteredServers = servers.filter(server => {
     const isArchived = snapshot?.servers?.find((s: any) => s.id === server.id)?.archiveInfo;
     if (isArchived) return false;
 
+    // Status filter
+    if (statusFilter === 'online') {
+      if (server.status !== 'online' && server.status !== 'running') return false;
+    } else if (statusFilter === 'stopped') {
+      if (server.status !== 'stopped' && server.status !== 'crashed') return false;
+    } else if (statusFilter === 'outdated') {
+      if (!isServerOutdated(server.id)) return false;
+    }
+
     // Search query
     const cust = snapshot?.servers?.find((s: any) => s.id === server.id)?.customization;
     const displayName = cust?.display_name || server.name;
-    const matchesSearch = displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (server.config.mapName || '').toLowerCase().includes(searchQuery.toLowerCase());
-    if (!matchesSearch) return false;
+    const searchLower = searchQuery.toLowerCase().trim();
+    if (searchLower) {
+      const matchesSearch = displayName.toLowerCase().includes(searchLower) ||
+        server.name.toLowerCase().includes(searchLower) ||
+        (server.config.mapName || '').toLowerCase().includes(searchLower) ||
+        (server.config.sessionName || '').toLowerCase().includes(searchLower) ||
+        String(server.ports.gamePort).includes(searchLower) ||
+        String(server.ports.queryPort).includes(searchLower);
+      if (!matchesSearch) return false;
+    }
 
     // Folder category
     if (selectedFolderId !== null) {
@@ -165,8 +184,6 @@ export default function Dashboard() {
 
     return true;
   });
-
-  // ... (rest of hook logic remains same until return)
 
   // Inline Rename State & Handlers
   const { customizations, updateServerCustomization } = useServerOrganizationStore();
@@ -224,11 +241,15 @@ export default function Dashboard() {
     }
   };
 
-  const handleCopyIp = (serverIp: string | undefined, port: number) => {
+  const handleCopyIp = (serverId: number, serverIp: string | undefined, port: number) => {
     const ip = serverIp || '127.0.0.1';
     const address = `${ip}:${port}`;
     navigator.clipboard.writeText(address);
-    toast.success(t('dashboard.copiedToClipboard', { address }));
+    setCopiedServerId(serverId);
+    setTimeout(() => {
+      setCopiedServerId(prev => (prev === serverId ? null : prev));
+    }, 2000);
+    toast.success(t('dashboard.copiedToClipboard', { address, defaultValue: `Copied ${address} to clipboard!` }), { id: `copy-ip-${serverId}` });
   };
 
   // Server control handlers (Keep existing logic)
@@ -435,8 +456,11 @@ export default function Dashboard() {
     });
   }, [servers]);
 
-  const runningServers = servers.filter(s => s.status === 'running' || s.status === 'online').length;
-  const stoppedServers = servers.filter(s => s.status === 'stopped').length;
+  const onlineServersCount = servers.filter(s => s.status === 'running' || s.status === 'online').length;
+  const stoppedServersCount = servers.filter(s => s.status === 'stopped' || s.status === 'crashed').length;
+  const runningServers = onlineServersCount;
+  const stoppedServers = stoppedServersCount;
+  const outdatedServersCount = servers.filter(s => isServerOutdated(s.id)).length;
   const totalServers = servers.length;
   const memoryPercent = systemInfo ? (systemInfo.ramUsage / systemInfo.ramTotal) * 100 : 0;
   const diskPercent = systemInfo ? (systemInfo.diskUsage / systemInfo.diskTotal) * 100 : 0;
@@ -633,16 +657,110 @@ export default function Dashboard() {
       {/* Main Command Center Layout */}
       <div className="space-y-6 animate-in fade-in duration-500">
         {/* Server Control Hub */}
-        <div className="glass-panel rounded-2xl p-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-            <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-              <span className="text-sky-400 font-mono font-black leading-none mt-0.5">{'>_'}</span>
-              <span className="tracking-wide">{t('dashboard.serverControlHub', 'Server Control Hub')}</span>
-            </h2>
+        <div className="glass-panel rounded-2xl p-6 border border-white/5 shadow-2xl relative">
+          {/* Header Row */}
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-6 gap-4 border-b border-white/5 pb-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-sky-500/10 border border-sky-500/20 rounded-xl text-sky-400 shadow-inner">
+                <Server className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                  <span className="tracking-wide">{t('dashboard.serverControlHub', 'Server Control Hub')}</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Real-time cluster monitoring and instance management
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Filter Tabs & Search & Action Buttons */}
             <div className="flex flex-wrap items-center gap-3">
+              {/* Status Filter Chips */}
+              <div className="flex items-center p-1.5 gap-1.5 bg-slate-950/90 border border-white/10 rounded-2xl shadow-inner">
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className={cn(
+                    "px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer",
+                    statusFilter === 'all'
+                      ? "bg-sky-500 text-slate-950 shadow-md font-bold"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                  )}
+                >
+                  <span>All</span>
+                  <span className={cn(
+                    "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold min-w-[18px] text-center leading-none",
+                    statusFilter === 'all' ? "bg-slate-950/30 text-slate-950" : "bg-white/10 text-slate-400"
+                  )}>
+                    {servers.length}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setStatusFilter('online')}
+                  className={cn(
+                    "px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer",
+                    statusFilter === 'online'
+                      ? "bg-emerald-500 text-slate-950 shadow-md font-bold"
+                      : "text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/5"
+                  )}
+                >
+                  <span className={cn(
+                    "w-1.5 h-1.5 rounded-full shrink-0",
+                    statusFilter === 'online' ? "bg-slate-950" : "bg-emerald-500 animate-pulse"
+                  )} />
+                  <span>Online</span>
+                  <span className={cn(
+                    "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold min-w-[18px] text-center leading-none",
+                    statusFilter === 'online' ? "bg-slate-950/30 text-slate-950" : "bg-emerald-500/20 text-emerald-400"
+                  )}>
+                    {onlineServersCount}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setStatusFilter('stopped')}
+                  className={cn(
+                    "px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer",
+                    statusFilter === 'stopped'
+                      ? "bg-slate-700 text-white shadow-md font-bold"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                  )}
+                >
+                  <span>Offline</span>
+                  <span className={cn(
+                    "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold min-w-[18px] text-center leading-none",
+                    statusFilter === 'stopped' ? "bg-slate-950/30 text-white" : "bg-white/10 text-slate-400"
+                  )}>
+                    {stoppedServersCount}
+                  </span>
+                </button>
+
+                {outdatedServersCount > 0 && (
+                  <button
+                    onClick={() => setStatusFilter('outdated')}
+                    className={cn(
+                      "px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer",
+                      statusFilter === 'outdated'
+                        ? "bg-amber-500 text-slate-950 shadow-md font-bold"
+                        : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                    )}
+                  >
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Outdated</span>
+                    <span className={cn(
+                      "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold min-w-[18px] text-center leading-none",
+                      statusFilter === 'outdated' ? "bg-slate-950/30 text-slate-950" : "bg-amber-500/20 text-amber-400"
+                    )}>
+                      {outdatedServersCount}
+                    </span>
+                  </button>
+                )}
+              </div>
+
               {/* Search Box */}
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
                   id="asa-server-search"
@@ -650,32 +768,48 @@ export default function Dashboard() {
                   aria-label="Search servers"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search server..."
-                  className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/50 w-48 transition-all"
+                  placeholder="Search servers..."
+                  className="pl-9 pr-8 py-1.5 bg-[#0A0F1C]/90 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/20 w-44 sm:w-48 transition-all"
                 />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-2 text-slate-400 hover:text-white transition-colors p-0.5"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
+
+              {/* Deploy Server Button */}
               <button
                 onClick={() => setDraftOpen(true)}
-                className="text-xs font-bold px-3 py-1.5 bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl transition-all flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.03] active:scale-[0.97]"
+                className="text-xs font-bold px-3.5 py-2 bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 rounded-xl transition-all shadow-lg shadow-sky-500/20 flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                 aria-label="Deploy Server"
               >
                 <Zap className="w-3.5 h-3.5 fill-current" />
-                Deploy Server
+                <span>Deploy Server</span>
               </button>
+
+              {/* Server Organization Button */}
               <button
                 onClick={() => navigate('/tools/organization')}
-                className="text-xs font-semibold px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-[1.03] active:scale-[0.97] flex items-center gap-1.5 cursor-pointer"
+                className="text-xs font-semibold px-3 py-2 bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 hover:border-sky-500/30 rounded-xl transition-all flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                 aria-label="Server Organization Page"
               >
                 <Folder className="w-3.5 h-3.5 text-sky-400" />
-                Server Organization
+                <span>Organization</span>
               </button>
+
+              {/* Manage All Button */}
               <button
                 onClick={() => navigate('/servers')}
-                className="text-xs font-medium text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-lg"
+                className="text-xs font-semibold px-3 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 rounded-xl transition-all flex items-center gap-1 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                 aria-label="Manage all servers"
               >
-                {t('dashboard.manageAll', 'Manage All →')}
+                <span>{t('dashboard.manageAll', 'Manage All')}</span>
+                <span className="text-sky-400">→</span>
               </button>
             </div>
           </div>
@@ -689,7 +823,7 @@ export default function Dashboard() {
           />
 
           {
-            filteredServers.length === 0 ? (
+            servers.length === 0 ? (
               <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-[#080d19]/40 p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12">
                 {/* Background gradient blur spots */}
                 <div className="absolute -left-12 -top-12 w-64 h-64 rounded-full bg-sky-500/5 blur-3xl pointer-events-none" />
@@ -799,48 +933,76 @@ export default function Dashboard() {
                     <span>Central systems are online.</span>
                     <button
                       onClick={() => navigate('/config')}
-                      className="text-sky-400 hover:text-sky-300 font-semibold focus:outline-none ml-1 flex items-center gap-0.5 hover:underline"
+                      className="text-sky-400 hover:text-sky-300 font-semibold focus:outline-none ml-1 flex items-center gap-0.5 hover:underline cursor-pointer"
                     >
                       Open Config Editor →
                     </button>
                   </div>
                 </div>
               </div>
+            ) : filteredServers.length === 0 ? (
+              <div className="p-8 rounded-2xl border border-white/5 bg-[#080d19]/40 text-center flex flex-col items-center justify-center">
+                <Search className="w-8 h-8 text-slate-600 mb-3" />
+                <h4 className="text-sm font-semibold text-slate-200">No servers match your criteria</h4>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">
+                  Try adjusting your search query or reset status filters to view all configured server profiles.
+                </p>
+                <div className="flex items-center gap-2 mt-4">
+                  <button
+                    onClick={() => { setSearchQuery(''); setStatusFilter('all'); setSelectedFolderId(null); }}
+                    className="px-3.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              </div>
             ) : (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-3">
                 {filteredServers.map((server) => {
                   const cust = snapshot?.servers?.find((s: any) => s.id === server.id)?.customization;
                   const displayName = cust?.display_name || server.name;
                   const hasColor = !!cust?.color_tag;
+                  const isOnline = server.status === 'online' || server.status === 'running';
+                  const isStarting = server.status === 'starting';
+                  const isUpdating = server.status === 'updating';
+                  const isStopping = stoppingServers.includes(server.id);
+                  const isCrashed = server.status === 'crashed' || server.status === 'startup_timeout';
 
                   return (
                     <div
                       key={server.id}
-                      className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] hover:border-violet-500/20 hover:scale-[1.01] hover:shadow-[0_0_15px_rgba(139,92,246,0.05)] transition-all duration-300 group gap-4 lg:gap-0 relative hover:z-50 z-10"
+                      className={cn(
+                        "relative flex flex-col xl:flex-row xl:items-center justify-between p-4 sm:p-5 bg-slate-900/60 backdrop-blur-xl border rounded-2xl hover:bg-slate-900/85 transition-all duration-300 group gap-4 xl:gap-6 hover:shadow-xl hover:shadow-sky-500/5 hover:border-sky-500/30 hover:z-30 z-10",
+                        server.status === 'online' ? "border-emerald-500/20 bg-slate-900/70" :
+                        isStarting || isUpdating ? "border-sky-500/25 bg-slate-900/70" :
+                        isCrashed ? "border-rose-500/25 bg-rose-950/10" :
+                        "border-white/5"
+                      )}
                     >
-                      {/* Custom Brand line indicator */}
+                      {/* Custom Brand color indicator if configured */}
                       {hasColor && (
                         <div
-                          className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+                          className="absolute left-1.5 top-3 bottom-3 w-1 rounded-full opacity-90 shadow-sm"
                           style={{ backgroundColor: cust.color_tag }}
                         />
                       )}
 
-                      <div className="flex items-center gap-4 pl-2">
-                        <div
-                          className={cn(
-                            'w-2.5 h-2.5 rounded-full transition-all duration-300',
-                            server.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
-                            server.status === 'running' && 'bg-sky-500 animate-pulse',
-                            server.status === 'stopped' && 'bg-slate-500',
-                            server.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
-                            server.status === 'starting' && 'bg-sky-500 animate-pulse',
-                            server.status === 'updating' && 'bg-blue-500 animate-pulse'
-                          )}
-                          role="img"
-                          aria-label={`Status: ${server.status}`}
-                        />
-                        <div>
+                      {/* Left: Server Details & Metadata */}
+                      <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                        {/* Status Node Icon */}
+                        <div className="relative shrink-0 mt-0.5 sm:mt-0">
+                          <div className={cn(
+                            "w-3.5 h-3.5 rounded-full transition-all duration-300",
+                            server.status === 'online' && "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.9)] ring-4 ring-emerald-500/20",
+                            isStarting && "bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.9)] ring-4 ring-sky-500/20 animate-pulse",
+                            isUpdating && "bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.9)] ring-4 ring-blue-500/20 animate-pulse",
+                            isCrashed && "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.9)] ring-4 ring-rose-500/20 animate-pulse",
+                            server.status === 'stopped' && "bg-slate-600 ring-2 ring-white/5"
+                          )} />
+                        </div>
+
+                        {/* Title & Badges */}
+                        <div className="min-w-0 flex-1">
                           {editingServerId === server.id ? (
                             <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                               <input
@@ -850,18 +1012,18 @@ export default function Dashboard() {
                                 onKeyDown={(e) => handleRenameKeyDown(e, server)}
                                 onBlur={() => handleRenameSave(server)}
                                 autoFocus
-                                className="text-sm font-bold bg-slate-900 border border-sky-500 rounded px-2 py-0.5 text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 min-w-[160px]"
+                                className="text-sm font-bold bg-slate-950 border border-sky-500 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:ring-2 focus:ring-sky-500/40 min-w-[200px]"
                               />
                               <button
                                 onClick={() => handleRenameSave(server)}
-                                className="p-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 rounded transition-colors"
-                                title="Save Name"
+                                className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 rounded-lg transition-colors cursor-pointer"
+                                title="Save Profile Name"
                               >
                                 <Check className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => setEditingServerId(null)}
-                                className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded transition-colors"
+                                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg transition-colors cursor-pointer"
                                 title="Cancel"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -869,9 +1031,10 @@ export default function Dashboard() {
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 flex-wrap">
+                              {/* Profile Title with click-to-rename */}
                               <div className="flex items-center gap-1.5 group/title">
                                 <h3
-                                  className="font-semibold text-slate-200 hover:text-sky-400 cursor-pointer transition-colors"
+                                  className="font-bold text-slate-100 text-sm sm:text-base hover:text-sky-400 cursor-pointer transition-colors"
                                   onClick={(e) => handleRenameStart(server, e)}
                                   onDoubleClick={(e) => handleRenameStart(server, e)}
                                   title="Click to rename profile"
@@ -880,21 +1043,14 @@ export default function Dashboard() {
                                 </h3>
                                 <button
                                   onClick={(e) => handleRenameStart(server, e)}
-                                  className="p-0.5 text-slate-400 hover:text-sky-400 hover:bg-sky-500/10 rounded transition-all opacity-80 group-hover/title:opacity-100"
-                                  title="Rename Server Profile"
+                                  className="p-1 text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 rounded-md transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                                  title="Rename Profile"
                                 >
-                                  <Edit2 className="w-3.5 h-3.5 text-sky-400/80" />
+                                  <Edit2 className="w-3 h-3" />
                                 </button>
                               </div>
-                              <span
-                                onClick={(e) => handleRenameStart(server, e)}
-                                className="inline-flex items-center gap-2 px-3 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/25 hover:border-sky-500/40 rounded-lg text-xs text-sky-300 font-mono font-medium cursor-pointer transition-all no-collapse max-w-full truncate"
-                                title={`Click to rename profile | Server Path: ${server.installPath}`}
-                              >
-                                <FolderOpen className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                                <span className="truncate">Profile: {displayName}</span>
-                                <Edit2 className="w-3 h-3 text-sky-400/70 shrink-0 ml-0.5" />
-                              </span>
+
+                              {/* Explorer Folder Shortcut */}
                               {server.installPath && (
                                 <button
                                   onClick={async (e) => {
@@ -906,89 +1062,118 @@ export default function Dashboard() {
                                       toast.error(`Cannot open folder: ${err}`);
                                     }
                                   }}
-                                  className="p-1.5 bg-slate-800 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/40 rounded-lg transition-all shrink-0 cursor-pointer"
-                                  title={`Open real server folder on disk:\n${server.installPath}`}
+                                  className="p-1 bg-white/5 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/30 rounded-md transition-all shrink-0 cursor-pointer"
+                                  title={`Open server install folder:\n${server.installPath}`}
                                 >
-                                  <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+                                  <FolderOpen className="w-3 h-3 text-sky-400" />
                                 </button>
                               )}
+
+                              {/* Favorite & Pin Badges */}
                               {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
                               {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-400 fill-sky-400" />}
                               {server.autoStart && (
-                                <span className="text-[9px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold tracking-wide uppercase">
+                                <span className="text-[9px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold tracking-wide uppercase">
                                   AUTOSTART
                                 </span>
                               )}
                             </div>
                           )}
-                          <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <p className="text-xs text-slate-400">
-                              {server.config.sessionName && server.config.sessionName !== server.name && (
-                                <span className="text-slate-300 font-medium mr-1.5 font-mono">
-                                  [{server.config.sessionName}]
-                                </span>
-                              )}
-                              {server.config.mapName} • Game: {server.ports.gamePort} • Query: {server.ports.queryPort}
-                            </p>
+
+                          {/* Metadata Badges & Tags */}
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                            {/* Map Badge */}
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300 font-medium font-mono">
+                              <span>🗺️</span>
+                              <span>{server.config.mapName || 'CustomMap'}</span>
+                            </span>
+
+                            {/* Session Name if different */}
+                            {server.config.sessionName && server.config.sessionName !== server.name && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300 font-medium font-mono">
+                                <span>🎮</span>
+                                <span>{server.config.sessionName}</span>
+                              </span>
+                            )}
+
+                            {/* Ports Tag */}
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-950/60 border border-white/5 rounded-md text-[11px] text-slate-400 font-mono">
+                              <span>Port: {server.ports.gamePort}</span>
+                              <span className="text-slate-600">|</span>
+                              <span>Query: {server.ports.queryPort}</span>
+                            </span>
+
+                            {/* Version Badge */}
                             {serverVersions[server.id] && (
-                              <span className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-slate-300 font-medium font-mono animate-in fade-in" title={t('serverManager.tooltips.serverVersion', 'Local Server Version')}>
-                                <GitBranch className="w-3.5 h-3.5 text-sky-400/80" />
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-500/10 border border-sky-500/20 rounded-md text-xs text-sky-300 font-mono font-medium" title={t('serverManager.tooltips.serverVersion', 'Local Server Version')}>
+                                <GitBranch className="w-3 h-3 text-sky-400/80" />
                                 <span>{serverVersions[server.id]}</span>
                               </span>
                             )}
+
+                            {/* Update Available Badge */}
                             {isServerOutdated(server.id) && (
-                              <span className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg text-xs font-bold animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version is available!')}>
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                                <span>{t('serverManager.status.updateAvailable', 'Update Available')}</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-md text-xs font-bold animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version available on Steam!')}>
+                                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                                <span>Update Available</span>
                               </span>
                             )}
+
+                            {/* Reachability Badge */}
                             {server.reachability && (
                               <span className={cn(
-                                "text-[10px] px-1.5 py-0.5 rounded font-medium font-mono",
+                                "text-[10px] px-2 py-0.5 rounded-md font-semibold font-mono flex items-center gap-1",
                                 server.reachability === 'Public'
                                   ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                                   : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                               )}>
-                                {server.reachability === 'Public' ? 'REACHABLE' : server.reachability}
+                                <span className={cn("w-1.5 h-1.5 rounded-full", server.reachability === 'Public' ? "bg-emerald-400" : "bg-rose-400")} />
+                                <span>{server.reachability === 'Public' ? 'PUBLIC' : server.reachability}</span>
                               </span>
                             )}
+
+                            {/* Custom User Tags */}
                             {cust?.tags && cust.tags.map((tg: string) => (
-                              <span key={tg} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] text-slate-400 font-medium">
-                                {tg}
+                              <span key={tg} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-[10px] text-slate-400 font-medium">
+                                #{tg}
                               </span>
                             ))}
                           </div>
+
                           <ServerTimedShutdownBanner serverId={server.id} className="mt-2" />
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2.5">
-                        {/* Actions */}
-                        {(server.status === 'stopped' || server.status === 'crashed') && !stoppingServers.includes(server.id) ? (
+                      {/* Right: Quick Action Controls Cluster */}
+                      <div className="flex items-center gap-2 flex-wrap xl:flex-nowrap justify-end shrink-0 pl-2 xl:pl-0">
+                        {/* Primary Start / Stop Action */}
+                        {(server.status === 'stopped' || server.status === 'crashed') && !isStopping ? (
                           <button
                             onClick={() => handleStartServer(server.id)}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
+                            className="h-9 px-3.5 flex items-center gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/50 rounded-xl font-bold text-xs transition-all shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                             title="Start Server"
                             aria-label={`Start Server ${displayName}`}
                           >
-                            <Play className="w-4 h-4 fill-current ml-0.5" />
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>Start</span>
                           </button>
-                        ) : (server.status === 'running' || server.status === 'online') && !stoppingServers.includes(server.id) ? (
+                        ) : isOnline && !isStopping ? (
                           <div className="relative group/stop" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => setTimedShutdownServer(server)}
-                              className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95"
+                              className="h-9 px-3.5 flex items-center gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 hover:border-rose-500/50 rounded-xl font-bold text-xs transition-all shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                               title="Stop / Shutdown Options"
                               aria-label={`Stop Server ${displayName}`}
                             >
-                              <Square className="w-4 h-4 fill-current" />
+                              <Square className="w-3.5 h-3.5 fill-current" />
+                              <span>Stop</span>
                             </button>
 
                             {/* Stop Options Dropdown */}
-                            <div className="absolute bottom-full right-0 mb-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-bottom-right scale-95 group-hover/stop:scale-100">
+                            <div className="absolute top-full right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/stop:scale-100">
                               <button
                                 onClick={() => setTimedShutdownServer(server)}
-                                className="w-full text-left px-3 py-2.5 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 text-xs font-bold"
+                                className="w-full text-left px-3 py-2.5 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 text-xs font-bold cursor-pointer"
                               >
                                 <Timer className="w-4 h-4 text-amber-400 shrink-0" />
                                 <div className="flex flex-col">
@@ -998,7 +1183,7 @@ export default function Dashboard() {
                               </button>
                               <button
                                 onClick={() => handleStopServer(server.id)}
-                                className="w-full text-left px-3 py-2.5 hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs font-bold"
+                                className="w-full text-left px-3 py-2.5 hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs font-bold cursor-pointer"
                               >
                                 <Square className="w-4 h-4 fill-current text-rose-400 shrink-0" />
                                 <div className="flex flex-col">
@@ -1009,66 +1194,46 @@ export default function Dashboard() {
                             </div>
                           </div>
                         ) : (
-                          <button
-                            disabled
+                          <div
                             className={cn(
-                              "w-[34px] h-[34px] flex items-center justify-center border rounded-xl opacity-80 cursor-not-allowed focus:outline-none transition-all",
-                              (server.status === 'starting' && !stoppingServers.includes(server.id)) && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-                              stoppingServers.includes(server.id) && 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-                              server.status === 'updating' && 'bg-sky-500/10 text-sky-400 border-sky-500/20',
-                              server.status === 'restarting' && 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-                              'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                              "h-9 px-3.5 flex items-center gap-2 border rounded-xl font-semibold text-xs transition-all",
+                              isStarting && "bg-sky-500/15 text-sky-400 border-sky-500/30",
+                              isStopping && "bg-rose-500/15 text-rose-400 border-rose-500/30",
+                              isUpdating && "bg-blue-500/15 text-blue-400 border-blue-500/30",
+                              server.status === 'restarting' && "bg-amber-500/15 text-amber-400 border-amber-500/30",
+                              "bg-slate-800/40 text-slate-400 border-white/5"
                             )}
-                            aria-label={`Server ${displayName} status updating`}
                           >
-                            {stoppingServers.includes(server.id) ? (
-                              <div className="relative w-4 h-4 flex items-center justify-center">
-                                <div className="absolute inset-0 border-2 border-rose-500/20 border-t-rose-400 rounded-full animate-spin" />
-                                <Square className="w-1.5 h-1.5 fill-current text-rose-400 animate-pulse" />
-                              </div>
-                            ) : server.status === 'starting' ? (
-                              <div className="relative w-4 h-4 flex items-center justify-center">
-                                <div className="absolute inset-0 border-2 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" />
-                                <Play className="w-2 h-2 fill-current text-emerald-400 animate-pulse ml-0.5" />
-                              </div>
-                            ) : server.status === 'updating' ? (
-                              <div className="relative w-4 h-4 flex items-center justify-center">
-                                <div className="absolute inset-0 border-2 border-sky-500/20 border-t-sky-400 rounded-full animate-spin" />
-                                <RefreshCw className="w-2 h-2 text-sky-400 animate-spin [animation-duration:3s]" />
-                              </div>
-                            ) : server.status === 'restarting' ? (
-                              <div className="relative w-4 h-4 flex items-center justify-center">
-                                <div className="absolute inset-0 border-2 border-amber-500/20 border-t-amber-400 rounded-full animate-spin" />
-                                <RefreshCw className="w-2 h-2 text-amber-400 animate-spin [animation-duration:3s]" />
-                              </div>
-                            ) : (
-                              <RotateCw className="w-4 h-4 animate-spin" />
-                            )}
-                          </button>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>
+                              {isStopping ? 'Stopping...' : isStarting ? 'Starting...' : isUpdating ? 'Updating...' : 'Processing...'}
+                            </span>
+                          </div>
                         )}
 
+                        {/* Restart Dropdown */}
                         <div className="relative group/dropdown">
                           <button
                             disabled={server.status === 'stopped'}
-                            className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                            className="h-9 w-9 flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 cursor-pointer"
                             title="Restart Options"
                             aria-label={`Restart options for Server ${displayName}`}
                           >
-                            <RotateCw className="w-4 h-4" />
+                            <RotateCw className="w-3.5 h-3.5" />
                           </button>
 
                           {/* Dropdown Menu */}
                           <div className="absolute top-full right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
                             <button
                               onClick={() => handleRestartServer(server.id)}
-                              className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 text-xs"
+                              className="w-full text-left px-3.5 py-2.5 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors flex items-center gap-2 text-xs font-medium cursor-pointer"
                             >
-                              <RotateCw className="w-3.5 h-3.5" />
+                              <RotateCw className="w-3.5 h-3.5 text-sky-400" />
                               <span>{t('dashboard.normalRestart', 'Normal Restart')}</span>
                             </button>
                             <button
                               onClick={() => handleRestartServer(server.id, true)}
-                              className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs"
+                              className="w-full text-left px-3.5 py-2.5 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800/80 text-xs font-medium cursor-pointer"
                               title="Gracefully restart the server and wipe all wild dinosaurs"
                             >
                               <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
@@ -1077,43 +1242,63 @@ export default function Dashboard() {
                           </div>
                         </div>
 
+                        {/* Copy IP / Address with Check Feedback */}
                         <button
-                          onClick={() => handleCopyIp(server.ipAddress, server.ports.gamePort)}
-                          className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
-                          title="Copy IP Address"
+                          onClick={() => handleCopyIp(server.id, server.ipAddress, server.ports.gamePort)}
+                          className={cn(
+                            "h-9 w-9 flex items-center justify-center border rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer",
+                            copiedServerId === server.id
+                              ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+                              : "bg-white/5 hover:bg-white/10 text-slate-300 border-white/10"
+                          )}
+                          title="Copy Direct IP Connection"
                           aria-label={`Copy IP address for Server ${displayName}`}
                         >
-                          <Copy className="w-3.5 h-3.5" />
+                          {copiedServerId === server.id ? (
+                            <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
                         </button>
 
+                        {/* Clone / Transfer Modal Button */}
                         <button
                           onClick={() => openCloneModal(server)}
-                          className="w-[34px] h-[34px] flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
-                          title="Clone/Transfer Options"
+                          className="h-9 w-9 flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                          title="Clone & Profile Transfer Tools"
                           aria-label={`Clone or transfer Server ${displayName}`}
                         >
-                          <Puzzle className="w-4 h-4" />
+                          <Puzzle className="w-3.5 h-3.5" />
                         </button>
 
+                        {/* Config Editor Link Button */}
                         <button
                           onClick={() => navigate('/config', { state: { serverId: server.id } })}
-                          className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
-                          title="Config Editor"
+                          className="h-9 w-9 flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                          title="Open in Config Editor"
                           aria-label={`Open Config Editor for Server ${displayName}`}
                         >
-                          <FileEdit className="w-4 h-4" />
+                          <FileEdit className="w-3.5 h-3.5" />
                         </button>
 
+                        {/* High-Contrast Status Capsule */}
                         <div className={cn(
-                          "w-[85px] h-[34px] rounded-xl text-[10px] font-bold tracking-[0.05em] border uppercase flex items-center justify-center shadow-inner",
-                          server.status === 'online' && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-                          server.status === 'running' && 'bg-sky-500/10 text-sky-400 border-sky-500/20',
-                          server.status === 'crashed' && 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-                          server.status === 'starting' && 'bg-sky-500/10 text-sky-400 border-sky-500/20',
-                          server.status === 'updating' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-                          'bg-[#1a202c]/50 text-slate-400 border-white/5'
+                          "min-w-[85px] h-9 px-2.5 rounded-xl text-[10px] font-bold tracking-wider border uppercase flex items-center justify-center gap-1.5 shadow-inner select-none",
+                          server.status === 'online' && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25',
+                          server.status === 'running' && 'bg-sky-500/10 text-sky-400 border-sky-500/25',
+                          isCrashed && 'bg-rose-500/15 text-rose-400 border-rose-500/30',
+                          isStarting && 'bg-sky-500/10 text-sky-400 border-sky-500/25',
+                          isUpdating && 'bg-blue-500/10 text-blue-400 border-blue-500/25',
+                          server.status === 'stopped' && 'bg-[#121826] text-slate-400 border-white/5'
                         )}>
-                          {server.status.toUpperCase()}
+                          <span className={cn(
+                            "w-1.5 h-1.5 rounded-full",
+                            server.status === 'online' ? "bg-emerald-400" :
+                            isCrashed ? "bg-rose-400 animate-ping" :
+                            isStarting || isUpdating ? "bg-sky-400 animate-pulse" :
+                            "bg-slate-500"
+                          )} />
+                          <span>{server.status.toUpperCase()}</span>
                         </div>
                       </div>
                     </div>

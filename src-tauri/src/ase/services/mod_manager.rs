@@ -856,7 +856,7 @@ impl AseModManager {
             return Ok(());
         }
 
-        let content = std::fs::read_to_string(&gus_path)
+        let content = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path)
             .map_err(|e| format!("Failed to read GameUserSettings.ini: {}", e))?;
         let mut gus_doc = IniDocument::parse(&content);
 
@@ -879,18 +879,8 @@ impl AseModManager {
         gus_doc.set_value("ServerSettings", "ActiveMods", &new_active_mods);
 
         let gus_content = gus_doc.serialize();
-        let tmp_path = config_dir.join("GameUserSettings.ini.tmp");
-        if let Err(e) = std::fs::write(&tmp_path, &gus_content) {
-            println!("[WARNING] Failed to write temporary GameUserSettings.ini during update_active_mods: {}. Falling back to direct write.", e);
-            std::fs::write(&gus_path, gus_content)
-                .map_err(|err| format!("Failed to write GameUserSettings.ini: {}", err))?;
-        } else {
-            if let Err(e) = std::fs::rename(&tmp_path, &gus_path) {
-                println!("[WARNING] Failed to rename GameUserSettings.ini.tmp during update_active_mods: {}. Falling back to direct write.", e);
-                std::fs::write(&gus_path, gus_content)
-                    .map_err(|err| format!("Failed to write GameUserSettings.ini: {}", err))?;
-            }
-        }
+        crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &gus_content)
+            .map_err(|err| format!("Failed to write GameUserSettings.ini: {}", err))?;
 
         Ok(())
     }
@@ -908,7 +898,7 @@ impl AseModManager {
 
         let gus_path = config_dir.join("GameUserSettings.ini");
         let mut gus_doc = if gus_path.exists() {
-            let content = std::fs::read_to_string(&gus_path)
+            let content = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path)
                 .map_err(|e| format!("Failed to read GameUserSettings.ini: {}", e))?;
             IniDocument::parse(&content)
         } else {
@@ -919,19 +909,8 @@ impl AseModManager {
         gus_doc.set_value("ServerSettings", "ActiveMods", &active_mods_val);
 
         let gus_content = gus_doc.serialize();
-        let tmp_path = config_dir.join("GameUserSettings.ini.tmp");
-        
-        if let Err(e) = std::fs::write(&tmp_path, &gus_content) {
-            println!("[WARNING] Failed to write temporary GameUserSettings.ini during mod sync: {}. Falling back to direct write.", e);
-            std::fs::write(&gus_path, gus_content)
-                .map_err(|err| format!("Failed to write GameUserSettings.ini during mod sync: {}", err))?;
-        } else {
-            if let Err(e) = std::fs::rename(&tmp_path, &gus_path) {
-                println!("[WARNING] Failed to rename GameUserSettings.ini.tmp during mod sync: {}. Falling back to direct write.", e);
-                std::fs::write(&gus_path, gus_content)
-                    .map_err(|err| format!("Failed to write GameUserSettings.ini during mod sync: {}", err))?;
-            }
-        }
+        crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &gus_content)
+            .map_err(|err| format!("Failed to write GameUserSettings.ini during mod sync: {}", err))?;
         
         println!("[INFO] [ASE Mod Manager] Synced active mods ({}) to GameUserSettings.ini", active_mods_val);
         Ok(())

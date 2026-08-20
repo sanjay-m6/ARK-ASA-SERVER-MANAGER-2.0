@@ -391,12 +391,12 @@ impl GuardianService {
                             pids.remove(&server_id);
                         }
 
-                        let is_intentionally_stopping = {
+                        let is_intentionally_stopping: bool = {
                             let mut stopping = stopping_servers.lock().await;
                             stopping.remove(&server_id)
                         };
 
-                        let server_name = {
+                        let server_name: String = {
                             if let Ok(db_guard) = state.db.lock() {
                                 if let Ok(conn) = db_guard.get_connection() {
                                     if server_id < 0 {

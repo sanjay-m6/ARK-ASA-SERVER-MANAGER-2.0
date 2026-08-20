@@ -36,6 +36,8 @@ src-tauri/WixTools/
 src-tauri/gen/schemas/
 src-tauri/target_check/
 src-tauri/check-target/
+src-tauri/target-check/
+src-tauri/target_cargo_diag/
 
 # Sensitive files (keys, credentials, env vars)
 .env

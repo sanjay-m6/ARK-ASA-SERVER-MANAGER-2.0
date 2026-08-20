@@ -787,72 +787,99 @@ export default function ASEServerManager() {
                 </div>
 
                 {/* Action Buttons + Collapse Toggle */}
-                <div className="flex items-center gap-2 no-collapse">
+                {/* Action Pod Toolbar */}
+                <div 
+                    onClick={(e) => e.stopPropagation()}
+                    className="relative flex items-center gap-3 px-4 py-2 bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.12)] hover:border-slate-700/80 transition-all duration-300 xl:mr-4 shrink-0 no-collapse w-fit mx-auto xl:mx-0 self-center xl:self-auto ring-1 ring-white/5"
+                >
                   {srv.status === 'updating' ? (
-                    <button disabled className="p-2.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-xl cursor-not-allowed opacity-60" title="Updating Files...">
+                    <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 shadow-[0_0_12px_rgba(59,130,246,0.25)]" title="Updating Files...">
                       <RefreshCw className="w-5 h-5 animate-spin" />
-                    </button>
+                    </div>
                   ) : srv.status === 'stopped' || srv.status === 'crashed' ? (
-                    <button onClick={()=>handleStart(srv.id)} className="p-2.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner" title="Start Server">
-                      <Play className="w-5 h-5 fill-current" />
+                    <button 
+                      onClick={()=>handleStart(srv.id)} 
+                      className="relative flex items-center justify-center w-11 h-11 rounded-full bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-400/60 shadow-[0_0_12px_rgba(16,185,129,0.2)] hover:shadow-[0_0_22px_rgba(16,185,129,0.45)] transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn" 
+                      title="Start Server"
+                    >
+                      <Play className="w-5 h-5 fill-current ml-0.5" />
                     </button>
                   ) : (
                     <>
                       <div className="relative group/stop">
                         <button
                           onClick={() => setTimedShutdownServer(srv)}
-                          className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner"
+                          className="relative flex items-center justify-center w-11 h-11 rounded-full bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 hover:text-rose-300 border border-rose-500/35 hover:border-rose-400/70 shadow-[0_0_14px_rgba(244,63,94,0.3)] hover:shadow-[0_0_24px_rgba(244,63,94,0.55)] transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn"
                           title="Stop / Shutdown Options"
                         >
-                          <Square className="w-5 h-5 fill-current" />
+                          <Square className="w-4 h-4 fill-current" />
                         </button>
 
                         {/* Stop Options Dropdown */}
-                        <div className="absolute bottom-full right-0 mb-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-bottom-right scale-95 group-hover/stop:scale-100">
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-3 w-56 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/stop:scale-100 p-1.5 space-y-1">
+                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-rose-400/80">Shutdown Options</div>
                           <button
                             onClick={() => setTimedShutdownServer(srv)}
-                            className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2.5 text-xs font-bold"
+                            className="w-full text-left px-3 py-2.5 hover:bg-amber-500/15 text-slate-200 hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer"
                           >
-                            <Timer className="w-4 h-4 text-amber-400 shrink-0" />
+                            <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                              <Timer className="w-3.5 h-3.5" />
+                            </div>
                             <div className="flex flex-col">
-                              <span>Timed Shutdown</span>
+                              <span className="font-bold">Timed Shutdown</span>
                               <span className="text-[10px] text-slate-400 font-normal">Countdown with broadcasts</span>
                             </div>
                           </button>
                           <button
                             onClick={() => handleStop(srv.id)}
-                            className="w-full text-left px-4 py-3 hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2.5 border-t border-slate-800 text-xs font-bold"
+                            className="w-full text-left px-3 py-2.5 hover:bg-rose-500/15 text-slate-200 hover:text-rose-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer border-t border-slate-800/80 pt-2"
                           >
-                            <Square className="w-4 h-4 fill-current text-red-400 shrink-0" />
+                            <div className="w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-400 group-hover/item:scale-110 transition-transform">
+                              <Square className="w-3.5 h-3.5 fill-current" />
+                            </div>
                             <div className="flex flex-col">
-                              <span>Immediate Stop</span>
-                              <span className="text-[10px] text-slate-400 font-normal">Halt process right away</span>
+                              <span className="font-bold">Immediate Stop</span>
+                              <span className="text-[10px] text-slate-400 font-normal">Halt process immediately</span>
                             </div>
                           </button>
                         </div>
                       </div>
 
                       <div className="relative group/dropdown">
-                        <button className="p-2.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner" title="Restart Options">
-                          <RotateCw className="w-5 h-5" />
+                        <button 
+                          className="relative flex items-center justify-center w-11 h-11 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/20 hover:border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.15)] hover:shadow-[0_0_20px_rgba(245,158,11,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer group/btn" 
+                          title="Restart Options"
+                        >
+                          <RotateCw className="w-5 h-5 group-hover/btn:rotate-180 transition-transform duration-500" />
                         </button>
                         
                         {/* Dropdown Menu */}
-                        <div className="absolute top-full right-0 mt-2 w-56 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-3 w-56 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/dropdown:scale-100 p-1.5 space-y-1">
+                          <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-amber-400/80">Restart Control</div>
                           <button
                             onClick={() => handleRestartAseServer(srv.id)}
-                            className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 text-xs"
+                            className="w-full text-left px-3 py-2.5 hover:bg-slate-800 text-slate-200 hover:text-white rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
                           >
-                            <RotateCw className="w-4 h-4" />
-                            <span>{t('serverManager.buttons.normalRestart', 'Normal Restart')}</span>
+                            <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                              <RotateCw className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span>{t('serverManager.buttons.normalRestart', 'Normal Restart')}</span>
+                              <span className="text-[10px] text-slate-400 font-normal">Graceful server restart</span>
+                            </div>
                           </button>
                           <button
                             onClick={() => handleRestartAseServer(srv.id, true)}
-                            className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs"
+                            className="w-full text-left px-3 py-2.5 hover:bg-amber-500/15 text-slate-200 hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-slate-800/80 pt-2"
                             title="Gracefully restart the server and wipe all wild dinosaurs"
                           >
-                            <RefreshCw className="w-4 h-4 text-amber-400" />
-                            <span>{t('serverManager.buttons.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
+                            <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                              <RefreshCw className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span>{t('serverManager.buttons.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
+                              <span className="text-[10px] text-slate-400 font-normal">DestroyWildDinos on boot</span>
+                            </div>
                           </button>
                         </div>
                       </div>
@@ -860,91 +887,110 @@ export default function ASEServerManager() {
                   )}
 
                   <button
-                      onClick={() => navigate('/ase/config', { state: { serverId: srv.id } })}
-                      disabled={srv.status === 'updating'}
-                      className="p-2.5 bg-slate-700/30 hover:bg-slate-700/50 text-slate-300 border border-slate-600/30 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Visual Server Settings"
-                  >
-                      <Settings className="w-5 h-5" />
-                  </button>
-
-                  <button
-                      onClick={() => navigate('/ase/config', { state: { serverId: srv.id, initialMode: 'gus' } })}
-                      disabled={srv.status === 'updating'}
-                      className="p-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Edit Server Files Manually (IDE Code Editor)"
-                  >
-                      <FileText className="w-5 h-5" />
-                  </button>
-
-                  <button
-                      onClick={async (e) => { e.stopPropagation(); try { await joinAseServer(srv.id); toast.success(t('serverManager.joiningServer', 'Launching ARK and connecting...')); } catch (err) { toast.error(`${err}`); } }}
-                      disabled={srv.status !== 'online' && srv.status !== 'running'}
-                      className="p-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Join Server (Direct Connect)"
-                  >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                  </button>
-
-                  <button
                       onClick={() => navigate('/ase/rcon', { state: { serverId: srv.id } })}
-                      disabled={srv.status === 'updating'}
-                      className="p-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={srv.status === 'updating' || srv.status === 'stopped'}
+                      className="relative flex items-center justify-center w-11 h-11 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 border border-cyan-500/20 hover:border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.15)] hover:shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer group/btn"
                       title="RCON Console"
                   >
                       <Terminal className="w-5 h-5" />
                   </button>
 
                   <button
-                      onClick={() => setCloneModalServer(srv)}
-                      disabled={srv.status === 'updating'}
-                      className="p-2.5 bg-slate-700/30 hover:bg-amber-500/20 text-slate-300 hover:text-amber-400 border border-slate-600/30 hover:border-amber-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Clone Server"
+                      onClick={async (e) => { e.stopPropagation(); try { await joinAseServer(srv.id); toast.success(t('serverManager.joiningServer', 'Launching ARK and connecting...')); } catch (err) { toast.error(`${err}`); } }}
+                      disabled={srv.status !== 'online' && srv.status !== 'running'}
+                      className="relative flex items-center justify-center w-11 h-11 rounded-full bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 hover:text-indigo-300 border border-indigo-500/20 hover:border-indigo-500/50 shadow-[0_0_10px_rgba(99,102,241,0.15)] hover:shadow-[0_0_20px_rgba(99,102,241,0.35)] transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-25 disabled:pointer-events-none cursor-pointer group/btn"
+                      title="Join Server (Direct Connect)"
                   >
-                      <Copy className="w-5 h-5" />
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                   </button>
 
-                  <button
-                      onClick={(e) => { e.stopPropagation(); handleMoveServer(srv.id); }}
-                      disabled={srv.status !== 'stopped' && srv.status !== 'crashed'}
-                      className="p-2.5 bg-slate-700/30 hover:bg-purple-500/20 text-slate-300 hover:text-purple-400 border border-slate-600/30 hover:border-purple-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={t('serverManager.move.buttonTitle', 'Move Server to New Directory')}
-                  >
-                      <FolderOpen className="w-5 h-5" />
-                  </button>
+                  <div className="w-[1.5px] h-6 bg-gradient-to-b from-transparent via-white/20 to-transparent mx-1 shrink-0" />
 
-                  <div className="w-px h-8 bg-slate-700/50 mx-1"></div>
+                  {/* Settings & Tools Dropdown */}
+                  <div className="relative group/settings">
+                    <button
+                        onClick={() => navigate('/ase/config', { state: { serverId: srv.id } })}
+                        disabled={srv.status === 'updating'}
+                        className="relative flex items-center justify-center w-11 h-11 rounded-full bg-slate-800/70 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/50 hover:border-amber-500/40 shadow-inner hover:shadow-[0_0_15px_rgba(245,158,11,0.25)] transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:pointer-events-none cursor-pointer group/btn"
+                        title="Server Settings & Options"
+                    >
+                        <Settings className="w-5 h-5 group-hover/btn:rotate-45 transition-transform duration-300" />
+                    </button>
 
-                  <button
-                      onClick={() => setResetServer({id: srv.id, name: srv.name})}
-                      disabled={srv.status === 'updating'}
-                      className="p-2.5 bg-slate-700/30 hover:bg-orange-500/20 text-slate-300 hover:text-orange-400 border border-slate-600/30 hover:border-orange-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Reset Server Data"
-                  >
-                      <RotateCw className="w-5 h-5" />
-                  </button>
-
-                  <button
-                      onClick={() => handleDelete(srv.id, srv.name)}
-                      disabled={srv.status === 'updating'}
-                      className="p-2.5 bg-slate-700/30 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-slate-600/30 hover:border-red-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 shadow-inner disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Delete Server"
-                  >
-                      <Trash2 className="w-5 h-5" />
-                  </button>
-
-                  {/* Collapse/Expand chevron */}
-                  <button
-                      onClick={(e) => { e.stopPropagation(); setCollapsedCards(prev => ({ ...prev, [srv.id]: !prev[srv.id] })); }}
-                      className="p-2 text-slate-500 hover:text-white transition-colors"
-                  >
-                      {collapsedCards[srv.id] ? (
-                          <ChevronDown className="w-4 h-4" />
-                      ) : (
-                          <ChevronUp className="w-4 h-4" />
-                      )}
-                  </button>
+                    {/* Settings Dropdown Menu */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 xl:left-auto xl:right-0 xl:translate-x-0 mt-2 w-60 bg-slate-900/95 backdrop-blur-2xl border border-slate-700/60 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.06)] opacity-0 invisible group-hover/settings:opacity-100 group-hover/settings:visible transition-all duration-200 z-50 overflow-hidden origin-top xl:origin-top-right scale-95 group-hover/settings:scale-100 p-1.5 space-y-0.5">
+                        <div className="px-3 py-1.5 text-[10px] font-bold tracking-wider uppercase text-amber-400/80">Management & Config</div>
+                        <button
+                            onClick={() => navigate('/ase/config', { state: { serverId: srv.id } })}
+                            className="w-full text-left px-3 py-2 hover:bg-slate-800 text-slate-200 hover:text-white rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                        >
+                            <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                                <Settings className="w-3.5 h-3.5" />
+                            </div>
+                            <span>Visual Config Editor</span>
+                        </button>
+                        <button
+                            onClick={() => navigate('/ase/config', { state: { serverId: srv.id, initialMode: 'gus' } })}
+                            className="w-full text-left px-3 py-2 hover:bg-amber-500/15 text-slate-200 hover:text-amber-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                        >
+                            <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400 group-hover/item:scale-110 transition-transform">
+                                <FileText className="w-3.5 h-3.5" />
+                            </div>
+                            <span>Edit Files Manually (IDE)</span>
+                        </button>
+                        <button
+                            onClick={() => setCloneModalServer(srv)}
+                            className="w-full text-left px-3 py-2 hover:bg-sky-500/15 text-slate-200 hover:text-sky-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                        >
+                            <div className="w-6 h-6 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-400 group-hover/item:scale-110 transition-transform">
+                                <Copy className="w-3.5 h-3.5" />
+                            </div>
+                            <span>Clone Server</span>
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); handleMoveServer(srv.id); }}
+                            disabled={srv.status !== 'stopped' && srv.status !== 'crashed'}
+                            className="w-full text-left px-3 py-2 hover:bg-purple-500/15 text-slate-200 hover:text-purple-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
+                        >
+                            <div className="w-6 h-6 rounded-lg bg-purple-500/15 flex items-center justify-center text-purple-400 group-hover/item:scale-110 transition-transform">
+                                <FolderOpen className="w-3.5 h-3.5" />
+                            </div>
+                            <span>Move Server</span>
+                        </button>
+                        <button
+                            onClick={() => setResetServer({id: srv.id, name: srv.name})}
+                            className="w-full text-left px-3 py-2 hover:bg-orange-500/15 text-slate-200 hover:text-orange-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                        >
+                            <div className="w-6 h-6 rounded-lg bg-orange-500/15 flex items-center justify-center text-orange-400 group-hover/item:scale-110 transition-transform">
+                                <RotateCw className="w-3.5 h-3.5" />
+                            </div>
+                            <span>Reset Server Data</span>
+                        </button>
+                        <div className="border-t border-slate-800/80 my-1"></div>
+                        <button
+                            onClick={() => handleDelete(srv.id, srv.name)}
+                            className="w-full text-left px-3 py-2 hover:bg-rose-500/15 text-rose-400 hover:text-rose-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer"
+                        >
+                            <div className="w-6 h-6 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-400 group-hover/item:scale-110 transition-transform">
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </div>
+                            <span>Delete Server</span>
+                        </button>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Collapse/Expand chevron */}
+                <button
+                    onClick={(e) => { e.stopPropagation(); setCollapsedCards(prev => ({ ...prev, [srv.id]: !prev[srv.id] })); }}
+                    className="p-2 text-slate-500 hover:text-white transition-colors"
+                >
+                    {collapsedCards[srv.id] ? (
+                        <ChevronDown className="w-4 h-4" />
+                    ) : (
+                        <ChevronUp className="w-4 h-4" />
+                    )}
+                </button>
               </div>
 
               {/* Collapsible Server Details */}

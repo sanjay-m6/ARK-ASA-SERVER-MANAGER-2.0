@@ -701,7 +701,7 @@ export default function ASEDashboard() {
                             </button>
 
                             {/* Stop Options Dropdown */}
-                            <div className="absolute bottom-full right-0 mb-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-bottom-right scale-95 group-hover/stop:scale-100">
+                            <div className="absolute top-full right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/stop:scale-100">
                               <button
                                 onClick={() => setTimedShutdownServer(srv)}
                                 className="w-full text-left px-3 py-2.5 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 text-xs font-bold"

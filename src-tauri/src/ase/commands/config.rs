@@ -811,9 +811,27 @@ pub async fn read_ase_config(
 #[tauri::command]
 pub async fn write_ase_config(
     server_id: i64,
-    config: AseGameConfig,
+    config: serde_json::Value,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    let config: AseGameConfig = match serde_json::from_value(config.clone()) {
+        Ok(cfg) => cfg,
+        Err(e) => {
+            println!("  ⚠️ [ASE Config] Direct deserialization notice: {}. Applying resilient fallback mapping...", e);
+            let mut base_value = serde_json::to_value(AseGameConfig::default()).unwrap_or_default();
+            if let (serde_json::Value::Object(ref mut base_map), serde_json::Value::Object(ref input_map)) = (&mut base_value, &config) {
+                for (k, v) in input_map {
+                    if let Some(existing_key) = base_map.keys().find(|bk| bk.eq_ignore_ascii_case(k)).cloned() {
+                        base_map.insert(existing_key, v.clone());
+                    } else {
+                        base_map.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+            serde_json::from_value(base_value).map_err(|err| format!("Failed to parse ASE configuration: {}. Initial error: {}", err, e))?
+        }
+    };
+
     let (install_path, db_values, user_folder) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -1870,20 +1888,11 @@ pub async fn write_ase_config(
     ini_set("ASM2", "UseClusterDirectoryOverride", ark_bool(config.use_cluster_directory_override).to_string());
     ini_set_opt("ASM2", "ServerLanguage", config.server_language.clone());
 
-    // Save GameUserSettings.ini atomically
+    // Save GameUserSettings.ini atomically with UTF-8 encoding
     let gus_content = gus_doc.serialize();
-    let gus_tmp_path = config_dir.join("GameUserSettings.ini.tmp");
-    if let Err(e) = std::fs::write(&gus_tmp_path, &gus_content) {
-        println!("[WARNING] [ASE Config] Failed to write temporary GameUserSettings.ini: {}. Falling back to direct write.", e);
-        std::fs::write(config_dir.join("GameUserSettings.ini"), &gus_content)
-            .map_err(|err| format!("Failed to write GameUserSettings.ini: {}", err))?;
-    } else {
-        if let Err(e) = std::fs::rename(&gus_tmp_path, config_dir.join("GameUserSettings.ini")) {
-            println!("[WARNING] [ASE Config] Failed to rename GameUserSettings.ini.tmp: {}. Falling back to direct write.", e);
-            std::fs::write(config_dir.join("GameUserSettings.ini"), &gus_content)
-                .map_err(|err| format!("Failed to write GameUserSettings.ini: {}", err))?;
-        }
-    }
+    let gus_path = config_dir.join("GameUserSettings.ini");
+    crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &gus_content)
+        .map_err(|err| format!("Failed to write GameUserSettings.ini: {}", err))?;
 
     // Now write Game.ini
     let game_ini_path = config_dir.join("Game.ini");
@@ -2064,20 +2073,10 @@ pub async fn write_ase_config(
         game_set!("OverrideMaxExperiencePointsDino", config.override_max_experience_points_dino.clone());
     }
 
-    // Save Game.ini atomically
+    // Save Game.ini atomically with UTF-8 encoding
     let game_content = game_doc.serialize();
-    let game_tmp_path = config_dir.join("Game.ini.tmp");
-    if let Err(e) = std::fs::write(&game_tmp_path, &game_content) {
-        println!("[WARNING] [ASE Config] Failed to write temporary Game.ini: {}. Falling back to direct write.", e);
-        std::fs::write(&game_ini_path, &game_content)
-            .map_err(|err| format!("Failed to write Game.ini: {}", err))?;
-    } else {
-        if let Err(e) = std::fs::rename(&game_tmp_path, &game_ini_path) {
-            println!("[WARNING] [ASE Config] Failed to rename Game.ini.tmp: {}. Falling back to direct write.", e);
-            std::fs::write(&game_ini_path, &game_content)
-                .map_err(|err| format!("Failed to write Game.ini: {}", err))?;
-        }
-    }
+    crate::services::ini_parser::IniParser::write_string_to_file_utf8(&game_ini_path, &game_content)
+        .map_err(|err| format!("Failed to write Game.ini: {}", err))?;
 
     // If custom config folder is active, also sync/dual-write GameUserSettings.ini and Game.ini to the default server config directory
     if user_folder.is_some() {
@@ -2088,13 +2087,13 @@ pub async fn write_ase_config(
             let default_gus_path = default_config_dir.join("GameUserSettings.ini");
             let default_game_path = default_config_dir.join("Game.ini");
             
-            if let Err(e) = std::fs::write(&default_gus_path, &gus_content) {
+            if let Err(e) = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&default_gus_path, &gus_content) {
                 println!("  ⚠️ [WARNING] [ASE] Failed to dual-write GameUserSettings.ini to default path: {}", e);
             } else {
                 println!("  🔄 [Sync] [ASE] Dual-wrote GameUserSettings.ini to default path {:?}", default_gus_path);
             }
             
-            if let Err(e) = std::fs::write(&default_game_path, &game_content) {
+            if let Err(e) = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&default_game_path, &game_content) {
                 println!("  ⚠️ [WARNING] [ASE] Failed to dual-write Game.ini to default path: {}", e);
             } else {
                 println!("  🔄 [Sync] [ASE] Dual-wrote Game.ini to default path {:?}", default_game_path);

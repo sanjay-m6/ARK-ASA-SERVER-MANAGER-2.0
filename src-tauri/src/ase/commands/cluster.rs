@@ -588,7 +588,7 @@ fn update_ase_cluster_config(install_path: &str, cluster_dir: &str) {
             result
         };
 
-        let _ = std::fs::write(&config_path, new_content);
+        let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&config_path, &new_content);
         println!("  📝 Updated cluster config for server at {}", install_path);
     }
 }

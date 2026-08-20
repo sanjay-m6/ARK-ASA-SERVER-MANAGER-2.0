@@ -475,9 +475,9 @@ pub async fn install_server(
 
         // Build custom_args with crossplay or PC-Only flag
         let custom_args: Option<String> = if crossplay {
-            Some("-crossplay".to_string())
+            Some("-ServerPlatform=ALL -crossplay".to_string())
         } else {
-            Some("-UseServerPCOnly".to_string())
+            Some("-ServerPlatform=PC -UseServerPCOnly".to_string())
         };
 
         conn.execute(
@@ -1108,45 +1108,66 @@ async fn perform_server_startup_inner(
 
     // === BUG FIX 3: Live Port conflict detection ===
     {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
-
-        let (game_port, query_port, rcon_port): (u16, u16, u16) = conn
-            .query_row(
+        let (game_port, query_port, rcon_port): (u16, u16, u16) = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            conn.query_row(
                 "SELECT game_port, query_port, rcon_port FROM servers WHERE id = ?1",
                 [server_id],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
-            .map_err(|e| format!("Failed to get ports: {}", e))?;
+            .map_err(|e| format!("Failed to get ports: {}", e))?
+        };
 
         let my_ports = [game_port, query_port, rcon_port];
 
-        for my_port in &my_ports {
-            if crate::services::network::is_port_in_use(*my_port) {
-                // Determine if we know who owns this port
-                let mut owner_name = String::from("an unknown process");
-                let mut owner_id = 0;
-                
-                let mut stmt = conn
-                    .prepare("SELECT id, name, game_port, query_port, rcon_port FROM servers WHERE id != ?1")
-                    .map_err(|e| e.to_string())?;
-                let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
-
-                while let Some(row) = rows.next().map_err(|e| e.to_string())? {
-                    let other_id: i64 = row.get(0).map_err(|e| e.to_string())?;
-                    let other_name_str: String = row.get(1).map_err(|e| e.to_string())?;
-                    let other_ports: [u16; 3] = [
-                        row.get(2).map_err(|e| e.to_string())?,
-                        row.get(3).map_err(|e| e.to_string())?,
-                        row.get(4).map_err(|e| e.to_string())?,
-                    ];
-                    
-                    if other_ports.contains(my_port) {
-                        owner_name = other_name_str;
-                        owner_id = other_id;
-                        break;
-                    }
+        // Allow up to 10 seconds for closing sockets / TIME_WAIT from recent restarts to clear
+        let mut port_wait_attempts = 0;
+        loop {
+            let mut port_in_use: Option<u16> = None;
+            for my_port in &my_ports {
+                if crate::services::network::is_port_in_use(*my_port) {
+                    port_in_use = Some(*my_port);
+                    break;
                 }
+            }
+
+            if let Some(my_port) = port_in_use {
+                if port_wait_attempts < 10 {
+                    port_wait_attempts += 1;
+                    println!("  ⏳ [Startup] Port {} in use/closing. Waiting 1s (attempt {}/10)...", my_port, port_wait_attempts);
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    continue;
+                }
+
+                // Determine if we know who owns this port
+                let (owner_name, owner_id) = {
+                    let db = state.db.lock().map_err(|e| e.to_string())?;
+                    let conn = db.get_connection().map_err(|e| e.to_string())?;
+                    let mut name = String::from("an unknown process");
+                    let mut id = 0i64;
+                    
+                    if let Ok(mut stmt) = conn.prepare("SELECT id, name, game_port, query_port, rcon_port FROM servers WHERE id != ?1") {
+                        if let Ok(mut rows) = stmt.query([server_id]) {
+                            while let Ok(Some(row)) = rows.next() {
+                                let other_id: i64 = row.get(0).unwrap_or(0);
+                                let other_name_str: String = row.get(1).unwrap_or_default();
+                                let other_ports: [u16; 3] = [
+                                    row.get(2).unwrap_or(0),
+                                    row.get(3).unwrap_or(0),
+                                    row.get(4).unwrap_or(0),
+                                ];
+                                
+                                if other_ports.contains(&my_port) {
+                                    name = other_name_str;
+                                    id = other_id;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    (name, id)
+                };
 
                 if owner_id > 0 {
                     return Err(format!(
@@ -1159,6 +1180,8 @@ async fn perform_server_startup_inner(
                         my_port
                     ));
                 }
+            } else {
+                break;
             }
         }
         println!("  ✅ Port conflict check passed for server {}", server_id);
@@ -1688,6 +1711,8 @@ async fn graceful_stop(state: &State<'_, AppState>, server_id: i64) -> Result<()
                 let guard = guardian.0.lock().await;
                 guard.mark_as_stopping(server_id).await;
             }
+            // CRITICAL: Register stop reason in process_manager so monitor knows this is an authorized stop, NOT a crash
+            state.process_manager.set_pending_stop_reason(server_id, crate::services::process_manager::StopReason::UserAction);
             let _ = rcon.send_command(server_id, "DoExit").await;
 
             // Step 4: Wait up to 10 seconds for natural exit
@@ -1748,6 +1773,27 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
     // Graceful stop before restart — ensures SaveWorld is called
     graceful_stop(&state, server_id).await?;
 
+    // Poll until process is verified fully stopped and ports are released
+    let mut wait_attempts = 0;
+    while state.process_manager.is_running(server_id) && wait_attempts < 25 {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        wait_attempts += 1;
+    }
+
+    if state.process_manager.is_running(server_id) {
+        println!("  ⚠️ Server {} still running after 25s — forcing process stop before restart", server_id);
+        let _ = state.process_manager.stop_server_with_reason(
+            server_id,
+            crate::services::process_manager::StopReason::RestartRequested,
+        );
+    }
+
+    // Settle time for OS socket table & disk flushing
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    // Clear residual tracking entry to ensure a pristine start
+    state.process_manager.force_cleanup_server_entry(server_id);
+
     // Optional: Backup before restart
     let backup_before_restart = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -1800,7 +1846,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address,
-             c.name, c.cluster_path, s.custom_args, s.battleye
+             COALESCE(c.cluster_id_string, c.name), c.cluster_path, s.custom_args, s.battleye
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",

@@ -1,4 +1,6 @@
-import { X, AlertTriangle, Trash2, CheckCircle } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, AlertTriangle, CheckCircle, AlertOctagon } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { useTranslation } from 'react-i18next';
 
@@ -28,94 +30,169 @@ export default function ConfirmDialog({
     const { t } = useTranslation();
 
     // Default values from translation if not provided
-    const effectiveConfirmText = confirmText || t('dialogs.confirm.confirm');
-    const effectiveCancelText = cancelText || t('dialogs.confirm.cancel');
-
-    if (!isOpen) return null;
+    const effectiveConfirmText = confirmText || t('dialogs.confirm.confirm', 'Confirm');
+    const effectiveCancelText = cancelText || t('dialogs.confirm.cancel', 'Cancel');
 
     const variantStyles = {
         danger: {
-            icon: Trash2,
-            iconBg: 'bg-red-500/10',
-            iconColor: 'text-red-400',
-            buttonBg: 'bg-red-500 hover:bg-red-400',
-            borderColor: 'border-red-500/20',
+            icon: AlertOctagon,
+            badgeText: 'Critical Action',
+            badgeBg: 'bg-rose-500/10 border-rose-500/30 text-rose-400',
+            iconBg: 'bg-rose-500/15 border-rose-500/30 text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.25)]',
+            buttonBg: 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-[0_0_20px_rgba(244,63,94,0.35)] hover:shadow-[0_0_28px_rgba(244,63,94,0.55)] border border-rose-400/30',
+            glowColor: 'bg-rose-500/15',
+            borderColor: 'border-rose-500/30',
+            cardGlow: 'shadow-[0_25px_70px_rgba(0,0,0,0.85),0_0_50px_rgba(244,63,94,0.12)]',
         },
         warning: {
             icon: AlertTriangle,
-            iconBg: 'bg-amber-500/10',
-            iconColor: 'text-amber-400',
-            buttonBg: 'bg-amber-500 hover:bg-amber-400',
-            borderColor: 'border-amber-500/20',
+            badgeText: 'Warning',
+            badgeBg: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+            iconBg: 'bg-amber-500/15 border-amber-500/30 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.25)]',
+            buttonBg: 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-[0_0_20px_rgba(245,158,11,0.35)] hover:shadow-[0_0_28px_rgba(245,158,11,0.55)] border border-amber-400/30',
+            glowColor: 'bg-amber-500/15',
+            borderColor: 'border-amber-500/30',
+            cardGlow: 'shadow-[0_25px_70px_rgba(0,0,0,0.85),0_0_50px_rgba(245,158,11,0.12)]',
         },
         success: {
             icon: CheckCircle,
-            iconBg: 'bg-emerald-500/10',
-            iconColor: 'text-emerald-400',
-            buttonBg: 'bg-emerald-500 hover:bg-emerald-400',
-            borderColor: 'border-emerald-500/20',
+            badgeText: 'Confirmation',
+            badgeBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
+            iconBg: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25)]',
+            buttonBg: 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-[0_0_20px_rgba(16,185,129,0.35)] hover:shadow-[0_0_28px_rgba(16,185,129,0.55)] border border-emerald-400/30',
+            glowColor: 'bg-emerald-500/15',
+            borderColor: 'border-emerald-500/30',
+            cardGlow: 'shadow-[0_25px_70px_rgba(0,0,0,0.85),0_0_50px_rgba(16,185,129,0.12)]',
         },
     };
 
     const style = variantStyles[variant];
     const Icon = style.icon;
 
-    return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-200">
-            <div className={cn(
-                "bg-slate-900 border rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200",
-                style.borderColor
-            )}>
-                {/* Header */}
-                <div className="flex items-center justify-between p-5 border-b border-slate-700/50">
-                    <div className="flex items-center gap-3">
-                        <div className={cn("p-3 rounded-xl", style.iconBg)}>
-                            <Icon className={cn("w-6 h-6", style.iconColor)} />
-                        </div>
-                        <h2 className="text-lg font-bold text-white">{title}</h2>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        disabled={isLoading}
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                        <X className="w-5 h-5 text-slate-400" />
-                    </button>
-                </div>
+    if (typeof document === 'undefined') return null;
 
-                {/* Content */}
-                <div className="p-6">
-                    <p className="text-slate-300 leading-relaxed">{message}</p>
-                </div>
+    // Parse message into main text and warning blocks if any
+    const messageParts = message.split(/\n\n(?=⚠️|WARNING:)/i);
+    const mainBody = messageParts[0] || message;
+    const warningCallout = messageParts.length > 1 ? messageParts.slice(1).join('\n\n') : null;
 
-                {/* Footer */}
-                <div className="flex items-center justify-end gap-3 p-5 border-t border-slate-700/50 bg-slate-800/30">
-                    <button
-                        onClick={onClose}
-                        disabled={isLoading}
-                        className="px-5 py-2.5 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-all font-medium disabled:opacity-50"
-                    >
-                        {effectiveCancelText}
-                    </button>
-                    <button
-                        onClick={onConfirm}
-                        disabled={isLoading}
+    return createPortal(
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        onClick={isLoading ? undefined : onClose}
+                        className="fixed inset-0 bg-slate-950/85 backdrop-blur-md"
+                    />
+
+                    {/* Ambient Background Glow Behind Dialog */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ duration: 0.3 }}
                         className={cn(
-                            "px-5 py-2.5 text-white rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50",
-                            style.buttonBg
+                            "absolute w-96 h-96 rounded-full blur-[100px] pointer-events-none -z-10",
+                            style.glowColor
                         )}
+                    />
+
+                    {/* Dialog Container */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.93, y: 15 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                        className={cn(
+                            "relative w-full max-w-lg overflow-hidden rounded-3xl border bg-slate-900/95 backdrop-blur-2xl ring-1 ring-white/10 shadow-2xl",
+                            style.borderColor,
+                            style.cardGlow
+                        )}
+                        onClick={(e) => e.stopPropagation()}
                     >
-                        {isLoading ? (
-                            <>
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                Processing...
-                            </>
-                        ) : (
-                            effectiveConfirmText
-                        )}
-                    </button>
+                        {/* Decorative Top Radial Glow */}
+                        <div className={cn(
+                            "absolute -top-20 -right-20 w-56 h-56 rounded-full blur-3xl pointer-events-none opacity-40",
+                            style.glowColor
+                        )} />
+
+                        {/* Header */}
+                        <div className="relative flex items-center justify-between p-5 border-b border-white/10 bg-slate-950/40">
+                            <div className="flex items-center gap-3.5 min-w-0">
+                                <div className={cn("w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0", style.iconBg)}>
+                                    <Icon className="w-5 h-5" />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <span className={cn("inline-block px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider border uppercase", style.badgeBg)}>
+                                            {style.badgeText}
+                                        </span>
+                                    </div>
+                                    <h2 className="text-base font-bold text-white tracking-tight truncate">{title}</h2>
+                                </div>
+                            </div>
+                            <button
+                                onClick={onClose}
+                                disabled={isLoading}
+                                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/5 flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0 ml-2"
+                                title={effectiveCancelText}
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Content Body */}
+                        <div className="p-5 space-y-3.5">
+                            <div className="bg-slate-950/40 rounded-2xl border border-white/5 p-4 text-slate-200 text-sm leading-relaxed whitespace-pre-line shadow-inner">
+                                {mainBody}
+                            </div>
+
+                            {warningCallout && (
+                                <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 p-3.5 flex items-start gap-3 text-xs text-amber-200/90 leading-relaxed shadow-sm">
+                                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                    <div className="whitespace-pre-line">
+                                        {warningCallout.replace(/^⚠️\s*/, '')}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer Action Controls */}
+                        <div className="flex items-center justify-end gap-2.5 p-4 border-t border-white/10 bg-slate-950/60">
+                            <button
+                                onClick={onClose}
+                                disabled={isLoading}
+                                className="px-4 py-2 rounded-xl text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/90 border border-white/10 font-medium text-xs transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                            >
+                                {effectiveCancelText}
+                            </button>
+                            <button
+                                onClick={onConfirm}
+                                disabled={isLoading}
+                                className={cn(
+                                    "px-5 py-2 rounded-xl font-semibold text-xs transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none cursor-pointer",
+                                    style.buttonBg
+                                )}
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        <span>Processing...</span>
+                                    </>
+                                ) : (
+                                    <span>{effectiveConfirmText}</span>
+                                )}
+                            </button>
+                        </div>
+                    </motion.div>
                 </div>
-            </div>
-        </div>
+            )}
+        </AnimatePresence>,
+        document.body
     );
 }

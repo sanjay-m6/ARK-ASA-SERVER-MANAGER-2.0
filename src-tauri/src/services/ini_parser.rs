@@ -116,7 +116,8 @@ impl IniParser {
     }
 
     /// Read an INI file safely from disk, supporting UTF-16 LE, UTF-16 BE, UTF-8 with BOM,
-    /// and standard UTF-8 encodings commonly produced by Unreal Engine and Windows editors.
+    /// standard UTF-8, and Windows-1252/Latin-1 encodings commonly produced by Unreal Engine,
+    /// Windows Notepad, and classic ARK Server Manager.
     pub fn read_file_to_string(path: &std::path::Path) -> std::io::Result<String> {
         use std::fs::File;
         use std::io::Read;
@@ -136,7 +137,7 @@ impl IniParser {
                 .map(|c| u16::from_le_bytes([c[0], c[1]]))
                 .collect();
             if let Ok(s) = String::from_utf16(&u16_data) {
-                return Ok(s.trim_start_matches('\u{feff}').to_string());
+                return Ok(Self::normalize_ini_text(&s));
             }
         }
         // UTF-16 BE with BOM
@@ -146,7 +147,7 @@ impl IniParser {
                 .map(|c| u16::from_be_bytes([c[0], c[1]]))
                 .collect();
             if let Ok(s) = String::from_utf16(&u16_data) {
-                return Ok(s.trim_start_matches('\u{feff}').to_string());
+                return Ok(Self::normalize_ini_text(&s));
             }
         }
         // UTF-16 LE without BOM (heuristically detected: second byte is 0 for typical ASCII/Latin characters)
@@ -156,15 +157,86 @@ impl IniParser {
                 .map(|c| u16::from_le_bytes([c[0], c[1]]))
                 .collect();
             if let Ok(s) = String::from_utf16(&u16_data) {
-                return Ok(s.trim_start_matches('\u{feff}').to_string());
+                return Ok(Self::normalize_ini_text(&s));
             }
         }
         // UTF-8 with BOM
         if bytes.len() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF {
-            return Ok(String::from_utf8_lossy(&bytes[3..]).into_owned());
+            if let Ok(s) = std::str::from_utf8(&bytes[3..]) {
+                return Ok(Self::normalize_ini_text(s));
+            }
+            return Ok(Self::normalize_ini_text(&String::from_utf8_lossy(&bytes[3..])));
         }
 
-        Ok(String::from_utf8_lossy(&bytes).trim_start_matches('\u{feff}').to_string())
+        // Standard UTF-8 without BOM
+        if let Ok(s) = std::str::from_utf8(&bytes) {
+            return Ok(Self::normalize_ini_text(s));
+        }
+
+        // Fallback for Windows-1252 / ISO-8859-1 (Western European / German ANSI encodings)
+        let s: String = bytes.iter().map(|&b| match b {
+            0x80 => '€',
+            0x82 => '‚',
+            0x83 => 'ƒ',
+            0x84 => '„',
+            0x85 => '…',
+            0x86 => '†',
+            0x87 => '‡',
+            0x88 => 'ˆ',
+            0x89 => '‰',
+            0x8A => 'Š',
+            0x8B => '‹',
+            0x8C => 'Œ',
+            0x8E => 'Ž',
+            0x91 => '‘',
+            0x92 => '’',
+            0x93 => '“',
+            0x94 => '”',
+            0x95 => '•',
+            0x96 => '–',
+            0x97 => '—',
+            0x98 => '˜',
+            0x99 => '™',
+            0x9A => 'š',
+            0x9B => '›',
+            0x9C => 'œ',
+            0x9E => 'ž',
+            0x9F => 'Ÿ',
+            _ => b as char,
+        }).collect();
+
+        Ok(Self::normalize_ini_text(&s))
+    }
+
+    /// Write an INI string safely to disk as pure UTF-8 (without BOM, with Windows CRLF line endings).
+    pub fn write_string_to_file_utf8(path: &std::path::Path, content: &str) -> std::io::Result<()> {
+        use std::io::Write;
+
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+
+        let mut normalized_crlf = String::with_capacity(content.len() + 64);
+        for line in content.lines() {
+            let trimmed = line.trim_end_matches('\r');
+            normalized_crlf.push_str(trimmed);
+            normalized_crlf.push_str("\r\n");
+        }
+
+        // Atomic write via temp file
+        let tmp_path = path.with_extension("tmp");
+        if let Ok(mut file) = std::fs::File::create(&tmp_path) {
+            if file.write_all(normalized_crlf.as_bytes()).is_ok() && file.flush().is_ok() {
+                drop(file);
+                if std::fs::rename(&tmp_path, path).is_ok() {
+                    return Ok(());
+                }
+                let _ = std::fs::remove_file(&tmp_path);
+            }
+        }
+
+        // Direct write fallback
+        std::fs::write(path, normalized_crlf.as_bytes())
     }
 
     /// Merge two INI contents. `updates` take precedence over `base`.

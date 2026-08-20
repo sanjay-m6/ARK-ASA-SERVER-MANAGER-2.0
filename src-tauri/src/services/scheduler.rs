@@ -5,11 +5,15 @@ use crate::services::backup_service::BackupService;
 use crate::AppState;
 use chrono::{DateTime, Datelike, Local, Timelike, Utc};
 use rusqlite::params;
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 use tokio::time::sleep;
 use crate::platform::CommandNoWindowExt;
+
+static LAST_ADVANCED_RUN: LazyLock<Mutex<HashMap<i64, DateTime<Local>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub struct SchedulerService {
     app_handle: AppHandle,
@@ -554,6 +558,17 @@ impl SchedulerService {
         }
 
         if time.hour() == hour && time.minute() == minute {
+            // Guard: Ensure we only run once per scheduled time window (debounce 65s)
+            {
+                let mut last_map = LAST_ADVANCED_RUN.lock().unwrap_or_else(|e| e.into_inner());
+                if let Some(last_dt) = last_map.get(&server_id) {
+                    if (time - *last_dt).num_seconds() < 65 {
+                        return;
+                    }
+                }
+                last_map.insert(server_id, time);
+            }
+
             log::info!("🚀 Advanced ASA Scheduler: Running execution chain for server {}", server_id);
 
             let state = app_handle.state::<AppState>();
@@ -568,9 +583,35 @@ impl SchedulerService {
                 sleep(Duration::from_secs(3)).await;
             }
 
-            if shutdown {
-                log::info!("  [Advanced ASA] Step 1/5: Graceful Shutdown");
+            if shutdown || restart || update {
+                log::info!("  [Advanced ASA] Step 1/5: Graceful Shutdown (scheduled maintenance)");
+                state.process_manager.set_pending_stop_reason(
+                    server_id,
+                    crate::services::process_manager::StopReason::ScheduledRestart,
+                );
+                if let Some(guardian) = app_handle.try_state::<crate::services::guardian::GuardianState>() {
+                    let guard = guardian.0.lock().await;
+                    guard.mark_as_stopping(server_id).await;
+                }
+
                 let _ = crate::commands::server::stop_server(state.clone(), server_id).await;
+
+                // Poll until the server process is verified to be fully stopped
+                let mut wait_attempts = 0;
+                while state.process_manager.is_running(server_id) && wait_attempts < 25 {
+                    sleep(Duration::from_secs(1)).await;
+                    wait_attempts += 1;
+                }
+
+                if state.process_manager.is_running(server_id) {
+                    log::warn!("  ⚠️ Server {} still running after 25s — forcing process stop", server_id);
+                    let _ = state.process_manager.stop_server_with_reason(
+                        server_id,
+                        crate::services::process_manager::StopReason::ScheduledRestart,
+                    );
+                }
+
+                sleep(Duration::from_secs(2)).await;
             }
 
             if backup {
@@ -582,11 +623,16 @@ impl SchedulerService {
                 log::info!("  [Advanced ASA] Step 3/5: Updating server");
                 let app = (*app_handle).clone();
                 let _ = crate::commands::server::update_server(app, state.clone(), server_id).await;
+                sleep(Duration::from_secs(3)).await;
             }
 
             if restart {
                 log::info!("  [Advanced ASA] Step 4/5: Restarting server");
                 let app = (*app_handle).clone();
+                
+                // Clear any residual tracking entry to ensure a pristine start
+                state.process_manager.force_cleanup_server_entry(server_id);
+                
                 let _ = crate::commands::server::start_server(app, server_id, false).await;
                 
                 if dino_wipe {
@@ -631,12 +677,36 @@ impl SchedulerService {
             log::info!("🚀 Basic ASE Scheduler: Restarting ASE Server {}", server_id);
 
             let state = app_handle.state::<AppState>();
+            state.process_manager.set_pending_stop_reason(
+                server_id,
+                crate::services::process_manager::StopReason::ScheduledRestart,
+            );
+            if let Some(guardian) = app_handle.try_state::<crate::services::guardian::GuardianState>() {
+                let guard = guardian.0.lock().await;
+                guard.mark_as_stopping(-server_id).await;
+            }
+
             let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
             let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!".into(), state.clone()).await;
             sleep(Duration::from_secs(3)).await;
 
             let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
-            sleep(Duration::from_secs(5)).await;
+
+            let mut wait_attempts = 0;
+            while state.process_manager.is_running(server_id) && wait_attempts < 25 {
+                sleep(Duration::from_secs(1)).await;
+                wait_attempts += 1;
+            }
+
+            if state.process_manager.is_running(server_id) {
+                let _ = state.process_manager.stop_server_with_reason(
+                    server_id,
+                    crate::services::process_manager::StopReason::ScheduledRestart,
+                );
+            }
+            sleep(Duration::from_secs(2)).await;
+
+            state.process_manager.force_cleanup_server_entry(server_id);
             let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
 
             Self::update_ase_next_run(app_handle, server_id, interval, next_run_dt).await;
@@ -743,6 +813,17 @@ impl SchedulerService {
         }
 
         if time.hour() == hour && time.minute() == minute {
+            // Guard: Ensure we only run once per scheduled time window (debounce 65s)
+            {
+                let mut last_map = LAST_ADVANCED_RUN.lock().unwrap_or_else(|e| e.into_inner());
+                if let Some(last_dt) = last_map.get(&(-server_id)) {
+                    if (time - *last_dt).num_seconds() < 65 {
+                        return;
+                    }
+                }
+                last_map.insert(-server_id, time);
+            }
+
             log::info!("🚀 Advanced ASE Scheduler: Running execution chain for server {}", server_id);
 
             let state = app_handle.state::<AppState>();
@@ -754,10 +835,34 @@ impl SchedulerService {
             let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "ServerChat ⚠️ SERVER RESTARTING FOR MAINTENANCE NOW!".into(), state.clone()).await;
             sleep(Duration::from_secs(3)).await;
 
-            if shutdown {
-                log::info!("  [Advanced ASE] Step 1/5: Graceful Shutdown");
+            if shutdown || restart || update {
+                log::info!("  [Advanced ASE] Step 1/5: Graceful Shutdown (scheduled maintenance)");
+                state.process_manager.set_pending_stop_reason(
+                    server_id,
+                    crate::services::process_manager::StopReason::ScheduledRestart,
+                );
+                if let Some(guardian) = app_handle.try_state::<crate::services::guardian::GuardianState>() {
+                    let guard = guardian.0.lock().await;
+                    guard.mark_as_stopping(-server_id).await;
+                }
+
                 let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
-                sleep(Duration::from_secs(5)).await;
+
+                let mut wait_attempts = 0;
+                while state.process_manager.is_running(server_id) && wait_attempts < 25 {
+                    sleep(Duration::from_secs(1)).await;
+                    wait_attempts += 1;
+                }
+
+                if state.process_manager.is_running(server_id) {
+                    log::warn!("  ⚠️ ASE Server {} still running after 25s — forcing process stop", server_id);
+                    let _ = state.process_manager.stop_server_with_reason(
+                        server_id,
+                        crate::services::process_manager::StopReason::ScheduledRestart,
+                    );
+                }
+
+                sleep(Duration::from_secs(2)).await;
             }
 
             if backup {
@@ -799,6 +904,7 @@ impl SchedulerService {
 
             if restart {
                 log::info!("  [Advanced ASE] Step 4/5: Starting server up");
+                state.process_manager.force_cleanup_server_entry(server_id);
                 let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
                 
                 if dino_wipe {
@@ -1535,9 +1641,36 @@ async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
     let server_id = task.server_id;
     let name = get_server_name(app_handle, server_id);
 
-    // Warn players & countdown if pre_warning_minutes > 0
+    // Warn players & countdown sequentially if pre_warning_minutes > 0
     if task.pre_warning_minutes > 0 {
-        run_task_pre_warnings(app_handle, task).await;
+        let mins = task.pre_warning_minutes;
+        for min_left in (1..=mins).rev() {
+            let msg = format_warning_message(task.message.as_deref(), &task.task_type, min_left, &name);
+            if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+                let rcon = &rcon_state.inner().0;
+                let _ = rcon.send_command(server_id, &format!("Broadcast \"{}\"", msg)).await;
+                let _ = rcon.send_command(server_id, &format!("ServerChat \"{}\"", msg)).await;
+            }
+
+            let app_clone = app_handle.clone();
+            let name_clone = name.clone();
+            let task_type_clone = task.task_type.clone();
+            let msg_clone = msg.clone();
+
+            tauri::async_runtime::spawn(async move {
+                crate::services::discord::send_discord_webhook(
+                    &app_clone,
+                    "scheduledTasks",
+                    crate::services::discord::DiscordEmbed::scheduled_task(
+                        &name_clone,
+                        &format!("Task Warning: {}", task_type_clone),
+                        &msg_clone,
+                    ),
+                ).await;
+            });
+
+            sleep(Duration::from_secs(60)).await;
+        }
     }
 
     // Determine if server is ASE or ASA
@@ -1555,11 +1688,35 @@ async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
 
     if server_type.to_uppercase() == "ASE" {
         log::info!("🚀 [Scheduled Restart] Restarting ASE Server {}", server_id);
+        state.process_manager.set_pending_stop_reason(
+            server_id,
+            crate::services::process_manager::StopReason::ScheduledRestart,
+        );
+        if let Some(guardian) = app_handle.try_state::<crate::services::guardian::GuardianState>() {
+            let guard = guardian.0.lock().await;
+            guard.mark_as_stopping(-server_id).await;
+        }
+
         let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
         let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!".into(), state.clone()).await;
         sleep(Duration::from_secs(3)).await;
         let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
-        sleep(Duration::from_secs(5)).await;
+
+        let mut wait_attempts = 0;
+        while state.process_manager.is_running(server_id) && wait_attempts < 25 {
+            sleep(Duration::from_secs(1)).await;
+            wait_attempts += 1;
+        }
+
+        if state.process_manager.is_running(server_id) {
+            let _ = state.process_manager.stop_server_with_reason(
+                server_id,
+                crate::services::process_manager::StopReason::ScheduledRestart,
+            );
+        }
+        sleep(Duration::from_secs(2)).await;
+
+        state.process_manager.force_cleanup_server_entry(server_id);
         let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
     } else {
         log::info!("🚀 [Scheduled Restart] Restarting ASA Server {}", server_id);
@@ -1568,6 +1725,15 @@ async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
             let _ = rcon.send_command(server_id, "SaveWorld").await;
             let _ = rcon.send_command(server_id, "Broadcast \"⚠️ RESTARTING SERVER NOW!\"").await;
             sleep(Duration::from_secs(3)).await;
+        }
+
+        state.process_manager.set_pending_stop_reason(
+            server_id,
+            crate::services::process_manager::StopReason::ScheduledRestart,
+        );
+        if let Some(guardian) = app_handle.try_state::<crate::services::guardian::GuardianState>() {
+            let guard = guardian.0.lock().await;
+            guard.mark_as_stopping(server_id).await;
         }
 
         match crate::commands::server::restart_server(state, server_id, None).await {

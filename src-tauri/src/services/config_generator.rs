@@ -48,6 +48,7 @@ pub struct MapProfile {
 /// Server configuration builder
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct ServerConfig {
     // Server Identity
     pub session_name: String,
@@ -1347,28 +1348,46 @@ impl ConfigGenerator {
 
 pub fn normalize_map_name(map: &str) -> String {
     let trimmed = map.trim();
-    if trimmed.eq_ignore_ascii_case("TheIsland") {
+    if trimmed.eq_ignore_ascii_case("TheIsland") || trimmed.eq_ignore_ascii_case("TheIsland_WP") {
         return "TheIsland_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("Astraos") || trimmed.eq_ignore_ascii_case("Astraos_WP") || trimmed.eq_ignore_ascii_case("Astraeos") {
+    if trimmed.eq_ignore_ascii_case("TheCenter") || trimmed.eq_ignore_ascii_case("TheCenter_WP") || trimmed.eq_ignore_ascii_case("The Center") {
+        return "TheCenter_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("ScorchedEarth") || trimmed.eq_ignore_ascii_case("ScorchedEarth_WP") || trimmed.eq_ignore_ascii_case("Scorched Earth") {
+        return "ScorchedEarth_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Aberration") || trimmed.eq_ignore_ascii_case("Aberration_WP") {
+        return "Aberration_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Extinction") || trimmed.eq_ignore_ascii_case("Extinction_WP") {
+        return "Extinction_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Ragnarok") || trimmed.eq_ignore_ascii_case("Ragnarok_WP") {
+        return "Ragnarok_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Valguero") || trimmed.eq_ignore_ascii_case("Valguero_WP") {
+        return "Valguero_WP".to_string();
+    }
+    if trimmed.eq_ignore_ascii_case("Astraos") || trimmed.eq_ignore_ascii_case("Astraos_WP") || trimmed.eq_ignore_ascii_case("Astraeos") || trimmed.eq_ignore_ascii_case("Astraeos_WP") {
         return "Astraeos_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("Svartalfheim") {
+    if trimmed.eq_ignore_ascii_case("Svartalfheim") || trimmed.eq_ignore_ascii_case("Svartalfheim_WP") {
         return "Svartalfheim_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("Forglar") {
+    if trimmed.eq_ignore_ascii_case("Forglar") || trimmed.eq_ignore_ascii_case("Forglar_WP") {
         return "Forglar_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("Amissa") {
+    if trimmed.eq_ignore_ascii_case("Amissa") || trimmed.eq_ignore_ascii_case("Amissa_WP") {
         return "Amissa_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("Insaluna") {
+    if trimmed.eq_ignore_ascii_case("Insaluna") || trimmed.eq_ignore_ascii_case("Insaluna_WP") {
         return "Insaluna_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("TemptressLagoon") {
+    if trimmed.eq_ignore_ascii_case("TemptressLagoon") || trimmed.eq_ignore_ascii_case("TemptressLagoon_WP") {
         return "TemptressLagoon_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("Reverence") {
+    if trimmed.eq_ignore_ascii_case("Reverence") || trimmed.eq_ignore_ascii_case("Reverence_WP") {
         return "Reverence_WP".to_string();
     }
     if trimmed.eq_ignore_ascii_case("Bjarnheim") || trimmed.eq_ignore_ascii_case("Bjarnheim_WP") {

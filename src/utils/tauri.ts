@@ -158,7 +158,7 @@ export async function installServer(params: InstallServerParams): Promise<Server
         queryPort: params.queryPort,
         rconPort: params.rconPort,
         pveMode: params.pveMode ?? true,
-        crossplay: params.crossplay ?? false,
+        crossplay: params.crossplay ?? true,
         maxPlayers: params.maxPlayers ?? 70,
         adminPassword: params.adminPassword ?? '',
         serverPassword: params.serverPassword ?? '',
