@@ -794,14 +794,14 @@ const MapSelectorDropdown = ({
                     onClick={() => {
                         setIsOpen(!isOpen);
                     }}
-                    className="w-full flex items-center justify-between bg-[#1a1a2e] border-2 border-[#2d2d44] hover:border-violet-500/50 rounded-xl px-4 py-3 text-white transition-all focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] text-left cursor-pointer"
+                    className="w-full flex items-center justify-between bg-[var(--input-background)] border border-[var(--input-border)] hover:border-violet-500/50 rounded-xl px-4 py-3 text-[var(--text-primary)] transition-all focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] text-left cursor-pointer"
                 >
                     <div className="flex items-center gap-2.5">
                         <span className="text-xl">
                             {selectedMapMeta ? selectedMapMeta.icon : (dropdownValue === '__CUSTOM__' ? '✏️' : '🗺️')}
                         </span>
                         <div>
-                            <div className="font-semibold text-slate-100 leading-tight">
+                            <div className="font-semibold text-[var(--text-primary)] leading-tight">
                                 {selectedMapMeta ? selectedMapMeta.name : (selectedOption ? selectedOption.label.replace(/^[^\s]+\s+/, '') : value || 'Custom Map')}
                             </div>
                             <div className="text-[10px] text-violet-400 font-medium tracking-wider uppercase mt-0.5">
@@ -809,21 +809,21 @@ const MapSelectorDropdown = ({
                             </div>
                         </div>
                     </div>
-                    {isOpen ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
+                    {isOpen ? <ChevronUp className="w-5 h-5 text-[var(--text-muted)]" /> : <ChevronDown className="w-5 h-5 text-[var(--text-muted)]" />}
                 </button>
 
                 {/* Grouped Dropdown Options List — fixed so it escapes overflow:hidden/scroll ancestors */}
                 {isOpen && createPortal(
                     <div
                         ref={mapListRef}
-                        className="fixed bg-[#0e0e1a]/98 border-2 border-[#2d2d44] rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200 z-[150] custom-scrollbar p-1.5 space-y-3"
+                        className="fixed bg-[var(--card-background)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200 z-[150] custom-scrollbar p-1.5 space-y-3"
                         style={{ top: mapDropdownPos.top, left: mapDropdownPos.left, width: mapDropdownPos.width }}
                     >
 
                         {/* Released/Official Maps */}
                         {groupedOptions.released && groupedOptions.released.length > 0 && (
                             <div className="space-y-1">
-                                <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-900/40 border border-[#2d2d44]/30 rounded-lg flex items-center gap-1.5 select-none">
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg flex items-center gap-1.5 select-none">
                                     <Globe className="w-3 h-3 text-emerald-400" /> Official Release Maps
                                 </div>
                                 <div className="space-y-1">
@@ -839,15 +839,15 @@ const MapSelectorDropdown = ({
                                                     setIsOpen(false);
                                                 }}
                                                 className={cn(
-                                                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3",
+                                                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3 cursor-pointer",
                                                     isSelected
-                                                        ? "bg-violet-600/25 border-violet-500/60 text-white font-medium shadow-[0_0_12px_rgba(139,92,246,0.15)]"
-                                                        : "text-slate-300 hover:bg-[#1c1c38]/80 border-transparent hover:text-white hover:border-[#2d2d44]"
+                                                        ? "bg-violet-600/25 border-violet-500/60 text-[var(--text-primary)] font-medium shadow-sm"
+                                                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] border-transparent hover:text-[var(--text-primary)] hover:border-[var(--border)]"
                                                 )}
                                             >
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     {meta?.image && (
-                                                        <div className="w-14 h-9 rounded-md overflow-hidden relative border border-slate-700/40 flex-shrink-0 bg-slate-950">
+                                                        <div className="w-14 h-9 rounded-md overflow-hidden relative border border-[var(--border)] flex-shrink-0 bg-slate-950">
                                                             <img
                                                                 src={meta.image}
                                                                 alt={meta.name}
@@ -857,7 +857,7 @@ const MapSelectorDropdown = ({
                                                         </div>
                                                     )}
                                                     <div className="min-w-0">
-                                                        <div className="flex items-center gap-1.5 font-semibold text-slate-100">
+                                                        <div className="flex items-center gap-1.5 font-semibold text-[var(--text-primary)]">
                                                             <span className="text-base flex-shrink-0">{meta?.icon || '🏝️'}</span>
                                                             <span className="truncate">{meta?.name || opt.label.replace(/^[^\s]+\s+/, '')}</span>
                                                         </div>
@@ -1172,7 +1172,7 @@ const ConfigInput = memo(({
             wikiLink={field.wikiLink}
         >
             <div className="flex items-center gap-2 mb-1">
-                <div className="text-white font-medium flex items-center gap-2">
+                <div className="text-[var(--text-primary)] font-medium flex items-center gap-2">
                     {fieldLabel}
                     {isModified && (
                         <span className="w-2 h-2 rounded-full bg-orange-500 shadow-lg shadow-orange-500/50" title={t('configEditor.tooltips.modified')} />
@@ -1181,7 +1181,7 @@ const ConfigInput = memo(({
                 {isModified && onFieldReset && (
                     <button
                         onClick={handleReset}
-                        className="p-1 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                        className="p-1 rounded-md hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
                         title={t('configEditor.tooltips.reset')}
                     >
                         <RotateCcw className="w-3 h-3" />
@@ -1191,12 +1191,12 @@ const ConfigInput = memo(({
         </ConfigTooltip>
     );
 
-    // Container classes computed inline - Modern Dark Minimal
+    // Container classes computed inline - Theme Native Glassmorphism
     const containerClassName = cn(
-        "bg-[#1a1a2e]/80 p-5 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.01] group relative overflow-hidden",
+        "bg-[var(--surface)] p-5 rounded-2xl border transition-all duration-300 hover:scale-[1.01] group relative overflow-hidden",
         isModified
             ? "border-orange-500/60 shadow-[0_0_20px_rgba(249,115,22,0.2)] hover:shadow-[0_0_30px_rgba(249,115,22,0.35)] bg-orange-500/5"
-            : "border-[#2d2d44] hover:border-violet-500/50 hover:shadow-[0_0_25px_rgba(139,92,246,0.15)]"
+            : "border-[var(--border)] hover:border-[var(--border-hover)] hover:shadow-lg"
     );
 
     switch (field.type) {
@@ -1414,24 +1414,24 @@ const ConfigInput = memo(({
                                 handleChange(selected);
                             }
                         }}
-                        className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] cursor-pointer transition-all hover:border-[#3d3d5c]"
+                        className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] cursor-pointer transition-all hover:border-[var(--border-hover)]"
                     >
                         {field.options?.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            <option key={opt.value} value={opt.value} className="bg-[var(--card-background)] text-[var(--text-primary)]">{opt.label}</option>
                         ))}
                     </select>
                     {(dropdownValue === '__CUSTOM__') && (
                         <div className="mt-3 space-y-2">
-                            <label className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">Custom Value</label>
+                            <label className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Custom Value</label>
                             <input
                                 type="text"
                                 value={value}
                                 onChange={(e) => handleChange(e.target.value)}
-                                className="w-full bg-[#1a1a2e] border-2 border-amber-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.2)] font-mono text-sm transition-all placeholder-slate-500"
+                                className="w-full bg-[var(--input-background)] border border-amber-500/40 rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-amber-500 font-mono text-sm transition-all placeholder-[var(--text-muted)]"
                             />
                         </div>
                     )}
-                    {fieldDescription && <div className="mt-2 text-sm text-slate-400">{fieldDescription}</div>}
+                    {fieldDescription && <div className="mt-2 text-sm text-[var(--text-secondary)]">{fieldDescription}</div>}
                 </div>
             );
         }
@@ -1445,7 +1445,7 @@ const ConfigInput = memo(({
                         template={field.template || {}}
                     />
                     {fieldDescription && (
-                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                        <div className="mt-2 text-xs text-[var(--text-muted)] px-1 italic">
                             {fieldDescription}
                         </div>
                     )}
@@ -1459,7 +1459,7 @@ const ConfigInput = memo(({
                         onChange={(val: string) => handleChange(val)}
                     />
                     {fieldDescription && (
-                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                        <div className="mt-2 text-xs text-[var(--text-muted)] px-1 italic">
                             {fieldDescription}
                         </div>
                     )}
@@ -1473,7 +1473,7 @@ const ConfigInput = memo(({
                         onChange={(val: string) => handleChange(val)}
                     />
                     {fieldDescription && (
-                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                        <div className="mt-2 text-xs text-[var(--text-muted)] px-1 italic">
                             {fieldDescription}
                         </div>
                     )}
@@ -1487,7 +1487,7 @@ const ConfigInput = memo(({
                         onChange={(val: string) => handleChange(val)}
                     />
                     {fieldDescription && (
-                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                        <div className="mt-2 text-xs text-[var(--text-muted)] px-1 italic">
                             {fieldDescription}
                         </div>
                     )}
@@ -1501,7 +1501,7 @@ const ConfigInput = memo(({
                         onChange={(val: string) => handleChange(val)}
                     />
                     {fieldDescription && (
-                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                        <div className="mt-2 text-xs text-[var(--text-muted)] px-1 italic">
                             {fieldDescription}
                         </div>
                     )}
@@ -1515,7 +1515,7 @@ const ConfigInput = memo(({
                         onChange={(val: string) => handleChange(val)}
                     />
                     {fieldDescription && (
-                        <div className="mt-2 text-xs text-slate-500 px-1 italic">
+                        <div className="mt-2 text-xs text-[var(--text-muted)] px-1 italic">
                             {fieldDescription}
                         </div>
                     )}
@@ -1540,9 +1540,9 @@ const ConfigInput = memo(({
                         type={field.type === 'number' ? 'number' : 'text'}
                         value={value}
                         onChange={(e) => handleChange(e.target.value)}
-                        className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl px-4 py-3 text-white focus:outline-none focus:border-orange-500 focus:shadow-[0_0_15px_rgba(249,115,22,0.2)] font-mono transition-all placeholder-slate-500"
+                        className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-orange-500 font-mono transition-all placeholder-[var(--text-muted)]"
                     />
-                    {fieldDescription && <div className="mt-2 text-sm text-slate-400">{fieldDescription}</div>}
+                    {fieldDescription && <div className="mt-2 text-sm text-[var(--text-secondary)]">{fieldDescription}</div>}
                 </div>
             );
     }
@@ -2053,16 +2053,16 @@ export default function ConfigEditor() {
     }, [isResizing]);
 
     return (
-        <div className="h-full flex flex-col bg-[#0d0d1a] rounded-2xl overflow-hidden border border-[#1e1e3a] shadow-2xl">
+        <div className="h-full flex flex-col glass-panel rounded-2xl overflow-hidden border border-[var(--border)] shadow-2xl">
             {/* Header */}
-            <div className="p-6 border-b border-[#1e1e3a]/80 flex flex-col gap-5 bg-[#12121f]">
+            <div className="p-6 border-b border-[var(--border)] flex flex-col gap-5 bg-[var(--surface)]">
                 <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1 flex-wrap">
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <h2 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
                                 <Sliders className="w-5 h-5 text-white" />
                             </div>
-                            <span className="bg-gradient-to-r from-white via-violet-200 to-indigo-200 bg-clip-text text-transparent">{t('configEditor.title')}</span>
+                            <span className="text-[var(--text-primary)]">{t('configEditor.title')}</span>
                         </h2>
 
                         <div className="w-56">
@@ -2085,14 +2085,14 @@ export default function ConfigEditor() {
                             href="https://ark.wiki.gg/wiki/Server_configuration"
                             target="_blank"
                             rel="noreferrer"
-                            className="px-4 py-2 bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl text-slate-400 hover:text-white hover:border-violet-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                            className="px-4 py-2 bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-violet-500/50 text-sm flex items-center gap-2 transition-all hover:shadow-md cursor-pointer"
                         >
                             <ExternalLink className="w-4 h-4" /> {t('configEditor.buttons.wiki')}
                         </a>
                         <button
                             onClick={handleSave}
                             disabled={isLoading}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none cursor-pointer"
                         >
                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                             {t('configEditor.buttons.save')}
@@ -2101,14 +2101,14 @@ export default function ConfigEditor() {
                 </div>
 
                 {/* Navigation Tabs - Modern Pill Style */}
-                <div className="flex items-center gap-2 bg-[#0d0d1a] p-2 rounded-2xl self-start border border-[#1e1e3a] max-w-full overflow-x-auto scrollbar-thin">
+                <div className="flex items-center gap-2 bg-[var(--surface-hover)] p-2 rounded-2xl self-start border border-[var(--border)] max-w-full overflow-x-auto scrollbar-thin">
                     <button
                         onClick={handleSwitchToVisual}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'visual'
                                 ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/30"
-                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+                                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-active)]"
                         )}
                     >
                         <Sliders className="w-4 h-4" /> {t('configEditor.tabs.visual')}
@@ -2116,10 +2116,10 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => handleSwitchToRaw('gus')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'gus'
                                 ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/30"
-                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+                                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-active)]"
                         )}
                     >
                         <FileText className="w-4 h-4" /> {t('configEditor.tabs.gus')}
@@ -2127,10 +2127,10 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => handleSwitchToRaw('game')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'game'
                                 ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30"
-                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+                                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-active)]"
                         )}
                     >
                         <FileText className="w-4 h-4" /> {t('configEditor.tabs.game')}
@@ -2138,10 +2138,10 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => setViewMode('levels')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'levels'
                                 ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30"
-                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+                                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-active)]"
                         )}
                     >
                         <GraduationCap className="w-4 h-4" /> {t('configEditor.tabs.levels')}
@@ -2149,10 +2149,10 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => setViewMode('stats')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'stats'
                                 ? "bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-500/30"
-                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+                                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-active)]"
                         )}
                     >
                         <BarChart3 className="w-4 h-4" /> {t('configEditor.tabs.stats')}
@@ -2160,10 +2160,10 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => setViewMode('anti-cheat')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'anti-cheat'
                                 ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/30"
-                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+                                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-active)]"
                         )}
                     >
                         <Shield className="w-4 h-4" /> {t('configEditor.tabs.antiCheat')}
@@ -2171,10 +2171,10 @@ export default function ConfigEditor() {
                     <button
                         onClick={() => setViewMode('advanced')}
                         className={cn(
-                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0",
+                            "px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center gap-2 flex-shrink-0 cursor-pointer",
                             viewMode === 'advanced'
                                 ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/30"
-                                : "text-slate-400 hover:text-white hover:bg-[#1a1a2e]"
+                                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-active)]"
                         )}
                     >
                         <Sliders className="w-4 h-4" /> {t('configEditor.tabs.advanced')}
@@ -2188,7 +2188,7 @@ export default function ConfigEditor() {
                     {conflicts.map((issue, idx) => (
                         <div key={idx} className="flex items-start gap-3 text-sm">
                             <AlertTriangle className="w-4 h-4 text-orange-500 mt-0.5 shrink-0" />
-                            <span className="text-orange-200/90">{issue.message}</span>
+                            <span className="text-orange-300">{issue.message}</span>
                         </div>
                     ))}
                 </div>
@@ -2197,11 +2197,11 @@ export default function ConfigEditor() {
             {/* Main Content */}
             <div className="flex-1 flex overflow-hidden relative">
                 {viewMode === 'anti-cheat' ? (
-                    <div className="w-full h-full overflow-y-auto bg-[#0d0d1a]">
+                    <div className="w-full h-full overflow-y-auto bg-[var(--card-background)]">
                         <AntiCheatDashboard serverId={selectedServerId} />
                     </div>
                 ) : viewMode === 'advanced' ? (
-                    <div className="w-full h-full overflow-y-auto bg-[#0d0d1a] p-8">
+                    <div className="w-full h-full overflow-y-auto bg-[var(--card-background)] p-8">
                         <AdvancedConfigDashboard serverId={selectedServerId} />
                     </div>
                 ) : viewMode === 'visual' ? (
@@ -2209,29 +2209,29 @@ export default function ConfigEditor() {
                         {/* Sidebar */}
                         <div
                             className={cn(
-                                "bg-[#12121f] border-r-2 border-[#1e1e3a] overflow-y-auto relative transition-all duration-300",
+                                "bg-[var(--surface)] border-r border-[var(--border)] overflow-y-auto relative transition-all duration-300",
                                 isSidebarCollapsed && "w-0"
                             )}
                             style={{ width: isSidebarCollapsed ? 0 : `${sidebarWidth}px` }}
                         >
                             {!isSidebarCollapsed && (
                                 <>
-                                    <div className="p-4 border-b-2 border-[#1e1e3a]">
+                                    <div className="p-4 border-b border-[var(--border)]">
                                         <div className="relative">
-                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
                                             <input
                                                 type="text"
                                                 placeholder={t('configEditor.placeholders.searchSettings')}
                                                 value={searchQuery}
                                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full bg-[#1a1a2e] border-2 border-[#2d2d44] rounded-xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] transition-all"
+                                                className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl pl-11 pr-4 py-3 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] transition-all"
                                             />
                                         </div>
                                     </div>
                                     <div className="p-3 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
                                         {/* GameUserSettings.ini Section */}
                                         <div className="flex flex-col gap-1.5 text-left">
-                                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 mb-1">GameUserSettings.ini (GUS)</h3>
+                                            <h3 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest px-3 mb-1">GameUserSettings.ini (GUS)</h3>
                                             {categories
                                                 .filter(c => c.groups.some(g => g.source === 'GameUserSettings'))
                                                 .map(({ category, info }) => {
@@ -2245,10 +2245,10 @@ export default function ConfigEditor() {
                                                                 setSearchQuery('');
                                                             }}
                                                             className={cn(
-                                                                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 border text-left group",
+                                                                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 border text-left group cursor-pointer",
                                                                 isActive
-                                                                    ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-[inset_3px_0_0_0_#8b5cf6]"
-                                                                    : "bg-transparent border-transparent text-slate-400 hover:bg-[#1a1a2e] hover:text-white"
+                                                                    ? "bg-violet-500/15 border-violet-500/30 text-violet-400 shadow-[inset_3px_0_0_0_#8b5cf6]"
+                                                                    : "bg-transparent border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                                                             )}
                                                         >
                                                             <span className="text-base group-hover:scale-110 transition-transform duration-300">{info.icon}</span>
@@ -2261,7 +2261,7 @@ export default function ConfigEditor() {
 
                                         {/* Game.ini Section */}
                                         <div className="flex flex-col gap-1.5 text-left">
-                                            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 mb-1">Game.ini Settings</h3>
+                                            <h3 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest px-3 mb-1">Game.ini Settings</h3>
                                             {categories
                                                 .filter(c => c.groups.some(g => g.source === 'Game'))
                                                 .map(({ category, info }) => {
@@ -2275,10 +2275,10 @@ export default function ConfigEditor() {
                                                                 setSearchQuery('');
                                                             }}
                                                             className={cn(
-                                                                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 border text-left group",
+                                                                "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-300 border text-left group cursor-pointer",
                                                                 isActive
-                                                                    ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-[inset_3px_0_0_0_#6366f1]"
-                                                                    : "bg-transparent border-transparent text-slate-400 hover:bg-[#1a1a2e] hover:text-white"
+                                                                    ? "bg-indigo-500/15 border-indigo-500/30 text-indigo-400 shadow-[inset_3px_0_0_0_#6366f1]"
+                                                                    : "bg-transparent border-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                                                             )}
                                                         >
                                                             <span className="text-base group-hover:scale-110 transition-transform duration-300">{info.icon}</span>
@@ -2305,21 +2305,21 @@ export default function ConfigEditor() {
                         {/* Collapse/Expand Button */}
                         <button
                             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                            className="absolute top-20 left-0 z-20 w-7 h-10 bg-[#1a1a2e] border-2 border-[#2d2d44] text-slate-400 hover:bg-violet-600 hover:border-violet-500 hover:text-white transition-all shadow-lg flex items-center justify-center rounded-r-xl"
+                            className="absolute top-20 left-0 z-20 w-7 h-10 bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-secondary)] hover:bg-violet-600 hover:border-violet-500 hover:text-white transition-all shadow-lg flex items-center justify-center rounded-r-xl cursor-pointer"
                             style={{ marginLeft: isSidebarCollapsed ? '0px' : `${sidebarWidth}px` }}
                         >
                             {isSidebarCollapsed ? '›' : '‹'}
                         </button>
 
                         {/* Editor Area */}
-                        <div className="flex-1 overflow-y-auto bg-[#0d0d1a] p-6 scrollbar-thin scrollbar-thumb-[#2d2d44] scrollbar-track-transparent">
+                        <div className="flex-1 overflow-y-auto bg-[var(--card-background)] p-6 scrollbar-thin scrollbar-thumb-[var(--border)] scrollbar-track-transparent">
                             {isLoading && !configs.GameUserSettings.size ? (
                                 <div className="flex items-center justify-center h-full">
                                     <div className="flex flex-col items-center gap-4">
                                         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30 animate-pulse">
                                             <Loader2 className="w-6 h-6 text-white animate-spin" />
                                         </div>
-                                        <span className="text-slate-400 text-sm font-medium">{t('configEditor.loading')}</span>
+                                        <span className="text-[var(--text-secondary)] text-sm font-medium">{t('configEditor.loading')}</span>
                                     </div>
                                 </div>
                             ) : filteredGroups.length > 0 ? (
@@ -2330,12 +2330,12 @@ export default function ConfigEditor() {
                                     {filteredGroups.map((group, idx) => (
                                         <div key={idx} className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 50}ms` }}>
                                             {/* Section Header with dynamic gradient decoration */}
-                                            <div className="flex items-center gap-3 pb-3 border-b border-white/10 relative">
+                                            <div className="flex items-center gap-3 pb-3 border-b border-[var(--border)] relative">
                                                 <div className={cn(
                                                     "absolute bottom-0 left-0 w-24 h-px bg-gradient-to-r to-transparent",
                                                     categories.find(c => c.category === activeCategory)?.info.color.replace('from-', 'from-').replace('to-', 'to-') || "from-cyan-500"
                                                 )}></div>
-                                                <h3 className="text-lg font-bold text-white tracking-tight">{t(`configEditor.groups.${groupTitleKey(group.title)}.title`, { defaultValue: group.title })}</h3>
+                                                <h3 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">{t(`configEditor.groups.${groupTitleKey(group.title)}.title`, { defaultValue: group.title })}</h3>
                                                 <span className={cn(
                                                     "text-xs px-2.5 py-1 rounded-full border font-medium",
                                                     group.source === 'GameUserSettings'

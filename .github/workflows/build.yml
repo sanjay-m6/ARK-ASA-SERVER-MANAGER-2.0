@@ -89,22 +89,34 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Improvements in v4.6.15
-            - **🔄 ASA Server Restart & Scheduled Maintenance Stabilization**:
-              - Fixed server restart and maintenance shutdown crash misclassifications (Unreal Engine 5 exit codes `3`, `0`, and `1`).
-              - Suppressed false-positive Discord crash alerts and watchdog restart conflicts during intentional maintenance windows and planned restarts.
-              - Implemented synchronous stop-and-wait polling in the scheduler and server manager to guarantee full process termination and socket release (with a 2s stabilization pause) before booting a server.
-              - Added immediate PID registration to Guardian watchdog on server startup to eliminate supervisory race conditions during initialization.
-            - **⚙️ ASE Configuration Save & Unified UTF-8 Encoding Pipeline**:
-              - Fixed intermittent ASE configuration save errors (`missing field "allowCryoCooldownonPve"`) by implementing flexible serde aliases and case-insensitive fallback mapping in `write_ase_config`.
-              - Upgraded INI file reading to automatically detect and normalize standard UTF-8, UTF-8 with BOM, UTF-16 LE/BE (with/without BOM), and Windows-1252/ANSI with Latin-1 character preservation.
-              - Standardized atomic pure UTF-8 writing with CRLF endings across all ASE INI files (`GameUserSettings.ini`, `Game.ini`, cluster configurations, and mod manager).
-              - Guaranteed preservation of canonical key casing `AllowCryoCooldownOnPvE=False` in `[ServerSettings]`.
-            - **🛡️ Scheduler Debounce & Watchdog Optimization**:
-              - Added debounce tracking (`LAST_ADVANCED_RUN`) to prevent duplicate scheduled restart triggers.
-              - Unified process tracking between Guardian, ProcessManager, and Scheduler.
+            ### 🆕 New Features & Improvements in v4.6.16
+            - **🎨 Global UI/UX Tokenization & Design System Alignment**:
+              - Completely refactored all hardcoded color classes across the entire application to use standardized dynamic CSS design tokens (`--surface`, `--surface-hover`, `--surface-active`, `--bg-primary`, `--border`, `--border-hover`, `--text-primary`, `--text-secondary`, `--text-muted`, `--accent`, `--accent-hover`, `--glow`).
+              - Overhauled `Scheduler.tsx` (Presets, 5-step automation workflow, Watchdog card, task cards, 2-column modal, delete confirmation).
+              - Overhauled `Backups.tsx` (Timeline & List views, target scope chips, dropdowns, file preview panel).
+              - Overhauled `ASERconConsole.tsx` (Quick commands dock, terminal stream panels) and core UI modal components.
+            - **🌈 10 Curated Theme Presets & Interactive Custom Theme Studio**:
+              - Expanded built-in theme presets: **Aurora Dark** (Default), **Midnight Blue** (Enterprise), **Cyber Neon** (Futuristic), **Arctic Light** (High Readability), **Forest Emerald** (Bio-Ark), **Obsidian Purple** (Mystic), **Crimson Ember** (Volcanic), **Synthwave Sunset** (Retro 80s), **Solar Amber** (Desert Gold), and **Matrix Terminal** (Cyber Pro).
+              - Added a full-featured **Custom UI Theme Studio** allowing users to customize Base Mode (Dark/OLED/Light), Primary & Secondary Accent Colors with interactive pickers and Hex support, Background Tint, Glassmorphism Surface Style, and Border Glow Intensity.
+              - Added 8 Quick Inspiration Presets and a live interactive Desktop UI Simulator preview.
+              - Custom theme configuration import/export via JSON and one-click reset to defaults.
+            - **🌐 Comprehensive Internationalization (13 Global Locales) & TopBar Switcher**:
+              - Fully activated all 13 supported languages: English (`en`), German (`de`), French (`fr`), Spanish (`es`), Italian (`it`), Portuguese - Brazil (`pt-BR`), Russian (`ru`), Turkish (`tr`), Japanese (`ja`), Korean (`ko`), Simplified Chinese (`zh-CN`), Traditional Chinese (`zh-TW`), and Tamil (`ta`).
+              - Built a dedicated theme-adaptive `LanguageSettings.tsx` management screen with live search filtering, native flags, active status indicators, and real-time translation for both ASA and ASE Settings.
+              - Added a Quick Language Selector dropdown menu to `TopBar.tsx` for instant 1-click language switching from anywhere in the application.
+              - Multi-layer language persistence via `localStorage` and Tauri database (`app_language`) with automatic restore on launch.
+            - **🪟 Maximized Window & Header Optimization**:
+              - Fixed frameless window titlebar controls and maximize state handling.
+              - Resolved layout overflow and modal responsiveness across all resolutions.
 
             ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.15 — ASA Server Restart & Scheduled Maintenance Stabilization</summary>
+
+            - **🔄 ASA Server Restart & Scheduled Maintenance Stabilization**: Fixed server restart and maintenance shutdown crash misclassifications (Unreal Engine 5 exit codes `3`, `0`, and `1`), suppressed false-positive Discord crash alerts during intentional maintenance, and added synchronous stop-and-wait polling.
+            - **⚙️ ASE Configuration Save & Unified UTF-8 Encoding Pipeline**: Fixed intermittent ASE configuration save errors by implementing flexible serde aliases and case-insensitive fallback mapping in `write_ase_config`, with UTF-8 BOM/UTF-16 normalization.
+            - **🛡️ Scheduler Debounce & Watchdog Optimization**: Added debounce tracking to prevent duplicate scheduled restart triggers.
+            </details>
             <details>
             <summary>v4.6.14 — Bjarnheim Map, Linux Headless Installer & Terminal Overhaul</summary>
 

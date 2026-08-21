@@ -95,6 +95,128 @@ impl Database {
         // Cross-computer cluster linking (cluster_id_string column)
         Self::run_cluster_id_string_migration(conn)?;
 
+        // Discord player links table migration
+        Self::run_discord_player_links_migration(conn)?;
+
+        // Discord audit log and pending actions migrations
+        Self::run_discord_audit_log_migration(conn)?;
+        Self::run_discord_pending_actions_migration(conn)?;
+        Self::run_discord_bridge_config_migration(conn)?;
+        Self::run_discord_rate_limits_migration(conn)?;
+
+        Ok(())
+    }
+
+    fn run_discord_bridge_config_migration(conn: &Connection) -> Result<()> {
+        let mut stmt = conn.prepare("PRAGMA table_info(discord_bridge_config)")?;
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if !columns.contains(&"admin_role_ids".to_string()) {
+            let _ = conn.execute("ALTER TABLE discord_bridge_config ADD COLUMN admin_role_ids TEXT DEFAULT '[]'", []);
+        }
+        if !columns.contains(&"moderator_role_ids".to_string()) {
+            let _ = conn.execute("ALTER TABLE discord_bridge_config ADD COLUMN moderator_role_ids TEXT DEFAULT '[]'", []);
+        }
+        if !columns.contains(&"status_update_interval".to_string()) {
+            let _ = conn.execute("ALTER TABLE discord_bridge_config ADD COLUMN status_update_interval INTEGER DEFAULT 60", []);
+        }
+        if !columns.contains(&"notifications_channel_id".to_string()) {
+            let _ = conn.execute("ALTER TABLE discord_bridge_config ADD COLUMN notifications_channel_id TEXT DEFAULT ''", []);
+        }
+        if !columns.contains(&"admin_channel_id".to_string()) {
+            let _ = conn.execute("ALTER TABLE discord_bridge_config ADD COLUMN admin_channel_id TEXT DEFAULT ''", []);
+        }
+
+        Ok(())
+    }
+
+    fn run_discord_rate_limits_migration(conn: &Connection) -> Result<()> {
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS discord_rate_limits (
+                cluster_id INTEGER PRIMARY KEY,
+                max_messages_per_window INTEGER DEFAULT 5,
+                window_seconds INTEGER DEFAULT 10,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (cluster_id) REFERENCES clusters(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+        Ok(())
+    }
+
+    fn run_discord_player_links_migration(conn: &Connection) -> Result<()> {
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS discord_player_links (
+                discord_user_id TEXT PRIMARY KEY,
+                guild_id TEXT DEFAULT '',
+                steam_id TEXT NOT NULL,
+                eos_id TEXT DEFAULT '',
+                player_name TEXT,
+                cluster_id INTEGER DEFAULT 0,
+                linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                verified INTEGER DEFAULT 1,
+                last_verified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
+
+        // If table previously existed without guild_id or eos_id or last_verified_at, alter it safely
+        let mut stmt = conn.prepare("PRAGMA table_info(discord_player_links)")?;
+        let columns: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if !columns.contains(&"guild_id".to_string()) {
+            let _ = conn.execute("ALTER TABLE discord_player_links ADD COLUMN guild_id TEXT DEFAULT ''", []);
+        }
+        if !columns.contains(&"eos_id".to_string()) {
+            let _ = conn.execute("ALTER TABLE discord_player_links ADD COLUMN eos_id TEXT DEFAULT ''", []);
+        }
+        if !columns.contains(&"last_verified_at".to_string()) {
+            let _ = conn.execute("ALTER TABLE discord_player_links ADD COLUMN last_verified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP", []);
+        }
+
+        Ok(())
+    }
+
+    fn run_discord_audit_log_migration(conn: &Connection) -> Result<()> {
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS discord_audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id TEXT NOT NULL,
+                discord_user_id TEXT NOT NULL,
+                server_id INTEGER,
+                action TEXT NOT NULL,
+                target TEXT,
+                status TEXT NOT NULL,
+                reason TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                metadata_json TEXT
+            )",
+            [],
+        )?;
+        Ok(())
+    }
+
+    fn run_discord_pending_actions_migration(conn: &Connection) -> Result<()> {
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS discord_pending_actions (
+                id TEXT PRIMARY KEY,
+                action_type TEXT NOT NULL,
+                guild_id TEXT NOT NULL,
+                discord_user_id TEXT NOT NULL,
+                server_id INTEGER,
+                payload_json TEXT,
+                expires_at TIMESTAMP NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )?;
         Ok(())
     }
 

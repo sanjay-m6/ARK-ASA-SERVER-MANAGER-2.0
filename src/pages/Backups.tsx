@@ -341,20 +341,20 @@ export default function Backups() {
                                     "flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all font-black text-xs uppercase tracking-wider h-[42px] border flex-shrink-0 whitespace-nowrap shadow-lg",
                                     isAutoEnabled
                                         ? "bg-purple-600/30 text-purple-200 border-purple-500/50 shadow-purple-500/20 hover:bg-purple-600/40"
-                                        : "bg-slate-900/80 text-slate-400 border-slate-700 hover:text-white hover:border-slate-600"
+                                        : "bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)]"
                                 )}
                             >
-                                <Sparkles className={cn("w-4 h-4", isAutoEnabled ? "text-purple-400 animate-pulse" : "text-slate-500")} />
+                                <Sparkles className={cn("w-4 h-4", isAutoEnabled ? "text-purple-400 animate-pulse" : "text-[var(--text-muted)]")} />
                                 <span>{isAutoEnabled ? `Auto: ON (${autoInterval}h)` : 'Auto Backup: OFF'}</span>
                                 <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", showAutoMenu && "rotate-180")} />
                             </button>
 
                             {/* Quick Auto Backup Dropdown */}
                             {showAutoMenu && (
-                                <div className="absolute right-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 space-y-2">
-                                    <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-800">
-                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Automated Backup</span>
-                                        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", isAutoEnabled ? "bg-purple-500/20 text-purple-300 border-purple-500/30" : "bg-slate-800 text-slate-400 border-slate-700")}>
+                                <div className="absolute right-0 mt-2 w-64 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 p-3 space-y-2 backdrop-blur-md">
+                                    <div className="flex items-center justify-between px-2 py-1.5 border-b border-[var(--border)]">
+                                        <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Automated Backup</span>
+                                        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full border", isAutoEnabled ? "bg-purple-500/20 text-purple-300 border-purple-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border-[var(--border)]")}>
                                             {isAutoEnabled ? 'ACTIVE' : 'DISABLED'}
                                         </span>
                                     </div>
@@ -374,37 +374,37 @@ export default function Backups() {
                                         <span>{isAutoEnabled ? 'Disable Auto Backup' : '⚡ Enable Auto Backup Now'}</span>
                                     </button>
 
-                                    <div className="pt-1 border-t border-slate-800 space-y-1">
-                                        <span className="text-[10px] font-semibold text-slate-400 px-2 uppercase tracking-wider block">Quick Presets</span>
+                                    <div className="pt-1 border-t border-[var(--border)] space-y-1">
+                                        <span className="text-[10px] font-semibold text-[var(--text-muted)] px-2 uppercase tracking-wider block">Quick Presets</span>
                                         <button
                                             onClick={() => {
                                                 handleToggleAutoBackup(true, 1);
                                                 setShowAutoMenu(false);
                                             }}
-                                            className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-between"
+                                            className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition-colors flex items-center justify-between"
                                         >
                                             <span>⚡ High Protection</span>
-                                            <span className="text-[10px] text-slate-400">1 Hour</span>
+                                            <span className="text-[10px] text-[var(--text-muted)]">1 Hour</span>
                                         </button>
                                         <button
                                             onClick={() => {
                                                 handleToggleAutoBackup(true, 6);
                                                 setShowAutoMenu(false);
                                             }}
-                                            className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-between"
+                                            className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition-colors flex items-center justify-between"
                                         >
                                             <span>🛡️ Balanced</span>
-                                            <span className="text-[10px] text-slate-400">6 Hours</span>
+                                            <span className="text-[10px] text-[var(--text-muted)]">6 Hours</span>
                                         </button>
                                         <button
                                             onClick={() => {
                                                 handleToggleAutoBackup(true, 24);
                                                 setShowAutoMenu(false);
                                             }}
-                                            className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors flex items-center justify-between"
+                                            className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] transition-colors flex items-center justify-between"
                                         >
                                             <span>💾 Storage Saver</span>
-                                            <span className="text-[10px] text-slate-400">24 Hours</span>
+                                            <span className="text-[10px] text-[var(--text-muted)]">24 Hours</span>
                                         </button>
                                     </div>
 
@@ -413,7 +413,7 @@ export default function Backups() {
                                             setActiveTab('policies');
                                             setShowAutoMenu(false);
                                         }}
-                                        className="w-full text-center py-2 text-xs font-bold text-purple-400 hover:text-purple-300 transition-colors border-t border-slate-800 pt-2 block"
+                                        className="w-full text-center py-2 text-xs font-bold text-purple-400 hover:text-purple-300 transition-colors border-t border-[var(--border)] pt-2 block"
                                     >
                                         Configure Full Policies →
                                     </button>
@@ -433,52 +433,52 @@ export default function Backups() {
 
                             {/* Options Dropdown */}
                             {showOptions && (
-                                <div className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="p-4 border-b border-slate-800 bg-slate-900/90">
-                                        <h4 className="font-semibold text-white flex items-center gap-2">
+                                <div className="absolute right-0 mt-2 w-72 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
+                                    <div className="p-4 border-b border-[var(--border)] bg-[var(--surface-active)]/40">
+                                        <h4 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
                                             <Settings className="w-4 h-4" />
                                             {t('backups.options')}
                                         </h4>
                                     </div>
-                                    <div className="p-4 space-y-3 bg-slate-900/95">
+                                    <div className="p-4 space-y-3 bg-[var(--surface)]">
                                         <label className="flex items-center justify-between cursor-pointer">
-                                            <span className="text-slate-300 text-sm font-medium">{t('backups.includeConfigs')}</span>
+                                            <span className="text-[var(--text-secondary)] text-sm font-medium">{t('backups.includeConfigs')}</span>
                                             <input
                                                 type="checkbox"
                                                 checked={backupOptions.includeConfigs}
                                                 onChange={(e) => setBackupOptions({ ...backupOptions, includeConfigs: e.target.checked })}
-                                                className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
+                                                className="w-5 h-5 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500"
                                             />
                                         </label>
                                         <label className="flex items-center justify-between cursor-pointer">
-                                            <span className="text-slate-300 text-sm font-medium">{t('backups.includeSaves')}</span>
+                                            <span className="text-[var(--text-secondary)] text-sm font-medium">{t('backups.includeSaves')}</span>
                                             <input
                                                 type="checkbox"
                                                 checked={backupOptions.includeSaves}
                                                 onChange={(e) => setBackupOptions({ ...backupOptions, includeSaves: e.target.checked })}
-                                                className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
+                                                className="w-5 h-5 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500"
                                             />
                                         </label>
                                         <label className="flex items-center justify-between cursor-pointer">
-                                            <span className="text-slate-300 text-sm font-medium">{t('backups.includeMods')}</span>
+                                            <span className="text-[var(--text-secondary)] text-sm font-medium">{t('backups.includeMods')}</span>
                                             <input
                                                 type="checkbox"
                                                 checked={backupOptions.includeMods}
                                                 onChange={(e) => setBackupOptions({ ...backupOptions, includeMods: e.target.checked })}
-                                                className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
+                                                className="w-5 h-5 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500"
                                             />
                                         </label>
                                         <label className="flex items-center justify-between cursor-pointer">
-                                            <span className="text-slate-300 text-sm font-medium">{t('backups.compress')}</span>
+                                            <span className="text-[var(--text-secondary)] text-sm font-medium">{t('backups.compress')}</span>
                                             <input
                                                 type="checkbox"
                                                 checked={backupOptions.compress}
                                                 onChange={(e) => setBackupOptions({ ...backupOptions, compress: e.target.checked })}
-                                                className="w-5 h-5 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
+                                                className="w-5 h-5 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500"
                                             />
                                         </label>
                                     </div>
-                                    <div className="p-4 border-t border-slate-800 bg-slate-800/30">
+                                    <div className="p-4 border-t border-[var(--border)] bg-[var(--surface-active)]/40">
                                         <button
                                             onClick={handleCreateBackup}
                                             disabled={isCreating}
@@ -532,7 +532,7 @@ export default function Backups() {
                 <div className="glass-panel rounded-xl p-4 flex items-center gap-4">
                     <button
                         onClick={handleCleanup}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors border border-[var(--border)]"
                     >
                         <Trash2 className="w-5 h-5" />
                         <span>{t('backups.cleanupOld')}</span>
@@ -548,7 +548,7 @@ export default function Backups() {
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all",
                         viewMode === 'list'
                             ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                            : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:text-white'
+                            : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                     )}
                 >
                     <LayoutList className="w-4 h-4" />
@@ -560,7 +560,7 @@ export default function Backups() {
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all",
                         viewMode === 'timeline'
                             ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                            : 'bg-slate-800/50 text-slate-400 border-slate-700 hover:text-white'
+                            : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                     )}
                 >
                     <GitBranch className="w-4 h-4" />
@@ -579,12 +579,12 @@ export default function Backups() {
                         <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
                     </div>
                 ) : backups.length === 0 ? (
-                    <div className="text-center py-12 px-6 glass-panel rounded-2xl border border-slate-700/60 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-purple-950/20">
+                    <div className="text-center py-12 px-6 glass-panel rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
                         <div className="w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center border border-purple-500/30 mx-auto mb-4 shadow-lg shadow-purple-500/10">
                             <Shield className="w-8 h-8 text-purple-400" />
                         </div>
-                        <h3 className="text-2xl font-bold text-white mb-2">{t('backups.noBackups', 'No backups found')}</h3>
-                        <p className="text-slate-400 max-w-md mx-auto mb-6 text-sm">
+                        <h3 className="text-2xl font-bold text-[var(--text-primary)] mb-2">{t('backups.noBackups', 'No backups found')}</h3>
+                        <p className="text-[var(--text-muted)] max-w-md mx-auto mb-6 text-sm">
                             Protect your server saves, player data, and map progress with automated backup schedules & instant restore points.
                         </p>
 
@@ -627,15 +627,15 @@ export default function Backups() {
                                 <div key={date} className="mb-10 relative">
                                     {/* Date header */}
                                     <div className="flex items-center gap-4 mb-5 relative z-10">
-                                        <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center border-2 border-slate-900 shadow-xl shadow-amber-500/20 shrink-0">
+                                        <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center border-2 border-[var(--surface)] shadow-xl shadow-amber-500/20 shrink-0">
                                             <Calendar className="w-6 h-6 text-white" />
                                         </div>
-                                        <div className="glass-panel px-4 py-2 rounded-xl border border-slate-700/60 flex items-center gap-4">
+                                        <div className="glass-panel px-4 py-2 rounded-xl border border-[var(--border)] flex items-center gap-4 bg-[var(--surface)]">
                                             <div>
-                                                <p className="text-white font-bold text-lg leading-none">{date}</p>
-                                                <p className="text-slate-400 text-xs mt-1 font-medium">{dayBackups.length} snapshot{dayBackups.length !== 1 ? 's' : ''}</p>
+                                                <p className="text-[var(--text-primary)] font-bold text-lg leading-none">{date}</p>
+                                                <p className="text-[var(--text-muted)] text-xs mt-1 font-medium">{dayBackups.length} snapshot{dayBackups.length !== 1 ? 's' : ''}</p>
                                             </div>
-                                            <div className="h-6 w-px bg-slate-700" />
+                                            <div className="h-6 w-px bg-[var(--border)]" />
                                             <span className="text-xs font-semibold px-2.5 py-1 bg-amber-500/10 text-amber-300 rounded-lg border border-amber-500/20">
                                                 {formatBytes(dayTotalSize)}
                                             </span>
@@ -651,11 +651,11 @@ export default function Backups() {
                                                 <div key={backup.id} className="relative group">
                                                     {/* Timeline dot */}
                                                     <div className={cn(
-                                                        "absolute -left-[40px] top-6 w-4 h-4 rounded-full border-2 border-slate-950 shadow-md transition-transform group-hover:scale-125 z-10",
+                                                        "absolute -left-[40px] top-6 w-4 h-4 rounded-full border-2 border-[var(--surface)] shadow-md transition-transform group-hover:scale-125 z-10",
                                                         isManual ? 'bg-amber-500 shadow-amber-500/50' : isAuto ? 'bg-sky-500 shadow-sky-500/50' : 'bg-emerald-500 shadow-emerald-500/50'
                                                     )} />
 
-                                                    <div className="glass-panel rounded-2xl p-5 border border-slate-700/60 hover:border-amber-500/40 hover:shadow-xl hover:shadow-amber-500/5 transition-all bg-slate-900/70">
+                                                    <div className="glass-panel rounded-2xl p-5 border border-[var(--border)] hover:border-amber-500/40 hover:shadow-xl hover:shadow-amber-500/5 transition-all bg-[var(--surface)]">
                                                         <div className="flex flex-wrap items-center justify-between gap-4">
                                                             <div className="flex items-center gap-4">
                                                                 <div className={cn(
@@ -672,7 +672,7 @@ export default function Backups() {
 
                                                                 <div>
                                                                     <div className="flex items-center gap-2">
-                                                                        <h4 className="font-bold text-white text-base">
+                                                                        <h4 className="font-bold text-[var(--text-primary)] text-base">
                                                                             {isManual ? 'Manual Server Snapshot' : 'Automated Scheduled Backup'}
                                                                         </h4>
                                                                         {backup.verified && (
@@ -681,13 +681,13 @@ export default function Backups() {
                                                                             </span>
                                                                         )}
                                                                     </div>
-                                                                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 font-mono">
-                                                                        <span className="flex items-center gap-1 text-slate-300">
+                                                                    <div className="flex items-center gap-3 text-xs text-[var(--text-muted)] mt-1 font-mono">
+                                                                        <span className="flex items-center gap-1 text-[var(--text-secondary)]">
                                                                             <Clock className="w-3.5 h-3.5 text-amber-400" />
                                                                             {new Date(backup.createdAt).toLocaleTimeString()}
                                                                         </span>
                                                                         <span>•</span>
-                                                                        <span className="flex items-center gap-1 text-slate-200 font-semibold bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                                                                        <span className="flex items-center gap-1 text-[var(--text-primary)] font-semibold bg-[var(--surface-hover)] px-2 py-0.5 rounded border border-[var(--border)]">
                                                                             <HardDrive className="w-3.5 h-3.5 text-sky-400" />
                                                                             {formatBytes(backup.size)}
                                                                         </span>
@@ -699,16 +699,16 @@ export default function Backups() {
                                                             <div className="flex items-center gap-2">
                                                                 <button
                                                                     onClick={() => handlePreview(backup.id)}
-                                                                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 transition-all text-xs flex items-center gap-1.5 font-medium"
+                                                                    className="p-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl border border-[var(--border)] transition-all text-xs flex items-center gap-1.5 font-medium"
                                                                     title={t('backups.preview')}
                                                                 >
-                                                                    <Eye className="w-4 h-4 text-slate-400" />
+                                                                    <Eye className="w-4 h-4 text-[var(--text-muted)]" />
                                                                     <span className="hidden sm:inline">Preview</span>
                                                                 </button>
                                                                 
                                                                 <button
                                                                     onClick={() => handleVerify(backup.id)}
-                                                                    className="p-2 bg-slate-800 hover:bg-blue-500/20 hover:text-blue-300 text-slate-300 rounded-xl border border-slate-700 transition-all text-xs flex items-center gap-1.5 font-medium"
+                                                                    className="p-2 bg-[var(--surface-hover)] hover:bg-blue-500/20 hover:text-blue-300 text-[var(--text-secondary)] rounded-xl border border-[var(--border)] transition-all text-xs flex items-center gap-1.5 font-medium"
                                                                     title={t('backups.verify')}
                                                                 >
                                                                     <Shield className="w-4 h-4 text-blue-400" />
@@ -725,7 +725,7 @@ export default function Backups() {
 
                                                                 <button
                                                                     onClick={() => handleDelete(backup.id)}
-                                                                    className="p-2 bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 rounded-xl border border-slate-700 transition-all"
+                                                                    className="p-2 bg-[var(--surface-hover)] hover:bg-rose-500/20 hover:text-rose-400 text-[var(--text-muted)] rounded-xl border border-[var(--border)] transition-all"
                                                                     title="Delete Backup"
                                                                 >
                                                                     <Trash2 className="w-4 h-4" />
@@ -734,8 +734,8 @@ export default function Backups() {
                                                         </div>
 
                                                         {/* Content scope tags */}
-                                                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800/80">
-                                                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mr-1">Targets:</span>
+                                                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+                                                            <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mr-1">Targets:</span>
                                                             {backup.includesConfigs && <span className="px-2.5 py-0.5 bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[10px] font-bold rounded-md tracking-wider">CONFIGS</span>}
                                                             {backup.includesSaves && <span className="px-2.5 py-0.5 bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold rounded-md tracking-wider">SAVES</span>}
                                                             {backup.includesMods && <span className="px-2.5 py-0.5 bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[10px] font-bold rounded-md tracking-wider">MODS</span>}
@@ -756,7 +756,7 @@ export default function Backups() {
                         {backups.map((backup) => (
                             <div
                                 key={backup.id}
-                                className="glass-panel rounded-2xl p-5 hover:border-amber-500/40 hover:shadow-xl hover:shadow-amber-500/5 transition-all bg-slate-900/70 border border-slate-700/60"
+                                className="glass-panel rounded-2xl p-5 hover:border-amber-500/40 hover:shadow-xl hover:shadow-amber-500/5 transition-all bg-[var(--surface)] border border-[var(--border)]"
                             >
                                 <div className="flex flex-wrap items-center justify-between gap-4">
                                     <div className="flex items-center gap-4">
@@ -765,27 +765,27 @@ export default function Backups() {
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
-                                                <h3 className="font-bold text-white text-base capitalize">{backup.backupType === 'manual' ? t('backups.manual') : t('backups.auto')} Server Backup</h3>
+                                                <h3 className="font-bold text-[var(--text-primary)] text-base capitalize">{backup.backupType === 'manual' ? t('backups.manual') : t('backups.auto')} Server Backup</h3>
                                                 {backup.verified ? (
                                                     <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
                                                         <CheckCircle className="w-3.5 h-3.5" /> Verified
                                                     </span>
                                                 ) : (
-                                                    <span className="flex items-center gap-1 text-[11px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-md border border-slate-700">
+                                                    <span className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] bg-[var(--surface-hover)] px-2 py-0.5 rounded-md border border-[var(--border)]">
                                                         <XCircle className="w-3.5 h-3.5" /> Unverified
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-4 text-xs text-slate-400 font-mono">
+                                            <div className="flex items-center gap-4 text-xs text-[var(--text-muted)] font-mono">
                                                 <span className="flex items-center gap-1">
-                                                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                                                    <Calendar className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                                                     {new Date(backup.createdAt).toLocaleDateString()}
                                                 </span>
                                                 <span className="flex items-center gap-1">
                                                     <Clock className="w-3.5 h-3.5 text-amber-400" />
                                                     {new Date(backup.createdAt).toLocaleTimeString()}
                                                 </span>
-                                                <span className="flex items-center gap-1 text-slate-200 font-semibold bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                                                <span className="flex items-center gap-1 text-[var(--text-primary)] font-semibold bg-[var(--surface-hover)] px-2 py-0.5 rounded border border-[var(--border)]">
                                                     <HardDrive className="w-3.5 h-3.5 text-sky-400" />
                                                     {formatBytes(backup.size)}
                                                 </span>
@@ -797,16 +797,16 @@ export default function Backups() {
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => handlePreview(backup.id)}
-                                            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 transition-all text-xs flex items-center gap-1.5 font-medium"
+                                            className="p-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl border border-[var(--border)] transition-all text-xs flex items-center gap-1.5 font-medium"
                                             title={t('backups.preview')}
                                         >
-                                            <Eye className="w-4 h-4 text-slate-400" />
+                                            <Eye className="w-4 h-4 text-[var(--text-muted)]" />
                                             <span className="hidden sm:inline">Preview</span>
                                         </button>
                                         
                                         <button
                                             onClick={() => handleVerify(backup.id)}
-                                            className="p-2 bg-slate-800 hover:bg-blue-500/20 hover:text-blue-300 text-slate-300 rounded-xl border border-slate-700 transition-all text-xs flex items-center gap-1.5 font-medium"
+                                            className="p-2 bg-[var(--surface-hover)] hover:bg-blue-500/20 hover:text-blue-300 text-[var(--text-secondary)] rounded-xl border border-[var(--border)] transition-all text-xs flex items-center gap-1.5 font-medium"
                                             title={t('backups.verify')}
                                         >
                                             <Shield className="w-4 h-4 text-blue-400" />
@@ -823,7 +823,7 @@ export default function Backups() {
 
                                         <button
                                             onClick={() => handleDelete(backup.id)}
-                                            className="p-2 bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 rounded-xl border border-slate-700 transition-all"
+                                            className="p-2 bg-[var(--surface-hover)] hover:bg-rose-500/20 hover:text-rose-400 text-[var(--text-muted)] rounded-xl border border-[var(--border)] transition-all"
                                             title="Delete Backup"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -833,37 +833,37 @@ export default function Backups() {
 
                                 {/* Preview Panel */}
                                 {previewBackupId === backup.id && (
-                                    <div className="mt-4 pt-4 border-t border-slate-800">
+                                    <div className="mt-4 pt-4 border-t border-[var(--border)]">
                                         <div className="flex items-center justify-between mb-3">
-                                            <h4 className="font-semibold text-slate-300 flex items-center gap-2">
+                                            <h4 className="font-semibold text-[var(--text-secondary)] flex items-center gap-2">
                                                 <FolderOpen className="w-4 h-4" />
                                                 {t('backups.contents')}
                                             </h4>
                                             <button
                                                 onClick={() => setPreviewBackupId(null)}
-                                                className="text-slate-500 hover:text-slate-300"
+                                                className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                                             >
                                                 <ChevronUp className="w-4 h-4" />
                                             </button>
                                         </div>
                                         {loadingPreview ? (
-                                            <div className="flex items-center gap-2 text-slate-400 py-4">
+                                            <div className="flex items-center gap-2 text-[var(--text-muted)] py-4">
                                                 <Loader2 className="w-4 h-4 animate-spin" />
                                                 {t('common.loading', 'Loading...')}
                                             </div>
                                         ) : (
-                                            <div className="bg-slate-950 rounded-lg p-3 max-h-48 overflow-y-auto font-mono text-xs">
+                                            <div className="bg-[var(--bg-primary)] rounded-lg p-3 max-h-48 overflow-y-auto font-mono text-xs border border-[var(--border)] text-[var(--text-secondary)]">
                                                 {previewContents.length === 0 ? (
-                                                    <p className="text-slate-500">{t('backups.noFiles')}</p>
+                                                    <p className="text-[var(--text-muted)]">{t('backups.noFiles')}</p>
                                                 ) : (
                                                     previewContents.slice(0, 50).map((file, idx) => (
-                                                        <div key={idx} className="text-slate-400 py-0.5 hover:text-slate-200">
+                                                        <div key={idx} className="text-[var(--text-secondary)] py-0.5 hover:text-[var(--text-primary)]">
                                                             {file}
                                                         </div>
                                                     ))
                                                 )}
                                                 {previewContents.length > 50 && (
-                                                    <p className="text-slate-500 mt-2">{t('backups.moreFiles', { count: previewContents.length - 50 })}</p>
+                                                    <p className="text-[var(--text-muted)] mt-2">{t('backups.moreFiles', { count: previewContents.length - 50 })}</p>
                                                 )}
                                             </div>
                                         )}

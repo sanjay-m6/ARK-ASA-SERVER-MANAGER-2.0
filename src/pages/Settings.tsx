@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useBlocker } from 'react-router-dom';
-import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, FolderOpen, FileText, Search, Copy, Check, Terminal, X, Cpu, Loader2, Eye, EyeOff, Shield, Zap } from 'lucide-react';
+import { Save, Key, Lock, CheckCircle, AlertCircle, ExternalLink, RefreshCw, Download, Clock, History, Undo2, Globe, Trash2, Bot, FolderOpen, FileText, Search, Copy, Check, Terminal, X, Cpu, Loader2, Eye, EyeOff, Shield, Zap, Palette } from 'lucide-react';
 import { getSetting, setSetting, getAllServers } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { supportedLanguages } from '../i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import FirewallSettings from '../components/settings/FirewallSettings';
 import StartupSettings from '../components/settings/StartupSettings';
+import AppearanceSettings from '../components/settings/AppearanceSettings';
+import LanguageSettings from '../components/settings/LanguageSettings';
 import { manualCheckForUpdates } from '../components/UpdateChecker';
 import { cn } from '../utils/helpers';
 import { useServerStore } from '../stores/serverStore';
@@ -81,7 +82,7 @@ export default function Settings() {
             .catch(() => {});
     }, [customSteamcmdPath]);
 
-    const [activeTab, setActiveTab] = useState<'api' | 'firewall' | 'updates' | 'language' | 'startup'>('api');
+    const [activeTab, setActiveTab] = useState<'api' | 'appearance' | 'firewall' | 'updates' | 'language' | 'startup'>('api');
     const { setServers, activeServer } = useServerStore();
     const [selectedServerId, setSelectedServerId] = useState<number | null>(() => activeServer?.id || null);
 
@@ -90,7 +91,7 @@ export default function Settings() {
             setSelectedServerId(activeServer.id);
         }
     }, [activeServer]);
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const { showAseMode, setShowAseMode, activeGame, setActiveGame } = useGameStore();
 
     // API Verification State
@@ -553,38 +554,36 @@ export default function Settings() {
                 </div>
                 <div className="flex items-center gap-3">
                     {/* Auto-Save Toggle & Status Badge */}
-                    <div className="flex items-center gap-2.5 px-4 py-2.5 bg-slate-900/80 border border-slate-800 rounded-2xl backdrop-blur-md shadow-lg">
+                    <div className="flex items-center gap-2.5 px-4 py-2.5 bg-[var(--surface-active)] border border-[var(--border)] rounded-2xl backdrop-blur-md shadow-sm">
                         <div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}>
                             <div className={cn(
                                 "w-9 h-5 rounded-full transition-colors relative p-0.5",
-                                autoSaveEnabled ? "bg-emerald-500" : "bg-slate-700"
+                                autoSaveEnabled ? "bg-emerald-500" : "bg-slate-500/40"
                             )}>
                                 <div className={cn(
                                     "w-4 h-4 rounded-full bg-white transition-transform shadow-md",
                                     autoSaveEnabled ? "translate-x-4" : "translate-x-0"
                                 )} />
                             </div>
-                            <span className="text-xs font-bold text-slate-200">
+                            <span className="text-xs font-bold text-[var(--text-primary)]">
                                 {t('settings.autoSave', 'Auto Save')}
                             </span>
                         </div>
 
                         {autoSaveEnabled && (
-                            <div className="flex items-center gap-1.5 pl-2.5 border-l border-slate-700/60 text-xs font-medium">
+                            <div className="flex items-center gap-1.5 pl-2.5 border-l border-[var(--border)] text-xs font-medium">
                                 {autoSaveStatus === 'saving' ? (
                                     <span className="flex items-center gap-1.5 text-amber-400">
                                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                         <span>{t('settings.autoSaving', 'Auto-saving…')}</span>
                                     </span>
                                 ) : autoSaveStatus === 'saved' ? (
-                                    <span className="flex items-center gap-1 text-emerald-400 font-semibold animate-in fade-in">
-                                        <CheckCircle className="w-3.5 h-3.5" />
-                                        <span>{t('settings.autoSaved', 'Auto-saved ✓')}</span>
+                                    <span className="flex items-center gap-1.5 text-emerald-400">
+                                        <Check className="w-3.5 h-3.5" />
+                                        <span>{t('settings.autoSaved', 'Saved')}</span>
                                     </span>
                                 ) : (
-                                    <span className="text-slate-400 font-medium">
-                                        {t('settings.autoSaveOn', 'Active')}
-                                    </span>
+                                    <span className="text-[var(--text-secondary)]">Ready</span>
                                 )}
                             </div>
                         )}
@@ -614,7 +613,7 @@ export default function Settings() {
             </div>
 
             {/* Modern Segmented Navigation Bar */}
-            <div className="flex p-2 rounded-3xl bg-slate-950/60 border border-white/10 backdrop-blur-xl w-full shadow-2xl gap-2 mb-8 overflow-x-auto scrollbar-none">
+            <div className="flex p-2 rounded-3xl glass-panel w-full shadow-lg gap-2 mb-8 overflow-x-auto scrollbar-none">
                 <button
                     onClick={() => setActiveTab('api')}
                     className={cn(
@@ -629,6 +628,22 @@ export default function Settings() {
                     </div>
                     <span>{t('settings.tabs.apiKeys', 'API Keys & Integrations')}</span>
                     {activeTab === 'api' && <div className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse ml-auto" />}
+                </button>
+
+                <button
+                    onClick={() => setActiveTab('appearance')}
+                    className={cn(
+                        "flex items-center gap-3 px-6 py-3 rounded-2xl text-sm font-bold transition-all duration-300 relative overflow-hidden whitespace-nowrap group",
+                        activeTab === 'appearance'
+                            ? "text-purple-300 bg-gradient-to-r from-purple-500/20 via-pink-500/15 to-sky-500/20 border border-purple-500/40 shadow-lg shadow-purple-500/10"
+                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent"
+                    )}
+                >
+                    <div className={cn("p-1.5 rounded-xl transition-all", activeTab === 'appearance' ? "bg-purple-500/30 text-purple-300" : "bg-slate-800 text-slate-400 group-hover:text-white")}>
+                        <Palette className="w-4 h-4" />
+                    </div>
+                    <span>{t('settings.tabs.appearance', 'Appearance & Theme')}</span>
+                    {activeTab === 'appearance' && <div className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse ml-auto" />}
                 </button>
 
                 <button
@@ -704,6 +719,8 @@ export default function Settings() {
                     </div>
                     <span className="text-sm font-medium text-slate-400">{t('common.loadingSettings', 'Loading preferences…')}</span>
                 </div>
+            ) : activeTab === 'appearance' ? (
+                <AppearanceSettings />
             ) : activeTab === 'api' ? (
                 <div className="space-y-8 animate-in slide-in-from-left-4 duration-300">
 
@@ -1698,52 +1715,7 @@ export default function Settings() {
                 />
 
             ) : activeTab === 'language' ? (
-                <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
-                    <div className="glass-panel rounded-2xl p-8">
-                        <div className="flex items-start space-x-4 mb-6">
-                            <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
-                                <Globe className="w-6 h-6 text-cyan-400" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold text-white">{t('settings.language.title')}</h2>
-                                <p className="text-slate-400 mt-1">
-                                    {t('settings.language.description')}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="grid gap-3">
-                            {supportedLanguages.map((lang) => (
-                                <button
-                                    key={lang.code}
-                                    onClick={() => {
-                                        i18n.changeLanguage(lang.code);
-                                        toast.success(t('settings.language.languageChanged', { defaultValue: 'Language changed to {{language}}', language: lang.nativeName }));
-                                    }}
-                                    className={`flex items-center gap-4 px-6 py-4 rounded-xl border transition-all duration-200 ${i18n.language === lang.code || i18n.language.startsWith(lang.code + '-')
-                                        ? 'bg-cyan-500/10 border-cyan-500/40 text-white shadow-lg shadow-cyan-500/10'
-                                        : 'bg-slate-800/40 border-slate-700/50 text-slate-300 hover:bg-slate-700/40 hover:border-slate-600'
-                                        }`}
-                                >
-                                    <span className="text-2xl">{lang.flag}</span>
-                                    <div className="flex-1 text-left">
-                                        <div className="font-semibold">{lang.nativeName}</div>
-                                        <div className="text-sm text-slate-400">{lang.name}</div>
-                                    </div>
-                                    {(i18n.language === lang.code || i18n.language.startsWith(lang.code + '-')) && (
-                                        <CheckCircle className="w-5 h-5 text-cyan-400" />
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="mt-6 p-4 bg-slate-800/40 rounded-xl border border-slate-700/50">
-                            <p className="text-sm text-slate-400">
-                                {t('settings.language.restartNote')}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <LanguageSettings />
             ) : null}
 
             {/* Floating Pop-Up Save Bar */}

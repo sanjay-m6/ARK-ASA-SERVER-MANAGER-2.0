@@ -46,17 +46,17 @@ export default function SponsorBanner() {
     };
 
     return (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-[#1e2433] rounded-xl border border-white/5">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 glass-panel rounded-xl border border-[var(--border)] shadow-md">
             {/* Left: Support message */}
             <div className="flex items-center gap-4 w-full sm:w-auto">
-                <div className="flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-full bg-[#2a3040]">
-                    <Heart className="w-5 h-5 text-rose-400" fill="currentColor" />
+                <div className="flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-full bg-[var(--surface-hover)] border border-[var(--border)]">
+                    <Heart className="w-5 h-5 text-rose-500" fill="currentColor" />
                 </div>
                 <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-white">
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">
                         {t('sponsorBanner.title', 'Support the Development')}
                     </span>
-                    <span className="text-[13px] text-slate-400 mt-0.5">
+                    <span className="text-[13px] text-[var(--text-muted)] mt-0.5">
                         {t('sponsorBanner.subtitle', 'Keep our ASA & ASE Server Manager 2.0 running with a small contribution.')}
                     </span>
                 </div>

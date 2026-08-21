@@ -290,9 +290,9 @@ const Hardware: React.FC = () => {
     : localAllocation.cpu_affinity.length;
 
   return (
-    <div className="p-6 min-h-screen bg-slate-950 text-slate-100 flex flex-col gap-6 selection:bg-cyan-500 selection:text-black">
+    <div className="p-6 min-h-screen bg-transparent text-[var(--text-primary)] flex flex-col gap-6">
       {/* Top Telemetry Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950/50 to-slate-900 border border-slate-800/80 p-6 shadow-2xl backdrop-blur-xl">
+      <div className="relative overflow-hidden rounded-2xl glass-panel border border-[var(--border)] p-6 shadow-2xl backdrop-blur-xl">
         <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 -mb-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -303,14 +303,14 @@ const Hardware: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--text-primary)]">
                   Hardware & CPU Allocation
                 </h1>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                   <Sparkles className="w-3.5 h-3.5" /> High Performance Engine
                 </span>
               </div>
-              <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+              <p className="text-sm text-[var(--text-secondary)] mt-1 max-w-2xl">
                 Optimize process priorities and isolate specific physical/logical CPU cores per ARK server instance to eliminate micro-stuttering and core contention.
               </p>
             </div>
@@ -318,22 +318,22 @@ const Hardware: React.FC = () => {
 
           {/* Quick Hardware Stats Badges */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-inner">
+            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-inner">
               <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
                 <Layers className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs text-slate-400 font-medium">Logical Cores</div>
-                <div className="text-lg font-bold text-slate-100">{totalCores} Threads</div>
+                <div className="text-xs text-[var(--text-muted)] font-medium">Logical Cores</div>
+                <div className="text-lg font-bold text-[var(--text-primary)]">{totalCores} Threads</div>
               </div>
             </div>
 
-            <div className="bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-inner">
+            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-inner">
               <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <Zap className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-xs text-slate-400 font-medium">Physical Cores</div>
+                <div className="text-xs text-[var(--text-muted)] font-medium">Physical Cores</div>
                 <div className="text-lg font-bold text-emerald-400">{physicalCores} Cores</div>
               </div>
             </div>
@@ -345,7 +345,7 @@ const Hardware: React.FC = () => {
                 if (selectedServerId) fetchAllocation(selectedServerId);
                 toast.success('Refreshed hardware status');
               }}
-              className="p-3 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white rounded-xl transition-all shadow-md active:scale-95"
+              className="p-3 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
               title="Refresh Telemetry"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -355,7 +355,7 @@ const Hardware: React.FC = () => {
       </div>
 
       {error && (
-        <div className="bg-rose-950/60 border border-rose-500/50 text-rose-200 p-4 rounded-xl flex items-center gap-3 shadow-lg">
+        <div className="bg-rose-500/10 border border-rose-500/40 text-rose-300 p-4 rounded-xl flex items-center gap-3 shadow-lg">
           <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0" />
           <div className="text-sm font-medium">{error}</div>
         </div>
@@ -365,22 +365,22 @@ const Hardware: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
         {/* Left Column: Server Selector Panel */}
         <div className="lg:col-span-4 flex flex-col gap-4">
-          <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl flex flex-col flex-1">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+          <div className="glass-panel rounded-2xl border border-[var(--border)] p-5 shadow-xl flex flex-col flex-1">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--border)]">
               <div className="flex items-center gap-2.5">
                 <Server className="w-5 h-5 text-cyan-400" />
-                <h2 className="text-base font-bold text-white tracking-wide">Cluster Instances</h2>
+                <h2 className="text-base font-bold text-[var(--text-primary)] tracking-wide">Cluster Instances</h2>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-secondary)] border border-[var(--border)]">
                 {servers.length} Servers
               </span>
             </div>
 
             <div className="space-y-2.5 overflow-y-auto flex-1 max-h-[600px] pr-1 custom-scrollbar">
               {servers.length === 0 ? (
-                <div className="text-center py-12 px-4 border border-dashed border-slate-800 rounded-xl">
-                  <Server className="w-10 h-10 text-slate-600 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm text-slate-500">No servers configured in ARK Manager.</p>
+                <div className="text-center py-12 px-4 border border-dashed border-[var(--border)] rounded-xl">
+                  <Server className="w-10 h-10 text-[var(--text-muted)] mx-auto mb-2 opacity-50" />
+                  <p className="text-sm text-[var(--text-muted)]">No servers configured in ARK Manager.</p>
                 </div>
               ) : (
                 servers.map((server) => {
@@ -401,10 +401,10 @@ const Hardware: React.FC = () => {
                     <button
                       key={server.id}
                       onClick={() => setSelectedServerId(server.id)}
-                      className={`w-full text-left p-4 rounded-xl transition-all duration-200 border relative group overflow-hidden ${
+                      className={`w-full text-left p-4 rounded-xl transition-all duration-200 border relative group overflow-hidden cursor-pointer ${
                         isSelected
                           ? 'bg-gradient-to-r from-blue-900/30 via-slate-900 to-slate-900 border-blue-500/60 shadow-lg shadow-blue-500/10 text-white'
-                          : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800/80 hover:border-slate-700'
+                          : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]'
                       }`}
                     >
                       {isSelected && (
@@ -412,26 +412,26 @@ const Hardware: React.FC = () => {
                       )}
 
                       <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <div className="font-bold text-sm tracking-wide text-white group-hover:text-cyan-300 transition-colors">
+                        <div className="font-bold text-sm tracking-wide text-[var(--text-primary)] group-hover:text-cyan-400 transition-colors">
                           {server.name}
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span
                             className={`w-2 h-2 rounded-full ${
-                              isOnline ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-slate-600'
+                              isOnline ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-slate-400'
                             }`}
                           />
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                             {server.status || 'Offline'}
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs text-slate-400 mt-2 pt-2 border-t border-slate-800/60">
-                        <span className="truncate max-w-[140px] text-slate-400">
+                      <div className="flex items-center justify-between text-xs text-[var(--text-secondary)] mt-2 pt-2 border-t border-[var(--border)]">
+                        <span className="truncate max-w-[140px] text-[var(--text-muted)]">
                           {server.config?.mapName || 'ASA Server'}
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700 text-cyan-300 text-[11px] font-mono">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--surface-hover)] border border-[var(--border)] text-cyan-400 text-[11px] font-mono font-semibold">
                           <Cpu className="w-3 h-3 text-cyan-400" />
                           {alloc?.useAllCores ? 'All Cores' : `${serverCoresCount} Cores`}
                         </span>
@@ -447,26 +447,26 @@ const Hardware: React.FC = () => {
         {/* Right Column: Configuration & Core Affinity Matrix */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           {!selectedServerId ? (
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800 p-12 text-center flex flex-col items-center justify-center flex-1 shadow-xl">
-              <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700 text-slate-500 mb-4">
+            <div className="glass-panel rounded-2xl border border-[var(--border)] p-12 text-center flex flex-col items-center justify-center flex-1 shadow-xl">
+              <div className="p-4 rounded-2xl bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)] mb-4">
                 <Sliders className="w-10 h-10" />
               </div>
-              <h3 className="text-lg font-bold text-white mb-1">No Instance Selected</h3>
-              <p className="text-slate-400 text-sm max-w-sm">
+              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">No Instance Selected</h3>
+              <p className="text-[var(--text-secondary)] text-sm max-w-sm">
                 Select an ARK server instance from the cluster list on the left to configure CPU core affinity and process priority settings.
               </p>
             </div>
           ) : (
             <>
               {/* Header & Save Action Panel */}
-              <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="glass-panel rounded-2xl border border-[var(--border)] p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-1">
                     <Radio className="w-3.5 h-3.5" /> Instance Hardware Profile
                   </div>
-                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
                     {selectedServer?.name}
-                    <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                    <span className="text-xs font-mono px-2.5 py-0.5 rounded-full bg-[var(--surface-hover)] text-[var(--text-secondary)] border border-[var(--border)]">
                       ID: {selectedServerId}
                     </span>
                   </h2>
@@ -476,7 +476,7 @@ const Hardware: React.FC = () => {
                   <button
                     onClick={handleSave}
                     disabled={loading}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
+                    className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     {loading ? 'Saving...' : 'Apply & Save Settings'}
@@ -485,21 +485,21 @@ const Hardware: React.FC = () => {
               </div>
 
               {/* Core Affinity Visual Matrix Section */}
-              <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col gap-6">
+              <div className="glass-panel rounded-2xl border border-[var(--border)] p-6 shadow-xl flex flex-col gap-6">
                 <div>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
                     <div>
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Cpu className="w-5 h-5 text-cyan-400" />
                         CPU Core Affinity Matrix
                       </h3>
-                      <p className="text-xs text-slate-400 mt-0.5">
+                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                         Select which logical processors this server process can execute on.
                       </p>
                     </div>
 
                     {/* Toggle Use All Cores */}
-                    <label className="flex items-center gap-3 cursor-pointer bg-slate-950 border border-slate-800 px-4 py-2 rounded-xl hover:border-slate-700 transition-colors shadow-inner">
+                    <label className="flex items-center gap-3 cursor-pointer bg-[var(--surface-hover)] border border-[var(--border)] px-4 py-2 rounded-xl hover:border-[var(--border-hover)] transition-colors shadow-inner">
                       <input
                         type="checkbox"
                         checked={localAllocation.use_all_cores}
@@ -519,62 +519,62 @@ const Hardware: React.FC = () => {
                             };
                           })
                         }
-                        className="w-4 h-4 text-cyan-500 rounded border-slate-700 bg-slate-900 focus:ring-cyan-500 focus:ring-offset-slate-900"
+                        className="w-4 h-4 text-cyan-500 rounded border-[var(--border)] bg-[var(--surface)] focus:ring-cyan-500"
                       />
-                      <div className="text-xs font-bold text-slate-200">Use All Cores (Default)</div>
+                      <div className="text-xs font-bold text-[var(--text-primary)]">Use All Cores (Default)</div>
                     </label>
                   </div>
 
                   {/* Affinity Presets Toolbar */}
-                  <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-400 mr-1 flex items-center gap-1">
+                  <div className="bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl p-3 mb-6 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-[var(--text-muted)] mr-1 flex items-center gap-1">
                       <Sliders className="w-3.5 h-3.5 text-cyan-400" /> Presets:
                     </span>
                     <button
                       onClick={() => applyPreset('all')}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition-all hover:text-white"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] cursor-pointer"
                     >
                       ⚡ All Cores
                     </button>
                     <button
                       onClick={() => applyPreset('even')}
                       disabled={localAllocation.use_all_cores}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition-all hover:text-white disabled:opacity-40"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
                     >
                       🎯 Physical Cores (Even)
                     </button>
                     <button
                       onClick={() => applyPreset('odd')}
                       disabled={localAllocation.use_all_cores}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition-all hover:text-white disabled:opacity-40"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
                     >
                       🔀 Hyperthreads (Odd)
                     </button>
                     <button
                       onClick={() => applyPreset('skip_os')}
                       disabled={localAllocation.use_all_cores}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition-all hover:text-white disabled:opacity-40"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
                     >
                       🛡️ Reserve Cores 0-1 for OS
                     </button>
                     <button
                       onClick={() => applyPreset('first_half')}
                       disabled={localAllocation.use_all_cores}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition-all hover:text-white disabled:opacity-40"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
                     >
                       🌓 First Half (0-{Math.ceil(totalCores / 2) - 1})
                     </button>
                     <button
                       onClick={() => applyPreset('second_half')}
                       disabled={localAllocation.use_all_cores}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition-all hover:text-white disabled:opacity-40"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] border border-[var(--border)] transition-all hover:text-[var(--text-primary)] disabled:opacity-40 cursor-pointer"
                     >
                       🌗 Second Half ({Math.ceil(totalCores / 2)}-{totalCores - 1})
                     </button>
                     <button
                       onClick={() => applyPreset('none')}
                       disabled={localAllocation.use_all_cores}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-rose-950/40 text-slate-400 hover:text-rose-300 border border-slate-700/80 hover:border-rose-700/50 transition-all disabled:opacity-40 ml-auto"
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--surface)] hover:bg-rose-500/20 text-[var(--text-muted)] hover:text-rose-400 border border-[var(--border)] hover:border-rose-500/40 transition-all disabled:opacity-40 ml-auto cursor-pointer"
                     >
                       Clear Selection
                     </button>
@@ -582,7 +582,7 @@ const Hardware: React.FC = () => {
 
                   {/* Core Grid Visualizer */}
                   <div
-                    className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-6 gap-3.5 p-4 bg-slate-950 rounded-xl border border-slate-800 transition-opacity duration-300 ${
+                    className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-6 gap-3.5 p-4 bg-[var(--surface)] rounded-xl border border-[var(--border)] transition-opacity duration-300 ${
                       localAllocation.use_all_cores ? 'opacity-70' : ''
                     }`}
                   >
@@ -601,13 +601,13 @@ const Hardware: React.FC = () => {
                           className={`relative group p-3.5 rounded-xl border text-center transition-all duration-200 flex flex-col items-center justify-between min-h-[100px] min-w-[105px] ${
                             isSelected
                               ? 'bg-gradient-to-b from-blue-900/40 to-cyan-950/40 border-cyan-500/60 shadow-[0_0_15px_rgba(6,182,212,0.15)] text-white'
-                              : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:bg-slate-800 hover:border-slate-700 hover:text-slate-200'
+                              : 'bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-active)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]'
                           } ${localAllocation.use_all_cores ? 'cursor-default' : 'cursor-pointer active:scale-95'}`}
                         >
                           {/* Core Tag */}
-                          <div className="flex items-center justify-between w-full text-[10px] font-mono text-slate-400 mb-1 gap-1">
-                            <span className="font-bold text-slate-300 shrink-0">#{i}</span>
-                            <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 whitespace-nowrap shrink-0">
+                          <div className="flex items-center justify-between w-full text-[10px] font-mono text-[var(--text-muted)] mb-1 gap-1">
+                            <span className="font-bold text-[var(--text-primary)] shrink-0">#{i}</span>
+                            <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)] whitespace-nowrap shrink-0">
                               {isPhysicalPrimary ? 'P-CORE' : 'HT'}
                             </span>
                           </div>
@@ -616,7 +616,7 @@ const Hardware: React.FC = () => {
                           <div className="my-1">
                             <Cpu
                               className={`w-6 h-6 transition-transform group-hover:scale-110 ${
-                                isSelected ? 'text-cyan-400 filter drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]' : 'text-slate-600'
+                                isSelected ? 'text-cyan-400 filter drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]' : 'text-[var(--text-muted)]'
                               }`}
                             />
                           </div>
@@ -628,7 +628,7 @@ const Hardware: React.FC = () => {
                           {/* Conflict / Cluster Usage Badge */}
                           {activeOtherServers.length > 0 && (
                             <div
-                              className="mt-1.5 w-full text-[10px] font-medium whitespace-nowrap text-center px-1.5 py-0.5 rounded bg-amber-950/70 text-amber-300 border border-amber-600/50 font-mono tracking-tight"
+                              className="mt-1.5 w-full text-[10px] font-medium whitespace-nowrap text-center px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 font-mono tracking-tight"
                               title={`Used by: ${activeOtherServers.join(', ')}`}
                             >
                               Shared ({activeOtherServers.length})
@@ -641,16 +641,16 @@ const Hardware: React.FC = () => {
                 </div>
 
                 {/* Affinity Telemetry & Hex Bitmask Bar */}
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 rounded-lg bg-blue-900/30 border border-blue-600/30 text-blue-400">
                       <Activity className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="text-xs font-semibold text-slate-400">Selected Allocation Capacity</div>
-                      <div className="text-sm font-bold text-white flex items-center gap-2">
+                      <div className="text-xs font-semibold text-[var(--text-muted)]">Selected Allocation Capacity</div>
+                      <div className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                         {activeCoresCount} of {totalCores} Logical Cores Assigned
-                        <span className="text-xs font-normal text-slate-400 font-mono">
+                        <span className="text-xs font-normal text-[var(--text-secondary)] font-mono">
                           ({Math.round((activeCoresCount / totalCores) * 100)}% CPU Capacity)
                         </span>
                       </div>
@@ -658,14 +658,14 @@ const Hardware: React.FC = () => {
                   </div>
 
                   {/* Hex Mask Display */}
-                  <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl">
-                    <div className="text-xs font-semibold text-slate-400 font-mono">Affinity Mask:</div>
+                  <div className="flex items-center gap-3 bg-[var(--surface-hover)] border border-[var(--border)] px-4 py-2 rounded-xl">
+                    <div className="text-xs font-semibold text-[var(--text-secondary)] font-mono">Affinity Mask:</div>
                     <code className="text-sm font-bold text-cyan-400 font-mono tracking-wider">
                       {affinityMaskHex}
                     </code>
                     <button
                       onClick={copyMaskToClipboard}
-                      className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors"
+                      className="p-1.5 bg-[var(--surface)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors border border-[var(--border)] cursor-pointer"
                       title="Copy Hex Mask"
                     >
                       {copiedMask ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
@@ -675,13 +675,13 @@ const Hardware: React.FC = () => {
               </div>
 
               {/* Process Priority Selection Grid */}
-              <div className="bg-slate-900/90 rounded-2xl border border-slate-800 p-6 shadow-xl flex flex-col gap-4">
+              <div className="glass-panel rounded-2xl border border-[var(--border)] p-6 shadow-xl flex flex-col gap-4">
                 <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                     <Shield className="w-5 h-5 text-indigo-400" />
                     Process Priority Level
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                     Configure process scheduling priority in Windows Task Scheduler for this server binary.
                   </p>
                 </div>
@@ -693,10 +693,10 @@ const Hardware: React.FC = () => {
                       <button
                         key={p.value}
                         onClick={() => handleSelectPriority(p.value)}
-                        className={`text-left p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${
+                        className={`text-left p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between cursor-pointer ${
                           isSelected
-                            ? 'bg-slate-950 border-indigo-500/80 shadow-[0_0_15px_rgba(99,102,241,0.15)] ring-1 ring-indigo-500'
-                            : 'bg-slate-950/60 border-slate-800/90 hover:border-slate-700 hover:bg-slate-950'
+                            ? 'bg-[var(--surface-hover)] border-indigo-500/80 shadow-[0_0_15px_rgba(99,102,241,0.15)] ring-1 ring-indigo-500'
+                            : 'bg-[var(--surface)] border-[var(--border)] hover:border-[var(--border-hover)] hover:bg-[var(--surface-hover)]'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
@@ -707,7 +707,7 @@ const Hardware: React.FC = () => {
                           </span>
                           {isSelected && <Check className="w-4 h-4 text-indigo-400 font-bold" />}
                         </div>
-                        <p className="text-xs text-slate-400 leading-relaxed mt-1">{p.desc}</p>
+                        <p className="text-xs text-[var(--text-secondary)] leading-relaxed mt-1">{p.desc}</p>
                       </button>
                     );
                   })}

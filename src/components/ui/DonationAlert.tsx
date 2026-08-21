@@ -106,34 +106,35 @@ export default function DonationAlert() {
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                     {/* Backdrop dismiss */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={handleClose}
-                        className="absolute inset-0 cursor-default"
+                        className="fixed inset-0 bg-black/75 backdrop-blur-md cursor-default"
                     />
 
                     {/* Dialog Container */}
                     <motion.div
-                        initial={{ scale: 0.95, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.95, opacity: 0 }}
-                        transition={{ type: 'spring', duration: 0.5, bounce: 0.15 }}
+                        initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                        transition={{ type: 'spring', duration: 0.4, bounce: 0.15 }}
                         className={cn(
-                            "relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden",
-                            "flex flex-col items-center p-6 text-center z-10"
+                            "relative w-full max-w-md bg-[var(--surface)] border border-[var(--border)] rounded-3xl shadow-2xl overflow-hidden",
+                            "flex flex-col items-center p-6 sm:p-8 text-center z-10"
                         )}
+                        onClick={(e) => e.stopPropagation()}
                     >
                         {/* Decorative Top Highlight */}
-                        <div className="absolute top-0 left-0 right-0 h-28 bg-gradient-to-b from-rose-500/10 to-transparent opacity-40 pointer-events-none" />
+                        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-rose-500/15 via-rose-500/5 to-transparent pointer-events-none" />
 
                         {/* Top close button */}
                         <button
                             onClick={handleClose}
-                            className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            className="absolute top-4 right-4 p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
                             aria-label="Close"
                         >
                             <X className="w-5 h-5" />
@@ -141,17 +142,17 @@ export default function DonationAlert() {
 
                         {/* Heart Icon Container */}
                         <div className="relative mt-2 mb-4">
-                            <div className="absolute inset-0 bg-rose-500/20 rounded-full blur-md animate-pulse" />
-                            <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-slate-800 border border-rose-500/20">
-                                <Heart className="w-6 h-6 text-rose-500" fill="currentColor" />
+                            <div className="absolute inset-0 bg-rose-500/25 rounded-full blur-lg animate-pulse" />
+                            <div className="relative flex items-center justify-center w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-500 shadow-inner">
+                                <Heart className="w-7 h-7 text-rose-500 fill-rose-500" />
                             </div>
                         </div>
 
                         {/* Title & Subtitle */}
-                        <h3 className="text-xl font-bold text-white tracking-tight">
+                        <h3 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
                             {t('donationAlert.title', 'Support the Development')}
                         </h3>
-                        <p className="text-sm text-slate-400 mt-2 mb-6 leading-relaxed">
+                        <p className="text-sm text-[var(--text-secondary)] mt-2 mb-6 leading-relaxed">
                             {t(
                                 'donationAlert.description',
                                 'This Server Manager is free and open-source. If it helps you manage your servers, please consider a small contribution to support ongoing updates and features.'
@@ -159,14 +160,14 @@ export default function DonationAlert() {
                         </p>
 
                         {/* Action Buttons Row */}
-                        <div className="grid grid-cols-3 gap-3 w-full mb-5">
+                        <div className="grid grid-cols-3 gap-3 w-full mb-4">
                             {SUPPORT_LINKS.map(link => (
                                 <button
                                     key={link.name}
                                     onClick={() => handleActionClick(link.url)}
                                     className={cn(
-                                        "flex items-center justify-center px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-300",
-                                        "hover:scale-[1.02] active:scale-[0.98] shrink-0",
+                                        "flex items-center justify-center px-4 py-3 rounded-xl text-[13px] font-bold transition-all duration-300",
+                                        "hover:scale-[1.02] active:scale-[0.98] shrink-0 cursor-pointer",
                                         link.colorClass
                                     )}
                                 >
@@ -179,7 +180,7 @@ export default function DonationAlert() {
                         {/* Remind Me Later Button */}
                         <button
                             onClick={handleClose}
-                            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-xs font-semibold uppercase tracking-wider border border-slate-800 hover:border-slate-700"
+                            className="w-full py-3 rounded-xl bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] border border-[var(--border)] hover:border-sky-500/40 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer shadow-sm"
                         >
                             {t('donationAlert.later', 'Remind Me Later')}
                         </button>

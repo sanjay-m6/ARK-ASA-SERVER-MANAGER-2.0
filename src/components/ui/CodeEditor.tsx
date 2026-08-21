@@ -25,11 +25,11 @@ export const CodeEditor = ({ value, onChange, className, readOnly = false }: Cod
     };
 
     return (
-        <div className={cn("flex h-full font-mono text-sm bg-[#1e1e1e] border border-slate-700 rounded-lg overflow-hidden relative group", className)}>
+        <div className={cn("flex h-full font-mono text-sm bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg overflow-hidden relative group", className)}>
             {/* Line Numbers */}
             <div
                 ref={lineNumbersRef}
-                className="flex-shrink-0 bg-[#252526] text-slate-500 text-right pr-3 pl-2 py-4 select-none border-r border-[#3e3e3e] overflow-hidden"
+                className="flex-shrink-0 bg-[var(--surface)] text-[var(--text-muted)] text-right pr-3 pl-2 py-4 select-none border-r border-[var(--border)] overflow-hidden"
                 style={{ width: '3.5rem', fontFamily: 'Consolas, Monaco, "Courier New", monospace' }}
             >
                 {Array.from({ length: Math.max(1, lineCount) }).map((_, i) => (
@@ -45,8 +45,8 @@ export const CodeEditor = ({ value, onChange, className, readOnly = false }: Cod
                 onScroll={handleScroll}
                 readOnly={readOnly}
                 className={cn(
-                    "flex-1 bg-transparent p-4 text-[#d4d4d4] outline-none resize-none leading-6 whitespace-pre",
-                    "font-[Consolas,Monaco,'Courier_New',monospace] selection:bg-[#264f78]"
+                    "flex-1 bg-transparent p-4 text-[var(--text-primary)] outline-none resize-none leading-6 whitespace-pre",
+                    "font-[Consolas,Monaco,'Courier_New',monospace] selection:bg-purple-500/30"
                 )}
                 spellCheck={false}
                 autoCorrect="off"

@@ -68,7 +68,7 @@ const QUICK_COMMANDS = [
   { label: 'Dino Wipe', cmd: 'destroywilddinos', icon: Skull, color: 'text-rose-400 border-rose-500/25 bg-rose-950/20' },
   { label: 'Broadcast', cmd: 'broadcast ', icon: Megaphone, color: 'text-amber-400 border-amber-500/25 bg-amber-950/20' },
   { label: 'Server Chat', cmd: 'serverchat ', icon: MessageSquare, color: 'text-blue-400 border-blue-500/25 bg-blue-950/20' },
-  { label: 'List Players', cmd: 'listplayers', icon: TerminalIcon, color: 'text-slate-400 border-slate-700/50 bg-slate-900/50' },
+  { label: 'List Players', cmd: 'listplayers', icon: TerminalIcon, color: 'text-[var(--text-secondary)] border-[var(--border)] bg-[var(--surface-hover)] hover:bg-[var(--surface-active)]' },
 ];
 
 const AUTOCOMPLETE_COMMANDS = [
@@ -1094,15 +1094,15 @@ export default function ASERconConsole() {
     <motion.div className="space-y-6 select-none" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       
       {/* Header section with layout adjustments */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-slate-900/30 p-5 rounded-2xl border border-white/5 backdrop-blur-md">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-[var(--surface)] p-5 rounded-2xl border border-[var(--border)] backdrop-blur-md">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-3">
             <div className="p-2.5 bg-amber-500/10 rounded-xl">
               <TerminalIcon className="w-6 h-6 text-amber-400" />
             </div>
             ASE RCON Console
           </h1>
-          <p className="text-sm text-slate-400 mt-1">Live remote administration and server telemetry</p>
+          <p className="text-sm text-[var(--text-muted)] mt-1">Live remote administration and server telemetry</p>
         </div>
         
         <div className="flex items-center gap-3">
@@ -1129,14 +1129,14 @@ export default function ASERconConsole() {
       </div>
 
       {/* Navigation tabs matching existing theme */}
-      <div className="flex p-1.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md w-max shadow-inner gap-1 mb-2">
+      <div className="flex p-1.5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md w-max shadow-inner gap-1 mb-2">
         <button
           onClick={() => setActiveTab('terminal')}
           className={cn(
             "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
             activeTab === 'terminal' 
-              ? "text-amber-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+              ? "text-amber-400 bg-[var(--surface-active)] shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-[var(--border)]" 
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
           )}
         >
           <TerminalIcon className="w-4 h-4" />
@@ -1148,8 +1148,8 @@ export default function ASERconConsole() {
           className={cn(
             "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
             activeTab === 'log_stream' 
-              ? "text-amber-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+              ? "text-amber-400 bg-[var(--surface-active)] shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-[var(--border)]" 
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
           )}
         >
           <Eye className="w-4 h-4" />
@@ -1164,8 +1164,8 @@ export default function ASERconConsole() {
           className={cn(
             "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
             activeTab === 'cluster' 
-              ? "text-amber-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+              ? "text-amber-400 bg-[var(--surface-active)] shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-[var(--border)]" 
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
           )}
         >
           <Layers className="w-4 h-4" />
@@ -1177,8 +1177,8 @@ export default function ASERconConsole() {
           className={cn(
             "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
             activeTab === 'save_manager' 
-              ? "text-amber-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+              ? "text-amber-400 bg-[var(--surface-active)] shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-[var(--border)]" 
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
           )}
         >
           <Save className="w-4 h-4" />
@@ -1190,8 +1190,8 @@ export default function ASERconConsole() {
           className={cn(
             "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
             activeTab === 'maintenance' 
-              ? "text-amber-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+              ? "text-amber-400 bg-[var(--surface-active)] shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-[var(--border)]" 
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
           )}
         >
           <RefreshCw className={cn("w-4 h-4", isMaintRunning && "animate-spin text-amber-400")} />
@@ -1203,8 +1203,8 @@ export default function ASERconConsole() {
           className={cn(
             "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
             activeTab === 'give_items' 
-              ? "text-amber-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+              ? "text-amber-400 bg-[var(--surface-active)] shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-[var(--border)]" 
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
           )}
         >
           <Gift className="w-4 h-4" />
@@ -1215,7 +1215,7 @@ export default function ASERconConsole() {
       <div className="flex flex-col lg:flex-row gap-6">
         
         {/* Main Content Pane */}
-        <div className="flex-1 glass-panel rounded-2xl p-5 border border-white/5 shadow-xl relative overflow-visible flex flex-col min-h-[500px]">
+        <div className="flex-1 rounded-2xl p-5 border border-[var(--border)] shadow-xl relative overflow-visible flex flex-col min-h-[500px] bg-[var(--surface)] backdrop-blur-md">
           
           {/* Glow effect at top */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-500/20 to-transparent"></div>
@@ -1224,7 +1224,7 @@ export default function ASERconConsole() {
           {activeTab === 'terminal' && (
             <div className="flex-1 flex flex-col h-full">
               {/* Quick Actions Bar */}
-              <div className="flex gap-2 flex-wrap mb-4 pb-4 border-b border-white/5">
+              <div className="flex gap-2 flex-wrap mb-4 pb-4 border-b border-[var(--border)]">
                 {QUICK_COMMANDS.map(q => { 
                   const Icon = q.icon; 
                   return (
@@ -1265,7 +1265,7 @@ export default function ASERconConsole() {
                   onClick={() => setShowAutoBroadcastSettings(!showAutoBroadcastSettings)} 
                   className={cn(
                     "px-4 py-2 border rounded-xl text-xs font-semibold flex items-center gap-2 transition-all active:scale-95 focus:outline-none",
-                    showAutoBroadcastSettings ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-slate-900 border-white/5 text-slate-300 hover:text-white"
+                    showAutoBroadcastSettings ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   )}
                 >
                   <Sliders className="w-4 h-4" />
@@ -1276,7 +1276,7 @@ export default function ASERconConsole() {
                   disabled={!isConnected}
                   className={cn(
                     "px-4 py-2 ml-auto border rounded-xl text-xs font-semibold flex items-center gap-2 transition-all focus:outline-none",
-                    showPlayers ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-slate-900 border-white/5 text-slate-300 hover:text-white"
+                    showPlayers ? "bg-amber-500/10 border-amber-500/30 text-amber-400" : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                   )}
                 >
                   <Users className="w-4 h-4" />
@@ -1298,45 +1298,45 @@ export default function ASERconConsole() {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden mb-4 bg-slate-950/60 border border-white/5 rounded-xl p-4 space-y-4 text-xs text-slate-300 font-sans shadow-inner"
+                    className="overflow-hidden mb-4 bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl p-4 space-y-4 text-xs text-[var(--text-secondary)] font-sans shadow-inner"
                   >
-                    <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                      <span className="font-bold text-white flex items-center gap-1.5">
+                    <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+                      <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
                         <Sliders className="w-4 h-4 text-amber-400" />
                         Auto-Broadcast Action Alerts
                       </span>
-                      <span className="text-[10px] text-slate-500 uppercase tracking-wider">
+                      <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
                         Configure alerts sent to players before actions
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Dino Wipe Block */}
-                      <div className="space-y-3 bg-slate-900/40 p-3 rounded-lg border border-white/5">
+                      <div className="space-y-3 bg-[var(--surface)] p-3 rounded-lg border border-[var(--border)]">
                         <div className="flex items-center justify-between">
-                          <label className="font-semibold text-slate-200 flex items-center gap-2 cursor-pointer">
+                          <label className="font-semibold text-[var(--text-primary)] flex items-center gap-2 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={dinoWipeBroadcastEnabled}
                               onChange={(e) => setDinoWipeBroadcastEnabled(e.target.checked)}
-                              className="rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                              className="rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
                             />
                             Auto Broadcast on Dino Wipe
                           </label>
                         </div>
                         <div className="space-y-1.5">
-                          <span className="text-[10px] text-slate-500 font-sans">Alert Message</span>
+                          <span className="text-[10px] text-[var(--text-muted)] font-sans">Alert Message</span>
                           <input
                             type="text"
                             value={dinoWipeBroadcastMsg}
                             onChange={(e) => setDinoWipeBroadcastMsg(e.target.value)}
                             disabled={!dinoWipeBroadcastEnabled}
                             placeholder="Message to display..."
-                            className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-700 focus:outline-none disabled:opacity-50"
+                            className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none disabled:opacity-50"
                           />
                         </div>
                         <div className="flex items-center gap-2 font-sans">
-                          <span className="text-[10px] text-slate-500">Execution Delay (Seconds):</span>
+                          <span className="text-[10px] text-[var(--text-muted)]">Execution Delay (Seconds):</span>
                           <input
                             type="number"
                             min="0"
@@ -1344,37 +1344,37 @@ export default function ASERconConsole() {
                             value={dinoWipeBroadcastDelay}
                             onChange={(e) => setDinoWipeBroadcastDelay(parseInt(e.target.value, 10) || 0)}
                             disabled={!dinoWipeBroadcastEnabled}
-                            className="w-16 bg-slate-950 border border-white/5 rounded-lg px-2 py-1 text-center text-white focus:outline-none disabled:opacity-50"
+                            className="w-16 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2 py-1 text-center text-[var(--text-primary)] focus:outline-none disabled:opacity-50"
                           />
                         </div>
                       </div>
 
                       {/* Save World Block */}
-                      <div className="space-y-3 bg-slate-900/40 p-3 rounded-lg border border-white/5">
+                      <div className="space-y-3 bg-[var(--surface)] p-3 rounded-lg border border-[var(--border)]">
                         <div className="flex items-center justify-between">
-                          <label className="font-semibold text-slate-200 flex items-center gap-2 cursor-pointer">
+                          <label className="font-semibold text-[var(--text-primary)] flex items-center gap-2 cursor-pointer">
                             <input
                               type="checkbox"
                               checked={saveWorldBroadcastEnabled}
                               onChange={(e) => setSaveWorldBroadcastEnabled(e.target.checked)}
-                              className="rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                              className="rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
                             />
                             Auto Broadcast on Save World
                           </label>
                         </div>
                         <div className="space-y-1.5">
-                          <span className="text-[10px] text-slate-500 font-sans">Alert Message</span>
+                          <span className="text-[10px] text-[var(--text-muted)] font-sans">Alert Message</span>
                           <input
                             type="text"
                             value={saveWorldBroadcastMsg}
                             onChange={(e) => setSaveWorldBroadcastMsg(e.target.value)}
                             disabled={!saveWorldBroadcastEnabled}
                             placeholder="Message to display..."
-                            className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-700 focus:outline-none disabled:opacity-50"
+                            className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none disabled:opacity-50"
                           />
                         </div>
                         <div className="flex items-center gap-2 font-sans">
-                          <span className="text-[10px] text-slate-500">Execution Delay (Seconds):</span>
+                          <span className="text-[10px] text-[var(--text-muted)]">Execution Delay (Seconds):</span>
                           <input
                             type="number"
                             min="0"
@@ -1382,7 +1382,7 @@ export default function ASERconConsole() {
                             value={saveWorldBroadcastDelay}
                             onChange={(e) => setSaveWorldBroadcastDelay(parseInt(e.target.value, 10) || 0)}
                             disabled={!saveWorldBroadcastEnabled}
-                            className="w-16 bg-slate-950 border border-white/5 rounded-lg px-2 py-1 text-center text-white focus:outline-none disabled:opacity-50"
+                            className="w-16 bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-2 py-1 text-center text-[var(--text-primary)] focus:outline-none disabled:opacity-50"
                           />
                         </div>
                       </div>
@@ -1392,12 +1392,12 @@ export default function ASERconConsole() {
               </AnimatePresence>
 
               {/* Console output shell scroll block */}
-              <div ref={logRef} className="flex-1 overflow-y-auto font-mono text-[13px] space-y-2 mb-4 min-h-[420px] max-h-[60vh] bg-slate-950 p-4 rounded-xl border border-white/5 shadow-inner">
+              <div ref={logRef} className="flex-1 overflow-y-auto font-mono text-[13px] space-y-2 mb-4 min-h-[420px] max-h-[60vh] bg-[var(--bg-primary)] p-4 rounded-xl border border-[var(--border)] shadow-inner">
                 <AnimatePresence initial={false}>
                   {log.length === 0 ? (
                     <motion.div 
                       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="flex flex-col items-center justify-center h-full text-slate-500 py-12"
+                      className="flex flex-col items-center justify-center h-full text-[var(--text-muted)] py-12"
                     >
                       <TerminalIcon className="w-12 h-12 mb-3 opacity-20" />
                       <p className="text-xs">Connect to RCON and begin transmitting commands.</p>
@@ -1413,10 +1413,10 @@ export default function ASERconConsole() {
                             ? 'text-amber-300 bg-amber-500/5 border-amber-500/10' 
                             : entry.type === 'error' 
                               ? 'text-rose-400 bg-rose-500/10 border-rose-500/10' 
-                              : 'text-slate-300 hover:bg-white/[0.02] bg-slate-900/10 border-white/5'
+                              : 'text-[var(--text-primary)] hover:bg-[var(--surface-hover)] bg-[var(--surface)]/30 border-[var(--border)]'
                         }`}
                       >
-                        <span className="text-slate-600 shrink-0 select-none text-[10px] font-mono">[{entry.time}]</span>
+                        <span className="text-[var(--text-muted)] shrink-0 select-none text-[10px] font-mono">[{entry.time}]</span>
                         <div className="flex-1 break-words whitespace-pre-wrap font-sans leading-relaxed">
                           {entry.type === 'cmd' && <span className="text-amber-500/50 mr-2 select-none font-mono">❯</span>}
                           {entry.type === 'error' && <AlertCircle className="w-4 h-4 inline mr-2 align-text-bottom text-rose-500" />}
@@ -1430,7 +1430,7 @@ export default function ASERconConsole() {
 
               {/* Autocomplete Input Prompt */}
               <div className="relative">
-                <div className="flex gap-3 items-center bg-slate-950 rounded-xl px-4 py-3 border border-white/5 focus-within:border-amber-500/50 transition-all duration-300 shadow-md">
+                <div className="flex gap-3 items-center bg-[var(--surface)] rounded-xl px-4 py-3 border border-[var(--border)] focus-within:border-amber-500/50 transition-all duration-300 shadow-md">
                   <span className="text-amber-500 font-mono font-bold select-none text-sm shrink-0">❯</span>
                   <input 
                     ref={inputRef}
@@ -1440,7 +1440,7 @@ export default function ASERconConsole() {
                     onKeyDown={handleKeyDown} 
                     placeholder={isConnected ? "Enter RCON command..." : "Connect to server first..."}
                     disabled={!isConnected}
-                    className="w-full bg-transparent text-sm text-white placeholder-slate-600 font-mono focus:outline-none disabled:cursor-not-allowed" 
+                    className="w-full bg-transparent text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] font-mono focus:outline-none disabled:cursor-not-allowed" 
                   />
                   <button 
                     onClick={() => handleSend()} 
@@ -1453,8 +1453,8 @@ export default function ASERconConsole() {
 
                 {/* Autocomplete Suggestion Dropdown */}
                 {autocompleteVisible && suggestions.length > 0 && (
-                    <div className="absolute left-0 bottom-full mb-2 w-full bg-slate-950/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in slide-in-from-bottom-2 duration-200">
-                        <div className="bg-slate-900/50 px-4 py-2 border-b border-white/5 text-[10px] text-slate-500 uppercase tracking-wider font-bold">
+                    <div className="absolute left-0 bottom-full mb-2 w-full bg-[var(--surface)] backdrop-blur-md border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden z-50 animate-in slide-in-from-bottom-2 duration-200">
+                        <div className="bg-[var(--surface-active)] px-4 py-2 border-b border-[var(--border)] text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">
                             RCON Command Autocomplete (Use ↑ ↓ Tab / Enter)
                         </div>
                         <div className="max-h-[220px] overflow-y-auto">
@@ -1467,14 +1467,14 @@ export default function ASERconConsole() {
                                         inputRef.current?.focus();
                                     }}
                                     className={cn(
-                                        "w-full text-left px-4 py-3 flex items-center justify-between text-xs border-b border-white/[0.02] transition-colors",
+                                        "w-full text-left px-4 py-3 flex items-center justify-between text-xs border-b border-[var(--border)]/30 transition-colors",
                                         idx === autocompleteIndex 
                                             ? "bg-amber-500/10 text-amber-400 border-l-2 border-l-amber-400" 
-                                            : "text-slate-300 hover:bg-slate-900/40"
+                                            : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
                                     )}
                                 >
                                     <span className="font-mono font-semibold">{s.command}</span>
-                                    <span className="text-slate-500 text-[11px] font-sans truncate ml-4 max-w-[60%]">{s.desc}</span>
+                                    <span className="text-[var(--text-muted)] text-[11px] font-sans truncate ml-4 max-w-[60%]">{s.desc}</span>
                                 </button>
                             ))}
                         </div>
@@ -1487,7 +1487,7 @@ export default function ASERconConsole() {
           {/* TAB 2: LIVE LOG FEED */}
           {activeTab === 'log_stream' && (
             <div className="flex-1 flex flex-col h-full">
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/45 border border-white/5 p-4 rounded-xl mb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface-hover)] border border-[var(--border)] p-4 rounded-xl mb-4">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => { if (selectedServerId) rconStore.setStreamingLogs(selectedServerId, !isStreamingLogs); }}
@@ -1495,7 +1495,7 @@ export default function ASERconConsole() {
                       "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border transition-all active:scale-95",
                       isStreamingLogs
                         ? "bg-emerald-950/20 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/20"
-                        : "bg-slate-900 text-slate-400 border-white/5 hover:bg-slate-850 hover:text-slate-300"
+                        : "bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] hover:bg-[var(--surface-hover)]"
                     )}
                   >
                     {isStreamingLogs ? (
@@ -1517,7 +1517,7 @@ export default function ASERconConsole() {
                       "p-2 rounded-xl border text-xs transition-colors",
                       autoScrollLogs
                         ? "bg-amber-950/20 text-amber-400 border-amber-500/20 hover:bg-amber-900/20"
-                        : "bg-slate-950 text-slate-500 border-white/5 hover:text-slate-400"
+                        : "bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text-secondary)]"
                     )}
                     title={autoScrollLogs ? "Auto-scroll enabled" : "Auto-scroll paused"}
                   >
@@ -1526,38 +1526,38 @@ export default function ASERconConsole() {
 
                   <button
                     onClick={() => { if (selectedServerId) rconStore.clearLogStream(selectedServerId); }}
-                    className="p-2 bg-slate-950 border border-white/5 hover:border-white/10 rounded-xl text-slate-500 hover:text-red-400 transition-colors"
+                    className="p-2 bg-[var(--surface)] border border-[var(--border)] hover:border-red-500/30 rounded-xl text-[var(--text-muted)] hover:text-red-400 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
                 <div className="relative max-w-xs w-full">
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--text-muted)]" />
                   <input
                     type="text"
                     value={logSearchQuery}
                     onChange={(e) => setLogSearchQuery(e.target.value)}
                     placeholder="Search logs content..."
-                    className="w-full bg-slate-950 border border-white/5 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500/30 text-white"
+                    className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-amber-500/30 text-[var(--text-primary)] placeholder-[var(--text-muted)]"
                   />
                 </div>
               </div>
 
               <div
                 ref={logFeedRef}
-                className="flex-1 bg-slate-950 rounded-xl p-4 font-mono text-xs overflow-y-auto border border-white/5 min-h-[420px] max-h-[60vh] shadow-inner text-slate-400 leading-relaxed"
+                className="flex-1 bg-[var(--bg-primary)] rounded-xl p-4 font-mono text-xs overflow-y-auto border border-[var(--border)] min-h-[420px] max-h-[60vh] shadow-inner text-[var(--text-secondary)] leading-relaxed"
               >
                 {filteredLogs.length === 0 ? (
-                  <div className="text-slate-600 italic text-center py-12">
+                  <div className="text-[var(--text-muted)] italic text-center py-12">
                     {isStreamingLogs 
                       ? "Waiting for logs flow... (or search returned zero results)" 
                       : "Streaming is disabled. Enable to monitor logs directly from the backend stream."}
                   </div>
                 ) : (
                   filteredLogs.map((entry, idx) => (
-                    <div key={idx} className="mb-2 hover:bg-white/[0.01] p-1 rounded transition-colors flex items-start gap-3">
-                      <span className="text-slate-650 text-[10px] shrink-0 mt-0.5 select-none">[{entry.timestamp.toLocaleTimeString()}]</span>
+                    <div key={idx} className="mb-2 hover:bg-[var(--surface-hover)] p-1 rounded transition-colors flex items-start gap-3">
+                      <span className="text-[var(--text-muted)] text-[10px] shrink-0 mt-0.5 select-none">[{entry.timestamp.toLocaleTimeString()}]</span>
                       <span className="whitespace-pre-wrap break-all">{entry.line}</span>
                     </div>
                   ))
@@ -1569,22 +1569,22 @@ export default function ASERconConsole() {
           {/* TAB 3: CLUSTER DECK */}
           {activeTab === 'cluster' && (
             <div className="flex-1 flex flex-col h-full space-y-5">
-              <div className="p-4 bg-slate-950/40 border border-white/5 rounded-xl">
-                <h3 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+              <div className="p-4 bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-amber-400" />
                   <span>Target Cluster Servers</span>
                 </h3>
-                <p className="text-xs text-slate-400 mb-4 font-sans">Select which active servers this command will execute on simultaneously:</p>
+                <p className="text-xs text-[var(--text-muted)] mb-4 font-sans">Select which active servers this command will execute on simultaneously:</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {servers.map(server => (
                     <label
                       key={server.id}
                       className={cn(
-                        "p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all hover:bg-slate-800/40",
+                        "p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all hover:bg-[var(--surface-active)]",
                         clusterSelectedServers.includes(server.id)
                           ? "bg-amber-950/15 border-amber-500/20 text-amber-300"
-                          : "bg-slate-900/50 border-white/5 text-slate-400"
+                          : "bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)]"
                       )}
                     >
                       <input
@@ -1597,11 +1597,11 @@ export default function ASERconConsole() {
                             setClusterSelectedServers(prev => prev.filter(id => id !== server.id));
                           }
                         }}
-                        className="w-4 h-4 rounded border-slate-800 accent-amber-500 bg-slate-950 focus:ring-0 cursor-pointer"
+                        className="w-4 h-4 rounded border-[var(--border)] accent-amber-500 bg-[var(--surface-hover)] focus:ring-0 cursor-pointer"
                       />
                       <div className="truncate font-sans">
-                        <p className="text-xs font-semibold text-white truncate">{server.name}</p>
-                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">Port: {server.rconPort}</p>
+                        <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{server.name}</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-mono mt-0.5">Port: {server.rconPort}</p>
                       </div>
                     </label>
                   ))}
@@ -1609,14 +1609,14 @@ export default function ASERconConsole() {
               </div>
 
               {/* Command Prompt */}
-              <div className="flex items-center gap-3 bg-slate-950 rounded-xl px-4 py-3.5 border border-white/5 focus-within:border-amber-500/50 transition-all duration-300 shadow-md">
+              <div className="flex items-center gap-3 bg-[var(--surface)] rounded-xl px-4 py-3.5 border border-[var(--border)] focus-within:border-amber-500/50 transition-all duration-300 shadow-md">
                 <TerminalIcon className="w-5 h-5 text-amber-400" />
                 <input
                   type="text"
                   value={clusterCommand}
                   onChange={(e) => setClusterCommand(e.target.value)}
                   placeholder="Enter command to broadcast or execute on all selected cluster servers..."
-                  className="flex-1 bg-transparent text-white text-sm focus:outline-none font-mono placeholder:text-slate-650"
+                  className="flex-1 bg-transparent text-[var(--text-primary)] text-sm focus:outline-none font-mono placeholder:text-[var(--text-muted)]"
                   disabled={clusterIsExecuting}
                 />
                 <button
@@ -1632,7 +1632,7 @@ export default function ASERconConsole() {
               {/* Outputs deck */}
               <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
                 {Object.keys(clusterProgress).length === 0 ? (
-                  <div className="text-slate-600 italic text-xs py-8 text-center bg-slate-950/20 rounded-xl border border-white/5">
+                  <div className="text-[var(--text-muted)] italic text-xs py-8 text-center bg-[var(--surface-hover)]/40 rounded-xl border border-[var(--border)]">
                     No cluster executions triggered yet.
                   </div>
                 ) : (
@@ -1642,10 +1642,10 @@ export default function ASERconConsole() {
                     return (
                       <div
                         key={sId}
-                        className="bg-slate-950 rounded-xl p-4 border border-white/5 flex items-start gap-4 hover:border-white/10 transition-colors"
+                        className="bg-[var(--surface-hover)] rounded-xl p-4 border border-[var(--border)] flex items-start gap-4 hover:border-[var(--border-hover)] transition-colors"
                       >
                         <div className="w-40 truncate font-sans">
-                          <p className="text-xs font-bold text-white truncate">{server?.name || `Server #${sId}`}</p>
+                          <p className="text-xs font-bold text-[var(--text-primary)] truncate">{server?.name || `Server #${sId}`}</p>
                           <div className="mt-1">
                             {val.status === 'sending' && (
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
@@ -1669,8 +1669,8 @@ export default function ASERconConsole() {
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider font-sans">Response</p>
-                          <div className="mt-1 font-mono text-[11px] text-slate-300 whitespace-pre-wrap bg-slate-900/30 p-2.5 rounded-lg border border-white/5 truncate max-h-[80px] overflow-y-auto">
+                          <p className="text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-wider font-sans">Response</p>
+                          <div className="mt-1 font-mono text-[11px] text-[var(--text-secondary)] whitespace-pre-wrap bg-[var(--bg-primary)] p-2.5 rounded-lg border border-[var(--border)] truncate max-h-[80px] overflow-y-auto">
                             {val.response}
                           </div>
                         </div>
@@ -1685,13 +1685,13 @@ export default function ASERconConsole() {
           {/* TAB 4: MANUAL WORLD SAVE DECK */}
           {activeTab === 'save_manager' && (
             <div className="flex-1 flex flex-col h-full space-y-6">
-              <div className="bg-slate-950/40 border border-white/5 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md relative overflow-hidden">
+              <div className="bg-[var(--surface-hover)] border border-[var(--border)] p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md relative overflow-hidden">
                 <div className="space-y-2 max-w-lg font-sans">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                     <Database className="w-5 h-5 text-amber-400" />
                     <span>Verified Save World Engine</span>
                   </h3>
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
                     Triggers the <code className="text-amber-400 font-semibold font-mono bg-amber-950/20 px-1 py-0.5 rounded">saveworld</code> command via RCON and verifies that the output save file is successfully written to disk, checking size and timestamp metrics in real time.
                   </p>
                 </div>
@@ -1704,7 +1704,7 @@ export default function ASERconConsole() {
                       "flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold text-sm shadow-xl transition-all duration-300 transform active:scale-95",
                       saveProgressState === 'idle' || saveProgressState === 'success' || saveProgressState === 'error'
                         ? "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/10"
-                        : "bg-slate-850 border border-slate-800 text-slate-500 cursor-not-allowed"
+                        : "bg-[var(--surface-active)] border border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed"
                     )}
                   >
                     {['sending', 'syncing', 'verifying'].includes(saveProgressState) ? (
@@ -1742,27 +1742,27 @@ export default function ASERconConsole() {
 
               {/* Save result details */}
               {saveValidationResult && (
-                <div className="bg-slate-950 rounded-2xl p-5 border border-white/5 shadow-inner grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 font-sans">
-                  <div className="bg-slate-900/40 p-4 rounded-xl border border-white/[0.02]">
-                    <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Save File Name</p>
-                    <p className="text-xs font-semibold text-white truncate font-mono mt-1" title={saveValidationResult.file_name}>
+                <div className="bg-[var(--surface-hover)] rounded-2xl p-5 border border-[var(--border)] shadow-inner grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 font-sans">
+                  <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
+                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Save File Name</p>
+                    <p className="text-xs font-semibold text-[var(--text-primary)] truncate font-mono mt-1" title={saveValidationResult.file_name}>
                       {saveValidationResult.file_name}
                     </p>
                   </div>
-                  <div className="bg-slate-900/40 p-4 rounded-xl border border-white/[0.02]">
-                    <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">File Size</p>
+                  <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
+                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">File Size</p>
                     <p className="text-xs font-semibold text-amber-400 font-mono mt-1">
                       {formatBytes(saveValidationResult.file_size_bytes)}
                     </p>
                   </div>
-                  <div className="bg-slate-900/40 p-4 rounded-xl border border-white/[0.02]">
-                    <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Last Modified</p>
-                    <p className="text-xs font-semibold text-white truncate font-mono mt-1">
+                  <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
+                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Last Modified</p>
+                    <p className="text-xs font-semibold text-[var(--text-primary)] truncate font-mono mt-1">
                       {saveValidationResult.last_modified}
                     </p>
                   </div>
-                  <div className="bg-slate-900/40 p-4 rounded-xl border border-white/[0.02]">
-                    <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Integrity Stamp</p>
+                  <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
+                    <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Integrity Stamp</p>
                     <div className="mt-1">
                       {saveValidationResult.integrity_ok ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -1782,27 +1782,27 @@ export default function ASERconConsole() {
 
               {/* Save History */}
               <div className="space-y-3 font-sans">
-                <h4 className="text-xs font-bold text-slate-400 flex items-center gap-2">
+                <h4 className="text-xs font-bold text-[var(--text-muted)] flex items-center gap-2">
                   <History className="w-4 h-4" />
                   <span>Verified Save History Logs</span>
                 </h4>
 
                 <div className="space-y-2 max-h-[140px] overflow-y-auto">
                   {saveValidationHistory.length === 0 ? (
-                    <p className="text-[11px] text-slate-600 italic py-2">No save validation logs recorded in this session.</p>
+                    <p className="text-[11px] text-[var(--text-muted)] italic py-2">No save validation logs recorded in this session.</p>
                   ) : (
                     saveValidationHistory.map((h, i) => (
                       <div
                         key={i}
-                        className="bg-slate-950/40 border border-white/[0.02] rounded-xl p-3 flex items-center justify-between text-xs"
+                        className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3 flex items-center justify-between text-xs"
                       >
                         <div className="space-y-0.5">
-                          <p className="font-bold text-white">{h.serverName}</p>
-                          <p className="text-[10px] text-slate-500 font-mono truncate max-w-[200px]" title={h.info.file_name}>{h.info.file_name}</p>
+                          <p className="font-bold text-[var(--text-primary)]">{h.serverName}</p>
+                          <p className="text-[10px] text-[var(--text-muted)] font-mono truncate max-w-[200px]" title={h.info.file_name}>{h.info.file_name}</p>
                         </div>
                         <div className="text-right">
                           <span className="font-semibold text-amber-400 font-mono">{formatBytes(h.info.file_size_bytes)}</span>
-                          <p className="text-[9px] text-slate-500 mt-0.5">{h.timestamp.toLocaleTimeString()} | {h.info.last_modified}</p>
+                          <p className="text-[9px] text-[var(--text-muted)] mt-0.5">{h.timestamp.toLocaleTimeString()} | {h.info.last_modified}</p>
                         </div>
                       </div>
                     ))
@@ -1817,17 +1817,17 @@ export default function ASERconConsole() {
             <div className="flex-1 flex flex-col h-full space-y-6 animate-in fade-in duration-300">
               
               {/* Maintenance Header */}
-              <div className="bg-slate-950/40 border border-white/5 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md relative overflow-hidden">
+              <div className="bg-[var(--surface-hover)] border border-[var(--border)] p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md relative overflow-hidden">
                 <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none select-none text-[150px] text-amber-500">
                   <RefreshCw className="w-40 h-40" />
                 </div>
 
                 <div className="space-y-2 max-w-lg">
-                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                     <RefreshCw className={cn("w-5 h-5 text-amber-400", isMaintRunning && "animate-spin")} />
                     <span>Server Maintenance Sequence</span>
                   </h3>
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
                     Coordinate and execute a safe, step-by-step update and restart sequence on the server. Select the operations to perform below and monitor progress in real-time.
                   </p>
                 </div>
@@ -1859,7 +1859,7 @@ export default function ASERconConsole() {
                 
                 {/* Step Selection Config (Left 2 Columns) */}
                 <div className="lg:col-span-2 space-y-3.5">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">Configuration Steps</h4>
+                  <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1">Configuration Steps</h4>
                   
                   {/* Step 1 Toggle */}
                   <div 
@@ -1867,17 +1867,17 @@ export default function ASERconConsole() {
                     className={cn(
                       "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
                       isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-                      maintStop ? "bg-red-500/5 border-red-500/20 hover:border-red-500/40" : "bg-slate-950/20 border-white/5 hover:border-white/10"
+                      maintStop ? "bg-red-500/5 border-red-500/20 hover:border-red-500/40" : "bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-hover)]"
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStop ? "bg-red-500/10 text-red-400 border border-red-500/30" : "bg-slate-900 text-slate-500 border border-white/5")}>1</div>
+                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStop ? "bg-red-500/10 text-red-400 border border-red-500/30" : "bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]")}>1</div>
                       <div>
-                        <p className="text-xs font-bold text-white font-sans">Graceful Shutdown</p>
-                        <p className="text-[10px] text-slate-400 font-sans">Stop server before maintenance</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Graceful Shutdown</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-sans">Stop server before maintenance</p>
                       </div>
                     </div>
-                    <input type="checkbox" checked={maintStop} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
+                    <input type="checkbox" checked={maintStop} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
                   </div>
 
                   {/* Step 2 Toggle */}
@@ -1886,17 +1886,17 @@ export default function ASERconConsole() {
                     className={cn(
                       "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
                       isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-                      maintBackup ? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40" : "bg-slate-950/20 border-white/5 hover:border-white/10"
+                      maintBackup ? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40" : "bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-hover)]"
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintBackup ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-slate-900 text-slate-500 border border-white/5")}>2</div>
+                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintBackup ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]")}>2</div>
                       <div>
-                        <p className="text-xs font-bold text-white font-sans">Create Backup</p>
-                        <p className="text-[10px] text-slate-400 font-sans">Zip world save & configs</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Create Backup</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-sans">Zip world save & configs</p>
                       </div>
                     </div>
-                    <input type="checkbox" checked={maintBackup} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
+                    <input type="checkbox" checked={maintBackup} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
                   </div>
 
                   {/* Step 3 Toggle */}
@@ -1905,17 +1905,17 @@ export default function ASERconConsole() {
                     className={cn(
                       "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
                       isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-                      maintUpdate ? "bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40" : "bg-slate-950/20 border-white/5 hover:border-white/10"
+                      maintUpdate ? "bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40" : "bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-hover)]"
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintUpdate ? "bg-blue-500/10 text-blue-400 border border-blue-500/30" : "bg-slate-900 text-slate-500 border border-white/5")}>3</div>
+                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintUpdate ? "bg-blue-500/10 text-blue-400 border border-blue-500/30" : "bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]")}>3</div>
                       <div>
-                        <p className="text-xs font-bold text-white font-sans">SteamCMD Update</p>
-                        <p className="text-[10px] text-slate-400 font-sans">Fetch latest server binary files</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">SteamCMD Update</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-sans">Fetch latest server binary files</p>
                       </div>
                     </div>
-                    <input type="checkbox" checked={maintUpdate} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
+                    <input type="checkbox" checked={maintUpdate} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
                   </div>
 
                   {/* Step 4 Toggle */}
@@ -1924,17 +1924,17 @@ export default function ASERconConsole() {
                     className={cn(
                       "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
                       isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-                      maintStart ? "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40" : "bg-slate-950/20 border-white/5 hover:border-white/10"
+                      maintStart ? "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40" : "bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-hover)]"
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStart ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" : "bg-slate-900 text-slate-500 border border-white/5")}>4</div>
+                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStart ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" : "bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]")}>4</div>
                       <div>
-                        <p className="text-xs font-bold text-white font-sans">Start Server</p>
-                        <p className="text-[10px] text-slate-400 font-sans">Launch process and watch bootup</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Start Server</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-sans">Launch process and watch bootup</p>
                       </div>
                     </div>
-                    <input type="checkbox" checked={maintStart} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
+                    <input type="checkbox" checked={maintStart} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
                   </div>
 
                   {/* Step 5 Toggle */}
@@ -1943,27 +1943,27 @@ export default function ASERconConsole() {
                     className={cn(
                       "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
                       isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-                      maintWipeDinos ? "bg-orange-500/5 border-orange-500/20 hover:border-orange-500/40" : "bg-slate-950/20 border-white/5 hover:border-white/10"
+                      maintWipeDinos ? "bg-orange-500/5 border-orange-500/20 hover:border-orange-500/40" : "bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-hover)]"
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintWipeDinos ? "bg-orange-500/10 text-orange-400 border border-orange-500/30" : "bg-slate-900 text-slate-500 border border-white/5")}>5</div>
+                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintWipeDinos ? "bg-orange-500/10 text-orange-400 border border-orange-500/30" : "bg-[var(--surface-hover)] text-[var(--text-muted)] border border-[var(--border)]")}>5</div>
                       <div>
-                        <p className="text-xs font-bold text-white font-sans">Destroy Wild Dinos</p>
-                        <p className="text-[10px] text-slate-400 font-sans">Wipe map populations via RCON</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Destroy Wild Dinos</p>
+                        <p className="text-[10px] text-[var(--text-muted)] font-sans">Wipe map populations via RCON</p>
                       </div>
                     </div>
-                    <input type="checkbox" checked={maintWipeDinos} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
+                    <input type="checkbox" checked={maintWipeDinos} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-hover)] text-amber-500 focus:ring-amber-500/50 cursor-pointer pointer-events-none" />
                   </div>
                 </div>
 
                 {/* Sequence Progress Flow and Console Logs (Right 3 Columns) */}
                 <div className="lg:col-span-3 space-y-4 flex flex-col h-full">
-                  <div className="bg-slate-950 rounded-2xl p-5 border border-white/5 shadow-inner flex-1 flex flex-col space-y-4">
+                  <div className="bg-[var(--surface-hover)] rounded-2xl p-5 border border-[var(--border)] shadow-inner flex-1 flex flex-col space-y-4">
                     
                     {/* Status Header */}
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-sans">Sequence Status</span>
+                      <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider font-sans">Sequence Status</span>
                       {isMaintRunning ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 font-sans">
                           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1975,7 +1975,7 @@ export default function ASERconConsole() {
                           <span>Completed</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-850 text-slate-500 border border-white/5 font-sans">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)] font-sans">
                           <span>Idle</span>
                         </span>
                       )}
@@ -1984,7 +1984,7 @@ export default function ASERconConsole() {
                     {/* Visual Step Timeline */}
                     <div className="flex items-center justify-between px-2 pt-2 relative">
                       {/* Line Background */}
-                      <div className="absolute top-[1.4rem] left-10 right-10 h-0.5 bg-slate-800 pointer-events-none z-0"></div>
+                      <div className="absolute top-[1.4rem] left-10 right-10 h-0.5 bg-[var(--surface-active)] pointer-events-none z-0"></div>
                       
                       {/* Dynamic Line Progress */}
                       {isMaintRunning && maintStep > 1 && (
@@ -2010,10 +2010,10 @@ export default function ASERconConsole() {
                             <div 
                               className={cn(
                                 "w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-300",
-                                isSkipped ? "bg-[#0B0F19]/40 border-slate-800/40 text-slate-700 border-dashed" :
+                                isSkipped ? "bg-[var(--surface)] border-[var(--border)] text-[var(--text-muted)] opacity-40 border-dashed" :
                                 isCompleted ? "bg-emerald-500 border-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]" :
                                 isActive ? "bg-amber-500 border-amber-500 text-white animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.4)]" :
-                                "bg-slate-900 border-slate-800 text-slate-500"
+                                "bg-[var(--surface)] border-[var(--border)] text-[var(--text-muted)]"
                               )}
                               title={isSkipped ? "This step is skipped" : undefined}
                             >
@@ -2025,10 +2025,10 @@ export default function ASERconConsole() {
                             </div>
                             <span className={cn(
                               "text-[9px] font-bold uppercase tracking-wider font-sans",
-                              isSkipped ? "text-slate-600 line-through font-normal" :
+                              isSkipped ? "text-[var(--text-muted)] line-through font-normal" :
                               isCompleted ? "text-emerald-400" :
                               isActive ? "text-amber-400 animate-pulse" :
-                              "text-slate-500"
+                              "text-[var(--text-muted)]"
                             )}>
                               {s.label}
                             </span>
@@ -2039,16 +2039,16 @@ export default function ASERconConsole() {
 
                     {/* Console Logs */}
                     <div className="flex-1 flex flex-col space-y-2">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-1 font-sans">Execution Console Logs</span>
-                      <div className="flex-1 bg-slate-950 border border-white/5 rounded-xl p-3.5 font-mono text-[10px] leading-relaxed text-slate-300 overflow-y-auto min-h-[160px] max-h-[220px]">
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1 font-sans">Execution Console Logs</span>
+                      <div className="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl p-3.5 font-mono text-[10px] leading-relaxed text-[var(--text-secondary)] overflow-y-auto min-h-[160px] max-h-[220px]">
                         {maintLogs.length === 0 ? (
-                          <p className="text-slate-600 italic">Logs will appear here once execution starts.</p>
+                          <p className="text-[var(--text-muted)] italic">Logs will appear here once execution starts.</p>
                         ) : (
                           maintLogs.map((logLine, idx) => (
                             <div 
                               key={idx} 
                               className={cn(
-                                "py-0.5 border-b border-white/5 last:border-b-0",
+                                "py-0.5 border-b border-[var(--border)] last:border-b-0",
                                 logLine.includes("ERROR:") ? "text-rose-400" : 
                                 logLine.includes("completed successfully") ? "text-emerald-400 font-bold" :
                                 logLine.includes("Starting") ? "text-amber-400 font-bold" : ""
@@ -2071,13 +2071,13 @@ export default function ASERconConsole() {
 
           {/* TAB 5: GIVE ITEMS */}
           {activeTab === 'give_items' && (
-            <div className="flex-1 flex flex-col h-full bg-slate-900/40 rounded-2xl border border-white/5 overflow-hidden">
-              <div className="p-5 border-b border-white/5 bg-slate-800/20">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <div className="flex-1 flex flex-col h-full bg-[var(--surface-hover)] rounded-2xl border border-[var(--border)] overflow-hidden">
+              <div className="p-5 border-b border-[var(--border)] bg-[var(--surface-active)]/40">
+                <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
                   <Gift className="w-5 h-5 text-amber-400" />
                   {t('rcon.giveItem.title', 'Give Items')}
                 </h2>
-                <p className="text-sm text-slate-400 mt-1">
+                <p className="text-sm text-[var(--text-muted)] mt-1">
                   {t('rcon.giveItem.subtitle', 'Send items directly to online players or manual IDs.')}
                 </p>
               </div>
@@ -2085,9 +2085,9 @@ export default function ASERconConsole() {
               <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
                 
                 {/* 1. TARGET SECTION */}
-                <div className="bg-slate-950/40 border border-white/5 rounded-xl p-5">
-                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-amber-400">1</span>
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-muted)] mb-4 flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[var(--surface-active)] flex items-center justify-center text-[10px] text-amber-400">1</span>
                     {t('rcon.giveItem.targetTitle', 'Select Target')}
                   </h3>
                   
@@ -2099,12 +2099,12 @@ export default function ASERconConsole() {
                       </p>
                   </div>
 
-                  <div className="flex items-center gap-4 mb-4 border-b border-white/5 pb-4">
+                  <div className="flex items-center gap-4 mb-4 border-b border-[var(--border)] pb-4">
                     <button
                       onClick={() => setGiveTargetType('online')}
                       className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                        giveTargetType === 'online' ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:bg-white/5"
+                        giveTargetType === 'online' ? "bg-amber-500/20 text-amber-400" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                       )}
                     >
                       <Users className="w-4 h-4" />
@@ -2114,7 +2114,7 @@ export default function ASERconConsole() {
                       onClick={() => setGiveTargetType('manual')}
                       className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                        giveTargetType === 'manual' ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:bg-white/5"
+                        giveTargetType === 'manual' ? "bg-amber-500/20 text-amber-400" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                       )}
                     >
                       <TerminalIcon className="w-4 h-4" />
@@ -2139,8 +2139,8 @@ export default function ASERconConsole() {
                                 className={cn(
                                   "flex flex-col text-left p-3 rounded-lg border transition-all",
                                   giveSelectedPlayerId === p.steamId 
-                                    ? "bg-amber-500/10 border-amber-500/50 text-white" 
-                                    : "bg-slate-900 border-white/5 text-slate-400 hover:bg-slate-800 hover:border-white/10"
+                                    ? "bg-amber-500/10 border-amber-500/50 text-[var(--text-primary)]" 
+                                    : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-active)] hover:border-[var(--border-hover)]"
                                 )}
                               >
                                 <span className="font-bold">{p.name}</span>
@@ -2179,7 +2179,7 @@ export default function ASERconConsole() {
                         value={giveManualPlayerId}
                         onChange={e => setGiveManualPlayerId(e.target.value)}
                         placeholder="e.g. 76561198000000000 or 123456789"
-                        className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50 font-mono"
+                        className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500/50 font-mono"
                       />
                       <div className="text-[10px] mt-2 flex items-center gap-1.5 px-1 min-h-[16px]">
                         {isResolvingManual ? (
@@ -2210,7 +2210,7 @@ export default function ASERconConsole() {
                             </span>
                           )
                         ) : (
-                          <span className="text-slate-500">Enter a 17-digit Steam ID (auto-resolves) or a 9-digit Player ID.</span>
+                          <span className="text-[var(--text-muted)]">Enter a 17-digit Steam ID (auto-resolves) or a 9-digit Player ID.</span>
                         )}
                       </div>
                     </div>
@@ -2218,18 +2218,18 @@ export default function ASERconConsole() {
                 </div>
 
                 {/* 2. ITEM SECTION */}
-                <div className="bg-slate-950/40 border border-white/5 rounded-xl p-5">
-                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-amber-400">2</span>
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-muted)] mb-4 flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[var(--surface-active)] flex items-center justify-center text-[10px] text-amber-400">2</span>
                     {t('rcon.giveItem.itemTitle', 'Select Item')}
                   </h3>
 
-                  <div className="flex items-center gap-4 mb-4 border-b border-white/5 pb-4">
+                  <div className="flex items-center gap-4 mb-4 border-b border-[var(--border)] pb-4">
                     <button
                       onClick={() => setGiveItemSource('preset')}
                       className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                        giveItemSource === 'preset' ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:bg-white/5"
+                        giveItemSource === 'preset' ? "bg-amber-500/20 text-amber-400" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                       )}
                     >
                       <Package className="w-4 h-4" />
@@ -2239,7 +2239,7 @@ export default function ASERconConsole() {
                       onClick={() => setGiveItemSource('custom')}
                       className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                        giveItemSource === 'custom' ? "bg-amber-500/20 text-amber-400" : "text-slate-400 hover:bg-white/5"
+                        giveItemSource === 'custom' ? "bg-amber-500/20 text-amber-400" : "text-[var(--text-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                       )}
                     >
                       <TerminalIcon className="w-4 h-4" />
@@ -2252,19 +2252,19 @@ export default function ASERconConsole() {
                       {/* Search and Category Filter */}
                       <div className="flex flex-col md:flex-row gap-3">
                         <div className="relative flex-1">
-                          <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
                             type="text"
                             value={giveCatalogSearch}
                             onChange={e => setGiveCatalogSearch(e.target.value)}
                             placeholder={t('rcon.giveItem.searchPlaceholder', 'Search items...')}
-                            className="w-full bg-slate-900 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                            className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500/50"
                           />
                         </div>
                         <select 
                           value={giveSelectedCategory}
                           onChange={(e: any) => setGiveSelectedCategory(e.target.value)}
-                          className="bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                          className="bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50"
                         >
                           <option value="All">All Categories</option>
                           <option value="Resources">Resources</option>
@@ -2289,8 +2289,8 @@ export default function ASERconConsole() {
                             className={cn(
                               "flex flex-col items-center justify-center p-3 rounded-lg border transition-all text-center gap-2",
                               giveSelectedPresetItem === item.path
-                                ? "bg-amber-500/20 border-amber-500/50 text-white"
-                                : "bg-slate-900 border-white/5 text-slate-400 hover:bg-slate-800 hover:border-white/10"
+                                ? "bg-amber-500/20 border-amber-500/50 text-[var(--text-primary)]"
+                                : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-active)] hover:border-[var(--border-hover)]"
                             )}
                           >
                             <span className="text-xs font-bold leading-tight">{item.name}</span>
@@ -2306,45 +2306,45 @@ export default function ASERconConsole() {
                         value={giveCustomBlueprint}
                         onChange={e => setGiveCustomBlueprint(e.target.value)}
                         placeholder="Blueprint'/Game/PrimalEarth/...'"
-                        className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50 font-mono"
+                        className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500/50 font-mono"
                       />
-                      <p className="text-xs text-slate-500 mt-2">Enter the exact blueprint path for the item.</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-2">Enter the exact blueprint path for the item.</p>
                     </div>
                   )}
                 </div>
 
                 {/* 3. SETTINGS SECTION */}
-                <div className="bg-slate-950/40 border border-white/5 rounded-xl p-5">
-                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-amber-400">3</span>
+                <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
+                  <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-muted)] mb-4 flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[var(--surface-active)] flex items-center justify-center text-[10px] text-amber-400">3</span>
                     {t('rcon.giveItem.settingsTitle', 'Item Settings')}
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-2">Quantity</label>
+                      <label className="block text-xs font-bold text-[var(--text-muted)] mb-2">Quantity</label>
                       <input
                         type="number"
                         min="1"
                         max="10000"
                         value={giveItemQuantity}
                         onChange={e => setGiveItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                        className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-2">Quality (0-100)</label>
+                      <label className="block text-xs font-bold text-[var(--text-muted)] mb-2">Quality (0-100)</label>
                       <input
                         type="number"
                         min="0"
                         max="100"
                         value={giveItemQuality}
                         onChange={e => setGiveItemQuality(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full bg-slate-900 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                        className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50"
                       />
                     </div>
                     <div className="flex flex-col justify-end">
-                      <label className="flex items-center gap-3 p-2.5 bg-slate-900 rounded-lg border border-white/5 cursor-pointer hover:bg-slate-800 transition-colors h-[42px]">
+                      <label className="flex items-center gap-3 p-2.5 bg-[var(--surface-hover)] rounded-lg border border-[var(--border)] cursor-pointer hover:bg-[var(--surface-active)] transition-colors h-[42px]">
                         <div className="relative flex items-center">
                           <input
                             type="checkbox"
@@ -2352,9 +2352,9 @@ export default function ASERconConsole() {
                             onChange={(e) => setGiveForceBlueprint(e.target.checked)}
                             className="sr-only peer"
                           />
-                          <div className="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
+                          <div className="w-8 h-4 bg-[var(--surface-active)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
                         </div>
-                        <span className="text-xs font-bold text-slate-300">Give as Blueprint</span>
+                        <span className="text-xs font-bold text-[var(--text-secondary)]">Give as Blueprint</span>
                       </label>
                     </div>
                   </div>
@@ -2363,7 +2363,7 @@ export default function ASERconConsole() {
               </div>
 
               {/* ACTION FOOTER */}
-              <div className="p-5 border-t border-white/5 bg-slate-900 flex justify-end gap-3">
+              <div className="p-5 border-t border-[var(--border)] bg-[var(--surface-active)]/40 flex justify-end gap-3">
                 <button
                   onClick={executeGiveItem}
                   disabled={
@@ -2374,7 +2374,7 @@ export default function ASERconConsole() {
                     (giveItemSource === 'preset' && !giveSelectedPresetItem) ||
                     (giveItemSource === 'custom' && !giveCustomBlueprint)
                   }
-                  className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-amber-500/10"
                 >
                   {isGivingItem ? (
                     <><RefreshCw className="w-4 h-4 animate-spin" /> Sending...</>
@@ -2392,10 +2392,10 @@ export default function ASERconConsole() {
           <motion.div 
             initial={{ opacity: 0, width: 0, x: 20 }} 
             animate={{ opacity: 1, width: 'auto', x: 0 }}
-            className="w-full lg:w-80 glass-panel rounded-2xl p-4 flex flex-col min-h-[500px] h-auto border border-white/5 shadow-xl shrink-0"
+            className="w-full lg:w-80 rounded-2xl p-4 flex flex-col min-h-[500px] h-auto border border-[var(--border)] shadow-xl shrink-0 bg-[var(--surface)] backdrop-blur-md"
           >
-            <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/5">
-              <h3 className="font-bold text-white flex items-center gap-2 text-sm">
+            <div className="flex items-center justify-between mb-4 pb-4 border-b border-[var(--border)]">
+              <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2 text-sm">
                 <Users className="w-5 h-5 text-amber-400" />
                 <span>Active Survivors</span>
               </h3>
@@ -2406,25 +2406,25 @@ export default function ASERconConsole() {
 
             <div className="flex-1 overflow-y-auto pr-2 space-y-2.5 min-h-[380px] max-h-[60vh]">
               {onlinePlayers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-500 text-xs text-center py-12">
+                <div className="flex flex-col items-center justify-center h-full text-[var(--text-muted)] text-xs text-center py-12">
                   <Users className="w-8 h-8 mb-3 opacity-20" />
                   <p>No players currently connected to the server.</p>
                 </div>
               ) : (
                 onlinePlayers.map((p, idx) => (
-                  <div key={idx} className="bg-slate-950 border border-white/5 p-3 rounded-xl flex flex-col gap-2.5">
+                  <div key={idx} className="bg-[var(--surface-hover)] border border-[var(--border)] p-3 rounded-xl flex flex-col gap-2.5">
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-white truncate" title={p.name}>{p.name}</div>
+                      <div className="text-xs font-bold text-[var(--text-primary)] truncate" title={p.name}>{p.name}</div>
                       <div 
                         onClick={() => {
                           navigator.clipboard.writeText(p.steamId);
                           toast.success('Player ID copied to clipboard');
                         }}
-                        className="text-[10px] font-mono text-slate-500 hover:text-cyan-400 mt-0.5 truncate cursor-pointer flex items-center gap-1 group/id transition-colors"
+                        className="text-[10px] font-mono text-[var(--text-muted)] hover:text-amber-400 mt-0.5 truncate cursor-pointer flex items-center gap-1 group/id transition-colors"
                         title="Click to copy Player ID"
                       >
                         <span className="truncate">{p.steamId}</span>
-                        <Copy className="w-3 h-3 opacity-0 group-hover/id:opacity-100 transition-opacity text-cyan-400 shrink-0" />
+                        <Copy className="w-3 h-3 opacity-0 group-hover/id:opacity-100 transition-opacity text-amber-400 shrink-0" />
                       </div>
                     </div>
                     <div className="flex gap-1.5">
@@ -2433,7 +2433,7 @@ export default function ASERconConsole() {
                           navigator.clipboard.writeText(p.steamId);
                           toast.success('Player ID copied to clipboard');
                         }}
-                        className="flex-1 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-colors border border-cyan-500/15"
+                        className="flex-1 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-colors border border-amber-500/15"
                         title="Copy Player ID"
                       >
                         <Copy className="w-3.5 h-3.5" /> Copy ID

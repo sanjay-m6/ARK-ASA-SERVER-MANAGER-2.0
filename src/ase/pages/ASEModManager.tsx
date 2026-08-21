@@ -619,41 +619,41 @@ export default function ASEModManager() {
           ...provided.draggableProps.style,
           width: provided.draggableProps.style?.width || '100%',
         }}
-        className="bg-slate-900 border border-amber-500/40 rounded-2xl overflow-hidden shadow-2xl shadow-amber-500/10 scale-[1.01] opacity-95 flex flex-col justify-between p-4 pointer-events-none select-none max-w-4xl"
+        className="bg-[var(--surface)] border border-amber-500/50 rounded-2xl overflow-hidden shadow-2xl shadow-amber-500/10 scale-[1.01] opacity-95 flex flex-col justify-between p-4 pointer-events-none select-none max-w-4xl backdrop-blur-xl"
       >
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="cursor-grabbing p-1.5 text-amber-400 shrink-0">
               <GripVertical className="w-4 h-4" />
             </div>
-            <div className="w-8 h-8 flex items-center justify-center bg-slate-950/80 rounded-xl border border-white/5 text-xs text-amber-400 font-mono font-black shrink-0 shadow-inner">
+            <div className="w-8 h-8 flex items-center justify-center bg-[var(--surface-active)] rounded-xl border border-[var(--border)] text-xs text-amber-400 font-mono font-black shrink-0 shadow-inner">
               {i + 1}
             </div>
-            <div className="w-11 h-11 rounded-xl border border-white/10 bg-slate-950 overflow-hidden shrink-0 flex items-center justify-center relative shadow-md">
+            <div className="w-11 h-11 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] overflow-hidden shrink-0 flex items-center justify-center relative shadow-md">
               <ModImage mod={resolved} className="w-full h-full object-cover" />
             </div>
             <div className="min-w-0">
-              <h4 className="text-sm font-bold text-white truncate pr-4 flex flex-wrap items-center gap-2">
+              <h4 className="text-sm font-bold text-[var(--text-primary)] truncate pr-4 flex flex-wrap items-center gap-2">
                 {resolved.name}
                 {pinnedModIds.includes(mod.workshopId) && (
                   <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] text-amber-400 font-black uppercase tracking-wider">Pinned</span>
                 )}
                 {!mod.enabled && (
-                  <span className="px-2 py-0.5 rounded bg-slate-950 border border-white/5 text-[8px] text-slate-500 font-black uppercase tracking-wider">Disabled</span>
+                  <span className="px-2 py-0.5 rounded bg-[var(--surface-active)] border border-[var(--border)] text-[8px] text-[var(--text-muted)] font-black uppercase tracking-wider">Disabled</span>
                 )}
               </h4>
-              <p className="text-[10px] text-slate-500 mt-1 font-mono flex items-center gap-1.5 flex-wrap">
+              <p className="text-[10px] text-[var(--text-muted)] mt-1 font-mono flex items-center gap-1.5 flex-wrap">
                 <span>ID: {mod.workshopId}</span>
                 {mod.version && (
                   <>
-                    <span className="text-slate-700">•</span>
-                    <span className="text-slate-400 font-sans font-medium">v{mod.version}</span>
+                    <span className="text-[var(--text-muted)] opacity-40">•</span>
+                    <span className="text-[var(--text-secondary)] font-sans font-medium">v{mod.version}</span>
                   </>
                 )}
                 {resolved.fileSize > 0 && (
                   <>
-                    <span className="text-slate-700">•</span>
-                    <span className="text-slate-400 font-sans font-medium">{(resolved.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
+                    <span className="text-[var(--text-muted)] opacity-40">•</span>
+                    <span className="text-[var(--text-secondary)] font-sans font-medium">{(resolved.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
                   </>
                 )}
               </p>
@@ -870,14 +870,14 @@ export default function ASEModManager() {
               className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-2 ${
                 activeTab === 'installed' 
                   ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
               }`}
             >
               Installed Mods
               <span 
                 style={{ borderRadius: '9999px' }}
                 className={`flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-black font-mono transition-all duration-300 ${
-                  activeTab === 'installed' ? 'bg-slate-950/15 text-slate-950' : 'bg-slate-950 text-slate-500'
+                  activeTab === 'installed' ? 'bg-slate-950/15 text-slate-950' : 'bg-[var(--surface-active)] text-[var(--text-muted)]'
                 }`}
               >
                 {installedMods.length}
@@ -888,7 +888,7 @@ export default function ASEModManager() {
               className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-2 ${
                 activeTab === 'logs' 
                   ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20' 
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
               }`}
             >
               Download Logs
@@ -915,14 +915,14 @@ export default function ASEModManager() {
               className="space-y-6"
             >
               {/* Manual Mod ID Panel */}
-              <div className="glass-panel p-5 rounded-2xl border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="bg-[var(--surface)] p-5 rounded-2xl border border-[var(--border)] flex flex-col md:flex-row items-center justify-between gap-4 backdrop-blur-xl shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-amber-500/10 rounded-xl">
                     <PlusCircle className="w-5 h-5 text-amber-400" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Quick Install by Workshop ID</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Directly download any unlisted or custom Steam Workshop mod</p>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Quick Install by Workshop ID</h3>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5">Directly download any unlisted or custom Steam Workshop mod</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
@@ -931,7 +931,7 @@ export default function ASEModManager() {
                     value={manualModId}
                     onChange={e => setManualModId(e.target.value)}
                     placeholder="Enter Steam Workshop ID (e.g. 731604991)"
-                    className="w-full md:w-72 px-4 py-2 bg-slate-950/80 border border-white/10 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500/50 transition-all font-mono"
+                    className="w-full md:w-72 px-4 py-2 bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500/50 transition-all font-mono"
                   />
                   <button
                     onClick={handleManualInstall}
@@ -947,15 +947,15 @@ export default function ASEModManager() {
                 {isSearching ? (
                   <div className="col-span-full flex flex-col items-center justify-center py-32 gap-3">
                     <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
-                    <p className="text-sm text-slate-400 font-medium">Querying Steam Workshop API...</p>
+                    <p className="text-sm text-[var(--text-muted)] font-medium">Querying Steam Workshop API...</p>
                   </div>
                 ) : !query.trim() || query.trim().length < 2 ? (
                   <>
                     {/* Steam Workshop Hub Header & Filter Strip */}
                     <div className="col-span-full mb-2">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-4 mb-2 gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-[var(--border)] pb-4 mb-2 gap-4">
                         <div>
-                          <h3 className="text-base font-bold text-slate-200 flex items-center gap-2">
+                          <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-amber-400" />
                             Steam Workshop Storefront
                             {isLoadingStorefront ? (
@@ -970,9 +970,9 @@ export default function ASEModManager() {
                               </span>
                             )}
                           </h3>
-                          <p className="text-xs text-slate-500 mt-0.5">Explore recommended, popular, and featured Steam mods</p>
+                          <p className="text-xs text-[var(--text-muted)] mt-0.5">Explore recommended, popular, and featured Steam mods</p>
                         </div>
-                        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none bg-slate-950/40 p-1.5 rounded-2xl border border-white/5 backdrop-blur-md">
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none bg-[var(--surface-active)]/40 p-1.5 rounded-2xl border border-[var(--border)] backdrop-blur-md">
                           {[
                             { id: 'Featured', label: 'Featured', icon: Sparkles, color: 'amber' },
                             { id: 'Structures', label: 'Structures', icon: Puzzle, color: 'orange' },
@@ -1028,7 +1028,7 @@ export default function ASEModManager() {
                                 className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-300 border flex items-center gap-2 hover:-translate-y-[1px] ${
                                   isSelected
                                     ? `${style.bg} ${style.text} ${style.border} ${style.shadow} shadow-md`
-                                    : 'bg-slate-900/50 text-slate-400 hover:text-white border-transparent hover:bg-slate-800/60'
+                                    : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-transparent hover:bg-[var(--surface-active)]'
                                 }`}
                               >
                                 <IconComponent className={`w-3.5 h-3.5 transition-transform duration-300 ${isSelected ? 'scale-110' : 'opacity-70 group-hover:opacity-100'}`} />
@@ -1069,12 +1069,12 @@ export default function ASEModManager() {
                           <div 
                             key={workshopId}
                             onClick={() => setSelectedModDetail(mod)} 
-                            className={`glass-panel rounded-2xl overflow-hidden group hover:border-amber-500/50 transition-all flex flex-col cursor-pointer relative ${
-                              installed ? "border-amber-500/20 bg-amber-500/[0.02]" : "border-white/5"
+                            className={`bg-[var(--surface)] border rounded-2xl overflow-hidden group hover:border-amber-500/50 transition-all flex flex-col cursor-pointer relative backdrop-blur-xl shadow-sm ${
+                              installed ? "border-amber-500/20 bg-amber-500/[0.02]" : "border-[var(--border)]"
                             } ${isSelected ? "border-amber-500 ring-1 ring-amber-500/30" : ""}`}
                           >
-                            <div className="relative h-44 overflow-hidden shrink-0 bg-slate-950 border-b border-white/5">
-                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-10" />
+                            <div className="relative h-44 overflow-hidden shrink-0 bg-[var(--surface-active)]/50 border-b border-[var(--border)]">
+                              <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-primary)]/80 via-transparent to-transparent z-10" />
                               {getModImageSrc(mod) ? (
                                 <img 
                                   src={getModImageSrc(mod)} 
@@ -1083,11 +1083,11 @@ export default function ASEModManager() {
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90" 
                                 />
                               ) : (
-                                <div className="w-full h-full bg-slate-950 relative flex items-center justify-center overflow-hidden">
+                                <div className="w-full h-full bg-[var(--surface-active)]/40 relative flex items-center justify-center overflow-hidden">
                                   <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.08),transparent_50%)]" />
                                   <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:16px_16px]" />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-                                  <Puzzle className="w-10 h-10 text-slate-800/80 group-hover:text-amber-500/40 group-hover:scale-110 transition-all duration-500" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-primary)]/80 via-[var(--bg-primary)]/30 to-transparent" />
+                                  <Puzzle className="w-10 h-10 text-[var(--text-muted)] opacity-50 group-hover:text-amber-500/40 group-hover:scale-110 transition-all duration-500" />
                                 </div>
                               )}
 
@@ -1132,7 +1132,7 @@ export default function ASEModManager() {
 
                               {/* Progress bar overlay at the bottom of the image */}
                               {isQueuedOrDownloading && queueItem && (
-                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950/80 z-20">
+                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--surface-active)] z-20">
                                   <div 
                                     className={`h-full transition-all duration-300 ${
                                       queueItem.status === 'downloading' ? 'bg-blue-500 animate-pulse' :
@@ -1146,10 +1146,10 @@ export default function ASEModManager() {
                             </div>
 
                             <div className="p-5 flex flex-col flex-grow">
-                              <h3 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors line-clamp-1">{mod.name}</h3>
-                              <p className="text-xs text-slate-400 mt-2 line-clamp-2 leading-relaxed flex-grow">{mod.description}</p>
+                              <h3 className="text-sm font-bold text-[var(--text-primary)] group-hover:text-amber-400 transition-colors line-clamp-1">{mod.name}</h3>
+                              <p className="text-xs text-[var(--text-secondary)] mt-2 line-clamp-2 leading-relaxed flex-grow">{mod.description}</p>
                               
-                              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-4 mt-4 text-[10px] font-medium text-slate-500">
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-4 mt-4 text-[10px] font-medium text-[var(--text-muted)]">
                                 <div onClick={(e) => e.stopPropagation()}>
                                   <ModCategorySelector modId={workshopId} modName={mod.name} modDescription={mod.description} />
                                 </div>
@@ -1162,10 +1162,10 @@ export default function ASEModManager() {
                     )}
                   </>
                 ) : searchResults.length === 0 ? (
-                  <div className="col-span-full text-center py-24 bg-slate-900/20 border-2 border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center p-6">
-                    <Search className="w-14 h-14 text-slate-700 mb-4 animate-pulse" />
-                    <h3 className="text-lg font-bold text-slate-300">No Mods Found</h3>
-                    <p className="text-slate-500 text-xs mt-1 max-w-sm leading-relaxed">
+                  <div className="col-span-full text-center py-24 bg-[var(--surface)]/40 border-2 border-dashed border-[var(--border)] rounded-2xl flex flex-col items-center justify-center p-6 backdrop-blur-xl">
+                    <Search className="w-14 h-14 text-[var(--text-muted)] mb-4 animate-pulse" />
+                    <h3 className="text-lg font-bold text-[var(--text-primary)]">No Mods Found</h3>
+                    <p className="text-[var(--text-secondary)] text-xs mt-1 max-w-sm leading-relaxed">
                       We couldn't find any Steam Workshop mods matching "{query}". Double check your spelling or search by workshop ID directly.
                     </p>
                   </div>
@@ -1181,12 +1181,12 @@ export default function ASEModManager() {
                       <div 
                         key={workshopId}
                         onClick={() => setSelectedModDetail(mod)} 
-                        className={`glass-panel rounded-2xl overflow-hidden group hover:border-amber-500/50 transition-all flex flex-col cursor-pointer relative ${
-                          installed ? "border-amber-500/20 bg-amber-500/[0.02]" : "border-white/5"
+                        className={`bg-[var(--surface)] border rounded-2xl overflow-hidden group hover:border-amber-500/50 transition-all flex flex-col cursor-pointer relative backdrop-blur-xl shadow-sm ${
+                          installed ? "border-amber-500/20 bg-amber-500/[0.02]" : "border-[var(--border)]"
                         } ${isSelected ? "border-amber-500 ring-1 ring-amber-500/30" : ""}`}
                       >
-                        <div className="relative h-44 overflow-hidden shrink-0 bg-slate-950 border-b border-white/5">
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-10" />
+                        <div className="relative h-44 overflow-hidden shrink-0 bg-[var(--surface-active)]/50 border-b border-[var(--border)]">
+                          <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-primary)]/80 via-transparent to-transparent z-10" />
                           {getModImageSrc(mod) ? (
                             <img 
                               src={getModImageSrc(mod)} 
@@ -1195,11 +1195,11 @@ export default function ASEModManager() {
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90" 
                             />
                           ) : (
-                            <div className="w-full h-full bg-slate-950 relative flex items-center justify-center overflow-hidden">
+                            <div className="w-full h-full bg-[var(--surface-active)]/40 relative flex items-center justify-center overflow-hidden">
                               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.08),transparent_50%)]" />
                               <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:16px_16px]" />
-                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-                              <Puzzle className="w-10 h-10 text-slate-800/80 group-hover:text-amber-500/40 group-hover:scale-110 transition-all duration-500" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-primary)]/80 via-[var(--bg-primary)]/30 to-transparent" />
+                              <Puzzle className="w-10 h-10 text-[var(--text-muted)] opacity-50 group-hover:text-amber-500/40 group-hover:scale-110 transition-all duration-500" />
                             </div>
                           )}
 
@@ -1223,15 +1223,15 @@ export default function ASEModManager() {
                           )}
 
                           <div className="absolute bottom-4 left-4 z-20 pr-4">
-                            <h3 className="text-sm font-bold text-white truncate leading-tight drop-shadow-md group-hover:text-amber-400 transition-colors">
+                            <h3 className="text-sm font-bold text-[var(--text-primary)] truncate leading-tight drop-shadow-md group-hover:text-amber-400 transition-colors">
                               {mod.name}
                             </h3>
-                            <p className="text-[10px] text-slate-400 mt-1 font-mono">ID: {workshopId}</p>
+                            <p className="text-[10px] text-[var(--text-muted)] mt-1 font-mono">ID: {workshopId}</p>
                           </div>
 
                           {/* Progress bar overlay at the bottom of the image */}
                           {isQueuedOrDownloading && queueItem && (
-                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-950/80 z-20">
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--surface-active)] z-20">
                               <div 
                                 className={`h-full transition-all duration-300 ${
                                   queueItem.status === 'downloading' ? 'bg-blue-500 animate-pulse' :
@@ -1245,11 +1245,11 @@ export default function ASEModManager() {
                         </div>
                         
                         <div className="p-5 flex-1 flex flex-col justify-between">
-                          <p className="text-slate-400 text-xs line-clamp-3 mb-5 opacity-80 leading-relaxed">
+                          <p className="text-[var(--text-secondary)] text-xs line-clamp-3 mb-5 opacity-90 leading-relaxed">
                             {mod.description || 'No description available on Steam Workshop.'}
                           </p>
                           
-                          <div className="flex flex-wrap items-center justify-between gap-2 pt-3.5 border-t border-white/5 mt-auto">
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-3.5 border-t border-[var(--border)] mt-auto">
                             <div onClick={(e) => e.stopPropagation()}>
                               <ModCategorySelector modId={workshopId} modName={mod.name} modDescription={mod.description} />
                             </div>
@@ -1328,12 +1328,12 @@ export default function ASEModManager() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.25 }}
-              className="glass-panel rounded-2xl p-6 border-amber-500/10 flex flex-col space-y-4"
+              className="bg-[var(--surface)] rounded-2xl p-6 border border-[var(--border)] flex flex-col space-y-4 backdrop-blur-xl shadow-sm"
             >
               {/* Premium Bulk Installed Controls */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-white/5">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
                 <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-amber-400" />
                     Active Mod Load Order
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400 font-bold ml-2">
@@ -1341,17 +1341,17 @@ export default function ASEModManager() {
                       Synced with INI
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">ASE load order is automatically synced into your GameUserSettings.ini file</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">ASE load order is automatically synced into your GameUserSettings.ini file</p>
                 </div>
                 
                 {installedMods.length > 0 && (
                   <div className="flex items-center gap-2">
                     {/* Undo / Redo controls */}
-                    <div className="flex items-center gap-1 border-r border-white/5 pr-2 mr-2">
+                    <div className="flex items-center gap-1 border-r border-[var(--border)] pr-2 mr-2">
                       <button
                         onClick={handleUndo}
                         disabled={undoHistory.length === 0}
-                        className="p-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-white/5 disabled:opacity-30 disabled:hover:bg-slate-900/60 text-slate-400 hover:text-white transition-colors"
+                        className="p-1.5 rounded-xl bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] disabled:opacity-30 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                         title="Undo Reorder"
                       >
                         <Undo className="w-4 h-4" />
@@ -1359,7 +1359,7 @@ export default function ASEModManager() {
                       <button
                         onClick={handleRedo}
                         disabled={redoHistory.length === 0}
-                        className="p-1.5 rounded-xl bg-slate-900/60 hover:bg-slate-800 border border-white/5 disabled:opacity-30 disabled:hover:bg-slate-900/60 text-slate-400 hover:text-white transition-colors"
+                        className="p-1.5 rounded-xl bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] disabled:opacity-30 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                         title="Redo Reorder"
                       >
                         <Redo className="w-4 h-4" />
@@ -1382,7 +1382,7 @@ export default function ASEModManager() {
                     </button>
                     <button
                       onClick={() => handleBulkInstalledAction('disable_all')}
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-white/5 text-slate-300 rounded-xl text-xs font-bold transition-all"
+                      className="px-3 py-1.5 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl text-xs font-bold transition-all"
                     >
                       Disable All
                     </button>
@@ -1397,20 +1397,20 @@ export default function ASEModManager() {
               </div>
 
               {/* Premium Sub-Control bar for Sorting/Searching inside Active tab */}
-              <div className="flex flex-col md:flex-row items-center gap-3 bg-slate-900/40 p-3 rounded-xl border border-white/5">
+              <div className="flex flex-col md:flex-row items-center gap-3 bg-[var(--surface-active)]/30 p-3 rounded-xl border border-[var(--border)]">
                 <div className="relative w-full md:flex-1">
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--text-muted)]" />
                   <input
                     type="text"
                     placeholder="Search active load order..."
                     value={installedFilter}
                     onChange={(e) => setInstalledFilter(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-slate-950/60 border border-white/5 focus:border-amber-500/55 hover:border-white/10 rounded-xl text-xs text-white placeholder-slate-500 outline-none transition-all"
+                    className="w-full pl-9 pr-4 py-2 bg-[var(--input-background)] border border-[var(--input-border)] focus:border-amber-500/55 rounded-xl text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] outline-none transition-all"
                   />
                   {installedFilter && (
                     <button
                       onClick={() => setInstalledFilter('')}
-                      className="absolute right-3 top-2.5 text-slate-500 hover:text-white"
+                      className="absolute right-3 top-2.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1418,15 +1418,15 @@ export default function ASEModManager() {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold shrink-0">Sort By</span>
-                  <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-white/5 w-full md:w-auto justify-between gap-1 shadow-inner">
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase font-bold shrink-0">Sort By</span>
+                  <div className="flex items-center bg-[var(--surface-active)] p-1 rounded-xl border border-[var(--border)] w-full md:w-auto justify-between gap-1 shadow-inner">
                     <button
                       onClick={() => setSortOrder('load_order')}
                       style={{ borderRadius: '8px' }}
                       className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-200 select-none ${
                         sortOrder === 'load_order'
                           ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                       }`}
                     >
                       Load Order
@@ -1437,7 +1437,7 @@ export default function ASEModManager() {
                       className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-200 select-none ${
                         sortOrder === 'name'
                           ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                       }`}
                     >
                       Name
@@ -1448,7 +1448,7 @@ export default function ASEModManager() {
                       className={`px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all duration-200 select-none ${
                         sortOrder === 'size'
                           ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
                       }`}
                     >
                       Size
@@ -1473,14 +1473,14 @@ export default function ASEModManager() {
                       ref={provided.innerRef}
                     >
                       {filteredInstalledMods.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 text-slate-500 text-center">
-                      <div className="p-3 bg-slate-900 border border-white/5 rounded-2xl mb-3 shrink-0">
-                        <Puzzle className="w-8 h-8 text-slate-700" />
+                        <div className="flex flex-col items-center justify-center py-20 text-[var(--text-muted)] text-center">
+                      <div className="p-3 bg-[var(--surface-hover)] border border-[var(--border)] rounded-2xl mb-3 shrink-0">
+                        <Puzzle className="w-8 h-8 text-[var(--text-muted)]" />
                       </div>
-                      <p className="font-bold text-slate-300">
+                      <p className="font-bold text-[var(--text-primary)]">
                         {installedMods.length === 0 ? 'No active mods found' : 'No matching active mods'}
                       </p>
-                      <p className="text-xs text-slate-500 mt-1 max-w-sm leading-relaxed">
+                      <p className="text-xs text-[var(--text-muted)] mt-1 max-w-sm leading-relaxed">
                         {installedMods.length === 0 
                           ? 'Go to the Discover tab to search and download Steam workshop mods.' 
                           : 'Try clearing your filter keyword.'}
@@ -1498,61 +1498,61 @@ export default function ASEModManager() {
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               style={{ ...provided.draggableProps.style, zIndex: snapshot.isDragging ? 50 : 'auto' }}
-                              className={`bg-slate-900/40 border rounded-2xl overflow-hidden relative group backdrop-blur-sm shadow-md transition-[border-color,background-color,box-shadow,opacity] duration-200 mb-3.5 ${
+                              className={`bg-[var(--surface)] border rounded-2xl overflow-hidden relative group backdrop-blur-md shadow-sm transition-[border-color,background-color,box-shadow,opacity] duration-200 mb-3.5 ${
                                 !mod.enabled ? 'opacity-65 hover:opacity-100' : ''
                               } ${
                                 snapshot.isDragging 
-                                  ? 'border-amber-500/40 shadow-2xl shadow-amber-500/10 bg-slate-900/80 scale-[1.01] opacity-95' 
-                                  : 'border-white/5 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/[0.02]'
+                                  ? 'border-amber-500/50 shadow-2xl shadow-amber-500/10 bg-[var(--surface-active)] scale-[1.01] opacity-95' 
+                                  : 'border-[var(--border)] hover:border-amber-500/30 hover:shadow-md'
                               }`}
                             >
                               {/* Card Header (Summary Row) */}
                               <div 
                                 onClick={() => setExpandedModId(isExpanded ? null : mod.workshopId)}
-                                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 cursor-pointer select-none hover:bg-slate-800/20 transition-all gap-4"
+                                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 cursor-pointer select-none hover:bg-[var(--surface-hover)]/40 transition-all gap-4"
                               >
                                 <div className="flex items-center gap-3.5 min-w-0">
                                   {sortOrder === 'load_order' && (
                                     <div 
                                       {...provided.dragHandleProps}
-                                      className="cursor-grab active:cursor-grabbing p-1.5 text-slate-500 hover:text-amber-400 hover:bg-slate-800/50 rounded-xl shrink-0 transition-all"
+                                      className="cursor-grab active:cursor-grabbing p-1.5 text-[var(--text-muted)] hover:text-amber-400 hover:bg-[var(--surface-hover)] rounded-xl shrink-0 transition-all"
                                       onClick={(e) => e.stopPropagation()}
                                       title="Drag to Reorder"
                                     >
                                       <GripVertical className="w-4 h-4" />
                                     </div>
                                   )}
-                                  <div className="w-8 h-8 flex items-center justify-center bg-slate-950/80 rounded-xl border border-white/5 text-xs text-amber-400 font-mono font-black shrink-0 shadow-inner">
+                                  <div className="w-8 h-8 flex items-center justify-center bg-[var(--surface-active)] rounded-xl border border-[var(--border)] text-xs text-amber-400 font-mono font-black shrink-0 shadow-inner">
                                     {i + 1}
                                   </div>
-                                  <div className="w-11 h-11 rounded-xl border border-white/10 bg-slate-950 overflow-hidden shrink-0 flex items-center justify-center relative shadow-md group-hover:border-amber-500/20 transition-colors">
+                                  <div className="w-11 h-11 rounded-xl border border-[var(--border)] bg-[var(--surface-hover)] overflow-hidden shrink-0 flex items-center justify-center relative shadow-md group-hover:border-amber-500/20 transition-colors">
                                     <ModImage mod={resolved} className="w-full h-full object-cover animate-in fade-in duration-300" />
                                   </div>
                                   <div className="min-w-0">
-                                    <h4 className="text-sm font-bold text-white group-hover:text-amber-400 transition-colors truncate pr-4 flex flex-wrap items-center gap-2">
+                                    <h4 className="text-sm font-bold text-[var(--text-primary)] group-hover:text-amber-400 transition-colors truncate pr-4 flex flex-wrap items-center gap-2">
                                       {resolved.name}
                                       {pinnedModIds.includes(mod.workshopId) && (
                                         <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[8px] text-amber-400 font-black uppercase tracking-wider">Pinned</span>
                                       )}
                                       {!mod.enabled && (
-                                        <span className="px-2 py-0.5 rounded bg-slate-950 border border-white/5 text-[8px] text-slate-500 font-black uppercase tracking-wider">Disabled</span>
+                                        <span className="px-2 py-0.5 rounded bg-[var(--surface-active)] border border-[var(--border)] text-[8px] text-[var(--text-muted)] font-black uppercase tracking-wider">Disabled</span>
                                       )}
                                       <div onClick={(e) => e.stopPropagation()}>
                                         <ModCategorySelector modId={mod.workshopId} modName={resolved.name} modDescription={resolved.description} />
                                       </div>
                                     </h4>
-                                    <p className="text-[10px] text-slate-500 mt-1 font-mono flex items-center gap-1.5 flex-wrap">
+                                    <p className="text-[10px] text-[var(--text-muted)] mt-1 font-mono flex items-center gap-1.5 flex-wrap">
                                       <span>ID: {mod.workshopId}</span>
                                       {mod.version && (
                                         <>
-                                          <span className="text-slate-700">•</span>
-                                          <span className="text-slate-400 font-sans font-medium">v{mod.version}</span>
+                                          <span className="text-[var(--text-muted)] opacity-40">•</span>
+                                          <span className="text-[var(--text-secondary)] font-sans font-medium">v{mod.version}</span>
                                         </>
                                       )}
                                       {resolved.fileSize > 0 && (
                                         <>
-                                          <span className="text-slate-700">•</span>
-                                          <span className="text-slate-400 font-sans font-medium">{(resolved.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
+                                          <span className="text-[var(--text-muted)] opacity-40">•</span>
+                                          <span className="text-[var(--text-secondary)] font-sans font-medium">{(resolved.fileSize / (1024 * 1024)).toFixed(1)} MB</span>
                                         </>
                                       )}
                                     </p>
@@ -1566,7 +1566,7 @@ export default function ASEModManager() {
                                     className={`p-2 rounded-xl border transition-all hover:scale-105 active:scale-95 ${
                                       pinnedModIds.includes(mod.workshopId)
                                         ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                                        : 'bg-slate-950/60 border-white/5 text-slate-500 hover:text-slate-300'
+                                        : 'bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                                     }`}
                                     title={pinnedModIds.includes(mod.workshopId) ? "Unpin Mod" : "Pin to Top"}
                                   >
@@ -1582,16 +1582,16 @@ export default function ASEModManager() {
                                         onChange={() => handleToggleModActive(mod.workshopId, mod.enabled)}
                                         className="sr-only peer"
                                       />
-                                      <div className="w-10 h-6 bg-slate-950 rounded-full relative peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-slate-500 peer-checked:after:bg-amber-400 after:rounded-full after:h-4 after:w-4 after:transition-all after:duration-300 after:ease-in-out transition-all duration-300 ease-in-out peer-checked:bg-amber-500/20 border border-white/10 peer-checked:border-amber-500/30 shadow-inner"></div>
+                                      <div className="w-10 h-6 bg-[var(--surface-active)] rounded-full relative peer peer-checked:after:translate-x-4 after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-slate-500 peer-checked:after:bg-amber-400 after:rounded-full after:h-4 after:w-4 after:transition-all after:duration-300 after:ease-in-out transition-all duration-300 ease-in-out peer-checked:bg-amber-500/20 border border-[var(--border)] peer-checked:border-amber-500/30 shadow-inner"></div>
                                     </label>
                                   </div>
  
                                   {/* Re-order Buttons */}
-                                  <div className="flex items-center bg-slate-950 rounded-xl border border-white/5 p-1">
+                                  <div className="flex items-center bg-[var(--surface-active)] rounded-xl border border-[var(--border)] p-1">
                                     <button
                                       disabled={i === 0 || sortOrder !== 'load_order'}
                                       onClick={() => handleMoveMod(i, 'up')}
-                                      className="p-1.5 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-slate-500 text-slate-500 transition-colors rounded-lg"
+                                      className="p-1.5 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-[var(--text-muted)] text-[var(--text-muted)] transition-colors rounded-lg"
                                       title="Move Up"
                                     >
                                       <ArrowUp className="w-3.5 h-3.5" />
@@ -1599,7 +1599,7 @@ export default function ASEModManager() {
                                     <button
                                       disabled={i === installedMods.length - 1 || sortOrder !== 'load_order'}
                                       onClick={() => handleMoveMod(i, 'down')}
-                                      className="p-1.5 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-slate-500 text-slate-500 transition-colors rounded-lg"
+                                      className="p-1.5 hover:text-amber-400 disabled:opacity-30 disabled:hover:text-[var(--text-muted)] text-[var(--text-muted)] transition-colors rounded-lg"
                                       title="Move Down"
                                     >
                                       <ArrowDown className="w-3.5 h-3.5" />
@@ -2007,20 +2007,20 @@ export default function ASEModManager() {
                     >
                       {activeQueueList.map((item) => {
                         return (
-                          <div key={item.workshopId} className="space-y-1.5 text-xs border-b border-white/5 pb-2.5 last:border-b-0 last:pb-0">
+                          <div key={item.workshopId} className="space-y-1.5 text-xs border-b border-[var(--border)] pb-2.5 last:border-b-0 last:pb-0">
                             <div className="flex items-center gap-3 justify-between">
                               <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                <div className="w-9 h-9 rounded-lg border border-white/10 bg-slate-950 overflow-hidden shrink-0 flex items-center justify-center relative shadow-sm">
+                                <div className="w-9 h-9 rounded-lg border border-[var(--border)] bg-[var(--surface-hover)] overflow-hidden shrink-0 flex items-center justify-center relative shadow-sm">
                                   <ModImage mod={{ workshopId: item.workshopId, name: item.modName, previewUrl: item.modImage }} className="w-full h-full object-cover" />
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  <p className="font-bold text-slate-200 truncate" title={item.modName}>{item.modName}</p>
-                                  <p className="text-[9px] text-slate-500 font-mono mt-0.5">ID: {item.workshopId}</p>
+                                  <p className="font-bold text-[var(--text-primary)] truncate" title={item.modName}>{item.modName}</p>
+                                  <p className="text-[9px] text-[var(--text-muted)] font-mono mt-0.5">ID: {item.workshopId}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                                  item.status === 'queued' ? 'bg-slate-800 text-slate-400' :
+                                  item.status === 'queued' ? 'bg-[var(--surface-active)] text-[var(--text-muted)]' :
                                   item.status === 'downloading' ? 'bg-blue-500/10 text-blue-400 animate-pulse' :
                                   item.status === 'extracting' ? 'bg-cyan-500/10 text-cyan-400 animate-pulse' :
                                   item.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400' :
@@ -2033,7 +2033,7 @@ export default function ASEModManager() {
                                 {item.status === 'queued' && (
                                   <button
                                     onClick={() => removeFromQueue(item.workshopId)}
-                                    className="text-slate-500 hover:text-rose-400 transition-colors p-0.5"
+                                    className="text-[var(--text-muted)] hover:text-rose-400 transition-colors p-0.5"
                                     title="Cancel Download"
                                   >
                                     <X className="w-3.5 h-3.5" />
@@ -2042,7 +2042,7 @@ export default function ASEModManager() {
                                 {(item.status === 'completed' || item.status === 'failed') && (
                                   <button
                                     onClick={() => removeFromQueue(item.workshopId)}
-                                    className="text-slate-500 hover:text-slate-350 transition-colors p-0.5"
+                                    className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-0.5"
                                   >
                                     <X className="w-3.5 h-3.5" />
                                   </button>
@@ -2051,10 +2051,10 @@ export default function ASEModManager() {
                             </div>
 
                             {/* Progress Line */}
-                            <div className="relative h-1 bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                            <div className="relative h-1 bg-[var(--surface-active)] rounded-full overflow-hidden border border-[var(--border)]">
                               <div 
                                 className={`h-full rounded-full transition-all duration-500 ${
-                                  item.status === 'queued' ? 'bg-slate-800' :
+                                  item.status === 'queued' ? 'bg-[var(--surface-hover)]' :
                                   item.status === 'downloading' ? 'bg-blue-500 animate-pulse' :
                                   item.status === 'extracting' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 animate-pulse' :
                                   item.status === 'completed' ? 'bg-emerald-500' :
@@ -2066,7 +2066,7 @@ export default function ASEModManager() {
 
                             {/* Download size info */}
                             {item.status === 'downloading' && (item.totalBytes || 0) > 0 && (
-                              <p className="text-[9px] text-slate-500 mt-0.5">
+                              <p className="text-[9px] text-[var(--text-muted)] mt-0.5">
                                 {((item.downloadedBytes || 0) / 1048576).toFixed(1)} MB / {((item.totalBytes || 0) / 1048576).toFixed(1)} MB
                               </p>
                             )}
@@ -2101,7 +2101,7 @@ export default function ASEModManager() {
                 {queueState === 'collapsed' && (
                   <div 
                     onClick={() => setQueueState('expanded')}
-                    className="p-3 bg-slate-900 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-400 hover:bg-slate-850 cursor-pointer select-none transition-colors"
+                    className="p-3 bg-[var(--surface-active)] border-t border-[var(--border)] flex items-center justify-between text-[10px] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] cursor-pointer select-none transition-colors"
                   >
                     <span>
                       {activeDownloadsCount > 0 
@@ -2109,7 +2109,7 @@ export default function ASEModManager() {
                         : 'All downloads in queue complete'
                       }
                     </span>
-                    <span className="font-mono text-white font-bold bg-white/5 px-2 py-0.5 rounded-md">
+                    <span className="font-mono text-[var(--text-primary)] font-bold bg-[var(--surface-hover)] px-2 py-0.5 rounded-md border border-[var(--border)]">
                       {completedDownloadsCount} / {totalInQueue} Done
                     </span>
                   </div>
@@ -2128,11 +2128,11 @@ export default function ASEModManager() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl shadow-amber-500/5"
+              className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl backdrop-blur-2xl"
             >
               {/* Hero Banner with Fallback */}
-              <div className="relative h-56 shrink-0 bg-slate-950 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent z-10" />
+              <div className="relative h-56 shrink-0 bg-[var(--surface-active)]/40 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-primary)] via-[var(--bg-primary)]/40 to-transparent z-10" />
                 {getModImageSrc(selectedModDetail) ? (
                   <img 
                     src={getModImageSrc(selectedModDetail)} 
@@ -2140,11 +2140,11 @@ export default function ASEModManager() {
                     className="w-full h-full object-cover opacity-80" 
                   />
                 ) : (
-                  <div className="w-full h-full bg-slate-950 relative flex items-center justify-center overflow-hidden">
+                  <div className="w-full h-full bg-[var(--surface-active)]/40 relative flex items-center justify-center overflow-hidden">
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.08),transparent_50%)]" />
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:16px_16px]" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-                    <Puzzle className="w-14 h-14 text-slate-800/80 animate-pulse" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-primary)] via-[var(--bg-primary)]/40 to-transparent" />
+                    <Puzzle className="w-14 h-14 text-[var(--text-muted)] opacity-40 animate-pulse" />
                   </div>
                 )}
                 
@@ -2161,7 +2161,7 @@ export default function ASEModManager() {
                   <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-amber-500/30">
                     Steam Workshop Mod
                   </span>
-                  <h3 className="text-xl font-bold text-white mt-2 leading-tight drop-shadow-md">
+                  <h3 className="text-xl font-bold text-[var(--text-primary)] mt-2 leading-tight drop-shadow-md">
                     {selectedModDetail.name}
                   </h3>
                 </div>
@@ -2171,8 +2171,8 @@ export default function ASEModManager() {
               <div className="p-6 overflow-y-auto space-y-6 flex-1 scrollbar-thin">
                 {/* Metrics Badges */}
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-slate-800/50 border border-white/5 rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Workshop ID</p>
+                  <div className="bg-[var(--surface-hover)]/60 border border-[var(--border)] rounded-xl p-3 text-center">
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wider">Workshop ID</p>
                     <button 
                       onClick={() => {
                         navigator.clipboard.writeText(selectedModDetail.workshopId);
@@ -2185,15 +2185,15 @@ export default function ASEModManager() {
                       <Copy className="w-3 h-3 opacity-60" />
                     </button>
                   </div>
-                  <div className="bg-slate-800/50 border border-white/5 rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Subscribers</p>
-                    <p className="text-xs text-white font-bold mt-1">
+                  <div className="bg-[var(--surface-hover)]/60 border border-[var(--border)] rounded-xl p-3 text-center">
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wider">Subscribers</p>
+                    <p className="text-xs text-[var(--text-primary)] font-bold mt-1">
                       {selectedModDetail.subscriptions ? selectedModDetail.subscriptions.toLocaleString() : selectedModDetail.subscriberCount ? selectedModDetail.subscriberCount.toLocaleString() : 'N/A'}
                     </p>
                   </div>
-                  <div className="bg-slate-800/50 border border-white/5 rounded-xl p-3 text-center">
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Last Updated</p>
-                    <p className="text-xs text-white font-bold mt-1">
+                  <div className="bg-[var(--surface-hover)]/60 border border-[var(--border)] rounded-xl p-3 text-center">
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-wider">Last Updated</p>
+                    <p className="text-xs text-[var(--text-primary)] font-bold mt-1">
                       {selectedModDetail.lastUpdated || 'N/A'}
                     </p>
                   </div>
@@ -2201,26 +2201,26 @@ export default function ASEModManager() {
 
                 {/* Description */}
                 <div className="space-y-2">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mod Description</h4>
-                  <div className="bg-slate-950/50 border border-white/5 rounded-xl p-4 text-sm text-slate-300 leading-relaxed max-h-48 overflow-y-auto font-sans whitespace-pre-wrap scrollbar-thin">
+                  <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Mod Description</h4>
+                  <div className="bg-[var(--surface-active)]/40 border border-[var(--border)] rounded-xl p-4 text-sm text-[var(--text-secondary)] leading-relaxed max-h-48 overflow-y-auto font-sans whitespace-pre-wrap scrollbar-thin">
                     {selectedModDetail.description || 'No description available on Steam Workshop.'}
                   </div>
                 </div>
 
                 {/* Actions Section for Installed Mod */}
                 {isInstalled(selectedModDetail.workshopId) && (
-                  <div className="flex gap-3 pt-4 border-t border-white/5">
+                  <div className="flex gap-3 pt-4 border-t border-[var(--border)]">
                     <button
                       onClick={() => handleRepairMod(selectedModDetail.workshopId, true)}
                       disabled={isRepairing}
-                      className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                      className="flex-1 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] hover:border-amber-500/40 text-[var(--text-primary)] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
                     >
                       {isRepairing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                       Force Redownload
                     </button>
                     <button
                       onClick={() => handleOpenModFolder(selectedModDetail.workshopId)}
-                      className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 border border-white/10 hover:border-white/20 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                      className="flex-1 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] hover:border-amber-500/40 text-[var(--text-primary)] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
                     >
                       <FolderOpen className="w-3.5 h-3.5" />
                       Open Mod Folder
@@ -2230,7 +2230,7 @@ export default function ASEModManager() {
               </div>
 
               {/* Footer Actions */}
-              <div className="p-4 border-t border-white/5 bg-slate-950/80 flex items-center justify-between">
+              <div className="p-4 border-t border-[var(--border)] bg-[var(--surface-active)]/40 flex items-center justify-between">
                 <a 
                   href={`https://steamcommunity.com/sharedfiles/filedetails/?id=${selectedModDetail.workshopId}`} 
                   target="_blank" 
@@ -2243,7 +2243,7 @@ export default function ASEModManager() {
                       window.open(url, '_blank');
                     });
                   }}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] rounded-xl text-xs font-bold transition-all border border-[var(--border)]"
                 >
                   <ExternalLink className="w-4 h-4" /> View on Workshop
                 </a>
@@ -2251,7 +2251,7 @@ export default function ASEModManager() {
                 <div className="flex gap-2">
                   <button 
                     onClick={() => setSelectedModDetail(null)} 
-                    className="px-4 py-2.5 rounded-xl text-xs text-slate-400 hover:text-white transition-colors"
+                    className="px-4 py-2.5 rounded-xl text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                   >
                     Close
                   </button>
@@ -2306,22 +2306,22 @@ export default function ASEModManager() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+              className="relative w-full max-w-2xl bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] backdrop-blur-2xl"
             >
-              <div className="flex items-center justify-between p-4 border-b border-white/5 bg-slate-950/50">
+              <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--surface-active)]/40">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-500/20 rounded-xl">
                     <ShieldCheck className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-200">Spawn Validation Diagnostics</h3>
-                    <p className="text-xs text-slate-400">Checking for modded creature spawn issues</p>
+                    <h3 className="font-bold text-[var(--text-primary)]">Spawn Validation Diagnostics</h3>
+                    <p className="text-xs text-[var(--text-muted)]">Checking for modded creature spawn issues</p>
                   </div>
                 </div>
                 {!isDiagnosing && (
                   <button 
                     onClick={() => setShowDiagnosticModal(false)}
-                    className="p-2 hover:bg-white/5 rounded-xl text-slate-400 hover:text-white transition-colors"
+                    className="p-2 hover:bg-[var(--surface-hover)] rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -2332,7 +2332,7 @@ export default function ASEModManager() {
                 {isDiagnosing ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-4">
                     <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
-                    <p className="text-slate-400 text-sm">Analyzing Game.ini configuration...</p>
+                    <p className="text-[var(--text-muted)] text-sm">Analyzing Game.ini configuration...</p>
                   </div>
                 ) : diagnosticResult ? (
                   <div className="space-y-4">
@@ -2350,7 +2350,7 @@ export default function ASEModManager() {
                         <h4 className={`font-bold ${diagnosticResult.issues_found ? 'text-amber-400' : 'text-emerald-400'}`}>
                           {diagnosticResult.issues_found ? 'Issues Detected' : 'No Issues Found'}
                         </h4>
-                        <p className="text-sm mt-1 text-slate-300">
+                        <p className="text-sm mt-1 text-[var(--text-secondary)]">
                           {diagnosticResult.issues_found 
                             ? 'The server configuration is missing required spawn container entries for some active mods.'
                             : 'All active mods have their spawn containers properly registered in Game.ini.'}
@@ -2359,11 +2359,11 @@ export default function ASEModManager() {
                     </div>
 
                     {diagnosticResult.missing_spawn_entries && diagnosticResult.missing_spawn_entries.length > 0 && (
-                      <div className="bg-slate-950/50 rounded-xl border border-white/5 overflow-hidden">
-                        <div className="px-4 py-2 border-b border-white/5 bg-slate-900/50">
-                          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Missing Config Entries</h4>
+                      <div className="bg-[var(--surface-active)]/40 rounded-xl border border-[var(--border)] overflow-hidden">
+                        <div className="px-4 py-2 border-b border-[var(--border)] bg-[var(--surface-hover)]/50">
+                          <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Missing Config Entries</h4>
                         </div>
-                        <ul className="divide-y divide-white/5">
+                        <ul className="divide-y divide-[var(--border)]">
                           {diagnosticResult.missing_spawn_entries.map((entry: string, idx: number) => (
                             <li key={idx} className="p-3 text-sm text-amber-300 font-mono text-xs break-all">
                               {entry}
@@ -2381,11 +2381,11 @@ export default function ASEModManager() {
                 )}
               </div>
               
-              <div className="p-4 border-t border-white/5 bg-slate-950/80 flex justify-end">
+              <div className="p-4 border-t border-[var(--border)] bg-[var(--surface-active)]/40 flex justify-end">
                 <button 
                   onClick={() => setShowDiagnosticModal(false)}
                   disabled={isDiagnosing}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] rounded-xl text-sm font-bold transition-colors disabled:opacity-50 border border-[var(--border)]"
                 >
                   Close
                 </button>

@@ -284,23 +284,23 @@ export default function AdvancedPage() {
     }, [currentServer, customArgs]);
 
     return (
-        <div className="h-full flex flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 rounded-xl overflow-hidden border border-slate-800/80 shadow-2xl">
+        <div className="h-full flex flex-col glass-panel text-[var(--text-primary)] rounded-xl overflow-hidden border border-[var(--border)] shadow-2xl">
             {/* Top Control Bar */}
-            <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md flex flex-wrap items-center justify-between gap-4">
+            <div className="px-6 py-4 border-b border-[var(--border)] bg-[var(--surface)] flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-gradient-to-br from-red-500/20 to-orange-500/20 border border-red-500/30 rounded-xl shadow-inner">
                         <Cpu className="w-6 h-6 text-red-400" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h1 className="text-xl font-bold text-white tracking-tight">Boot Launch Parameters</h1>
+                            <h1 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">Boot Launch Parameters</h1>
                             {isDirty && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full animate-pulse">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full">
                                     Unsaved Changes
                                 </span>
                             )}
                         </div>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                             Manage command-line switches, performance flags, and execution priority
                         </p>
                     </div>
@@ -309,7 +309,7 @@ export default function AdvancedPage() {
                 {/* Server Switcher & Save Action */}
                 <div className="flex items-center gap-3 flex-wrap">
                     {/* Server Selector */}
-                    <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-1.5 shadow-inner">
+                    <div className="flex items-center gap-2 bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl px-3 py-1.5 shadow-inner">
                         <Radio className="w-4 h-4 text-red-400" />
                         <select
                             value={selectedServerId || ''}
@@ -322,13 +322,13 @@ export default function AdvancedPage() {
                                 setOriginalArgs(args);
                                 loadedServerIdRef.current = newId;
                             }}
-                            className="bg-transparent text-sm text-white font-medium outline-none cursor-pointer pr-2"
+                            className="bg-transparent text-sm text-[var(--text-primary)] font-medium outline-none cursor-pointer pr-2"
                         >
                             {servers.length === 0 ? (
-                                <option value="">No servers available</option>
+                                <option value="" className="bg-[var(--card-background)] text-[var(--text-primary)]">No servers available</option>
                             ) : (
                                 servers.map(s => (
-                                    <option key={s.id} value={s.id} className="bg-slate-900 text-white">
+                                    <option key={s.id} value={s.id} className="bg-[var(--card-background)] text-[var(--text-primary)]">
                                         {s.name} ({s.status})
                                     </option>
                                 ))
@@ -340,7 +340,7 @@ export default function AdvancedPage() {
                     {isDirty && (
                         <button
                             onClick={() => setCustomArgs(originalArgs)}
-                            className="px-3 py-2 bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 rounded-xl text-xs font-semibold transition-all border border-slate-700/60 flex items-center gap-1.5"
+                            className="px-3 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl text-xs font-semibold transition-all border border-[var(--border)] flex items-center gap-1.5 cursor-pointer"
                             title="Discard unsaved changes"
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
@@ -352,10 +352,10 @@ export default function AdvancedPage() {
                     <button
                         onClick={handleSave}
                         disabled={isLoading || !selectedServerId}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all ${
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all cursor-pointer ${
                             isDirty 
                                 ? 'bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white shadow-red-900/40 hover:scale-[1.02] active:scale-[0.98]'
-                                : 'bg-slate-800 text-slate-400 border border-slate-700/50 hover:text-white'
+                                : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] border border-[var(--border)] hover:text-[var(--text-primary)]'
                         } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -376,26 +376,26 @@ export default function AdvancedPage() {
             </div>
 
             {/* Scrollable Main Workspace */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-[var(--border)] scrollbar-track-transparent">
                 {/* 1. Notice Banner */}
-                <div className="bg-gradient-to-r from-red-950/40 via-slate-900/60 to-slate-900/40 border border-red-500/20 rounded-2xl p-4 flex items-start justify-between gap-4 shadow-xl">
+                <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-start justify-between gap-4 shadow-md">
                     <div className="flex items-start gap-3">
-                        <div className="p-2 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 flex-shrink-0 mt-0.5">
+                        <div className="p-2 bg-red-500/15 border border-red-500/30 rounded-xl text-red-400 flex-shrink-0 mt-0.5">
                             <AlertTriangle className="w-5 h-5" />
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                                 Boot Command Line Safety & Override Matrix
                             </h3>
-                            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                                Parameters added here are directly passed to <code className="text-red-400 font-mono bg-slate-950/80 px-1.5 py-0.5 rounded border border-red-500/20">ArkAscendedServer.exe</code> on boot. Use visual flag toggles below to prevent syntax typos.
+                            <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed">
+                                Parameters added here are directly passed to <code className="text-red-400 font-mono bg-[var(--surface)] px-1.5 py-0.5 rounded border border-red-500/30">ArkAscendedServer.exe</code> on boot. Use visual flag toggles below to prevent syntax typos.
                             </p>
                         </div>
                     </div>
                     {activeFlagCount > 0 && (
-                        <div className="px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-xl text-right flex-shrink-0">
+                        <div className="px-3 py-1.5 bg-red-500/15 border border-red-500/30 rounded-xl text-right flex-shrink-0">
                             <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 block">Active Switches</span>
-                            <span className="text-sm font-mono font-black text-white">{activeFlagCount} Flags</span>
+                            <span className="text-sm font-mono font-black text-[var(--text-primary)]">{activeFlagCount} Flags</span>
                         </div>
                     )}
                 </div>
@@ -408,16 +408,16 @@ export default function AdvancedPage() {
                 />
 
                 {/* 2. Raw Command Input & Real-Time Terminal Preview (MOVED TO TOP) */}
-                <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4">
+                <div className="glass-panel border border-[var(--border)] rounded-2xl p-5 shadow-xl space-y-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                        <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                             <Terminal className="w-4 h-4 text-emerald-400" />
                             Raw Custom Arguments & Command Inspector
                         </h2>
                         {customArgs.trim() && (
                             <button
                                 onClick={() => setCustomArgs('')}
-                                className="text-xs text-slate-400 hover:text-red-400 transition-colors flex items-center gap-1"
+                                className="text-xs text-[var(--text-muted)] hover:text-red-400 transition-colors flex items-center gap-1 cursor-pointer"
                             >
                                 <Eraser className="w-3.5 h-3.5" /> Clear All Flags
                             </button>
@@ -426,7 +426,7 @@ export default function AdvancedPage() {
 
                     {/* Tag & Text Launch Args Editor */}
                     <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-300">Custom Launch Arguments</label>
+                        <label className="text-xs font-semibold text-[var(--text-primary)]">Custom Launch Arguments</label>
                         <LaunchArgsEditor
                             value={customArgs}
                             onChange={setCustomArgs}
@@ -440,8 +440,8 @@ export default function AdvancedPage() {
                         <div className="flex items-start gap-2.5 p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl">
                             <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
                             <div className="text-xs">
-                                <p className="font-bold text-amber-300">Conditional -mods= configuration detected</p>
-                                <p className="text-amber-400/80 mt-0.5">
+                                <p className="font-bold text-amber-400">Conditional -mods= configuration detected</p>
+                                <p className="text-amber-500/90 mt-0.5">
                                     If active mods are enabled in the Mod Manager, any manual <code className="font-mono bg-amber-500/20 px-1 rounded">-mods=</code> here will be automatically formatted at boot time.
                                 </p>
                             </div>
@@ -449,13 +449,13 @@ export default function AdvancedPage() {
                     )}
 
                     {/* Live Terminal Synthesizer Box */}
-                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2 relative overflow-hidden shadow-inner">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+                    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 space-y-2 relative overflow-hidden shadow-inner">
+                        <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
                                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                                <span className="text-xs font-mono text-slate-400 ml-2">Boot Executable Command Line</span>
+                                <span className="text-xs font-mono text-[var(--text-muted)] ml-2">Boot Executable Command Line</span>
                             </div>
                             <div className="flex items-center gap-2 flex-wrap">
                                 <button
@@ -475,7 +475,7 @@ export default function AdvancedPage() {
                                         navigator.clipboard.writeText(assembledCommandLine);
                                         toast.success('Full command line copied to clipboard');
                                     }}
-                                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+                                    className="px-2.5 py-1.5 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 border border-[var(--border)] cursor-pointer"
                                 >
                                     <Copy className="w-3.5 h-3.5" /> Copy Command
                                 </button>
@@ -488,69 +488,69 @@ export default function AdvancedPage() {
                                         navigator.clipboard.writeText(batContent);
                                         toast.success('Copied start_server.bat script to clipboard! (Also auto-generated in server folder on boot)');
                                     }}
-                                    className="px-2.5 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+                                    className="px-2.5 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 border border-violet-500/30 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
                                 >
                                     <FileText className="w-3.5 h-3.5 text-violet-400" /> Copy .bat Script
                                 </button>
                             </div>
                         </div>
-                        <pre className="text-xs font-mono text-emerald-400/90 whitespace-pre-wrap break-all leading-relaxed p-1">
+                        <pre className="text-xs font-mono text-emerald-500 whitespace-pre-wrap break-all leading-relaxed p-1">
                             {assembledCommandLine}
                         </pre>
                     </div>
                 </div>
 
                 {/* 3. Quick Profile Presets Bar */}
-                <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4">
+                <div className="glass-panel border border-[var(--border)] rounded-2xl p-5 shadow-xl space-y-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                        <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-amber-400" />
                             One-Click Parameter Presets
                         </h2>
-                        <span className="text-xs text-slate-400">Click to append optimized flag profiles</span>
+                        <span className="text-xs text-[var(--text-secondary)]">Click to append optimized flag profiles</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         {/* Preset 1: Max Performance */}
                         <button
                             onClick={() => applyTuningPreset('-structurememopts -StructureStasisGrid -NoMemoryBias -lowmemory -nomansky', 'Max Performance')}
-                            className="p-3.5 bg-gradient-to-br from-amber-500/10 to-slate-900/60 hover:from-amber-500/20 hover:to-slate-900/80 border border-amber-500/20 hover:border-amber-500/40 rounded-xl text-left transition-all group flex items-start gap-3"
+                            className="p-3.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-amber-500/40 rounded-xl text-left transition-all group flex items-start gap-3 cursor-pointer shadow-sm"
                         >
                             <Zap className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                             <div>
-                                <h4 className="text-xs font-bold text-white group-hover:text-amber-300 transition-colors">⚡ Max Performance Profile</h4>
-                                <p className="text-[11px] text-slate-400 mt-0.5">RAM & mesh stasis tuning (-structurememopts -nomansky -lowmemory)</p>
+                                <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-amber-400 transition-colors">⚡ Max Performance Profile</h4>
+                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">RAM & mesh stasis tuning (-structurememopts -nomansky -lowmemory)</p>
                             </div>
                         </button>
 
                         {/* Preset 2: Hardened PvP */}
                         <button
                             onClick={() => applyTuningPreset('-NoBattlEye -AdditionalDupeProtection -ValidateItemDinoSpawns -PreventUploadDinos', 'Hardened Security')}
-                            className="p-3.5 bg-gradient-to-br from-red-500/10 to-slate-900/60 hover:from-red-500/20 hover:to-slate-900/80 border border-red-500/20 hover:border-red-500/40 rounded-xl text-left transition-all group flex items-start gap-3"
+                            className="p-3.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-red-500/40 rounded-xl text-left transition-all group flex items-start gap-3 cursor-pointer shadow-sm"
                         >
                             <Shield className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                             <div>
-                                <h4 className="text-xs font-bold text-white group-hover:text-red-300 transition-colors">🛡️ Hardened Security & Anti-Dupe</h4>
-                                <p className="text-[11px] text-slate-400 mt-0.5">Strict spawn validation & dupe prevention flags</p>
+                                <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-red-400 transition-colors">🛡️ Hardened Security & Anti-Dupe</h4>
+                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">Strict spawn validation & dupe prevention flags</p>
                             </div>
                         </button>
 
                         {/* Preset 3: Cave Flyer Unlocked */}
                         <button
                             onClick={() => applyTuningPreset('-ForceAllowCaveFlyers', 'Cave Flyers Unlocked')}
-                            className="p-3.5 bg-gradient-to-br from-emerald-500/10 to-slate-900/60 hover:from-emerald-500/20 hover:to-slate-900/80 border border-emerald-500/20 hover:border-emerald-500/40 rounded-xl text-left transition-all group flex items-start gap-3"
+                            className="p-3.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-emerald-500/40 rounded-xl text-left transition-all group flex items-start gap-3 cursor-pointer shadow-sm"
                         >
                             <Globe className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                             <div>
-                                <h4 className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">🦅 Cave Flyer Unlocked</h4>
-                                <p className="text-[11px] text-slate-400 mt-0.5">Force allow mounting & flying in cave volumes</p>
+                                <h4 className="text-xs font-bold text-[var(--text-primary)] group-hover:text-emerald-400 transition-colors">🦅 Cave Flyer Unlocked</h4>
+                                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">Force allow mounting & flying in cave volumes</p>
                             </div>
                         </button>
                     </div>
 
                     {/* Modded Maps Presets */}
-                    <div className="pt-2 border-t border-slate-800/60">
-                        <div className="text-xs font-semibold text-slate-400 mb-2.5 flex items-center gap-1.5">
+                    <div className="pt-2 border-t border-[var(--border)]">
+                        <div className="text-xs font-semibold text-[var(--text-muted)] mb-2.5 flex items-center gap-1.5">
                             <Flame className="w-3.5 h-3.5 text-orange-400" />
                             Modded Map Launch Presets
                         </div>
@@ -570,16 +570,16 @@ export default function AdvancedPage() {
                                             setCustomArgs(newArgs);
                                             toast.success(`${preset.name} launch parameters applied`);
                                         }}
-                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all text-xs ${
+                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all text-xs cursor-pointer ${
                                             hasPreset 
-                                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 font-semibold' 
-                                                : 'bg-slate-950/60 hover:bg-slate-800/80 border-slate-800 hover:border-slate-700 text-slate-300'
+                                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-semibold' 
+                                                : 'bg-[var(--surface)] hover:bg-[var(--surface-hover)] border-[var(--border)] hover:border-[var(--border-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                         }`}
                                     >
                                         <div className="flex items-center gap-2 truncate">
                                             <span>{preset.icon}</span>
                                             <span className="truncate">{preset.name}</span>
-                                            {preset.author && <span className="text-[10px] text-slate-500 font-normal">({preset.author})</span>}
+                                            {preset.author && <span className="text-[10px] text-[var(--text-muted)] font-normal">({preset.author})</span>}
                                         </div>
                                         {hasPreset ? (
                                             <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full font-bold">Active</span>
@@ -594,14 +594,14 @@ export default function AdvancedPage() {
                 </div>
 
                 {/* 4. Interactive Parameter Matrix (Visual Flag Switcher) */}
-                <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4">
+                <div className="glass-panel border border-[var(--border)] rounded-2xl p-5 shadow-xl space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
-                            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                            <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                                 <Settings2 className="w-4 h-4 text-red-400" />
                                 Visual Parameter Matrix
                             </h2>
-                            <p className="text-xs text-slate-400 mt-0.5">
+                            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                                 Toggle standard server switches directly into your boot configuration
                             </p>
                         </div>
@@ -609,25 +609,25 @@ export default function AdvancedPage() {
                         {/* Search & Category Filter */}
                         <div className="flex items-center gap-2 flex-wrap">
                             <div className="relative">
-                                <Filter className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                <Filter className="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
                                 <input
                                     type="text"
                                     placeholder="Filter parameters..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:border-red-500 outline-none w-44"
+                                    className="bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl pl-8 pr-3 py-1.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:border-red-500 outline-none w-44"
                                 />
                             </div>
 
-                            <div className="flex items-center gap-1 bg-slate-950 p-1 border border-slate-800 rounded-xl text-xs">
+                            <div className="flex items-center gap-1 bg-[var(--surface-hover)] p-1 border border-[var(--border)] rounded-xl text-xs">
                                 {['all', 'security', 'gameplay', 'performance', 'network', 'events'].map(cat => (
                                     <button
                                         key={cat}
                                         onClick={() => setSelectedCategory(cat)}
-                                        className={`px-2.5 py-1 rounded-lg capitalize font-semibold transition-colors text-[11px] ${
+                                        className={`px-2.5 py-1 rounded-lg capitalize font-semibold transition-colors text-[11px] cursor-pointer ${
                                             selectedCategory === cat 
                                                 ? 'bg-red-600 text-white shadow-md' 
-                                                : 'text-slate-400 hover:text-white'
+                                                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                                         }`}
                                     >
                                         {cat}
@@ -645,10 +645,10 @@ export default function AdvancedPage() {
                                 <button
                                     key={f.flag}
                                     onClick={() => toggleFlag(f.flag)}
-                                    className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-3 group relative overflow-hidden ${
+                                    className={`p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-3 group relative overflow-hidden cursor-pointer shadow-sm ${
                                         active 
-                                            ? 'bg-gradient-to-br from-red-950/40 via-slate-900 to-slate-900 border-red-500/40 shadow-lg shadow-red-950/20' 
-                                            : 'bg-slate-950/50 hover:bg-slate-900/80 border-slate-800/80 hover:border-slate-700'
+                                            ? 'bg-red-500/10 border-red-500/40 shadow-sm' 
+                                            : 'bg-[var(--surface)] hover:bg-[var(--surface-hover)] border-[var(--border)] hover:border-[var(--border-hover)]'
                                     }`}
                                 >
                                     {active && (
@@ -659,24 +659,24 @@ export default function AdvancedPage() {
                                         <div className="flex items-center justify-between gap-2">
                                             <code className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${
                                                 active 
-                                                    ? 'bg-red-500/20 text-red-300 border-red-500/40' 
-                                                    : 'bg-slate-900 text-slate-400 border-slate-800 group-hover:text-slate-200'
+                                                    ? 'bg-red-500/20 text-red-400 border-red-500/40' 
+                                                    : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] border-[var(--border)] group-hover:text-[var(--text-primary)]'
                                             }`}>
                                                 {f.flag}
                                             </code>
                                             <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ${
-                                                active ? 'bg-red-500 text-white' : 'bg-slate-800 text-slate-600'
+                                                active ? 'bg-red-500 text-white' : 'bg-[var(--surface-hover)] text-[var(--text-muted)]'
                                             }`}>
                                                 <Check className="w-3 h-3 stroke-[3]" />
                                             </div>
                                         </div>
-                                        <h4 className="text-xs font-bold text-white mt-2">{f.label}</h4>
-                                        <p className="text-[11px] text-slate-400 mt-1 leading-snug">{f.desc}</p>
+                                        <h4 className="text-xs font-bold text-[var(--text-primary)] mt-2">{f.label}</h4>
+                                        <p className="text-[11px] text-[var(--text-secondary)] mt-1 leading-snug">{f.desc}</p>
                                     </div>
 
-                                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-2 border-t border-slate-800/40 mt-1">
+                                    <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] pt-2 border-t border-[var(--border)] mt-1">
                                         <span className="uppercase tracking-wider font-semibold">{f.category}</span>
-                                        <span className={`font-bold uppercase tracking-wider ${active ? 'text-red-400' : 'text-slate-600'}`}>
+                                        <span className={`font-bold uppercase tracking-wider ${active ? 'text-red-400' : 'text-[var(--text-muted)]'}`}>
                                             {active ? 'Enabled' : 'Disabled'}
                                         </span>
                                     </div>
@@ -687,34 +687,34 @@ export default function AdvancedPage() {
                 </div>
 
                 {/* 5. Performance & Hardware Optimizer Suite */}
-                <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 shadow-xl space-y-4">
+                <div className="glass-panel border border-[var(--border)] rounded-2xl p-5 shadow-xl space-y-4">
                     <div>
-                        <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                        <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                             <Zap className="w-4 h-4 text-amber-400" />
                             Server Manager Performance & Hardware Optimizer
                         </h2>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                             Real-time memory vacuuming, process scheduling priority, and eco-mode controls
                         </p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Memory Vacuum */}
-                        <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between gap-3">
+                        <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)] flex flex-col justify-between gap-3 shadow-sm">
                             <div>
                                 <div className="flex items-center justify-between mb-1">
-                                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                                    <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
                                         <Activity className="w-3.5 h-3.5 text-sky-400" /> Memory Vacuum
                                     </h3>
                                 </div>
-                                <p className="text-[11px] text-slate-400">
+                                <p className="text-[11px] text-[var(--text-secondary)]">
                                     Force garbage collection to trim unused background RAM allocation.
                                 </p>
                             </div>
                             <button
                                 onClick={handleOptimizeMemory}
                                 disabled={isOptimizing}
-                                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-all border border-slate-700 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                                className="w-full py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] rounded-xl transition-all border border-[var(--border)] text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                             >
                                 {isOptimizing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eraser className="w-3.5 h-3.5" />}
                                 Optimize System RAM
@@ -722,33 +722,33 @@ export default function AdvancedPage() {
                         </div>
 
                         {/* Process Priority */}
-                        <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between gap-3">
+                        <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)] flex flex-col justify-between gap-3 shadow-sm">
                             <div>
                                 <div className="flex items-center justify-between mb-1">
-                                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                                    <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
                                         <BarChart2 className="w-3.5 h-3.5 text-amber-400" /> Process Priority
                                     </h3>
                                 </div>
-                                <p className="text-[11px] text-slate-400">
+                                <p className="text-[11px] text-[var(--text-secondary)]">
                                     Raise manager CPU scheduling thread priority under heavy cluster load.
                                 </p>
                             </div>
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => handleSetPriority(false)}
-                                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
                                         !highPriority 
-                                            ? 'bg-slate-800 text-white border-slate-600' 
-                                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                                            ? 'bg-[var(--surface-active)] text-[var(--text-primary)] border-[var(--border)]' 
+                                            : 'bg-[var(--surface)] text-[var(--text-secondary)] border-[var(--border)] hover:text-[var(--text-primary)]'
                                     }`}
                                 >
                                     Normal
                                 </button>
                                 <button
                                     onClick={() => handleSetPriority(true)}
-                                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all border cursor-pointer ${
                                         highPriority 
-                                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-md' 
+                                            ? 'bg-amber-500/20 text-amber-400 border-amber-500/40 shadow-sm' 
                                             : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20'
                                     }`}
                                 >
@@ -758,15 +758,15 @@ export default function AdvancedPage() {
                         </div>
 
                         {/* Ultra Eco Mode */}
-                        <div className="bg-slate-950/60 p-4 rounded-xl border border-slate-800 flex flex-col justify-between gap-3">
+                        <div className="bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)] flex flex-col justify-between gap-3 shadow-sm">
                             <div>
                                 <div className="flex items-center justify-between mb-1">
-                                    <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                                    <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5">
                                         <Leaf className="w-3.5 h-3.5 text-emerald-400" /> Ultra Eco Mode
                                     </h3>
                                     <span className="text-[9px] font-mono bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-500/20 font-bold">&lt;50MB RAM</span>
                                 </div>
-                                <p className="text-[11px] text-slate-400">
+                                <p className="text-[11px] text-[var(--text-secondary)]">
                                     Aggressively trims memory footprint when running idle in background.
                                 </p>
                             </div>

@@ -87,7 +87,7 @@ export default function ConfirmDialog({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         onClick={isLoading ? undefined : onClose}
-                        className="fixed inset-0 bg-slate-950/85 backdrop-blur-md"
+                        className="fixed inset-0 bg-black/80 backdrop-blur-md"
                     />
 
                     {/* Ambient Background Glow Behind Dialog */}
@@ -109,7 +109,7 @@ export default function ConfirmDialog({
                         exit={{ opacity: 0, scale: 0.95, y: 10 }}
                         transition={{ type: "spring", stiffness: 400, damping: 30 }}
                         className={cn(
-                            "relative w-full max-w-lg overflow-hidden rounded-3xl border bg-slate-900/95 backdrop-blur-2xl ring-1 ring-white/10 shadow-2xl",
+                            "relative w-full max-w-lg overflow-hidden rounded-3xl border bg-[var(--surface)] backdrop-blur-2xl ring-1 ring-white/10 shadow-2xl",
                             style.borderColor,
                             style.cardGlow
                         )}
@@ -122,7 +122,7 @@ export default function ConfirmDialog({
                         )} />
 
                         {/* Header */}
-                        <div className="relative flex items-center justify-between p-5 border-b border-white/10 bg-slate-950/40">
+                        <div className="relative flex items-center justify-between p-5 border-b border-[var(--border)] bg-[var(--surface-active)]/30">
                             <div className="flex items-center gap-3.5 min-w-0">
                                 <div className={cn("w-11 h-11 rounded-2xl border flex items-center justify-center shrink-0", style.iconBg)}>
                                     <Icon className="w-5 h-5" />
@@ -133,13 +133,13 @@ export default function ConfirmDialog({
                                             {style.badgeText}
                                         </span>
                                     </div>
-                                    <h2 className="text-base font-bold text-white tracking-tight truncate">{title}</h2>
+                                    <h2 className="text-base font-bold text-[var(--text-primary)] tracking-tight truncate">{title}</h2>
                                 </div>
                             </div>
                             <button
                                 onClick={onClose}
                                 disabled={isLoading}
-                                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/5 flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0 ml-2"
+                                className="w-8 h-8 rounded-full bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)] flex items-center justify-center transition-all hover:scale-105 active:scale-95 disabled:opacity-40 disabled:pointer-events-none cursor-pointer shrink-0 ml-2"
                                 title={effectiveCancelText}
                             >
                                 <X className="w-4 h-4" />
@@ -148,7 +148,7 @@ export default function ConfirmDialog({
 
                         {/* Content Body */}
                         <div className="p-5 space-y-3.5">
-                            <div className="bg-slate-950/40 rounded-2xl border border-white/5 p-4 text-slate-200 text-sm leading-relaxed whitespace-pre-line shadow-inner">
+                            <div className="bg-[var(--bg-primary)]/70 rounded-2xl border border-[var(--border)] p-4 text-[var(--text-secondary)] text-sm leading-relaxed whitespace-pre-line shadow-inner">
                                 {mainBody}
                             </div>
 
@@ -163,11 +163,11 @@ export default function ConfirmDialog({
                         </div>
 
                         {/* Footer Action Controls */}
-                        <div className="flex items-center justify-end gap-2.5 p-4 border-t border-white/10 bg-slate-950/60">
+                        <div className="flex items-center justify-end gap-2.5 p-4 border-t border-[var(--border)] bg-[var(--surface-active)]/40">
                             <button
                                 onClick={onClose}
                                 disabled={isLoading}
-                                className="px-4 py-2 rounded-xl text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/90 border border-white/10 font-medium text-xs transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                                className="px-4 py-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] font-medium text-xs transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                             >
                                 {effectiveCancelText}
                             </button>

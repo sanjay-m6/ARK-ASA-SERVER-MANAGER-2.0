@@ -150,6 +150,8 @@ CREATE TABLE IF NOT EXISTS discord_bridge_config (
     show_tribe_names INTEGER DEFAULT 1,
     show_playtime INTEGER DEFAULT 1,
     admin_channel_id TEXT DEFAULT '',
+    admin_role_ids TEXT DEFAULT '[]',
+    moderator_role_ids TEXT DEFAULT '[]',
     notifications_channel_id TEXT DEFAULT '',
     notify_player_join_leave INTEGER DEFAULT 1,
     notify_server_crashes INTEGER DEFAULT 1,
@@ -159,9 +161,59 @@ CREATE TABLE IF NOT EXISTS discord_bridge_config (
     notify_performance_alerts INTEGER DEFAULT 1,
     notify_mod_watchdog INTEGER DEFAULT 1,
     notify_anti_cheat INTEGER DEFAULT 1,
+    status_update_interval INTEGER DEFAULT 60,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cluster_id) REFERENCES clusters(id) ON DELETE CASCADE
+);
+
+-- Discord Rate Limits table
+CREATE TABLE IF NOT EXISTS discord_rate_limits (
+    cluster_id INTEGER PRIMARY KEY,
+    max_messages_per_window INTEGER DEFAULT 5,
+    window_seconds INTEGER DEFAULT 10,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cluster_id) REFERENCES clusters(id) ON DELETE CASCADE
+);
+
+-- Discord Player Links table (maps Discord User ID to Steam/EOS ID)
+CREATE TABLE IF NOT EXISTS discord_player_links (
+    discord_user_id TEXT PRIMARY KEY,
+    guild_id TEXT DEFAULT '',
+    steam_id TEXT NOT NULL,
+    eos_id TEXT DEFAULT '',
+    player_name TEXT,
+    cluster_id INTEGER DEFAULT 0,
+    linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    verified INTEGER DEFAULT 1,
+    last_verified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Discord Audit Log table
+CREATE TABLE IF NOT EXISTS discord_audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id TEXT NOT NULL,
+    discord_user_id TEXT NOT NULL,
+    server_id INTEGER,
+    action TEXT NOT NULL,
+    target TEXT,
+    status TEXT NOT NULL,
+    reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    metadata_json TEXT
+);
+
+-- Discord Pending Actions table (for two-step confirmation prompts & long running workflows)
+CREATE TABLE IF NOT EXISTS discord_pending_actions (
+    id TEXT PRIMARY KEY,
+    action_type TEXT NOT NULL,
+    guild_id TEXT NOT NULL,
+    discord_user_id TEXT NOT NULL,
+    server_id INTEGER,
+    payload_json TEXT,
+    expires_at TIMESTAMP NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Player sessions table (tracks join/leave events)

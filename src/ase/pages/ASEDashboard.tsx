@@ -429,7 +429,7 @@ export default function ASEDashboard() {
             <div className="flex flex-wrap items-center gap-3">
               {/* Search Box */}
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--text-muted)]" />
                 <input
                   type="text"
                   id="ase-server-search"
@@ -438,7 +438,7 @@ export default function ASEDashboard() {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search server..."
-                  className="pl-9 pr-4 py-1.5 bg-[#0A0F1C]/80 border border-white/5 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 w-48 transition-all"
+                  className="pl-9 pr-4 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 w-48 transition-all"
                 />
               </div>
               <button
@@ -623,7 +623,7 @@ export default function ASEDashboard() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {filteredServers.map(srv => {
                 const cust = snapshot?.servers?.find((s: any) => s.id === srv.id)?.customization;
                 const displayName = cust?.display_name || srv.name;
@@ -632,12 +632,12 @@ export default function ASEDashboard() {
                 return (
                   <div
                     key={srv.id}
-                    className="flex flex-col lg:flex-row lg:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] hover:border-amber-500/20 hover:scale-[1.01] hover:shadow-[0_0_15px_rgba(245,158,11,0.05)] transition-all duration-300 group gap-4 lg:gap-0 relative hover:z-50 z-10"
+                    className="flex flex-col lg:flex-row lg:items-center justify-between p-4 sm:p-5 bg-[var(--surface)] border border-[var(--border)] rounded-2xl hover:border-amber-500/40 hover:shadow-lg transition-all duration-300 group gap-4 lg:gap-0 relative hover:z-50 z-10"
                   >
                     {/* Custom Brand line indicator */}
                     {hasColor && (
                       <div
-                        className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl"
+                        className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl"
                         style={{ backgroundColor: cust.color_tag }}
                       />
                     )}
@@ -645,33 +645,33 @@ export default function ASEDashboard() {
                     <div className="flex items-center gap-4 pl-2">
                       <div
                         className={cn(
-                          'w-2.5 h-2.5 rounded-full transition-all duration-300',
+                          'w-3 h-3 rounded-full transition-all duration-300',
                           srv.status === 'online' && 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]',
                           srv.status === 'running' && 'bg-amber-500 animate-pulse',
                           srv.status === 'stopped' && 'bg-slate-500',
                           srv.status === 'crashed' && 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]',
                           srv.status === 'starting' && 'bg-amber-500 animate-pulse',
-                          srv.status === 'updating' && 'bg-blue-500 animate-pulse'
+                          srv.status === 'updating' && 'bg-sky-500 animate-pulse'
                         )}
                         role="img"
                         aria-label={`Status: ${srv.status}`}
                       />
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-slate-200">{displayName}</h3>
+                          <h3 className="font-bold text-[var(--text-primary)] group-hover:text-amber-500 transition-colors">{displayName}</h3>
                           {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
-                          {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                          {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />}
                           {srv.autoStart && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold tracking-wide uppercase">
+                            <span className="text-[9px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold tracking-wide uppercase">
                               AUTOSTART
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-                          <p className="text-xs text-slate-400">{getAseMapDisplayName(srv.mapName)} • Game: {srv.port} • Query: {srv.queryPort} • RCON: {srv.rconPort}</p>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                          <p className="text-xs text-[var(--text-secondary)]">{getAseMapDisplayName(srv.mapName)} • Game: {srv.port} • Query: {srv.queryPort} • RCON: {srv.rconPort}</p>
                           {cust?.tags && cust.tags.map((tg: string) => (
-                            <span key={tg} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[9px] text-slate-400 font-medium">
-                              {tg}
+                            <span key={tg} className="px-2 py-0.5 bg-[var(--surface-hover)] border border-[var(--border)] rounded-md text-[10px] text-[var(--text-muted)] font-medium">
+                              #{tg}
                             </span>
                           ))}
                         </div>
@@ -682,7 +682,7 @@ export default function ASEDashboard() {
                       {(srv.status === 'stopped' || srv.status === 'crashed') && !stoppingServers.includes(srv.id) ? (
                         <button
                           onClick={() => handleStart(srv.id)}
-                          className="w-[34px] h-[34px] flex items-center justify-center bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
+                          className="w-[34px] h-[34px] flex items-center justify-center bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
                           title="Start Server"
                           aria-label={`Start Server ${displayName}`}
                         >
@@ -693,7 +693,7 @@ export default function ASEDashboard() {
                           <div className="relative group/stop">
                             <button
                               onClick={() => setTimedShutdownServer(srv)}
-                              className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95"
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-400 border border-rose-500/30 rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
                               title="Stop / Shutdown Options"
                               aria-label={`Stop Server ${displayName}`}
                             >
@@ -701,25 +701,25 @@ export default function ASEDashboard() {
                             </button>
 
                             {/* Stop Options Dropdown */}
-                            <div className="absolute top-full right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/stop:scale-100">
+                            <div className="absolute top-full right-0 mt-2 w-52 bg-[var(--surface)] backdrop-blur-2xl border border-[var(--border)] rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/stop:scale-100 p-1">
                               <button
                                 onClick={() => setTimedShutdownServer(srv)}
-                                className="w-full text-left px-3 py-2.5 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 text-xs font-bold"
+                                className="w-full text-left px-3 py-2.5 hover:bg-amber-500/15 text-amber-700 dark:text-amber-400 rounded-lg transition-colors flex items-center gap-2 text-xs font-bold cursor-pointer"
                               >
-                                <Timer className="w-4 h-4 text-amber-400 shrink-0" />
+                                <Timer className="w-4 h-4 text-amber-500 shrink-0" />
                                 <div className="flex flex-col">
                                   <span>Timed Shutdown</span>
-                                  <span className="text-[10px] text-slate-400 font-normal">Countdown with broadcasts</span>
+                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Countdown with broadcasts</span>
                                 </div>
                               </button>
                               <button
                                 onClick={() => handleStop(srv.id)}
-                                className="w-full text-left px-3 py-2.5 hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs font-bold"
+                                className="w-full text-left px-3 py-2.5 hover:bg-rose-500/15 text-rose-700 dark:text-rose-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] text-xs font-bold cursor-pointer"
                               >
-                                <Square className="w-4 h-4 fill-current text-rose-400 shrink-0" />
+                                <Square className="w-4 h-4 fill-current text-rose-500 shrink-0" />
                                 <div className="flex flex-col">
                                   <span>Immediate Stop</span>
-                                  <span className="text-[10px] text-slate-400 font-normal">Halt process right away</span>
+                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Halt process right away</span>
                                 </div>
                               </button>
                             </div>
@@ -727,7 +727,7 @@ export default function ASEDashboard() {
 
                           <div className="relative group/dropdown">
                             <button
-                              className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
+                              className="w-[34px] h-[34px] flex items-center justify-center bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
                               title="Restart Options"
                               aria-label={`Restart options for Server ${displayName}`}
                             >
@@ -735,21 +735,21 @@ export default function ASEDashboard() {
                             </button>
 
                             {/* Dropdown Menu */}
-                            <div className="absolute top-full right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
+                            <div className="absolute top-full right-0 mt-2 w-52 bg-[var(--surface)] backdrop-blur-2xl border border-[var(--border)] rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100 p-1">
                               <button
                                 onClick={() => handleRestart(srv.id)}
-                                className="w-full text-left px-4 py-3 hover:bg-slate-800 text-slate-300 hover:text-white transition-colors flex items-center gap-2 text-xs"
+                                className="w-full text-left px-3.5 py-2.5 hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors flex items-center gap-2 text-xs font-medium cursor-pointer"
                               >
-                                <RotateCw className="w-3.5 h-3.5" />
-                                <span>{t('dashboard.normalRestart', 'Normal Restart')}</span>
+                                <RotateCw className="w-3.5 h-3.5 text-amber-500" />
+                                <span className="font-semibold">{t('dashboard.normalRestart', 'Normal Restart')}</span>
                               </button>
                               <button
                                 onClick={() => handleRestart(srv.id, true)}
-                                className="w-full text-left px-4 py-3 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs"
+                                className="w-full text-left px-3.5 py-2.5 hover:bg-amber-500/15 text-amber-700 dark:text-amber-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] text-xs font-medium cursor-pointer"
                                 title="Gracefully restart the server and wipe all wild dinosaurs"
                               >
-                                <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
-                                <span>{t('dashboard.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
+                                <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
+                                <span className="font-semibold">{t('dashboard.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
                               </button>
                             </div>
                           </div>
@@ -759,27 +759,27 @@ export default function ASEDashboard() {
                           disabled
                           className={cn(
                             "w-[34px] h-[34px] flex items-center justify-center border rounded-xl opacity-80 cursor-not-allowed focus:outline-none transition-all",
-                            (srv.status === 'starting' && !stoppingServers.includes(srv.id)) && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-                            stoppingServers.includes(srv.id) && 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-                            srv.status === 'updating' && 'bg-sky-500/10 text-sky-400 border-sky-500/20',
-                            'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                            (srv.status === 'starting' && !stoppingServers.includes(srv.id)) && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
+                            stoppingServers.includes(srv.id) && 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30',
+                            srv.status === 'updating' && 'bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30',
+                            'bg-slate-500/15 text-slate-700 dark:text-slate-400 border-slate-500/30'
                           )}
                           aria-label={`Server ${displayName} status updating`}
                         >
                           {stoppingServers.includes(srv.id) ? (
                             <div className="relative w-4 h-4 flex items-center justify-center">
                               <div className="absolute inset-0 border-2 border-rose-500/20 border-t-rose-400 rounded-full animate-spin" />
-                              <Square className="w-1.5 h-1.5 fill-current text-rose-400 animate-pulse" />
+                              <Square className="w-1.5 h-1.5 fill-current text-rose-500 animate-pulse" />
                             </div>
                           ) : srv.status === 'starting' ? (
                             <div className="relative w-4 h-4 flex items-center justify-center">
                               <div className="absolute inset-0 border-2 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" />
-                              <Play className="w-2 h-2 fill-current text-emerald-400 animate-pulse ml-0.5" />
+                              <Play className="w-2 h-2 fill-current text-emerald-500 animate-pulse ml-0.5" />
                             </div>
                           ) : srv.status === 'updating' ? (
                             <div className="relative w-4 h-4 flex items-center justify-center">
                               <div className="absolute inset-0 border-2 border-sky-500/20 border-t-sky-400 rounded-full animate-spin" />
-                              <RefreshCw className="w-2 h-2 text-sky-400 animate-spin [animation-duration:3s]" />
+                              <RefreshCw className="w-2 h-2 text-sky-500 animate-spin [animation-duration:3s]" />
                             </div>
                           ) : (
                             <RotateCw className="w-4 h-4 animate-spin" />
@@ -789,7 +789,7 @@ export default function ASEDashboard() {
 
                       <button
                         onClick={() => handleCopyIp(srv.port)}
-                        className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
+                        className="w-[34px] h-[34px] flex items-center justify-center bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
                         title="Copy IP Address"
                         aria-label={`Copy IP address for Server ${displayName}`}
                       >
@@ -798,7 +798,7 @@ export default function ASEDashboard() {
 
                       <button
                         onClick={() => navigate('/ase/config', { state: { serverId: srv.id } })}
-                        className="w-[34px] h-[34px] flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 hover:scale-105 active:scale-95"
+                        className="w-[34px] h-[34px] flex items-center justify-center bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all focus:outline-none hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
                         title="Config Editor"
                         aria-label={`Open Config Editor for Server ${displayName}`}
                       >
@@ -808,7 +808,7 @@ export default function ASEDashboard() {
                       <button
                         onClick={(e) => { e.stopPropagation(); window.location.href = `steam://connect/127.0.0.1:${srv.queryPort || 27015}`; }}
                         disabled={srv.status !== 'online'}
-                        className="w-[34px] h-[34px] flex items-center justify-center bg-[#5c6ac4]/10 hover:bg-[#5c6ac4]/20 text-[#5c6ac4] border border-[#5c6ac4]/20 rounded-xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+                        className="w-[34px] h-[34px] flex items-center justify-center bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30 rounded-xl transition-all focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
                         title="Join Server via Steam"
                         aria-label={`Join Server ${displayName} via Steam`}
                       >
@@ -817,10 +817,10 @@ export default function ASEDashboard() {
 
                       <div className={cn(
                         "w-[85px] h-[34px] rounded-xl text-[10px] font-bold tracking-[0.05em] border uppercase flex items-center justify-center shadow-inner",
-                        srv.status === 'online' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                          srv.status === 'running' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                            srv.status === 'crashed' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
-                              'bg-[#1a202c]/50 text-slate-400 border-white/5'
+                        srv.status === 'online' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' :
+                          srv.status === 'running' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30' :
+                            srv.status === 'crashed' ? 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30' :
+                              'bg-slate-500/15 text-slate-700 dark:text-slate-400 border-slate-500/30'
                       )}>
                         {srv.status.toUpperCase()}
                       </div>

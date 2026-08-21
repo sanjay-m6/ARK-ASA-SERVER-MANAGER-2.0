@@ -1262,20 +1262,20 @@ export default function RconConsole() {
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20 select-none">
             {/* Header section with layout adjustments */}
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-slate-900/30 p-5 rounded-2xl border border-slate-800/80 backdrop-blur-md">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 glass-panel p-5 rounded-2xl border border-[var(--border)] backdrop-blur-md shadow-md">
                 <div>
                     <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 flex items-center gap-3">
                         <TerminalIcon className="w-8 h-8 text-cyan-400" />
                         {t('rcon.title', 'RCON Console')}
                     </h1>
-                    <p className="text-slate-400 mt-1 text-sm">{t('rcon.description', 'Advanced live logs streaming, cluster controls and world save verification')}</p>
+                    <p className="text-[var(--text-muted)] mt-1 text-sm">{t('rcon.description', 'Advanced live logs streaming, cluster controls and world save verification')}</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
 
                     <button
                         onClick={() => setIsHelpOpen(true)}
-                        className="p-2.5 bg-slate-900 border border-slate-850 hover:bg-slate-850 hover:text-cyan-400 rounded-xl text-slate-400 transition-colors"
+                        className="p-2.5 bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-hover)] hover:text-cyan-400 rounded-xl text-[var(--text-muted)] transition-colors shadow-sm"
                         title="RCON Commands Guide"
                     >
                         <HelpCircle className="w-5 h-5" />
@@ -1305,14 +1305,14 @@ export default function RconConsole() {
             </div>
 
             {/* Modern Glassmorphic Tabs Navigation */}
-            <div className="flex p-1.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md w-max shadow-inner gap-1 mb-2">
+            <div className="flex p-1.5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md w-max shadow-inner gap-1 mb-2">
                 <button
                     onClick={() => setActiveTab('terminal')}
                     className={cn(
                         "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'terminal' 
-                            ? "text-cyan-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                            ? "text-cyan-400 bg-[var(--surface-active)] shadow-sm border border-[var(--border)]" 
+                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                     )}
                 >
                     <TerminalIcon className="w-4 h-4" />
@@ -1324,8 +1324,8 @@ export default function RconConsole() {
                     className={cn(
                         "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'log_stream' 
-                            ? "text-blue-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                            ? "text-blue-400 bg-[var(--surface-active)] shadow-sm border border-[var(--border)]" 
+                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                     )}
                 >
                     <Eye className="w-4 h-4" />
@@ -1340,8 +1340,8 @@ export default function RconConsole() {
                     className={cn(
                         "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'cluster' 
-                            ? "text-sky-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                            ? "text-sky-400 bg-[var(--surface-active)] shadow-sm border border-[var(--border)]" 
+                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                     )}
                 >
                     <Layers className="w-4 h-4" />
@@ -1353,8 +1353,8 @@ export default function RconConsole() {
                     className={cn(
                         "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'save_manager' 
-                            ? "text-emerald-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                            ? "text-emerald-400 bg-[var(--surface-active)] shadow-sm border border-[var(--border)]" 
+                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                     )}
                 >
                     <Save className="w-4 h-4" />
@@ -1366,8 +1366,8 @@ export default function RconConsole() {
                     className={cn(
                         "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'maintenance' 
-                            ? "text-sky-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                            ? "text-sky-400 bg-[var(--surface-active)] shadow-sm border border-[var(--border)]" 
+                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                     )}
                 >
                     <RefreshCw className={cn("w-4 h-4", isMaintRunning && "animate-spin text-sky-400")} />
@@ -1379,8 +1379,8 @@ export default function RconConsole() {
                     className={cn(
                         "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                         activeTab === 'give_items' 
-                            ? "text-amber-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50" 
-                            : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                            ? "text-amber-400 bg-[var(--surface-active)] shadow-sm border border-[var(--border)]" 
+                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                     )}
                 >
                     <Gift className="w-4 h-4" />
@@ -1391,7 +1391,7 @@ export default function RconConsole() {
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 
                 {/* Main Action Deck Container */}
-                <div className="lg:col-span-3 glass-panel rounded-2xl border border-slate-800 bg-slate-900/10 p-5 flex flex-col min-h-[600px] relative overflow-visible">
+                <div className="lg:col-span-3 glass-panel rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 flex flex-col min-h-[600px] relative overflow-visible shadow-md">
                     
                     {/* TAB 1: INTERACTIVE TERMINAL */}
                     {activeTab === 'terminal' && (
@@ -1412,13 +1412,13 @@ export default function RconConsole() {
                             )}
 
                             {/* Quick Commands Grid */}
-                            <div className="flex flex-wrap gap-2.5 mb-4 pb-4 border-b border-slate-800/60">
+                            <div className="flex flex-wrap gap-2.5 mb-4 pb-4 border-b border-[var(--border)]">
                                 {QUICK_COMMANDS.map((qc) => (
                                     <button
                                         key={qc.command}
                                         onClick={() => sendCommand(qc.command)}
                                         disabled={!isConnected}
-                                        className="flex items-center gap-2 px-3.5 py-2 bg-slate-900/60 hover:bg-slate-850 border border-slate-800/80 rounded-xl text-xs text-slate-300 font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="flex items-center gap-2 px-3.5 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] rounded-xl text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         <qc.icon className="w-4 h-4 text-cyan-400" />
                                         {t(qc.labelKey, qc.labelDefault)}
@@ -1427,7 +1427,7 @@ export default function RconConsole() {
                                 <button
                                     onClick={broadcastMessage}
                                     disabled={!isConnected}
-                                    className="flex items-center gap-2 px-3.5 py-2 bg-amber-950/20 hover:bg-amber-900/20 border border-amber-800/30 rounded-xl text-xs text-amber-400 font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-2 px-3.5 py-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl text-xs text-amber-400 font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     <Megaphone className="w-4 h-4" />
                                     {t('rcon.quickCommands.broadcast', 'Broadcast')}
@@ -1435,7 +1435,7 @@ export default function RconConsole() {
                                 <button
                                     onClick={sendChatMessage}
                                     disabled={!isConnected}
-                                    className="flex items-center gap-2 px-3.5 py-2 bg-blue-950/20 hover:bg-blue-900/20 border border-blue-800/30 rounded-xl text-xs text-blue-400 font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-2 px-3.5 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-xl text-xs text-blue-400 font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     <MessageSquare className="w-4 h-4" />
                                     {t('rcon.quickCommands.serverChat', 'Send Chat')}
@@ -1443,7 +1443,7 @@ export default function RconConsole() {
                                 <button
                                     onClick={handleCreateBackup}
                                     disabled={isBackupInProgress || !selectedServerId}
-                                    className="flex items-center gap-2 px-3.5 py-2 bg-emerald-950/20 hover:bg-emerald-900/20 border border-emerald-800/30 rounded-xl text-xs text-emerald-400 font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-2 px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 font-medium transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     {isBackupInProgress ? (
                                         <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
@@ -1456,7 +1456,7 @@ export default function RconConsole() {
                                     onClick={() => setShowAutoBroadcastSettings(!showAutoBroadcastSettings)}
                                     className={cn(
                                         "flex items-center gap-2 px-3.5 py-2 border rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 focus:outline-none",
-                                        showAutoBroadcastSettings ? "bg-cyan-950/20 border-cyan-800/30 text-cyan-400" : "bg-slate-900/60 border-slate-800/85 text-slate-300 hover:text-white"
+                                        showAutoBroadcastSettings ? "bg-cyan-500/20 border-cyan-500/30 text-cyan-400" : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                                     )}
                                 >
                                     <Sliders className="w-4 h-4" />
@@ -1466,7 +1466,7 @@ export default function RconConsole() {
                                 onClick={() => {
                                     if (selectedServerId) clearServerState(selectedServerId);
                                 }}
-                                    className="flex items-center gap-2 px-3.5 py-2 bg-slate-950 text-slate-400 hover:text-slate-300 border border-slate-850 rounded-xl text-xs ml-auto transition-all active:scale-95"
+                                    className="flex items-center gap-2 px-3.5 py-2 bg-[var(--surface-active)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl text-xs ml-auto transition-all active:scale-95"
                                     title="Clear output console log buffer"
                                 >
                                     <Trash2 className="w-4 h-4" />
@@ -1481,45 +1481,45 @@ export default function RconConsole() {
                                         initial={{ height: 0, opacity: 0 }}
                                         animate={{ height: 'auto', opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
-                                        className="overflow-hidden mb-4 bg-slate-950/60 border border-slate-850 rounded-xl p-4 space-y-4 text-xs text-slate-300 font-sans shadow-inner"
+                                        className="overflow-hidden mb-4 bg-[var(--surface-active)]/40 border border-[var(--border)] rounded-xl p-4 space-y-4 text-xs text-[var(--text-secondary)] font-sans shadow-inner"
                                     >
-                                        <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
-                                            <span className="font-bold text-white flex items-center gap-1.5">
+                                        <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+                                            <span className="font-bold text-[var(--text-primary)] flex items-center gap-1.5">
                                                 <Sliders className="w-4 h-4 text-cyan-400" />
                                                 Auto-Broadcast Action Alerts
                                             </span>
-                                            <span className="text-[10px] text-slate-500 uppercase tracking-wider">
+                                            <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
                                                 Configure alerts sent to players before actions
                                             </span>
                                         </div>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {/* Dino Wipe Block */}
-                                            <div className="space-y-3 bg-slate-900/40 p-3 rounded-lg border border-slate-850">
+                                            <div className="space-y-3 bg-[var(--surface-hover)]/40 p-3 rounded-lg border border-[var(--border)]">
                                                 <div className="flex items-center justify-between">
-                                                    <label className="font-semibold text-slate-200 flex items-center gap-2 cursor-pointer">
+                                                    <label className="font-semibold text-[var(--text-primary)] flex items-center gap-2 cursor-pointer">
                                                         <input
                                                             type="checkbox"
                                                             checked={dinoWipeBroadcastEnabled}
                                                             onChange={(e) => setDinoWipeBroadcastEnabled(e.target.checked)}
-                                                            className="rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                                                            className="rounded border-[var(--border)] bg-[var(--surface-active)] text-cyan-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
                                                         />
                                                         Auto Broadcast on Dino Wipe
                                                     </label>
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <span className="text-[10px] text-slate-500">Alert Message</span>
+                                                    <span className="text-[10px] text-[var(--text-muted)]">Alert Message</span>
                                                     <input
                                                         type="text"
                                                         value={dinoWipeBroadcastMsg}
                                                         onChange={(e) => setDinoWipeBroadcastMsg(e.target.value)}
                                                         disabled={!dinoWipeBroadcastEnabled}
                                                         placeholder="Message to display..."
-                                                        className="w-full bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-700 focus:outline-none disabled:opacity-50"
+                                                        className="w-full bg-[var(--surface-active)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
                                                     />
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] text-slate-500">Execution Delay (Seconds):</span>
+                                                    <span className="text-[10px] text-[var(--text-muted)]">Execution Delay (Seconds):</span>
                                                     <input
                                                         type="number"
                                                         min="0"
@@ -1527,37 +1527,37 @@ export default function RconConsole() {
                                                         value={dinoWipeBroadcastDelay}
                                                         onChange={(e) => setDinoWipeBroadcastDelay(parseInt(e.target.value, 10) || 0)}
                                                         disabled={!dinoWipeBroadcastEnabled}
-                                                        className="w-16 bg-slate-950 border border-slate-850 rounded-lg px-2 py-1 text-center text-white focus:outline-none disabled:opacity-50"
+                                                        className="w-16 bg-[var(--surface-active)] border border-[var(--border)] rounded-lg px-2 py-1 text-center text-[var(--text-primary)] focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
                                                     />
                                                 </div>
                                             </div>
 
                                             {/* Save World Block */}
-                                            <div className="space-y-3 bg-slate-900/40 p-3 rounded-lg border border-slate-850">
+                                            <div className="space-y-3 bg-[var(--surface-hover)]/40 p-3 rounded-lg border border-[var(--border)]">
                                                 <div className="flex items-center justify-between">
-                                                    <label className="font-semibold text-slate-200 flex items-center gap-2 cursor-pointer">
+                                                    <label className="font-semibold text-[var(--text-primary)] flex items-center gap-2 cursor-pointer">
                                                         <input
                                                             type="checkbox"
                                                             checked={saveWorldBroadcastEnabled}
                                                             onChange={(e) => setSaveWorldBroadcastEnabled(e.target.checked)}
-                                                            className="rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                                                            className="rounded border-[var(--border)] bg-[var(--surface-active)] text-cyan-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
                                                         />
                                                         Auto Broadcast on Save World
                                                     </label>
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <span className="text-[10px] text-slate-500">Alert Message</span>
+                                                    <span className="text-[10px] text-[var(--text-muted)]">Alert Message</span>
                                                     <input
                                                         type="text"
                                                         value={saveWorldBroadcastMsg}
                                                         onChange={(e) => setSaveWorldBroadcastMsg(e.target.value)}
                                                         disabled={!saveWorldBroadcastEnabled}
                                                         placeholder="Message to display..."
-                                                        className="w-full bg-slate-950 border border-slate-850 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-700 focus:outline-none disabled:opacity-50"
+                                                        className="w-full bg-[var(--surface-active)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
                                                     />
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] text-slate-500">Execution Delay (Seconds):</span>
+                                                    <span className="text-[10px] text-[var(--text-muted)]">Execution Delay (Seconds):</span>
                                                     <input
                                                         type="number"
                                                         min="0"
@@ -1565,7 +1565,7 @@ export default function RconConsole() {
                                                         value={saveWorldBroadcastDelay}
                                                         onChange={(e) => setSaveWorldBroadcastDelay(parseInt(e.target.value, 10) || 0)}
                                                         disabled={!saveWorldBroadcastEnabled}
-                                                        className="w-16 bg-slate-950 border border-slate-850 rounded-lg px-2 py-1 text-center text-white focus:outline-none disabled:opacity-50"
+                                                        className="w-16 bg-[var(--surface-active)] border border-[var(--border)] rounded-lg px-2 py-1 text-center text-[var(--text-primary)] focus:outline-none focus:border-cyan-500/50 disabled:opacity-50"
                                                     />
                                                 </div>
                                             </div>
@@ -1577,11 +1577,11 @@ export default function RconConsole() {
                             {/* Terminal Shell scroll view */}
                             <div
                                 ref={terminalRef}
-                                className="flex-1 bg-slate-950 rounded-xl p-4 font-mono text-sm overflow-y-auto mb-4 border border-slate-850 max-h-[400px] shadow-inner"
+                                className="flex-1 bg-[var(--surface-active)] rounded-xl p-4 font-mono text-sm overflow-y-auto mb-4 border border-[var(--border)] max-h-[400px] shadow-inner"
                                 onClick={() => inputRef.current?.focus()}
                             >
                                 {commandHistory.length === 0 ? (
-                                    <div className="text-slate-500 italic text-xs p-2">
+                                    <div className="text-[var(--text-muted)] italic text-xs p-2">
                                         {isConnected
                                             ? t('rcon.welcomeMsg', 'RCON Connection ready. Enter commands in the prompt below.')
                                             : t('rcon.connectMsg', 'Please click "Connect" to open RCON connection.')}
@@ -1589,15 +1589,15 @@ export default function RconConsole() {
                                 ) : (
                                     commandHistory.map((entry, i) => (
                                         <div key={i} className="mb-4 last:mb-1 animate-in fade-in duration-300">
-                                            <div className="flex items-center gap-2 border-b border-slate-900/50 pb-1 mb-1.5">
+                                            <div className="flex items-center gap-2 border-b border-[var(--border)] pb-1 mb-1.5">
                                                 <span className="text-cyan-500 font-bold">❯</span>
                                                 <span className="text-cyan-400 text-xs font-semibold">{entry.command}</span>
-                                                <span className="text-slate-600 text-[10px] ml-auto">
+                                                <span className="text-[var(--text-muted)] text-[10px] ml-auto">
                                                     {entry.timestamp.toLocaleTimeString()}
                                                 </span>
                                             </div>
                                             {entry.success ? (
-                                                <div className="pl-4 whitespace-pre-wrap text-slate-300 text-xs leading-relaxed font-sans bg-slate-900/20 p-2.5 rounded-lg border border-slate-900/50">
+                                                <div className="pl-4 whitespace-pre-wrap text-[var(--text-secondary)] text-xs leading-relaxed font-sans bg-[var(--surface-hover)]/40 p-2.5 rounded-lg border border-[var(--border)]">
                                                     {entry.response}
                                                 </div>
                                             ) : (
@@ -1610,7 +1610,7 @@ export default function RconConsole() {
 
                             {/* Command Input & Autocomplete system */}
                             <div className="relative">
-                                <div className="flex items-center gap-3 bg-slate-950 rounded-xl px-4 py-3 border border-slate-850 focus-within:border-cyan-500/50 transition-all duration-300 shadow-md">
+                                <div className="flex items-center gap-3 bg-[var(--surface)] rounded-xl px-4 py-3 border border-[var(--border)] focus-within:border-cyan-500/50 transition-all duration-300 shadow-md">
                                     <TerminalIcon className="w-5 h-5 text-cyan-400 shrink-0" />
                                     <input
                                         ref={inputRef}
@@ -1620,12 +1620,12 @@ export default function RconConsole() {
                                         onKeyDown={handleKeyDown}
                                         placeholder={isConnected ? t('rcon.typeCommand', 'Type an RCON command and press Enter...') : t('rcon.connectMsg', 'Please click "Connect" to open RCON connection.')}
                                         disabled={!isConnected}
-                                        className="flex-1 bg-transparent text-white text-sm focus:outline-none font-mono placeholder:text-slate-600 disabled:cursor-not-allowed"
+                                        className="flex-1 bg-transparent text-[var(--text-primary)] text-sm focus:outline-none font-mono placeholder:text-[var(--text-muted)] disabled:cursor-not-allowed"
                                     />
                                     <button
                                         onClick={() => sendCommand()}
                                         disabled={!isConnected || !command.trim()}
-                                        className="p-2 bg-cyan-950/50 hover:bg-cyan-900/20 text-cyan-400 border border-cyan-800/30 rounded-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                                        className="p-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                                     >
                                         <Send className="w-4 h-4" />
                                     </button>
@@ -1633,8 +1633,8 @@ export default function RconConsole() {
 
                                 {/* Autocomplete Suggestion Dropdown */}
                                 {autocompleteVisible && suggestions.length > 0 && (
-                                    <div className="absolute left-0 bottom-full mb-2 w-full bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-xl shadow-2xl overflow-hidden z-50 animate-in slide-in-from-bottom-2 duration-200">
-                                        <div className="bg-slate-900/50 px-4 py-2 border-b border-slate-800 text-[10px] text-slate-500 uppercase tracking-wider font-bold">
+                                    <div className="absolute left-0 bottom-full mb-2 w-full bg-[var(--surface)]/95 backdrop-blur-md border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden z-50 animate-in slide-in-from-bottom-2 duration-200">
+                                        <div className="bg-[var(--surface-active)]/50 px-4 py-2 border-b border-[var(--border)] text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">
                                             RCON Command Autocomplete (Use ↑ ↓ Tab / Enter to select)
                                         </div>
                                         <div className="max-h-[220px] overflow-y-auto">
@@ -1647,14 +1647,14 @@ export default function RconConsole() {
                                                         inputRef.current?.focus();
                                                     }}
                                                     className={cn(
-                                                        "w-full text-left px-4 py-3 flex items-center justify-between text-xs border-b border-slate-900/40 transition-colors",
+                                                        "w-full text-left px-4 py-3 flex items-center justify-between text-xs border-b border-[var(--border)] transition-colors",
                                                         idx === autocompleteIndex 
-                                                            ? "bg-cyan-950/30 text-cyan-400 border-l-2 border-l-cyan-400" 
-                                                            : "text-slate-300 hover:bg-slate-900/40"
+                                                            ? "bg-cyan-500/15 text-cyan-400 border-l-2 border-l-cyan-400" 
+                                                            : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
                                                     )}
                                                 >
                                                     <span className="font-mono font-semibold">{s.command}</span>
-                                                    <span className="text-slate-500 text-[11px] font-sans truncate ml-4 max-w-[60%]">{s.desc}</span>
+                                                    <span className="text-[var(--text-muted)] text-[11px] font-sans truncate ml-4 max-w-[60%]">{s.desc}</span>
                                                 </button>
                                             ))}
                                         </div>
@@ -1668,15 +1668,15 @@ export default function RconConsole() {
                     {activeTab === 'log_stream' && (
                         <div className="flex-1 flex flex-col h-full">
                             {/* Streaming Control Bar */}
-                            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/40 border border-slate-850 p-4 rounded-xl mb-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface-active)]/40 border border-[var(--border)] p-4 rounded-xl mb-4">
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={() => setIsStreamingLogs(!isStreamingLogs)}
                                         className={cn(
                                             "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold border transition-all active:scale-95",
                                             isStreamingLogs
-                                                ? "bg-emerald-950/20 text-emerald-400 border-emerald-500/20 hover:bg-emerald-900/20"
-                                                : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-850 hover:text-slate-300"
+                                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                                                : "bg-[var(--surface-hover)] text-[var(--text-muted)] border-[var(--border)] hover:bg-[var(--surface-active)] hover:text-[var(--text-primary)]"
                                         )}
                                     >
                                         {isStreamingLogs ? (
@@ -1697,8 +1697,8 @@ export default function RconConsole() {
                                         className={cn(
                                             "p-2 rounded-xl border text-xs transition-colors",
                                             autoScrollLogs
-                                                ? "bg-cyan-950/20 text-cyan-400 border-cyan-500/20 hover:bg-cyan-900/20"
-                                                : "bg-slate-950 text-slate-500 border-slate-850 hover:text-slate-400"
+                                                ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20 hover:bg-cyan-500/20"
+                                                : "bg-[var(--surface-active)] text-[var(--text-muted)] border-[var(--border)] hover:text-[var(--text-primary)]"
                                         )}
                                         title={autoScrollLogs ? "Auto-scroll logs enabled" : "Auto-scroll logs paused"}
                                     >
@@ -1707,7 +1707,7 @@ export default function RconConsole() {
 
                                     <button
                                         onClick={() => setLogStream([])}
-                                        className="p-2 bg-slate-950 border border-slate-850 hover:border-slate-800 rounded-xl text-slate-500 hover:text-red-400 transition-colors"
+                                        className="p-2 bg-[var(--surface-active)] border border-[var(--border)] hover:border-rose-500/40 rounded-xl text-[var(--text-muted)] hover:text-rose-400 transition-colors"
                                         title="Clear live logs"
                                     >
                                         <Trash2 className="w-4 h-4" />
@@ -1715,13 +1715,13 @@ export default function RconConsole() {
                                 </div>
 
                                 <div className="relative max-w-xs w-full">
-                                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                                    <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--text-muted)]" />
                                     <input
                                         type="text"
                                         value={logSearchQuery}
                                         onChange={(e) => setLogSearchQuery(e.target.value)}
                                         placeholder="Quick filter log content..."
-                                        className="w-full bg-slate-950 border border-slate-850 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+                                        className="w-full bg-[var(--surface-active)] border border-[var(--border)] rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500/50 text-[var(--text-primary)]"
                                     />
                                 </div>
                             </div>
@@ -1729,18 +1729,18 @@ export default function RconConsole() {
                             {/* Log Feed Console view */}
                             <div
                                 ref={logFeedRef}
-                                className="flex-1 bg-slate-950 rounded-xl p-4 font-mono text-xs overflow-y-auto border border-slate-850 max-h-[420px] shadow-inner text-slate-400 leading-relaxed"
+                                className="flex-1 bg-[var(--surface-active)] rounded-xl p-4 font-mono text-xs overflow-y-auto border border-[var(--border)] max-h-[420px] shadow-inner text-[var(--text-secondary)] leading-relaxed"
                             >
                                 {filteredLogs.length === 0 ? (
-                                    <div className="text-slate-600 italic text-center py-12">
+                                    <div className="text-[var(--text-muted)] italic text-center py-12">
                                         {isStreamingLogs 
                                             ? "Waiting for ShooterGame.log events... (or search found zero hits)" 
                                             : "Streaming is disabled. Enable it above to listen to live server logs in real time."}
                                     </div>
                                 ) : (
                                     filteredLogs.map((entry, idx) => (
-                                        <div key={idx} className="mb-2 last:mb-0 hover:bg-slate-900/30 p-1 rounded transition-colors flex items-start gap-3">
-                                            <span className="text-slate-600 text-[10px] shrink-0 mt-0.5 select-none">{entry.timestamp.toLocaleTimeString()}</span>
+                                        <div key={idx} className="mb-2 last:mb-0 hover:bg-[var(--surface-hover)] p-1 rounded transition-colors flex items-start gap-3">
+                                            <span className="text-[var(--text-muted)] text-[10px] shrink-0 mt-0.5 select-none">{entry.timestamp.toLocaleTimeString()}</span>
                                             <span className="whitespace-pre-wrap break-all">{entry.line}</span>
                                         </div>
                                     ))
@@ -1752,22 +1752,22 @@ export default function RconConsole() {
                     {/* TAB 3: CLUSTER COMMAND CONTROL PANEL */}
                     {activeTab === 'cluster' && (
                         <div className="flex-1 flex flex-col h-full space-y-5">
-                            <div className="p-4 bg-slate-950/40 border border-slate-850 rounded-xl">
-                                <h3 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+                            <div className="p-4 bg-[var(--surface-active)]/40 border border-[var(--border)] rounded-xl">
+                                <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-2 flex items-center gap-2">
                                     <Layers className="w-4 h-4 text-cyan-400" />
                                     <span>Cluster wide target server selection</span>
                                 </h3>
-                                <p className="text-xs text-slate-400 mb-4">Select which active servers this command will execute on simultaneously:</p>
+                                <p className="text-xs text-[var(--text-muted)] mb-4">Select which active servers this command will execute on simultaneously:</p>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {servers.map(server => (
                                         <label
                                             key={server.id}
                                             className={cn(
-                                                "p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all hover:bg-slate-800/40",
+                                                "p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all hover:bg-[var(--surface-hover)]",
                                                 clusterSelectedServers.includes(server.id)
-                                                    ? "bg-cyan-950/15 border-cyan-500/20 text-cyan-300"
-                                                    : "bg-slate-900/50 border-slate-850 text-slate-400"
+                                                    ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-300"
+                                                    : "bg-[var(--surface-hover)]/50 border-[var(--border)] text-[var(--text-secondary)]"
                                             )}
                                         >
                                             <input
@@ -1780,11 +1780,11 @@ export default function RconConsole() {
                                                         setClusterSelectedServers(prev => prev.filter(id => id !== server.id));
                                                     }
                                                 }}
-                                                className="w-4 h-4 rounded border-slate-800 accent-cyan-500 bg-slate-950 focus:ring-0 cursor-pointer"
+                                                className="w-4 h-4 rounded border-[var(--border)] accent-cyan-500 bg-[var(--surface-active)] focus:ring-0 cursor-pointer"
                                             />
                                             <div className="truncate">
-                                                <p className="text-xs font-semibold text-white truncate">{server.name}</p>
-                                                <p className="text-[10px] text-slate-500 font-mono">{server.ipAddress || '127.0.0.1'}:{server.ports.rconPort}</p>
+                                                <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{server.name}</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-mono">{server.ipAddress || '127.0.0.1'}:{server.ports.rconPort}</p>
                                             </div>
                                         </label>
                                     ))}
@@ -1792,20 +1792,20 @@ export default function RconConsole() {
                             </div>
 
                             {/* Command Input Deck */}
-                            <div className="flex items-center gap-3 bg-slate-950 rounded-xl px-4 py-3.5 border border-slate-850 focus-within:border-cyan-500/50 transition-all duration-300 shadow-md">
+                            <div className="flex items-center gap-3 bg-[var(--surface)] rounded-xl px-4 py-3.5 border border-[var(--border)] focus-within:border-cyan-500/50 transition-all duration-300 shadow-md">
                                 <TerminalIcon className="w-5 h-5 text-cyan-400" />
                                 <input
                                     type="text"
                                     value={clusterCommand}
                                     onChange={(e) => setClusterCommand(e.target.value)}
                                     placeholder="Enter command to broadcast/run on all cluster members simultaneously..."
-                                    className="flex-1 bg-transparent text-white text-sm focus:outline-none font-mono placeholder:text-slate-600"
+                                    className="flex-1 bg-transparent text-[var(--text-primary)] text-sm focus:outline-none font-mono placeholder:text-[var(--text-muted)]"
                                     disabled={clusterIsExecuting}
                                 />
                                 <button
                                     onClick={executeClusterCommand}
                                     disabled={clusterIsExecuting || !clusterCommand.trim() || clusterSelectedServers.length === 0}
-                                    className="flex items-center gap-2 px-5 py-2 bg-cyan-950/50 hover:bg-cyan-900/20 text-cyan-400 border border-cyan-800/30 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-2 px-5 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-xl text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                 >
                                     {clusterIsExecuting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                                     <span>Execute</span>
@@ -1815,7 +1815,7 @@ export default function RconConsole() {
                             {/* Responses Output Cards Grid */}
                             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                                 {Object.keys(clusterProgress).length === 0 ? (
-                                    <div className="text-slate-600 italic text-xs py-8 text-center bg-slate-950/20 rounded-xl border border-slate-900/50">
+                                    <div className="text-[var(--text-muted)] italic text-xs py-8 text-center bg-[var(--surface-active)]/20 rounded-xl border border-[var(--border)]">
                                         No cluster executions triggered yet in this session.
                                     </div>
                                 ) : (
@@ -1825,10 +1825,10 @@ export default function RconConsole() {
                                         return (
                                             <div
                                                 key={sId}
-                                                className="bg-slate-950 rounded-xl p-4 border border-slate-850 flex items-start gap-4 hover:border-slate-800 transition-colors duration-200"
+                                                className="bg-[var(--surface)] rounded-xl p-4 border border-[var(--border)] flex items-start gap-4 hover:border-cyan-500/30 transition-colors duration-200"
                                             >
                                                 <div className="w-40 truncate">
-                                                    <p className="text-xs font-bold text-white truncate">{server?.name || `Server #${sId}`}</p>
+                                                    <p className="text-xs font-bold text-[var(--text-primary)] truncate">{server?.name || `Server #${sId}`}</p>
                                                     <div className="mt-1">
                                                         {val.status === 'sending' && (
                                                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
@@ -1852,8 +1852,8 @@ export default function RconConsole() {
                                                 </div>
 
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Response</p>
-                                                    <div className="mt-1 font-mono text-[11px] text-slate-300 whitespace-pre-wrap bg-slate-900/30 p-2.5 rounded-lg border border-slate-900/50 truncate max-h-[100px] overflow-y-auto">
+                                                    <p className="text-[var(--text-muted)] text-[10px] uppercase font-bold tracking-wider">Response</p>
+                                                    <div className="mt-1 font-mono text-[11px] text-[var(--text-secondary)] whitespace-pre-wrap bg-[var(--surface-active)]/30 p-2.5 rounded-lg border border-[var(--border)] truncate max-h-[100px] overflow-y-auto">
                                                         {val.response}
                                                     </div>
                                                 </div>
@@ -1870,18 +1870,18 @@ export default function RconConsole() {
                         <div className="flex-1 flex flex-col h-full space-y-6">
                             
                             {/* Massive Verified Manual Save Control Board */}
-                            <div className="bg-slate-950/40 border border-slate-850 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md relative overflow-hidden">
+                            <div className="bg-[var(--surface-active)]/40 border border-[var(--border)] p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md relative overflow-hidden">
                                 <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none select-none text-[150px] text-cyan-400">
                                     🦖
                                 </div>
 
                                 <div className="space-y-2 max-w-lg">
-                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                                         <Database className="w-5 h-5 text-cyan-400" />
                                         <span>Verified Save World Engine</span>
                                     </h3>
-                                    <p className="text-xs text-slate-400 leading-relaxed">
-                                        Triggers the <code className="text-cyan-400 font-semibold font-mono bg-cyan-950/20 px-1 py-0.5 rounded">SaveWorld</code> engine command via RCON and verifies that the output save file is successfully written to disk, checking size and timestamp metrics in real time.
+                                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                        Triggers the <code className="text-cyan-400 font-semibold font-mono bg-cyan-500/10 px-1 py-0.5 rounded">SaveWorld</code> engine command via RCON and verifies that the output save file is successfully written to disk, checking size and timestamp metrics in real time.
                                     </p>
                                 </div>
 
@@ -1893,7 +1893,7 @@ export default function RconConsole() {
                                             "flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold text-sm shadow-xl transition-all duration-300 transform active:scale-95",
                                             saveProgressState === 'idle' || saveProgressState === 'success' || saveProgressState === 'error'
                                                 ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-500 hover:to-blue-500 shadow-cyan-950/20"
-                                                : "bg-slate-850 border border-slate-800 text-slate-500 cursor-not-allowed"
+                                                : "bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed"
                                         )}
                                     >
                                         {['sending', 'syncing', 'verifying'].includes(saveProgressState) ? (
@@ -1931,27 +1931,27 @@ export default function RconConsole() {
 
                             {/* Save Validation Result Panel */}
                             {saveValidationResult && (
-                                <div className="bg-slate-950 rounded-2xl p-5 border border-slate-850 shadow-inner grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-900/60">
-                                        <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Save File Name</p>
-                                        <p className="text-sm font-semibold text-white truncate font-mono mt-1" title={saveValidationResult.file_name}>
+                                <div className="bg-[var(--surface-active)]/40 rounded-2xl p-5 border border-[var(--border)] shadow-inner grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="bg-[var(--surface-hover)]/50 p-4 rounded-xl border border-[var(--border)]">
+                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Save File Name</p>
+                                        <p className="text-sm font-semibold text-[var(--text-primary)] truncate font-mono mt-1" title={saveValidationResult.file_name}>
                                             {saveValidationResult.file_name}
                                         </p>
                                     </div>
-                                    <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-900/60">
-                                        <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">File Size</p>
+                                    <div className="bg-[var(--surface-hover)]/50 p-4 rounded-xl border border-[var(--border)]">
+                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">File Size</p>
                                         <p className="text-sm font-semibold text-cyan-400 font-mono mt-1">
                                             {formatBytes(saveValidationResult.file_size_bytes)}
                                         </p>
                                     </div>
-                                    <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-900/60">
-                                        <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Last Modified</p>
-                                        <p className="text-sm font-semibold text-white truncate font-mono mt-1">
+                                    <div className="bg-[var(--surface-hover)]/50 p-4 rounded-xl border border-[var(--border)]">
+                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">Last Modified</p>
+                                        <p className="text-sm font-semibold text-[var(--text-primary)] truncate font-mono mt-1">
                                             {saveValidationResult.last_modified}
                                         </p>
                                     </div>
-                                    <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-900/60">
-                                        <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">FS Integrity Scan</p>
+                                    <div className="bg-[var(--surface-hover)]/50 p-4 rounded-xl border border-[var(--border)]">
+                                        <p className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">FS Integrity Scan</p>
                                         <div className="mt-1">
                                             {saveValidationResult.integrity_ok ? (
                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -1971,27 +1971,27 @@ export default function RconConsole() {
 
                             {/* Saves Validation Logs History */}
                             <div className="space-y-3">
-                                <h4 className="text-xs font-bold text-slate-400 flex items-center gap-2">
+                                <h4 className="text-xs font-bold text-[var(--text-muted)] flex items-center gap-2">
                                     <History className="w-4 h-4" />
                                     <span>Verified Save validation logs history</span>
                                 </h4>
 
                                 <div className="space-y-2 max-h-[180px] overflow-y-auto">
                                     {saveValidationHistory.length === 0 ? (
-                                        <p className="text-[11px] text-slate-600 italic py-4">No validation history records for this session.</p>
+                                        <p className="text-[11px] text-[var(--text-muted)] italic py-4">No validation history records for this session.</p>
                                     ) : (
                                         saveValidationHistory.map((h, i) => (
                                             <div
                                                 key={i}
-                                                className="bg-slate-950/40 border border-slate-850/60 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-4 text-xs"
+                                                className="bg-[var(--surface-active)]/40 border border-[var(--border)] rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-4 text-xs"
                                             >
                                                 <div className="space-y-1">
-                                                    <p className="font-bold text-white">{h.serverName}</p>
-                                                    <p className="text-[10px] text-slate-500 font-mono">{h.info.file_name}</p>
+                                                    <p className="font-bold text-[var(--text-primary)]">{h.serverName}</p>
+                                                    <p className="text-[10px] text-[var(--text-muted)] font-mono">{h.info.file_name}</p>
                                                 </div>
                                                 <div className="text-right">
                                                     <span className="font-semibold text-cyan-400 font-mono">{formatBytes(h.info.file_size_bytes)}</span>
-                                                    <p className="text-[9px] text-slate-500 mt-0.5">{h.timestamp.toLocaleTimeString()} | {h.info.last_modified}</p>
+                                                    <p className="text-[9px] text-[var(--text-muted)] mt-0.5">{h.timestamp.toLocaleTimeString()} | {h.info.last_modified}</p>
                                                 </div>
                                             </div>
                                         ))
@@ -2006,17 +2006,13 @@ export default function RconConsole() {
                         <div className="flex-1 flex flex-col h-full space-y-6 animate-in fade-in duration-300">
                             
                             {/* Maintenance Header */}
-                            <div className="bg-slate-950/40 border border-slate-850 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md relative overflow-hidden">
-                                <div className="absolute right-0 bottom-0 opacity-5 pointer-events-none select-none text-[150px] text-sky-400">
-                                    dY-
-                                </div>
-
+                            <div className="bg-[var(--surface-active)]/40 border border-[var(--border)] p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md relative overflow-hidden">
                                 <div className="space-y-2 max-w-lg">
-                                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <h3 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                                         <RefreshCw className={cn("w-5 h-5 text-sky-400", isMaintRunning && "animate-spin")} />
                                         <span>Server Maintenance Sequence</span>
                                     </h3>
-                                    <p className="text-xs text-slate-400 leading-relaxed">
+                                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                                         Coordinate and execute a safe, step-by-step update and restart sequence on the server. Select the operations to perform below and monitor progress in real-time.
                                     </p>
                                 </div>
@@ -2048,7 +2044,7 @@ export default function RconConsole() {
                                 
                                 {/* Step Selection Config (Left 2 Columns) */}
                                 <div className="lg:col-span-2 space-y-3.5">
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">Configuration Steps</h4>
+                                    <h4 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1">Configuration Steps</h4>
                                     
                                     {/* Step 1 Toggle */}
                                     <div 
@@ -2056,17 +2052,17 @@ export default function RconConsole() {
                                         className={cn(
                                             "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
                                             isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-                                            maintStop ? "bg-red-500/5 border-red-500/20 hover:border-red-500/40" : "bg-slate-950/20 border-slate-850 hover:border-slate-800"
+                                            maintStop ? "bg-red-500/5 border-red-500/20 hover:border-red-500/40" : "bg-[var(--surface-hover)]/40 border-[var(--border)] hover:border-sky-500/30"
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStop ? "bg-red-500/10 text-red-400 border border-red-500/30" : "bg-slate-900 text-slate-500 border border-slate-800")}>1</div>
+                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStop ? "bg-red-500/10 text-red-400 border border-red-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)]")}>1</div>
                                             <div>
-                                                <p className="text-xs font-bold text-white font-sans">Graceful Shutdown</p>
-                                                <p className="text-[10px] text-slate-400 font-sans">Stop server before maintenance</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Graceful Shutdown</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">Stop server before maintenance</p>
                                             </div>
                                         </div>
-                                        <input type="checkbox" checked={maintStop} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
+                                        <input type="checkbox" checked={maintStop} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-active)] text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
                                     </div>
 
                                     {/* Step 2 Toggle */}
@@ -2075,17 +2071,17 @@ export default function RconConsole() {
                                         className={cn(
                                             "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
                                             isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-                                            maintBackup ? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40" : "bg-slate-950/20 border-slate-850 hover:border-slate-800"
+                                            maintBackup ? "bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40" : "bg-[var(--surface-hover)]/40 border-[var(--border)] hover:border-sky-500/30"
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintBackup ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-slate-900 text-slate-500 border border-slate-800")}>2</div>
+                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintBackup ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)]")}>2</div>
                                             <div>
-                                                <p className="text-xs font-bold text-white font-sans">Create Backup</p>
-                                                <p className="text-[10px] text-slate-400 font-sans">Zip world save & configs</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Create Backup</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">Zip world save & configs</p>
                                             </div>
                                         </div>
-                                        <input type="checkbox" checked={maintBackup} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
+                                        <input type="checkbox" checked={maintBackup} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-active)] text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
                                     </div>
 
                                     {/* Step 3 Toggle */}
@@ -2094,17 +2090,17 @@ export default function RconConsole() {
                                         className={cn(
                                             "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
                                             isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-                                            maintUpdate ? "bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40" : "bg-slate-950/20 border-slate-850 hover:border-slate-800"
+                                            maintUpdate ? "bg-blue-500/5 border-blue-500/20 hover:border-blue-500/40" : "bg-[var(--surface-hover)]/40 border-[var(--border)] hover:border-sky-500/30"
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintUpdate ? "bg-blue-500/10 text-blue-400 border border-blue-500/30" : "bg-slate-900 text-slate-500 border border-slate-800")}>3</div>
+                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintUpdate ? "bg-blue-500/10 text-blue-400 border border-blue-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)]")}>3</div>
                                             <div>
-                                                <p className="text-xs font-bold text-white font-sans">SteamCMD Update</p>
-                                                <p className="text-[10px] text-slate-400 font-sans">Fetch latest server binary files</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">SteamCMD Update</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">Fetch latest server binary files</p>
                                             </div>
                                         </div>
-                                        <input type="checkbox" checked={maintUpdate} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
+                                        <input type="checkbox" checked={maintUpdate} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-active)] text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
                                     </div>
 
                                     {/* Step 4 Toggle */}
@@ -2113,17 +2109,17 @@ export default function RconConsole() {
                                         className={cn(
                                             "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
                                             isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-                                            maintStart ? "bg-sky-500/5 border-sky-500/20 hover:border-sky-500/40" : "bg-slate-950/20 border-slate-850 hover:border-slate-800"
+                                            maintStart ? "bg-sky-500/5 border-sky-500/20 hover:border-sky-500/40" : "bg-[var(--surface-hover)]/40 border-[var(--border)] hover:border-sky-500/30"
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStart ? "bg-sky-500/10 text-sky-400 border border-sky-500/30" : "bg-slate-900 text-slate-500 border border-slate-800")}>4</div>
+                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintStart ? "bg-sky-500/10 text-sky-400 border border-sky-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)]")}>4</div>
                                             <div>
-                                                <p className="text-xs font-bold text-white font-sans">Start Server</p>
-                                                <p className="text-[10px] text-slate-400 font-sans">Launch process and watch bootup</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Start Server</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">Launch process and watch bootup</p>
                                             </div>
                                         </div>
-                                        <input type="checkbox" checked={maintStart} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
+                                        <input type="checkbox" checked={maintStart} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-active)] text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
                                     </div>
 
                                     {/* Step 5 Toggle */}
@@ -2132,27 +2128,27 @@ export default function RconConsole() {
                                         className={cn(
                                             "flex items-center justify-between p-3.5 rounded-xl border transition-all select-none",
                                             isMaintRunning ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
-                                            maintWipeDinos ? "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40" : "bg-slate-950/20 border-slate-850 hover:border-slate-800"
+                                            maintWipeDinos ? "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40" : "bg-[var(--surface-hover)]/40 border-[var(--border)] hover:border-sky-500/30"
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintWipeDinos ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" : "bg-slate-900 text-slate-500 border border-slate-800")}>5</div>
+                                            <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold", maintWipeDinos ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" : "bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)]")}>5</div>
                                             <div>
-                                                <p className="text-xs font-bold text-white font-sans">Destroy Wild Dinos</p>
-                                                <p className="text-[10px] text-slate-400 font-sans">Wipe map populations via RCON</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] font-sans">Destroy Wild Dinos</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-sans">Wipe map populations via RCON</p>
                                             </div>
                                         </div>
-                                        <input type="checkbox" checked={maintWipeDinos} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
+                                        <input type="checkbox" checked={maintWipeDinos} disabled={isMaintRunning} onChange={() => {}} className="w-4 h-4 rounded border-[var(--border)] bg-[var(--surface-active)] text-sky-500 focus:ring-sky-500/50 cursor-pointer pointer-events-none" />
                                     </div>
                                 </div>
 
                                 {/* Sequence Progress Flow and Console Logs (Right 3 Columns) */}
                                 <div className="lg:col-span-3 space-y-4 flex flex-col h-full">
-                                    <div className="bg-slate-950 rounded-2xl p-5 border border-slate-850 shadow-inner flex-1 flex flex-col space-y-4">
+                                    <div className="bg-[var(--surface-active)]/40 rounded-2xl p-5 border border-[var(--border)] shadow-inner flex-1 flex flex-col space-y-4">
                                         
                                         {/* Status Header */}
                                         <div className="flex items-center justify-between">
-                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-sans">Sequence Status</span>
+                                            <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider font-sans">Sequence Status</span>
                                             {isMaintRunning ? (
                                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 font-sans">
                                                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -2164,7 +2160,7 @@ export default function RconConsole() {
                                                     <span>Completed</span>
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-850 text-slate-500 border border-slate-800 font-sans">
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[var(--surface-active)] text-[var(--text-muted)] border border-[var(--border)] font-sans">
                                                     <span>Idle</span>
                                                 </span>
                                             )}
@@ -2173,7 +2169,7 @@ export default function RconConsole() {
                                         {/* Visual Step Timeline */}
                                         <div className="flex items-center justify-between px-2 pt-2 relative">
                                             {/* Line Background */}
-                                            <div className="absolute top-[1.4rem] left-10 right-10 h-0.5 bg-slate-800 pointer-events-none z-0"></div>
+                                            <div className="absolute top-[1.4rem] left-10 right-10 h-0.5 bg-[var(--border)] pointer-events-none z-0"></div>
                                             
                                             {/* Dynamic Line Progress */}
                                             {isMaintRunning && maintStep > 1 && (
@@ -2199,10 +2195,10 @@ export default function RconConsole() {
                                                         <div 
                                                             className={cn(
                                                                 "w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-300",
-                                                                isSkipped ? "bg-[#0B0F19]/40 border-slate-800/40 text-slate-700 border-dashed" :
+                                                                isSkipped ? "bg-[var(--surface)] border-[var(--border)] text-[var(--text-muted)] border-dashed opacity-40" :
                                                                 isCompleted ? "bg-emerald-500 border-emerald-500 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]" :
                                                                 isActive ? "bg-sky-500 border-sky-500 text-white animate-pulse shadow-[0_0_10px_rgba(14,165,233,0.4)]" :
-                                                                "bg-slate-900 border-slate-800 text-slate-500"
+                                                                "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-muted)]"
                                                             )}
                                                             title={isSkipped ? "This step is skipped" : undefined}
                                                         >
@@ -2214,10 +2210,10 @@ export default function RconConsole() {
                                                         </div>
                                                         <span className={cn(
                                                             "text-[9px] font-bold uppercase tracking-wider font-sans",
-                                                            isSkipped ? "text-slate-600 line-through font-normal" :
+                                                            isSkipped ? "text-[var(--text-muted)] line-through font-normal" :
                                                             isCompleted ? "text-emerald-400" :
                                                             isActive ? "text-sky-400 animate-pulse" :
-                                                            "text-slate-500"
+                                                            "text-[var(--text-muted)]"
                                                         )}>
                                                             {s.label}
                                                         </span>
@@ -2228,16 +2224,16 @@ export default function RconConsole() {
 
                                         {/* Console Logs */}
                                         <div className="flex-1 flex flex-col space-y-2">
-                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-1 font-sans">Execution Console Logs</span>
-                                            <div className="flex-1 bg-slate-950 border border-slate-850 rounded-xl p-3.5 font-mono text-[10px] leading-relaxed text-slate-300 overflow-y-auto min-h-[160px] max-h-[220px]">
+                                            <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider pl-1 font-sans">Execution Console Logs</span>
+                                            <div className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3.5 font-mono text-[10px] leading-relaxed text-[var(--text-secondary)] overflow-y-auto min-h-[160px] max-h-[220px]">
                                                 {maintLogs.length === 0 ? (
-                                                    <p className="text-slate-600 italic">Logs will appear here once execution starts.</p>
+                                                    <p className="text-[var(--text-muted)] italic">Logs will appear here once execution starts.</p>
                                                 ) : (
                                                     maintLogs.map((logLine, idx) => (
                                                         <div 
                                                             key={idx} 
                                                             className={cn(
-                                                                "py-0.5 border-b border-white/5 last:border-b-0",
+                                                                "py-0.5 border-b border-[var(--border)]/30 last:border-b-0",
                                                                 logLine.includes("ERROR:") ? "text-rose-400" : 
                                                                 logLine.includes("completed successfully") ? "text-emerald-400 font-bold" :
                                                                 logLine.includes("Starting") ? "text-sky-400 font-bold" : ""
@@ -2265,13 +2261,13 @@ export default function RconConsole() {
                                 {/* Left Column: Target & Config */}
                                 <div className="space-y-6">
                                     {/* Card 1: Target Selector */}
-                                    <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-xl space-y-4">
-                                        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                    <div className="bg-[var(--surface-active)]/40 border border-[var(--border)] p-5 rounded-xl space-y-4">
+                                        <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                                             <Users className="w-4 h-4 text-amber-400" />
                                             <span>{t('rcon.giveItem.targetSurvivor', 'Target Survivor')}</span>
                                         </h3>
                                         
-                                        <div className="bg-amber-950/30 border border-amber-500/20 rounded-lg p-2.5 flex items-start gap-2 text-amber-400/90 text-xs shadow-inner">
+                                        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 flex items-start gap-2 text-amber-400/90 text-xs shadow-inner">
                                             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
                                             <p className="leading-relaxed">
                                                 <strong className="text-amber-500 font-medium">Vanilla ARK Warning:</strong> <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer</code> requires the internal <strong>UE4 Player ID</strong>. Steam IDs or EOS IDs from the Online list will result in <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono text-[10px]">GiveItemToPlayer 0</code>.
@@ -2279,15 +2275,15 @@ export default function RconConsole() {
                                             </p>
                                         </div>
                                         
-                                        <div className="flex p-1 rounded-lg bg-slate-950 border border-slate-850 w-full shadow-inner gap-1">
+                                        <div className="flex p-1 rounded-lg bg-[var(--surface)] border border-[var(--border)] w-full shadow-inner gap-1">
                                             <button
                                                 type="button"
                                                 onClick={() => setGiveTargetType('online')}
                                                 className={cn(
                                                     "flex-1 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
                                                     giveTargetType === 'online'
-                                                        ? "text-amber-400 bg-slate-800/80 shadow"
-                                                        : "text-slate-400 hover:text-slate-300"
+                                                        ? "text-amber-400 bg-[var(--surface-active)] shadow"
+                                                        : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                                                 )}
                                             >
                                                 {t('rcon.giveItem.targetType.online', 'Online Survivors')}
@@ -2298,8 +2294,8 @@ export default function RconConsole() {
                                                 className={cn(
                                                     "flex-1 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
                                                     giveTargetType === 'manual'
-                                                        ? "text-amber-400 bg-slate-800/80 shadow"
-                                                        : "text-slate-400 hover:text-slate-300"
+                                                        ? "text-amber-400 bg-[var(--surface-active)] shadow"
+                                                        : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                                                 )}
                                             >
                                                 {t('rcon.giveItem.targetType.manual', 'Manual ID / EOS ID')}
@@ -2308,11 +2304,11 @@ export default function RconConsole() {
 
                                         {giveTargetType === 'online' ? (
                                             <div className="space-y-2">
-                                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                                <label className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
                                                     {t('rcon.giveItem.selectSurvivor', 'Select Survivor')}
                                                 </label>
                                                 {onlinePlayers.length === 0 ? (
-                                                    <div className="bg-slate-900/50 border border-slate-850/60 rounded-xl p-3 text-center text-xs text-slate-500 italic">
+                                                    <div className="bg-[var(--surface)]/50 border border-[var(--border)] rounded-xl p-3 text-center text-xs text-[var(--text-muted)] italic">
                                                         {t('rcon.noPlayers', 'No survivors currently connected to this server.')}
                                                     </div>
                                                 ) : (
@@ -2321,10 +2317,10 @@ export default function RconConsole() {
                                                             value={giveSelectedPlayerId}
                                                             onChange={(e) => setGiveSelectedPlayerId(e.target.value)}
                                                             disabled={!isConnected}
-                                                            className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50 transition-all font-sans cursor-pointer disabled:cursor-not-allowed"
+                                                            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50 transition-all font-sans cursor-pointer disabled:cursor-not-allowed"
                                                         >
                                                             {onlinePlayers.map((p) => (
-                                                                <option key={p.steamId} value={p.steamId}>
+                                                                <option key={p.steamId} value={p.steamId} className="bg-[var(--bg-primary)] text-[var(--text-primary)]">
                                                                     {p.name} ({p.steamId})
                                                                 </option>
                                                             ))}
@@ -2343,7 +2339,7 @@ export default function RconConsole() {
                                                                             navigator.clipboard.writeText(resolvedPlayerIds[giveSelectedPlayerId]);
                                                                             toast.success(t('rcon.idCopied', 'Player ID copied to clipboard'));
                                                                         }}
-                                                                        className="bg-emerald-950/40 hover:bg-emerald-900/60 px-1.5 py-0.5 rounded font-mono text-emerald-300 text-[10px] cursor-pointer inline-flex items-center gap-1 transition-colors"
+                                                                        className="bg-emerald-500/10 hover:bg-emerald-500/20 px-1.5 py-0.5 rounded font-mono text-emerald-300 text-[10px] cursor-pointer inline-flex items-center gap-1 transition-colors border border-emerald-500/20"
                                                                         title={t('rcon.copyPlayerId', 'Click to copy Player ID')}
                                                                     >
                                                                         {resolvedPlayerIds[giveSelectedPlayerId]}
@@ -2362,7 +2358,7 @@ export default function RconConsole() {
                                             </div>
                                         ) : (
                                             <div className="space-y-2">
-                                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                                <label className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
                                                     {t('rcon.giveItem.enterPlayerId', 'Enter Unique Player ID / SteamID / EOS ID')}
                                                 </label>
                                                 <input
@@ -2370,15 +2366,15 @@ export default function RconConsole() {
                                                     value={giveManualPlayerId}
                                                     onChange={(e) => setGiveManualPlayerId(e.target.value)}
                                                     placeholder="e.g. 123456789 or 76561198..."
-                                                    className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500/50 font-mono transition-all"
+                                                    className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-3.5 py-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50 font-mono transition-all"
                                                 />
                                             </div>
                                         )}
                                     </div>
 
                                     {/* Card 2: Configuration & Command Preview */}
-                                    <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-xl space-y-5">
-                                        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                    <div className="bg-[var(--surface-active)]/40 border border-[var(--border)] p-5 rounded-xl space-y-5">
+                                        <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                                             <Sliders className="w-4 h-4 text-amber-400" />
                                             <span>{t('rcon.giveItem.configuration', 'Attributes & Cargo Details')}</span>
                                         </h3>
@@ -2386,7 +2382,7 @@ export default function RconConsole() {
                                         {/* Quantity Field */}
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center">
-                                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                                <label className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
                                                     {t('rcon.giveItem.quantity', 'Quantity')}
                                                 </label>
                                                 <span className="text-xs font-mono font-bold text-amber-400">{giveItemQuantity}</span>
@@ -2397,7 +2393,7 @@ export default function RconConsole() {
                                                 max="1000"
                                                 value={giveItemQuantity}
                                                 onChange={(e) => setGiveItemQuantity(parseInt(e.target.value))}
-                                                className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                                className="w-full h-1.5 bg-[var(--surface-active)] rounded-lg appearance-none cursor-pointer accent-amber-500"
                                             />
                                             <div className="flex flex-wrap gap-1.5">
                                                 {[1, 5, 20, 50, 100, 200, 500, 1000].map((qty) => (
@@ -2408,8 +2404,8 @@ export default function RconConsole() {
                                                         className={cn(
                                                             "flex-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-all",
                                                             giveItemQuantity === qty
-                                                                ? "bg-amber-950/20 text-amber-400 border-amber-500/30"
-                                                                : "bg-slate-900 border-slate-850 text-slate-500 hover:text-slate-400"
+                                                                ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                                                                : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                                                         )}
                                                     >
                                                         {qty}
@@ -2421,7 +2417,7 @@ export default function RconConsole() {
                                         {/* Quality Field */}
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center">
-                                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                                <label className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
                                                     {t('rcon.giveItem.quality', 'Quality Index')}
                                                 </label>
                                                 <span className="text-xs font-mono font-bold text-amber-400">
@@ -2434,7 +2430,7 @@ export default function RconConsole() {
                                                 max="100"
                                                 value={giveItemQuality}
                                                 onChange={(e) => setGiveItemQuality(parseInt(e.target.value))}
-                                                className="w-full h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                                                className="w-full h-1.5 bg-[var(--surface-active)] rounded-lg appearance-none cursor-pointer accent-amber-500"
                                             />
                                             <div className="flex gap-1.5">
                                                 {[[0, 'Prim'], [2, 'Ram'], [4, 'App'], [6, 'Journ'], [10, 'Mast'], [20, 'Asc']].map(([val, label]) => (
@@ -2445,8 +2441,8 @@ export default function RconConsole() {
                                                         className={cn(
                                                             "flex-1 py-0.5 rounded text-[10px] font-semibold border transition-all",
                                                             giveItemQuality === val
-                                                                ? "bg-amber-950/20 text-amber-400 border-amber-500/30"
-                                                                : "bg-slate-900 border-slate-850 text-slate-500 hover:text-slate-400"
+                                                                ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                                                                : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                                                         )}
                                                     >
                                                         {label}
@@ -2456,12 +2452,12 @@ export default function RconConsole() {
                                         </div>
 
                                         {/* Toggle Force Blueprint */}
-                                        <div className="flex items-center justify-between p-3 bg-slate-900/30 border border-slate-850 rounded-xl">
+                                        <div className="flex items-center justify-between p-3 bg-[var(--surface)]/50 border border-[var(--border)] rounded-xl">
                                             <div>
-                                                <p className="text-xs font-semibold text-white">
+                                                <p className="text-xs font-semibold text-[var(--text-primary)]">
                                                     {t('rcon.giveItem.forceBlueprint.title', 'Spawn Blueprint Only')}
                                                 </p>
-                                                <p className="text-[10px] text-slate-500">
+                                                <p className="text-[10px] text-[var(--text-muted)]">
                                                     {t('rcon.giveItem.forceBlueprint.desc', 'Gives the craftable blueprint instead of the item itself')}
                                                 </p>
                                             </div>
@@ -2472,16 +2468,16 @@ export default function RconConsole() {
                                                     onChange={(e) => setGiveForceBlueprint(e.target.checked)}
                                                     className="sr-only peer"
                                                 />
-                                                <div className="w-9 h-5 bg-slate-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 peer-checked:after:bg-slate-950 peer-checked:after:border-amber-400" />
+                                                <div className="w-9 h-5 bg-[var(--surface-active)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 peer-checked:after:bg-slate-950 peer-checked:after:border-amber-400" />
                                             </label>
                                         </div>
 
                                         {/* Command Preview */}
-                                        <div className="bg-slate-950 rounded-xl p-3 border border-slate-850">
-                                            <p className="text-[9px] uppercase font-bold text-slate-600 tracking-wider">
+                                        <div className="bg-[var(--surface)] rounded-xl p-3 border border-[var(--border)]">
+                                            <p className="text-[9px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
                                                 {t('rcon.giveItem.cmdPreview', 'Generated RCON Command Preview')}
                                             </p>
-                                            <p className="text-xs font-mono text-slate-400 select-all mt-1 whitespace-pre-wrap break-all leading-normal">
+                                            <p className="text-xs font-mono text-[var(--text-secondary)] select-all mt-1 whitespace-pre-wrap break-all leading-normal">
                                                 GiveItemToPlayer {giveTargetType === 'online' ? (giveSelectedPlayerId || '<PlayerID>') : (giveManualPlayerId || '<PlayerID>')} "{giveItemSource === 'preset' ? (giveSelectedPresetItem || '<ItemBlueprint>') : (giveCustomBlueprint || '<ItemBlueprint>')}" {giveItemQuantity} {giveItemQuality} {giveForceBlueprint ? 1 : 0}
                                             </p>
                                         </div>
@@ -2495,7 +2491,7 @@ export default function RconConsole() {
                                                 "w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-bold text-sm shadow-xl transition-all duration-300 active:scale-98",
                                                 isConnected
                                                     ? "bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:from-amber-500 hover:to-orange-500 shadow-amber-950/20"
-                                                    : "bg-slate-850 border border-slate-800 text-slate-500 cursor-not-allowed"
+                                                    : "bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed"
                                             )}
                                         >
                                             {isGivingItem ? (
@@ -2513,21 +2509,21 @@ export default function RconConsole() {
                                 </div>
 
                                 {/* Right Column: Item Catalog / Selection */}
-                                <div className="bg-slate-950/40 border border-slate-850 p-5 rounded-xl flex flex-col space-y-4 min-h-[500px]">
-                                    <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                                <div className="bg-[var(--surface-active)]/40 border border-[var(--border)] p-5 rounded-xl flex flex-col space-y-4 min-h-[500px]">
+                                    <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                                         <Package className="w-4 h-4 text-amber-400" />
                                         <span>{t('rcon.giveItem.itemCatalog', 'Cargo Catalog')}</span>
                                     </h3>
 
-                                    <div className="flex p-1 rounded-lg bg-slate-950 border border-slate-850 w-full shadow-inner gap-1">
+                                    <div className="flex p-1 rounded-lg bg-[var(--surface)] border border-[var(--border)] w-full shadow-inner gap-1">
                                         <button
                                             type="button"
                                             onClick={() => setGiveItemSource('preset')}
                                             className={cn(
                                                 "flex-1 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
                                                 giveItemSource === 'preset'
-                                                    ? "text-amber-400 bg-slate-800/80 shadow"
-                                                    : "text-slate-400 hover:text-slate-300"
+                                                    ? "text-amber-400 bg-[var(--surface-active)] shadow"
+                                                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                                             )}
                                         >
                                             {t('rcon.giveItem.presets', 'Preset Catalog')}
@@ -2538,8 +2534,8 @@ export default function RconConsole() {
                                             className={cn(
                                                 "flex-1 py-1.5 rounded-md text-xs font-medium transition-all duration-200",
                                                 giveItemSource === 'custom'
-                                                    ? "text-amber-400 bg-slate-800/80 shadow"
-                                                    : "text-slate-400 hover:text-slate-300"
+                                                    ? "text-amber-400 bg-[var(--surface-active)] shadow"
+                                                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                                             )}
                                         >
                                             {t('rcon.giveItem.customBp', 'Custom Blueprint')}
@@ -2549,7 +2545,7 @@ export default function RconConsole() {
                                     {giveItemSource === 'preset' ? (
                                         <div className="flex-1 flex flex-col space-y-3 min-h-0">
                                             {/* Category pill filters */}
-                                            <div className="flex flex-wrap gap-1.5 p-1 bg-slate-900/25 border border-slate-900/40 rounded-xl shadow-inner">
+                                            <div className="flex flex-wrap gap-1.5 p-1 bg-[var(--surface)]/50 border border-[var(--border)] rounded-xl shadow-inner">
                                                 {(['All', 'Resources', 'Ammo', 'Gear', 'Structures'] as const).map((cat) => (
                                                     <button
                                                         key={cat}
@@ -2559,7 +2555,7 @@ export default function RconConsole() {
                                                             "px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all duration-200 active:scale-95",
                                                             giveSelectedCategory === cat
                                                                 ? "bg-amber-500/10 text-amber-400 border-amber-500/30 shadow-[0_1px_8px_rgba(245,158,11,0.08)]"
-                                                                : "bg-slate-950 border-slate-900/40 text-slate-500 hover:text-slate-400"
+                                                                : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                                                         )}
                                                     >
                                                         {t(`rcon.giveItem.categories.${cat.toLowerCase()}`, cat)}
@@ -2569,24 +2565,24 @@ export default function RconConsole() {
 
                                             {/* Search box */}
                                             <div className="relative">
-                                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--text-muted)]" />
                                                 <input
                                                     type="text"
                                                     value={giveCatalogSearch}
                                                     onChange={(e) => setGiveCatalogSearch(e.target.value)}
                                                     placeholder={t('rcon.giveItem.searchPreset', 'Search items...')}
-                                                    className="w-full bg-slate-950 border border-slate-850 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-amber-500/50 transition-all text-white"
+                                                    className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:border-amber-500/50 transition-all text-[var(--text-primary)]"
                                                 />
                                             </div>
 
                                             {/* Search Results List */}
-                                            <div className="flex-1 overflow-y-auto max-h-[460px] border border-slate-850 rounded-xl divide-y divide-slate-900/50 bg-slate-950 pr-1">
+                                            <div className="flex-1 overflow-y-auto max-h-[460px] border border-[var(--border)] rounded-xl divide-y divide-[var(--border)]/50 bg-[var(--surface)] pr-1">
                                                 {PRESET_ITEMS.filter((item) => {
                                                     const matchesSearch = item.name.toLowerCase().includes(giveCatalogSearch.toLowerCase());
                                                     const matchesCategory = giveSelectedCategory === 'All' || item.category === giveSelectedCategory;
                                                     return matchesSearch && matchesCategory;
                                                 }).length === 0 ? (
-                                                    <div className="p-8 text-center text-xs text-slate-600 italic">
+                                                    <div className="p-8 text-center text-xs text-[var(--text-muted)] italic">
                                                         {t('rcon.giveItem.noMatches', 'No matching items found.')}
                                                     </div>
                                                 ) : (
@@ -2596,11 +2592,11 @@ export default function RconConsole() {
                                                         return matchesSearch && matchesCategory;
                                                     }).map((item) => {
                                                         // Determine category badge colors dynamically
-                                                        let badgeClass = "bg-slate-900 border border-slate-850 text-slate-500";
-                                                        if (item.category === 'Resources') badgeClass = "bg-orange-950/15 border-orange-500/15 text-orange-400";
-                                                        if (item.category === 'Ammo') badgeClass = "bg-red-950/15 border-red-500/15 text-red-400";
-                                                        if (item.category === 'Gear') badgeClass = "bg-cyan-950/15 border-cyan-500/15 text-cyan-400";
-                                                        if (item.category === 'Structures') badgeClass = "bg-emerald-950/15 border-emerald-500/15 text-emerald-400";
+                                                        let badgeClass = "bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)]";
+                                                        if (item.category === 'Resources') badgeClass = "bg-orange-500/10 border-orange-500/20 text-orange-400";
+                                                        if (item.category === 'Ammo') badgeClass = "bg-red-500/10 border-red-500/20 text-red-400";
+                                                        if (item.category === 'Gear') badgeClass = "bg-cyan-500/10 border-cyan-500/20 text-cyan-400";
+                                                        if (item.category === 'Structures') badgeClass = "bg-emerald-500/10 border-emerald-500/20 text-emerald-400";
 
                                                         return (
                                                             <button
@@ -2608,15 +2604,15 @@ export default function RconConsole() {
                                                                 type="button"
                                                                 onClick={() => setGiveSelectedPresetItem(item.path)}
                                                                 className={cn(
-                                                                    "w-full text-left px-4 py-3 flex items-center justify-between transition-all duration-200 text-xs border-b border-slate-900/30 group relative overflow-hidden",
+                                                                    "w-full text-left px-4 py-3 flex items-center justify-between transition-all duration-200 text-xs border-b border-[var(--border)]/30 group relative overflow-hidden",
                                                                     giveSelectedPresetItem === item.path
                                                                         ? "bg-amber-500/10 border-l-4 border-l-amber-500 text-amber-300 shadow-[inset_0_1px_15px_rgba(245,158,11,0.05)]"
-                                                                        : "text-slate-300 hover:bg-slate-900/40 hover:text-white"
+                                                                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
                                                                 )}
                                                             >
                                                                 <div className="text-left min-w-0 pr-4">
-                                                                    <p className={cn("font-semibold transition-colors group-hover:text-white", giveSelectedPresetItem === item.path ? "text-amber-400 font-bold" : "")}>{item.name}</p>
-                                                                    <p className="text-[10px] text-slate-500 font-mono mt-0.5 truncate max-w-[240px] md:max-w-[320px] transition-colors group-hover:text-slate-400">
+                                                                    <p className={cn("font-semibold transition-colors group-hover:text-[var(--text-primary)]", giveSelectedPresetItem === item.path ? "text-amber-400 font-bold" : "")}>{item.name}</p>
+                                                                    <p className="text-[10px] text-[var(--text-muted)] font-mono mt-0.5 truncate max-w-[240px] md:max-w-[320px] transition-colors group-hover:text-[var(--text-secondary)]">
                                                                         {item.path}
                                                                     </p>
                                                                 </div>
@@ -2631,7 +2627,7 @@ export default function RconConsole() {
                                         </div>
                                     ) : (
                                         <div className="flex-1 space-y-2">
-                                            <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                                            <label className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
                                                 {t('rcon.giveItem.pasteBpPath', 'Paste Item Blueprint Path')}
                                             </label>
                                             <textarea
@@ -2639,9 +2635,9 @@ export default function RconConsole() {
                                                 value={giveCustomBlueprint}
                                                 onChange={(e) => setGiveCustomBlueprint(e.target.value)}
                                                 placeholder={`e.g. Blueprint'/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wood.PrimalItemResource_Wood'`}
-                                                className="w-full bg-slate-950 border border-slate-850 rounded-xl px-3.5 py-3 text-xs text-white focus:outline-none focus:border-amber-500/50 font-mono transition-all resize-none leading-relaxed"
+                                                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl px-3.5 py-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-amber-500/50 font-mono transition-all resize-none leading-relaxed"
                                             />
-                                            <p className="text-[10px] text-slate-500 leading-normal">
+                                            <p className="text-[10px] text-[var(--text-muted)] leading-normal">
                                                 {t('rcon.giveItem.bpTip', 'Ensure you include the full Blueprint path starting with "Blueprint\'" and ending with "\'".')}
                                             </p>
                                         </div>
@@ -2653,46 +2649,46 @@ export default function RconConsole() {
                 </div>
 
                 {/* SIDE PANEL: ONLINE PLAYER LISTING */}
-                <div className="glass-panel rounded-2xl border border-slate-800 p-5 flex flex-col min-h-[600px] bg-slate-950/10 shadow-lg">
-                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/80">
-                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <div className="glass-panel rounded-2xl border border-[var(--border)] p-5 flex flex-col min-h-[600px] bg-[var(--surface)] shadow-lg">
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--border)]">
+                        <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                             <Users className="w-5 h-5 text-cyan-400" />
                             <span>{t('rcon.playersOnline', { count: onlinePlayers.length, defaultValue: `Players Online (${onlinePlayers.length})` })}</span>
                         </h3>
                         <button
                             onClick={refreshPlayers}
                             disabled={!isConnected}
-                            className="p-2 bg-slate-900 border border-slate-850 hover:bg-slate-850 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="p-2 bg-[var(--surface-hover)] border border-[var(--border)] hover:bg-[var(--surface-active)] rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                             title="Refresh player list"
                         >
-                            <RefreshCw className="w-4 h-4 text-slate-400" />
+                            <RefreshCw className="w-4 h-4 text-[var(--text-muted)]" />
                         </button>
                     </div>
 
                     <div className="space-y-2.5 overflow-y-auto flex-1 max-h-[500px] pr-1">
                         {!isConnected ? (
-                            <p className="text-slate-500 text-xs text-center py-12">
+                            <p className="text-[var(--text-muted)] text-xs text-center py-12">
                                 {t('rcon.connectToView', 'Please connect to RCON to fetch current server player lists.')}
                             </p>
                         ) : onlinePlayers.length === 0 ? (
-                            <p className="text-slate-500 text-xs text-center py-12">
+                            <p className="text-[var(--text-muted)] text-xs text-center py-12">
                                 {t('rcon.noPlayers', 'No survivors currently connected to this server.')}
                             </p>
                         ) : (
                             onlinePlayers.map((player) => (
                                 <div
                                     key={player.steamId}
-                                    className="bg-slate-950 border border-slate-850/80 hover:border-slate-800 rounded-xl p-3.5 transition-colors duration-250"
+                                    className="bg-[var(--surface-active)]/40 border border-[var(--border)] hover:border-cyan-500/30 rounded-xl p-3.5 transition-colors duration-250"
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-semibold text-white truncate">{player.name}</p>
+                                            <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{player.name}</p>
                                             <div
                                                 onClick={() => {
                                                     navigator.clipboard.writeText(player.steamId);
                                                     toast.success(t('rcon.idCopied', 'Player ID copied to clipboard'));
                                                 }}
-                                                className="text-[10px] text-slate-500 hover:text-cyan-400 font-mono mt-0.5 truncate cursor-pointer flex items-center gap-1.5 group/id transition-colors"
+                                                className="text-[10px] text-[var(--text-muted)] hover:text-cyan-400 font-mono mt-0.5 truncate cursor-pointer flex items-center gap-1.5 group/id transition-colors"
                                                 title={t('rcon.copyPlayerId', 'Click to copy Player ID')}
                                             >
                                                 <span className="truncate">{player.steamId}</span>
@@ -2705,21 +2701,21 @@ export default function RconConsole() {
                                                     navigator.clipboard.writeText(player.steamId);
                                                     toast.success(t('rcon.idCopied', 'Player ID copied to clipboard'));
                                                 }}
-                                                className="p-1.5 bg-cyan-950/20 border border-cyan-900/20 hover:bg-cyan-900/20 text-cyan-400 rounded-lg transition-colors"
+                                                className="p-1.5 bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 text-cyan-400 rounded-lg transition-colors"
                                                 title={t('rcon.quickCommands.copyPlayerId', 'Copy Player ID')}
                                             >
                                                 <Copy className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => kickPlayer(player.steamId)}
-                                                className="p-1.5 bg-amber-950/20 border border-amber-900/20 hover:bg-amber-900/20 text-amber-400 rounded-lg transition-colors"
+                                                className="p-1.5 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-colors"
                                                 title={t('rcon.quickCommands.kickPlayer', 'Kick Survivor')}
                                             >
                                                 <UserX className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => banPlayer(player.steamId)}
-                                                className="p-1.5 bg-rose-950/20 border border-rose-900/20 hover:bg-rose-900/20 text-rose-400 rounded-lg transition-colors"
+                                                className="p-1.5 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors"
                                                 title={t('rcon.quickCommands.banPlayer', 'Ban Survivor')}
                                             >
                                                 <Ban className="w-4 h-4" />

@@ -482,61 +482,60 @@ export default function Dashboard() {
         {/* Server Count Cards */}
         <div className="lg:col-span-1 grid grid-cols-3 lg:grid-cols-1 gap-4">
           {/* Total Servers */}
-          <div className="glass-panel rounded-xl p-4 flex flex-col justify-between group hover:border-sky-500/30 transition-all">
+          <div className="glass-panel rounded-2xl p-4 flex flex-col justify-between group hover:border-sky-500/30 transition-all border border-[var(--border)] shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{t('dashboard.totalServers')}</span>
+              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">{t('dashboard.totalServers')}</span>
               <div className="p-1.5 bg-sky-500/10 rounded-lg">
-                <Server className="w-3.5 h-3.5 text-sky-400" />
+                <Server className="w-3.5 h-3.5 text-sky-500" />
               </div>
             </div>
             <div className="mt-2">
-              <p className="text-xl font-bold text-white leading-none">{totalServers}</p>
-              <p className="text-[10px] text-slate-500 mt-1">{t('dashboard.serversLabel')}</p>
+              <p className="text-2xl font-black text-[var(--text-primary)] leading-none">{totalServers}</p>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-1">{t('dashboard.serversLabel')}</p>
             </div>
           </div>
 
           {/* Running */}
-          <div className="glass-panel rounded-xl p-4 flex flex-col justify-between group hover:border-green-500/30 transition-all">
+          <div className="glass-panel rounded-2xl p-4 flex flex-col justify-between group hover:border-green-500/30 transition-all border border-[var(--border)] shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{t('dashboard.runningLabel')}</span>
+              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">{t('dashboard.runningLabel')}</span>
               <div className="p-1.5 bg-green-500/10 rounded-lg">
-                <Activity className="w-3.5 h-3.5 text-green-400" />
+                <Activity className="w-3.5 h-3.5 text-green-500" />
               </div>
             </div>
             <div className="mt-2">
-              <p className="text-xl font-bold text-green-400 leading-none">{runningServers}</p>
-              <p className="text-[10px] text-slate-500 mt-1">{t('dashboard.onlineLabel')}</p>
+              <p className="text-2xl font-black text-green-500 leading-none">{runningServers}</p>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-1">{t('dashboard.onlineLabel')}</p>
             </div>
           </div>
 
           {/* Stopped */}
-          <div className="glass-panel rounded-xl p-4 flex flex-col justify-between group hover:border-slate-500/30 transition-all">
+          <div className="glass-panel rounded-2xl p-4 flex flex-col justify-between group hover:border-slate-500/30 transition-all border border-[var(--border)] shadow-sm">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">{t('dashboard.stoppedLabel')}</span>
+              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">{t('dashboard.stoppedLabel')}</span>
               <div className="p-1.5 bg-slate-500/10 rounded-lg">
                 <Square className="w-3.5 h-3.5 text-slate-400" />
               </div>
             </div>
             <div className="mt-2">
-              <p className="text-xl font-bold text-slate-400 leading-none">{stoppedServers}</p>
-              <p className="text-[10px] text-slate-500 mt-1">{t('dashboard.offlineLabel')}</p>
+              <p className="text-2xl font-black text-[var(--text-muted)] leading-none">{stoppedServers}</p>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-1">{t('dashboard.offlineLabel')}</p>
             </div>
           </div>
         </div>
 
         {/* Host Telemetry Dials Card */}
-        <div className="lg:col-span-2 glass-panel rounded-xl p-4 flex flex-col">
-          <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-2">
-            <span className="text-[10px] text-slate-300 uppercase tracking-wider font-bold">Host Allocation Telemetry</span>
-            <span className="text-[9px] text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full font-mono font-semibold tracking-wide animate-pulse">STREAMING</span>
+        <div className="lg:col-span-2 glass-panel rounded-2xl p-4 sm:p-5 flex flex-col border border-[var(--border)] shadow-sm">
+          <div className="flex items-center justify-between border-b border-[var(--border)] pb-3 mb-3">
+            <span className="text-xs text-[var(--text-primary)] uppercase tracking-wider font-bold">Host Allocation Telemetry</span>
+            <span className="text-[10px] text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold tracking-wide">STREAMING</span>
           </div>
-          <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4 py-2">
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4 py-1">
             {/* CPU Dial */}
-            <div className="flex flex-col items-center justify-center bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-sky-500/20 p-4 rounded-2xl transition-all group relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-sky-500/[0.01] to-transparent rounded-2xl pointer-events-none" />
+            <div className="flex flex-col items-center justify-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-sky-500/30 p-4 rounded-2xl transition-all group relative overflow-hidden shadow-sm">
               <div className="relative w-24 h-24 flex-shrink-0">
                 <svg className="w-full h-full transform -rotate-90 filter drop-shadow-[0_0_8px_rgba(6,182,212,0.25)]">
-                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.02)" strokeWidth="5" fill="transparent" />
+                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.05)" strokeWidth="5" fill="transparent" />
                   <circle
                     cx="48"
                     cy="48"
@@ -556,27 +555,26 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-sky-400 font-mono tracking-tighter">
+                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-[var(--text-primary)] font-mono tracking-tighter">
                   {(systemInfo?.cpuUsage || 0).toFixed(0)}%
                 </div>
               </div>
               <div className="text-center mt-3">
-                <p className="text-[10px] text-slate-300 uppercase font-bold tracking-widest flex items-center justify-center gap-1">
+                <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
                   CPU LOAD
                 </p>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                <p className="text-[11px] text-[var(--text-secondary)] font-mono mt-0.5 font-bold">
                   {systemInfo ? `${systemInfo.cpuUsage.toFixed(1)}% Cores` : 'Auditing...'}
                 </p>
               </div>
             </div>
 
             {/* RAM Dial */}
-            <div className="flex flex-col items-center justify-center bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-pink-500/20 p-4 rounded-2xl transition-all group relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-pink-500/[0.01] to-transparent rounded-2xl pointer-events-none" />
+            <div className="flex flex-col items-center justify-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-pink-500/30 p-4 rounded-2xl transition-all group relative overflow-hidden shadow-sm">
               <div className="relative w-24 h-24 flex-shrink-0">
                 <svg className="w-full h-full transform -rotate-90 filter drop-shadow-[0_0_8px_rgba(236,72,153,0.25)]">
-                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.02)" strokeWidth="5" fill="transparent" />
+                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.05)" strokeWidth="5" fill="transparent" />
                   <circle
                     cx="48"
                     cy="48"
@@ -596,27 +594,26 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-pink-400 font-mono tracking-tighter">
+                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-[var(--text-primary)] font-mono tracking-tighter">
                   {memoryPercent.toFixed(0)}%
                 </div>
               </div>
               <div className="text-center mt-3">
-                <p className="text-[10px] text-slate-300 uppercase font-bold tracking-widest flex items-center justify-center gap-1">
+                <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse" />
                   MEMORY
                 </p>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                <p className="text-[11px] text-[var(--text-secondary)] font-mono mt-0.5 font-bold">
                   {systemInfo ? `${(systemInfo.ramUsage / 1024).toFixed(1)}G / ${(systemInfo.ramTotal / 1024).toFixed(1)}G` : 'Active'}
                 </p>
               </div>
             </div>
 
             {/* Disk Dial */}
-            <div className="flex flex-col items-center justify-center bg-white/[0.01] hover:bg-white/[0.03] border border-white/5 hover:border-amber-500/20 p-4 rounded-2xl transition-all group relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.01] to-transparent rounded-2xl pointer-events-none" />
+            <div className="flex flex-col items-center justify-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] hover:border-amber-500/30 p-4 rounded-2xl transition-all group relative overflow-hidden shadow-sm">
               <div className="relative w-24 h-24 flex-shrink-0">
                 <svg className="w-full h-full transform -rotate-90 filter drop-shadow-[0_0_8px_rgba(245,158,11,0.25)]">
-                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.02)" strokeWidth="5" fill="transparent" />
+                  <circle cx="48" cy="48" r="40" stroke="rgba(255,255,255,0.05)" strokeWidth="5" fill="transparent" />
                   <circle
                     cx="48"
                     cy="48"
@@ -636,16 +633,16 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                 </svg>
-                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-amber-500 font-mono tracking-tighter">
+                <div className="absolute inset-0 flex items-center justify-center text-lg font-black text-[var(--text-primary)] font-mono tracking-tighter">
                   {diskPercent.toFixed(0)}%
                 </div>
               </div>
               <div className="text-center mt-3">
-                <p className="text-[10px] text-slate-300 uppercase font-bold tracking-widest flex items-center justify-center gap-1">
+                <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                   DISK SPACE
                 </p>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                <p className="text-[11px] text-[var(--text-secondary)] font-mono mt-0.5 font-bold">
                   {systemInfo ? `${(systemInfo.diskUsage).toFixed(1)}G Used` : 'Active'}
                 </p>
               </div>
@@ -657,41 +654,38 @@ export default function Dashboard() {
       {/* Main Command Center Layout */}
       <div className="space-y-6 animate-in fade-in duration-500">
         {/* Server Control Hub */}
-        <div className="glass-panel rounded-2xl p-6 border border-white/5 shadow-2xl relative">
+        <div className="glass-panel rounded-2xl p-6 border border-[var(--border)] shadow-xl relative">
           {/* Header Row */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-6 gap-4 border-b border-white/5 pb-5">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-6 gap-4 border-b border-[var(--border)] pb-5">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-sky-500/10 border border-sky-500/20 rounded-xl text-sky-400 shadow-inner">
+              <div className="p-2.5 bg-sky-500/15 border border-sky-500/30 rounded-2xl text-sky-500 shadow-sm">
                 <Server className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                   <span className="tracking-wide">{t('dashboard.serverControlHub', 'Server Control Hub')}</span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   Real-time cluster monitoring and instance management
                 </p>
               </div>
             </div>
 
             {/* Quick Filter Tabs & Search & Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               {/* Status Filter Chips */}
-              <div className="flex items-center p-1.5 gap-1.5 bg-slate-950/90 border border-white/10 rounded-2xl shadow-inner">
+              <div className="flex items-center p-1 gap-1 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-inner">
                 <button
                   onClick={() => setStatusFilter('all')}
                   className={cn(
-                    "px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer",
+                    "px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-sm",
                     statusFilter === 'all'
-                      ? "bg-sky-500 text-slate-950 shadow-md font-bold"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                      ? "bg-sky-500 text-white shadow-sky-500/25"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                   )}
                 >
                   <span>All</span>
-                  <span className={cn(
-                    "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold min-w-[18px] text-center leading-none",
-                    statusFilter === 'all' ? "bg-slate-950/30 text-slate-950" : "bg-white/10 text-slate-400"
-                  )}>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-black/10 dark:bg-white/15 leading-none">
                     {servers.length}
                   </span>
                 </button>
@@ -699,21 +693,18 @@ export default function Dashboard() {
                 <button
                   onClick={() => setStatusFilter('online')}
                   className={cn(
-                    "px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer",
+                    "px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-sm",
                     statusFilter === 'online'
-                      ? "bg-emerald-500 text-slate-950 shadow-md font-bold"
-                      : "text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/5"
+                      ? "bg-emerald-500 text-white shadow-emerald-500/25"
+                      : "text-[var(--text-secondary)] hover:text-emerald-500 hover:bg-[var(--surface-hover)]"
                   )}
                 >
                   <span className={cn(
                     "w-1.5 h-1.5 rounded-full shrink-0",
-                    statusFilter === 'online' ? "bg-slate-950" : "bg-emerald-500 animate-pulse"
+                    statusFilter === 'online' ? "bg-white" : "bg-emerald-500"
                   )} />
                   <span>Online</span>
-                  <span className={cn(
-                    "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold min-w-[18px] text-center leading-none",
-                    statusFilter === 'online' ? "bg-slate-950/30 text-slate-950" : "bg-emerald-500/20 text-emerald-400"
-                  )}>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-black/10 dark:bg-white/15 leading-none">
                     {onlineServersCount}
                   </span>
                 </button>
@@ -721,17 +712,14 @@ export default function Dashboard() {
                 <button
                   onClick={() => setStatusFilter('stopped')}
                   className={cn(
-                    "px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer",
+                    "px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-sm",
                     statusFilter === 'stopped'
-                      ? "bg-slate-700 text-white shadow-md font-bold"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                      ? "bg-slate-600 dark:bg-slate-700 text-white"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                   )}
                 >
                   <span>Offline</span>
-                  <span className={cn(
-                    "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold min-w-[18px] text-center leading-none",
-                    statusFilter === 'stopped' ? "bg-slate-950/30 text-white" : "bg-white/10 text-slate-400"
-                  )}>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-black/10 dark:bg-white/15 leading-none">
                     {stoppedServersCount}
                   </span>
                 </button>
@@ -740,18 +728,15 @@ export default function Dashboard() {
                   <button
                     onClick={() => setStatusFilter('outdated')}
                     className={cn(
-                      "px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer",
+                      "px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-sm",
                       statusFilter === 'outdated'
-                        ? "bg-amber-500 text-slate-950 shadow-md font-bold"
-                        : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                        ? "bg-amber-500 text-slate-950 shadow-amber-500/25"
+                        : "text-amber-500 hover:bg-[var(--surface-hover)]"
                     )}
                   >
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                     <span>Outdated</span>
-                    <span className={cn(
-                      "text-[10px] px-2 py-0.5 rounded-full font-mono font-bold min-w-[18px] text-center leading-none",
-                      statusFilter === 'outdated' ? "bg-slate-950/30 text-slate-950" : "bg-amber-500/20 text-amber-400"
-                    )}>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold bg-black/10 dark:bg-white/15 leading-none">
                       {outdatedServersCount}
                     </span>
                   </button>
@@ -760,7 +745,7 @@ export default function Dashboard() {
 
               {/* Search Box */}
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--text-muted)]" />
                 <input
                   type="text"
                   id="asa-server-search"
@@ -769,12 +754,12 @@ export default function Dashboard() {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Search servers..."
-                  className="pl-9 pr-8 py-1.5 bg-[#0A0F1C]/90 border border-white/10 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/60 focus:ring-2 focus:ring-sky-500/20 w-44 sm:w-48 transition-all"
+                  className="pl-9 pr-8 py-2 bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 w-44 sm:w-52 transition-all shadow-sm"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-2 text-slate-400 hover:text-white transition-colors p-0.5"
+                    className="absolute right-2.5 top-2.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-0.5 cursor-pointer"
                     title="Clear search"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -785,7 +770,7 @@ export default function Dashboard() {
               {/* Deploy Server Button */}
               <button
                 onClick={() => setDraftOpen(true)}
-                className="text-xs font-bold px-3.5 py-2 bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 rounded-xl transition-all shadow-lg shadow-sky-500/20 flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                className="text-xs font-bold px-4 py-2 bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 rounded-xl transition-all shadow-md shadow-sky-500/20 flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                 aria-label="Deploy Server"
               >
                 <Zap className="w-3.5 h-3.5 fill-current" />
@@ -795,21 +780,21 @@ export default function Dashboard() {
               {/* Server Organization Button */}
               <button
                 onClick={() => navigate('/tools/organization')}
-                className="text-xs font-semibold px-3 py-2 bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10 hover:border-sky-500/30 rounded-xl transition-all flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                className="text-xs font-bold px-3.5 py-2 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] border border-[var(--border)] hover:border-sky-500/30 rounded-xl transition-all flex items-center gap-1.5 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
                 aria-label="Server Organization Page"
               >
-                <Folder className="w-3.5 h-3.5 text-sky-400" />
+                <Folder className="w-3.5 h-3.5 text-sky-500" />
                 <span>Organization</span>
               </button>
 
               {/* Manage All Button */}
               <button
                 onClick={() => navigate('/servers')}
-                className="text-xs font-semibold px-3 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 rounded-xl transition-all flex items-center gap-1 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                className="text-xs font-bold px-3.5 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/25 hover:border-sky-500/40 rounded-xl transition-all flex items-center gap-1 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm"
                 aria-label="Manage all servers"
               >
                 <span>{t('dashboard.manageAll', 'Manage All')}</span>
-                <span className="text-sky-400">→</span>
+                <span className="text-sky-500">→</span>
               </button>
             </div>
           </div>
@@ -824,133 +809,59 @@ export default function Dashboard() {
 
           {
             servers.length === 0 ? (
-              <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-[#080d19]/40 p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12">
-                {/* Background gradient blur spots */}
-                <div className="absolute -left-12 -top-12 w-64 h-64 rounded-full bg-sky-500/5 blur-3xl pointer-events-none" />
-                <div className="absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-cyan-500/5 blur-3xl pointer-events-none" />
-
-                {/* Left Column: Premium Interactive CSS Server Rack Illustration */}
-                <div className="relative w-full max-w-[280px] aspect-[4/3] flex flex-col justify-center items-center bg-[#0a0f1d]/80 border border-white/5 rounded-2xl p-6 shadow-inner group overflow-hidden">
-                  {/* Cyber grid pattern overlay */}
-                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff02_1px,transparent_1px),linear-gradient(to_bottom,#ffffff02_1px,transparent_1px)] bg-[size:16px_16px] rounded-2xl pointer-events-none" />
-
-                  {/* Server Blades Stack */}
-                  <div className="w-full space-y-3 relative z-10">
-                    {/* Server Blade 1 */}
-                    <div className="h-10 bg-slate-950/90 border border-white/5 rounded-lg px-3 flex items-center justify-between shadow-md group-hover:border-sky-500/20 transition-all duration-300">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)] animate-pulse" />
-                        <span className="text-[9px] font-mono text-slate-400">NODE_01</span>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500/80 animate-ping" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500/40" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-sky-500/20" />
-                      </div>
-                    </div>
-
-                    {/* Server Blade 2 */}
-                    <div className="h-10 bg-slate-950/90 border border-white/5 rounded-lg px-3 flex items-center justify-between shadow-md group-hover:border-sky-500/20 transition-all duration-300">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(6,182,212,0.7)] animate-pulse" />
-                        <span className="text-[9px] font-mono text-slate-400">NODE_02</span>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-800" />
-                      </div>
-                    </div>
-
-                    {/* Server Blade 3 */}
-                    <div className="h-10 bg-slate-950/90 border border-white/5 rounded-lg px-3 flex items-center justify-between shadow-md group-hover:border-sky-500/20 transition-all duration-300">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-slate-700" />
-                        <span className="text-[9px] font-mono text-slate-500">NODE_03</span>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-900" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-900" />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-900" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Laser Scanning Line */}
-                  <div className="absolute left-0 right-0 h-[1.5px] bg-sky-500/20 shadow-[0_0_8px_rgba(6,182,212,0.3)] animate-pulse pointer-events-none" />
-
-                  {/* Visual Label */}
-                  <div className="mt-4 text-[9px] font-bold tracking-[0.15em] text-slate-500 uppercase font-mono">
-                    No active instances
-                  </div>
-                </div>
-
-                {/* Right Column: Title + Description + Action Cards */}
+              <div className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8 md:p-10 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12 shadow-sm">
+                {/* Visual illustration and info */}
                 <div className="flex-1 flex flex-col gap-6 w-full text-left">
                   <div>
-                    <h3 className="text-lg font-bold text-slate-200 mb-1.5">
+                    <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1.5">
                       Initialize Server Cluster
                     </h3>
-                    <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-xl">
+                    <p className="text-[var(--text-secondary)] text-xs sm:text-sm leading-relaxed max-w-xl">
                       Deploy, customize, and manage your high-performance ARK: Survival Evolved & Ascended servers from a clean, unified dashboard.
                     </p>
                   </div>
 
                   {/* Action Cards Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Card 1: Deploy Server */}
                     <div
                       onClick={() => setDraftOpen(true)}
-                      className="p-5 rounded-xl border border-sky-500/10 bg-sky-500/[0.02] hover:bg-sky-500/[0.06] hover:border-sky-500/30 transition-all cursor-pointer group flex flex-col justify-between h-36 shadow-sm"
+                      className="p-5 rounded-2xl border border-sky-500/20 bg-sky-500/5 hover:bg-sky-500/10 hover:border-sky-500/40 transition-all cursor-pointer group flex flex-col justify-between h-36 shadow-sm"
                     >
                       <div>
-                        <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center text-sky-400 mb-3 group-hover:scale-105 transition-all">
+                        <div className="w-8 h-8 rounded-xl bg-sky-500/15 flex items-center justify-center text-sky-500 mb-3 group-hover:scale-105 transition-all">
                           <Zap className="w-4 h-4 fill-current" />
                         </div>
-                        <h4 className="text-xs sm:text-sm font-semibold text-slate-200 group-hover:text-sky-400 transition-colors">Deploy Server Node</h4>
-                        <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">Configure and download a clean server installation with our guided wizard.</p>
+                        <h4 className="text-xs sm:text-sm font-bold text-[var(--text-primary)] group-hover:text-sky-500 transition-colors">Deploy Server Node</h4>
+                        <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-2">Configure and download a clean server installation with our guided wizard.</p>
                       </div>
                     </div>
 
-                    {/* Card 2: Import Server */}
                     <div
                       onClick={() => navigate('/servers')}
-                      className="p-5 rounded-xl border border-white/5 bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/10 transition-all cursor-pointer group flex flex-col justify-between h-36 shadow-sm"
+                      className="p-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] hover:border-sky-500/30 transition-all cursor-pointer group flex flex-col justify-between h-36 shadow-sm"
                     >
                       <div>
-                        <div className="w-8 h-8 rounded-lg bg-slate-500/10 flex items-center justify-center text-slate-400 mb-3 group-hover:scale-105 transition-all">
+                        <div className="w-8 h-8 rounded-xl bg-slate-500/10 flex items-center justify-center text-slate-400 mb-3 group-hover:scale-105 transition-all">
                           <Server className="w-4 h-4" />
                         </div>
-                        <h4 className="text-xs sm:text-sm font-semibold text-slate-200 group-hover:text-white transition-colors">Import Instance</h4>
-                        <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">Link an existing ShooterGame installation directory to manage it here.</p>
+                        <h4 className="text-xs sm:text-sm font-bold text-[var(--text-primary)] transition-colors">Import Instance</h4>
+                        <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-2">Link an existing ShooterGame installation directory to manage it here.</p>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Bottom Helper Bar */}
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
-                    <span>Central systems are online.</span>
-                    <button
-                      onClick={() => navigate('/config')}
-                      className="text-sky-400 hover:text-sky-300 font-semibold focus:outline-none ml-1 flex items-center gap-0.5 hover:underline cursor-pointer"
-                    >
-                      Open Config Editor →
-                    </button>
                   </div>
                 </div>
               </div>
             ) : filteredServers.length === 0 ? (
-              <div className="p-8 rounded-2xl border border-white/5 bg-[#080d19]/40 text-center flex flex-col items-center justify-center">
-                <Search className="w-8 h-8 text-slate-600 mb-3" />
-                <h4 className="text-sm font-semibold text-slate-200">No servers match your criteria</h4>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm">
+              <div className="p-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-center flex flex-col items-center justify-center shadow-sm">
+                <Search className="w-8 h-8 text-[var(--text-muted)] mb-3" />
+                <h4 className="text-sm font-bold text-[var(--text-primary)]">No servers match your criteria</h4>
+                <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm">
                   Try adjusting your search query or reset status filters to view all configured server profiles.
                 </p>
                 <div className="flex items-center gap-2 mt-4">
                   <button
                     onClick={() => { setSearchQuery(''); setStatusFilter('all'); setSelectedFolderId(null); }}
-                    className="px-3.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                    className="px-4 py-2 bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/30 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm"
                   >
                     Reset Filters
                   </button>
@@ -972,17 +883,17 @@ export default function Dashboard() {
                     <div
                       key={server.id}
                       className={cn(
-                        "relative flex flex-col xl:flex-row xl:items-center justify-between p-4 sm:p-5 bg-slate-900/60 backdrop-blur-xl border rounded-2xl hover:bg-slate-900/85 transition-all duration-300 group gap-4 xl:gap-6 hover:shadow-xl hover:shadow-sky-500/5 hover:border-sky-500/30 hover:z-30 z-10",
-                        server.status === 'online' ? "border-emerald-500/20 bg-slate-900/70" :
-                        isStarting || isUpdating ? "border-sky-500/25 bg-slate-900/70" :
-                        isCrashed ? "border-rose-500/25 bg-rose-950/10" :
-                        "border-white/5"
+                        "relative flex flex-col xl:flex-row xl:items-center justify-between p-4 sm:p-5 glass-panel border rounded-2xl transition-all duration-200 group gap-4 xl:gap-6 hover:shadow-lg hover:border-sky-500/40 z-10",
+                        server.status === 'online' ? "border-emerald-500/30" :
+                        isStarting || isUpdating ? "border-sky-500/30" :
+                        isCrashed ? "border-rose-500/30" :
+                        "border-[var(--border)]"
                       )}
                     >
                       {/* Custom Brand color indicator if configured */}
                       {hasColor && (
                         <div
-                          className="absolute left-1.5 top-3 bottom-3 w-1 rounded-full opacity-90 shadow-sm"
+                          className="absolute left-1.5 top-3 bottom-3 w-1.5 rounded-full opacity-90 shadow-sm"
                           style={{ backgroundColor: cust.color_tag }}
                         />
                       )}
@@ -997,7 +908,7 @@ export default function Dashboard() {
                             isStarting && "bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.9)] ring-4 ring-sky-500/20 animate-pulse",
                             isUpdating && "bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.9)] ring-4 ring-blue-500/20 animate-pulse",
                             isCrashed && "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.9)] ring-4 ring-rose-500/20 animate-pulse",
-                            server.status === 'stopped' && "bg-slate-600 ring-2 ring-white/5"
+                            server.status === 'stopped' && "bg-slate-400 dark:bg-slate-600 ring-2 ring-black/5 dark:ring-white/5"
                           )} />
                         </div>
 
@@ -1012,18 +923,18 @@ export default function Dashboard() {
                                 onKeyDown={(e) => handleRenameKeyDown(e, server)}
                                 onBlur={() => handleRenameSave(server)}
                                 autoFocus
-                                className="text-sm font-bold bg-slate-950 border border-sky-500 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:ring-2 focus:ring-sky-500/40 min-w-[200px]"
+                                className="text-sm font-bold bg-[var(--input-background)] border border-sky-500 rounded-lg px-2.5 py-1 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-sky-500/40 min-w-[200px]"
                               />
                               <button
                                 onClick={() => handleRenameSave(server)}
-                                className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/40 rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-500 border border-emerald-500/40 rounded-lg transition-colors cursor-pointer"
                                 title="Save Profile Name"
                               >
                                 <Check className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => setEditingServerId(null)}
-                                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 bg-[var(--surface-hover)] text-[var(--text-muted)] rounded-lg transition-colors cursor-pointer"
                                 title="Cancel"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -1034,7 +945,7 @@ export default function Dashboard() {
                               {/* Profile Title with click-to-rename */}
                               <div className="flex items-center gap-1.5 group/title">
                                 <h3
-                                  className="font-bold text-slate-100 text-sm sm:text-base hover:text-sky-400 cursor-pointer transition-colors"
+                                  className="font-bold text-[var(--text-primary)] text-sm sm:text-base hover:text-sky-500 cursor-pointer transition-colors"
                                   onClick={(e) => handleRenameStart(server, e)}
                                   onDoubleClick={(e) => handleRenameStart(server, e)}
                                   title="Click to rename profile"
@@ -1043,7 +954,7 @@ export default function Dashboard() {
                                 </h3>
                                 <button
                                   onClick={(e) => handleRenameStart(server, e)}
-                                  className="p-1 text-slate-500 hover:text-sky-400 hover:bg-sky-500/10 rounded-md transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                                  className="p-1 text-[var(--text-muted)] hover:text-sky-500 hover:bg-sky-500/10 rounded-md transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
                                   title="Rename Profile"
                                 >
                                   <Edit2 className="w-3 h-3" />
@@ -1062,18 +973,18 @@ export default function Dashboard() {
                                       toast.error(`Cannot open folder: ${err}`);
                                     }
                                   }}
-                                  className="p-1 bg-white/5 hover:bg-sky-500/20 text-slate-400 hover:text-sky-300 border border-white/10 hover:border-sky-500/30 rounded-md transition-all shrink-0 cursor-pointer"
+                                  className="p-1.5 bg-[var(--surface)] hover:bg-sky-500/20 text-[var(--text-muted)] hover:text-sky-500 border border-[var(--border)] hover:border-sky-500/30 rounded-lg transition-all shrink-0 cursor-pointer shadow-sm"
                                   title={`Open server install folder:\n${server.installPath}`}
                                 >
-                                  <FolderOpen className="w-3 h-3 text-sky-400" />
+                                  <FolderOpen className="w-3 h-3 text-sky-500" />
                                 </button>
                               )}
 
                               {/* Favorite & Pin Badges */}
                               {cust?.favorite && <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />}
-                              {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-400 fill-sky-400" />}
+                              {cust?.is_pinned && <Bookmark className="w-3.5 h-3.5 text-sky-500 fill-sky-500" />}
                               {server.autoStart && (
-                                <span className="text-[9px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold tracking-wide uppercase">
+                                <span className="text-[9px] px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold tracking-wide uppercase">
                                   AUTOSTART
                                 </span>
                               )}
@@ -1083,38 +994,38 @@ export default function Dashboard() {
                           {/* Metadata Badges & Tags */}
                           <div className="flex flex-wrap items-center gap-2 mt-1.5">
                             {/* Map Badge */}
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300 font-medium font-mono">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs font-semibold text-[var(--text-secondary)] shadow-sm">
                               <span>🗺️</span>
                               <span>{server.config.mapName || 'CustomMap'}</span>
                             </span>
 
                             {/* Session Name if different */}
                             {server.config.sessionName && server.config.sessionName !== server.name && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300 font-medium font-mono">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs font-semibold text-[var(--text-secondary)] shadow-sm">
                                 <span>🎮</span>
                                 <span>{server.config.sessionName}</span>
                               </span>
                             )}
 
                             {/* Ports Tag */}
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-950/60 border border-white/5 rounded-md text-[11px] text-slate-400 font-mono">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-[11px] font-mono text-[var(--text-muted)] shadow-sm">
                               <span>Port: {server.ports.gamePort}</span>
-                              <span className="text-slate-600">|</span>
+                              <span className="text-[var(--text-muted)] opacity-40">|</span>
                               <span>Query: {server.ports.queryPort}</span>
                             </span>
 
                             {/* Version Badge */}
                             {serverVersions[server.id] && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-500/10 border border-sky-500/20 rounded-md text-xs text-sky-300 font-mono font-medium" title={t('serverManager.tooltips.serverVersion', 'Local Server Version')}>
-                                <GitBranch className="w-3 h-3 text-sky-400/80" />
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-sky-500/10 border border-sky-500/25 rounded-lg text-xs font-mono font-bold text-sky-600 dark:text-sky-400 shadow-sm" title={t('serverManager.tooltips.serverVersion', 'Local Server Version')}>
+                                <GitBranch className="w-3 h-3 text-sky-500" />
                                 <span>{serverVersions[server.id]}</span>
                               </span>
                             )}
 
                             {/* Update Available Badge */}
                             {isServerOutdated(server.id) && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 rounded-md text-xs font-bold animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version available on Steam!')}>
-                                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-lg text-xs font-bold shadow-sm animate-pulse" title={t('serverManager.tooltips.updateAvailable', 'New version available on Steam!')}>
+                                <AlertTriangle className="w-3 h-3 text-amber-500" />
                                 <span>Update Available</span>
                               </span>
                             )}
@@ -1122,19 +1033,19 @@ export default function Dashboard() {
                             {/* Reachability Badge */}
                             {server.reachability && (
                               <span className={cn(
-                                "text-[10px] px-2 py-0.5 rounded-md font-semibold font-mono flex items-center gap-1",
+                                "text-[10px] px-2.5 py-1 rounded-lg font-bold font-mono flex items-center gap-1.5 shadow-sm",
                                 server.reachability === 'Public'
-                                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                  : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25"
+                                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/25"
                               )}>
-                                <span className={cn("w-1.5 h-1.5 rounded-full", server.reachability === 'Public' ? "bg-emerald-400" : "bg-rose-400")} />
+                                <span className={cn("w-1.5 h-1.5 rounded-full", server.reachability === 'Public' ? "bg-emerald-500" : "bg-rose-500")} />
                                 <span>{server.reachability === 'Public' ? 'PUBLIC' : server.reachability}</span>
                               </span>
                             )}
 
                             {/* Custom User Tags */}
                             {cust?.tags && cust.tags.map((tg: string) => (
-                              <span key={tg} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded-md text-[10px] text-slate-400 font-medium">
+                              <span key={tg} className="px-2 py-0.5 bg-[var(--surface)] border border-[var(--border)] rounded-md text-[10px] text-[var(--text-muted)] font-medium">
                                 #{tg}
                               </span>
                             ))}
@@ -1150,7 +1061,7 @@ export default function Dashboard() {
                         {(server.status === 'stopped' || server.status === 'crashed') && !isStopping ? (
                           <button
                             onClick={() => handleStartServer(server.id)}
-                            className="h-9 px-3.5 flex items-center gap-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 hover:border-emerald-500/50 rounded-xl font-bold text-xs transition-all shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                            className="h-9 px-4 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                             title="Start Server"
                             aria-label={`Start Server ${displayName}`}
                           >
@@ -1161,7 +1072,7 @@ export default function Dashboard() {
                           <div className="relative group/stop" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => setTimedShutdownServer(server)}
-                              className="h-9 px-3.5 flex items-center gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 hover:border-rose-500/50 rounded-xl font-bold text-xs transition-all shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                              className="h-9 px-4 flex items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-xs shadow-md shadow-rose-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
                               title="Stop / Shutdown Options"
                               aria-label={`Stop Server ${displayName}`}
                             >
@@ -1170,25 +1081,25 @@ export default function Dashboard() {
                             </button>
 
                             {/* Stop Options Dropdown */}
-                            <div className="absolute top-full right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/stop:scale-100">
+                            <div className="absolute top-full right-0 mt-2 w-52 bg-[var(--surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl shadow-2xl opacity-0 invisible group-hover/stop:opacity-100 group-hover/stop:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/stop:scale-100">
                               <button
                                 onClick={() => setTimedShutdownServer(server)}
-                                className="w-full text-left px-3 py-2.5 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 text-xs font-bold cursor-pointer"
+                                className="w-full text-left px-3.5 py-2.5 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors flex items-center gap-2 text-xs font-bold cursor-pointer"
                               >
-                                <Timer className="w-4 h-4 text-amber-400 shrink-0" />
+                                <Timer className="w-4 h-4 text-amber-500 shrink-0" />
                                 <div className="flex flex-col">
                                   <span>Timed Shutdown</span>
-                                  <span className="text-[10px] text-slate-400 font-normal">Countdown with broadcasts</span>
+                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Countdown with broadcasts</span>
                                 </div>
                               </button>
                               <button
                                 onClick={() => handleStopServer(server.id)}
-                                className="w-full text-left px-3 py-2.5 hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-colors flex items-center gap-2 border-t border-slate-800 text-xs font-bold cursor-pointer"
+                                className="w-full text-left px-3.5 py-2.5 hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 transition-colors flex items-center gap-2 border-t border-[var(--border)] text-xs font-bold cursor-pointer"
                               >
-                                <Square className="w-4 h-4 fill-current text-rose-400 shrink-0" />
+                                <Square className="w-4 h-4 fill-current text-rose-500 shrink-0" />
                                 <div className="flex flex-col">
                                   <span>Immediate Stop</span>
-                                  <span className="text-[10px] text-slate-400 font-normal">Halt process right away</span>
+                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Halt process right away</span>
                                 </div>
                               </button>
                             </div>
@@ -1196,12 +1107,12 @@ export default function Dashboard() {
                         ) : (
                           <div
                             className={cn(
-                              "h-9 px-3.5 flex items-center gap-2 border rounded-xl font-semibold text-xs transition-all",
-                              isStarting && "bg-sky-500/15 text-sky-400 border-sky-500/30",
-                              isStopping && "bg-rose-500/15 text-rose-400 border-rose-500/30",
-                              isUpdating && "bg-blue-500/15 text-blue-400 border-blue-500/30",
-                              server.status === 'restarting' && "bg-amber-500/15 text-amber-400 border-amber-500/30",
-                              "bg-slate-800/40 text-slate-400 border-white/5"
+                              "h-9 px-3.5 flex items-center gap-2 border rounded-xl font-bold text-xs transition-all shadow-sm",
+                              isStarting && "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30",
+                              isStopping && "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+                              isUpdating && "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
+                              server.status === 'restarting' && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+                              "bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)]"
                             )}
                           >
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -1215,7 +1126,7 @@ export default function Dashboard() {
                         <div className="relative group/dropdown">
                           <button
                             disabled={server.status === 'stopped'}
-                            className="h-9 w-9 flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 cursor-pointer"
+                            className="h-9 w-9 flex items-center justify-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
                             title="Restart Options"
                             aria-label={`Restart options for Server ${displayName}`}
                           >
@@ -1223,20 +1134,20 @@ export default function Dashboard() {
                           </button>
 
                           {/* Dropdown Menu */}
-                          <div className="absolute top-full right-0 mt-2 w-52 bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
+                          <div className="absolute top-full right-0 mt-2 w-52 bg-[var(--surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl shadow-2xl opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all duration-200 z-50 overflow-hidden origin-top-right scale-95 group-hover/dropdown:scale-100">
                             <button
                               onClick={() => handleRestartServer(server.id)}
-                              className="w-full text-left px-3.5 py-2.5 hover:bg-slate-800 text-slate-200 hover:text-white transition-colors flex items-center gap-2 text-xs font-medium cursor-pointer"
+                              className="w-full text-left px-3.5 py-2.5 hover:bg-[var(--surface-hover)] text-[var(--text-primary)] transition-colors flex items-center gap-2 text-xs font-bold cursor-pointer"
                             >
-                              <RotateCw className="w-3.5 h-3.5 text-sky-400" />
+                              <RotateCw className="w-3.5 h-3.5 text-sky-500" />
                               <span>{t('dashboard.normalRestart', 'Normal Restart')}</span>
                             </button>
                             <button
                               onClick={() => handleRestartServer(server.id, true)}
-                              className="w-full text-left px-3.5 py-2.5 hover:bg-amber-500/10 text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-2 border-t border-slate-800/80 text-xs font-medium cursor-pointer"
+                              className="w-full text-left px-3.5 py-2.5 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 transition-colors flex items-center gap-2 border-t border-[var(--border)] text-xs font-bold cursor-pointer"
                               title="Gracefully restart the server and wipe all wild dinosaurs"
                             >
-                              <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                              <RefreshCw className="w-3.5 h-3.5 text-amber-500" />
                               <span>{t('dashboard.restartWipeDinos', 'Restart & Wipe Dinos')}</span>
                             </button>
                           </div>
@@ -1246,16 +1157,16 @@ export default function Dashboard() {
                         <button
                           onClick={() => handleCopyIp(server.id, server.ipAddress, server.ports.gamePort)}
                           className={cn(
-                            "h-9 w-9 flex items-center justify-center border rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer",
+                            "h-9 w-9 flex items-center justify-center border rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-sm",
                             copiedServerId === server.id
-                              ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
-                              : "bg-white/5 hover:bg-white/10 text-slate-300 border-white/10"
+                              ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-500"
+                              : "bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border-[var(--border)]"
                           )}
                           title="Copy Direct IP Connection"
                           aria-label={`Copy IP address for Server ${displayName}`}
                         >
                           {copiedServerId === server.id ? (
-                            <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                            <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
                           ) : (
                             <Copy className="w-3.5 h-3.5" />
                           )}
@@ -1264,7 +1175,7 @@ export default function Dashboard() {
                         {/* Clone / Transfer Modal Button */}
                         <button
                           onClick={() => openCloneModal(server)}
-                          className="h-9 w-9 flex items-center justify-center bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                          className="h-9 w-9 flex items-center justify-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
                           title="Clone & Profile Transfer Tools"
                           aria-label={`Clone or transfer Server ${displayName}`}
                         >
@@ -1274,7 +1185,7 @@ export default function Dashboard() {
                         {/* Config Editor Link Button */}
                         <button
                           onClick={() => navigate('/config', { state: { serverId: server.id } })}
-                          className="h-9 w-9 flex items-center justify-center bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                          className="h-9 w-9 flex items-center justify-center bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border)] rounded-xl transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-sm"
                           title="Open in Config Editor"
                           aria-label={`Open Config Editor for Server ${displayName}`}
                         >
@@ -1283,20 +1194,19 @@ export default function Dashboard() {
 
                         {/* High-Contrast Status Capsule */}
                         <div className={cn(
-                          "min-w-[85px] h-9 px-2.5 rounded-xl text-[10px] font-bold tracking-wider border uppercase flex items-center justify-center gap-1.5 shadow-inner select-none",
-                          server.status === 'online' && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25',
-                          server.status === 'running' && 'bg-sky-500/10 text-sky-400 border-sky-500/25',
-                          isCrashed && 'bg-rose-500/15 text-rose-400 border-rose-500/30',
-                          isStarting && 'bg-sky-500/10 text-sky-400 border-sky-500/25',
-                          isUpdating && 'bg-blue-500/10 text-blue-400 border-blue-500/25',
-                          server.status === 'stopped' && 'bg-[#121826] text-slate-400 border-white/5'
+                          "min-w-[90px] h-9 px-3 rounded-xl text-[10px] font-bold tracking-wider border uppercase flex items-center justify-center gap-1.5 shadow-sm select-none",
+                          server.status === 'online' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+                          server.status === 'running' && 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30',
+                          isCrashed && 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30',
+                          (isStarting || isUpdating) && 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30',
+                          server.status === 'stopped' && 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)]'
                         )}>
                           <span className={cn(
                             "w-1.5 h-1.5 rounded-full",
-                            server.status === 'online' ? "bg-emerald-400" :
-                            isCrashed ? "bg-rose-400 animate-ping" :
-                            isStarting || isUpdating ? "bg-sky-400 animate-pulse" :
-                            "bg-slate-500"
+                            server.status === 'online' ? "bg-emerald-500" :
+                            isCrashed ? "bg-rose-500 animate-ping" :
+                            isStarting || isUpdating ? "bg-sky-500 animate-pulse" :
+                            "bg-slate-400 dark:bg-slate-600"
                           )} />
                           <span>{server.status.toUpperCase()}</span>
                         </div>
@@ -1319,10 +1229,10 @@ export default function Dashboard() {
           <div className="space-y-6">
 
             {/* Autostart & Boot Options Widget */}
-            <div className="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+            <div className="glass-panel rounded-2xl p-6 relative overflow-hidden group border border-[var(--border)] shadow-sm">
               <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-amber-500/10 blur-2xl group-hover:scale-125 transition-transform duration-500 pointer-events-none" />
 
-              <h3 className="text-sm font-bold text-slate-200 flex items-center gap-2 mb-4">
+              <h3 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2 mb-4">
                 <span className="relative flex h-2 w-2">
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                 </span>
@@ -1331,10 +1241,10 @@ export default function Dashboard() {
 
               <div className="space-y-3">
                 {/* Run at System Boot */}
-                <div className="flex items-center justify-between p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition-colors">
+                <div className="flex items-center justify-between p-3.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:bg-[var(--surface-hover)] transition-colors shadow-sm">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs font-semibold text-slate-200">Run at System Boot</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">Auto-start app when PC starts</p>
+                    <p className="text-xs font-bold text-[var(--text-primary)]">Run at System Boot</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 truncate">Auto-start app when PC starts</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -1344,15 +1254,15 @@ export default function Dashboard() {
                       disabled={isSavingStartup}
                       className="sr-only peer"
                     />
-                    <div className="relative w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    <div className="relative w-9 h-5 bg-slate-400 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                   </label>
                 </div>
 
                 {/* Enable Global Auto-Start */}
-                <div className="flex items-center justify-between p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition-colors">
+                <div className="flex items-center justify-between p-3.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:bg-[var(--surface-hover)] transition-colors shadow-sm">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs font-semibold text-slate-200">Auto-Start Server Profiles</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">Launch servers on app boot</p>
+                    <p className="text-xs font-bold text-[var(--text-primary)]">Auto-Start Server Profiles</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 truncate">Launch servers on app boot</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -1362,15 +1272,15 @@ export default function Dashboard() {
                       disabled={isSavingStartup}
                       className="sr-only peer"
                     />
-                    <div className="relative w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    <div className="relative w-9 h-5 bg-slate-400 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                   </label>
                 </div>
 
                 {/* Bypass UAC (Task Scheduler) */}
-                <div className="flex items-center justify-between p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition-colors">
+                <div className="flex items-center justify-between p-3.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl hover:bg-[var(--surface-hover)] transition-colors shadow-sm">
                   <div className="min-w-0 pr-2">
-                    <p className="text-xs font-semibold text-slate-200">Bypass UAC (Admin Level)</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">Elevated run via Task Scheduler</p>
+                    <p className="text-xs font-bold text-[var(--text-primary)]">Bypass UAC (Admin Level)</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 truncate">Elevated run via Task Scheduler</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -1380,23 +1290,18 @@ export default function Dashboard() {
                       onChange={(e) => handleToggleStartupSetting('silentHeadlessStartup', e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="relative w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 peer-disabled:opacity-30"></div>
+                    <div className="relative w-9 h-5 bg-slate-400 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500 peer-disabled:opacity-30"></div>
                   </label>
                 </div>
               </div>
 
-              <p className="text-[10px] text-slate-500 mt-3 text-center">
-                Additional options are available in <button onClick={() => navigate('/settings')} className="text-amber-500 hover:underline">Settings</button>
+              <p className="text-[10px] text-[var(--text-secondary)] mt-3 text-center">
+                Additional options are available in <button onClick={() => navigate('/settings')} className="text-amber-500 hover:underline font-bold cursor-pointer">Settings</button>
               </p>
             </div>
-
-
-
-
           </div>
         </div>
       </div>
-
 
       {/* Clone Options Modal */}
       {cloneModalServer && (

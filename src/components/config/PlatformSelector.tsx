@@ -262,12 +262,12 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
 
     if (compact) {
         return (
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <div className="glass-panel rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white flex items-center gap-2">
+                    <span className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4 text-violet-400" /> Platform Compatibility
                     </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 border border-violet-500/30 font-semibold">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/30 font-semibold">
                         {activeCount}/4 Enabled
                     </span>
                 </div>
@@ -281,19 +281,19 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                                 key={p.id}
                                 onClick={() => handleToggle(p.id)}
                                 className={cn(
-                                    "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium border transition-all duration-200 text-left",
+                                    "flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium border transition-all duration-200 text-left cursor-pointer",
                                     isChecked
-                                        ? "bg-violet-600/20 border-violet-500/50 text-white shadow-sm"
-                                        : "bg-slate-950/40 border-white/5 text-slate-400 hover:border-white/10 hover:text-slate-200"
+                                        ? "bg-violet-600/20 border-violet-500/50 text-[var(--text-primary)] shadow-sm"
+                                        : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--border-hover)] hover:text-[var(--text-primary)]"
                                 )}
                             >
                                 <div className={cn(
                                     "w-4 h-4 rounded-md flex items-center justify-center border transition-all",
-                                    isChecked ? "bg-violet-600 border-violet-400 text-white" : "border-slate-700 bg-slate-900"
+                                    isChecked ? "bg-violet-600 border-violet-400 text-white" : "border-[var(--border)] bg-[var(--surface)]"
                                 )}>
                                     {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                                 </div>
-                                <Icon className="w-4 h-4 text-slate-300" />
+                                <Icon className="w-4 h-4 text-[var(--text-secondary)]" />
                                 <span className="truncate">{p.name.split(' ')[0]}</span>
                             </button>
                         );
@@ -304,46 +304,46 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
     }
 
     return (
-        <div className="relative bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6 overflow-hidden">
+        <div className="relative glass-panel rounded-3xl p-6 shadow-2xl space-y-6 overflow-hidden">
             {/* Ambient Background Glow Spots */}
             <div className="absolute -top-24 -right-24 w-80 h-80 bg-violet-600/15 blur-3xl rounded-full pointer-events-none" />
             <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-cyan-600/10 blur-3xl rounded-full pointer-events-none" />
 
             {/* Header Section */}
-            <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-white/10 pb-5">
+            <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-[var(--border)] pb-5">
                 <div className="flex items-start gap-4">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 border border-violet-400/30 flex items-center justify-center shadow-lg shadow-violet-600/30 shrink-0">
                         <ShieldCheck className="w-6 h-6 text-white" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2.5 flex-wrap">
-                            <h3 className="text-lg font-bold text-white tracking-tight">
+                            <h3 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">
                                 Platform Access Control
                             </h3>
                             <span className={cn(
                                 "px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1.5",
                                 isFullCrossplay
-                                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
                                     : isPcOnly
-                                    ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
-                                    : "bg-violet-500/15 border-violet-500/30 text-violet-300"
+                                    ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-400"
+                                    : "bg-violet-500/15 border-violet-500/30 text-violet-400"
                             )}>
                                 <span className={cn(
                                     "w-1.5 h-1.5 rounded-full",
-                                    isFullCrossplay ? "bg-emerald-400 animate-pulse" : isPcOnly ? "bg-cyan-400" : "bg-violet-400"
+                                    isFullCrossplay ? "bg-emerald-400" : isPcOnly ? "bg-cyan-400" : "bg-violet-400"
                                 )} />
                                 {isFullCrossplay ? 'Full Crossplay' : isPcOnly ? 'PC Exclusive' : isConsolesOnly ? 'Consoles Only' : `Custom (${activeCount}/4)`}
                             </span>
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-2xl">
-                            Control multi-platform player connectivity with native Unreal Engine <code className="text-violet-300 font-mono bg-slate-950/70 px-1.5 py-0.5 rounded border border-white/10">-ServerPlatform</code> arguments.
+                        <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed max-w-2xl">
+                            Control multi-platform player connectivity with native Unreal Engine <code className="text-violet-400 font-mono bg-[var(--surface-hover)] px-1.5 py-0.5 rounded border border-[var(--border)]">-ServerPlatform</code> arguments.
                         </p>
                     </div>
                 </div>
 
                 {/* 1-Click Fast Presets */}
                 <div className="flex items-center gap-2 flex-wrap shrink-0">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 mr-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1 mr-1">
                         <Sparkles className="w-3.5 h-3.5 text-violet-400" /> Presets:
                     </span>
 
@@ -354,7 +354,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                             "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
                             isFullCrossplay
                                 ? "bg-violet-600 border-violet-400 text-white shadow-lg shadow-violet-600/30"
-                                : "bg-slate-800/70 hover:bg-slate-700/80 border-white/10 text-slate-300 hover:text-white"
+                                : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         )}
                     >
                         <Globe className="w-3.5 h-3.5" /> Full Crossplay
@@ -367,7 +367,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                             "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
                             isPcOnly
                                 ? "bg-cyan-600 border-cyan-400 text-white shadow-lg shadow-cyan-600/30"
-                                : "bg-slate-800/70 hover:bg-slate-700/80 border-white/10 text-slate-300 hover:text-white"
+                                : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         )}
                     >
                         <Laptop className="w-3.5 h-3.5" /> PC Only
@@ -380,7 +380,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                             "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
                             isConsolesOnly
                                 ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-600/30"
-                                : "bg-slate-800/70 hover:bg-slate-700/80 border-white/10 text-slate-300 hover:text-white"
+                                : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         )}
                     >
                         <Gamepad2 className="w-3.5 h-3.5" /> Consoles Only
@@ -393,7 +393,7 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                             "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
                             isAllPcClients
                                 ? "bg-sky-600 border-sky-400 text-white shadow-lg shadow-sky-600/30"
-                                : "bg-slate-800/70 hover:bg-slate-700/80 border-white/10 text-slate-300 hover:text-white"
+                                : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         )}
                     >
                         <Layers className="w-3.5 h-3.5" /> All PC Stores
@@ -406,7 +406,6 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                 {platformCards.map(p => {
                     const Icon = p.icon;
                     const isChecked = selection[p.id];
-                    const theme = p.activeTheme;
 
                     return (
                         <div
@@ -415,8 +414,8 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                             className={cn(
                                 "group relative p-5 rounded-2xl border transition-all duration-200 cursor-pointer select-none flex flex-col justify-between min-h-[195px] hover:scale-[1.01] active:scale-[0.99]",
                                 isChecked
-                                    ? cn(theme.bg, theme.border)
-                                    : "bg-slate-950/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900/60 shadow-lg"
+                                    ? "bg-sky-500/10 border-sky-500/40 shadow-[0_0_20px_rgba(14,165,233,0.15)] ring-1 ring-sky-500/20"
+                                    : "bg-[var(--surface)] border-[var(--border)] hover:border-[var(--border-hover)] hover:bg-[var(--surface-hover)] shadow-md"
                             )}
                         >
                             {/* Top row: Brand Icon & Deterministic iOS-style Pill Switch */}
@@ -424,8 +423,8 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                                 <div className={cn(
                                     "w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 transition-all",
                                     isChecked
-                                        ? theme.iconBox
-                                        : "bg-slate-900 border-slate-700/80 text-slate-300 group-hover:text-white"
+                                        ? "bg-sky-500/20 border-sky-500/40 text-sky-400 shadow-sm"
+                                        : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]"
                                 )}>
                                     <Icon className="w-5 h-5" />
                                 </div>
@@ -434,8 +433,8 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                                 <div className={cn(
                                     "w-11 h-6 rounded-full p-0.5 transition-all duration-200 ease-in-out relative border shrink-0",
                                     isChecked
-                                        ? cn(theme.toggle, "border-transparent shadow-sm")
-                                        : "bg-slate-800/90 border-slate-700/80"
+                                        ? "bg-sky-500 border-sky-400 shadow-sm"
+                                        : "bg-[var(--surface-hover)] border-[var(--border)]"
                                 )}>
                                     <div className={cn(
                                         "w-5 h-5 rounded-full bg-white shadow-md flex items-center justify-center transition-all duration-200 ease-out",
@@ -453,37 +452,34 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                             {/* Middle row: Platform Name, Tag, Description */}
                             <div className="space-y-1.5 mb-3.5 flex-1">
                                 <div className="flex items-center justify-between gap-2">
-                                    <h4 className={cn(
-                                        "text-sm font-bold tracking-tight transition-colors truncate",
-                                        isChecked ? "text-white group-hover:text-violet-200" : "text-slate-100 group-hover:text-white"
-                                    )}>
+                                    <h4 className="text-sm font-bold tracking-tight text-[var(--text-primary)] truncate">
                                         {p.name}
                                     </h4>
                                 </div>
                                 <span className={cn(
                                     "inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md border",
-                                    isChecked ? theme.badge : "bg-slate-900/90 border-slate-700/70 text-slate-300"
+                                    isChecked ? "bg-sky-500/15 border-sky-500/30 text-sky-400" : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-muted)]"
                                 )}>
                                     {p.tag}
                                 </span>
-                                <p className="text-xs text-slate-400 leading-snug pt-0.5 line-clamp-2">
+                                <p className="text-xs text-[var(--text-secondary)] leading-snug pt-0.5 line-clamp-2">
                                     {p.desc}
                                 </p>
                             </div>
 
                             {/* Bottom row: Status & Engine Tag */}
-                            <div className="pt-2.5 border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                            <div className="pt-2.5 border-t border-[var(--border)] flex items-center justify-between text-xs font-mono">
                                 <div className="flex items-center gap-2">
-                                    <span className={cn("w-2 h-2 rounded-full", isChecked ? theme.dot : "bg-slate-500")} />
-                                    <span className={isChecked ? "text-emerald-300 font-bold" : "text-slate-400 font-medium"}>
+                                    <span className={cn("w-2 h-2 rounded-full", isChecked ? "bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-slate-400")} />
+                                    <span className={isChecked ? "text-emerald-500 font-bold" : "text-[var(--text-muted)] font-medium"}>
                                         {isChecked ? 'Allowed' : 'Blocked'}
                                     </span>
                                 </div>
                                 <span className={cn(
                                     "px-2 py-0.5 rounded border text-[10px] font-bold",
                                     isChecked
-                                        ? "bg-white/10 border-white/20 text-white shadow-sm"
-                                        : "bg-slate-900 border-slate-700/60 text-slate-400"
+                                        ? "bg-sky-500/20 border-sky-500/30 text-sky-400 shadow-sm"
+                                        : "bg-[var(--surface-hover)] border-[var(--border)] text-[var(--text-muted)]"
                                 )}>
                                     {p.flagCode}
                                 </span>
@@ -494,16 +490,16 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
             </div>
 
             {/* Generated Command Preview Box */}
-            <div className="bg-slate-950/60 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
                         <Terminal className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] block">
                             Active Generated Engine Flag
                         </span>
-                        <code className="text-xs font-mono font-bold text-emerald-300 truncate block">
+                        <code className="text-xs font-mono font-bold text-emerald-500 truncate block">
                             {generatedFlag}
                         </code>
                     </div>
@@ -513,14 +509,14 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
                     <button
                         type="button"
                         onClick={handleCopyFlag}
-                        className="px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-white/10 flex items-center gap-1.5 transition-all cursor-pointer"
+                        className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-primary)] border border-[var(--border)] flex items-center gap-1.5 transition-all cursor-pointer"
                         title="Copy launch flag"
                     >
-                        {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copied ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                         <span>{copied ? 'Copied' : 'Copy'}</span>
                     </button>
-                    <div className="text-[11px] text-slate-400 hidden md:flex items-center gap-1.5 border-l border-white/10 pl-2.5">
-                        <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <div className="text-[11px] text-[var(--text-muted)] hidden md:flex items-center gap-1.5 border-l border-[var(--border)] pl-2.5">
+                        <Info className="w-3.5 h-3.5 text-[var(--text-muted)] shrink-0" />
                         Auto-injected on launch
                     </div>
                 </div>

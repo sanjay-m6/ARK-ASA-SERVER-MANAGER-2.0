@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { invoke } from '@tauri-apps/api/core';
-import { Network, Server as ServerIcon, Link2, Unlink, Move, ZoomIn, ZoomOut, Play, Square, Focus, Cpu, Globe, Wifi, WifiOff, Users, Hash, Clock, HardDrive } from 'lucide-react';
+import { Network, Server as ServerIcon, Link2, Unlink, Move, ZoomIn, ZoomOut, Play, Square, Focus, Maximize2, Minimize2, Cpu, Globe, Wifi, WifiOff, Users, Hash, Clock, HardDrive, X } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { Server, Cluster } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -78,6 +79,18 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
     const [panning, setPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+    const [isMaximized, setIsMaximized] = useState(false);
+
+    // Support Escape key to exit maximized mode
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && isMaximized) {
+                setIsMaximized(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isMaximized]);
 
     const centerX = 300;
     const centerY = 200;
@@ -228,377 +241,453 @@ export default function VisualClusterBuilder({ cluster, servers, allServers, onA
     const offlineCount = nodes.filter(n => n.status === 'stopped').length;
     const totalPlayers = nodes.reduce((sum, n) => sum + n.players, 0);
 
-    return (
-        <div className="glass-panel rounded-2xl border border-slate-700/50 bg-slate-950 overflow-hidden shadow-2xl">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800/80 bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-slate-900/90 backdrop-blur-xl z-10 relative">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-purple-600/20 border border-pink-500/30 flex items-center justify-center shadow-lg shadow-pink-500/10">
-                        <Network className="w-5 h-5 text-pink-400" />
-                    </div>
-                    <div>
-                        <span className="text-white font-bold text-sm block leading-none tracking-wide">Cluster Topology</span>
-                        <span className="text-slate-500 text-[10px] uppercase tracking-wider block mt-1">Interactive Network Map</span>
-                    </div>
+    const renderToolbar = (isFullscreen: boolean) => (
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-xl z-10 relative">
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500/20 to-purple-600/20 border border-pink-500/30 flex items-center justify-center shadow-lg shadow-pink-500/10">
+                    <Network className="w-5 h-5 text-pink-400" />
                 </div>
-
-                {/* Center Stats Chips */}
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                        <Wifi className="w-3 h-3 text-emerald-400" />
-                        <span className="text-[10px] font-bold text-emerald-400">{onlineCount} Online</span>
+                <div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[var(--text-primary)] font-bold text-sm block leading-none tracking-wide">Cluster Topology</span>
+                        {isFullscreen && (
+                            <span className="px-2 py-0.5 rounded-md bg-pink-500/15 text-pink-400 border border-pink-500/30 text-[10px] font-bold uppercase">{cluster.name}</span>
+                        )}
                     </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700/50">
-                        <WifiOff className="w-3 h-3 text-slate-500" />
-                        <span className="text-[10px] font-bold text-slate-400">{offlineCount} Offline</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20">
-                        <Users className="w-3 h-3 text-sky-400" />
-                        <span className="text-[10px] font-bold text-sky-400">{totalPlayers} Players</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                        <Globe className="w-3 h-3 text-indigo-400" />
-                        <span className="text-[10px] font-bold text-indigo-400">{nodes.length} Nodes</span>
-                    </div>
-                    {(cluster.clusterPath.startsWith('\\\\') || cluster.clusterPath.startsWith('//') || cluster.clusterPath.includes(':')) && (
-                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20" title={`Cluster storage path: ${cluster.clusterPath}`}>
-                            <HardDrive className="w-3 h-3 text-purple-400" />
-                            <span className="text-[10px] font-bold text-purple-300">
-                                {cluster.clusterPath.startsWith('\\\\') || cluster.clusterPath.startsWith('//') ? 'Network Share' : 'Custom Path'}
-                            </span>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={resetView}
-                        className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-sky-400 transition-all border border-slate-700/50 shadow-inner mr-1"
-                        title="Auto-Center View"
-                    >
-                        <Focus className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                        onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}
-                        className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-all border border-slate-700/50 shadow-inner"
-                    >
-                        <ZoomOut className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-xs text-slate-400 font-mono w-12 text-center bg-slate-900/80 px-2 py-1.5 rounded-lg shadow-inner border border-slate-800">{Math.round(zoom * 100)}%</span>
-                    <button
-                        onClick={() => setZoom(z => Math.min(2.0, z + 0.1))}
-                        className="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white transition-all border border-slate-700/50 shadow-inner"
-                    >
-                        <ZoomIn className="w-3.5 h-3.5" />
-                    </button>
+                    <span className="text-[var(--text-muted)] text-[10px] uppercase tracking-wider block mt-1">
+                        {isFullscreen ? 'Interactive Network Map • Fullscreen View' : 'Interactive Network Map'}
+                    </span>
                 </div>
             </div>
 
-            {/* Canvas */}
-            <div
-                ref={canvasRef}
-                className={cn(
-                    "relative w-full h-[500px] select-none overflow-hidden",
-                    panning ? "cursor-grabbing" : "cursor-grab"
+            {/* Center Stats Chips */}
+            <div className="hidden md:flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <Wifi className="w-3 h-3 text-emerald-400" />
+                    <span className="text-[10px] font-bold text-emerald-400">{onlineCount} Online</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--surface-hover)] border border-[var(--border)]">
+                    <WifiOff className="w-3 h-3 text-[var(--text-muted)]" />
+                    <span className="text-[10px] font-bold text-[var(--text-secondary)]">{offlineCount} Offline</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                    <Users className="w-3 h-3 text-sky-400" />
+                    <span className="text-[10px] font-bold text-sky-400">{totalPlayers} Players</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                    <Globe className="w-3 h-3 text-indigo-400" />
+                    <span className="text-[10px] font-bold text-indigo-400">{nodes.length} Nodes</span>
+                </div>
+                {(cluster.clusterPath.startsWith('\\\\') || cluster.clusterPath.startsWith('//') || cluster.clusterPath.includes(':')) && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20" title={`Cluster storage path: ${cluster.clusterPath}`}>
+                        <HardDrive className="w-3 h-3 text-purple-400" />
+                        <span className="text-[10px] font-bold text-purple-300">
+                            {cluster.clusterPath.startsWith('\\\\') || cluster.clusterPath.startsWith('//') ? 'Network Share' : 'Custom Path'}
+                        </span>
+                    </div>
                 )}
-                style={{ background: 'radial-gradient(ellipse at 50% 50%, #0f172a 0%, #020617 70%, #000000 100%)' }}
-                onMouseDown={handleCanvasMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-            >
-                {/* Transform Layer */}
-                <div 
-                    className="absolute inset-0 origin-center" 
-                    style={{ 
-                        transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
-                        transition: dragging || panning ? 'none' : 'transform 0.2s ease-out'
+            </div>
+
+            <div className="flex items-center gap-2">
+                {/* Auto-Center View */}
+                <button
+                    onClick={resetView}
+                    className="p-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] rounded-xl text-[var(--text-secondary)] hover:text-sky-400 transition-all border border-[var(--border)] shadow-inner cursor-pointer"
+                    title="Auto-Center & Reset Zoom (100%)"
+                >
+                    <Focus className="w-3.5 h-3.5" />
+                </button>
+                {/* Zoom Out */}
+                <button
+                    onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}
+                    className="p-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--border)] shadow-inner cursor-pointer"
+                    title="Zoom Out"
+                >
+                    <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs text-[var(--text-secondary)] font-mono w-12 text-center bg-[var(--surface)] px-2 py-1.5 rounded-lg shadow-inner border border-[var(--border)]">{Math.round(zoom * 100)}%</span>
+                {/* Zoom In */}
+                <button
+                    onClick={() => setZoom(z => Math.min(2.0, z + 0.1))}
+                    className="p-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--border)] shadow-inner cursor-pointer"
+                    title="Zoom In"
+                >
+                    <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                {/* Maximize / Exit Fullscreen Button */}
+                {isFullscreen ? (
+                    <>
+                        <button
+                            onClick={() => setIsMaximized(false)}
+                            className="px-3 py-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 rounded-xl transition-all shadow-inner ml-1 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                            title="Exit Fullscreen (Esc)"
+                        >
+                            <Minimize2 className="w-3.5 h-3.5" />
+                            <span>Exit Fullscreen</span>
+                        </button>
+                        <button
+                            onClick={() => setIsMaximized(false)}
+                            className="p-2 bg-[var(--surface-hover)] hover:bg-rose-500/20 text-[var(--text-secondary)] hover:text-rose-400 rounded-xl transition-all border border-[var(--border)] hover:border-rose-500/30 shadow-inner cursor-pointer"
+                            title="Close (Esc)"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                        </button>
+                    </>
+                ) : (
+                    <button
+                        onClick={() => setIsMaximized(true)}
+                        className="p-2 rounded-xl transition-all border shadow-inner bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-sky-400 border-[var(--border)] cursor-pointer"
+                        title="Maximize Interactive Map (Fullscreen)"
+                    >
+                        <Maximize2 className="w-3.5 h-3.5" />
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+
+    const renderCanvasContent = () => (
+        <div 
+            className="absolute inset-0 origin-center" 
+            style={{ 
+                transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`,
+                transition: dragging || panning ? 'none' : 'transform 0.2s ease-out'
+            }}
+        >
+            {/* Grid dots */}
+            <svg className="absolute inset-0 w-[2000px] h-[2000px] -left-[1000px] -top-[1000px] pointer-events-none">
+                <defs>
+                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                        <circle cx="20" cy="20" r="1" fill="rgba(148,163,184,0.08)" />
+                    </pattern>
+                    {/* Glow filter for connection lines */}
+                    <filter id="connectionGlow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+
+                {/* Curved Connection lines */}
+                {nodes.length > 0 && nodes.map((node) => {
+                    const isActive = node.status === 'running' || node.status === 'online';
+                    const path = createBezierPath(node.x + 1000, node.y + 1000, hubX + 1000, hubY + 1000);
+                    const mapColor = getMapColor(node.mapName);
+                    
+                    return (
+                        <g key={`link-${node.id}`}>
+                            {/* Base track line */}
+                            <path
+                                d={path}
+                                fill="none"
+                                stroke={isActive ? `${mapColor}30` : "rgba(100,116,139,0.12)"}
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                            />
+                            {/* Animated data flow pulse */}
+                            {isActive && (
+                                <path
+                                    d={path}
+                                    fill="none"
+                                    stroke={mapColor}
+                                    strokeWidth="2.5"
+                                    strokeDasharray="8 45"
+                                    strokeLinecap="round"
+                                    className="animate-[dash_2s_linear_infinite]"
+                                    filter="url(#connectionGlow)"
+                                />
+                            )}
+                        </g>
+                    );
+                })}
+            </svg>
+
+            {/* Center Hub */}
+            {nodes.length > 0 && (
+                <div
+                    className="absolute flex items-center justify-center pointer-events-none z-10"
+                    style={{
+                        left: hubX - 28,
+                        top: hubY - 28,
                     }}
                 >
-                    {/* Grid dots */}
-                    <svg className="absolute inset-0 w-[2000px] h-[2000px] -left-[1000px] -top-[1000px] pointer-events-none">
-                        <defs>
-                            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                                <circle cx="20" cy="20" r="1" fill="rgba(148,163,184,0.08)" />
-                            </pattern>
-                            {/* Glow filter for connection lines */}
-                            <filter id="connectionGlow">
-                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                                <feMerge>
-                                    <feMergeNode in="coloredBlur"/>
-                                    <feMergeNode in="SourceGraphic"/>
-                                </feMerge>
-                            </filter>
-                        </defs>
-                        <rect width="100%" height="100%" fill="url(#grid)" />
-
-                        {/* Curved Connection lines */}
-                        {nodes.length > 0 && nodes.map((node) => {
-                            const isActive = node.status === 'running' || node.status === 'online';
-                            const path = createBezierPath(node.x + 1000, node.y + 1000, hubX + 1000, hubY + 1000);
-                            const mapColor = getMapColor(node.mapName);
-                            
-                            return (
-                                <g key={`link-${node.id}`}>
-                                    {/* Base track line */}
-                                    <path
-                                        d={path}
-                                        fill="none"
-                                        stroke={isActive ? `${mapColor}30` : "rgba(100,116,139,0.12)"}
-                                        strokeWidth="3"
-                                        strokeLinecap="round"
-                                    />
-                                    {/* Animated data flow pulse */}
-                                    {isActive && (
-                                        <path
-                                            d={path}
-                                            fill="none"
-                                            stroke={mapColor}
-                                            strokeWidth="2.5"
-                                            strokeDasharray="8 45"
-                                            strokeLinecap="round"
-                                            className="animate-[dash_2s_linear_infinite]"
-                                            filter="url(#connectionGlow)"
-                                        />
-                                    )}
-                                </g>
-                            );
-                        })}
-                    </svg>
-
-                    {/* Center Hub */}
-                    {nodes.length > 0 && (
-                        <div
-                            className="absolute flex items-center justify-center pointer-events-none z-10"
-                            style={{
-                                left: hubX - 28,
-                                top: hubY - 28,
-                            }}
-                        >
-                            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-900/95 to-slate-800/90 border-2 border-pink-500/40 flex items-center justify-center shadow-[0_0_40px_rgba(236,72,153,0.25),0_0_80px_rgba(236,72,153,0.1)] backdrop-blur-xl">
-                                <Link2 className="w-7 h-7 text-pink-400 drop-shadow-[0_0_12px_rgba(236,72,153,0.9)]" />
-                                <div className="absolute inset-0 rounded-full border-2 border-pink-500/20 animate-ping opacity-40" style={{ animationDuration: '3s' }}></div>
-                                {/* Outer glow ring */}
-                                <div className="absolute -inset-2 rounded-full border border-pink-500/10 animate-pulse" style={{ animationDuration: '4s' }}></div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Nodes */}
-                    <div className="absolute inset-0 z-20">
-                        {nodes.map(node => {
-                            const color = getMapColor(node.mapName);
-                            const isActive = node.status === 'running' || node.status === 'online';
-                            const isCrashed = node.status === 'crashed';
-                            const isSelected = selectedNode === node.id;
-
-                            return (
-                                <div
-                                    key={node.id}
-                                    className={cn(
-                                        "absolute flex items-center group cursor-grab active:cursor-grabbing",
-                                        dragging === node.id && "z-30",
-                                        isSelected && "z-40"
-                                    )}
-                                    style={{
-                                        left: node.x - 36,
-                                        top: node.y - 36,
-                                    }}
-                                    onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
-                                    onDoubleClick={() => setSelectedNode(node.id)}
-                                >
-                                    {/* Glassmorphic Node Body */}
-                                    <div
-                                        className={cn(
-                                            "relative w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center backdrop-blur-md transition-all duration-300",
-                                            isSelected ? "ring-2 ring-offset-2 ring-offset-slate-950 scale-110 shadow-2xl" : "hover:scale-105 hover:shadow-xl"
-                                        )}
-                                        style={{
-                                            background: isActive
-                                                ? `linear-gradient(135deg, ${color}15, ${color}08)`
-                                                : isCrashed
-                                                    ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.05))'
-                                                    : 'linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95))',
-                                            border: `1.5px solid ${isActive ? `${color}60` : isCrashed ? 'rgba(239,68,68,0.4)' : 'rgba(71,85,105,0.35)'}`,
-                                            boxShadow: isActive
-                                                ? `inset 0 1px 0 ${color}20, 0 0 30px ${color}20, 0 4px 20px rgba(0,0,0,0.4)`
-                                                : isCrashed
-                                                    ? 'inset 0 0 15px rgba(239,68,68,0.15), 0 4px 20px rgba(0,0,0,0.4)'
-                                                    : '0 4px 20px rgba(0,0,0,0.4)',
-                                            ...(isSelected ? { ringColor: color } : {})
-                                        }}
-                                    >
-                                        <ServerIcon className={cn("w-6 h-6 mb-0.5 transition-all", isActive ? "drop-shadow-lg" : "")} style={{ color: isActive ? color : isCrashed ? '#ef4444' : '#64748b' }} />
-                                        
-                                        {/* Status Text Pill inside Node */}
-                                        <div className={cn(
-                                            "text-[7px] font-extrabold px-2 py-[2px] rounded-full uppercase tracking-[0.08em] mt-0.5",
-                                            isActive ? "bg-green-500/20 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.3)]" : isCrashed ? "bg-red-500/20 text-red-400" : "bg-slate-800/80 text-slate-500"
-                                        )}>
-                                            {node.status === 'running' || node.status === 'online' ? 'ONLINE' : node.status === 'stopped' ? 'OFFLINE' : node.status.toUpperCase()}
-                                        </div>
-
-                                        {/* Top Right Activity Indicator */}
-                                        {isActive && (
-                                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-slate-950 rounded-full flex items-center justify-center border border-slate-800">
-                                                <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.9)]" />
-                                            </div>
-                                        )}
-
-                                        {/* Colored accent bar at bottom */}
-                                        <div 
-                                            className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full"
-                                            style={{ background: isActive ? color : isCrashed ? '#ef4444' : 'rgba(71,85,105,0.3)' }}
-                                        />
-                                    </div>
-
-                                    {/* Label underneath */}
-                                    <div className="absolute top-[80px] left-1/2 -translate-x-1/2 text-center pointer-events-none w-[140px]">
-                                        <p className="text-[11px] font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] truncate">{node.name}</p>
-                                        <p className="text-[9px] text-slate-500 drop-shadow-md truncate font-medium">{(node.mapName || 'Unknown').replace('_WP', '')}</p>
-                                    </div>
-
-                                    {/* Hover / Select Popover Tooltip */}
-                                    <AnimatePresence>
-                                        {(isSelected || (dragging !== node.id)) && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                exit={{ opacity: 0, y: 5, scale: 0.95 }}
-                                                transition={{ duration: 0.15 }}
-                                                className={cn(
-                                                    "absolute left-full ml-5 top-1/2 -translate-y-1/2 z-50",
-                                                    isSelected ? "block" : "hidden group-hover:block"
-                                                )}
-                                            >
-                                                <div className="bg-slate-900/98 backdrop-blur-2xl border border-slate-700/80 rounded-2xl p-4 shadow-2xl shadow-black/50 min-w-[210px] pointer-events-auto cursor-default">
-                                                    {/* Triangle pointer */}
-                                                    <div className="absolute right-full top-1/2 -translate-y-1/2 -mr-[1px] w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-slate-700/80">
-                                                        <div className="absolute -right-[9px] -top-[7px] w-0 h-0 border-y-[7px] border-y-transparent border-r-[7px] border-r-slate-900/98"></div>
-                                                    </div>
-
-                                                    {/* Server Name + Status */}
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <p className="text-sm text-white font-bold truncate max-w-[140px]">{node.name}</p>
-                                                        <div className={cn(
-                                                            "flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide",
-                                                            isActive ? "bg-green-500/15 text-green-400" : isCrashed ? "bg-red-500/15 text-red-400" : "bg-slate-800 text-slate-500"
-                                                        )}>
-                                                            <div className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-green-500" : isCrashed ? "bg-red-500" : "bg-slate-500")} />
-                                                            {node.status === 'running' || node.status === 'online' ? 'ONLINE' : node.status === 'stopped' ? 'OFFLINE' : node.status.toUpperCase()}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Info Grid */}
-                                                    <div className="grid grid-cols-2 gap-1.5 text-[10px] text-slate-400 mb-3 bg-slate-950/70 rounded-xl p-2.5 shadow-inner border border-slate-800/50">
-                                                        <div className="col-span-2 flex items-center gap-1.5 pb-1.5 border-b border-slate-800/50 mb-0.5">
-                                                            <Globe className="w-3 h-3 text-slate-500" />
-                                                            <span className="text-slate-200 font-semibold">{node.mapName}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <Hash className="w-2.5 h-2.5 text-slate-600" />
-                                                            <span>Game:</span>
-                                                            <span className="text-slate-200 font-mono font-medium">{node.ports.gamePort}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <Hash className="w-2.5 h-2.5 text-slate-600" />
-                                                            <span>Query:</span>
-                                                            <span className="text-slate-200 font-mono font-medium">{node.ports.queryPort}</span>
-                                                        </div>
-                                                        {isActive && (
-                                                            <>
-                                                                <div className="flex items-center gap-1.5 text-sky-400">
-                                                                    <Cpu className="w-3 h-3"/>
-                                                                    <span className="font-bold">{node.cpu}%</span>
-                                                                    <span className="text-slate-600">CPU</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1.5 text-violet-400">
-                                                                    <HardDrive className="w-3 h-3"/>
-                                                                    <span className="font-bold">{node.ram}%</span>
-                                                                    <span className="text-slate-600">RAM</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1.5 text-emerald-400">
-                                                                    <Users className="w-3 h-3"/>
-                                                                    <span className="font-bold">{node.players}/{node.maxPlayers}</span>
-                                                                    <span className="text-slate-600">Players</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1.5 text-amber-400">
-                                                                    <Clock className="w-3 h-3"/>
-                                                                    <span className="font-bold">{node.uptime}</span>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                        {!isActive && (
-                                                            <>
-                                                                <div className="col-span-2 flex items-center gap-1.5 text-slate-500">
-                                                                    <Users className="w-3 h-3"/>
-                                                                    <span className="font-medium">0/{node.maxPlayers} Players</span>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Quick Actions inside Tooltip */}
-                                                    <div className="flex items-center gap-1.5">
-                                                        {(node.status === 'stopped' || node.status === 'crashed') && onStartServer && (
-                                                            <button onClick={(e) => { e.stopPropagation(); onStartServer(node.serverId); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 rounded-xl shadow-inner text-[10px] font-bold transition-all">
-                                                                <Play className="w-3 h-3" /> Start
-                                                            </button>
-                                                        )}
-                                                        {(node.status === 'running' || node.status === 'online') && onStopServer && (
-                                                            <button onClick={(e) => { e.stopPropagation(); onStopServer(node.serverId); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl shadow-inner text-[10px] font-bold transition-all">
-                                                                <Square className="w-3 h-3" /> Stop
-                                                            </button>
-                                                        )}
-                                                        {onRemoveServer && (
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); onRemoveServer(node.serverId); }}
-                                                                className="flex items-center justify-center w-8 h-8 bg-slate-800/80 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700/60 hover:border-red-500/30 rounded-xl transition-all"
-                                                                title="Unlink from Cluster"
-                                                            >
-                                                                <Unlink className="w-3 h-3" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-
-            {/* Add server bar */}
-            {onAddServer && availableServers.length > 0 && (
-                <div className="px-5 py-3.5 border-t border-slate-800/80 bg-gradient-to-r from-slate-900/50 to-slate-900/30 backdrop-blur flex items-center gap-4">
-                    <span className="text-xs text-slate-500 flex items-center gap-1.5 font-bold uppercase tracking-wider">
-                        <Move className="w-3.5 h-3.5" />
-                        Add Node
-                    </span>
-                    <div className="h-5 w-px bg-slate-800" />
-                    <div className="flex flex-wrap gap-2">
-                        {availableServers.slice(0, 5).map(s => (
-                            <button
-                                key={s.id}
-                                onClick={() => onAddServer(s.id)}
-                                className="px-3.5 py-1.5 bg-slate-800/60 hover:bg-pink-500/15 text-slate-300 hover:text-pink-300 border border-slate-700/60 hover:border-pink-500/40 rounded-xl text-xs font-semibold transition-all shadow-inner hover:shadow-[0_0_15px_rgba(236,72,153,0.15)]"
-                            >
-                                + {s.name}
-                            </button>
-                        ))}
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-900/95 to-slate-800/90 border-2 border-pink-500/40 flex items-center justify-center shadow-[0_0_40px_rgba(236,72,153,0.25),0_0_80px_rgba(236,72,153,0.1)] backdrop-blur-xl">
+                        <Link2 className="w-7 h-7 text-pink-400 drop-shadow-[0_0_12px_rgba(236,72,153,0.9)]" />
+                        <div className="absolute inset-0 rounded-full border-2 border-pink-500/20 animate-ping opacity-40" style={{ animationDuration: '3s' }}></div>
+                        {/* Outer glow ring */}
+                        <div className="absolute -inset-2 rounded-full border border-pink-500/10 animate-pulse" style={{ animationDuration: '4s' }}></div>
                     </div>
                 </div>
             )}
-            
-            {/* Global Animation styles needed for data flow */}
-            <style dangerouslySetInnerHTML={{__html: `
-                @keyframes dash {
-                    to { stroke-dashoffset: -53; }
-                }
-            `}} />
+
+            {/* Nodes */}
+            <div className="absolute inset-0 z-20">
+                {nodes.map(node => {
+                    const color = getMapColor(node.mapName);
+                    const isActive = node.status === 'running' || node.status === 'online';
+                    const isCrashed = node.status === 'crashed';
+                    const isSelected = selectedNode === node.id;
+
+                    return (
+                        <div
+                            key={node.id}
+                            className={cn(
+                                "absolute flex items-center group cursor-grab active:cursor-grabbing",
+                                dragging === node.id && "z-30",
+                                isSelected && "z-40"
+                            )}
+                            style={{
+                                left: node.x - 36,
+                                top: node.y - 36,
+                            }}
+                            onMouseDown={(e) => handleNodeMouseDown(e, node.id)}
+                            onDoubleClick={() => setSelectedNode(node.id)}
+                        >
+                            {/* Glassmorphic Node Body */}
+                            <div
+                                className={cn(
+                                    "relative w-[72px] h-[72px] rounded-2xl flex flex-col items-center justify-center backdrop-blur-md transition-all duration-300",
+                                    isSelected ? "ring-2 ring-offset-2 ring-offset-slate-950 scale-110 shadow-2xl" : "hover:scale-105 hover:shadow-xl"
+                                )}
+                                style={{
+                                    background: isActive
+                                        ? `linear-gradient(135deg, ${color}15, ${color}08)`
+                                        : isCrashed
+                                            ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.05))'
+                                            : 'linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95))',
+                                    border: `1.5px solid ${isActive ? `${color}60` : isCrashed ? 'rgba(239,68,68,0.4)' : 'rgba(71,85,105,0.35)'}`,
+                                    boxShadow: isActive
+                                        ? `inset 0 1px 0 ${color}20, 0 0 30px ${color}20, 0 4px 20px rgba(0,0,0,0.4)`
+                                        : isCrashed
+                                            ? 'inset 0 0 15px rgba(239,68,68,0.15), 0 4px 20px rgba(0,0,0,0.4)'
+                                            : '0 4px 20px rgba(0,0,0,0.4)',
+                                    ...(isSelected ? { ringColor: color } : {})
+                                }}
+                            >
+                                <ServerIcon className={cn("w-6 h-6 mb-0.5 transition-all", isActive ? "drop-shadow-lg" : "")} style={{ color: isActive ? color : isCrashed ? '#ef4444' : '#64748b' }} />
+                                
+                                {/* Status Text Pill inside Node */}
+                                <div className={cn(
+                                    "text-[7px] font-extrabold px-2 py-[2px] rounded-full uppercase tracking-[0.08em] mt-0.5",
+                                    isActive ? "bg-green-500/20 text-green-400 shadow-[0_0_8px_rgba(34,197,94,0.3)]" : isCrashed ? "bg-red-500/20 text-red-400" : "bg-slate-800/80 text-slate-500"
+                                )}>
+                                    {node.status === 'running' || node.status === 'online' ? 'ONLINE' : node.status === 'stopped' ? 'OFFLINE' : node.status.toUpperCase()}
+                                </div>
+
+                                {/* Top Right Activity Indicator */}
+                                {isActive && (
+                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-slate-950 rounded-full flex items-center justify-center border border-slate-800">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.9)]" />
+                                    </div>
+                                )}
+
+                                {/* Colored accent bar at bottom */}
+                                <div 
+                                    className="absolute bottom-0 left-2 right-2 h-[2px] rounded-full"
+                                    style={{ background: isActive ? color : isCrashed ? '#ef4444' : 'rgba(71,85,105,0.3)' }}
+                                />
+                            </div>
+
+                            {/* Label underneath */}
+                            <div className="absolute top-[80px] left-1/2 -translate-x-1/2 text-center pointer-events-none w-[140px]">
+                                <p className="text-[11px] font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] truncate">{node.name}</p>
+                                <p className="text-[9px] text-slate-500 drop-shadow-md truncate font-medium">{(node.mapName || 'Unknown').replace('_WP', '')}</p>
+                            </div>
+
+                            {/* Hover / Select Popover Tooltip */}
+                            <AnimatePresence>
+                                {(isSelected || (dragging !== node.id)) && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                                        transition={{ duration: 0.15 }}
+                                        className={cn(
+                                            "absolute left-full ml-5 top-1/2 -translate-y-1/2 z-50",
+                                            isSelected ? "block" : "hidden group-hover:block"
+                                        )}
+                                    >
+                                        <div className="bg-[var(--card-background)] backdrop-blur-2xl border border-[var(--border)] rounded-2xl p-4 shadow-2xl min-w-[210px] pointer-events-auto cursor-default text-[var(--text-primary)]">
+                                            {/* Triangle pointer */}
+                                            <div className="absolute right-full top-1/2 -translate-y-1/2 -mr-[1px] w-0 h-0 border-y-8 border-y-transparent border-r-8 border-r-[var(--border)]">
+                                                <div className="absolute -right-[9px] -top-[7px] w-0 h-0 border-y-[7px] border-y-transparent border-r-[7px] border-r-[var(--card-background)]"></div>
+                                            </div>
+
+                                            {/* Server Name + Status */}
+                                            <div className="flex items-center justify-between mb-2">
+                                                <p className="text-sm text-[var(--text-primary)] font-bold truncate max-w-[140px]">{node.name}</p>
+                                                <div className={cn(
+                                                    "flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide",
+                                                    isActive ? "bg-green-500/15 text-green-400" : isCrashed ? "bg-red-500/15 text-red-400" : "bg-[var(--surface-hover)] text-[var(--text-muted)]"
+                                                )}>
+                                                    <div className={cn("w-1.5 h-1.5 rounded-full", isActive ? "bg-green-500" : isCrashed ? "bg-red-500" : "bg-slate-400")} />
+                                                    {node.status === 'running' || node.status === 'online' ? 'ONLINE' : node.status === 'stopped' ? 'OFFLINE' : node.status.toUpperCase()}
+                                                </div>
+                                            </div>
+
+                                            {/* Info Grid */}
+                                            <div className="grid grid-cols-2 gap-1.5 text-[10px] text-[var(--text-secondary)] mb-3 bg-[var(--surface)] rounded-xl p-2.5 shadow-inner border border-[var(--border)]">
+                                                <div className="col-span-2 flex items-center gap-1.5 pb-1.5 border-b border-[var(--border)] mb-0.5">
+                                                    <Globe className="w-3 h-3 text-[var(--text-muted)]" />
+                                                    <span className="text-[var(--text-primary)] font-semibold">{node.mapName}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <Hash className="w-2.5 h-2.5 text-[var(--text-muted)]" />
+                                                    <span className="text-[var(--text-secondary)]">Game:</span>
+                                                    <span className="text-[var(--text-primary)] font-mono font-medium">{node.ports.gamePort}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <Hash className="w-2.5 h-2.5 text-[var(--text-muted)]" />
+                                                    <span className="text-[var(--text-secondary)]">Query:</span>
+                                                    <span className="text-[var(--text-primary)] font-mono font-medium">{node.ports.queryPort}</span>
+                                                </div>
+                                                {isActive && (
+                                                    <>
+                                                        <div className="flex items-center gap-1.5 text-sky-400">
+                                                            <Cpu className="w-3 h-3"/>
+                                                            <span className="font-bold">{node.cpu}%</span>
+                                                            <span className="text-[var(--text-muted)]">CPU</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-violet-400">
+                                                            <HardDrive className="w-3 h-3"/>
+                                                            <span className="font-bold">{node.ram}%</span>
+                                                            <span className="text-[var(--text-muted)]">RAM</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-emerald-400">
+                                                            <Users className="w-3 h-3"/>
+                                                            <span className="font-bold">{node.players}/{node.maxPlayers}</span>
+                                                            <span className="text-[var(--text-muted)]">Players</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 text-amber-400">
+                                                            <Clock className="w-3 h-3"/>
+                                                            <span className="font-bold">{node.uptime}</span>
+                                                        </div>
+                                                    </>
+                                                )}
+                                                {!isActive && (
+                                                    <>
+                                                        <div className="col-span-2 flex items-center gap-1.5 text-[var(--text-muted)]">
+                                                            <Users className="w-3 h-3"/>
+                                                            <span className="font-medium">0/{node.maxPlayers} Players</span>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+
+                                            {/* Quick Actions inside Tooltip */}
+                                            <div className="flex items-center gap-1.5">
+                                                {(node.status === 'stopped' || node.status === 'crashed') && onStartServer && (
+                                                    <button onClick={(e) => { e.stopPropagation(); onStartServer(node.serverId); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 rounded-xl shadow-inner text-[10px] font-bold transition-all cursor-pointer">
+                                                        <Play className="w-3 h-3" /> Start
+                                                    </button>
+                                                )}
+                                                {(node.status === 'running' || node.status === 'online') && onStopServer && (
+                                                    <button onClick={(e) => { e.stopPropagation(); onStopServer(node.serverId); }} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl shadow-inner text-[10px] font-bold transition-all cursor-pointer">
+                                                        <Square className="w-3 h-3" /> Stop
+                                                    </button>
+                                                )}
+                                                {onRemoveServer && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); onRemoveServer(node.serverId); }}
+                                                        className="flex items-center justify-center w-8 h-8 bg-[var(--surface-hover)] hover:bg-red-500/20 text-[var(--text-secondary)] hover:text-red-400 border border-[var(--border)] hover:border-red-500/30 rounded-xl transition-all cursor-pointer"
+                                                        title="Unlink from Cluster"
+                                                    >
+                                                        <Unlink className="w-3 h-3" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
+    );
+
+    const renderAddServerBar = () => {
+        if (!onAddServer || availableServers.length === 0) return null;
+        return (
+            <div className="px-5 py-3.5 border-t border-[var(--border)] bg-[var(--surface)] backdrop-blur flex items-center gap-4">
+                <span className="text-xs text-[var(--text-muted)] flex items-center gap-1.5 font-bold uppercase tracking-wider">
+                    <Move className="w-3.5 h-3.5" />
+                    Add Node
+                </span>
+                <div className="h-5 w-px bg-[var(--border)]" />
+                <div className="flex flex-wrap gap-2">
+                    {availableServers.slice(0, 5).map(s => (
+                        <button
+                            key={s.id}
+                            onClick={() => onAddServer(s.id)}
+                            className="px-3.5 py-1.5 bg-[var(--surface-hover)] hover:bg-pink-500/15 text-[var(--text-secondary)] hover:text-pink-400 border border-[var(--border)] hover:border-pink-500/40 rounded-xl text-xs font-semibold transition-all shadow-inner hover:shadow-[0_0_15px_rgba(236,72,153,0.15)] cursor-pointer"
+                        >
+                            + {s.name}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    const renderAnimationStyles = () => (
+        <style dangerouslySetInnerHTML={{__html: `
+            @keyframes dash {
+                to { stroke-dashoffset: -53; }
+            }
+        `}} />
+    );
+
+    return (
+        <>
+            {/* In-Page View */}
+            <div className="glass-panel rounded-2xl border border-[var(--border)] overflow-hidden shadow-2xl relative">
+                {renderToolbar(false)}
+                <div
+                    ref={!isMaximized ? canvasRef : undefined}
+                    className={cn(
+                        "relative w-full h-[520px] select-none overflow-hidden",
+                        panning ? "cursor-grabbing" : "cursor-grab"
+                    )}
+                    style={{ background: 'radial-gradient(ellipse at 50% 50%, #0f172a 0%, #020617 70%, #000000 100%)' }}
+                    onMouseDown={handleCanvasMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                >
+                    {renderCanvasContent()}
+                </div>
+                {renderAddServerBar()}
+                {renderAnimationStyles()}
+            </div>
+
+            {/* Fullscreen View via React Portal to Document Body */}
+            {isMaximized && createPortal(
+                <div className="fixed inset-0 z-[999999] bg-[#060a14] flex flex-col select-none overflow-hidden animate-in fade-in duration-200">
+                    {renderToolbar(true)}
+                    <div
+                        ref={canvasRef}
+                        className={cn(
+                            "relative flex-1 w-full select-none overflow-hidden",
+                            panning ? "cursor-grabbing" : "cursor-grab"
+                        )}
+                        style={{ background: 'radial-gradient(ellipse at 50% 50%, #0f172a 0%, #020617 70%, #000000 100%)' }}
+                        onMouseDown={handleCanvasMouseDown}
+                        onMouseMove={handleMouseMove}
+                        onMouseUp={handleMouseUp}
+                        onMouseLeave={handleMouseUp}
+                    >
+                        {renderCanvasContent()}
+                    </div>
+                    {renderAddServerBar()}
+                    {renderAnimationStyles()}
+                </div>,
+                document.body
+            )}
+        </>
     );
 }

@@ -1,5 +1,16 @@
-// Discord Webhook Service for ASA Server Manager
-// Sends notifications for server events to Discord channels
+// Discord Webhook Service & Remote Management Subsystem for ASA Server Manager
+// Sends notifications for server events to Discord channels and coordinates remote commands
+
+pub mod types;
+pub mod auth;
+pub mod rate_limit;
+pub mod setup;
+pub mod dashboard;
+pub mod commands;
+pub mod components;
+pub mod player;
+pub mod whitelist;
+pub mod audit;
 
 use crate::AppState;
 use reqwest::Client;
@@ -125,6 +136,7 @@ pub fn get_server_name(app_handle: &tauri::AppHandle, server_id: i64) -> String 
 // ── Embed Structs ──────────────────────────────────────────────────────
 
 /// Discord embed structure
+#[derive(Clone, Debug)]
 pub struct DiscordEmbed {
     pub title: String,
     pub description: String,
@@ -168,6 +180,7 @@ impl DiscordEmbed {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct EmbedField {
     pub name: String,
     pub value: String,

@@ -1277,7 +1277,7 @@ export default function ModManager() {
                         className="h-11 flex items-center gap-2 px-4 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 border border-amber-500/30 rounded-xl transition-all font-bold text-xs whitespace-nowrap shadow-sm active:scale-95 shrink-0"
                         title={t('modManager.configureApiKeyTooltip', 'Configure CurseForge API Key in Settings')}
                     >
-                        <Key className="w-4 h-4 text-amber-400 shrink-0" />
+                        <Key className="w-4 h-4 text-amber-500 shrink-0" />
                         <span>{t('modManager.apiKeySetting', 'CurseForge API Key')}</span>
                     </button>
 
@@ -1285,20 +1285,20 @@ export default function ModManager() {
                     <button
                         onClick={() => setShowAdvancedMode(true)}
                         disabled={!selectedServerId}
-                        className="h-11 flex items-center gap-2 px-4 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 hover:text-sky-300 border border-sky-500/30 rounded-xl transition-all font-bold text-xs whitespace-nowrap disabled:opacity-50 shadow-sm active:scale-95 shrink-0"
+                        className="h-11 flex items-center gap-2 px-4 bg-sky-500/15 hover:bg-sky-500/25 text-sky-700 dark:text-sky-300 border border-sky-500/30 rounded-xl transition-all font-bold text-xs whitespace-nowrap disabled:opacity-50 shadow-sm active:scale-95 shrink-0 cursor-pointer"
                         title={t('modManager.addModByIdTooltip', 'Install Mod directly by Mod ID (No API Key Required)')}
                     >
-                        <PackagePlus className="w-4 h-4 text-sky-400 shrink-0" />
+                        <PackagePlus className="w-4 h-4 text-sky-500 shrink-0" />
                         <span>{t('modManager.addModById', 'Add Mod by ID')}</span>
                     </button>
 
                     {/* Grouped Icon Utility Toolbar */}
-                    <div className="h-11 bg-slate-900/80 border border-slate-800 rounded-xl p-1 flex items-center gap-1 backdrop-blur-md shrink-0 shadow-inner">
+                    <div className="h-11 bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl p-1 flex items-center gap-1 backdrop-blur-md shrink-0 shadow-inner">
                         {/* Export Modpack */}
                         <button
                             onClick={() => setShowModpackExport(true)}
                             disabled={!selectedServerId}
-                            className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all disabled:opacity-40"
+                            className="h-9 w-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-all disabled:opacity-40 cursor-pointer"
                             title={t('modManager.exportModpack', 'Export Modpack')}
                         >
                             <Upload className="w-4 h-4" />
@@ -1308,7 +1308,7 @@ export default function ModManager() {
                         <button
                             onClick={() => setShowModpackImport(true)}
                             disabled={!selectedServerId}
-                            className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all disabled:opacity-40"
+                            className="h-9 w-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-all disabled:opacity-40 cursor-pointer"
                             title={t('modManager.importModpack', 'Import Modpack')}
                         >
                             <PackagePlus className="w-4 h-4" />
@@ -1318,17 +1318,17 @@ export default function ModManager() {
                         <button
                             onClick={handleScanConflicts}
                             disabled={!selectedServerId || isScanning}
-                            className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all disabled:opacity-40"
+                            className="h-9 w-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-all disabled:opacity-40 cursor-pointer"
                             title={t('modManager.scanConflicts', 'Scan for Conflicts')}
                         >
-                            {isScanning ? <Loader2 className="w-4 h-4 animate-spin text-sky-400" /> : <ScanSearch className="w-4 h-4" />}
+                            {isScanning ? <Loader2 className="w-4 h-4 animate-spin text-sky-500" /> : <ScanSearch className="w-4 h-4" />}
                         </button>
 
                         {/* Transfer Mods */}
                         <button
                             onClick={() => setShowTransferDialog(true)}
                             disabled={!selectedServerId}
-                            className="h-9 w-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all disabled:opacity-40"
+                            className="h-9 w-9 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-all disabled:opacity-40 cursor-pointer"
                             title={t('modManager.transferModsTooltip', 'Transfer Mods to another server')}
                         >
                             <ArrowUp className="w-4 h-4" />
@@ -1339,7 +1339,7 @@ export default function ModManager() {
                     <button
                         onClick={handlePreviewConfig}
                         disabled={!selectedServerId || isGenerating}
-                        className="h-11 flex items-center gap-2 px-5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 shadow-lg shadow-sky-500/20 active:scale-95 shrink-0 whitespace-nowrap"
+                        className="h-11 flex items-center gap-2 px-5 bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-50 shadow-lg shadow-sky-500/20 active:scale-95 shrink-0 whitespace-nowrap cursor-pointer"
                     >
                         {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         <span>{t('modManager.applyChanges', 'Apply Changes')}</span>
@@ -1348,37 +1348,37 @@ export default function ModManager() {
             </div>
 
             {/* Batch Install Floating & Progress */}
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-4 w-full max-w-xl pointer-events-none">
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-4 w-full max-w-xl pointer-events-none px-4">
                 {/* Progress Bar */}
                 {isBatchInstalling && (
-                    <div className="w-full bg-slate-900/90 border border-sky-500/30 rounded-2xl p-4 shadow-2xl shadow-sky-900/20 animate-in slide-in-from-bottom-5 pointer-events-auto">
+                    <div className="w-full bg-[var(--surface-active)] backdrop-blur-xl border border-[var(--border)] rounded-2xl p-4 shadow-2xl pointer-events-auto">
                         <div className="flex justify-between text-sm mb-2">
-                            <span className="text-sky-400 font-medium animate-pulse">{t('modManager.installing', { name: batchProgress.currentModName })}</span>
-                            <span className="text-slate-400">{batchProgress.current} / {batchProgress.total}</span>
+                            <span className="text-sky-600 dark:text-sky-400 font-bold animate-pulse">{t('modManager.installing', { name: batchProgress.currentModName })}</span>
+                            <span className="text-[var(--text-secondary)] font-mono">{batchProgress.current} / {batchProgress.total}</span>
                         </div>
-                        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-sky-500 to-violet-500 transition-all duration-300 ease-out" style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }} />
+                        <div className="h-2 bg-[var(--surface-hover)] rounded-full overflow-hidden border border-[var(--border)]">
+                            <div className="h-full bg-gradient-to-r from-sky-500 to-violet-500 transition-all duration-300 ease-out shadow-[0_0_8px_rgba(56,189,248,0.5)]" style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }} />
                         </div>
                     </div>
                 )}
 
                 {/* Batch Action Bar */}
                 {selectedModIds.size > 0 && !isBatchInstalling && activeTab === 'available' && (
-                    <div className="bg-slate-900/85 backdrop-blur-md border border-slate-700 rounded-full px-5 py-2.5 shadow-2xl shadow-sky-950/40 flex items-center gap-4 sm:gap-6 animate-in slide-in-from-bottom-5 pointer-events-auto">
-                        <span className="text-white font-medium pl-1 text-sm sm:text-base whitespace-nowrap shrink-0">
+                    <div className="bg-[var(--surface-active)] backdrop-blur-xl border border-[var(--border)] rounded-full px-5 py-2.5 shadow-2xl flex items-center gap-4 sm:gap-6 animate-in slide-in-from-bottom-5 pointer-events-auto">
+                        <span className="text-[var(--text-primary)] font-bold pl-1 text-sm sm:text-base whitespace-nowrap shrink-0">
                             {t('modManager.selectedCount', '{{count}} mods selected', { count: selectedModIds.size })}
                         </span>
-                        <div className="h-6 w-px bg-slate-700 shrink-0" />
+                        <div className="h-6 w-px bg-[var(--border)] shrink-0" />
                         <button 
                             onClick={() => setSelectedModIds(new Set())} 
-                            className="text-slate-400 hover:text-white transition-colors text-sm whitespace-nowrap shrink-0"
+                            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors text-sm font-semibold whitespace-nowrap shrink-0 cursor-pointer"
                         >
                             {t('modManager.clearSelection', 'Clear Selection')}
                         </button>
                         <button 
                             onClick={handleBatchInstall} 
                             disabled={!selectedServerId} 
-                            className="flex items-center space-x-2 px-4 py-1.5 sm:px-5 sm:py-2 bg-sky-600 hover:bg-sky-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none disabled:opacity-50 text-white rounded-full font-bold transition-all shadow-lg shadow-sky-500/20 whitespace-nowrap shrink-0"
+                            className="flex items-center space-x-2 px-4 py-1.5 sm:px-5 sm:py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:shadow-none text-white rounded-full font-bold transition-all shadow-lg shadow-sky-500/20 whitespace-nowrap shrink-0 cursor-pointer"
                         >
                             <Download className="w-4 h-4 shrink-0" /> 
                             <span className="text-sm sm:text-base">{t('modManager.installSelected', 'Install Selected')}</span>
@@ -1390,18 +1390,18 @@ export default function ModManager() {
             {/* Mod Transfer Dialog */}
             {
                 showTransferDialog && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-200">
-                        <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl shadow-sky-900/20">
-                            <div className="p-6 border-b border-slate-800">
-                                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                    <ArrowUp className="w-5 h-5 text-sky-400" /> {t('modManager.transferMods')}
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+                            <div className="p-6 border-b border-[var(--border)]">
+                                <h2 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                                    <ArrowUp className="w-5 h-5 text-sky-500" /> {t('modManager.transferMods')}
                                 </h2>
-                                <p className="text-slate-400 text-sm mt-1">{t('modManager.transferModsTooltip')}</p>
+                                <p className="text-[var(--text-secondary)] text-sm mt-1">{t('modManager.transferModsTooltip')}</p>
                             </div>
 
                             <div className="p-6 space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-300">{t('modManager.selectServer')}</label>
+                                    <label className="text-sm font-semibold text-[var(--text-secondary)]">{t('modManager.selectServer')}</label>
                                     <ServerSelect 
                                         value={transferTargetId} 
                                         onChange={(id: number | null) => setTransferTargetId(id)} 
@@ -1411,9 +1411,9 @@ export default function ModManager() {
                                     />
                                 </div>
 
-                                <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
-                                    <p className="text-yellow-200/80 text-sm flex items-start gap-2">
-                                        <Info className="w-4 h-4 mt-0.5 shrink-0" />
+                                <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-4">
+                                    <p className="text-amber-800 dark:text-amber-200 text-sm flex items-start gap-2">
+                                        <Info className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
                                         <span>{t('modManager.transferModsInfo')}</span>
                                     </p>
                                 </div>
@@ -2117,8 +2117,8 @@ export default function ModManager() {
 
             {/* Filters Section (Available Mods Only) */}
             {activeTab === 'available' && (
-                <div className="mb-6 flex flex-wrap items-center gap-4 bg-[#0A0F1C]/40 p-4 rounded-2xl border border-white/5 backdrop-blur-xl shadow-2xl">
-                    <div className="flex items-center gap-2 text-sm text-slate-300">
+                <div className="mb-6 flex flex-wrap items-center gap-4 glass-panel p-4 rounded-2xl border border-[var(--border)] backdrop-blur-xl shadow-lg">
+                    <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
                         <ListChecks className="w-4 h-4 text-sky-400" />
                         <span className="font-semibold">{t('modManager.filters')}:</span>
                     </div>
@@ -2128,16 +2128,16 @@ export default function ModManager() {
                         <select
                             value={selectedCategory || ''}
                             onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : undefined)}
-                            className="appearance-none bg-[#0A0F1C]/60 border border-white/10 text-slate-200 text-sm rounded-xl focus:outline-none focus:border-sky-500/50 backdrop-blur-xl transition-all shadow-lg px-4 py-2.5 pr-10 min-w-[180px] cursor-pointer hover:border-white/20"
+                            className="appearance-none bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm rounded-xl focus:outline-none focus:border-sky-500/50 backdrop-blur-xl transition-all shadow-sm px-4 py-2.5 pr-10 min-w-[180px] cursor-pointer hover:border-[var(--border-hover)]"
                         >
-                            <option value="" className="bg-[#0A0F1C] text-slate-200">{t('modManager.allCategories')}</option>
+                            <option value="" className="bg-[var(--surface)] text-[var(--text-primary)]">{t('modManager.allCategories')}</option>
                             {categories.map((cat) => (
-                                <option key={cat.id} value={cat.id} className="bg-[#0A0F1C] text-slate-200">
+                                <option key={cat.id} value={cat.id} className="bg-[var(--surface)] text-[var(--text-primary)]">
                                     {cat.name}
                                 </option>
                             ))}
                         </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[var(--text-muted)]">
                             <ChevronDown className="w-4 h-4" />
                         </div>
                     </div>
@@ -2147,15 +2147,15 @@ export default function ModManager() {
                         <select
                             value={sortField}
                             onChange={(e) => setSortField(Number(e.target.value))}
-                            className="appearance-none bg-[#0A0F1C]/60 border border-white/10 text-slate-200 text-sm rounded-xl focus:outline-none focus:border-sky-500/50 backdrop-blur-xl transition-all shadow-lg px-4 py-2.5 pr-10 min-w-[160px] cursor-pointer hover:border-white/20"
+                            className="appearance-none bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm rounded-xl focus:outline-none focus:border-sky-500/50 backdrop-blur-xl transition-all shadow-sm px-4 py-2.5 pr-10 min-w-[160px] cursor-pointer hover:border-[var(--border-hover)]"
                         >
-                            <option value={1} className="bg-[#0A0F1C] text-slate-200">{t('modManager.sort.featured')}</option>
-                            <option value={2} className="bg-[#0A0F1C] text-slate-200">{t('modManager.sort.popularity')}</option>
-                            <option value={3} className="bg-[#0A0F1C] text-slate-200">{t('modManager.sort.lastUpdated')}</option>
-                            <option value={4} className="bg-[#0A0F1C] text-slate-200">{t('modManager.sort.name')}</option>
-                            <option value={6} className="bg-[#0A0F1C] text-slate-200">{t('modManager.sort.totalDownloads')}</option>
+                            <option value={1} className="bg-[var(--surface)] text-[var(--text-primary)]">{t('modManager.sort.featured')}</option>
+                            <option value={2} className="bg-[var(--surface)] text-[var(--text-primary)]">{t('modManager.sort.popularity')}</option>
+                            <option value={3} className="bg-[var(--surface)] text-[var(--text-primary)]">{t('modManager.sort.lastUpdated')}</option>
+                            <option value={4} className="bg-[var(--surface)] text-[var(--text-primary)]">{t('modManager.sort.name')}</option>
+                            <option value={6} className="bg-[var(--surface)] text-[var(--text-primary)]">{t('modManager.sort.totalDownloads')}</option>
                         </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-[var(--text-muted)]">
                             <ChevronDown className="w-4 h-4" />
                         </div>
                     </div>
@@ -2163,7 +2163,7 @@ export default function ModManager() {
                     {/* Sort Order */}
                     <button
                         onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                        className="p-2.5 bg-[#0A0F1C]/60 border border-white/10 rounded-xl text-slate-400 hover:text-white hover:border-sky-500/40 backdrop-blur-xl transition-all shadow-lg hover:scale-[1.03] active:scale-[0.97]"
+                        className="p-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-sky-500/40 backdrop-blur-xl transition-all shadow-sm hover:scale-[1.03] active:scale-[0.97]"
                         title={sortOrder === 'asc' ? t('common.ascending') : t('common.descending')}
                     >
                         {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4 text-sky-400" /> : <ArrowDown className="w-4 h-4 text-sky-400" />}
@@ -2187,29 +2187,29 @@ export default function ModManager() {
             )}
 
             {/* Advanced Mode - Bulk Mod ID Import */}
-            <div className="glass-panel rounded-xl border border-slate-700/50 overflow-hidden">
+            <div className="glass-panel rounded-xl border border-[var(--border)] overflow-hidden">
                 <button
                     onClick={() => setShowAdvancedMode(!showAdvancedMode)}
-                    className="w-full p-4 flex items-center justify-between text-left hover:bg-white/5 transition-colors"
+                    className="w-full p-4 flex items-center justify-between text-left hover:bg-[var(--surface-hover)] transition-colors"
                 >
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-orange-500/10 rounded-lg">
                             <Code className="w-5 h-5 text-orange-400" />
                         </div>
                         <div>
-                            <span className="text-white font-medium">{t('modManager.advancedMode')}</span>
-                            <p className="text-slate-400 text-sm">{t('modManager.advancedModeSubtitle')}</p>
+                            <span className="text-[var(--text-primary)] font-medium">{t('modManager.advancedMode')}</span>
+                            <p className="text-[var(--text-muted)] text-sm">{t('modManager.advancedModeSubtitle')}</p>
                         </div>
                     </div>
                     {showAdvancedMode ? (
-                        <ChevronUp className="w-5 h-5 text-slate-400" />
+                        <ChevronUp className="w-5 h-5 text-[var(--text-muted)]" />
                     ) : (
-                        <ChevronDown className="w-5 h-5 text-slate-400" />
+                        <ChevronDown className="w-5 h-5 text-[var(--text-muted)]" />
                     )}
                 </button>
 
                 {showAdvancedMode && (
-                    <div className="p-6 border-t border-slate-700/50 bg-slate-900/50">
+                    <div className="p-6 border-t border-[var(--border)] bg-[var(--surface-hover)]">
                         <AdvancedModInput
                             onImport={handleBulkImportMods}
                             isLoading={isBulkImporting}
@@ -2227,13 +2227,13 @@ export default function ModManager() {
                         value={searchQuery}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                         placeholder={activeTab === 'available' ? t('modManager.searchMods') : t('modManager.searchMods')}
-                        className="w-full pl-12 pr-10 py-3 bg-[#0A0F1C]/60 border border-white/10 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/10 transition-all backdrop-blur-xl shadow-lg"
+                        className="w-full pl-12 pr-10 py-3 bg-[var(--surface)] border border-[var(--border)] rounded-2xl text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/10 transition-all backdrop-blur-xl shadow-sm"
                     />
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none z-10" />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-muted)] pointer-events-none z-10" />
                     {searchQuery && (
                         <button
                             onClick={() => setSearchQuery('')}
-                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors z-10"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors z-10"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -2244,7 +2244,7 @@ export default function ModManager() {
                     {activeTab === 'available' && (
                         <button 
                             onClick={handleSelectAll} 
-                            className="flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white bg-[#0A0F1C]/40 border border-white/5 hover:border-white/10 hover:bg-white/5 backdrop-blur-xl transition-all shadow-md active:scale-95"
+                            className="flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-hover)] hover:bg-[var(--surface-hover)] backdrop-blur-xl transition-all shadow-sm active:scale-95"
                         >
                             <ListChecks className="w-4 h-4 text-sky-400" /> 
                             <span>{selectedModIds.size === availableMods.length ? t('common.deselectAll') : t('common.selectAll')}</span>
@@ -2252,36 +2252,36 @@ export default function ModManager() {
                     )}
 
                     {/* Modern Glassmorphic Tabs */}
-                    <div className="flex p-1.5 rounded-2xl bg-slate-900/40 border border-slate-800/60 backdrop-blur-md w-max shadow-inner gap-1 flex-wrap">
+                    <div className="flex p-1.5 rounded-2xl bg-[var(--surface)] border border-[var(--border)] backdrop-blur-md w-max shadow-inner gap-1 flex-wrap">
                         <button 
                             onClick={() => setActiveTab('available')} 
                             className={cn(
                                 "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                                 activeTab === 'available' 
-                                    ? "text-sky-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
-                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                                    ? "text-sky-400 bg-[var(--surface-active)] shadow-sm border border-[var(--border)]" 
+                                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                             )}
                         >
-                            <span className="relative z-10">{t('modManager.available')}</span>
+                            <span className="relative z-10">{t('modManager.availableMods', 'Available')}</span>
                         </button>
                         <button 
                             onClick={() => setActiveTab('installed')} 
                             className={cn(
                                 "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                                 activeTab === 'installed' 
-                                    ? "text-sky-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
-                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                                    ? "text-emerald-400 bg-[var(--surface-active)] shadow-sm border border-[var(--border)]" 
+                                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                             )}
                         >
-                            <span className="relative z-10">{t('modManager.installed')}</span>
+                            <span className="relative z-10">{t('modManager.installedMods', 'Installed')}</span>
                         </button>
                         <button 
                             onClick={() => setActiveTab('watchdog')} 
                             className={cn(
                                 "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
                                 activeTab === 'watchdog' 
-                                    ? "text-rose-400 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
-                                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+                                    ? "text-violet-400 bg-[var(--surface-active)] shadow-sm border border-[var(--border)]" 
+                                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                             )}
                         >
                             <ShieldCheck className="w-4 h-4" />

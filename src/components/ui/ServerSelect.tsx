@@ -178,12 +178,12 @@ export default function ServerSelect({
                 onClick={() => setIsOpen(!isOpen)}
                 onKeyDown={handleKeyDown}
                 className={cn(
-                    "flex items-center justify-between gap-3 px-5 py-2.5 bg-[#0A0F1C]/80 border border-white/5 rounded-2xl text-xs font-black uppercase tracking-wider text-slate-300 hover:text-white focus:outline-none focus:ring-2 backdrop-blur-xl h-[42px] transition-all duration-300 min-w-[170px] cursor-pointer shadow-lg shadow-black/10 select-none",
+                    "flex items-center justify-between gap-3 px-5 py-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-2xl text-xs font-black uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] focus:outline-none focus:ring-2 backdrop-blur-xl h-[42px] transition-all duration-300 min-w-[170px] cursor-pointer shadow-lg select-none",
                     activeTheme.border
                 )}
             >
                 <span className="truncate">{currentServer ? currentServer.name : 'Select Server'}</span>
-                <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-300 flex-shrink-0", isOpen && "rotate-180")} />
+                <ChevronDown className={cn("w-3.5 h-3.5 text-[var(--text-muted)] transition-transform duration-300 flex-shrink-0", isOpen && "rotate-180")} />
             </button>
 
             {isOpen && createPortal(
@@ -197,7 +197,7 @@ export default function ServerSelect({
                         zIndex: 9999,
                     }}
                     className={cn(
-                        "bg-slate-950/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-2xl p-1.5 overflow-y-auto max-h-[300px] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent select-none transition-all duration-200 animate-in fade-in",
+                        "bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl backdrop-blur-2xl p-1.5 overflow-y-auto max-h-[300px] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent select-none transition-all duration-200 animate-in fade-in",
                         coords.direction === 'up' ? "slide-in-from-bottom-2" : "slide-in-from-top-2"
                     )}
                 >
@@ -218,8 +218,8 @@ export default function ServerSelect({
                                     isSelected 
                                         ? activeTheme.active
                                         : isHighlighted
-                                            ? "text-slate-200 bg-white/5"
-                                            : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                                            ? "text-[var(--text-primary)] bg-[var(--surface-active)]"
+                                            : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                                 )}
                             >
                                 <span className="truncate mr-2">{server.name}</span>

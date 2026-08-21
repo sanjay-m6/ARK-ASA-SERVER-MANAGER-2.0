@@ -9,6 +9,23 @@
   <meta property="og:title" content="ARK Server Manager" />
   <meta property="og:description" content="Manage your ARK: Survival Ascended and ARK: Survival Evolved servers with ease." />
   <title>ARK Server Manager</title>
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('ark-app-theme') || 'aurora-dark';
+        if (['aurora-dark', 'midnight-blue', 'cyber-neon', 'arctic-light'].indexOf(t) === -1) {
+          t = 'aurora-dark';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.classList.add('theme-' + t);
+        if (t === 'arctic-light') {
+          document.documentElement.classList.add('light');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 <body>

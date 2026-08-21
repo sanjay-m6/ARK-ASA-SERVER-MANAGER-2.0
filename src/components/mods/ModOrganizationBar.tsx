@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { 
-  Filter, Plus, Folder, Trash2, Edit2, Check, X, 
-  Layers, Footprints, Gamepad2, Building2, Wrench, Sparkles, SlidersHorizontal,
+  Filter, Plus, Trash2, Edit2, Check, X, 
+  Layers, Footprints, Gamepad2, Building2, Wrench, SlidersHorizontal,
   Share2, Upload, Copy
 } from 'lucide-react';
 import { useModOrganizationStore } from '../../stores/modOrganizationStore';
@@ -151,10 +151,10 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
   return (
     <div className={`w-full ${className}`}>
       {/* Category Bar Container */}
-      <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-2.5 backdrop-blur-xl shadow-xl flex flex-wrap items-center justify-between gap-3">
+      <div className="glass-panel border border-[var(--border)] rounded-2xl p-2.5 backdrop-blur-xl shadow-lg flex flex-wrap items-center justify-between gap-3">
         {/* Left: Header Label & Category Badges */}
         <div className="flex flex-wrap items-center gap-2 overflow-x-auto scrollbar-none py-0.5">
-          <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider border-r border-slate-800 mr-1">
+          <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider border-r border-[var(--border)] mr-1">
             <Filter className="w-3.5 h-3.5 text-sky-400" />
             <span>Categories</span>
           </div>
@@ -169,8 +169,8 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                 onClick={() => setActiveCategoryId(cat.id)}
                 className={`group relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 border whitespace-nowrap shadow-sm ${
                   isActive
-                    ? 'bg-slate-800/90 text-white shadow-md'
-                    : 'bg-slate-950/40 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border-slate-800/80'
+                    ? 'bg-[var(--surface-active)] text-[var(--text-primary)] shadow-md'
+                    : 'bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] border-[var(--border)]'
                 }`}
                 style={{
                   borderColor: isActive ? cat.color : undefined,
@@ -189,7 +189,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                 {count > 0 && (
                   <span 
                     className={`ml-1 px-1.5 py-0.2 rounded-full font-mono text-[10px] ${
-                      isActive ? 'bg-white/10 text-white font-bold' : 'bg-slate-800/60 text-slate-400'
+                      isActive ? 'bg-sky-500/20 text-sky-400 font-bold' : 'bg-[var(--surface-hover)] text-[var(--text-muted)]'
                     }`}
                   >
                     {count}
@@ -204,7 +204,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowShareModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/50 hover:bg-slate-800 text-sky-400 hover:text-sky-300 border border-slate-700/60 hover:border-sky-500/40 rounded-xl transition-all text-xs font-semibold"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-sky-400 hover:text-sky-300 border border-[var(--border)] hover:border-sky-500/40 rounded-xl transition-all text-xs font-semibold shadow-sm"
             title="Copy Comma-Separated Mod IDs for active category"
           >
             <Copy className="w-3.5 h-3.5" />
@@ -213,7 +213,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
 
           <button
             onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/50 hover:bg-slate-800 text-purple-400 hover:text-purple-300 border border-slate-700/60 hover:border-purple-500/40 rounded-xl transition-all text-xs font-semibold"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-purple-400 hover:text-purple-300 border border-[var(--border)] hover:border-purple-500/40 rounded-xl transition-all text-xs font-semibold shadow-sm"
             title="Import Categories setup from JSON / Share Code"
           >
             <Upload className="w-3.5 h-3.5" />
@@ -222,28 +222,27 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
 
           <button
             onClick={() => setShowManageModal(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 hover:border-sky-500/40 rounded-xl transition-all text-xs font-semibold"
-            title="Customize & Add Mod Categories"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[var(--surface)] hover:bg-[var(--surface-hover)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)] hover:border-sky-500/40 rounded-xl transition-all text-xs font-semibold shadow-sm"
+            title="Manage Custom Mod Categories"
           >
-            <Folder className="w-3.5 h-3.5 text-sky-400" />
-            <span>Mod Organization</span>
-            <Sparkles className="w-3 h-3 text-amber-400 opacity-80" />
+            <Layers className="w-3.5 h-3.5 text-sky-400" />
+            <span>Manage</span>
           </button>
         </div>
       </div>
 
       {/* Category Management Modal */}
       {showManageModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl shadow-sky-950/40 my-auto">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+          <div className="glass-panel border border-[var(--border)] rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl my-auto">
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/40 shrink-0">
+            <div className="p-5 border-b border-[var(--border)] flex items-center justify-between bg-[var(--surface-hover)] shrink-0">
               <div>
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
                   <SlidersHorizontal className="w-5 h-5 text-sky-400" />
                   Mod Categories & Organization
                 </h2>
-                <p className="text-slate-400 text-xs mt-0.5">
+                <p className="text-[var(--text-muted)] text-xs mt-0.5">
                   Create custom mod folders and categorize your mods
                 </p>
               </div>
@@ -252,7 +251,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                   setShowManageModal(false);
                   setEditingCategory(null);
                 }}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+                className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] rounded-xl transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -263,8 +262,8 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
                 {/* Left Side: Create / Edit Category Form (5 Columns) */}
                 <div className="md:col-span-5 space-y-4">
-                  <form onSubmit={handleCreateCategory} className="bg-slate-950/60 rounded-xl p-5 border border-slate-800 space-y-4">
-                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                  <form onSubmit={handleCreateCategory} className="bg-[var(--surface)] rounded-xl p-5 border border-[var(--border)] space-y-4">
+                    <h3 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center justify-between">
                       <span>{editingCategory ? 'Edit Category' : 'Create New Category'}</span>
                       {editingCategory && (
                         <button
@@ -284,30 +283,30 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
 
                     <div className="space-y-3.5">
                       <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1">Category Name</label>
+                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Category Name</label>
                         <input
                           type="text"
                           value={newCatName}
                           onChange={(e) => setNewCatName(e.target.value)}
                           placeholder="e.g. Dino Mods, Gameplay Mods, Boss Arena"
-                          className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500 transition-colors"
+                          className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-3.5 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 transition-colors"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1">Description (Optional)</label>
+                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Description (Optional)</label>
                         <input
                           type="text"
                           value={newCatDesc}
                           onChange={(e) => setNewCatDesc(e.target.value)}
                           placeholder="Brief description of this mod collection"
-                          className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500 transition-colors"
+                          className="w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg px-3.5 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-sky-500 transition-colors"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1.5">Tag Color</label>
+                        <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Tag Color</label>
                         <div className="flex flex-wrap items-center gap-2.5">
                           {PRESET_COLORS.map((c) => (
                             <button
@@ -315,13 +314,13 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                               type="button"
                               onClick={() => setNewCatColor(c)}
                               className={`w-6 h-6 rounded-full transition-transform ${
-                                newCatColor === c ? 'scale-125 ring-2 ring-white shadow-lg' : 'hover:scale-110 opacity-80 hover:opacity-100'
+                                newCatColor === c ? 'scale-125 ring-2 ring-sky-400 shadow-lg' : 'hover:scale-110 opacity-80 hover:opacity-100'
                               }`}
                               style={{ backgroundColor: c }}
                             />
                           ))}
                           <label 
-                            className="relative w-6 h-6 rounded-full cursor-pointer border border-slate-600 hover:scale-110 transition-transform flex items-center justify-center shrink-0 shadow-sm"
+                            className="relative w-6 h-6 rounded-full cursor-pointer border border-[var(--border)] hover:scale-110 transition-transform flex items-center justify-center shrink-0 shadow-sm"
                             style={{ backgroundColor: newCatColor }}
                             title="Custom Color Picker"
                           >
@@ -350,7 +349,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
 
                 {/* Right Side: Active Categories List (7 Columns) */}
                 <div className="md:col-span-7 space-y-3">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider flex items-center justify-between">
                     <span>Active Categories ({categories.length})</span>
                   </h3>
 
@@ -358,8 +357,8 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                     {categories.map((cat) => (
                       <div
                         key={cat.id}
-                        className={`flex items-center justify-between p-3.5 bg-slate-950/50 border rounded-xl transition-all ${
-                          editingCategory?.id === cat.id ? 'border-sky-500/60 bg-sky-950/20' : 'border-slate-800/80 hover:border-slate-700'
+                        className={`flex items-center justify-between p-3.5 bg-[var(--surface)] border rounded-xl transition-all ${
+                          editingCategory?.id === cat.id ? 'border-sky-500/60 bg-sky-500/10' : 'border-[var(--border)] hover:border-[var(--border-hover)]'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -368,16 +367,16 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                             style={{ backgroundColor: cat.color }} 
                           />
                           <div>
-                            <p className="text-sm font-bold text-white flex items-center gap-2">
+                            <p className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                               <span>{cat.name}</span>
                               {cat.isSystem && (
-                                <span className="px-2 py-0.5 bg-slate-800 text-slate-400 text-[10px] uppercase font-bold rounded">
+                                <span className="px-2 py-0.5 bg-[var(--surface-hover)] text-[var(--text-muted)] text-[10px] uppercase font-bold rounded">
                                   System
                                 </span>
                               )}
                             </p>
                             {cat.description && (
-                              <p className="text-slate-400 text-xs mt-0.5">{cat.description}</p>
+                              <p className="text-[var(--text-muted)] text-xs mt-0.5">{cat.description}</p>
                             )}
                           </div>
                         </div>
@@ -386,14 +385,14 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleStartEdit(cat)}
-                              className="p-1.5 text-slate-400 hover:text-sky-400 hover:bg-slate-800 rounded-lg transition-colors"
+                              className="p-1.5 text-[var(--text-muted)] hover:text-sky-400 hover:bg-[var(--surface-hover)] rounded-lg transition-colors"
                               title="Edit Category"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(cat.id, cat.name)}
-                              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-slate-800 rounded-lg transition-colors"
+                              className="p-1.5 text-[var(--text-muted)] hover:text-rose-400 hover:bg-[var(--surface-hover)] rounded-lg transition-colors"
                               title="Delete Category"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -408,7 +407,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-800 bg-slate-950/40 flex items-center justify-between shrink-0">
+            <div className="p-4 border-t border-[var(--border)] bg-[var(--surface-hover)] flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
@@ -437,7 +436,7 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                   setShowManageModal(false);
                   setEditingCategory(null);
                 }}
-                className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors"
+                className="px-6 py-2 bg-[var(--surface-active)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] border border-[var(--border)] text-xs font-bold rounded-xl transition-colors shadow-sm"
               >
                 Done
               </button>
@@ -449,35 +448,35 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
 
       {/* Copy Mod IDs Modal */}
       {showShareModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4 my-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="glass-panel border border-[var(--border)] rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4 my-auto">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <Copy className="w-5 h-5 text-sky-400" />
                 Copy Mod IDs
               </h3>
-              <button onClick={() => setShowShareModal(false)} className="p-1 text-slate-400 hover:text-white rounded-lg">
+              <button onClick={() => setShowShareModal(false)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400">
+                <span className="text-[var(--text-muted)]">
                   Category: <span className="font-bold text-sky-400">{activeCatName}</span>
                 </span>
-                <span className="text-slate-500 font-mono text-[11px]">
+                <span className="text-[var(--text-muted)] font-mono text-[11px]">
                   {modIdsString ? `${modIdsString.split(',').length} Mods` : '0 Mods'}
                 </span>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Mod IDs (Comma-Separated)</label>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Mod IDs (Comma-Separated)</label>
                 <textarea
                   readOnly
                   value={modIdsString || 'No mods in this category yet.'}
                   rows={4}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 font-mono text-xs text-sky-300 focus:outline-none custom-scrollbar break-all select-all"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3.5 font-mono text-xs text-sky-400 focus:outline-none custom-scrollbar break-all select-all"
                 />
               </div>
 
@@ -499,20 +498,20 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
 
       {/* Import Categories Modal */}
       {showImportModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4 my-auto">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="glass-panel border border-[var(--border)] rounded-2xl w-full max-w-xl p-6 shadow-2xl space-y-4 my-auto">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <Upload className="w-5 h-5 text-purple-400" />
                 Import Mod Categories & Setup
               </h3>
-              <button onClick={() => setShowImportModal(false)} className="p-1 text-slate-400 hover:text-white rounded-lg">
+              <button onClick={() => setShowImportModal(false)} className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-slate-400 text-xs">
-              Paste a share link (<span className="font-mono text-sky-300">#data=...</span>) or raw JSON setup code:
+            <p className="text-[var(--text-muted)] text-xs">
+              Paste a share link (<span className="font-mono text-sky-400">#data=...</span>) or raw JSON setup code:
             </p>
 
             <form onSubmit={handleImportSubmit} className="space-y-4">
@@ -521,14 +520,14 @@ export default function ModOrganizationBar({ modCountMap = {}, className = '' }:
                 onChange={(e) => setImportJsonText(e.target.value)}
                 placeholder='Paste share link or JSON code here...'
                 rows={6}
-                className="w-full bg-slate-950 border border-slate-800 focus:border-purple-500/80 rounded-xl p-3.5 font-mono text-xs text-white focus:outline-none custom-scrollbar"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] focus:border-purple-500/80 rounded-xl p-3.5 font-mono text-xs text-[var(--text-primary)] focus:outline-none custom-scrollbar"
               />
 
               <div className="flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowImportModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold"
+                  className="px-4 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] rounded-xl text-xs font-bold"
                 >
                   Cancel
                 </button>

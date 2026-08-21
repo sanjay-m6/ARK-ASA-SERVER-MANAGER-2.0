@@ -635,9 +635,9 @@ export default function UpdateChecker() {
     const showManualFallback = isSignatureMismatch || isElevationIssue;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
             <div className={cn(
-                "w-full max-w-lg bg-slate-900 border border-slate-700/50 rounded-2xl shadow-2xl shadow-sky-500/10 overflow-hidden",
+                "w-full max-w-lg bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl shadow-sky-500/10 overflow-hidden backdrop-blur-md",
                 "animate-in zoom-in-95 duration-500 relative"
             )}>
                 {/* Header Graphic Background */}
@@ -655,7 +655,7 @@ export default function UpdateChecker() {
                         <div className="flex items-center gap-5">
                             <div className="relative">
                                 <div className="absolute inset-0 bg-sky-500/20 rounded-2xl blur-lg animate-pulse"></div>
-                                <div className="relative p-3.5 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-sky-500/30 shadow-inner">
+                                <div className="relative p-3.5 rounded-2xl bg-[var(--surface-active)] border border-sky-500/30 shadow-inner">
                                     {uiState === 'ready' ? (
                                         <Rocket className="w-8 h-8 text-sky-400" />
                                     ) : (
@@ -664,14 +664,14 @@ export default function UpdateChecker() {
                                 </div>
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-white tracking-tight">
+                                <h3 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">
                                     {uiState === 'ready' 
                                         ? t('updateChecker.readyTitle', 'Update Ready')
                                         : t('updateChecker.title', 'Update Available')}
                                 </h3>
                                 <div className="flex items-center gap-2 mt-2">
-                                    <span className="px-2.5 py-0.5 rounded-md bg-slate-950 border border-white/5 text-[10px] font-mono text-slate-400">v{currentAppVersion}</span>
-                                    <span className="text-slate-500 text-xs">→</span>
+                                    <span className="px-2.5 py-0.5 rounded-md bg-[var(--bg-primary)] border border-[var(--border)] text-[10px] font-mono text-[var(--text-muted)]">v{currentAppVersion}</span>
+                                    <span className="text-[var(--text-muted)] text-xs">→</span>
                                     <span className="px-2.5 py-0.5 rounded-md bg-sky-500/10 border border-sky-500/20 text-[10px] font-mono text-sky-400 font-medium">v{updateAvailable?.version}</span>
                                 </div>
                             </div>
@@ -680,7 +680,7 @@ export default function UpdateChecker() {
                         {uiState !== 'downloading' && (
                             <button
                                 onClick={() => setUiState('hidden')}
-                                className="p-2 hover:bg-slate-800 rounded-xl transition-all text-slate-400 hover:text-white"
+                                className="p-2 hover:bg-[var(--surface-hover)] rounded-xl transition-all text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -689,13 +689,13 @@ export default function UpdateChecker() {
 
                     {/* Content */}
                     {uiState === 'ready' ? (
-                        <div className="bg-slate-950/50 rounded-xl p-5 mb-8 border border-slate-800/80 shadow-inner text-center">
-                            <p className="text-slate-350 text-sm leading-relaxed">
+                        <div className="bg-[var(--bg-primary)]/50 rounded-xl p-5 mb-8 border border-[var(--border)] shadow-inner text-center">
+                            <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
                                 {t('updateChecker.readyDesc', 'The update has been downloaded and is ready to install. Restart the application to apply the changes.')}
                             </p>
                         </div>
                     ) : (
-                        <div className="bg-slate-950/50 rounded-xl p-5 mb-6 border border-slate-800/80 max-h-48 overflow-y-auto custom-scrollbar shadow-inner text-slate-300">
+                        <div className="bg-[var(--bg-primary)]/50 rounded-xl p-5 mb-6 border border-[var(--border)] max-h-48 overflow-y-auto custom-scrollbar shadow-inner text-[var(--text-secondary)]">
                             <div className="text-xs leading-relaxed whitespace-pre-wrap font-mono prose prose-invert max-w-none">
                                 {updateAvailable?.body}
                             </div>
@@ -719,7 +719,7 @@ export default function UpdateChecker() {
                                         </button>
                                         <button
                                             onClick={handlePortableDownload}
-                                            className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 hover:text-white transition-all text-xs font-semibold cursor-pointer"
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border border-[var(--border)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all text-xs font-semibold cursor-pointer"
                                         >
                                             <Archive className="w-3.5 h-3.5" />
                                             {t('updateChecker.downloadPortable', 'Portable ZIP')}
@@ -732,7 +732,7 @@ export default function UpdateChecker() {
 
                     {/* Progress Bar with Realtime Animation */}
                     {uiState === 'downloading' && (
-                        <div className="mb-8 space-y-3 bg-slate-950/30 p-5 rounded-xl border border-slate-800/50">
+                        <div className="mb-8 space-y-3 bg-[var(--bg-primary)]/30 p-5 rounded-xl border border-[var(--border)]">
                             <div className="flex justify-between text-xs font-medium text-sky-200/85">
                                 <span className="flex items-center gap-2">
                                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
@@ -740,7 +740,7 @@ export default function UpdateChecker() {
                                 </span>
                                 <span className="text-sky-400 font-mono text-base font-bold">{Math.round(downloadProgress)}%</span>
                             </div>
-                            <div className="relative h-2.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800 shadow-inner">
+                            <div className="relative h-2.5 w-full bg-[var(--bg-primary)] rounded-full overflow-hidden border border-[var(--border)] shadow-inner">
                                 <div
                                     className="absolute top-0 left-0 h-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all duration-300 ease-out shadow-[0_0_12px_rgba(56,189,248,0.5)]"
                                     style={{ width: `${downloadProgress}%` }}
@@ -808,7 +808,7 @@ export default function UpdateChecker() {
                         {uiState !== 'downloading' && (
                             <button
                                 onClick={() => setUiState('hidden')}
-                                className="px-6 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-350 hover:text-white transition-all border border-slate-700 hover:border-slate-650 font-bold uppercase tracking-wider text-xs cursor-pointer"
+                                className="px-6 py-3.5 rounded-xl bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all border border-[var(--border)] font-bold uppercase tracking-wider text-xs cursor-pointer"
                             >
                                 {uiState === 'ready' ? t('updateChecker.later', 'LATER') : t('updateChecker.later', 'LATER')}
                             </button>
@@ -818,7 +818,7 @@ export default function UpdateChecker() {
                             <button
                                 onClick={handleSkipVersion}
                                 title={t('updateChecker.skip', 'Skip this version')}
-                                className="px-4 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-slate-700 hover:border-slate-650 cursor-pointer"
+                                className="px-4 py-3.5 rounded-xl bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all border border-[var(--border)] cursor-pointer"
                             >
                                 <Clock className="w-4 h-4" />
                             </button>

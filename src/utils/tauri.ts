@@ -861,6 +861,118 @@ export async function sendDiscordStatusUpdate(): Promise<void> {
     return await invoke('send_discord_status_update');
 }
 
+export interface DiscordPlayerLink {
+    discord_user_id: string;
+    steam_id: string;
+    player_name?: string;
+    cluster_id: number;
+    linked_at: string;
+    verified: boolean;
+}
+
+export async function getDiscordPlayerLinks(clusterId?: number): Promise<DiscordPlayerLink[]> {
+    return await invoke('get_discord_player_links', { clusterId: clusterId || null });
+}
+
+export async function unlinkDiscordPlayer(discordUserId: string): Promise<void> {
+    return await invoke('unlink_discord_player', { discordUserId });
+}
+
+export interface DiscordAuditLogEntry {
+    id: number;
+    discordUserId: string;
+    discordUsername: string;
+    guildId: string;
+    serverId: number | null;
+    actionType: string;
+    details: string | null;
+    result: string;
+    errorMessage: string | null;
+    createdAt: string;
+}
+
+export async function getDiscordAuditLogs(limit?: number): Promise<DiscordAuditLogEntry[]> {
+    return await invoke('get_discord_audit_logs', { limit: limit || null });
+}
+
+export async function clearDiscordAuditLogs(): Promise<void> {
+    return await invoke('clear_discord_audit_logs');
+}
+
+export interface DiscordDiagnosticsInfo {
+    isRunning: boolean;
+    gatewayConnected: boolean;
+    commandsProcessed: number;
+    uptimeSeconds: number;
+    guildId: string;
+    statusChannelId: string;
+    playerChannelId: string;
+    crossChatChannelId: string;
+    alertsChannelId: string;
+    adminChannelId: string;
+    pendingActionsCount: number;
+    linkedPlayersCount: number;
+}
+
+export async function getDiscordDiagnostics(clusterId: number): Promise<DiscordDiagnosticsInfo> {
+    return await invoke('get_discord_diagnostics', { clusterId });
+}
+
+export async function triggerDiscordSetup(clusterId: number, guildId: string): Promise<Record<string, unknown>> {
+    return await invoke('trigger_discord_setup', { clusterId, guildId });
+}
+
+export async function refreshDiscordDashboard(clusterId?: number): Promise<void> {
+    return await invoke('refresh_discord_dashboard', { clusterId: clusterId || null });
+}
+
+export async function getDiscordRateLimitConfig(clusterId: number): Promise<[number, number] | null> {
+    return await invoke('get_discord_rate_limit_config', { clusterId });
+}
+
+export async function setDiscordRateLimitConfig(clusterId: number, maxMessagesPerWindow: number, windowSeconds: number): Promise<void> {
+    return await invoke('set_discord_rate_limit_config', { clusterId, maxMessagesPerWindow, windowSeconds });
+}
+
+export interface ServerHealthInfo {
+    id: number;
+    name: string;
+    status: string;
+    playerCount: number;
+    maxPlayers: number;
+    cpuUsage: number;
+    ramUsage: number;
+    fps: number;
+    uptime: string;
+    lastStarted?: string;
+    mods: string[];
+    crashed: boolean;
+}
+
+export interface PlayerInfoForPanel {
+    steam_id: string;
+    name: string;
+    server_id: number;
+    level: number;
+    tribe: string;
+    playtime_minutes: number;
+    location: string;
+    ping: number;
+}
+
+export async function getClusterServersHealth(clusterId: number): Promise<ServerHealthInfo[]> {
+    return await invoke('get_cluster_servers_health', { clusterId });
+}
+
+export async function getActivePlayers(clusterId: number, serverId?: number): Promise<PlayerInfoForPanel[]> {
+    return await invoke('get_active_players', { clusterId, serverId: serverId || null });
+}
+
+export async function getDiscordBridgeStatus(clusterId: number): Promise<any> {
+    return await invoke('get_discord_bridge_status', { clusterId });
+}
+
+
 
 // ============================================================================
 

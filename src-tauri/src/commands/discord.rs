@@ -363,13 +363,76 @@ pub async fn generate_bot_invite_url(bot_token: String) -> Result<String, String
         return Err("Could not determine bot application ID.".to_string());
     }
 
-    // Permissions: View Channels (1024) + Send Messages (2048) + Manage Messages (8192) + Read Message History (65536) = 76800
+    // Permissions: Administrator (8) or Comprehensive Server Management (395137263680)
+    // Scope: bot + applications.commands for Slash Command support
     let invite_url = format!(
-        "https://discord.com/api/oauth2/authorize?client_id={}&permissions=76800&scope=bot",
+        "https://discord.com/api/oauth2/authorize?client_id={}&permissions=8&scope=bot%20applications.commands",
         bot_id
     );
 
     Ok(invite_url)
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DiscordPlayerLink {
+    pub discord_user_id: String,
+    pub steam_id: String,
+    pub player_name: Option<String>,
+    pub cluster_id: i64,
+    pub linked_at: String,
+    pub verified: bool,
+}
+
+/// Get all linked Discord player accounts
+#[tauri::command]
+pub async fn get_discord_player_links(
+    state: State<'_, AppState>,
+    cluster_id: Option<i64>,
+) -> Result<Vec<DiscordPlayerLink>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let sql = if let Some(cid) = cluster_id {
+        format!("SELECT discord_user_id, steam_id, player_name, cluster_id, linked_at, verified FROM discord_player_links WHERE cluster_id = {} ORDER BY linked_at DESC", cid)
+    } else {
+        "SELECT discord_user_id, steam_id, player_name, cluster_id, linked_at, verified FROM discord_player_links ORDER BY linked_at DESC".to_string()
+    };
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let links = stmt
+        .query_map([], |row| {
+            Ok(DiscordPlayerLink {
+                discord_user_id: row.get(0)?,
+                steam_id: row.get(1)?,
+                player_name: row.get(2)?,
+                cluster_id: row.get(3)?,
+                linked_at: row.get(4)?,
+                verified: row.get::<_, i32>(5)? != 0,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(links)
+}
+
+/// Unlink a Discord player account
+#[tauri::command]
+pub async fn unlink_discord_player(
+    state: State<'_, AppState>,
+    discord_user_id: String,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "DELETE FROM discord_player_links WHERE discord_user_id = ?1",
+        rusqlite::params![discord_user_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 /// Send a Discord webhook status update with live server data from the backend.
@@ -487,32 +550,32 @@ pub async fn set_discord_rate_limit_config(
     }
     if window_seconds < 1 {
         return Err("window_seconds must be at least 1".to_string());
+    }    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        // Check if record exists
+        let exists: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM discord_rate_limits WHERE cluster_id = ?1",
+                [cluster_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        if exists > 0 {
+            conn.execute(
+                "UPDATE discord_rate_limits SET max_messages_per_window = ?1, window_seconds = ?2, updated_at = CURRENT_TIMESTAMP WHERE cluster_id = ?3",
+                rusqlite::params![max_messages_per_window, window_seconds, cluster_id],
+            )
+        } else {
+            conn.execute(
+                "INSERT INTO discord_rate_limits (cluster_id, max_messages_per_window, window_seconds) VALUES (?1, ?2, ?3)",
+                rusqlite::params![cluster_id, max_messages_per_window, window_seconds],
+            )
+        }
+        .map_err(|e| e.to_string())?;
     }
-
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
-
-    // Check if record exists
-    let exists: i32 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM discord_rate_limits WHERE cluster_id = ?1",
-            [cluster_id],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
-
-    if exists > 0 {
-        conn.execute(
-            "UPDATE discord_rate_limits SET max_messages_per_window = ?1, window_seconds = ?2, updated_at = CURRENT_TIMESTAMP WHERE cluster_id = ?3",
-            rusqlite::params![max_messages_per_window, window_seconds, cluster_id],
-        )
-    } else {
-        conn.execute(
-            "INSERT INTO discord_rate_limits (cluster_id, max_messages_per_window, window_seconds) VALUES (?1, ?2, ?3)",
-            rusqlite::params![cluster_id, max_messages_per_window, window_seconds],
-        )
-    }
-    .map_err(|e| e.to_string())?;
 
     // If the bridge is running for this cluster, reload rate limit config
     if let Some(cfg) = state.discord_bridge.get_config().await {
@@ -526,4 +589,213 @@ pub async fn set_discord_rate_limit_config(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordAuditLogEntry {
+    pub id: i64,
+    pub discord_user_id: String,
+    pub discord_username: String,
+    pub guild_id: String,
+    pub server_id: Option<i64>,
+    pub action_type: String,
+    pub details: Option<String>,
+    pub result: String,
+    pub error_message: Option<String>,
+    pub created_at: String,
+}
+
+/// Get audit logs for Discord bot operations
+#[tauri::command]
+pub async fn get_discord_audit_logs(
+    state: State<'_, AppState>,
+    limit: Option<i64>,
+) -> Result<Vec<DiscordAuditLogEntry>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+    let max_rows = limit.unwrap_or(100).clamp(1, 500);
+    let mut stmt = conn.prepare(
+        "SELECT id, discord_user_id, discord_username, guild_id, server_id, action_type, details, result, error_message, created_at 
+         FROM discord_audit_logs 
+         ORDER BY id DESC LIMIT ?1"
+    ).map_err(|e| e.to_string())?;
+
+    let entries = stmt.query_map([max_rows], |row| {
+        Ok(DiscordAuditLogEntry {
+            id: row.get(0)?,
+            discord_user_id: row.get(1)?,
+            discord_username: row.get(2)?,
+            guild_id: row.get(3)?,
+            server_id: row.get(4)?,
+            action_type: row.get(5)?,
+            details: row.get(6)?,
+            result: row.get(7)?,
+            error_message: row.get(8)?,
+            created_at: row.get(9)?,
+        })
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    Ok(entries)
+}
+
+/// Clear all audit logs for Discord operations
+#[tauri::command]
+pub async fn clear_discord_audit_logs(
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM discord_audit_logs", []).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscordDiagnosticsInfo {
+    pub is_running: bool,
+    pub gateway_connected: bool,
+    pub commands_processed: u64,
+    pub uptime_seconds: u64,
+    pub guild_id: String,
+    pub status_channel_id: String,
+    pub player_channel_id: String,
+    pub cross_chat_channel_id: String,
+    pub alerts_channel_id: String,
+    pub admin_channel_id: String,
+    pub pending_actions_count: i64,
+    pub linked_players_count: i64,
+}
+
+/// Get detailed diagnostics for the Discord bridge
+#[tauri::command]
+pub async fn get_discord_diagnostics(
+    state: State<'_, AppState>,
+    cluster_id: i64,
+) -> Result<DiscordDiagnosticsInfo, String> {
+    let is_running = state.discord_bridge.is_running();
+    let gateway_connected = state.discord_bridge.gateway_running.load(std::sync::atomic::Ordering::Relaxed);
+    let commands_processed = state.discord_bridge.commands_processed.load(std::sync::atomic::Ordering::Relaxed);
+    
+    let uptime_seconds = {
+        let started = state.discord_bridge.started_at.lock().await;
+        started.map(|t| t.elapsed().as_secs()).unwrap_or(0)
+    };
+
+    let config_opt = state.discord_bridge.get_config().await;
+
+    let (pending_actions_count, linked_players_count) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let pending: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM discord_pending_actions WHERE status = 'pending'",
+            [],
+            |r| r.get(0),
+        ).unwrap_or(0);
+        let linked: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM discord_player_links WHERE cluster_id = ?1",
+            [cluster_id],
+            |r| r.get(0),
+        ).unwrap_or(0);
+        (pending, linked)
+    };
+
+    let cfg = config_opt.unwrap_or(DiscordBridgeConfig {
+        cluster_id,
+        enabled: false,
+        bot_token: String::new(),
+        guild_id: String::new(),
+        channel_id: String::new(),
+        game_to_discord: false,
+        discord_to_game: false,
+        server_list_enabled: false,
+        server_list_channel_id: String::new(),
+        server_list_message_id: String::new(),
+        player_list_enabled: false,
+        player_list_channel_id: String::new(),
+        player_list_message_id: String::new(),
+        show_tribe_names: false,
+        show_playtime: false,
+        admin_channel_id: String::new(),
+        admin_role_ids: vec![],
+        moderator_role_ids: vec![],
+        notifications_channel_id: String::new(),
+        notify_player_join_leave: true,
+        notify_server_crashes: true,
+        notify_server_recovery: true,
+        notify_scheduled_restarts: true,
+        notify_backup_completion: true,
+        notify_performance_alerts: true,
+        notify_mod_watchdog: true,
+        notify_anti_cheat: true,
+        status_update_interval: 60,
+    });
+
+    Ok(DiscordDiagnosticsInfo {
+        is_running,
+        gateway_connected,
+        commands_processed,
+        uptime_seconds,
+        guild_id: cfg.guild_id,
+        status_channel_id: cfg.server_list_channel_id,
+        player_channel_id: cfg.player_list_channel_id,
+        cross_chat_channel_id: cfg.channel_id,
+        alerts_channel_id: cfg.notifications_channel_id,
+        admin_channel_id: cfg.admin_channel_id,
+        pending_actions_count,
+        linked_players_count,
+    })
+}
+
+/// Trigger automated channel setup via desktop UI
+#[tauri::command]
+pub async fn trigger_discord_setup(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    cluster_id: i64,
+    guild_id: String,
+) -> Result<serde_json::Value, String> {
+    let bot_token = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT bot_token FROM discord_bridge_config WHERE cluster_id = ?1",
+            [cluster_id],
+            |row| row.get::<_, String>(0),
+        ).map_err(|_| "No bot token configured for this cluster. Please set bot token first.".to_string())?
+    };
+
+    if bot_token.is_empty() {
+        return Err("Bot token is empty. Please set bot token first.".to_string());
+    }
+
+    if guild_id.is_empty() {
+        return Err("Guild ID is required for setup.".to_string());
+    }
+
+    let result = crate::services::discord::setup::SetupOrchestrator::execute_from_desktop(
+        &app_handle,
+        &bot_token,
+        &guild_id,
+        cluster_id,
+    ).await.map_err(|e| format!("Setup failed: {}", e))?;
+
+    // Also update in-memory config
+    if let Ok(Some(cfg)) = get_discord_bridge_config(state.clone(), cluster_id).await {
+        state.discord_bridge.configure(cfg).await;
+    }
+
+    Ok(result)
+}
+
+/// Force immediate refresh of Discord live status dashboard
+#[tauri::command]
+pub async fn refresh_discord_dashboard(
+    state: State<'_, AppState>,
+    _cluster_id: Option<i64>,
+) -> Result<(), String> {
+    state.discord_bridge.trigger_dashboard_refresh().await
 }

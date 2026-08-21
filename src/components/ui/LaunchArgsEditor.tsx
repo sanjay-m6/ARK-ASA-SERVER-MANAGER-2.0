@@ -84,7 +84,7 @@ export default function LaunchArgsEditor({
         <div className="space-y-3">
             {/* Active Chips List */}
             {args.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 p-2 bg-slate-950/80 border border-slate-800 rounded-xl">
+                <div className="flex flex-wrap gap-1.5 p-2 bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl">
                     {args.map((arg, idx) => (
                         <div
                             key={`${arg}-${idx}`}
@@ -110,10 +110,10 @@ export default function LaunchArgsEditor({
 
             <div
                 className={cn(
-                    'relative flex items-center bg-slate-900 border rounded-lg transition-all duration-200 overflow-hidden',
+                    'relative flex items-center bg-[var(--surface)] border rounded-lg transition-all duration-200 overflow-hidden',
                     isFocused
                         ? `${colors.border} ring-1 ${colors.ring} ${colors.glow} shadow-lg`
-                        : 'border-slate-700 hover:border-slate-600'
+                        : 'border-[var(--border)] hover:border-[var(--border-hover)]'
                 )}
             >
                 <input
@@ -125,7 +125,7 @@ export default function LaunchArgsEditor({
                     onBlur={() => setIsFocused(false)}
                     placeholder={placeholder}
                     spellCheck={false}
-                    className="flex-1 w-full bg-transparent text-slate-300 text-sm font-mono px-4 py-3 outline-none placeholder:text-slate-600"
+                    className="flex-1 w-full bg-transparent text-[var(--text-primary)] text-sm font-mono px-4 py-3 outline-none placeholder:text-[var(--text-muted)]"
                     aria-label="Launch arguments"
                 />
                 
@@ -145,11 +145,11 @@ export default function LaunchArgsEditor({
             </div>
 
             <div className="flex items-center justify-between">
-                <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                <p className="text-[11px] text-[var(--text-muted)] flex items-center gap-1.5">
                     Steam-style command line parameters (space separated)
                 </p>
                 {args.length > 0 && (
-                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                    <span className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
                         {args.length} arg{args.length !== 1 ? 's' : ''}
                     </span>
                 )}

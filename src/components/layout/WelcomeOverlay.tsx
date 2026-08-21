@@ -30,14 +30,15 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
     return (
         <AnimatePresence>
             <motion.div
-                className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#06090f] text-white overflow-hidden select-none"
+                className="welcome-overlay-container fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#06090f] text-white overflow-hidden select-none"
                 exit={{ opacity: 0, scale: 1.02, filter: "blur(16px)" }}
                 transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                style={{ backgroundColor: '#06090f', color: '#ffffff' }}
             >
                 {/* Subtle ambient background */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     {/* Soft radial vignette */}
-                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_40%,rgba(15,23,42,0.5),rgba(6,9,15,1))]" />
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_40%,rgba(15,23,42,0.6),rgba(6,9,15,1))]" />
                     
                     {/* Left ambient glow */}
                     <motion.div
@@ -64,18 +65,18 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.6, ease: "easeOut" }}
-                        className="text-center mb-14"
+                        className="text-center mb-12"
                     >
-                        <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-2">
+                        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white mb-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
                             {t('welcome.headerTitle', 'Choose Your Game')}
                         </h1>
-                        <p className="text-sm text-slate-400 font-medium">
+                        <p className="text-sm text-slate-300 font-medium tracking-wide">
                             {t('welcome.headerSubtitle', 'Select which ARK version you want to manage')}
                         </p>
                     </motion.div>
 
                     {/* Cards */}
-                    <div className="flex flex-col md:flex-row gap-5 w-full justify-center items-stretch">
+                    <div className="flex flex-col md:flex-row gap-6 w-full justify-center items-stretch max-w-3xl">
                         {/* ASE Card */}
                         <motion.button
                             initial={{ opacity: 0, y: 30 }}
@@ -90,58 +91,78 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                             onMouseLeave={() => !selectedGame && setHoveredCard(null)}
                             onClick={() => !selectedGame && handleSelectGame('ASE')}
                             aria-label="Select ARK: Survival Evolved"
-                            className={`group relative flex-1 max-w-[380px] rounded-2xl cursor-pointer text-left transition-all duration-400 border overflow-hidden ${
-                                selectedGame === 'ASE'
-                                    ? 'bg-amber-500/10 border-amber-400/40 shadow-[0_0_40px_rgba(245,158,11,0.2)] ring-1 ring-amber-500/30'
-                                    : hoveredCard === 'ASA'
-                                        ? 'bg-slate-900/30 border-white/5 opacity-50'
-                                        : 'bg-slate-900/40 border-white/[0.06] hover:border-amber-500/30 hover:bg-slate-900/60'
+                            className={`welcome-card welcome-card-ase group relative flex-1 rounded-2xl cursor-pointer text-left transition-all duration-300 border overflow-hidden shadow-2xl backdrop-blur-2xl ${
+                                selectedGame === 'ASE' ? 'selected' : ''
                             }`}
+                            style={{
+                                backgroundColor: selectedGame === 'ASE'
+                                    ? 'rgba(245, 158, 11, 0.15)'
+                                    : hoveredCard === 'ASE'
+                                        ? 'rgba(15, 23, 42, 0.92)'
+                                        : 'rgba(10, 15, 29, 0.85)',
+                                borderColor: selectedGame === 'ASE' || hoveredCard === 'ASE'
+                                    ? 'rgba(245, 158, 11, 0.6)'
+                                    : 'rgba(255, 255, 255, 0.12)',
+                                boxShadow: selectedGame === 'ASE' || hoveredCard === 'ASE'
+                                    ? '0 0 40px rgba(245, 158, 11, 0.25), 0 20px 40px rgba(0,0,0,0.6)'
+                                    : '0 20px 40px rgba(0,0,0,0.5)',
+                            }}
                         >
                             {/* Top accent line */}
-                            <div className={`h-[2px] w-full transition-all duration-500 ${
-                                selectedGame === 'ASE' || hoveredCard === 'ASE'
-                                    ? 'bg-gradient-to-r from-transparent via-amber-400 to-transparent'
-                                    : 'bg-gradient-to-r from-transparent via-white/[0.06] to-transparent'
-                            }`} />
+                            <div
+                                className="h-[3px] w-full transition-all duration-500"
+                                style={{
+                                    background: selectedGame === 'ASE' || hoveredCard === 'ASE'
+                                        ? 'linear-gradient(90deg, transparent, #f59e0b, transparent)'
+                                        : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)'
+                                }}
+                            />
 
                             <div className="p-7 pb-6">
                                 {/* Logo & Info Row */}
                                 <div className="flex items-center gap-5 mb-6">
-                                    <div className="relative w-16 h-16 shrink-0">
-                                        <div className={`absolute inset-0 rounded-xl blur-xl transition-opacity duration-500 ${
-                                            hoveredCard === 'ASE' || selectedGame === 'ASE' ? 'opacity-40 bg-amber-500/30' : 'opacity-0'
-                                        }`} />
+                                    <div className="relative w-16 h-16 shrink-0 flex items-center justify-center p-1.5 rounded-xl bg-white/[0.03] border border-white/10">
+                                        <div
+                                            className="absolute inset-0 rounded-xl blur-lg transition-opacity duration-500"
+                                            style={{
+                                                backgroundColor: 'rgba(245, 158, 11, 0.35)',
+                                                opacity: hoveredCard === 'ASE' || selectedGame === 'ASE' ? 1 : 0
+                                            }}
+                                        />
                                         <img
                                             src={aseLogo}
                                             alt="ARK Survival Evolved"
-                                            className="relative w-full h-full object-contain select-none pointer-events-none"
+                                            className="relative w-full h-full object-contain select-none pointer-events-none drop-shadow-md"
                                         />
                                     </div>
                                     <div className="min-w-0">
-                                        <div className="text-[10px] font-semibold tracking-widest uppercase text-amber-400/80 mb-1">
+                                        <div className="text-[11px] font-bold tracking-widest uppercase text-amber-400 mb-1">
                                             Classic Engine
                                         </div>
-                                        <h2 className="text-lg font-bold text-white leading-tight truncate">
+                                        <h2 className="text-lg font-bold text-white leading-tight truncate drop-shadow-sm">
                                             ARK: Survival Evolved
                                         </h2>
                                     </div>
                                 </div>
 
                                 {/* Description */}
-                                <p className="text-[13px] text-slate-400 leading-relaxed mb-6">
+                                <p className="text-[13px] text-slate-300 leading-relaxed mb-6">
                                     {t('welcome.evolvedDesc', 'Manage your classic ARK: Survival Evolved dedicated servers with full configuration control.')}
                                 </p>
 
                                 {/* Action */}
-                                <div className={`flex items-center justify-between py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                                    selectedGame === 'ASE'
-                                        ? 'bg-amber-500 text-slate-950'
-                                        : 'bg-white/[0.04] text-slate-300 group-hover:bg-amber-500/10 group-hover:text-amber-300'
-                                }`}>
-                                    <span>{selectedGame === 'ASE' ? t('welcome.launching', 'Launching...') : t('welcome.select', 'Select')}</span>
+                                <div
+                                    className={`welcome-action-pill flex items-center justify-between py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 border ${
+                                        selectedGame === 'ASE'
+                                            ? '!bg-amber-500 !text-slate-950 font-bold !border-amber-400'
+                                            : hoveredCard === 'ASE'
+                                                ? '!bg-amber-500 !text-slate-950 font-bold !border-amber-400 shadow-md'
+                                                : 'bg-white/[0.06] text-slate-200 border-white/10'
+                                    }`}
+                                >
+                                    <span className="tracking-wide">{selectedGame === 'ASE' ? t('welcome.launching', 'Launching...') : t('welcome.select', 'Select')}</span>
                                     <ArrowRight className={`w-4 h-4 transition-transform duration-300 ${
-                                        selectedGame === 'ASE' ? 'translate-x-0.5' : 'group-hover:translate-x-1'
+                                        selectedGame === 'ASE' || hoveredCard === 'ASE' ? 'translate-x-1' : ''
                                     }`} />
                                 </div>
                             </div>
@@ -161,58 +182,78 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                             onMouseLeave={() => !selectedGame && setHoveredCard(null)}
                             onClick={() => !selectedGame && handleSelectGame('ASA')}
                             aria-label="Select ARK: Survival Ascended"
-                            className={`group relative flex-1 max-w-[380px] rounded-2xl cursor-pointer text-left transition-all duration-400 border overflow-hidden ${
-                                selectedGame === 'ASA'
-                                    ? 'bg-sky-500/10 border-sky-400/40 shadow-[0_0_40px_rgba(14,165,233,0.2)] ring-1 ring-sky-500/30'
-                                    : hoveredCard === 'ASE'
-                                        ? 'bg-slate-900/30 border-white/5 opacity-50'
-                                        : 'bg-slate-900/40 border-white/[0.06] hover:border-sky-500/30 hover:bg-slate-900/60'
+                            className={`welcome-card welcome-card-asa group relative flex-1 rounded-2xl cursor-pointer text-left transition-all duration-300 border overflow-hidden shadow-2xl backdrop-blur-2xl ${
+                                selectedGame === 'ASA' ? 'selected' : ''
                             }`}
+                            style={{
+                                backgroundColor: selectedGame === 'ASA'
+                                    ? 'rgba(14, 165, 233, 0.15)'
+                                    : hoveredCard === 'ASA'
+                                        ? 'rgba(15, 23, 42, 0.92)'
+                                        : 'rgba(10, 15, 29, 0.85)',
+                                borderColor: selectedGame === 'ASA' || hoveredCard === 'ASA'
+                                    ? 'rgba(14, 165, 233, 0.6)'
+                                    : 'rgba(255, 255, 255, 0.12)',
+                                boxShadow: selectedGame === 'ASA' || hoveredCard === 'ASA'
+                                    ? '0 0 40px rgba(14, 165, 233, 0.25), 0 20px 40px rgba(0,0,0,0.6)'
+                                    : '0 20px 40px rgba(0,0,0,0.5)',
+                            }}
                         >
                             {/* Top accent line */}
-                            <div className={`h-[2px] w-full transition-all duration-500 ${
-                                selectedGame === 'ASA' || hoveredCard === 'ASA'
-                                    ? 'bg-gradient-to-r from-transparent via-sky-400 to-transparent'
-                                    : 'bg-gradient-to-r from-transparent via-white/[0.06] to-transparent'
-                            }`} />
+                            <div
+                                className="h-[3px] w-full transition-all duration-500"
+                                style={{
+                                    background: selectedGame === 'ASA' || hoveredCard === 'ASA'
+                                        ? 'linear-gradient(90deg, transparent, #38bdf8, transparent)'
+                                        : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)'
+                                }}
+                            />
 
                             <div className="p-7 pb-6">
                                 {/* Logo & Info Row */}
                                 <div className="flex items-center gap-5 mb-6">
-                                    <div className="relative w-16 h-16 shrink-0">
-                                        <div className={`absolute inset-0 rounded-xl blur-xl transition-opacity duration-500 ${
-                                            hoveredCard === 'ASA' || selectedGame === 'ASA' ? 'opacity-40 bg-sky-500/30' : 'opacity-0'
-                                        }`} />
+                                    <div className="relative w-16 h-16 shrink-0 flex items-center justify-center p-1.5 rounded-xl bg-white/[0.03] border border-white/10">
+                                        <div
+                                            className="absolute inset-0 rounded-xl blur-lg transition-opacity duration-500"
+                                            style={{
+                                                backgroundColor: 'rgba(14, 165, 233, 0.35)',
+                                                opacity: hoveredCard === 'ASA' || selectedGame === 'ASA' ? 1 : 0
+                                            }}
+                                        />
                                         <img
                                             src={asaLogo}
                                             alt="ARK Survival Ascended"
-                                            className="relative w-full h-full object-contain select-none pointer-events-none"
+                                            className="relative w-full h-full object-contain select-none pointer-events-none drop-shadow-md"
                                         />
                                     </div>
                                     <div className="min-w-0">
-                                        <div className="text-[10px] font-semibold tracking-widest uppercase text-sky-400/80 mb-1">
+                                        <div className="text-[11px] font-bold tracking-widest uppercase text-sky-400 mb-1">
                                             Unreal Engine 5
                                         </div>
-                                        <h2 className="text-lg font-bold text-white leading-tight truncate">
+                                        <h2 className="text-lg font-bold text-white leading-tight truncate drop-shadow-sm">
                                             ARK: Survival Ascended
                                         </h2>
                                     </div>
                                 </div>
 
                                 {/* Description */}
-                                <p className="text-[13px] text-slate-400 leading-relaxed mb-6">
+                                <p className="text-[13px] text-slate-300 leading-relaxed mb-6">
                                     {t('welcome.ascendedDesc', 'Manage next-gen ARK: Survival Ascended servers powered by Unreal Engine 5.')}
                                 </p>
 
                                 {/* Action */}
-                                <div className={`flex items-center justify-between py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                                    selectedGame === 'ASA'
-                                        ? 'bg-sky-500 text-slate-950'
-                                        : 'bg-white/[0.04] text-slate-300 group-hover:bg-sky-500/10 group-hover:text-sky-300'
-                                }`}>
-                                    <span>{selectedGame === 'ASA' ? t('welcome.launching', 'Launching...') : t('welcome.select', 'Select')}</span>
+                                <div
+                                    className={`welcome-action-pill flex items-center justify-between py-3 px-4 rounded-xl text-sm font-semibold transition-all duration-300 border ${
+                                        selectedGame === 'ASA'
+                                            ? '!bg-sky-500 !text-slate-950 font-bold !border-sky-400'
+                                            : hoveredCard === 'ASA'
+                                                ? '!bg-sky-500 !text-slate-950 font-bold !border-sky-400 shadow-md'
+                                                : 'bg-white/[0.06] text-slate-200 border-white/10'
+                                    }`}
+                                >
+                                    <span className="tracking-wide">{selectedGame === 'ASA' ? t('welcome.launching', 'Launching...') : t('welcome.select', 'Select')}</span>
                                     <ArrowRight className={`w-4 h-4 transition-transform duration-300 ${
-                                        selectedGame === 'ASA' ? 'translate-x-0.5' : 'group-hover:translate-x-1'
+                                        selectedGame === 'ASA' || hoveredCard === 'ASA' ? 'translate-x-1' : ''
                                     }`} />
                                 </div>
                             </div>
@@ -224,9 +265,9 @@ export default function WelcomeOverlay({ onComplete }: { onComplete: () => void 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.6, delay: 0.4 }}
-                        className="mt-10 flex items-center gap-2 text-[11px] text-slate-500 font-medium"
+                        className="mt-10 flex items-center gap-2 text-[11px] text-slate-400 font-medium"
                     >
-                        <Zap className="w-3.5 h-3.5 text-emerald-500/70" />
+                        <Zap className="w-3.5 h-3.5 text-emerald-400" />
                         <span>System Ready</span>
                     </motion.div>
                 </div>

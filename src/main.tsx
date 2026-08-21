@@ -52,22 +52,22 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 toastOptions={{
                     duration: 4000,
                     style: {
-                        background: '#0f172a',
-                        color: '#f8fafc',
-                        border: '1px solid #334155',
+                        background: 'var(--surface)',
+                        color: 'var(--text-primary)',
+                        border: '1px solid var(--border)',
                         borderRadius: '0.75rem',
-                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+                        boxShadow: 'var(--shadow)',
                         padding: '10px 14px',
                     },
                     success: {
                         iconTheme: {
-                            primary: '#0ea5e9',
+                            primary: 'var(--accent)',
                             secondary: '#f8fafc',
                         },
                     },
                     error: {
                         iconTheme: {
-                            primary: '#ef4444',
+                            primary: 'var(--danger)',
                             secondary: '#f8fafc',
                         },
                     },
@@ -76,13 +76,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 {(t) => (
                     <ToastBar toast={t}>
                         {({ icon, message }) => (
-                            <div className="flex items-center gap-2 text-sm font-medium">
+                            <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
                                 {icon}
                                 <div className="flex-1 px-1">{message}</div>
                                 {t.type !== 'loading' && (
                                     <button
                                         onClick={() => toast.dismiss(t.id)}
-                                        className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors ml-2 focus:outline-none focus:ring-1 focus:ring-slate-700"
+                                        className="p-1 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors ml-2 focus:outline-none"
                                         aria-label="Close notification"
                                     >
                                         <X className="w-4 h-4" />

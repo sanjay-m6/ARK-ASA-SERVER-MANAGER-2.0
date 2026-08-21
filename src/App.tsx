@@ -5,13 +5,14 @@ import WelcomeOverlay from './components/layout/WelcomeOverlay';
 import UpdateChecker from './components/UpdateChecker';
 import DonationAlert from './components/ui/DonationAlert';
 import { Loader2 } from 'lucide-react';
-import { checkIsAdmin } from './utils/tauri';
+import { checkIsAdmin, getSetting } from './utils/tauri';
 import { toast } from 'react-hot-toast';
 import ErrorBoundary from './components/ErrorBoundary';
-import './i18n'; // Initialize i18n
+import i18n from './i18n'; // Initialize i18n
 import { initializeInstallListeners } from './stores/installStore';
 import { initializeAseModListeners } from './ase/stores/aseModStore';
 import { useGameStore } from './stores/gameStore';
+import { useThemeStore } from './stores/themeStore';
 
 
 // Lazy load pages for performance optimization
@@ -150,6 +151,16 @@ function App() {
 
     // Check admin status on mount - just for warning, not blocking
     useEffect(() => {
+        // Initialize global theme
+        useThemeStore.getState().initTheme();
+
+        // Initialize persisted application language
+        getSetting('app_language').then(savedLang => {
+            if (savedLang && savedLang !== i18n.language) {
+                i18n.changeLanguage(savedLang);
+            }
+        }).catch(() => {});
+
         // Initialize global Tauri installation event listeners
         initializeInstallListeners();
         initializeAseModListeners();

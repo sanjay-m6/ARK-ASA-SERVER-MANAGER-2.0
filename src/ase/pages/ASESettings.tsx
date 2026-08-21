@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Settings, FolderOpen, Save, ExternalLink, Shield, Terminal, FileText, Search, Copy, Check, X, RefreshCw, Trash2 } from 'lucide-react';
+import { Settings, FolderOpen, Save, ExternalLink, Shield, Terminal, FileText, Search, Copy, Check, X, RefreshCw, Trash2, Palette } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { cn } from '../../utils/helpers';
 import FirewallSettings from '../../components/settings/FirewallSettings';
+import AppearanceSettings from '../../components/settings/AppearanceSettings';
+import LanguageSettings from '../../components/settings/LanguageSettings';
 
 export default function ASESettings() {
   const navigate = useNavigate();
@@ -18,7 +20,7 @@ export default function ASESettings() {
   const [aseUserConfigFolder, setAseUserConfigFolder] = useState('');
   const [discordToken, setDiscordToken] = useState('');
   const [discordClientId, setDiscordClientId] = useState('');
-  const [activeTab, setActiveTab] = useState<'general' | 'api' | 'firewall'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'language' | 'api' | 'firewall'>('general');
   const [isLoading, setIsLoading] = useState(true);
 
   // Log Viewer state
@@ -102,7 +104,7 @@ export default function ASESettings() {
       await invoke('set_setting', { key: 'ase_user_config_folder', value: aseUserConfigFolder });
       toast.success('ASE settings saved successfully'); 
     } catch (err) {
-      console.error('Failed to save settings:', err);
+      console.error('Failed to save ASE settings', err);
       toast.error('Failed to save ASE settings');
     }
   };
@@ -155,6 +157,31 @@ export default function ASESettings() {
           <span className="relative z-10 flex items-center gap-2">⚙️ General Settings</span>
         </button>
         <button
+          onClick={() => setActiveTab('appearance')}
+          className={cn(
+            "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
+            activeTab === 'appearance'
+              ? "text-purple-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+          )}
+        >
+          <span className="relative z-10 flex items-center gap-2">
+            <Palette className="w-4 h-4" />
+            Appearance & Theme
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('language')}
+          className={cn(
+            "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
+            activeTab === 'language'
+              ? "text-sky-300 bg-slate-800/80 shadow-[0_2px_10px_rgba(0,0,0,0.2)] border border-slate-700/50"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40"
+          )}
+        >
+          <span className="relative z-10 flex items-center gap-2">🌐 Language</span>
+        </button>
+        <button
           onClick={() => setActiveTab('api')}
           className={cn(
             "flex items-center gap-2.5 px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden",
@@ -182,6 +209,10 @@ export default function ASESettings() {
         <div className="flex justify-center py-20">
           <div className="animate-spin w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full"></div>
         </div>
+      ) : activeTab === 'appearance' ? (
+        <AppearanceSettings />
+      ) : activeTab === 'language' ? (
+        <LanguageSettings />
       ) : activeTab === 'general' ? (
         <div className="space-y-6 animate-in slide-in-from-left-4 duration-300">
           <div className="glass-panel rounded-2xl p-6 space-y-6">

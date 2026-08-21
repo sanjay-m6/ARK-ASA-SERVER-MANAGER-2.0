@@ -984,7 +984,16 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              commands::discord::stop_discord_bridge,
              commands::discord::test_discord_bridge_connection,
              commands::discord::generate_bot_invite_url,
+             commands::discord::get_discord_player_links,
+             commands::discord::unlink_discord_player,
              commands::discord::send_discord_status_update,
+             commands::discord::get_discord_rate_limit_config,
+             commands::discord::set_discord_rate_limit_config,
+             commands::discord::get_discord_audit_logs,
+             commands::discord::clear_discord_audit_logs,
+             commands::discord::get_discord_diagnostics,
+             commands::discord::trigger_discord_setup,
+             commands::discord::refresh_discord_dashboard,
 
              // AI Agent Commands
              commands::ai::ai_chat,

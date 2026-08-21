@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getVersion } from '@tauri-apps/api/app';
-import { Copy, Bell, Loader2, AlertCircle, RefreshCw, ChevronDown, Plus, Server, Users, Check, Info } from 'lucide-react';
+import { Copy, Bell, Loader2, AlertCircle, RefreshCw, ChevronDown, Plus, Server, Users, Check, Info, Globe } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../utils/helpers';
 import { useServerStore } from '../../stores/serverStore';
@@ -14,6 +14,8 @@ import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
+import { supportedLanguages } from '../../i18n';
+import { setSetting } from '../../utils/tauri';
 import ServerOverviewModal from '../server/ServerOverviewModal';
 
 export default function TopBar() {
@@ -25,11 +27,15 @@ export default function TopBar() {
     const isASE = activeGame === 'ASE';
     const servers = isASE ? aseServers : asaServers;
     const activeServer = isASE ? activeAseServer : activeAsaServer;
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [appVersion, setAppVersion] = useState<string>('?.?.?');
     const [updateAvailable, setUpdateAvailable] = useState<UpdateInfo | null>(null);
     const [isChecking, setIsChecking] = useState(false);
     const [isOverviewOpen, setIsOverviewOpen] = useState(false);
+
+    const currentLang = supportedLanguages.find(
+        (l) => l.code === i18n.language || i18n.language?.startsWith(l.code)
+    ) || supportedLanguages[0];
 
     // IP Hook
     const { data: publicIp, isLoading: isLoadingIp, isError: isErrorIp, refetch: refetchIp } = usePublicIP();
@@ -114,19 +120,19 @@ export default function TopBar() {
             {/* LEFT: Quick Cluster Stats & Active Server Selector */}
             <div className="flex items-center gap-3 z-10 flex-shrink-0">
                 {/* Quick Cluster Stats Pill */}
-                <div className="hidden lg:flex items-center gap-3 bg-slate-900/80 border border-white/10 rounded-xl h-10 px-3.5 text-xs font-medium backdrop-blur-md shadow-sm">
-                    <div className="flex items-center gap-1.5 text-slate-300">
+                <div className="hidden lg:flex items-center gap-3 bg-[var(--surface-active)] border border-[var(--border)] rounded-xl h-10 px-3.5 text-xs font-medium backdrop-blur-md shadow-sm">
+                    <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
                         <Server className="w-3.5 h-3.5 text-sky-400" />
-                        <span className="font-bold text-white">{runningServers}</span>
-                        <span className="text-slate-400 text-[11px] font-semibold">Active</span>
+                        <span className="font-bold text-[var(--text-primary)]">{runningServers}</span>
+                        <span className="text-[var(--text-secondary)] text-[11px] font-semibold">Active</span>
                     </div>
-                    <div className="w-px h-3.5 bg-slate-700/80"></div>
-                    <div className="flex items-center gap-1.5 text-slate-300">
+                    <div className="w-px h-3.5 bg-[var(--border)]"></div>
+                    <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
                         <Users className="w-3.5 h-3.5 text-emerald-400" />
-                        <span className="font-bold text-white">
+                        <span className="font-bold text-[var(--text-primary)]">
                             {servers.reduce((acc: number, s: any) => acc + getPlayerCount(s), 0)}
                         </span>
-                        <span className="text-slate-400 text-[11px] font-semibold">Players</span>
+                        <span className="text-[var(--text-secondary)] text-[11px] font-semibold">Players</span>
                     </div>
                 </div>
 
@@ -135,37 +141,37 @@ export default function TopBar() {
                     {({ open }) => (
                         <>
                             <Menu.Button className={cn(
-                                "flex items-center gap-3 h-10 px-3.5 rounded-xl border transition-all duration-200 outline-none shadow-sm group",
+                                "flex items-center gap-3 h-10 px-3.5 rounded-xl border transition-all duration-200 outline-none shadow-sm group bg-[var(--surface-active)] text-[var(--text-primary)]",
                                 isASE
                                     ? open
-                                        ? "bg-slate-900 border-amber-500 text-white shadow-amber-500/10"
-                                        : "bg-slate-900/80 border-amber-500/30 hover:border-amber-400 text-slate-200"
+                                        ? "border-amber-500 shadow-amber-500/10"
+                                        : "border-[var(--border)] hover:border-amber-400"
                                     : open
-                                        ? "bg-slate-900 border-sky-500 text-white shadow-sky-500/10"
-                                        : "bg-slate-900/80 border-sky-500/30 hover:border-sky-400 text-slate-200"
+                                        ? "border-sky-500 shadow-sky-500/10"
+                                        : "border-[var(--border)] hover:border-sky-400"
                             )}>
                                 <div className={cn(
                                     "w-2.5 h-2.5 rounded-full flex-shrink-0 transition-all",
                                     activeServer?.status === 'running' || activeServer?.status === 'online'
-                                        ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)] animate-pulse"
+                                        ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]"
                                         : activeServer?.status === 'starting' || activeServer?.status === 'updating'
-                                        ? "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.9)] animate-pulse"
-                                        : "bg-slate-500"
+                                        ? "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.9)]"
+                                        : "bg-slate-400"
                                 )}></div>
                                 <div className="flex flex-col items-start leading-tight">
                                     <span className="text-[9px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1">
                                         EDITING TARGET
                                     </span>
-                                    <span className="text-xs font-extrabold text-white max-w-[150px] truncate">
+                                    <span className="text-xs font-extrabold text-[var(--text-primary)] max-w-[150px] truncate">
                                         {activeServer ? activeServer.name : 'No Active Server'}
                                     </span>
                                 </div>
                                 {activeServer && (
-                                    <span className="hidden sm:inline-flex text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-white/5">
+                                    <span className="hidden sm:inline-flex text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md bg-[var(--surface-hover)] text-[var(--text-secondary)] border border-[var(--border)]">
                                         :{getGamePort(activeServer)}
                                     </span>
                                 )}
-                                <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ml-0.5 group-hover:text-white", open ? "rotate-180 text-sky-400" : "")} />
+                                <ChevronDown className={cn("w-3.5 h-3.5 text-[var(--text-secondary)] transition-transform duration-200 ml-0.5 group-hover:text-[var(--text-primary)]", open ? "rotate-180 text-sky-400" : "")} />
                             </Menu.Button>
 
                             <Transition
@@ -390,23 +396,23 @@ export default function TopBar() {
             {/* RIGHT: Status indicators, IP, Version, Discord, Notifications */}
             <div className="flex items-center gap-2.5 z-10">
                 {/* Public IP Display Pill */}
-                <div className="flex items-center gap-2 h-10 bg-slate-900/80 border border-white/10 rounded-xl px-3.5 backdrop-blur-md shadow-sm">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('dashboard.publicIpAddress', 'IP')}:</span>
+                <div className="flex items-center gap-2 h-10 bg-[var(--surface-active)] border border-[var(--border)] rounded-xl px-3.5 backdrop-blur-md shadow-sm">
+                    <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('dashboard.publicIpAddress', 'IP')}:</span>
                     <div className="flex items-center">
                         {isLoadingIp ? (
-                            <div className="flex items-center gap-1.5 text-slate-400"><Loader2 className="w-3 h-3 animate-spin" /> <span className="text-xs font-mono">Detecting...</span></div>
+                            <div className="flex items-center gap-1.5 text-[var(--text-secondary)]"><Loader2 className="w-3 h-3 animate-spin" /> <span className="text-xs font-mono">Detecting...</span></div>
                         ) : isErrorIp ? (
-                            <span className="text-xs font-mono text-slate-400 italic flex items-center gap-1 cursor-pointer hover:text-white transition-colors" onClick={() => refetchIp()} title="Click to retry">
+                            <span className="text-xs font-mono text-[var(--text-secondary)] italic flex items-center gap-1 cursor-pointer hover:text-[var(--text-primary)] transition-colors" onClick={() => refetchIp()} title="Click to retry">
                                 <AlertCircle className="w-3 h-3 text-amber-400" /> N/A
                             </span>
                         ) : (
-                            <span className="text-xs font-mono font-bold text-slate-200">{publicIp}</span>
+                            <span className="text-xs font-mono font-bold text-[var(--text-primary)]">{publicIp}</span>
                         )}
                     </div>
                     <button
                         onClick={handleCopyIp}
                         disabled={!publicIp}
-                        className="ml-1 p-1 hover:bg-slate-800 rounded-md transition-all text-slate-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed group"
+                        className="ml-1 p-1 hover:bg-[var(--surface-hover)] rounded-md transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed group"
                         title={t('dashboard.copyIp', 'Copy IP Address')}
                     >
                         <Copy className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
@@ -414,9 +420,9 @@ export default function TopBar() {
                 </div>
 
                 {/* Version & Update Button Pill */}
-                <div className="flex items-center gap-2 h-10 bg-slate-900/80 border border-white/10 rounded-xl px-3.5 backdrop-blur-md shadow-sm">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('common.version', 'VER')}:</span>
-                    <span className="text-xs font-bold text-slate-200 font-mono">v{appVersion.replace('-0', '-beta')}</span>
+                <div className="flex items-center gap-2 h-10 bg-[var(--surface-active)] border border-[var(--border)] rounded-xl px-3.5 backdrop-blur-md shadow-sm">
+                    <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('common.version', 'VER')}:</span>
+                    <span className="text-xs font-bold text-[var(--text-primary)] font-mono">v{appVersion.replace('-0', '-beta')}</span>
                     {(appVersion.includes('beta') || appVersion.includes('-0')) && (
                         <span className={cn(
                             "px-1.5 py-0.5 text-[8px] font-extrabold tracking-wider rounded border uppercase backdrop-blur-sm leading-none",
@@ -431,7 +437,7 @@ export default function TopBar() {
                         onClick={handleManualCheck}
                         disabled={isChecking}
                         className={cn(
-                            "ml-0.5 p-1 hover:bg-slate-800 rounded-md transition-all text-slate-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed group",
+                            "ml-0.5 p-1 hover:bg-[var(--surface-hover)] rounded-md transition-all text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed group",
                             isASE ? "hover:text-amber-400" : "hover:text-cyan-400"
                         )}
                         title={t('settings.updatesTab.checkForUpdates', 'Check for Updates')}
@@ -441,7 +447,7 @@ export default function TopBar() {
                 </div>
 
                 {/* Divider */}
-                <div className="w-px h-5 bg-white/10 mx-0.5"></div>
+                <div className="w-px h-5 bg-[var(--border)] mx-0.5"></div>
 
                 {/* Global System Status Pill — visible only when online */}
                 {(() => {
@@ -461,7 +467,7 @@ export default function TopBar() {
                 {/* Discord Link Pill */}
                 <button
                     onClick={() => openUrl('https://discord.gg/9CF8hRX8rr')}
-                    className="flex items-center gap-2 h-10 px-3.5 rounded-xl bg-[#5865F2]/10 hover:bg-[#5865F2]/20 border border-[#5865F2]/30 text-[#5865F2] hover:text-white transition-all group outline-none font-bold text-xs shadow-sm"
+                    className="flex items-center gap-2 h-10 px-3.5 rounded-xl bg-[#5865F2]/10 hover:bg-[#5865F2]/20 border border-[#5865F2]/30 text-[#5865F2] transition-all group outline-none font-bold text-xs shadow-sm cursor-pointer"
                     title={t('dashboard.discordCommunity', 'Bugs & Updates')}
                 >
                     <svg role="img" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(88,101,242,0.4)]">
@@ -470,19 +476,97 @@ export default function TopBar() {
                     <span>Discord</span>
                 </button>
 
+                {/* Quick Language Selector */}
+                <Menu as="div" className="relative">
+                    {({ open }) => (
+                        <>
+                            <Menu.Button
+                                className={cn(
+                                    "flex items-center gap-1.5 h-10 px-3 rounded-xl border transition-all outline-none shadow-sm cursor-pointer",
+                                    open
+                                        ? "bg-[var(--surface-active)] border-sky-500/40 text-[var(--text-primary)]"
+                                        : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
+                                )}
+                                title={t('settings.language.title', 'Application Language')}
+                            >
+                                <span className="text-base leading-none">{currentLang.flag}</span>
+                                <span className="text-xs font-bold uppercase tracking-wider">{currentLang.code.split('-')[0]}</span>
+                                <ChevronDown className="w-3 h-3 opacity-60" />
+                            </Menu.Button>
+                            <Transition
+                                as={Fragment}
+                                enter="transition ease-out duration-100"
+                                enterFrom="transform opacity-0 scale-95"
+                                enterTo="transform opacity-100 scale-100"
+                                leave="transition ease-in duration-75"
+                                leaveFrom="transform opacity-100 scale-100"
+                                leaveTo="transform opacity-0 scale-95"
+                            >
+                                <Menu.Items className="absolute right-0 mt-2 w-60 origin-top-right rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-2xl focus:outline-none overflow-hidden z-50 p-2 max-h-[380px] overflow-y-auto">
+                                    <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border)] mb-1 flex items-center justify-between">
+                                        <span>Select Language</span>
+                                        <Globe className="w-3.5 h-3.5 text-sky-400" />
+                                    </div>
+                                    {supportedLanguages.map((lang) => {
+                                        const isSelected = currentLang.code === lang.code;
+                                        return (
+                                            <Menu.Item key={lang.code}>
+                                                {({ active }) => (
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            await i18n.changeLanguage(lang.code);
+                                                            localStorage.setItem('ark_sm_language', lang.code);
+                                                            setSetting('app_language', lang.code).catch(() => {});
+                                                            toast.success(
+                                                                t('settings.language.languageChanged', {
+                                                                    defaultValue: 'Language changed to {{language}}',
+                                                                    language: lang.nativeName,
+                                                                }),
+                                                                { id: 'lang-toast' }
+                                                            );
+                                                        }}
+                                                        className={cn(
+                                                            "w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer",
+                                                            isSelected
+                                                                ? "bg-sky-500/20 text-sky-400 font-bold"
+                                                                : active
+                                                                    ? "bg-[var(--surface-hover)] text-[var(--text-primary)]"
+                                                                    : "text-[var(--text-secondary)]"
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center gap-2.5">
+                                                            <span className="text-lg">{lang.flag}</span>
+                                                            <div className="text-left">
+                                                                <p className="leading-tight">{lang.nativeName}</p>
+                                                                <p className="text-[10px] opacity-60 leading-tight">{lang.name}</p>
+                                                            </div>
+                                                        </div>
+                                                        {isSelected && <Check className="w-4 h-4 text-sky-400" />}
+                                                    </button>
+                                                )}
+                                            </Menu.Item>
+                                        );
+                                    })}
+                                </Menu.Items>
+                            </Transition>
+                        </>
+                    )}
+                </Menu>
+
                 {/* Notification Bell Menu */}
                 <Menu as="div" className="relative">
                     {({ open }) => (
                         <>
                             <Menu.Button className={cn(
-                                "relative flex items-center justify-center w-10 h-10 rounded-xl border transition-all outline-none shadow-sm",
+                                "relative flex items-center justify-center w-10 h-10 rounded-xl border transition-all outline-none shadow-sm cursor-pointer",
                                 open
-                                    ? "bg-slate-800 border-white/20 text-white"
-                                    : "bg-slate-900/80 border-white/10 text-slate-400 hover:text-white hover:border-white/20"
+                                    ? "bg-[var(--surface-active)] border-sky-500/40 text-[var(--text-primary)]"
+                                    : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]"
                             )}>
                                 <Bell className="w-4 h-4" />
                                 {updateAvailable && (
-                                    <span className="absolute top-2 right-2 w-2 h-2 bg-sky-500 rounded-full border border-slate-900 shadow-[0_0_8px_rgba(14,165,233,0.8)] animate-pulse"></span>
+                                    <span className="absolute top-2 right-2 w-2 h-2 bg-sky-500 rounded-full border border-[var(--border)] shadow-[0_0_8px_rgba(14,165,233,0.8)] animate-pulse"></span>
                                 )}
                             </Menu.Button>
                             <Transition
@@ -494,10 +578,10 @@ export default function TopBar() {
                                 leaveFrom="transform opacity-100 scale-100"
                                 leaveTo="transform opacity-0 scale-95"
                             >
-                                <Menu.Items className="absolute right-0 mt-2 w-80 origin-top-right rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl shadow-black/60 focus:outline-none overflow-hidden z-50">
-                                    <div className="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
-                                        <h3 className="font-bold text-white text-sm">Notifications</h3>
-                                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider bg-slate-800 px-2 py-0.5 rounded-full">
+                                <Menu.Items className="absolute right-0 mt-2 w-80 origin-top-right rounded-2xl bg-[var(--surface)] border border-[var(--border)] shadow-2xl focus:outline-none overflow-hidden z-50">
+                                    <div className="p-4 bg-[var(--surface)] border-b border-[var(--border)] flex justify-between items-center">
+                                        <h3 className="font-bold text-[var(--text-primary)] text-sm">Notifications</h3>
+                                        <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider bg-[var(--surface-hover)] px-2 py-0.5 rounded-full">
                                             {updateAvailable ? '1 New' : 'Zero'}
                                         </span>
                                     </div>
@@ -506,21 +590,21 @@ export default function TopBar() {
                                             <Menu.Item>
                                                 {({ active }) => (
                                                     <div className={cn(
-                                                        "p-4 border-b border-slate-800/50 transition-colors cursor-pointer",
-                                                        active ? "bg-slate-800/50" : ""
+                                                        "p-4 border-b border-[var(--border)] transition-colors cursor-pointer",
+                                                        active ? "bg-[var(--surface-hover)]" : ""
                                                     )} onClick={handleUpdateClick}>
                                                         <div className="flex items-start gap-3">
-                                                            <div className="mt-0.5 p-2 bg-sky-500/10 rounded-lg text-sky-400 border border-sky-500/20">
+                                                            <div className="mt-0.5 p-2 bg-sky-500/15 rounded-lg text-sky-500 border border-sky-500/30">
                                                                 <Bell className="w-4 h-4" />
                                                             </div>
                                                             <div className="flex-1">
                                                                 <div className="flex justify-between items-start mb-1">
-                                                                    <h4 className="font-bold text-sky-400 text-sm leading-tight">New Version {updateAvailable.version} Available</h4>
+                                                                    <h4 className="font-bold text-sky-500 text-sm leading-tight">New Version {updateAvailable.version} Available</h4>
                                                                 </div>
-                                                                <p className="text-xs text-slate-400 line-clamp-2 mt-1 mb-3">
+                                                                <p className="text-xs text-[var(--text-secondary)] line-clamp-2 mt-1 mb-3">
                                                                     {updateAvailable.body || "A new update is available to download and install."}
                                                                 </p>
-                                                                <button className="w-full py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-sky-500/20 transition-all uppercase tracking-wide">
+                                                                <button className="w-full py-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-sky-500/20 transition-all uppercase tracking-wide cursor-pointer">
                                                                     Review & Update
                                                                 </button>
                                                             </div>
@@ -529,10 +613,10 @@ export default function TopBar() {
                                                 )}
                                             </Menu.Item>
                                         ) : (
-                                            <div className="p-8 text-center flex flex-col items-center justify-center text-slate-500">
-                                                <Bell className="w-8 h-8 opacity-20 mb-3" />
-                                                <p className="text-sm font-medium">You're all caught up!</p>
-                                                <p className="text-xs mt-1">Version v{appVersion} is up to date.</p>
+                                            <div className="p-8 text-center flex flex-col items-center justify-center text-[var(--text-muted)]">
+                                                <Bell className="w-8 h-8 opacity-40 mb-3" />
+                                                <p className="text-sm font-bold text-[var(--text-primary)]">You're all caught up!</p>
+                                                <p className="text-xs text-[var(--text-secondary)] mt-1">Version v{appVersion} is up to date.</p>
                                             </div>
                                         )}
                                     </div>

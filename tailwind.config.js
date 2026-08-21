@@ -36,6 +36,17 @@ export default {
           900: '#0f172a',
           950: '#020617',
         },
+        theme: {
+          primary: 'var(--bg-primary)',
+          secondary: 'var(--bg-secondary)',
+          tertiary: 'var(--bg-tertiary)',
+          surface: 'var(--surface)',
+          card: 'var(--card-background)',
+          border: 'var(--border)',
+          accent: 'var(--accent)',
+          text: 'var(--text-primary)',
+          muted: 'var(--text-muted)',
+        },
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',

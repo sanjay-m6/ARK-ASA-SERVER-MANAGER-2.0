@@ -48,7 +48,7 @@ function LiveClock() {
   }, []);
 
   return (
-    <div className="flex items-center text-sm font-medium text-white tracking-wide">
+    <div className="flex items-center text-sm font-medium text-[var(--text-primary)] tracking-wide">
       {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
     </div>
   );
@@ -106,9 +106,23 @@ export default function TitleBar() {
 
   const handleMaximizeToggle = useCallback(async () => {
     try {
-      if (appWindow) await appWindow.toggleMaximize();
+      if (appWindow) {
+        const isMax = await appWindow.isMaximized();
+        if (isMax) {
+          await appWindow.unmaximize();
+          setIsMaximized(false);
+        } else {
+          await appWindow.maximize();
+          setIsMaximized(true);
+        }
+      }
     } catch (err) {
       console.error('Failed to toggle window maximize:', err);
+      try {
+        if (appWindow) await appWindow.toggleMaximize();
+      } catch (fallbackErr) {
+        console.error('Fallback toggleMaximize failed:', fallbackErr);
+      }
     }
   }, [appWindow]);
 
@@ -172,16 +186,12 @@ export default function TitleBar() {
   return (
     <div
       data-tauri-drag-region
-      className="relative flex items-center justify-between w-full h-14 bg-gradient-to-r from-[#111729] via-[#1a2238] to-[#111729] border-b border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden select-none z-50 shrink-0 cursor-default"
+      className="relative flex items-center justify-between w-full h-14 bg-[var(--surface)] text-[var(--text-primary)] border-b border-[var(--border)] shadow-sm overflow-hidden select-none z-50 shrink-0 cursor-default transition-colors duration-300"
     >
-      {/* Subtle top-edge highlight and star-like specks */}
-      <div className="absolute inset-0 pointer-events-none opacity-20 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] mix-blend-screen" />
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-
       {/* ═══ LEFT: Logo + App Title + Meta ═══ */}
       <div className="flex items-center gap-3 pl-4 pointer-events-none z-10">
-        {/* Logo with strong blue glow */}
-        <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-[#0a0f1e] shadow-[0_0_20px_rgba(59,130,246,0.6)] border border-blue-500/20">
+        {/* Logo container */}
+        <div className="relative flex items-center justify-center w-10 h-10 rounded-full bg-[var(--surface-hover)] shadow-sm border border-[var(--border)]">
           <img
             src={isASE ? aseLogo : asaLogo}
             alt="Logo"
@@ -190,7 +200,7 @@ export default function TitleBar() {
         </div>
 
         {/* Title */}
-        <span className="text-sm font-semibold text-white tracking-wide ml-1 drop-shadow-md">
+        <span className="text-sm font-bold text-[var(--text-primary)] tracking-wide ml-1">
           ARK Server Manager
         </span>
 
@@ -199,14 +209,14 @@ export default function TitleBar() {
           {appVersion && (
             <button
               onClick={() => setIsUpdateModalOpen(true)}
-              className="text-[9px] font-mono font-medium text-amber-300 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1 cursor-pointer transition-all"
+              className="text-[9px] font-mono font-medium text-amber-400 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1 cursor-pointer transition-all"
               title="Click to check for application updates"
             >
               <Sparkles className="w-2.5 h-2.5 text-amber-400" />
               v{appVersion} (Check Updates)
             </button>
           )}
-          <span className="text-[9px] font-bold text-slate-300 bg-white/5 border border-white/10 px-1.5 py-0.5 rounded-full shadow-sm">
+          <span className="text-[9px] font-bold text-[var(--text-secondary)] bg-[var(--surface-hover)] border border-[var(--border)] px-1.5 py-0.5 rounded-full shadow-sm">
             {isASE ? 'ASE' : 'ASA'}
           </span>
         </div>
@@ -244,14 +254,14 @@ export default function TitleBar() {
           </span>
         </div>
 
-        <div className="w-px h-5 bg-white/10" />
+        <div className="w-px h-5 bg-[var(--border)]" />
 
         {/* Clock */}
         <LiveClock />
 
         {/* Window Controls Pill */}
         <div
-          className="flex items-center gap-2 px-2.5 py-1.5 ml-2 rounded-full bg-black/40 border border-white/5 shadow-inner cursor-default"
+          className="flex items-center gap-2 px-2.5 py-1.5 ml-2 rounded-full bg-[var(--surface-hover)] border border-[var(--border)] shadow-inner cursor-default"
           data-tauri-drag-region="false"
           style={{ WebkitAppRegion: 'no-drag', AppRegion: 'no-drag' } as React.CSSProperties}
         >

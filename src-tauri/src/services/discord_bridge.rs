@@ -17,7 +17,10 @@ use std::time::Instant;
 use tokio::sync::Mutex;
 
 use serenity::all::{
-    CreateEmbed, CreateEmbedFooter, CreateMessage,
+    Client as SerenityClient, Command, CommandOptionType,
+    Context, CreateCommand, CreateCommandOption, CreateEmbed, CreateEmbedFooter,
+    CreateMessage, EventHandler as SerenityEventHandler, GatewayIntents, Interaction, Message, Ready,
+    ShardManager,
 };
 
 fn default_true() -> bool {
@@ -197,12 +200,16 @@ impl RateLimiter {
 
 use crate::services::player_intelligence::PlayerIntelligenceService;
 use crate::AppState;
-use serenity::all::{
-    Client as SerenityClient, Context, EventHandler as SerenityEventHandler, GatewayIntents,
-    Message, Ready, ShardManager, Interaction, Command, CreateCommand, CreateCommandOption,
-    CommandOptionType, CreateInteractionResponse, CreateInteractionResponseMessage,
-};
 use tauri::{AppHandle, Manager, Emitter};
+
+/// Helper to render an ASCII/Unicode progress bar
+pub fn render_bar(percentage: f64, width: usize) -> String {
+    let pct = percentage.clamp(0.0, 100.0);
+    let filled = ((pct / 100.0) * width as f64).round() as usize;
+    let filled = filled.min(width);
+    let empty = width.saturating_sub(filled);
+    format!("{}{}", "▰".repeat(filled), "▱".repeat(empty))
+}
 
 /// Server info for cluster display
 struct ClusterServerInfo {
@@ -219,6 +226,7 @@ struct GatewayHandler {
     config: Arc<Mutex<Option<DiscordBridgeConfig>>>,
     commands_processed: Arc<AtomicU64>,
     command_log: Arc<Mutex<Vec<DiscordCommandLog>>>,
+    rate_limiter: crate::services::discord::rate_limit::RateLimiter,
 }
 
 /// Permission level required for a command
@@ -320,7 +328,10 @@ impl SerenityEventHandler for GatewayHandler {
         log::info!("🟢 Discord bot '{}' is now ONLINE", ready.user.name);
 
         let commands = vec![
-            CreateCommand::new("status").description("Get the status of all servers"),
+            CreateCommand::new("setup")
+                .description("Auto-create channels & configure Discord integration for ARK Server Manager"),
+            CreateCommand::new("status")
+                .description("Get live status and resource health of all cluster servers"),
             CreateCommand::new("start")
                 .description("Start a server")
                 .add_option(
@@ -340,12 +351,40 @@ impl SerenityEventHandler for GatewayHandler {
                         .required(true)
                 ),
             CreateCommand::new("update")
-                .description("Update a server")
+                .description("Update a server with SteamCMD")
                 .add_option(
                     CreateCommandOption::new(CommandOptionType::Integer, "server_id", "The ID of the server to update")
                         .required(true)
                 ),
+            CreateCommand::new("backup")
+                .description("Create an instant backup of a server")
+                .add_option(
+                    CreateCommandOption::new(CommandOptionType::Integer, "server_id", "The ID of the server to backup")
+                        .required(true)
+                ),
+            CreateCommand::new("rcon")
+                .description("Execute an RCON console command on a server")
+                .add_option(
+                    CreateCommandOption::new(CommandOptionType::Integer, "server_id", "The ID of the target server")
+                        .required(true)
+                )
+                .add_option(
+                    CreateCommandOption::new(CommandOptionType::String, "command", "The RCON command string (e.g. SaveWorld)")
+                        .required(true)
+                ),
             CreateCommand::new("players").description("List all online players across servers"),
+            CreateCommand::new("player")
+                .description("Inspect player statistics, tribe, and playtime history")
+                .add_option(
+                    CreateCommandOption::new(CommandOptionType::String, "query", "Player character name or Steam/EOS ID")
+                        .required(true)
+                ),
+            CreateCommand::new("link")
+                .description("Link your Discord account to your Steam/EOS ID")
+                .add_option(
+                    CreateCommandOption::new(CommandOptionType::String, "steam_id", "Your Steam ID (765611...) or EOS ID")
+                        .required(true)
+                ),
             CreateCommand::new("kick")
                 .description("Kick a player from a server")
                 .add_option(
@@ -365,6 +404,16 @@ impl SerenityEventHandler for GatewayHandler {
                 .add_option(
                     CreateCommandOption::new(CommandOptionType::String, "steam_id", "The Steam/EOS ID of the player")
                         .required(true)
+                ),
+            CreateCommand::new("whitelist")
+                .description("Add a player to the server whitelist")
+                .add_option(
+                    CreateCommandOption::new(CommandOptionType::String, "steam_id", "The Steam/EOS ID of the player")
+                        .required(true)
+                )
+                .add_option(
+                    CreateCommandOption::new(CommandOptionType::String, "player_name", "Optional player character/display name")
+                        .required(false)
                 ),
         ];
 
@@ -390,271 +439,34 @@ impl SerenityEventHandler for GatewayHandler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::Command(command) = interaction {
-            let cmd_name = command.data.name.as_str();
-
-            // Extract options helper
-            let server_id = command.data.options.iter()
-                .find(|opt| opt.name == "server_id")
-                .and_then(|opt| match &opt.value {
-                    serenity::all::CommandDataOptionValue::Integer(i) => Some(*i),
-                    _ => None,
-                });
-
-            let steam_id = command.data.options.iter()
-                .find(|opt| opt.name == "steam_id")
-                .and_then(|opt| match &opt.value {
-                    serenity::all::CommandDataOptionValue::String(s) => Some(s.clone()),
-                    _ => None,
-                });
-
-            // Permission Check
-            let is_admin = if let Some(member) = &command.member {
-                let cfg = self.config.lock().await;
-                if let Some(c) = cfg.as_ref() {
-                    member.roles.iter().any(|r| c.admin_role_ids.contains(&r.to_string()))
-                } else {
-                    false
-                }
-            } else {
-                false
-            };
-
-            // Require admin permission for control/moderation commands
-            if !is_admin && cmd_name != "status" && cmd_name != "players" {
-                let data = CreateInteractionResponseMessage::new()
-                    .content("❌ You need an Admin role to perform this action.")
-                    .ephemeral(true);
-                let builder = CreateInteractionResponse::Message(data);
-                let _ = command.create_response(&ctx.http, builder).await;
-                return;
+        match interaction {
+            Interaction::Command(command) => {
+                crate::services::discord::commands::CommandHandler::handle(
+                    &ctx,
+                    &command,
+                    &self.app_handle,
+                    &self.config,
+                    &self.rate_limiter,
+                ).await;
             }
-
-            let content = match cmd_name {
-                "status" => {
-                    let state = self.app_handle.state::<AppState>();
-                    match get_all_servers_status(&state).await {
-                        Ok(servers) => {
-                            let mut desc = String::new();
-                            for s in &servers {
-                                let icon = match s.status.as_str() { "online"|"running" => "🟢", "starting" => "🟡", "stopped" => "🔴", "crashed" => "💥", _ => "⚪" };
-                                desc.push_str(&format!("{} `#{}` **{}** — {}\n", icon, s.id, s.name, s.status));
-                            }
-                            if desc.is_empty() { desc = "*No servers found*".to_string(); }
-                            desc
-                        },
-                        Err(e) => format!("Error: {}", e),
-                    }
-                },
-                "start" => {
-                    if let Some(id) = server_id {
-                        let app = self.app_handle.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let _ = crate::commands::server::start_server(app, id, false).await;
-                        });
-                        format!("🚀 Initiated START for server `#{}`.", id)
-                    } else {
-                        "❌ Missing required option `server_id`.".to_string()
-                    }
-                },
-                "stop" => {
-                    if let Some(id) = server_id {
-                        let app = self.app_handle.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::stop_server(state, id).await;
-                        });
-                        format!("🛑 Initiated STOP for server `#{}`.", id)
-                    } else {
-                        "❌ Missing required option `server_id`.".to_string()
-                    }
-                },
-                "restart" => {
-                    if let Some(id) = server_id {
-                        let app = self.app_handle.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::restart_server(state, id, None).await;
-                        });
-                        format!("🔄 Initiated RESTART for server `#{}`.", id)
-                    } else {
-                        "❌ Missing required option `server_id`.".to_string()
-                    }
-                },
-                "update" => {
-                    if let Some(id) = server_id {
-                        let app = self.app_handle.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::update_server(app.clone(), state, id).await;
-                        });
-                        format!("🔄 Initiated UPDATE for server `#{}`.", id)
-                    } else {
-                        "❌ Missing required option `server_id`.".to_string()
-                    }
-                },
-                "players" => {
-                    let state = self.app_handle.state::<AppState>();
-                    match get_all_servers_status(&state).await {
-                        Ok(servers) => {
-                            let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                            let rcon_service = &rcon_state.inner().0;
-                            let mut lines = Vec::new();
-                            for s in servers {
-                                if s.status == "online" || s.status == "running" {
-                                    match rcon_service.get_players(s.id).await {
-                                        Ok(players) => {
-                                            if !players.is_empty() {
-                                                lines.push(format!("**🟢 {}** ({} online):", s.name, players.len()));
-                                                for p in players {
-                                                    lines.push(format!("  • **{}** (Steam/EOS: `{}`)", p.name, p.steam_id));
-                                                }
-                                            } else {
-                                                lines.push(format!("**🟢 {}** (0 online)", s.name));
-                                            }
-                                        }
-                                        Err(_) => {
-                                            lines.push(format!("**🟢 {}** (RCON error/starting)", s.name));
-                                        }
-                                    }
-                                } else {
-                                    lines.push(format!("**⚪ {}** (Offline)", s.name));
-                                }
-                            }
-                            if lines.is_empty() {
-                                "👥 **Online Players:** No servers are currently running.".to_string()
-                            } else {
-                                format!("👥 **Online Players & Server Status:**\n\n{}", lines.join("\n"))
-                            }
-                        },
-                        Err(e) => format!("Error retrieving status: {}", e),
-                    }
-                },
-                "kick" => {
-                    if let (Some(srv_id), Some(steam_id)) = (server_id, steam_id) {
-                        let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                        let rcon_service = &rcon_state.inner().0;
-                        match rcon_service.kick_player(srv_id, &steam_id, Some("Kicked via Discord Command")).await {
-                            Ok(_) => format!("👢 Successfully kicked player `{}` from server `#{}`.", steam_id, srv_id),
-                            Err(e) => format!("❌ Failed to kick player: {}", e),
-                        }
-                    } else {
-                        "❌ Missing options `server_id` and/or `steam_id`.".to_string()
-                    }
-                },
-                "ban" => {
-                    if let (Some(srv_id), Some(steam_id)) = (server_id, steam_id) {
-                        let rcon_state = self.app_handle.state::<crate::commands::rcon::RconState>();
-                        let rcon_service = &rcon_state.inner().0;
-                        match rcon_service.ban_player(srv_id, &steam_id).await {
-                            Ok(_) => format!("🚫 Successfully banned player `{}` from server `#{}`.", steam_id, srv_id),
-                            Err(e) => format!("❌ Failed to ban player: {}", e),
-                        }
-                    } else {
-                        "❌ Missing options `server_id` and/or `steam_id`.".to_string()
-                    }
-                },
-                _ => "Unknown command".to_string(),
-            };
-
-            let data = CreateInteractionResponseMessage::new().content(content);
-            let builder = CreateInteractionResponse::Message(data);
-            if let Err(why) = command.create_response(&ctx.http, builder).await {
-                log::error!("Cannot respond to slash command: {}", why);
+            Interaction::Component(component) => {
+                crate::services::discord::components::ComponentHandler::handle_component(
+                    &ctx,
+                    &component,
+                    &self.app_handle,
+                    &self.config,
+                    &self.rate_limiter,
+                ).await;
             }
-        } else if let Interaction::Component(component) = interaction {
-            let custom_id = &component.data.custom_id;
-            log::info!("Component interaction received: {}", custom_id);
-
-            // Basic role check for Admin
-            let is_admin = if let Some(member) = &component.member {
-                let cfg = self.config.lock().await;
-                if let Some(c) = cfg.as_ref() {
-                    member.roles.iter().any(|r| c.admin_role_ids.contains(&r.to_string()))
-                } else {
-                    false
-                }
-            } else {
-                false
-            };
-
-            if !is_admin {
-                let data = CreateInteractionResponseMessage::new()
-                    .content("❌ You need an Admin role to perform this action.")
-                    .ephemeral(true);
-                let builder = CreateInteractionResponse::Message(data);
-                let _ = component.create_response(&ctx.http, builder).await;
-                return;
+            Interaction::Modal(modal) => {
+                crate::services::discord::components::ComponentHandler::handle_modal(
+                    &ctx,
+                    &modal,
+                    &self.app_handle,
+                    &self.config,
+                ).await;
             }
-
-            let cluster_id = self.config.lock().await.as_ref().map(|c| c.cluster_id).unwrap_or(0);
-            
-            // Get all servers for this cluster
-            let mut server_ids: Vec<i64> = Vec::new();
-            {
-                let state = self.app_handle.state::<AppState>();
-                let db_result = state.db.lock();
-                if let Ok(db) = db_result {
-                    if let Ok(conn) = db.get_connection() {
-                        if let Ok(mut stmt) = conn.prepare("SELECT id FROM servers WHERE cluster_id = ?1") {
-                            if let Ok(rows) = stmt.query_map([cluster_id], |row| row.get(0)) {
-                                server_ids = rows.filter_map(Result::ok).collect();
-                            }
-                        }
-                    }
-                }
-            }
-
-            let response_msg = match custom_id.as_str() {
-                "start_all" => {
-                    for id in server_ids {
-                        let app = self.app_handle.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let _ = crate::commands::server::start_server(app, id, false).await;
-                        });
-                    }
-                    "🚀 Initiated START for all servers in the cluster."
-                },
-                "stop_all" => {
-                    for id in server_ids {
-                        let app = self.app_handle.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::stop_server(state, id).await;
-                        });
-                    }
-                    "🛑 Initiated STOP for all servers in the cluster."
-                },
-                "restart_all" => {
-                    for id in server_ids {
-                        let app = self.app_handle.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::restart_server(state, id, None).await;
-                        });
-                    }
-                    "🔄 Initiated RESTART for all servers in the cluster."
-                },
-                "update_all" => {
-                    for id in server_ids {
-                        let app = self.app_handle.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = crate::commands::server::update_server(app.clone(), state, id).await;
-                        });
-                    }
-                    "🔄 Initiated UPDATE for all servers in the cluster."
-                },
-                _ => "Unknown action."
-            };
-
-            let data = CreateInteractionResponseMessage::new()
-                .content(response_msg)
-                .ephemeral(true);
-            let builder = CreateInteractionResponse::Message(data);
-            if let Err(why) = component.create_response(&ctx.http, builder).await {
-                log::error!("Cannot respond to component interaction: {}", why);
-            }
+            _ => {}
         }
     }
 
@@ -1006,6 +818,7 @@ pub struct DiscordBridgeService {
     running: Arc<AtomicBool>,
     pub gateway_running: Arc<AtomicBool>,
     pub rate_limiter: Arc<Mutex<RateLimiter>>,
+    pub rate_limiter_service: crate::services::discord::rate_limit::RateLimiter,
     sent_messages: Arc<Mutex<Vec<String>>>,
     shard_manager: Arc<Mutex<Option<Arc<ShardManager>>>>,
     // Phase 4: Status tracking
@@ -1024,6 +837,7 @@ impl DiscordBridgeService {
             running: Arc::new(AtomicBool::new(false)),
             gateway_running: Arc::new(AtomicBool::new(false)),
             rate_limiter: Arc::new(Mutex::new(RateLimiter::new(5, 10))),
+            rate_limiter_service: crate::services::discord::rate_limit::RateLimiter::new(),
             sent_messages: Arc::new(Mutex::new(Vec::new())),
             shard_manager: Arc::new(Mutex::new(None)),
             commands_processed: Arc::new(AtomicU64::new(0)),
@@ -1047,6 +861,7 @@ impl DiscordBridgeService {
             let commands_processed = self.commands_processed.clone();
             let command_log = self.command_log.clone();
             let shard_manager = self.shard_manager.clone();
+            let rate_limiter = self.rate_limiter_service.clone();
 
             gateway_running.store(true, Ordering::Relaxed);
             tauri::async_runtime::spawn(async move {
@@ -1071,6 +886,7 @@ impl DiscordBridgeService {
                         config: config_arc,
                         commands_processed,
                         command_log,
+                        rate_limiter,
                     })
                     .await
                 {
@@ -1512,12 +1328,15 @@ impl DiscordBridgeService {
         let app_handle = self.app_handle.clone();
         let config = self.config.clone();
 
+        let rate_limiter = self.rate_limiter_service.clone();
+
         match SerenityClient::builder(&token, intents)
             .event_handler(GatewayHandler { 
                 app_handle, 
                 config,
                 commands_processed: self.commands_processed.clone(),
                 command_log: self.command_log.clone(),
+                rate_limiter,
             })
             .await
         {
@@ -1576,6 +1395,22 @@ impl DiscordBridgeService {
         });
 
         log::info!("🌉 Discord bridge stopped");
+    }
+
+    /// Explicitly trigger a refresh of the Discord live status dashboard
+    pub async fn trigger_dashboard_refresh(&self) -> Result<(), String> {
+        let config = self.get_config().await.ok_or("No Discord configuration found")?;
+        if !config.enabled {
+            return Err("Discord bridge is disabled".to_string());
+        }
+
+        if config.server_list_enabled && !config.server_list_channel_id.is_empty() {
+            self.update_server_list(&config).await?;
+        }
+        if config.player_list_enabled && !config.player_list_channel_id.is_empty() {
+            self.update_player_list(&config).await?;
+        }
+        Ok(())
     }
 
     /// Main loop for live updates
@@ -1673,7 +1508,11 @@ impl DiscordBridgeService {
             }
         };
 
-        let mut desc = format!("Updated: <t:{}:R>\n\n", chrono::Utc::now().timestamp());
+        let cpu_bar = render_bar(cpu_usage, 10);
+        let ram_bar = render_bar(ram_usage, 10);
+
+        let mut desc = format!("⏱️ **Live Status Dashboard** • Updated: <t:{}:R>\n\n", chrono::Utc::now().timestamp());
+        let mut select_options = Vec::new();
 
         for s in &servers {
             let player_count = player_counts.get(&s.id).unwrap_or(&0);
@@ -1706,59 +1545,92 @@ impl DiscordBridgeService {
             };
 
             desc.push_str(&format!(
-                "{} **{}**\n└ Status: `{}` | Players: `[ {} / {} ]` | Uptime: {}\n\n",
-                status_icon, s.name, s.status.to_uppercase(), player_count, s.max_players, uptime_str
+                "{} **{}** `(#{})`\n└ Status: `{}` | Players: `[ {} / {} ]` | Uptime: {}\n\n",
+                status_icon, s.name, s.id, s.status.to_uppercase(), player_count, s.max_players, uptime_str
             ));
+
+            select_options.push(json!({
+                "label": format!("Server #{}: {}", s.id, s.name.chars().take(45).collect::<String>()),
+                "value": s.id.to_string(),
+                "description": format!("{} {} | Players: {}/{}", status_icon, status_text, player_count, s.max_players)
+            }));
         }
+
+        if servers.is_empty() {
+            desc.push_str("*No servers configured in this cluster.*\n");
+        }
+
+        let mut components = Vec::new();
+
+        // Row 1: Select menu for individual server control if servers exist
+        if !select_options.is_empty() {
+            components.push(json!({
+                "type": 1,
+                "components": [
+                    {
+                        "type": 3,
+                        "custom_id": "select_server_dashboard",
+                        "placeholder": "🎯 Select a Server for Quick Actions & Controls...",
+                        "options": select_options
+                    }
+                ]
+            }));
+        }
+
+        // Row 2: Cluster Action Buttons
+        components.push(json!({
+            "type": 1,
+            "components": [
+                {
+                    "type": 2,
+                    "label": "Start All",
+                    "style": 3,
+                    "custom_id": "start_all"
+                },
+                {
+                    "type": 2,
+                    "label": "Stop All",
+                    "style": 4,
+                    "custom_id": "stop_all"
+                },
+                {
+                    "type": 2,
+                    "label": "Restart All",
+                    "style": 1,
+                    "custom_id": "restart_all"
+                },
+                {
+                    "type": 2,
+                    "label": "Update All",
+                    "style": 2,
+                    "custom_id": "update_all"
+                }
+            ]
+        }));
 
         let payload = json!({
             "content": "",
             "embeds": [{
-                "title": "🦖 CLUSTER STATUS DASHBOARD",
+                "title": "🦖 CLUSTER COMMAND CENTER",
                 "description": desc,
                 "color": 0x3B82F6,
                 "fields": [
                     {
-                        "name": "💻 System Metrics",
-                        "value": format!("`CPU: {:.1}%` | `RAM: {:.1}%`", cpu_usage, ram_usage),
-                        "inline": false
+                        "name": "💻 Host CPU Usage",
+                        "value": format!("`{}` `{:.1}%`", cpu_bar, cpu_usage),
+                        "inline": true
+                    },
+                    {
+                        "name": "🧠 Host RAM Usage",
+                        "value": format!("`{}` `{:.1}%`", ram_bar, ram_usage),
+                        "inline": true
                     }
                 ],
                 "footer": {
-                    "text": "ASA Server Manager 2.0"
+                    "text": "ASA Server Manager 2.0 • Realtime Dashboard"
                 }
             }],
-            "components": [
-                {
-                    "type": 1,
-                    "components": [
-                        {
-                            "type": 2,
-                            "label": "Start All",
-                            "style": 3,
-                            "custom_id": "start_all"
-                        },
-                        {
-                            "type": 2,
-                            "label": "Stop All",
-                            "style": 4,
-                            "custom_id": "stop_all"
-                        },
-                        {
-                            "type": 2,
-                            "label": "Restart All",
-                            "style": 1,
-                            "custom_id": "restart_all"
-                        },
-                        {
-                            "type": 2,
-                            "label": "Update All",
-                            "style": 2,
-                            "custom_id": "update_all"
-                        }
-                    ]
-                }
-            ]
+            "components": components
         });
 
         self.update_discord_message(
