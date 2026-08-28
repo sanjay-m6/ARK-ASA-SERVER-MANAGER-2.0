@@ -9,7 +9,7 @@ pub fn render_bar(percentage: f64, width: usize) -> String {
     let filled = ((pct / 100.0) * width as f64).round() as usize;
     let filled = filled.min(width);
     let empty = width.saturating_sub(filled);
-    format!("{}{}", "▰".repeat(filled), "▱".repeat(empty))
+    return format!("{}{}", "▰".repeat(filled), "▱".repeat(empty));
 }
 
 pub struct DashboardBuilder;

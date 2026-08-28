@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
     Shield, Save, Clock, HardDrive, Server, Loader2, Info, 
-    Zap, ShieldCheck, Play, Check, Sparkles, Sliders, Bell
+    Zap, ShieldCheck, Play, Check, Sparkles, Sliders, Bell,
+    FolderOpen, Folder, RotateCcw
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import toast from 'react-hot-toast';
 import { BackupPolicy } from '../../types';
+import { getPlatformInfo } from '../../platform/platform';
+import { cn } from '../../utils/helpers';
 
 interface BackupPoliciesProps {
     serverId: number | null;
@@ -22,6 +25,7 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
     const [isTestingWebhook, setIsTestingWebhook] = useState(false);
     const [isTriggeringNow, setIsTriggeringNow] = useState(false);
     const [activePreset, setActivePreset] = useState<PresetType>('balanced');
+    const [defaultBackupDir, setDefaultBackupDir] = useState<string>('C:/ASA_Backups');
 
     // Backup targets selection
     const [targets, setTargets] = useState({
@@ -30,6 +34,14 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
         mods: false,
         logs: false,
     });
+
+    useEffect(() => {
+        getPlatformInfo().then((info) => {
+            if (info?.defaultBackupDir) {
+                setDefaultBackupDir(info.defaultBackupDir);
+            }
+        }).catch(console.error);
+    }, []);
 
     useEffect(() => {
         if (!serverId) return;
@@ -197,6 +209,29 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
         } finally {
             setIsTestingWebhook(false);
         }
+    };
+
+    const handleBrowseBackupDir = async () => {
+        try {
+            const selected = await invoke<string | null>('select_folder', {
+                title: 'Select Backup Storage Location',
+            });
+            if (selected) {
+                setPolicy({ ...policy!, customBackupDir: selected });
+                setActivePreset('custom');
+                toast.success(`Backup location set to: ${selected}`);
+            }
+        } catch (err) {
+            console.error('Failed to select folder:', err);
+            toast.error('Failed to select backup directory');
+        }
+    };
+
+    const handleResetBackupDir = () => {
+        if (!policy) return;
+        setPolicy({ ...policy, customBackupDir: undefined });
+        setActivePreset('custom');
+        toast.success('Backup location reset to default');
     };
 
     if (!serverId) return null;
@@ -566,6 +601,58 @@ export default function BackupPolicies({ serverId }: BackupPoliciesProps) {
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:ring-2 focus:ring-blue-500"
                                 />
                                 <p className="text-xs text-slate-500 mt-1">Prevents server disk space exhaustion by enforcing hard storage limits</p>
+                            </div>
+
+                            {/* Backup Storage Directory */}
+                            <div className="pt-2 border-t border-slate-700/40">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="block text-sm font-medium text-slate-300">
+                                        Backup Storage Location
+                                    </label>
+                                    <span className={cn(
+                                        "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                                        policy.customBackupDir
+                                            ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                                            : "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                                    )}>
+                                        {policy.customBackupDir ? 'Custom Path' : 'Default Path'}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative flex-1">
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            value={policy.customBackupDir || defaultBackupDir}
+                                            placeholder={defaultBackupDir}
+                                            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-3 pr-8 py-2 text-white text-xs font-mono focus:ring-2 focus:ring-blue-500 truncate"
+                                        />
+                                        <Folder className="w-4 h-4 text-slate-500 absolute right-2.5 top-2.5" />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleBrowseBackupDir}
+                                        className="flex items-center gap-1.5 px-3 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-500/40 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+                                        title="Browse for folder"
+                                    >
+                                        <FolderOpen className="w-3.5 h-3.5 text-blue-400" />
+                                        Browse
+                                    </button>
+                                    {policy.customBackupDir && (
+                                        <button
+                                            type="button"
+                                            onClick={handleResetBackupDir}
+                                            className="flex items-center gap-1.5 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-medium transition-all whitespace-nowrap"
+                                            title="Reset to default location"
+                                        >
+                                            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+                                            Reset
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">
+                                    Target root folder on disk where all backup archives for this server will be saved.
+                                </p>
                             </div>
                         </div>
                     </div>

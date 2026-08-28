@@ -304,10 +304,30 @@ impl Database {
                     compression_enabled BOOLEAN DEFAULT 1,
                     cloud_sync_enabled BOOLEAN DEFAULT 0,
                     discord_webhook TEXT,
+                    custom_backup_dir TEXT,
                     FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
                 )",
                 [],
             )?;
+        } else {
+            // Migrate existing table: add custom_backup_dir if missing
+            let has_custom_backup_dir = {
+                let mut cols_stmt = conn.prepare("PRAGMA table_info(backup_policies)")?;
+                let mut rows = cols_stmt.query([])?;
+                let mut found = false;
+                while let Some(row) = rows.next()? {
+                    let col_name: String = row.get(1)?;
+                    if col_name == "custom_backup_dir" {
+                        found = true;
+                        break;
+                    }
+                }
+                found
+            };
+            if !has_custom_backup_dir {
+                println!("📦 Migration: Adding 'custom_backup_dir' to backup_policies");
+                conn.execute("ALTER TABLE backup_policies ADD COLUMN custom_backup_dir TEXT", [])?;
+            }
         }
 
         Ok(())
@@ -1120,6 +1140,7 @@ impl Database {
                         compression_enabled BOOLEAN DEFAULT 1,
                         cloud_sync_enabled BOOLEAN DEFAULT 0,
                         discord_webhook TEXT,
+                        custom_backup_dir TEXT,
                         FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
                     )",
                     "backups" => "CREATE TABLE backups (

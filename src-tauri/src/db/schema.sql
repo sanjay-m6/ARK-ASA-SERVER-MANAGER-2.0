@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS backup_policies (
     compression_enabled BOOLEAN DEFAULT 1,
     cloud_sync_enabled BOOLEAN DEFAULT 0,
     discord_webhook TEXT,
+    custom_backup_dir TEXT,
     FOREIGN KEY(server_id) REFERENCES servers(id) ON DELETE CASCADE
 );
 

@@ -195,6 +195,7 @@ export interface BackupPolicy {
     compressionEnabled: boolean;
     cloudSyncEnabled: boolean;
     discordWebhook?: string;
+    customBackupDir?: string;
 }
 
 

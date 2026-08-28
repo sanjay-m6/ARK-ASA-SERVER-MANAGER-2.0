@@ -64,6 +64,21 @@ export default function ASEScheduler() {
     }
   }, [selectedServer]);
 
+  const calculateNextBasicRun = (intervalHours: number = 6) => {
+    const now = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(0, 0, 0, 0);
+
+    const intervalMs = (intervalHours <= 0 ? 24 : intervalHours) * 60 * 60 * 1000;
+    let targetMs = midnight.getTime();
+    const thresholdMs = now.getTime() + 60 * 1000;
+
+    while (targetMs <= thresholdMs) {
+      targetMs += intervalMs;
+    }
+    return new Date(targetMs);
+  };
+
   // Real-time ticking countdown logic for both Basic and Advanced scheduler targets
   useEffect(() => {
     const timer = setInterval(() => {
@@ -72,8 +87,8 @@ export default function ASEScheduler() {
         return;
       }
 
-      if (settings.mode === 'basic' && settings.nextRunBasic) {
-        const target = new Date(settings.nextRunBasic);
+      if (settings.mode === 'basic') {
+        const target = settings.nextRunBasic ? new Date(settings.nextRunBasic) : calculateNextBasicRun(settings.basicIntervalHours);
         const now = new Date();
         const diff = target.getTime() - now.getTime();
 
@@ -348,10 +363,10 @@ export default function ASEScheduler() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <button
             onClick={async () => {
-              if (!settings) return;
+              if (!settings || !selectedServer) return;
               const newS = { ...settings, mode: 'basic' as const, basicIntervalHours: 6, basicWarningMinutes: '15,10,5,1' };
-              setSettings(newS);
               await saveAseSchedulerSettings(newS);
+              await loadSettings(selectedServer);
               toast.success('Applied 6-Hour Loop Preset');
             }}
             className="flex flex-col text-left p-3.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all group"
@@ -365,7 +380,7 @@ export default function ASEScheduler() {
 
           <button
             onClick={async () => {
-              if (!settings) return;
+              if (!settings || !selectedServer) return;
               const newS = {
                 ...settings,
                 mode: 'advanced' as const,
@@ -378,8 +393,8 @@ export default function ASEScheduler() {
                 advancedRestart: true,
                 advancedDinoWipe: true
               };
-              setSettings(newS);
               await saveAseSchedulerSettings(newS);
+              await loadSettings(selectedServer);
               toast.success('Applied Daily 3:00 AM Maintenance Preset');
             }}
             className="flex flex-col text-left p-3.5 bg-slate-950/60 hover:bg-slate-900 border border-slate-800 hover:border-purple-500/50 rounded-xl transition-all group"

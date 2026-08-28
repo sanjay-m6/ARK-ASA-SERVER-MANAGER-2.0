@@ -165,22 +165,49 @@ pub struct ModLoadFailureEvent {
     pub suggestions: Vec<String>,
 }
 
-pub fn find_game_server_pid_by_install_path(install_path: &str, server_type: &str, parent_pid: Option<u32>) -> Option<u32> {
+pub fn find_game_server_pid_by_install_path(
+    install_path: &str,
+    server_type: &str,
+    parent_pid: Option<u32>,
+    query_port: Option<u16>,
+    game_port: Option<u16>,
+) -> Option<u32> {
     use sysinfo::System;
     let mut sys = System::new();
     sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
-    let target_name = if server_type == "ASE" {
+    let is_ase = server_type.eq_ignore_ascii_case("ASE");
+    let primary_target = if is_ase {
         "ShooterGameServer.exe"
     } else {
         "ArkAscendedServer.exe"
     };
+    let loader_target = if is_ase {
+        "ServerApiLoader.exe"
+    } else {
+        "AsaApiLoader.exe"
+    };
 
-    // 1. Try parent PID matching first (most robust since the loader spawns the game server directly)
+    // Helper to normalize Windows paths removing extended verbatim prefixes and casing
+    fn normalize_path(p: &str) -> String {
+        let mut s = p.replace('\\', "/").to_lowercase();
+        while s.starts_with("//?/") || s.starts_with("/??/") || s.starts_with("?") {
+            s = s.trim_start_matches("//?/")
+                 .trim_start_matches("/??/")
+                 .trim_start_matches("?")
+                 .trim_start_matches('/')
+                 .to_string();
+        }
+        s.trim_end_matches('/').to_string()
+    }
+
+    let norm_install = normalize_path(install_path);
+
+    // 1. Try parent PID matching first (if loader directly spawned the game server)
     if let Some(ppid) = parent_pid {
         for (pid, process) in sys.processes() {
             let name = process.name().to_string_lossy();
-            if name.eq_ignore_ascii_case(target_name) {
+            if name.eq_ignore_ascii_case(primary_target) {
                 if let Some(parent) = process.parent() {
                     if parent.as_u32() == ppid {
                         println!("  🎯 [Handoff] Found child process {} with parent PID {}", pid, ppid);
@@ -191,29 +218,71 @@ pub fn find_game_server_pid_by_install_path(install_path: &str, server_type: &st
         }
     }
 
-    // 2. Path-based / Command-line-based matching
-    let norm_install = install_path.replace('\\', "/").to_lowercase();
-    let install_parts: Vec<&str> = norm_install.split('/').filter(|s| !s.is_empty()).collect();
-    if install_parts.is_empty() {
-        return None;
-    }
+    // 2. High-precision port matching: Check query_port / game_port in command line args
+    // In multi-server and cluster setups, each server instance has unique game & query ports.
+    if query_port.is_some() || game_port.is_some() {
+        for (pid, process) in sys.processes() {
+            let name = process.name().to_string_lossy();
+            if name.eq_ignore_ascii_case(primary_target) || name.eq_ignore_ascii_case(loader_target) {
+                let cmd = process.cmd();
+                if !cmd.is_empty() {
+                    let cmd_str = cmd.iter()
+                        .map(|arg| arg.to_string_lossy())
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                        .to_lowercase();
 
-    for (pid, process) in sys.processes() {
-        let name = process.name().to_string_lossy();
-        if name.eq_ignore_ascii_case(target_name) {
-            let mut matches_path = false;
+                    let query_match = match query_port {
+                        Some(qp) => {
+                            cmd_str.contains(&format!("queryport={}", qp))
+                                || cmd_str.contains(&format!("?queryport={}", qp))
+                                || cmd_str.contains(&format!("-queryport={}", qp))
+                        }
+                        None => false,
+                    };
 
-            if let Some(exe_path) = process.exe() {
-                let exe_str = exe_path.to_string_lossy().replace('\\', "/").to_lowercase();
-                let exe_parts: Vec<&str> = exe_str.split('/').filter(|s| !s.is_empty()).collect();
+                    let game_match = match game_port {
+                        Some(gp) => {
+                            cmd_str.contains(&format!("port={}", gp))
+                                || cmd_str.contains(&format!("?port={}", gp))
+                                || cmd_str.contains(&format!("-port={}", gp))
+                        }
+                        None => false,
+                    };
 
-                if exe_parts.len() >= install_parts.len() && exe_parts[..install_parts.len()] == install_parts[..] {
-                    matches_path = true;
+                    if query_match || game_match {
+                        println!("  🎯 [Handoff] Found server PID {} matching unique port (query: {:?}, game: {:?})", pid, query_port, game_port);
+                        return Some(pid.as_u32());
+                    }
                 }
             }
+        }
+    }
 
-            // Fallback to checking command line arguments if exe() was None or path matching failed
-            if !matches_path {
+    // 3. Path-based matching (normalized executable path, working directory, or cmd path)
+    if !norm_install.is_empty() {
+        for (pid, process) in sys.processes() {
+            let name = process.name().to_string_lossy();
+            if name.eq_ignore_ascii_case(primary_target) || name.eq_ignore_ascii_case(loader_target) {
+                // Check process.exe() path
+                if let Some(exe_path) = process.exe() {
+                    let norm_exe = normalize_path(&exe_path.to_string_lossy());
+                    if norm_exe.contains(&norm_install) || norm_exe.starts_with(&norm_install) {
+                        println!("  🎯 [Handoff] Found server PID {} matching install path {:?}", pid, norm_install);
+                        return Some(pid.as_u32());
+                    }
+                }
+
+                // Check process.cwd()
+                if let Some(cwd_path) = process.cwd() {
+                    let norm_cwd = normalize_path(&cwd_path.to_string_lossy());
+                    if norm_cwd.contains(&norm_install) || norm_cwd.starts_with(&norm_install) {
+                        println!("  🎯 [Handoff] Found server PID {} matching cwd {:?}", pid, norm_install);
+                        return Some(pid.as_u32());
+                    }
+                }
+
+                // Check cmd arguments containing install path
                 let cmd = process.cmd();
                 if !cmd.is_empty() {
                     let cmd_str = cmd.iter()
@@ -223,16 +292,41 @@ pub fn find_game_server_pid_by_install_path(install_path: &str, server_type: &st
                         .replace('\\', "/")
                         .to_lowercase();
                     if cmd_str.contains(&norm_install) {
-                        matches_path = true;
+                        println!("  🎯 [Handoff] Found server PID {} matching cmd path {:?}", pid, norm_install);
+                        return Some(pid.as_u32());
                     }
                 }
             }
+        }
+    }
 
-            if matches_path {
-                return Some(pid.as_u32());
+    // 4. Windows Fallback: Check UDP port listener via netstat if query_port is known
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(qp) = query_port {
+            if let Ok(output) = Command::new("netstat")
+                .args(["-ano", "-p", "UDP"])
+                .no_window()
+                .output()
+            {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let port_pattern = format!(":{}", qp);
+                for line in stdout.lines() {
+                    if line.contains(&port_pattern) {
+                        if let Some(pid_str) = line.split_whitespace().last() {
+                            if let Ok(pid) = pid_str.parse::<u32>() {
+                                if pid > 4 {
+                                    println!("  🎯 [Handoff] Found server PID {} listening on UDP port {}", pid, qp);
+                                    return Some(pid);
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
+
     None
 }
 
@@ -305,8 +399,8 @@ impl ProcessManager {
                                 Ok(Some(status)) => {
                                     // Parent exited. Check if handoff exists (with retry since it may take a moment to spawn)
                                     let mut handoff_pid = None;
-                                    for _ in 0..10 {
-                                        if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, Some(proc.pid)) {
+                                    for _ in 0..15 {
+                                        if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, Some(proc.pid), Some(proc.query_port), None) {
                                             handoff_pid = Some(new_pid);
                                             break;
                                         }
@@ -960,11 +1054,8 @@ impl ProcessManager {
         args.push(format!("-WinLiveMaxPlayers={}", max_players));
 
         // Add explicit port flags required by Unreal Engine 5 / ShooterGame network binding
-        args.push(format!("-port={}", game_port));
         args.push(format!("-Port={}", game_port));
-        args.push(format!("-queryport={}", query_port));
         args.push(format!("-QueryPort={}", query_port));
-        args.push(format!("-peerport={}", game_port + 1));
         args.push(format!("-PeerPort={}", game_port + 1));
         if rcon_port > 0 {
             args.push(format!("-RCONPort={}", rcon_port));
@@ -1018,23 +1109,22 @@ impl ProcessManager {
 
                 mod_list.iter()
                     .map(|m| m.trim().to_string())
-                    .filter(|m| !m.is_empty() && m != "0" && m.chars().all(|c| c.is_ascii_digit()))
+                    .filter(|m| !m.is_empty() && m != "0" && m != "927083" && m.chars().all(|c| c.is_ascii_digit()))
                     .collect()
             }
             None => Vec::new(),
         };
 
         // DYNAMIC MAP MOD DETECTION & AUTO-INJECTION
-        // Detect map mod ID from: 1) preset lookup, 2) custom_args (-MapModID=xxxx)
-        let mut detected_map_mod: Option<String> = crate::services::config_generator::get_mod_id_for_map(&effective_map)
-            .map(|s| s.to_string());
+        // Detect map mod ID from: 1) preset lookup/active mods resolution, 2) custom_args (-MapModID=xxxx)
+        let mut detected_map_mod: Option<String> = crate::services::config_generator::resolve_map_mod_id(&effective_map, &valid_mods);
 
         if detected_map_mod.is_none() {
             if let Some(custom) = custom_args {
                 for part in custom.split_whitespace() {
                     if part.to_lowercase().starts_with("-mapmodid=") {
                         let id = part.split_once('=').map(|(_, v)| v.trim()).unwrap_or("");
-                        if !id.is_empty() && id != "0" && id.chars().all(|c| c.is_ascii_digit()) {
+                        if !id.is_empty() && id != "0" && id != "927083" && id.chars().all(|c| c.is_ascii_digit()) {
                             detected_map_mod = Some(id.to_string());
                             println!("  🔍 Detected custom map mod ID from launch args: {}", id);
                             break;
@@ -1089,17 +1179,35 @@ impl ProcessManager {
 
         if gus_path.exists() {
             if let Ok(content) = std::fs::read_to_string(&gus_path) {
-                // If launching an official DLC map (like Astraeos_WP), strip any legacy ActiveMapMod keys from INI on disk
-                if crate::services::config_generator::get_mod_id_for_map(&effective_map).is_none() {
-                    if content.contains("ActiveMapMod") || content.contains("ActiveModMap") || content.contains("ActiveMapMods") {
-                        let mut cleaned = crate::services::ini_parser::IniParser::remove_key(&content, "ServerSettings", "ActiveMapMod");
+                let mut modified = false;
+                let mut cleaned = content.clone();
+
+                if let Some(ref map_mod_id) = detected_map_mod {
+                    // Ensure GameUserSettings.ini has the exact correct ActiveMapMod (and fix stale Turkey Trial 927083)
+                    let current_val = crate::services::ini_parser::IniParser::get_value(&cleaned, "ServerSettings", "ActiveMapMod");
+                    if current_val.as_deref() != Some(map_mod_id.as_str()) {
+                        cleaned = crate::services::ini_parser::IniParser::update_key(&cleaned, "ServerSettings", "ActiveMapMod", map_mod_id);
+                        modified = true;
+                        println!("  🔧 Corrected ActiveMapMod to {} in GameUserSettings.ini for server {}", map_mod_id, server_id);
+                    }
+                    if cleaned.contains("ActiveModMap") || cleaned.contains("ActiveMapMods") {
                         cleaned = crate::services::ini_parser::IniParser::remove_key(&cleaned, "ServerSettings", "ActiveModMap");
                         cleaned = crate::services::ini_parser::IniParser::remove_key(&cleaned, "ServerSettings", "ActiveMapMods");
-                        if cleaned != content {
-                            let _ = std::fs::write(&gus_path, cleaned);
-                            println!("  🧹 Sanitized legacy ActiveMapMod from GameUserSettings.ini for server {}", server_id);
-                        }
+                        modified = true;
                     }
+                } else {
+                    // Official map without map mod -> purge any leftover ActiveMapMod keys
+                    if cleaned.contains("ActiveMapMod") || cleaned.contains("ActiveModMap") || cleaned.contains("ActiveMapMods") {
+                        cleaned = crate::services::ini_parser::IniParser::remove_key(&cleaned, "ServerSettings", "ActiveMapMod");
+                        cleaned = crate::services::ini_parser::IniParser::remove_key(&cleaned, "ServerSettings", "ActiveModMap");
+                        cleaned = crate::services::ini_parser::IniParser::remove_key(&cleaned, "ServerSettings", "ActiveMapMods");
+                        modified = true;
+                        println!("  🧹 Sanitized legacy ActiveMapMod from GameUserSettings.ini for server {}", server_id);
+                    }
+                }
+
+                if modified {
+                    let _ = std::fs::write(&gus_path, &cleaned);
                 }
 
                 let mut in_server_settings = false;
@@ -1640,17 +1748,17 @@ impl ProcessManager {
                         bytes_read += n as u64;
                         let line = line.trim_end().to_string();
                         if !line.is_empty() {
-                            // MOVED TO STDOUT thread for real-time updates
-                            /*
-                            let _ = app_handle.emit(
-                                "server_log",
-                                ServerLogEvent {
-                                    server_id,
-                                    line: line.clone(),
-                                    is_stderr: false,
-                                },
-                            );
-                            */
+                            // Emit server_log for new lines so logs stream in real-time even when running via AsaApiLoader
+                            if bytes_read > initial_file_size {
+                                let _ = app_handle.emit(
+                                    "server_log",
+                                    ServerLogEvent {
+                                        server_id,
+                                        line: line.clone(),
+                                        is_stderr: false,
+                                    },
+                                );
+                            }
 
                             // CHECK FOR SERVER READY STATE (LOG FILE)
                             // Only check lines that are NEW (written after we started watching)
@@ -2102,7 +2210,7 @@ impl ProcessManager {
                         // Parent exited. Check if handoff exists (with retry since it may take a moment to spawn)
                         let mut handoff_pid = None;
                         for _ in 0..20 {
-                            if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type, Some(server_proc.pid)) {
+                            if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type, Some(server_proc.pid), Some(server_proc.query_port), None) {
                                 handoff_pid = Some(new_pid);
                                 break;
                             }

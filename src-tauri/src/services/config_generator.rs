@@ -215,7 +215,7 @@ impl ConfigGenerator {
 
     /// Get all available map profiles
     pub fn get_map_profiles() -> Vec<MapProfile> {
-        vec![
+        return vec![
             MapProfile {
                 map_id: "TheIsland_WP".to_string(),
                 map_name: "The Island".to_string(),
@@ -568,14 +568,14 @@ impl ConfigGenerator {
         // Mods & Map Mod Auto-Injection
         let mut valid_mods: Vec<String> = config.active_mods.iter()
             .map(|m| m.trim().to_string())
-            .filter(|m| !m.is_empty() && m != "0" && m.chars().all(|c| c.is_ascii_digit()))
+            .filter(|m| !m.is_empty() && m != "0" && m != "927083" && m.chars().all(|c| c.is_ascii_digit()))
             .collect();
 
         let effective_map = normalize_map_name(&config.map_name);
-        if let Some(map_mod_id) = get_mod_id_for_map(&effective_map) {
+        if let Some(map_mod_id) = resolve_map_mod_id(&effective_map, &valid_mods) {
             content.push_str(&format!("ActiveMapMod={}\r\n", map_mod_id));
-            if !valid_mods.contains(&map_mod_id.to_string()) {
-                valid_mods.insert(0, map_mod_id.to_string());
+            if !valid_mods.contains(&map_mod_id) {
+                valid_mods.insert(0, map_mod_id);
             }
         }
 
@@ -762,7 +762,7 @@ impl ConfigGenerator {
             cmd.push_str(&format!(" -mods={}", config.active_mods.join(",")));
         }
 
-        cmd
+        return cmd;
     }
 
     /// Get target configuration subdirectory dynamically based on platform or directory structure.
@@ -1292,7 +1292,7 @@ impl ConfigGenerator {
         }
 
         // 5.5. For ASE, automatically sync enabled mods to ActiveMods inside [ServerSettings]
-        if server_type == "ASE" {
+        let active_mod_ids: Vec<String> = if server_type == "ASE" {
             let mut stmt = db_conn.prepare("SELECT workshop_id FROM ase_mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC")
                 .map_err(|e| e.to_string())?;
             let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
@@ -1309,16 +1309,37 @@ impl ConfigGenerator {
                 "ActiveMods",
                 &active_mods_val,
             );
-        }
+            ids
+        } else {
+            let mut stmt = db_conn.prepare("SELECT mod_id FROM mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC")
+                .map_err(|e| e.to_string())?;
+            let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
+            let mut ids = Vec::new();
+            while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+                let id: String = row.get(0).map_err(|e| e.to_string())?;
+                ids.push(id);
+            }
+            ids
+        };
 
-        // 5.6. Purge legacy ActiveMapMod / ActiveModMap keys for official DLC maps (like Astraeos_WP)
+        // 5.6. Purge legacy ActiveMapMod / ActiveModMap keys or update to valid mod map ID
         let effective_map = normalize_map_name(&map_name);
-        if let Some(map_mod_id) = get_mod_id_for_map(&effective_map) {
+        if let Some(map_mod_id) = resolve_map_mod_id(&effective_map, &active_mod_ids) {
             final_gus = crate::services::ini_parser::IniParser::update_key(
                 &final_gus,
                 "ServerSettings",
                 "ActiveMapMod",
-                map_mod_id,
+                &map_mod_id,
+            );
+            final_gus = crate::services::ini_parser::IniParser::remove_key(
+                &final_gus,
+                "ServerSettings",
+                "ActiveModMap",
+            );
+            final_gus = crate::services::ini_parser::IniParser::remove_key(
+                &final_gus,
+                "ServerSettings",
+                "ActiveMapMods",
             );
         } else {
             final_gus = crate::services::ini_parser::IniParser::remove_key(
@@ -1396,10 +1417,65 @@ pub fn normalize_map_name(map: &str) -> String {
     trimmed.to_string()
 }
 
+pub fn resolve_map_mod_id(map: &str, active_mods: &[String]) -> Option<String> {
+    let trimmed = map.trim();
+    if trimmed.eq_ignore_ascii_case("Svartalfheim") || trimmed.eq_ignore_ascii_case("Svartalfheim_WP") || trimmed.eq_ignore_ascii_case("SVARTALFHEIM") {
+        // Check for Free version (893657 or 927084), else default to Premium (962796)
+        if active_mods.iter().any(|m| m == "893657") {
+            return Some("893657".to_string());
+        }
+        if active_mods.iter().any(|m| m == "927084") {
+            return Some("927084".to_string());
+        }
+        return Some("962796".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("Forglar") || trimmed.eq_ignore_ascii_case("Forglar_WP") || trimmed.eq_ignore_ascii_case("FORGLAR") {
+        if active_mods.iter().any(|m| m == "945244") {
+            return Some("945244".to_string());
+        }
+        return Some("952876".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("Amissa") || trimmed.eq_ignore_ascii_case("Amissa_WP") || trimmed.eq_ignore_ascii_case("AMISSA") {
+        return Some("965379".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("Insaluna") || trimmed.eq_ignore_ascii_case("Insaluna_WP") || trimmed.eq_ignore_ascii_case("INSALUNA") {
+        return Some("935639".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("TemptressLagoon") || trimmed.eq_ignore_ascii_case("TemptressLagoon_WP") || trimmed.eq_ignore_ascii_case("Temptress_Lagoon") {
+        return Some("935048".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("Reverence") || trimmed.eq_ignore_ascii_case("Reverence_WP") || trimmed.eq_ignore_ascii_case("REVERENCE") {
+        return Some("932906".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("Bjarnheim") || trimmed.eq_ignore_ascii_case("Bjarnheim_WP") || trimmed.eq_ignore_ascii_case("BJARNHEIM") {
+        return Some("1376189".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("ScorchedEarthRM_WP") || trimmed.eq_ignore_ascii_case("ScorchedEarthRM") || trimmed.eq_ignore_ascii_case("ScorchedEarthReborn") {
+        return Some("1465909".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("TheIslandReforged") || trimmed.eq_ignore_ascii_case("IslandReforged") {
+        return Some("1460513".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("ClubARK_WP") || trimmed.eq_ignore_ascii_case("ClubARK") || trimmed.eq_ignore_ascii_case("ClubArk") {
+        return Some("949666".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("Althemia") || trimmed.eq_ignore_ascii_case("Althemia_WP") || trimmed.eq_ignore_ascii_case("ALTHEMIA") {
+        return Some("1016843".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("Vanna") || trimmed.eq_ignore_ascii_case("Vanna_WP") || trimmed.eq_ignore_ascii_case("VANNA") {
+        return Some("944358".to_string());
+    }
+    if trimmed.eq_ignore_ascii_case("TaeniaStella") || trimmed.eq_ignore_ascii_case("TaeniaStella_WP") || trimmed.eq_ignore_ascii_case("TAENIASTELLA") {
+        return Some("965905".to_string());
+    }
+    None
+}
+
+#[allow(dead_code)]
 pub fn get_mod_id_for_map(map: &str) -> Option<&'static str> {
     match map.trim() {
         // Astraeos is an official expansion DLC map; do not auto-inject CurseForge mod ID 988598.
-        "Svartalfheim_WP" | "Svartalfheim" | "SVARTALFHEIM" => Some("927083"),
+        "Svartalfheim_WP" | "Svartalfheim" | "SVARTALFHEIM" => Some("962796"), // Svartalfheim Premium (962796)
         "Forglar_WP" | "Forglar" | "FORGLAR" => Some("952876"),
         "Amissa_WP" | "Amissa" | "AMISSA" => Some("965379"),
         "Insaluna_WP" | "Insaluna" | "INSALUNA" => Some("935639"),
@@ -1409,6 +1485,9 @@ pub fn get_mod_id_for_map(map: &str) -> Option<&'static str> {
         "ScorchedEarthRM_WP" | "ScorchedEarthRM" | "ScorchedEarthReborn" => Some("1465909"),
         "TheIslandReforged" | "IslandReforged" => Some("1460513"),
         "ClubARK_WP" | "ClubARK" | "ClubArk" => Some("949666"),
+        "Althemia_WP" | "Althemia" | "ALTHEMIA" => Some("1016843"),
+        "Vanna_WP" | "Vanna" | "VANNA" => Some("944358"),
+        "TaeniaStella_WP" | "TaeniaStella" | "TAENIASTELLA" => Some("965905"),
         _ => None,
     }
 }

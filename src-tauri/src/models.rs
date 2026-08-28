@@ -149,6 +149,7 @@ pub struct BackupPolicy {
     pub compression_enabled: bool,
     pub cloud_sync_enabled: bool,
     pub discord_webhook: Option<String>,
+    pub custom_backup_dir: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

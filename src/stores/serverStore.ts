@@ -160,13 +160,7 @@ export const useServerStore = create<ServerStore>((set, get) => ({
                     merged.some((s, i) => {
                         const prev = state.servers[i];
                         if (!prev) return true;
-                        return (
-                            prev.id !== s.id ||
-                            prev.status !== s.status ||
-                            prev.name !== s.name ||
-                            prev.reachability !== s.reachability ||
-                            prev.config?.maxPlayers !== s.config?.maxPlayers
-                        );
+                        return JSON.stringify(prev) !== JSON.stringify(s);
                     });
 
                 let newActive = state.activeServer ? merged.find(s => s.id === state.activeServer!.id) || state.activeServer : null;

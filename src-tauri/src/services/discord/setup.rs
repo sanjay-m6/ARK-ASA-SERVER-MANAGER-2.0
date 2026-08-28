@@ -227,6 +227,11 @@ impl SetupWizard {
         let guild_id_u64 = guild_id_str.parse::<u64>().map_err(|_| "Invalid Discord Server/Guild ID".to_string())?;
         let guild_id = GuildId::new(guild_id_u64);
         let http = std::sync::Arc::new(serenity::all::Http::new(bot_token));
+        let bot_user = http
+            .get_current_user()
+            .await
+            .map_err(|e| format!("Failed to authenticate bot token with Discord API: {}", e))?;
+        let bot_user_id = bot_user.id;
 
         let channels = guild_id
             .channels(http.as_ref())
@@ -276,7 +281,7 @@ impl SetupWizard {
                     PermissionOverwrite {
                         allow: Permissions::VIEW_CHANNEL | Permissions::SEND_MESSAGES | Permissions::EMBED_LINKS | Permissions::ATTACH_FILES | Permissions::READ_MESSAGE_HISTORY | Permissions::USE_APPLICATION_COMMANDS,
                         deny: Permissions::empty(),
-                        kind: PermissionOverwriteType::Member(http_clone.get_current_user().await.map(|u| u.id).unwrap_or(UserId::new(0))),
+                        kind: PermissionOverwriteType::Member(bot_user_id),
                     },
                 ];
 

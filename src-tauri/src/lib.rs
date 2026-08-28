@@ -423,7 +423,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
 
                             // 2. Fallback to path-based search if not found via stored PID
                             if !recovered {
-                                if let Some(found_pid) = services::process_manager::find_game_server_pid_by_install_path(&install_path, "ASA", None) {
+                                let q_opt = if query_port > 0 { Some(query_port) } else { None };
+                                if let Some(found_pid) = services::process_manager::find_game_server_pid_by_install_path(&install_path, "ASA", None, q_opt, None) {
                                     active_pid = Some(found_pid);
                                     recovered = true;
                                     println!("  🔄 [Process Recovery] ASA Server '{}' (ID: {}) recovered running process by path: PID {}", name, id, found_pid);
@@ -491,7 +492,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
 
                             // 2. Fallback to path-based search if not found via stored PID
                             if !recovered {
-                                if let Some(found_pid) = services::process_manager::find_game_server_pid_by_install_path(&install_path, "ASE", None) {
+                                let q_opt = if query_port > 0 { Some(query_port) } else { None };
+                                if let Some(found_pid) = services::process_manager::find_game_server_pid_by_install_path(&install_path, "ASE", None, q_opt, None) {
                                     active_pid = Some(found_pid);
                                     recovered = true;
                                     println!("  🔄 [Process Recovery] ASE Server '{}' (ID: {}) recovered running process by path: PID {}", name, id, found_pid);

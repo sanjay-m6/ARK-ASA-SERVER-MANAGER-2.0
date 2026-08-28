@@ -110,8 +110,23 @@ pub async fn create_backup(
             )
             .map_err(|e| format!("Server not found: {}", e))?;
 
-        // Get app data dir for backups
-        let app_data_dir = crate::platform::Platform::default_backup_dir();
+        // Get app data dir for backups - check for custom backup dir first
+        let app_data_dir = {
+            let custom_dir: Option<String> = conn.query_row(
+                "SELECT custom_backup_dir FROM backup_policies WHERE server_id = ?1",
+                [server_id],
+                |row| row.get(0),
+            ).unwrap_or(None);
+            if let Some(ref dir) = custom_dir {
+                if !dir.trim().is_empty() {
+                    std::path::PathBuf::from(dir)
+                } else {
+                    crate::platform::Platform::default_backup_dir()
+                }
+            } else {
+                crate::platform::Platform::default_backup_dir()
+            }
+        };
         (install_path, app_data_dir, server_name)
     };
 
@@ -228,7 +243,7 @@ pub fn enforce_retention_policy_conn(conn: &rusqlite::Connection, server_id: i64
 
     let policy = conn.query_row(
         "SELECT server_id, enabled, interval_hours, retention_days, retention_count, storage_quota_gb, 
-                backup_before_update, backup_before_restart, compression_enabled, cloud_sync_enabled, discord_webhook 
+                backup_before_update, backup_before_restart, compression_enabled, cloud_sync_enabled, discord_webhook, custom_backup_dir 
          FROM backup_policies WHERE server_id = ?1",
         [server_id],
         |row| {
@@ -244,6 +259,7 @@ pub fn enforce_retention_policy_conn(conn: &rusqlite::Connection, server_id: i64
                 compression_enabled: row.get(7)?,
                 cloud_sync_enabled: row.get(8)?,
                 discord_webhook: row.get(9)?,
+                custom_backup_dir: row.get(10)?,
             })
         },
     ).unwrap_or_else(|_| BackupPolicy {
@@ -258,6 +274,7 @@ pub fn enforce_retention_policy_conn(conn: &rusqlite::Connection, server_id: i64
         compression_enabled: true,
         cloud_sync_enabled: false,
         discord_webhook: None,
+        custom_backup_dir: None,
     });
 
     let mut deleted_paths = Vec::new();
@@ -626,7 +643,7 @@ pub async fn get_backup_policy(
     let policy = conn.query_row(
         "SELECT enabled, interval_hours, retention_days, retention_count, storage_quota_gb, 
                 backup_before_update, backup_before_restart, compression_enabled, 
-                cloud_sync_enabled, discord_webhook 
+                cloud_sync_enabled, discord_webhook, custom_backup_dir 
          FROM backup_policies WHERE server_id = ?1",
         [server_id],
         |row| {
@@ -642,6 +659,7 @@ pub async fn get_backup_policy(
                 compression_enabled: row.get(7)?,
                 cloud_sync_enabled: row.get(8)?,
                 discord_webhook: row.get(9)?,
+                custom_backup_dir: row.get(10)?,
             })
         },
     ).unwrap_or_else(|_| BackupPolicy {
@@ -656,6 +674,7 @@ pub async fn get_backup_policy(
         compression_enabled: true,
         cloud_sync_enabled: false,
         discord_webhook: None,
+        custom_backup_dir: None,
     });
 
     Ok(policy)
@@ -672,19 +691,20 @@ pub async fn save_backup_policy(
     conn.execute(
         "INSERT INTO backup_policies (
             server_id, enabled, interval_hours, retention_days, retention_count, storage_quota_gb,
-            backup_before_update, backup_before_restart, compression_enabled, cloud_sync_enabled, discord_webhook
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+            backup_before_update, backup_before_restart, compression_enabled, cloud_sync_enabled, discord_webhook, custom_backup_dir
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
          ON CONFLICT(server_id) DO UPDATE SET
             enabled=excluded.enabled, interval_hours=excluded.interval_hours, 
             retention_days=excluded.retention_days, retention_count=excluded.retention_count,
             storage_quota_gb=excluded.storage_quota_gb, backup_before_update=excluded.backup_before_update,
             backup_before_restart=excluded.backup_before_restart, compression_enabled=excluded.compression_enabled,
-            cloud_sync_enabled=excluded.cloud_sync_enabled, discord_webhook=excluded.discord_webhook",
+            cloud_sync_enabled=excluded.cloud_sync_enabled, discord_webhook=excluded.discord_webhook,
+            custom_backup_dir=excluded.custom_backup_dir",
         rusqlite::params![
             policy.server_id, policy.enabled, policy.interval_hours, policy.retention_days,
             policy.retention_count, policy.storage_quota_gb, policy.backup_before_update,
             policy.backup_before_restart, policy.compression_enabled, policy.cloud_sync_enabled,
-            policy.discord_webhook
+            policy.discord_webhook, policy.custom_backup_dir
         ]
     ).map_err(|e| e.to_string())?;
 

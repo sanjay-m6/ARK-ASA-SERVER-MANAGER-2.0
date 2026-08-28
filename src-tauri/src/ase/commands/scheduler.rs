@@ -76,6 +76,28 @@ pub async fn delete_ase_scheduled_task(task_id: i64, state: State<'_, AppState>)
 
 use crate::ase::models::AseSchedulerSettings;
 
+fn calculate_future_ase_basic_run(interval_hours: i32) -> String {
+    let now = chrono::Local::now();
+    let midnight = match now.date_naive().and_hms_opt(0, 0, 0) {
+        Some(naive) => match naive.and_local_timezone(chrono::Local) {
+            chrono::LocalResult::Single(t) => t,
+            _ => now,
+        },
+        None => now,
+    };
+
+    let interval = if interval_hours <= 0 { 24 } else { interval_hours as i64 };
+    let p_interval = chrono::Duration::hours(interval);
+    let mut target = midnight;
+    let threshold = now + chrono::Duration::minutes(1);
+
+    while target <= threshold {
+        target += p_interval;
+    }
+
+    target.to_rfc3339()
+}
+
 #[tauri::command]
 pub async fn get_ase_scheduler_settings(
     server_id: i64,
@@ -115,7 +137,26 @@ pub async fn get_ase_scheduler_settings(
     );
 
     match row_result {
-        Ok(settings) => Ok(settings),
+        Ok(mut settings) => {
+            if settings.mode == "basic" {
+                let is_stale = match &settings.next_run_basic {
+                    Some(nr) => match chrono::DateTime::parse_from_rfc3339(nr) {
+                        Ok(dt) => dt.with_timezone(&chrono::Local) < chrono::Local::now() - chrono::Duration::minutes(1),
+                        Err(_) => true,
+                    },
+                    None => true,
+                };
+                if is_stale {
+                    let future_run = calculate_future_ase_basic_run(settings.basic_interval_hours);
+                    let _ = conn.execute(
+                        "UPDATE ase_scheduler_settings SET next_run_basic = ?1 WHERE server_id = ?2",
+                        rusqlite::params![future_run, server_id],
+                    );
+                    settings.next_run_basic = Some(future_run);
+                }
+            }
+            Ok(settings)
+        }
         Err(rusqlite::Error::QueryReturnedNoRows) => {
             // Insert defaults and return
             conn.execute(
@@ -152,9 +193,22 @@ pub async fn get_ase_scheduler_settings(
 
 #[tauri::command]
 pub async fn save_ase_scheduler_settings(
-    settings: AseSchedulerSettings,
+    mut settings: AseSchedulerSettings,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    if settings.mode == "basic" {
+        let is_stale = match &settings.next_run_basic {
+            Some(nr) => match chrono::DateTime::parse_from_rfc3339(nr) {
+                Ok(dt) => dt.with_timezone(&chrono::Local) <= chrono::Local::now(),
+                Err(_) => true,
+            },
+            None => true,
+        };
+        if is_stale {
+            settings.next_run_basic = Some(calculate_future_ase_basic_run(settings.basic_interval_hours));
+        }
+    }
+
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;

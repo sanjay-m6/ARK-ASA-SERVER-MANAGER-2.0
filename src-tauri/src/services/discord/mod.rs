@@ -130,7 +130,7 @@ pub fn get_server_name(app_handle: &tauri::AppHandle, server_id: i64) -> String 
             }
         }
     }
-    format!("Server #{}", server_id)
+    return format!("Server #{}", server_id);
 }
 
 // ── Embed Structs ──────────────────────────────────────────────────────

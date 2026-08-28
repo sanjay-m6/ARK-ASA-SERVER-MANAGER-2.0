@@ -656,12 +656,54 @@ impl SchedulerService {
         }
     }
 
+    async fn update_ase_next_run(
+        app_handle: &AppHandle,
+        server_id: i64,
+        interval: i32,
+        _from_time: DateTime<Local>,
+    ) -> DateTime<Local> {
+        let now = Local::now();
+        let midnight = match now.date_naive().and_hms_opt(0, 0, 0) {
+            Some(naive) => match naive.and_local_timezone(Local) {
+                chrono::LocalResult::Single(t) => t,
+                _ => now,
+            },
+            None => now,
+        };
+
+        let mut target = midnight;
+        let p_interval = if interval <= 0 { chrono::Duration::hours(24) } else { chrono::Duration::hours(interval as i64) };
+
+        let future_threshold = now + chrono::Duration::minutes(1);
+        while target <= future_threshold {
+            target += p_interval;
+        }
+
+        let state = app_handle.state::<AppState>();
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                let _ = conn.execute(
+                    "UPDATE ase_scheduler_settings SET next_run_basic = ?1 WHERE server_id = ?2",
+                    [target.to_rfc3339(), server_id.to_string()],
+                );
+            }
+        }
+        target
+    }
+
     async fn process_ase_basic_mode(app_handle: &AppHandle, server_id: i64, interval: i32, warnings: &str, next_run: Option<String>) {
         let now = Local::now();
 
         let next_run_dt = if let Some(nr_str) = next_run {
             match DateTime::parse_from_rfc3339(&nr_str) {
-                Ok(dt) => dt.with_timezone(&Local),
+                Ok(dt) => {
+                    let local_dt = dt.with_timezone(&Local);
+                    if local_dt < now - chrono::Duration::minutes(1) {
+                        Self::update_ase_next_run(app_handle, server_id, interval, now).await
+                    } else {
+                        local_dt
+                    }
+                }
                 Err(_) => {
                     Self::update_ase_next_run(app_handle, server_id, interval, now).await
                 }
@@ -673,7 +715,7 @@ impl SchedulerService {
         let diff = next_run_dt.signed_duration_since(now);
         let seconds_left = diff.num_seconds();
 
-        if seconds_left <= 5 {
+        if seconds_left <= 5 && seconds_left >= -55 {
             log::info!("🚀 Basic ASE Scheduler: Restarting ASE Server {}", server_id);
 
             let state = app_handle.state::<AppState>();
@@ -709,7 +751,7 @@ impl SchedulerService {
             state.process_manager.force_cleanup_server_entry(server_id);
             let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
 
-            Self::update_ase_next_run(app_handle, server_id, interval, next_run_dt).await;
+            Self::update_ase_next_run(app_handle, server_id, interval, now).await;
             return;
         }
 
@@ -720,48 +762,27 @@ impl SchedulerService {
 
         let minutes_left = diff.num_minutes();
 
-        if warning_minutes.contains(&minutes_left) {
+        if warning_minutes.contains(&minutes_left) && now.second() < 10 {
             log::warn!("⚠️ Basic ASE Scheduler: Warning Server {} - {} mins left", server_id, minutes_left);
             let state = app_handle.state::<AppState>();
             let msg = format!("SERVER RESTARTING IN {} MINUTES", minutes_left);
             let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat \"{}\"", msg), state.clone()).await;
             let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast \"{}\"", msg), state.clone()).await;
+
+            let app_clone = app_handle.clone();
+            let server_name = get_server_name(app_handle, server_id);
+            tauri::async_runtime::spawn(async move {
+                crate::services::discord::send_discord_webhook(
+                    &app_clone,
+                    "scheduledRestarts",
+                    crate::services::discord::DiscordEmbed::scheduled_task(
+                        &server_name,
+                        "Scheduled Restart Warning",
+                        &format!("Scheduled restart in **{} minutes** for server **{}**.", minutes_left, server_name),
+                    ),
+                ).await;
+            });
         }
-    }
-
-    async fn update_ase_next_run(
-        app_handle: &AppHandle,
-        server_id: i64,
-        interval: i32,
-        from_time: DateTime<Local>,
-    ) -> DateTime<Local> {
-        let midnight = match from_time.date_naive().and_hms_opt(0, 0, 0) {
-            Some(naive) => match naive.and_local_timezone(Local) {
-                chrono::LocalResult::Single(t) => t,
-                _ => from_time,
-            },
-            None => from_time,
-        };
-
-        let mut target = midnight;
-        let p_interval = chrono::Duration::hours(interval as i64);
-        let p_interval = if interval <= 0 { chrono::Duration::hours(24) } else { p_interval };
-
-        let future_threshold = from_time + chrono::Duration::minutes(1);
-        while target <= future_threshold {
-            target += p_interval;
-        }
-
-        let state = app_handle.state::<AppState>();
-        if let Ok(db) = state.db.lock() {
-            if let Ok(conn) = db.get_connection() {
-                let _ = conn.execute(
-                    "UPDATE ase_scheduler_settings SET next_run_basic = ?1 WHERE server_id = ?2",
-                    [target.to_rfc3339(), server_id.to_string()],
-                );
-            }
-        }
-        target
     }
 
     async fn process_ase_advanced_mode(
@@ -927,21 +948,69 @@ impl SchedulerService {
         }
     }
 
+    async fn update_next_run(
+        app_handle: &AppHandle,
+        server_id: i64,
+        interval: i32,
+        _from_time: DateTime<Local>,
+    ) -> DateTime<Local> {
+        let now = Local::now();
+        let midnight = match now
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+        {
+            Some(naive) => match naive.and_local_timezone(Local) {
+                chrono::LocalResult::Single(t) => t,
+                _ => now,
+            },
+            None => now,
+        };
+
+        let mut target = midnight;
+        let p_interval = if interval <= 0 {
+            chrono::Duration::hours(24)
+        } else {
+            chrono::Duration::hours(interval as i64)
+        };
+
+        // We want target > now + 1 minute (to ensure we don't pick "now" if we just ran)
+        let future_threshold = now + chrono::Duration::minutes(1);
+
+        while target <= future_threshold {
+            target += p_interval;
+        }
+
+        // Persist
+        let state = app_handle.state::<AppState>();
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                let _ = conn.execute(
+                    "UPDATE scheduler_settings SET next_run_basic = ?1 WHERE server_id = ?2",
+                    [target.to_rfc3339(), server_id.to_string()],
+                );
+            }
+        }
+        target
+    }
+
     async fn process_basic_mode(app_handle: &AppHandle, setting: BasicSetting) {
         let now = Local::now();
 
         // 1. Determine Target Time
         let next_run = if let Some(nr_str) = &setting.next_run {
             match parse_db_datetime_local(nr_str) {
-                Some(dt) => dt,
+                Some(dt) => {
+                    if dt < now - chrono::Duration::minutes(1) {
+                        Self::update_next_run(app_handle, setting.server_id, setting.interval, now).await
+                    } else {
+                        dt
+                    }
+                }
                 None => {
-                    // Invalid, reset
-                    Self::update_next_run(app_handle, setting.server_id, setting.interval, now)
-                        .await
+                    Self::update_next_run(app_handle, setting.server_id, setting.interval, now).await
                 }
             }
         } else {
-            // First run? Initialize
             Self::update_next_run(app_handle, setting.server_id, setting.interval, now).await
         };
 
@@ -949,9 +1018,7 @@ impl SchedulerService {
         let seconds_left = diff.num_seconds();
 
         // 2. Execute if due (within approx 1 min window)
-        // Since the loop sleeps to ensure we land in the minute, execution at seconds <= 5 is safe.
-        // If we missed it (system down), negative seconds also triggers.
-        if seconds_left <= 5 {
+        if seconds_left <= 5 && seconds_left >= -55 {
             log::info!(
                 "🚀 Basic Scheduler: Restarting Server {}",
                 setting.server_id
@@ -980,8 +1047,8 @@ impl SchedulerService {
             };
             Self::execute_task(app_handle, &task).await;
 
-            // Schedule Next
-            Self::update_next_run(app_handle, setting.server_id, setting.interval, next_run).await;
+            // Schedule Next (strictly in future)
+            Self::update_next_run(app_handle, setting.server_id, setting.interval, now).await;
             return;
         }
 
@@ -994,85 +1061,37 @@ impl SchedulerService {
 
         let minutes_left = diff.num_minutes();
 
-        if warning_minutes.contains(&minutes_left) {
-            // Avoid double spam: only if seconds are "high" (beginning of minute)?
-            // Actually, next_run is HH:MM:00. Now is HH:MM-30:SS.
-            // diff = 30m 00s -> minutes_left = 30.
-            // We only run once per minute. So simplistic check "contains" is fine.
-
+        if warning_minutes.contains(&minutes_left) && now.second() < 10 {
             log::warn!(
                 "⚠️ Basic Scheduler: Warning Server {} - {} mins left",
                 setting.server_id,
                 minutes_left
             );
-            let rcon_state = app_handle.state::<RconState>();
-            let rcon = &rcon_state.inner().0;
-            let msg = format!("SERVER RESTARTING IN {} MINUTES", minutes_left);
-            let _ = rcon
-                .send_command(setting.server_id, &format!("ServerChat \"{}\"", msg))
-                .await;
-            let _ = rcon
-                .send_command(setting.server_id, &format!("Broadcast \"{}\"", msg))
-                .await;
-        }
-    }
-
-    async fn update_next_run(
-        app_handle: &AppHandle,
-        server_id: i64,
-        interval: i32,
-        from_time: DateTime<Local>,
-    ) -> DateTime<Local> {
-        // Calculate next target: Round Up to next Interval
-        // e.g. Interval 6.
-        // If last run was 12:00, next is 18:00.
-        // If just enabled (from_time = now = 13:00), we want 18:00? Or 19:00 (13+6)?
-        // User Requirement: "Simple recurring restart loop".
-        // Usually implies absolute time predictability (00, 06, 12, 18).
-        // Let's use absolute logic: Next Multiplier of Interval starting from midnight.
-        // If interval is 24, next is Midnight.
-
-        // Reset to midnight of From Time
-        let midnight = match from_time
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-        {
-            Some(naive) => match naive.and_local_timezone(Local) {
-                chrono::LocalResult::Single(t) => t,
-                _ => from_time, // Fallback: use from_time if timezone conversion fails
-            },
-            None => from_time, // Fallback: use from_time if midnight construction fails
-        };
-
-        // Add intervals until > from_time
-        let mut target = midnight;
-        let p_interval = chrono::Duration::hours(interval as i64);
-
-        // Safety: if interval is 0 or negative (db error), default to 24
-        let p_interval = if interval <= 0 {
-            chrono::Duration::hours(24)
-        } else {
-            p_interval
-        };
-
-        // We want target > from_time + 1 minute (to ensure we don't pick "now" if we just ran)
-        let future_threshold = from_time + chrono::Duration::minutes(1);
-
-        while target <= future_threshold {
-            target += p_interval;
-        }
-
-        // Persist
-        let state = app_handle.state::<AppState>();
-        if let Ok(db) = state.db.lock() {
-            if let Ok(conn) = db.get_connection() {
-                let _ = conn.execute(
-                    "UPDATE scheduler_settings SET next_run_basic = ?1 WHERE server_id = ?2",
-                    [target.to_rfc3339(), server_id.to_string()],
-                );
+            if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+                let rcon = &rcon_state.inner().0;
+                let msg = format!("SERVER RESTARTING IN {} MINUTES", minutes_left);
+                let _ = rcon
+                    .send_command(setting.server_id, &format!("ServerChat \"{}\"", msg))
+                    .await;
+                let _ = rcon
+                    .send_command(setting.server_id, &format!("Broadcast \"{}\"", msg))
+                    .await;
             }
+
+            let app_clone = app_handle.clone();
+            let server_name = get_server_name(app_handle, setting.server_id);
+            tauri::async_runtime::spawn(async move {
+                crate::services::discord::send_discord_webhook(
+                    &app_clone,
+                    "scheduledRestarts",
+                    crate::services::discord::DiscordEmbed::scheduled_task(
+                        &server_name,
+                        "Scheduled Restart Warning",
+                        &format!("Scheduled restart in **{} minutes** for server **{}**.", minutes_left, server_name),
+                    ),
+                ).await;
+            });
         }
-        target
     }
 
     /// Create and persist a pre-update backup for a server.
@@ -1096,8 +1115,24 @@ impl SchedulerService {
                 )
                 .ok()?;
 
-            // Keep consistent with backup commands
-            let app_data_dir = crate::platform::Platform::default_backup_dir();
+            // Check for custom backup dir from backup_policies
+            let custom_dir: Option<String> = conn
+                .query_row(
+                    "SELECT custom_backup_dir FROM backup_policies WHERE server_id = ?1",
+                    [server_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or(None);
+
+            let app_data_dir = if let Some(ref dir) = custom_dir {
+                if !dir.trim().is_empty() {
+                    PathBuf::from(dir)
+                } else {
+                    crate::platform::Platform::default_backup_dir()
+                }
+            } else {
+                crate::platform::Platform::default_backup_dir()
+            };
             (install_path, app_data_dir)
         };
 
@@ -1193,7 +1228,7 @@ impl SchedulerService {
             && Self::match_cron_part(parts[1], hour as i32, 0, 23)
             && Self::match_cron_part(parts[2], day as i32, 1, 31)
             && Self::match_cron_part(parts[3], month as i32, 1, 12)
-            && Self::match_cron_part(parts[4], weekday as i32, 0, 7)
+            && (Self::match_cron_part(parts[4], weekday as i32, 0, 7) || (weekday == 0 && Self::match_cron_part(parts[4], 7, 0, 7)))
     }
 
     fn match_cron_part(part: &str, value: i32, _min: i32, _max: i32) -> bool {

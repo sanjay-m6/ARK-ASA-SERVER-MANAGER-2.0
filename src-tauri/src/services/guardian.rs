@@ -340,19 +340,31 @@ impl GuardianService {
                                 if let Ok(conn) = db_guard.get_connection() {
                                     if server_id < 0 {
                                         conn.query_row(
-                                            "SELECT install_path FROM ase_servers WHERE id = ?",
+                                            "SELECT install_path, query_port, game_port FROM ase_servers WHERE id = ?",
                                             [-server_id],
-                                            |row| row.get::<_, String>(0)
-                                        ).ok().and_then(|path| {
-                                            find_game_server_pid_by_install_path(&path, "ASE", None)
+                                            |row| Ok((
+                                                row.get::<_, String>(0)?,
+                                                row.get::<_, Option<i32>>(1)?.unwrap_or(0) as u16,
+                                                row.get::<_, Option<i32>>(2)?.unwrap_or(0) as u16,
+                                            ))
+                                        ).ok().and_then(|(path, qp, gp)| {
+                                            let q_opt = if qp > 0 { Some(qp) } else { None };
+                                            let g_opt = if gp > 0 { Some(gp) } else { None };
+                                            find_game_server_pid_by_install_path(&path, "ASE", None, q_opt, g_opt)
                                         })
                                     } else {
                                         conn.query_row(
-                                            "SELECT install_path FROM servers WHERE id = ?",
+                                            "SELECT install_path, query_port, game_port FROM servers WHERE id = ?",
                                             [server_id],
-                                            |row| row.get::<_, String>(0)
-                                        ).ok().and_then(|path| {
-                                            find_game_server_pid_by_install_path(&path, "ASA", None)
+                                            |row| Ok((
+                                                row.get::<_, String>(0)?,
+                                                row.get::<_, Option<i32>>(1)?.unwrap_or(0) as u16,
+                                                row.get::<_, Option<i32>>(2)?.unwrap_or(0) as u16,
+                                            ))
+                                        ).ok().and_then(|(path, qp, gp)| {
+                                            let q_opt = if qp > 0 { Some(qp) } else { None };
+                                            let g_opt = if gp > 0 { Some(gp) } else { None };
+                                            find_game_server_pid_by_install_path(&path, "ASA", None, q_opt, g_opt)
                                         })
                                     }
                                 } else { None }

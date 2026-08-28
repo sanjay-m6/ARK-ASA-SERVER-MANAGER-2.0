@@ -1,7 +1,7 @@
 use crate::models::{RconConfig, Server, ServerConfig, ServerPorts, ServerStatus};
 use crate::services::network;
 use crate::services::server_installer::ServerInstaller;
-use crate::AppState;
+use crate::{AppState, RconState};
 use anyhow::Error as AnyhowError;
 use rusqlite::Row;
 use std::path::PathBuf;
@@ -1770,8 +1770,18 @@ pub async fn stop_server(state: State<'_, AppState>, server_id: i64) -> Result<(
 pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_dinos: Option<bool>) -> Result<(), String> {
     println!("🔄 Restarting server {} (graceful stop first, wipe_dinos: {:?})", server_id, wipe_dinos);
 
-    // Graceful stop before restart — ensures SaveWorld is called
-    graceful_stop(&state, server_id).await?;
+    // Register stop reason so monitoring services know this is an intentional restart
+    state.process_manager.set_pending_stop_reason(
+        server_id,
+        crate::services::process_manager::StopReason::RestartRequested,
+    );
+    if let Some(guardian) = state.app_handle.try_state::<crate::services::guardian::GuardianState>() {
+        let guard = guardian.0.lock().await;
+        guard.mark_as_stopping(server_id).await;
+    }
+
+    // Graceful stop before restart — ensures SaveWorld and DoExit are called
+    let _ = graceful_stop(&state, server_id).await;
 
     // Poll until process is verified fully stopped and ports are released
     let mut wait_attempts = 0;
@@ -1818,151 +1828,28 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
         }
     }
 
-    // Get server details including cluster info
-    let (
-        install_path,
-        map_name,
-        session_name,
-        game_port,
-        query_port,
-        rcon_port,
-        max_players,
-        server_password,
-        admin_password,
-        ip_address,
-        cluster_name,
-        cluster_path,
-        custom_args,
-        battleye,
-    ) = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        let conn = db
-            .get_connection()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+    // Run full server startup pipeline (includes config generation, port checks, log watcher, Discord alerts, etc.)
+    let app_handle = state.app_handle.clone();
+    perform_server_startup(&app_handle, server_id, false).await?;
 
-        conn.query_row(
-            "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
-             s.max_players, s.server_password, s.admin_password, s.ip_address,
-             COALESCE(c.cluster_id_string, c.name), c.cluster_path, s.custom_args, s.battleye
-             FROM servers s
-             LEFT JOIN clusters c ON s.cluster_id = c.id
-             WHERE s.id = ?1",
-            [server_id],
-            |row: &Row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, u16>(3)?,
-                    row.get::<_, u16>(4)?,
-                    row.get::<_, u16>(5)?,
-                    row.get::<_, i32>(6)?,
-                    row.get::<_, Option<String>>(7)?,
-                    row.get::<_, String>(8)?,
-                    row.get::<_, Option<String>>(9)?,
-                    row.get::<_, Option<String>>(10)?,
-                    row.get::<_, Option<String>>(11)?,
-                    row.get::<_, Option<String>>(12)?,
-                    row.get::<_, i32>(13).unwrap_or(1) != 0,
-                ))
-            },
-        )
-        .map_err(|e| format!("Server not found: {}", e))?
-    };
-
-    // Get enabled mods for this server
-    let enabled_mods: Vec<String> = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        let conn = db
-            .get_connection()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-
-        let mut stmt = conn.prepare(
-            "SELECT mod_id FROM mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC"
-        ).map_err(|e: rusqlite::Error| e.to_string())?;
-
-        let mut rows = stmt
-            .query([server_id])
-            .map_err(|e: rusqlite::Error| e.to_string())?;
-        let mut mods = Vec::new();
-        while let Some(row) = rows.next().map_err(|e: rusqlite::Error| e.to_string())? {
-            if let Ok(mod_id) = row.get::<usize, String>(0) {
-                mods.push(mod_id);
-            }
-        }
-        mods
-    };
-
-    if !enabled_mods.is_empty() {
-        println!(
-            "  🧩 Found {} enabled mods for server {}",
-            enabled_mods.len(),
-            server_id
-        );
-    }
-
-    // Restart the server with mods
-    let mods_option = if enabled_mods.is_empty() {
-        None
-    } else {
-        Some(enabled_mods.as_slice())
-    };
-
-    let mut temp_custom_args = custom_args.clone().unwrap_or_default();
     if wipe_dinos.unwrap_or(false) {
-        if !temp_custom_args.is_empty() {
-            temp_custom_args.push_str(" ");
-        }
-        temp_custom_args.push_str("-ForceRespawnDinos");
+        let app_clone = app_handle.clone();
+        tauri::async_runtime::spawn(async move {
+            for attempt in 1..=10 {
+                tokio::time::sleep(std::time::Duration::from_secs(20)).await;
+                if let Some(rcon_state) = app_clone.try_state::<RconState>() {
+                    let rcon = &rcon_state.inner().0;
+                    if let Ok(res) = rcon.send_command(server_id, "DestroyWildDinos").await {
+                        let _ = rcon.send_command(server_id, "cheat DestroyWildDinos").await;
+                        println!("✅ [ASA] DestroyWildDinos executed on restart attempt {}: {:?}", attempt, res.data);
+                        break;
+                    }
+                }
+            }
+        });
     }
 
-    // Server was already gracefully stopped above — just start fresh
-    state
-        .process_manager
-        .start_server(
-            server_id,
-            "ASA",
-            &PathBuf::from(&install_path),
-            &map_name,
-            &session_name,
-            game_port,
-            query_port,
-            rcon_port,
-            max_players,
-            server_password.as_deref() as Option<&str>,
-            &admin_password,
-            ip_address.as_deref() as Option<&str>,
-            cluster_name.as_deref() as Option<&str>,
-            cluster_path.as_deref() as Option<&str>,
-            mods_option,
-            if temp_custom_args.is_empty() { None } else { Some(temp_custom_args.as_str()) },
-            battleye,
-        )
-        .map_err(|e: AnyhowError| e.to_string())?;
-
-    // Update status
-    {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        let conn = db
-            .get_connection()
-            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-        conn.execute(
-            "UPDATE servers SET status = 'running', last_started = datetime('now') WHERE id = ?1",
-            [server_id],
-        )
-        .map_err(|e: rusqlite::Error| e.to_string())?;
-    }
-
-    println!("  ✅ Server {} restarted", server_id);
+    println!("  ✅ Server {} restart sequence completed successfully", server_id);
     Ok(())
 }
 
@@ -4120,7 +4007,8 @@ pub async fn get_server_visibility_status(
     let exe_exists = exe_path.exists();
 
     // Check if process is running
-    let running_pid = crate::services::process_manager::find_game_server_pid_by_install_path(&install_path_str, &server_type.to_uppercase(), None);
+    let q_opt = if query_port > 0 { Some(query_port) } else { None };
+    let running_pid = crate::services::process_manager::find_game_server_pid_by_install_path(&install_path_str, &server_type.to_uppercase(), None, q_opt, None);
     let is_running = running_pid.is_some();
 
     // Determine base status

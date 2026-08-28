@@ -269,6 +269,28 @@ pub async fn update_task_last_run(state: State<'_, AppState>, task_id: i64) -> R
     Ok(())
 }
 
+fn calculate_future_basic_run(interval_hours: i32) -> String {
+    let now = chrono::Local::now();
+    let midnight = match now.date_naive().and_hms_opt(0, 0, 0) {
+        Some(naive) => match naive.and_local_timezone(chrono::Local) {
+            chrono::LocalResult::Single(t) => t,
+            _ => now,
+        },
+        None => now,
+    };
+
+    let interval = if interval_hours <= 0 { 24 } else { interval_hours as i64 };
+    let p_interval = chrono::Duration::hours(interval);
+    let mut target = midnight;
+    let threshold = now + chrono::Duration::minutes(1);
+
+    while target <= threshold {
+        target += p_interval;
+    }
+
+    target.to_rfc3339()
+}
+
 /// Get scheduler settings for a server (Basic vs Advanced mode)
 #[tauri::command]
 pub async fn get_scheduler_settings(
@@ -308,7 +330,26 @@ pub async fn get_scheduler_settings(
     );
 
     match result {
-        Ok(settings) => Ok(settings),
+        Ok(mut settings) => {
+            if settings.mode == "basic" {
+                let is_stale = match &settings.next_run_basic {
+                    Some(nr) => match crate::services::scheduler::parse_db_datetime_local(nr) {
+                        Some(dt) => dt < chrono::Local::now() - chrono::Duration::minutes(1),
+                        None => true,
+                    },
+                    None => true,
+                };
+                if is_stale {
+                    let future_run = calculate_future_basic_run(settings.basic_interval_hours);
+                    let _ = conn.execute(
+                        "UPDATE scheduler_settings SET next_run_basic = ?1 WHERE server_id = ?2",
+                        rusqlite::params![future_run, server_id],
+                    );
+                    settings.next_run_basic = Some(future_run);
+                }
+            }
+            Ok(settings)
+        }
         Err(rusqlite::Error::QueryReturnedNoRows) => {
             // Return default settings if no record exists
             Ok(SchedulerSettings {
@@ -337,12 +378,25 @@ pub async fn get_scheduler_settings(
 pub async fn save_scheduler_settings(
     state: State<'_, AppState>,
     guardian: State<'_, crate::services::guardian::GuardianState>,
-    settings: SchedulerSettings,
+    mut settings: SchedulerSettings,
 ) -> Result<(), String> {
     println!(
         "💾 Saving scheduler settings for server {}",
         settings.server_id
     );
+
+    if settings.mode == "basic" {
+        let is_stale = match &settings.next_run_basic {
+            Some(nr) => match crate::services::scheduler::parse_db_datetime_local(nr) {
+                Some(dt) => dt <= chrono::Local::now(),
+                None => true,
+            },
+            None => true,
+        };
+        if is_stale {
+            settings.next_run_basic = Some(calculate_future_basic_run(settings.basic_interval_hours));
+        }
+    }
 
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;

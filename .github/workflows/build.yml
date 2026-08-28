@@ -89,7 +89,26 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Improvements in v4.6.16
+            ### 🆕 New Features & Improvements in v4.6.17
+            - **🗺️ Fixed Mod Map Auto-Injection Bug & Svartalfheim Loading**:
+              - Fixed hardcoded typo in the map lookup registry where Svartalfheim was incorrectly mapped to `927083` (the Turkey Trial holiday event mod) instead of `962796` (Svartalfheim Premium).
+              - Implemented dynamic mod map resolution (`resolve_map_mod_id`) to automatically detect whether Svartalfheim Premium (`962796`) or Free (`893657` / `927084`), Forglar Premium (`952876`) or Free (`945244`), Amissa (`965379`), Insaluna (`935639`), etc. is installed.
+              - Added automated sanitization on server boot to purge stale `ActiveMapMod=927083` and duplicate legacy keys (`ActiveModMap`, `ActiveMapMods`) from `GameUserSettings.ini`.
+            - **🤖 Discord Bot Setup Crash Resolution (`UserId::new(0)`)**:
+              - Resolved application panic and crash (`Attempted to call UserId::new with invalid (0) value`) when setting up Discord integration.
+              - Authenticated the bot token upfront using `http.get_current_user().await` to obtain the valid Discord Snowflake `UserId` for channel permission overwrites.
+            - **⚡ Real-Time Boot Launch Parameters Synchronization**:
+              - Fixed state comparison in `serverStore.ts` and `aseServerStore.ts` by replacing shallow property comparisons with full deep object comparisons.
+              - Saved launch arguments and configuration changes now update immediately in the UI without requiring navigation or tab switches.
+            - **🔌 Clean Network Port Command Line Generation**:
+              - Removed duplicate lowercase/PascalCase flags (`-port`/`-Port`, `-queryport`/`-QueryPort`, `-peerport`/`-PeerPort`) from ASA and ASE server launch commands to keep startup arguments clean, optimized, and compliant with Unreal Engine 5 standards.
+            - **🛡️ ASA Server API Plugin Status & Port Binding Enhancement**:
+              - Enhanced process detection with port-based command line matching and Windows verbatim path normalization (`\\?\`) to ensure accurate "Running" / "Online" detection when using `AsaApiLoader.exe`.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.16 — Global UI/UX Tokenization & Custom Theme Studio</summary>
+
             - **🎨 Global UI/UX Tokenization & Design System Alignment**:
               - Completely refactored all hardcoded color classes across the entire application to use standardized dynamic CSS design tokens (`--surface`, `--surface-hover`, `--surface-active`, `--bg-primary`, `--border`, `--border-hover`, `--text-primary`, `--text-secondary`, `--text-muted`, `--accent`, `--accent-hover`, `--glow`).
               - Overhauled `Scheduler.tsx` (Presets, 5-step automation workflow, Watchdog card, task cards, 2-column modal, delete confirmation).
@@ -108,8 +127,7 @@ jobs:
             - **🪟 Maximized Window & Header Optimization**:
               - Fixed frameless window titlebar controls and maximize state handling.
               - Resolved layout overflow and modal responsiveness across all resolutions.
-
-            ### 🛠️ Previous Releases
+            </details>
             <details>
             <summary>v4.6.15 — ASA Server Restart & Scheduled Maintenance Stabilization</summary>
 

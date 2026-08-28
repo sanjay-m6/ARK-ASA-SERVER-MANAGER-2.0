@@ -122,12 +122,7 @@ export const useAseServerStore = create<AseServerStore>((set, get) => ({
                     merged.some((s, i) => {
                         const prev = state.servers[i];
                         if (!prev) return true;
-                        return (
-                            prev.id !== s.id ||
-                            prev.status !== s.status ||
-                            prev.name !== s.name ||
-                            prev.maxPlayers !== s.maxPlayers
-                        );
+                        return JSON.stringify(prev) !== JSON.stringify(s);
                     });
 
                 if (!isChanged) {

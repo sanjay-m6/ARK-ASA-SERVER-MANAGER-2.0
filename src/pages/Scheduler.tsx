@@ -251,11 +251,31 @@ export default function Scheduler() {
         }
     };
 
+    const calculateNextBasicRun = (intervalHours: number = 6) => {
+        const now = new Date();
+        const midnight = new Date(now);
+        midnight.setHours(0, 0, 0, 0);
+        
+        const intervalMs = (intervalHours <= 0 ? 24 : intervalHours) * 60 * 60 * 1000;
+        let targetMs = midnight.getTime();
+        const thresholdMs = now.getTime() + 60 * 1000;
+        
+        while (targetMs <= thresholdMs) {
+            targetMs += intervalMs;
+        }
+        return new Date(targetMs);
+    };
+
     // Countdown Timer logic
     useEffect(() => {
         const interval = setInterval(() => {
-            if (settings?.mode === 'basic' && settings.nextRunBasic) {
-                updateCountdown(settings.nextRunBasic);
+            if (settings?.mode === 'basic') {
+                if (settings.nextRunBasic) {
+                    updateCountdown(settings.nextRunBasic);
+                } else {
+                    const fallback = calculateNextBasicRun(settings.basicIntervalHours);
+                    updateCountdown(fallback.toISOString());
+                }
             } else if (settings?.mode === 'advanced') {
                 const next = calculateNextAdvancedRun();
                 if (next) updateCountdown(next.toISOString());
@@ -304,7 +324,7 @@ export default function Scheduler() {
         setIsSaving(true);
         try {
             await saveSchedulerSettings(newSettings);
-            setSettings(newSettings);
+            await fetchSettings();
             toast.success(t('scheduler.saveSuccess'));
         } catch (error) {
             toast.error(t('scheduler.saveFailed'));
