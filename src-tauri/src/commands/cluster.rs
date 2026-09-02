@@ -96,7 +96,7 @@ pub async fn create_cluster(
     }
 
     // Determine the cluster directory path
-    let cluster_dir = match &cluster_path {
+    let cluster_dir: String = match &cluster_path {
         Some(p) if !p.trim().is_empty() => {
             // Validate the custom path
             let validation = validate_path(p);
