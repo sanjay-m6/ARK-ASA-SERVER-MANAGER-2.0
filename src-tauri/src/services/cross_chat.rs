@@ -52,6 +52,7 @@ pub struct CrossChatService {
     app_handle: Option<tauri::AppHandle>,
     rcon_service: RconService,
     active_clusters: Arc<Mutex<HashMap<i64, CrossChatConfig>>>,
+    cluster_cancels: Arc<Mutex<HashMap<i64, Arc<AtomicBool>>>>,
     watchers: Arc<tokio::sync::Mutex<HashMap<i64, Vec<Arc<LogWatcher>>>>>,
     running: Arc<AtomicBool>,
 }
@@ -62,6 +63,7 @@ impl CrossChatService {
             app_handle: None,
             rcon_service,
             active_clusters: Arc::new(Mutex::new(HashMap::new())),
+            cluster_cancels: Arc::new(Mutex::new(HashMap::new())),
             watchers: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             running: Arc::new(AtomicBool::new(false)),
         }
@@ -72,6 +74,7 @@ impl CrossChatService {
             app_handle: Some(app_handle),
             rcon_service,
             active_clusters: Arc::new(Mutex::new(HashMap::new())),
+            cluster_cancels: Arc::new(Mutex::new(HashMap::new())),
             watchers: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             running: Arc::new(AtomicBool::new(false)),
         }
@@ -113,12 +116,34 @@ impl CrossChatService {
         Ok(())
     }
 
-    /// Disable cross-chat for a cluster
+    /// Disable cross-chat for a cluster immediately (stops RCON polling & log watchers)
     pub async fn disable_for_cluster(&self, cluster_id: i64) -> Result<(), String> {
         println!("🔇 Disabling cross-chat for cluster {}", cluster_id);
 
+        // Signal cancellation flag for this specific cluster runner
+        {
+            let mut cancels = self.cluster_cancels.lock().await;
+            if let Some(flag) = cancels.remove(&cluster_id) {
+                flag.store(false, Ordering::Relaxed);
+            }
+        }
+
+        // Stop and drain all log watchers for this cluster
+        {
+            let mut watchers = self.watchers.lock().await;
+            if let Some(watcher_list) = watchers.remove(&cluster_id) {
+                for w in watcher_list {
+                    w.stop();
+                }
+            }
+        }
+
         let mut clusters = self.active_clusters.lock().await;
         clusters.remove(&cluster_id);
+
+        if clusters.is_empty() {
+            self.running.store(false, Ordering::Relaxed);
+        }
 
         Ok(())
     }
@@ -192,6 +217,15 @@ impl CrossChatService {
     /// Start the chat relay for a cluster (dual engine: RCON GetChat polling + ShooterGame.log watcher)
     pub async fn start_chat_relay(self: Arc<Self>, cluster_id: i64, servers: Vec<CrossChatServer>) {
         self.running.store(true, Ordering::Relaxed);
+        
+        let cluster_flag = Arc::new(AtomicBool::new(true));
+        {
+            let mut cancels = self.cluster_cancels.lock().await;
+            if let Some(old_flag) = cancels.insert(cluster_id, cluster_flag.clone()) {
+                old_flag.store(false, Ordering::Relaxed);
+            }
+        }
+
         println!("🔄 Starting cross-chat relay for cluster {} with {} servers", cluster_id, servers.len());
 
         let recent_cache = Arc::new(Mutex::new(HashMap::<String, std::time::Instant>::new()));
@@ -201,11 +235,16 @@ impl CrossChatService {
         let service_rcon = self.clone();
         let servers_rcon = servers.clone();
         let cache_rcon = recent_cache.clone();
+        let cluster_flag_rcon = cluster_flag.clone();
 
         tokio::spawn(async move {
             println!("📡 RCON GetChat polling loop active for cluster {}", cluster_id);
-            while service_rcon.running.load(Ordering::Relaxed) {
+            while cluster_flag_rcon.load(Ordering::Relaxed) && service_rcon.running.load(Ordering::Relaxed) {
                 tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
+
+                if !cluster_flag_rcon.load(Ordering::Relaxed) || !service_rcon.running.load(Ordering::Relaxed) {
+                    break;
+                }
 
                 for server in &servers_rcon {
                     if let Ok(chat_resp) = service_rcon.rcon_service.send_command(server.server_id, "GetChat").await {
@@ -238,6 +277,7 @@ impl CrossChatService {
                     }
                 }
             }
+            println!("🛑 RCON GetChat polling loop stopped for cluster {}", cluster_id);
         });
 
         // 2. Spawn log watchers as secondary file-based relay engine
@@ -261,10 +301,11 @@ impl CrossChatService {
             let servers_log = servers.clone();
             let server_log = server.clone();
             let cache_log = recent_cache.clone();
+            let cluster_flag_log = cluster_flag.clone();
 
             tokio::spawn(async move {
                 while let Some(line) = rx.recv().await {
-                    if !service_log.running.load(Ordering::Relaxed) {
+                    if !cluster_flag_log.load(Ordering::Relaxed) || !service_log.running.load(Ordering::Relaxed) {
                         break;
                     }
 
@@ -298,6 +339,26 @@ impl CrossChatService {
         watchers_lock.insert(cluster_id, cluster_watchers);
     }
 
+    /// Stop all polling loops and log watchers across all clusters
+    pub async fn stop_all(&self) {
+        self.running.store(false, Ordering::Relaxed);
+
+        let mut cancels = self.cluster_cancels.lock().await;
+        for (_, flag) in cancels.drain() {
+            flag.store(false, Ordering::Relaxed);
+        }
+
+        let mut watchers = self.watchers.lock().await;
+        for (_, watcher_list) in watchers.drain() {
+            for w in watcher_list {
+                w.stop();
+            }
+        }
+
+        let mut clusters = self.active_clusters.lock().await;
+        clusters.clear();
+    }
+
     /// Stop the polling loop
     pub fn stop_polling(&self) {
         self.running.store(false, Ordering::Relaxed);
@@ -306,13 +367,14 @@ impl CrossChatService {
 
 /// Helper to parse any format of ARK: Survival Ascended or Evolved chat line into (player_name, message)
 pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
-    let mut line = raw_line.trim();
+    let line = raw_line.trim();
     if line.is_empty() {
         return None;
     }
 
-    // Immediately reject non-chat engine logs, mod loading, Sentry SDK, and server parameters
     let lower_raw = raw_line.to_lowercase();
+
+    // 1. Immediately reject non-chat engine logs, HTTP headers, API configs, mod loading, and telemetry
     if lower_raw.contains("ushooterengine")
         || lower_raw.contains("loadgamemods")
         || lower_raw.contains("merging mod asset")
@@ -320,25 +382,41 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
         || lower_raw.contains("isserverpconly")
         || lower_raw.contains("logsentrysdk")
         || lower_raw.contains("sentry.io")
+        || lower_raw.contains("sentry-native")
         || lower_raw.contains("crashpad")
         || lower_raw.contains("winhttp")
         || lower_raw.contains("package /")
         || lower_raw.contains("primalgamedataoverride")
         || lower_raw.contains("lognet")
         || lower_raw.contains("loghttp")
+        || lower_raw.contains("access-control")
+        || lower_raw.contains("cross-origin")
+        || lower_raw.contains("1.1 google")
+        || lower_raw.contains("cloudflare")
+        || lower_raw.contains("defaultlanguage")
+        || lower_raw.contains("maxconcurrentinstallations")
+        || lower_raw.contains("modsdirectory")
+        || lower_raw.contains("apikey")
+        || lower_raw.contains("gameid")
+        || lower_raw.contains("world save complete")
+        || lower_raw.contains("world save took")
+        || lower_raw.contains("server save loaded")
+        || lower_raw.contains("sending envelope")
+        || lower_raw.contains("using database path")
+        || lower_raw.contains("http/1.")
+        || lower_raw.contains("http/2")
     {
         return None;
     }
 
-    // 1. Strip leading noise chars such as colons, quotes, spaces (added by RCON, logs, or echoes)
-    line = line.trim_start_matches(|c: char| c == ':' || c == '"' || c == '\'' || c.is_whitespace());
-    if line.is_empty() {
+    // 2. Strip leading noise chars such as colons, quotes, spaces
+    let mut check_str = line.trim_start_matches(|c: char| c == ':' || c == '"' || c == '\'' || c.is_whitespace());
+    if check_str.is_empty() {
         return None;
     }
 
-    // 2. Echo Prevention & Timestamp stripping:
-    // Strip leading timestamp e.g. "[2024.02.05-12.00.00:123][  0]" or "[2024.02.05_12.00.00]"
-    let mut check_str = line;
+    // 3. Echo Prevention & Timestamp / Server Tag stripping:
+    let is_log_format = check_str.starts_with('[');
     while check_str.starts_with('[') {
         if let Some(end_bracket) = check_str.find(']') {
             let inner = check_str[1..end_bracket].trim();
@@ -350,7 +428,7 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
             {
                 check_str = check_str[end_bracket + 1..].trim();
             } else {
-                // It's a server tag like [Ragnarok], [Valguero], [Extinction], etc. -> ECHO! Ignore.
+                // It's a server tag like [Ragnarok], [Valguero], [Island], etc. -> ECHO! Ignore.
                 return None;
             }
         } else {
@@ -358,7 +436,7 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
         }
     }
 
-    // Check if line contains a server tag like "] " or "] \"" after a bracket tag
+    // Check if line contains an echoed server tag pattern like "[Island] Bob: ..."
     if line.contains("] ") || line.contains("] \"") || line.contains("]: ") {
         if let Some(close_pos) = line.find("] ") {
             if let Some(open_pos) = line[..close_pos].rfind('[') {
@@ -374,12 +452,7 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
 
     let mut cleaned = check_str;
 
-    // 3. Strip standard ARK log timestamp headers & frame counters if any remain:
-    if let Some(pos) = cleaned.find("][") {
-        if let Some(end_bracket) = cleaned[pos + 2..].find(']') {
-            cleaned = cleaned[pos + 3 + end_bracket..].trim();
-        }
-    }
+    // 4. Strip secondary timestamp header e.g. "[  0]"
     if cleaned.starts_with('[') {
         if let Some(closing) = cleaned.find(']') {
             let inner = &cleaned[1..closing];
@@ -395,49 +468,62 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
         }
     }
 
-    // 4. Strip Log category prefixes:
+    // 5. Match and strip Log Category Prefixes:
+    let mut has_chat_category = false;
     if cleaned.starts_with("LogServer:") {
         cleaned = cleaned[10..].trim();
+        has_chat_category = true;
+    } else if cleaned.starts_with("LogShooterGame: Display:") {
+        cleaned = cleaned[24..].trim();
+        has_chat_category = true;
     } else if cleaned.starts_with("LogShooterGame:") {
         cleaned = cleaned[15..].trim();
     } else if cleaned.starts_with("Server:") || cleaned.starts_with("SERVER:") {
         cleaned = cleaned[7..].trim();
+        has_chat_category = true;
     } else if cleaned.starts_with("Chat:") || cleaned.starts_with("CHAT:") {
         cleaned = cleaned[5..].trim();
-    } else if cleaned.starts_with("Global:") || cleaned.starts_with("GLOBAL:") {
+        has_chat_category = true;
+    } else if cleaned.starts_with("GLOBAL:") || cleaned.starts_with("Global:") {
         cleaned = cleaned[7..].trim();
+        has_chat_category = true;
+    } else if cleaned.starts_with("LogChat:") {
+        cleaned = cleaned[8..].trim();
+        has_chat_category = true;
+    }
+
+    // If this line came from a log file (has timestamps), it MUST have a recognized chat category prefix!
+    if is_log_format && !has_chat_category {
+        return None;
     }
 
     // Trim again leading colons/quotes/spaces
     cleaned = cleaned.trim_start_matches(|c: char| c == ':' || c == '"' || c == '\'' || c.is_whitespace());
 
-    // 5. Filter out system noise, engine logs, Sentry SDK, commands, and headers
+    // 6. Filter out commands, HTTP headers, and system noise
     let lower = cleaned.to_lowercase();
     if lower.starts_with("command:")
         || lower.starts_with("rcon:")
         || lower.starts_with("executing")
         || lower.starts_with("server received")
         || lower.starts_with("admincmd")
-        || lower.starts_with("logserver:")
-        || lower.starts_with("shootergame:")
-        || lower.starts_with("server :")
         || lower.starts_with("setmessage")
-        || lower.contains("ushooterengine")
-        || lower.contains("logsentrysdk")
-        || lower.contains("sentry-native")
-        || lower.contains("cross-origin")
-        || lower.contains("sending envelope")
-        || lower.contains("using database path")
-        || lower.contains("world save complete")
-        || lower.contains("server save loaded")
-        || lower.contains("world save took")
-        || lower.contains("save complete")
-        || lower.contains("world save")
+        || lower.starts_with("date:")
+        || lower.starts_with("via:")
+        || lower.starts_with("vary:")
+        || lower.starts_with("content-")
+        || lower.starts_with("user-agent:")
+        || lower.starts_with("host:")
+        || lower.starts_with("connection:")
+        || lower.starts_with("accept:")
+        || lower.starts_with("authorization:")
+        || lower.starts_with("get ")
+        || lower.starts_with("post ")
     {
         return None;
     }
 
-    // 6. Parse "PlayerName: Message" or "PlayerName (TribeName): Message"
+    // 7. Parse "PlayerName: Message" or "PlayerName (TribeName): Message"
     let parts: Vec<&str> = cleaned.splitn(2, ':').collect();
     if parts.len() == 2 {
         let player = parts[0].trim().trim_matches('"').trim_matches('\'').trim_matches('[').trim_matches(']');
@@ -447,30 +533,45 @@ pub fn parse_ark_chat_line(raw_line: &str) -> Option<(String, String)> {
             return None;
         }
 
-        let player_lower = player.to_lowercase();
-
-        // Reject Unreal Engine class names (e.g. UShooterEngine, UPrimalGameData, etc.)
-        if player.starts_with('U') && player.chars().nth(1).map_or(false, |c| c.is_uppercase()) {
+        // Validate player name length and characters
+        if player.len() > 32 || player.contains('{') || player.contains('}') || player.contains('"') || player.contains('\\') || player.contains('/') {
             return None;
         }
 
-        if player_lower.starts_with("log")
+        let player_lower = player.to_lowercase();
+
+        // Reject HTTP headers and config property names
+        if player_lower == "date"
+            || player_lower == "via"
+            || player_lower == "vary"
+            || player_lower == "host"
+            || player_lower == "server"
+            || player_lower == "admin"
+            || player_lower == "system"
+            || player_lower == "defaultlanguage"
+            || player_lower == "gameid"
+            || player_lower == "apikey"
+            || player_lower == "provider"
+            || player_lower == "maxconcurrentinstallations"
+            || player_lower == "modsdirectory"
+            || player_lower == "installedmods"
+            || player_lower == "pendinginstalls"
+            || player_lower.starts_with("log")
             || player_lower.contains("engine")
             || player_lower.contains("shooter")
             || player_lower.contains("sentry")
             || player_lower.contains("crashpad")
             || player_lower.contains("winhttp")
-            || player_lower.contains('-')
-            || player_lower.contains("policy")
             || player_lower.contains("http")
             || player_lower.contains("origin")
-            || player_lower == "server"
-            || player_lower == "admin"
-            || player_lower == "logserver"
-            || player_lower == "system"
-            || player.contains('\\')
-            || player.contains('/')
+            || player_lower.contains('-')
+            || player_lower.contains('_') && player.chars().next().map_or(false, |c| c.is_lowercase())
         {
+            return None;
+        }
+
+        // Reject Unreal Engine class names (e.g. UShooterEngine, UPrimalGameData, etc.)
+        if player.starts_with('U') && player.chars().nth(1).map_or(false, |c| c.is_uppercase()) {
             return None;
         }
 
@@ -486,7 +587,8 @@ impl Default for CrossChatService {
             app_handle: None,
             rcon_service: RconService::new(),
             active_clusters: Arc::new(Mutex::new(HashMap::new())),
-            watchers: Arc::new(Mutex::new(HashMap::new())),
+            cluster_cancels: Arc::new(Mutex::new(HashMap::new())),
+            watchers: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
             running: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -551,6 +653,21 @@ mod tests {
 
         let echo2 = ": [Valguero] Alice: Hello from Valguero";
         assert_eq!(parse_ark_chat_line(echo2), None);
+    }
+
+    #[test]
+    fn test_parse_ark_chat_line_filters_http_and_curseforge_spam() {
+        assert_eq!(parse_ark_chat_line("Date: Tue, 01 Sep 2026 21:25:37 GMT"), None);
+        assert_eq!(parse_ark_chat_line("Via: 1.1 google"), None);
+        assert_eq!(parse_ark_chat_line("Vary: origin, access-control-request-method, access-control-request-headers"), None);
+        assert_eq!(parse_ark_chat_line("defaultLanguage: en"), None);
+        assert_eq!(parse_ark_chat_line("gameId: 83374"), None);
+        assert_eq!(parse_ark_chat_line("apiKey: *****1aZe"), None);
+        assert_eq!(parse_ark_chat_line("provider: None"), None);
+        assert_eq!(parse_ark_chat_line("maxConcurrentInstallations: 3"), None);
+        assert_eq!(parse_ark_chat_line("modsDirectory: ShooterGame/Mods"), None);
+        assert_eq!(parse_ark_chat_line("\"defaultLanguage\": \"en\""), None);
+        assert_eq!(parse_ark_chat_line("[Island] Date: Tue, 01 Sep 2026 21:25:37 GMT"), None);
     }
 }
 

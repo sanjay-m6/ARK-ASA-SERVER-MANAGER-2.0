@@ -208,7 +208,8 @@ pub fn render_bar(percentage: f64, width: usize) -> String {
     let filled = ((pct / 100.0) * width as f64).round() as usize;
     let filled = filled.min(width);
     let empty = width.saturating_sub(filled);
-    format!("{}{}", "▰".repeat(filled), "▱".repeat(empty))
+    let bar: String = format!("{}{}", "▰".repeat(filled), "▱".repeat(empty));
+    bar
 }
 
 /// Server info for cluster display
@@ -1270,7 +1271,8 @@ impl DiscordBridgeService {
 
     /// Format a Discord message for in-game display
     pub fn format_for_game(username: &str, message: &str) -> String {
-        format!("[Discord] {}: {}", username, message)
+        let msg: String = format!("[Discord] {}: {}", username, message);
+        msg
     }
 
     /// Start the bridge (HTTP updates loop + Gateway for online status)
@@ -1529,11 +1531,12 @@ impl DiscordBridgeService {
                 _ => ("🔴", "Offline"),
             };
 
-            let uptime_str = if s.status == "running" || s.status == "online" {
+            let uptime_str: String = if s.status == "running" || s.status == "online" {
                 if let Some(started_at_str) = &s.last_started {
                     if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(started_at_str, "%Y-%m-%d %H:%M:%S") {
                         let started_ts = dt.and_utc().timestamp();
-                        format!("<t:{}:R>", started_ts)
+                        let ts_str: String = format!("<t:{}:R>", started_ts);
+                        ts_str
                     } else {
                         "Online".to_string()
                     }

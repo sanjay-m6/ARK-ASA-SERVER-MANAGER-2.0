@@ -262,13 +262,35 @@ pub async fn rcon_execute_cluster_command(
     Ok(map)
 }
 
-#[derive(serde::Serialize)]
+fn find_files_recursive(dir: &std::path::Path, extension: &str, max_depth: usize) -> Vec<std::path::PathBuf> {
+    let mut results = Vec::new();
+    if max_depth == 0 || !dir.is_dir() {
+        return results;
+    }
+
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                results.extend(find_files_recursive(&path, extension, max_depth - 1));
+            } else if path.is_file() && path.extension().and_then(|s| s.to_str()).map(|ext| ext.eq_ignore_ascii_case(extension)).unwrap_or(false) {
+                results.push(path);
+            }
+        }
+    }
+    results
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveValidationInfo {
     pub last_modified: String,
-    pub file_size: u64,
+    #[serde(rename = "file_size_bytes", alias = "file_size")]
+    pub file_size_bytes: u64,
     pub file_name: String,
     pub exists: bool,
+    pub integrity_ok: bool,
+    pub error_message: Option<String>,
 }
 
 #[tauri::command]
@@ -285,45 +307,50 @@ pub async fn rcon_validate_save(
         .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
     // Query server details
-    let (install_path_str, _map_name): (String, String) = conn
-        .query_row(
+    let (install_path_str, _map_name): (String, String) = if server_id > 0 {
+        conn.query_row(
             "SELECT install_path, map_name FROM servers WHERE id = ?1",
             [server_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
-        .map_err(|e| format!("Server not found: {}", e))?;
+        .map_err(|e| format!("ASA Server not found: {}", e))?
+    } else {
+        conn.query_row(
+            "SELECT install_path, map_name FROM ase_servers WHERE id = ?1",
+            [-server_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| format!("ASE Server not found: {}", e))?
+    };
 
     let install_path = std::path::PathBuf::from(install_path_str);
     
-    // Construct SavedArks directory
-    let saved_arks = install_path.join("ShooterGame/Saved/SavedArks");
-    
-    if !saved_arks.exists() {
-        return Ok(SaveValidationInfo {
-            last_modified: "".to_string(),
-            file_size: 0,
-            file_name: "".to_string(),
-            exists: false,
-        });
-    }
+    // Check possible saved folders in ShooterGame/Saved (including map subfolders like TheIsland_WP)
+    let candidate_dirs = [
+        install_path.join("ShooterGame/Saved/SavedArks"),
+        install_path.join("ShooterGame/Saved/SavedArksLocal"),
+        install_path.join("ShooterGame/Saved/SaveGames"),
+        install_path.join("ShooterGame/Saved"),
+    ];
 
-    // Look for the .ark files in SavedArks directory
     let mut latest_file: Option<(std::time::SystemTime, u64, String)> = None;
 
-    if let Ok(entries) = std::fs::read_dir(saved_arks) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("ark") {
+    for dir in &candidate_dirs {
+        if dir.exists() {
+            let ark_files = find_files_recursive(dir, "ark", 4);
+            for path in ark_files {
                 if let Ok(metadata) = std::fs::metadata(&path) {
                     if let Ok(modified) = metadata.modified() {
                         let size = metadata.len();
                         let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("").to_string();
-                        if let Some((best_time, _, _)) = latest_file {
-                            if modified > best_time {
+                        if size > 0 {
+                            if let Some((best_time, _, _)) = latest_file {
+                                if modified > best_time {
+                                    latest_file = Some((modified, size, name));
+                                }
+                            } else {
                                 latest_file = Some((modified, size, name));
                             }
-                        } else {
-                            latest_file = Some((modified, size, name));
                         }
                     }
                 }
@@ -333,23 +360,28 @@ pub async fn rcon_validate_save(
 
     if let Some((modified, size, name)) = latest_file {
         let datetime: chrono::DateTime<chrono::Utc> = modified.into();
+        let is_ok = size > 1024;
         Ok(SaveValidationInfo {
             last_modified: datetime.to_rfc3339(),
-            file_size: size,
+            file_size_bytes: size,
             file_name: name,
             exists: true,
+            integrity_ok: is_ok,
+            error_message: if is_ok { None } else { Some("Save file size is unusually small (< 1KB).".to_string()) },
         })
     } else {
         Ok(SaveValidationInfo {
             last_modified: "".to_string(),
-            file_size: 0,
+            file_size_bytes: 0,
             file_name: "".to_string(),
             exists: false,
+            integrity_ok: false,
+            error_message: Some("No valid world save (.ark) file found in Saved directory.".to_string()),
         })
     }
 }
 
-/// Automatically resolve SteamID/EOS/Platform IDs of players to their internal 9-digit UE4 Player IDs by parsing their .arkprofile save files.
+/// Automatically resolve SteamID/EOS/Platform IDs of players to their internal 9-digit UE4/UE5 Player IDs by parsing their .arkprofile save files.
 #[tauri::command]
 pub async fn rcon_resolve_player_ids(
     state: State<'_, crate::AppState>,
@@ -373,43 +405,40 @@ pub async fn rcon_resolve_player_ids(
         ).map_err(|e| format!("ASE Server not found: {}", e))?
     };
 
-    let saved_arks = std::path::PathBuf::from(&install_path_str)
-        .join("ShooterGame")
-        .join("Saved")
-        .join("SavedArks");
+    let install_path = std::path::PathBuf::from(install_path_str);
+    let candidate_dirs = [
+        install_path.join("ShooterGame/Saved/SavedArks"),
+        install_path.join("ShooterGame/Saved/SavedArksLocal"),
+        install_path.join("ShooterGame/Saved/SaveGames"),
+        install_path.join("ShooterGame/Saved"),
+    ];
 
     let mut resolved = std::collections::HashMap::new();
+    let lower_req_ids: Vec<String> = platform_ids.iter().map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect();
 
-    if !saved_arks.exists() {
-        return Ok(resolved);
-    }
-
-    if platform_ids.is_empty() {
-        // Scan all .arkprofile files in the folder
-        if let Ok(entries) = std::fs::read_dir(saved_arks) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("arkprofile") {
-                    if let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) {
-                        let platform_id = file_stem.to_string();
-                        if let Ok(data) = std::fs::read(&path) {
-                            if let Some(player_id) = parse_player_id_from_bytes(&data) {
-                                resolved.insert(platform_id, player_id);
-                            }
-                        }
-                    }
-                }
-            }
+    for dir in &candidate_dirs {
+        if !dir.exists() {
+            continue;
         }
-    } else {
-        // Scan only the requested platform_ids
-        for platform_id in platform_ids {
-            if platform_id.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
-                let profile_file = saved_arks.join(format!("{}.arkprofile", platform_id));
-                if profile_file.exists() && profile_file.is_file() {
-                    if let Ok(data) = std::fs::read(&profile_file) {
+        let profile_files = find_files_recursive(dir, "arkprofile", 4);
+        for path in profile_files {
+            if let Some(file_stem) = path.file_stem().and_then(|s| s.to_str()) {
+                let stem_str = file_stem.to_string();
+                let stem_lower = stem_str.to_lowercase();
+                
+                let matches = lower_req_ids.is_empty() 
+                    || lower_req_ids.contains(&stem_lower)
+                    || lower_req_ids.iter().any(|req| stem_lower.contains(req) || req.contains(&stem_lower));
+
+                if matches {
+                    if let Ok(data) = std::fs::read(&path) {
                         if let Some(player_id) = parse_player_id_from_bytes(&data) {
-                            resolved.insert(platform_id, player_id);
+                            resolved.insert(stem_str.clone(), player_id);
+                            for req in &platform_ids {
+                                if req.trim().eq_ignore_ascii_case(&stem_str) {
+                                    resolved.insert(req.clone(), player_id);
+                                }
+                            }
                         }
                     }
                 }
@@ -420,51 +449,35 @@ pub async fn rcon_resolve_player_ids(
     Ok(resolved)
 }
 
-/// Helper function to extract PlayerDataID (the internal UE4 Player ID) from binary data of .arkprofile
+/// Helper function to extract PlayerDataID (the internal UE4/UE5 Player ID) from binary data of .arkprofile
 fn parse_player_id_from_bytes(data: &[u8]) -> Option<u64> {
-    let pattern_name = b"PlayerDataID";
-    let pos_name = data.windows(pattern_name.len()).position(|w| w == pattern_name)?;
+    let patterns = [b"PlayerDataID".as_slice(), b"PlayerID".as_slice()];
     
-    let search_slice = &data[pos_name..];
-    let pattern_type = b"UInt64Property";
-    
-    if let Some(pos_type_offset) = search_slice.windows(pattern_type.len()).position(|w| w == pattern_type) {
-        let pos_type = pos_name + pos_type_offset;
-        let type_end = pos_type + pattern_type.len();
-        
-        // Find the null terminator of "UInt64Property"
-        let mut null_pos = type_end;
-        while null_pos < data.len() && data[null_pos] != 0 {
-            null_pos += 1;
-        }
-        let after_null = null_pos + 1;
-        
-        if after_null + 8 + 4 + 1 + 8 <= data.len() {
-            let value_size = i64::from_le_bytes(data[after_null..after_null+8].try_into().unwrap());
-            if value_size == 8 {
-                let id_bytes = data[after_null + 8 + 4 + 1..after_null + 8 + 4 + 1 + 8].try_into().ok()?;
-                return Some(u64::from_le_bytes(id_bytes));
-            }
-        }
-    }
-    
-    // Fallback check for "Int64Property"
-    let pattern_type_alt = b"Int64Property";
-    if let Some(pos_type_offset) = search_slice.windows(pattern_type_alt.len()).position(|w| w == pattern_type_alt) {
-        let pos_type = pos_name + pos_type_offset;
-        let type_end = pos_type + pattern_type_alt.len();
-        
-        let mut null_pos = type_end;
-        while null_pos < data.len() && data[null_pos] != 0 {
-            null_pos += 1;
-        }
-        let after_null = null_pos + 1;
-        
-        if after_null + 8 + 4 + 1 + 8 <= data.len() {
-            let value_size = i64::from_le_bytes(data[after_null..after_null+8].try_into().unwrap());
-            if value_size == 8 {
-                let id_bytes = data[after_null + 8 + 4 + 1..after_null + 8 + 4 + 1 + 8].try_into().ok()?;
-                return Some(u64::from_le_bytes(id_bytes));
+    for pattern_name in patterns {
+        if let Some(pos_name) = data.windows(pattern_name.len()).position(|w| w == pattern_name) {
+            let search_slice = &data[pos_name..];
+            for type_pattern in [b"UInt64Property".as_slice(), b"Int64Property".as_slice()] {
+                if let Some(pos_type_offset) = search_slice.windows(type_pattern.len()).position(|w| w == type_pattern) {
+                    let pos_type = pos_name + pos_type_offset;
+                    let type_end = pos_type + type_pattern.len();
+                    
+                    let mut null_pos = type_end;
+                    while null_pos < data.len() && data[null_pos] != 0 {
+                        null_pos += 1;
+                    }
+                    let after_null = null_pos + 1;
+                    
+                    if after_null + 8 + 4 + 1 + 8 <= data.len() {
+                        let value_size = i64::from_le_bytes(data[after_null..after_null+8].try_into().unwrap());
+                        if value_size == 8 {
+                            let id_bytes = data[after_null + 8 + 4 + 1..after_null + 8 + 4 + 1 + 8].try_into().ok()?;
+                            let id = u64::from_le_bytes(id_bytes);
+                            if id > 0 {
+                                return Some(id);
+                            }
+                        }
+                    }
+                }
             }
         }
     }

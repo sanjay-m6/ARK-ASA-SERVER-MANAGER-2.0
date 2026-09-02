@@ -136,11 +136,12 @@ impl DashboardBuilder {
                 _ => ("🔴", "Offline"),
             };
 
-            let uptime_str = if s.status == "running" || s.status == "online" {
+            let uptime_str: String = if s.status == "running" || s.status == "online" {
                 if let Some(started_at_str) = &s.last_started {
                     if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(started_at_str, "%Y-%m-%d %H:%M:%S") {
                         let started_ts = dt.and_utc().timestamp();
-                        format!("<t:{}:R>", started_ts)
+                        let ts_str: String = format!("<t:{}:R>", started_ts);
+                        ts_str
                     } else {
                         "Online".to_string()
                     }
@@ -289,10 +290,11 @@ impl DashboardBuilder {
 
         let is_running = status == "online" || status == "running";
 
-        let uptime_display = if is_running {
+        let uptime_display: String = if is_running {
             if let Some(started_at_str) = last_started {
                 if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(&started_at_str, "%Y-%m-%d %H:%M:%S") {
-                    format!("<t:{}:R>", dt.and_utc().timestamp())
+                    let ts_str: String = format!("<t:{}:R>", dt.and_utc().timestamp());
+                    ts_str
                 } else {
                     "Online".to_string()
                 }

@@ -90,6 +90,31 @@ jobs:
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
             ### 🆕 New Features & Improvements in v4.6.18
+            - **🐕 Mod Update Watchdog Persistence & Auto-Recovery**:
+              - Fixed an issue where the Mod Update Watchdog disabled itself upon exiting or restarting the application.
+              - Added dedicated SQLite database table `mod_watchdog_settings` with automatic schema migrations.
+              - Background watchdog worker now automatically loads saved watchdog settings on application startup and synchronizes state seamlessly.
+            - **🎯 RCON Give Items Player UID / EOS ID Resolution**:
+              - Fixed item spawning failure when using Player UID or EOS ID in RCON Console (`GiveItemToPlayer`).
+              - Implemented recursive directory scanning across `SavedArks`, `SavedArksLocal`, and map subdirectories to locate player profile (`.arkprofile`) files.
+              - Enhanced binary profile parsing to support both `PlayerDataID` and `PlayerID` properties, automatically resolving player UIDs and EOS IDs to their required 64-bit integer IDs.
+            - **💾 RCON Verified Save Validation & Deep Search**:
+              - Fixed save verification continually failing in RCON Console.
+              - Enhanced `SaveValidationInfo` to include `integrity_ok` and `file_size_bytes` data properties.
+              - Added recursive `.ark` save search across map subdirectories (`SavedArks/<Map_WP>`) to accurately verify save existence, freshness, and file size (> 1KB).
+            - **⚙️ GameUserSettings.ini & Game.ini Visual Editor Cleanup**:
+              - Removed Breeding Settings from `GameUserSettings.ini` schema (as breeding multipliers are strictly `Game.ini` settings), eliminating user confusion.
+              - Removed Agricultural & Ecosystem and Loot Quality sections from `GameUserSettings.ini` schema.
+              - Restructured `Spoilage & World Resources` and `Dino Feeding & Decay Rules` under `[ServerSettings]`, keeping valid settings such as `AllowRaidDinoFeeding`.
+              - Added `Loot Quality` (`SupplyCrateLootQualityMultiplier`, `FishingLootQualityMultiplier`), `PoopIntervalMultiplier`, `AllowAnyoneBabyImprintCuddle`, and `DisableImprintDinoBuff` to `Game.ini` under `[/Script/ShooterGame.ShooterGameMode]`.
+            - **🧹 Clean INI Generation**:
+              - Fixed redundant INI generation where `SessionName=` appeared under `[ServerSettings]`; it now outputs cleanly only under `[SessionSettings]`.
+              - Removed obsolete `MapName=` from `[ServerSettings]` as the map is defined via command-line arguments.
+              - Removed deprecated `[URL]` section (`Port=...`, `QueryPort=...`) as `QueryPort` is deprecated in ASA and network ports are managed via command line.
+            - **🚀 New ASA Launch Arguments Matrix**:
+              - Added `-usestore`, `-converttostore`, and `-DoCustomCosmeticValidation` flags to the Launch Arguments preset matrix with one-click toggles and descriptions.
+            - **💬 Cluster Cross-Chat & RCON Filtering**:
+              - Added strict regex and prefix filtering to suppress HTTP responses, CurseForge API JSON data, Sentry error logs, and echo loops from broadcasting in RCON cross-server chat.
             - **🦖 Dino Spawn & NPCReplacements INI Syntax Resolution**:
               - Fixed duplicate key prefix serialization in `Game.ini` where dinosaur replacements were being written as `NPCReplacements=NPCReplacements=(FromClassName="...",ToClassName="...")`.
               - Updated `DinoSpawnEditor.tsx` and the INI parser engine to reliably format and parse clean, valid `NPCReplacements=(FromClassName="...",ToClassName="...")` entries.

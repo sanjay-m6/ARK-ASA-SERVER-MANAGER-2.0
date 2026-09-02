@@ -125,6 +125,9 @@ impl Database {
         Self::run_discord_bridge_config_migration(conn)?;
         Self::run_discord_rate_limits_migration(conn)?;
 
+        // Mod Watchdog Settings table migration
+        Self::run_mod_watchdog_migration(conn)?;
+
         Ok(())
     }
 
@@ -1761,6 +1764,21 @@ impl Database {
         if !has_column {
             conn.execute("ALTER TABLE mods ADD COLUMN thumbnail_url TEXT", [])?;
         }
+        Ok(())
+    }
+
+    fn run_mod_watchdog_migration(conn: &Connection) -> Result<()> {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS mod_watchdog_settings (
+                server_id INTEGER PRIMARY KEY,
+                enabled INTEGER NOT NULL DEFAULT 0,
+                polling_interval_minutes INTEGER NOT NULL DEFAULT 60,
+                safe_restart_mode INTEGER NOT NULL DEFAULT 1,
+                maintenance_windows TEXT NOT NULL DEFAULT '[]',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+            );"
+        )?;
         Ok(())
     }
 }

@@ -25,12 +25,15 @@ const COMMON_FLAGS: FlagDefinition[] = [
   { flag: '-insecure', label: 'Insecure Mode', desc: 'Disables VAC security checks on the server process.', category: 'security' },
   { flag: '-AdditionalDupeProtection', label: 'Dupe Protection', desc: 'Enforces strict item and dino duplicate validation on transfer.', category: 'security' },
   { flag: '-ValidateItemDinoSpawns', label: 'Validate Spawns', desc: 'Validates spawned item and creature data structures.', category: 'security' },
+  { flag: '-DoCustomCosmeticValidation', label: 'Validate Custom Cosmetics', desc: 'Enforces strict server-side validation on custom player cosmetics and skins.', category: 'security' },
 
   // Gameplay & World Rules
   { flag: '-ForceAllowCaveFlyers', label: 'Force Allow Cave Flyers', desc: 'Allows players to mount and ride flying creatures inside cave volumes.', category: 'gameplay' },
   { flag: '-PreventUploadDinos', label: 'Prevent Dino Uploads', desc: 'Blocks players from uploading tamed dinosaurs to cluster transfer.', category: 'gameplay' },
   { flag: '-ForceRespawnDinos', label: 'Force Wipe Wild Dinos', desc: 'Executes wild dinosaur wipe on server boot up.', category: 'gameplay' },
   { flag: '-ServerAllowAnsel', label: 'Allow NVIDIA Ansel', desc: 'Enables 3D Ansel photography mode for connected clients.', category: 'gameplay' },
+  { flag: '-usestore', label: 'Use Cosmetic Store', desc: 'Enables custom cosmetic and mod store backend subsystem.', category: 'gameplay' },
+  { flag: '-converttostore', label: 'Convert to Store', desc: 'Converts legacy saved items and cosmetics to modern store structure.', category: 'gameplay' },
 
   // Engine & Performance
   { flag: '-StructureMemoryOptimizations', label: 'Structure Memory Opts', desc: 'Compresses structure mesh footprint in system RAM.', category: 'performance' },

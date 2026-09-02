@@ -97,8 +97,9 @@ impl PlayerManager {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        let sql = if let Some(cid) = cluster_id {
-            format!("SELECT discord_user_id, guild_id, steam_id, eos_id, player_name, cluster_id, linked_at, verified, last_verified_at FROM discord_player_links WHERE cluster_id = {} ORDER BY linked_at DESC", cid)
+        let sql: String = if let Some(cid) = cluster_id {
+            let s: String = format!("SELECT discord_user_id, guild_id, steam_id, eos_id, player_name, cluster_id, linked_at, verified, last_verified_at FROM discord_player_links WHERE cluster_id = {} ORDER BY linked_at DESC", cid);
+            s
         } else {
             "SELECT discord_user_id, guild_id, steam_id, eos_id, player_name, cluster_id, linked_at, verified, last_verified_at FROM discord_player_links ORDER BY linked_at DESC".to_string()
         };
@@ -215,8 +216,9 @@ impl PlayerManager {
             if active_session.is_some() { "⚡ **Online In-Game**" } else { "💤 **Offline**" }
         );
 
-        let active_server_info = if let Some((srv_id, ref joined_at)) = active_session {
-            format!("🟢 Server #{} (since `{}`)", srv_id, joined_at)
+        let active_server_info: String = if let Some((srv_id, ref joined_at)) = active_session {
+            let s: String = format!("🟢 Server #{} (since `{}`)", srv_id, joined_at);
+            s
         } else {
             "None (Offline)".to_string()
         };

@@ -666,3 +666,14 @@ CREATE TABLE IF NOT EXISTS server_plugins (
 );
 
 CREATE INDEX IF NOT EXISTS idx_server_plugins_server_id ON server_plugins(server_id);
+
+-- Mod Watchdog Settings table (persists auto-update watchdog preferences)
+CREATE TABLE IF NOT EXISTS mod_watchdog_settings (
+    server_id INTEGER PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 0,
+    polling_interval_minutes INTEGER NOT NULL DEFAULT 60,
+    safe_restart_mode INTEGER NOT NULL DEFAULT 1,
+    maintenance_windows TEXT NOT NULL DEFAULT '[]',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+);

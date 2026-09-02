@@ -1,8 +1,6 @@
 // Configuration schema types and mappings for ARK Server settings
 // Enhanced with sliders, dropdowns, and categories for Visual Settings Manager
 
-import { MODDED_MAP_PRESETS } from './moddedMapRegistry';
-
 export type FieldType = 'text' | 'number' | 'boolean' | 'slider' | 'dropdown' | 'array' | 'textarea' | 'crafting_costs' | 'engram_entries' | 'loot_crates' | 'dino_spawns' | 'engram_points_per_level';
 
 export interface ConfigField {
@@ -63,7 +61,7 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         category: 'server',
         fields: [
             {
-                section: 'ServerSettings',
+                section: 'SessionSettings',
                 key: 'SessionName',
                 label: 'Server Name',
                 type: 'text',
@@ -107,48 +105,6 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
             },
             {
                 section: 'ServerSettings',
-                key: 'MapName',
-                label: 'Map',
-                type: 'dropdown',
-                defaultValue: 'TheIsland_WP',
-                options: [
-                    // Released Maps
-                    { value: 'TheIsland_WP', label: '🏝️ The Island', group: 'released' },
-                    { value: 'ScorchedEarth_WP', label: '🏜️ Scorched Earth', group: 'released' },
-                    { value: 'TheCenter_WP', label: '🌊 The Center', group: 'released' },
-                    { value: 'Aberration_WP', label: '🍄 Aberration', group: 'released' },
-                    { value: 'Extinction_WP', label: '🏚️ Extinction', group: 'released' },
-                    { value: 'Ragnarok_WP', label: '⚔️ Ragnarok', group: 'released' },
-                    { value: 'Valguero_WP', label: '🦖 Valguero', group: 'released' },
-                    { value: 'LostColony_WP', label: '🚀 Lost Colony', group: 'released' },
-                    { value: 'ClubARK_WP', label: '🌴 Club ARK', group: 'released' },
-                    // Premium Mod Maps
-                    { value: 'Astraeos_WP', label: '✨ Astraeos', group: 'premium' },
-                    { value: 'Forglar_WP', label: '🌿 Forglar', group: 'premium' },
-                    { value: 'Svartalfheim_WP', label: '⛰️ Svartalfheim', group: 'premium' },
-                    { value: 'Amissa_WP', label: '🍃 Amissa', group: 'premium' },
-                    { value: 'Insaluna_WP', label: '🌙 Insaluna', group: 'premium' },
-                    { value: 'TemptressLagoon_WP', label: '🏝️ Temptress Lagoon', group: 'premium' },
-                    { value: 'Reverence_WP', label: '🏛️ Reverence', group: 'premium' },
-                    // Modded Maps
-                    ...MODDED_MAP_PRESETS.filter(p => p.serverType === 'ASA').map(p => ({
-                        value: p.mapArgument,
-                        label: `${p.icon} ${p.name}`,
-                        group: 'modded'
-                    })),
-                    // Coming 2026
-                    { value: 'Genesis_WP', label: '🧬 Genesis Part 1', group: 'released' },
-                    { value: 'Genesis2_WP', label: '🛸 Genesis Part 2', group: 'upcoming' },
-                    { value: 'CrystalIsles_WP', label: '💎 Crystal Isles', group: 'upcoming' },
-                    { value: 'LostIsland_WP', label: '🗿 Lost Island', group: 'upcoming' },
-                    { value: 'Fjordur_WP', label: '❄️ Fjordur', group: 'upcoming' },
-                    // Custom Map
-                    { value: '__CUSTOM__', label: '✏️ Custom Map Name...', group: 'custom' }
-                ],
-                description: 'The map to load'
-            },
-            {
-                section: 'ServerSettings',
                 key: 'IPAddress',
                 label: 'Server IP Address',
                 type: 'text',
@@ -162,30 +118,6 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 type: 'boolean',
                 defaultValue: 'True',
                 description: 'Enable remote console access for server management'
-            },
-            {
-                section: 'URL',
-                key: 'Port',
-                label: 'Game Port',
-                type: 'slider',
-                defaultValue: '7777',
-                min: 1,
-                max: 65535,
-                step: 1,
-                description: 'Main game port for player connections (default: 7777)',
-                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#URL'
-            },
-            {
-                section: 'URL',
-                key: 'QueryPort',
-                label: 'Query Port',
-                type: 'slider',
-                defaultValue: '27015',
-                min: 1,
-                max: 65535,
-                step: 1,
-                description: 'Port for server browser queries (default: 27015)',
-                wikiLink: 'https://ark.wiki.gg/wiki/Server_configuration#URL'
             },
             {
                 section: 'ServerSettings',
@@ -624,90 +556,6 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         ]
     },
     {
-        title: 'Breeding & Imprinting',
-        description: 'Mating, hatching, maturation, and imprinting rates',
-        category: 'breeding',
-        fields: [
-            {
-                section: 'ServerSettings',
-                key: 'MatingIntervalMultiplier',
-                label: 'Mating Interval Multiplier',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.01,
-                max: 5.0,
-                step: 0.05,
-                description: 'Time between creature matings (lower = faster/more frequent mating)'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'EggHatchSpeedMultiplier',
-                label: 'Egg Hatch Speed Multiplier',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1,
-                max: 100.0,
-                step: 0.5,
-                description: 'Speed of egg incubation and gestation (higher = faster)'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'BabyMatureSpeedMultiplier',
-                label: 'Baby Mature Speed Multiplier',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1,
-                max: 100.0,
-                step: 0.5,
-                description: 'Speed at which babies grow up (higher = faster maturation)'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'BabyCuddleIntervalMultiplier',
-                label: 'Baby Imprint Cuddle Interval',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.01,
-                max: 5.0,
-                step: 0.05,
-                description: 'Interval between imprint requests (lower = shorter wait between cuddles)'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'BabyImprintingStatScaleMultiplier',
-                label: 'Imprint Stat Scale Multiplier',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1,
-                max: 10.0,
-                step: 0.1,
-                description: 'Bonus stat percentage received per full imprinting'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'BabyCuddleGracePeriodMultiplier',
-                label: 'Cuddle Grace Period',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1,
-                max: 10.0,
-                step: 0.1,
-                description: 'Grace period before baby loses imprint quality when cuddle is missed'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'BabyFoodConsumptionSpeedMultiplier',
-                label: 'Baby Food Consumption',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1,
-                max: 5.0,
-                step: 0.1,
-                description: 'Rate of food consumption by baby creatures'
-            }
-        ]
-    },
-    {
         title: 'Day/Night Cycle',
         description: 'Time and lighting settings',
         category: 'gameplay',
@@ -748,54 +596,10 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         ]
     },
     {
-        title: 'Agriculture & Ecosystem',
-        description: 'Farming, pooping, egg laying, and hair growth',
-        category: 'gameplay',
+        title: 'Spoilage & World Resources',
+        description: 'Spoilage, decomposition, hair growth, and resource respawn radius',
+        category: 'environment',
         fields: [
-            {
-                section: 'ServerSettings',
-                key: 'CropGrowthSpeedMultiplier',
-                label: 'Crop Growth Speed',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1,
-                max: 10,
-                step: 0.1,
-                description: 'Crop growth speed multiplier'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'CropDecaySpeedMultiplier',
-                label: 'Crop Decay Speed',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1,
-                max: 10,
-                step: 0.1,
-                description: 'Crop decay speed multiplier'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'PoopIntervalMultiplier',
-                label: 'Poop Interval',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1,
-                max: 10,
-                step: 0.1,
-                description: 'How often dinos and players poop'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'LayEggIntervalMultiplier',
-                label: 'Lay Egg Interval',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 0.1,
-                max: 10,
-                step: 0.1,
-                description: 'How often dinos lay eggs'
-            },
             {
                 section: 'ServerSettings',
                 key: 'HairGrowthSpeedMultiplier',
@@ -1084,26 +888,10 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
         ]
     },
     {
-        title: 'Breeding Rules & Imprinting',
-        description: 'Baby care and imprinting rules',
-        category: 'breeding',
+        title: 'Dino Feeding & Decay Rules',
+        description: 'Raid dino feeding and dino decay prevention',
+        category: 'dino',
         fields: [
-            {
-                section: 'ServerSettings',
-                key: 'AllowAnyoneBabyImprintCuddle',
-                label: 'Anyone Can Imprint',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Allow any tribe member to imprint babies'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'DisableImprintDinoBuff',
-                label: 'Disable Imprint Bonus',
-                type: 'boolean',
-                defaultValue: 'False',
-                description: 'Remove stat bonuses from imprinting'
-            },
             {
                 section: 'ServerSettings',
                 key: 'AllowRaidDinoFeeding',
@@ -1407,35 +1195,6 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
             }
         ]
     },
-    {
-        title: 'Loot Quality',
-        description: 'Supply crate and loot settings',
-        category: 'gameplay',
-        fields: [
-            {
-                section: 'ServerSettings',
-                key: 'SupplyCrateLootQualityMultiplier',
-                label: 'Supply Crate Quality',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 1,
-                max: 10,
-                step: 0.5,
-                description: 'Supply crate loot quality. WARNING: Values above 2.0 can glitch beaver dams (no cementing paste), alphas (no loot), wyverns (no milk), and cause drops to despawn.'
-            },
-            {
-                section: 'ServerSettings',
-                key: 'FishingLootQualityMultiplier',
-                label: 'Fishing Loot Quality',
-                type: 'slider',
-                defaultValue: '1.0',
-                min: 1,
-                max: 10,
-                step: 0.5,
-                description: 'Fishing loot quality. WARNING: High values can cause item requirements to overflow and break loot tables.'
-            }
-        ]
-    }
 ];
 
 export const GAME_INI_SCHEMA: ConfigGroup[] = [
@@ -1681,6 +1440,22 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 type: 'boolean',
                 defaultValue: 'False',
                 description: 'Prevent dino breeding'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'AllowAnyoneBabyImprintCuddle',
+                label: 'Anyone Can Imprint',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Allow any tribe member to imprint babies'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'DisableImprintDinoBuff',
+                label: 'Disable Imprint Bonus',
+                type: 'boolean',
+                defaultValue: 'False',
+                description: 'Remove stat bonuses from imprinting'
             }
         ]
     },
@@ -2002,6 +1777,17 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 max: 10,
                 step: 0.1,
                 description: 'How fast crops decay'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'PoopIntervalMultiplier',
+                label: 'Poop Interval',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 0.1,
+                max: 10,
+                step: 0.1,
+                description: 'How often dinos and players poop'
             }
         ]
     },
@@ -2095,6 +1881,35 @@ export const GAME_INI_SCHEMA: ConfigGroup[] = [
                 label: 'Dino Spawn Replacements',
                 type: 'dino_spawns',
                 description: 'Replace or remove specific dinosaurs from spawning.'
+            }
+        ]
+    },
+    {
+        title: 'Loot Quality',
+        description: 'Supply crate and fishing loot quality in Game.ini',
+        category: 'gameplay',
+        fields: [
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'SupplyCrateLootQualityMultiplier',
+                label: 'Supply Crate Quality',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 1,
+                max: 10,
+                step: 0.5,
+                description: 'Supply crate loot quality. WARNING: Values above 2.0 can glitch beaver dams (no cementing paste), alphas (no loot), wyverns (no milk), and cause drops to despawn.'
+            },
+            {
+                section: '/Script/ShooterGame.ShooterGameMode',
+                key: 'FishingLootQualityMultiplier',
+                label: 'Fishing Loot Quality',
+                type: 'slider',
+                defaultValue: '1.0',
+                min: 1,
+                max: 10,
+                step: 0.5,
+                description: 'Fishing loot quality. WARNING: High values can cause item requirements to overflow and break loot tables.'
             }
         ]
     }

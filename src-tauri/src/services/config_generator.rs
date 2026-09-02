@@ -437,7 +437,6 @@ impl ConfigGenerator {
 
         // ServerSettings section
         content.push_str("[ServerSettings]\r\n");
-        content.push_str(&format!("SessionName={}\r\n", config.session_name));
         let server_pwd = config.server_password.as_deref().unwrap_or("");
         content.push_str(&format!("ServerPassword={}\r\n", server_pwd));
 
@@ -448,7 +447,6 @@ impl ConfigGenerator {
             .unwrap_or(&config.admin_password);
         content.push_str(&format!("ServerAdminPassword={}\r\n", clean_admin_password));
         content.push_str(&format!("MaxPlayers={}\r\n", config.max_players));
-        content.push_str(&format!("MapName={}\r\n", config.map_name));
         content.push_str(&format!("RCONEnabled={}\r\n", ark_bool(config.rcon_enabled)));
         content.push_str(&format!("RCONPort={}\r\n", config.rcon_port));
         if let Some(ref ip) = config.ip_address {
@@ -588,12 +586,6 @@ impl ConfigGenerator {
         // SessionSettings section
         content.push_str("[SessionSettings]\r\n");
         content.push_str(&format!("SessionName={}\r\n", config.session_name));
-        content.push_str("\r\n");
-
-        // URL section - Port and QueryPort for network binding
-        content.push_str("[URL]\r\n");
-        content.push_str(&format!("Port={}\r\n", config.game_port));
-        content.push_str(&format!("QueryPort={}\r\n", config.query_port));
         content.push_str("\r\n");
 
         // MessageOfTheDay section

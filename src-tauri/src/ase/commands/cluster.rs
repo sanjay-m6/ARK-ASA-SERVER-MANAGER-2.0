@@ -55,7 +55,8 @@ pub async fn create_ase_cluster(
             let target = format!("{}/{}", default_root.to_string_lossy().replace('\\', "/"), sanitized_name);
             if std::fs::create_dir_all(&target).is_err() {
                 let fallback_root = crate::platform::Platform::fallback_ase_cluster_dir();
-                format!("{}/{}", fallback_root.to_string_lossy().replace('\\', "/"), sanitized_name)
+                let fallback_path: String = format!("{}/{}", fallback_root.to_string_lossy().replace('\\', "/"), sanitized_name);
+                fallback_path
             } else {
                 target
             }

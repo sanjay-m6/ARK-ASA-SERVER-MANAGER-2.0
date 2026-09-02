@@ -58,6 +58,50 @@ impl ModWatchdogService {
 
         tauri::async_runtime::spawn(async move {
             println!("🐕 [Watchdog] Background worker started.");
+            
+            // 1. Initial load from database into memory
+            let loaded_configs: Vec<WatchdogConfig> = {
+                let mut list = Vec::new();
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    if let Ok(db) = state.db.lock() {
+                        if let Ok(conn) = db.get_connection() {
+                            if let Ok(mut stmt) = conn.prepare("SELECT server_id, enabled, polling_interval_minutes, safe_restart_mode, maintenance_windows FROM mod_watchdog_settings") {
+                                if let Ok(rows) = stmt.query_map([], |row| {
+                                    let server_id: i64 = row.get(0)?;
+                                    let enabled_raw: i64 = row.get(1)?;
+                                    let enabled = enabled_raw != 0;
+                                    let polling_raw: i64 = row.get(2)?;
+                                    let polling_interval_minutes = polling_raw as u64;
+                                    let safe_restart_raw: i64 = row.get(3)?;
+                                    let safe_restart_mode = safe_restart_raw != 0;
+                                    let mw_str: String = row.get(4)?;
+                                    let maintenance_windows: Vec<String> = serde_json::from_str(&mw_str).unwrap_or_default();
+                                    Ok(WatchdogConfig {
+                                        server_id,
+                                        enabled,
+                                        polling_interval_minutes,
+                                        safe_restart_mode,
+                                        maintenance_windows,
+                                    })
+                                }) {
+                                    for r in rows.flatten() {
+                                        list.push(r);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                list
+            };
+
+            if !loaded_configs.is_empty() {
+                let mut cfg_lock = configs.lock().await;
+                for r in loaded_configs {
+                    cfg_lock.insert(r.server_id, r);
+                }
+            }
+
             let mut interval = tokio::time::interval(Duration::from_secs(60));
 
             loop {
@@ -104,69 +148,62 @@ impl ModWatchdogService {
                     results
                 };
 
-                for (server_id, mod_ids) in servers_to_check {
-                    // Check if watchdog is enabled for this server
+                for (server_id, active_mod_ids) in servers_to_check {
                     let config = {
                         let cfgs = configs.lock().await;
-                        cfgs.get(&server_id).cloned().unwrap_or_default()
+                        cfgs.get(&server_id).cloned()
                     };
 
-                    if !config.enabled {
-                        continue;
-                    }
+                    let _config = match config {
+                        Some(c) if c.enabled => c,
+                        _ => continue, // Watchdog disabled for this server
+                    };
 
-                    // Check if an update sequence is already active
+                    // Check if an update orchestration is already running for this server
                     {
                         let active = active_updates.lock().await;
-                        if active.get(&server_id).cloned().unwrap_or(false) {
-                            continue; // Skip, already updating
+                        if active.get(&server_id).copied().unwrap_or(false) {
+                            continue;
                         }
                     }
 
-                    println!("🐕 [Watchdog] Checking {} mods for server {}...", mod_ids.len(), server_id);
-
-                    // Fetch updates from CurseForge
-                    match mod_scraper::check_mod_updates(mod_ids.clone(), None).await {
-                        Ok(mod_infos) => {
-                            let mut needs_update = false;
+                    // Check CurseForge API for updates
+                    match mod_scraper::check_mod_updates(active_mod_ids, None).await {
+                        Ok(updates) => {
                             let mut updated_mods = Vec::new();
+                            let mut states = mod_state.lock().await;
+                            let server_states = states.entry(server_id).or_insert_with(HashMap::new);
 
-                            {
-                                let mut state_lock = mod_state.lock().await;
-                                let server_state = state_lock.entry(server_id).or_insert_with(HashMap::new);
+                            for update in updates {
+                                let mod_id = update.curseforge_id.unwrap_or_else(|| update.id.parse::<i64>().unwrap_or(0)) as i32;
+                                let date_modified = update.last_updated.unwrap_or_default();
+                                if mod_id == 0 || date_modified.is_empty() {
+                                    continue;
+                                }
 
-                                for m in mod_infos {
-                                    if let Some(date_str) = m.last_updated {
-                                        let mod_id: i32 = m.id.parse().unwrap_or(0);
-                                        if mod_id == 0 { continue; }
-
-                                        if let Some(local_date) = server_state.get(&mod_id) {
-                                            if &date_str != local_date {
-                                                println!("🐕 [Watchdog] Mod {} update detected! ({} -> {})", m.name, local_date, date_str);
-                                                needs_update = true;
-                                                updated_mods.push(m.name.clone());
-                                                server_state.insert(mod_id, date_str);
-                                            }
-                                        } else {
-                                            // First time seeing this mod, record it
-                                            server_state.insert(mod_id, date_str);
-                                        }
+                                if let Some(last_known_date) = server_states.get(&mod_id) {
+                                    if last_known_date != &date_modified {
+                                        println!("🐕 [Watchdog] Mod {} has an update available!", update.name);
+                                        updated_mods.push(update.name.clone());
+                                        server_states.insert(mod_id, date_modified);
                                     }
+                                } else {
+                                    // First time seeing this mod, record state without triggering update
+                                    server_states.insert(mod_id, date_modified);
                                 }
                             }
 
-                            if needs_update {
-                                println!("🐕 [Watchdog] Server {} requires an update for {} mods.", server_id, updated_mods.len());
+                            if !updated_mods.is_empty() {
+                                println!("🐕 [Watchdog] Triggering update sequence for server {} with {} updated mods", server_id, updated_mods.len());
                                 
-                                // Launch update orchestration in background
                                 {
                                     let mut active = active_updates.lock().await;
                                     active.insert(server_id, true);
                                 }
-                                
+
                                 let ah_clone = app_handle.clone();
                                 let au_clone = active_updates.clone();
-                                tokio::spawn(async move {
+                                tauri::async_runtime::spawn(async move {
                                     Self::orchestrate_update(ah_clone, server_id, updated_mods).await;
                                     let mut active = au_clone.lock().await;
                                     active.insert(server_id, false);
@@ -183,19 +220,92 @@ impl ModWatchdogService {
     }
 
     pub async fn get_config(&self, server_id: i64) -> WatchdogConfig {
-        let configs = self.configs.lock().await;
-        configs.get(&server_id).cloned().unwrap_or(WatchdogConfig {
+        {
+            let configs = self.configs.lock().await;
+            if let Some(cfg) = configs.get(&server_id) {
+                return cfg.clone();
+            }
+        }
+
+        // Fallback to reading directly from DB without holding sync lock across await
+        let db_cfg = if let Some(state) = self.app_handle.try_state::<AppState>() {
+            let res = if let Ok(db) = state.db.lock() {
+                if let Ok(conn) = db.get_connection() {
+                    conn.query_row(
+                        "SELECT server_id, enabled, polling_interval_minutes, safe_restart_mode, maintenance_windows FROM mod_watchdog_settings WHERE server_id = ?1",
+                        [server_id],
+                        |row| {
+                            let server_id: i64 = row.get(0)?;
+                            let enabled_raw: i64 = row.get(1)?;
+                            let enabled = enabled_raw != 0;
+                            let polling_raw: i64 = row.get(2)?;
+                            let polling_interval_minutes = polling_raw as u64;
+                            let safe_restart_raw: i64 = row.get(3)?;
+                            let safe_restart_mode = safe_restart_raw != 0;
+                            let mw_str: String = row.get(4)?;
+                            let maintenance_windows: Vec<String> = serde_json::from_str(&mw_str).unwrap_or_default();
+                            Ok(WatchdogConfig {
+                                server_id,
+                                enabled,
+                                polling_interval_minutes,
+                                safe_restart_mode,
+                                maintenance_windows,
+                            })
+                        },
+                    ).ok()
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            res
+        } else {
+            None
+        };
+
+        if let Some(cfg) = db_cfg {
+            let mut configs = self.configs.lock().await;
+            configs.insert(server_id, cfg.clone());
+            return cfg;
+        }
+
+        WatchdogConfig {
             server_id,
             enabled: false,
             polling_interval_minutes: 60,
             safe_restart_mode: true,
             maintenance_windows: vec![],
-        })
+        }
     }
 
     pub async fn set_config(&self, server_id: i64, config: WatchdogConfig) {
-        let mut configs = self.configs.lock().await;
-        configs.insert(server_id, config);
+        {
+            let mut configs = self.configs.lock().await;
+            configs.insert(server_id, config.clone());
+        }
+
+        // Persist to SQLite DB
+        if let Some(state) = self.app_handle.try_state::<AppState>() {
+            if let Ok(db) = state.db.lock() {
+                if let Ok(conn) = db.get_connection() {
+                    let mw_json = serde_json::to_string(&config.maintenance_windows).unwrap_or_else(|_| "[]".to_string());
+                    let enabled_int = if config.enabled { 1 } else { 0 };
+                    let safe_restart_int = if config.safe_restart_mode { 1 } else { 0 };
+                    let _ = conn.execute(
+                        "INSERT INTO mod_watchdog_settings (server_id, enabled, polling_interval_minutes, safe_restart_mode, maintenance_windows, updated_at) 
+                         VALUES (?1, ?2, ?3, ?4, ?5, CURRENT_TIMESTAMP) 
+                         ON CONFLICT(server_id) DO UPDATE SET 
+                            enabled = excluded.enabled, 
+                            polling_interval_minutes = excluded.polling_interval_minutes, 
+                            safe_restart_mode = excluded.safe_restart_mode, 
+                            maintenance_windows = excluded.maintenance_windows, 
+                            updated_at = CURRENT_TIMESTAMP",
+                        rusqlite::params![server_id, enabled_int, config.polling_interval_minutes as i64, safe_restart_int, mw_json],
+                    );
+                }
+            }
+        }
     }
 
     async fn orchestrate_update(app_handle: AppHandle, server_id: i64, mods: Vec<String>) {

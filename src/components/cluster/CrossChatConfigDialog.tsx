@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Database, Loader2, Sparkles, Check, Copy, Wifi, Layers, MessageSquare, Terminal, Wand2, CheckCircle2, ChevronDown, ChevronUp, BookOpen, Tag, BellOff } from 'lucide-react';
+import { X, Database, Loader2, Sparkles, Check, Copy, Wifi, Layers, MessageSquare, Terminal, Wand2, CheckCircle2, ChevronDown, ChevronUp, BookOpen, Tag, BellOff, ExternalLink } from 'lucide-react';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { cn } from '../../utils/helpers';
 import { Cluster } from '../../types';
 import {
@@ -40,8 +41,7 @@ const getSuggestedMapAlias = (mapName?: string, serverName?: string): string => 
     if (lower.includes('lostisland')) return 'Lost Island';
     if (lower.includes('fjordur')) return 'Fjordur';
     if (lower.includes('astral')) return 'Astral';
-    const clean = mapName.replace(/_WP$/i, '').replace(/_P$/i, '');
-    return clean || serverName || 'Server';
+    return mapName.replace(/_WP$|_P$/i, '').trim() || serverName || 'Server';
 };
 
 export default function CrossChatConfigDialog({
@@ -75,6 +75,7 @@ export default function CrossChatConfigDialog({
     const [isLaccInstalled, setIsLaccInstalled] = useState(false);
     const [sqlCopied, setSqlCopied] = useState(false);
     const [showGuide, setShowGuide] = useState(false);
+    const [showLaccGuide, setShowLaccGuide] = useState(false);
 
     useEffect(() => {
         if (isOpen && cluster) {
@@ -342,56 +343,136 @@ export default function CrossChatConfigDialog({
 
                     {/* Tab 1 Body: CurseForge Mod (LACC) */}
                     {activeTab === 'lacc' && (
-                        <div className="bg-slate-950/60 rounded-xl border border-emerald-500/20 p-5 space-y-4">
-                            <div className="flex items-start gap-3">
-                                <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                                <div>
-                                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                                        1-Click LACC Mod Automation
-                                        {isLaccInstalled && (
-                                            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold rounded-full flex items-center gap-1">
-                                                <CheckCircle2 className="w-3 h-3" /> Active
-                                            </span>
+                        <div className="space-y-4">
+                            <div className="bg-slate-950/60 rounded-xl border border-emerald-500/20 p-5 space-y-4">
+                                <div className="flex items-start gap-3">
+                                    <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                                                LACC Mod (In-Game Cross-Chat & Discord)
+                                                {isLaccInstalled && (
+                                                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold rounded-full flex items-center gap-1">
+                                                        <CheckCircle2 className="w-3 h-3" /> Mod Active
+                                                    </span>
+                                                )}
+                                            </h4>
+                                            <button
+                                                type="button"
+                                                onClick={() => openUrl('https://docudex.am-s.app/LACC/servers/config/')}
+                                                className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 hover:underline cursor-pointer"
+                                            >
+                                                <span>Official Documentation</span>
+                                                <ExternalLink className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                                            LACC (Lily & Azure's Cluster Chat, Mod ID <strong>928795</strong>) runs directly inside the Unreal Engine server process. It relays chat across PC, PlayStation 5, and Xbox through a shared Discord channel webhook or LACC bot without requiring database setup.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {isLaccInstalled && (
+                                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-xs text-emerald-300">
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                        <span><strong>Mod ID 928795</strong> is currently included in your cluster server launch parameters.</span>
+                                    </div>
+                                )}
+
+                                <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                                    <div>
+                                        <div className="text-xs font-mono text-emerald-400 font-bold">CurseForge Mod ID: 928795</div>
+                                        <div className="text-[11px] text-slate-500">Auto-appends to active mods list for all cluster servers</div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleApplyLaccMod}
+                                        disabled={isApplyingMod}
+                                        className={cn(
+                                            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer",
+                                            isLaccInstalled
+                                                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-600/20 border border-emerald-400/30"
+                                                : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/20"
                                         )}
-                                    </h4>
-                                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                                        LACC (Lily & Azure's Cluster Chat) is the premier mod for ARK: Survival Ascended. It connects all servers in your cluster across PC, PlayStation 5, and Xbox with zero database setup required.
-                                    </p>
+                                    >
+                                        {isApplyingMod ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : isLaccInstalled ? (
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                                        ) : (
+                                            <Wand2 className="w-4 h-4" />
+                                        )}
+                                        <span>{isLaccInstalled ? 'Re-Apply LACC Mod ID' : 'Auto-Add LACC Mod ID'}</span>
+                                    </button>
                                 </div>
                             </div>
 
-                            {isLaccInstalled && (
-                                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-xs text-emerald-300">
-                                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                                    <span><strong>Mod ID 928795</strong> is currently added to the active mod list for your cluster servers!</span>
-                                </div>
-                            )}
-
-                            <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                                <div>
-                                    <div className="text-xs font-mono text-emerald-400 font-bold">Mod ID: 928795</div>
-                                    <div className="text-[11px] text-slate-500">Auto-appends to active mods list for all cluster servers</div>
-                                </div>
+                            {/* Collapsible LACC Configuration & Discord Setup Guide */}
+                            <div className="bg-slate-950/60 rounded-xl border border-emerald-500/20 overflow-hidden">
                                 <button
                                     type="button"
-                                    onClick={handleApplyLaccMod}
-                                    disabled={isApplyingMod}
-                                    className={cn(
-                                        "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50",
-                                        isLaccInstalled
-                                            ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-600/20 border border-emerald-400/30"
-                                            : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-600/20"
-                                    )}
+                                    onClick={() => setShowLaccGuide(!showLaccGuide)}
+                                    className="w-full p-4 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors cursor-pointer"
                                 >
-                                    {isApplyingMod ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : isLaccInstalled ? (
-                                        <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                                    ) : (
-                                        <Wand2 className="w-4 h-4" />
-                                    )}
-                                    <span>{isLaccInstalled ? 'Re-Apply LACC Mod ID' : 'Auto-Add LACC Mod ID'}</span>
+                                    <div className="flex items-center gap-2.5">
+                                        <BookOpen className="w-4 h-4 text-emerald-400" />
+                                        <span className="text-xs font-bold text-white">LACC Configuration & Discord Integration Guide</span>
+                                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-[10px] rounded font-semibold border border-emerald-500/30">
+                                            How It Works
+                                        </span>
+                                    </div>
+                                    {showLaccGuide ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
                                 </button>
+
+                                {showLaccGuide && (
+                                    <div className="p-4 pt-0 border-t border-white/5 space-y-3 text-xs text-slate-300 bg-slate-900/30">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3">
+                                            <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-1.5">
+                                                <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                                                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px]">1</span>
+                                                    Install Mod ID
+                                                </div>
+                                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                                    Click <strong>Auto-Add LACC Mod ID</strong> above to add <code>928795</code> to your servers' launch arguments so the game client and server download it automatically.
+                                                </p>
+                                            </div>
+
+                                            <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-1.5">
+                                                <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                                                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px]">2</span>
+                                                    Create Discord Webhook
+                                                </div>
+                                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                                    In your Discord server, create a dedicated cross-chat channel, go to <strong>Channel Settings → Integrations → Webhooks</strong>, and copy the Webhook URL.
+                                                </p>
+                                            </div>
+
+                                            <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-1.5">
+                                                <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+                                                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-[10px]">3</span>
+                                                    Configure INI
+                                                </div>
+                                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                                    In each server's <code>GameUserSettings.ini</code>, add the <code>[LACC]</code> section with your webhook URL and map name as documented.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-3 bg-slate-950 border border-white/5 rounded-xl space-y-2">
+                                            <div className="text-[11px] font-bold text-emerald-400">Example GameUserSettings.ini [LACC] Section:</div>
+                                            <pre className="p-2.5 bg-slate-900 rounded-lg text-[11px] font-mono text-emerald-300 overflow-x-auto border border-white/5">
+{`[LACC]
+ServerWebhookURL=https://discord.com/api/webhooks/your_webhook_id/your_token
+ServerName=TheIsland
+ShowServerName=True
+EnableDiscordRelay=True`}
+                                            </pre>
+                                            <p className="text-[11px] text-slate-400 leading-relaxed">
+                                                For full configuration options (such as Discord Bot token, role mentions, and cluster keys), visit the <a href="https://docudex.am-s.app/LACC/servers/config/" target="_blank" rel="noreferrer" onClick={(e) => { e.preventDefault(); openUrl('https://docudex.am-s.app/LACC/servers/config/'); }} className="text-emerald-400 underline font-semibold hover:text-emerald-300">official LACC server config guide</a>.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

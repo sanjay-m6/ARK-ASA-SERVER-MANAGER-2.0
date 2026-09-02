@@ -115,7 +115,8 @@ pub async fn create_cluster(
                 // Attempt creating directory; if denied (e.g. root C:\ permission), fallback to user home directory
                 if std::fs::create_dir_all(&target).is_err() {
                     let fallback_root = crate::platform::Platform::fallback_cluster_dir();
-                    format!("{}/{}", fallback_root.to_string_lossy().replace('\\', "/"), sanitized_name)
+                    let fallback_path: String = format!("{}/{}", fallback_root.to_string_lossy().replace('\\', "/"), sanitized_name);
+                    fallback_path
                 } else {
                     target
                 }
@@ -1096,7 +1097,18 @@ pub fn auto_clean_map_name(map_name: &str) -> String {
     }
 }
 
-    if enabled {
+    let mode: String = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT value FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_mode'",
+            [cluster_id],
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|_| "lacc".to_string())
+    };
+
+    if enabled && mode == "native" {
         let servers = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -1160,12 +1172,12 @@ pub fn auto_clean_map_name(map_name: &str) -> String {
         }
     } else {
         let _ = state.cross_chat.disable_for_cluster(cluster_id).await;
-        state.cross_chat.stop_polling();
     }
 
     println!(
-        "  ✅ Cross-chat {} for cluster {}",
+        "  ✅ Cross-chat {} (mode: {}) for cluster {}",
         if enabled { "enabled" } else { "disabled" },
+        mode,
         cluster_id
     );
     Ok(())
@@ -1354,120 +1366,133 @@ pub async fn save_cluster_cross_chat_config(
     cluster_id: i64,
     config: ClusterCrossChatConfig,
 ) -> Result<(), String> {
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let conn = db.get_connection().map_err(|e| e.to_string())?;
-
     let mode_str = config.mode.unwrap_or_else(|| "lacc".to_string());
     let hide_save_val = config.hide_world_save_notifs.unwrap_or(true).to_string();
-    let settings = vec![
-        ("cross_chat_mode", mode_str.clone()),
-        ("cross_chat_mysql_host", config.host.clone()),
-        ("cross_chat_mysql_user", config.user.clone()),
-        ("cross_chat_mysql_pass", config.pass.clone()),
-        ("cross_chat_mysql_db", config.db_name.clone()),
-        ("cross_chat_mysql_port", config.port.to_string()),
-        ("cross_chat_fetch_interval", config.fetch_interval.to_string()),
-        ("cross_chat_debug", config.debug.to_string()),
-        ("cross_chat_hide_world_save_notifs", hide_save_val),
-    ];
 
-    for (key, val) in settings {
-        let exists: bool = conn
-            .query_row(
-                "SELECT COUNT(*) > 0 FROM cluster_settings WHERE cluster_id = ?1 AND key = ?2",
-                rusqlite::params![cluster_id, key],
-                |row| row.get(0),
-            )
-            .unwrap_or(false);
+    let server_configs = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        if exists {
-            conn.execute(
-                "UPDATE cluster_settings SET value = ?1 WHERE cluster_id = ?2 AND key = ?3",
-                rusqlite::params![val, cluster_id, key],
-            )
-            .map_err(|e| e.to_string())?;
-        } else {
-            conn.execute(
-                "INSERT INTO cluster_settings (cluster_id, key, value) VALUES (?1, ?2, ?3)",
-                rusqlite::params![cluster_id, key, val],
-            )
-            .map_err(|e| e.to_string())?;
-        }
-    }
+        let settings = vec![
+            ("cross_chat_mode", mode_str.clone()),
+            ("cross_chat_mysql_host", config.host.clone()),
+            ("cross_chat_mysql_user", config.user.clone()),
+            ("cross_chat_mysql_pass", config.pass.clone()),
+            ("cross_chat_mysql_db", config.db_name.clone()),
+            ("cross_chat_mysql_port", config.port.to_string()),
+            ("cross_chat_fetch_interval", config.fetch_interval.to_string()),
+            ("cross_chat_debug", config.debug.to_string()),
+            ("cross_chat_hide_world_save_notifs", hide_save_val),
+        ];
 
-    if let Some(aliases) = &config.server_aliases {
-        if let Ok(json_str) = serde_json::to_string(aliases) {
+        for (key, val) in settings {
             let exists: bool = conn
                 .query_row(
-                    "SELECT COUNT(*) > 0 FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_server_aliases'",
-                    rusqlite::params![cluster_id],
+                    "SELECT COUNT(*) > 0 FROM cluster_settings WHERE cluster_id = ?1 AND key = ?2",
+                    rusqlite::params![cluster_id, key],
                     |row| row.get(0),
                 )
                 .unwrap_or(false);
 
             if exists {
-                let _ = conn.execute(
-                    "UPDATE cluster_settings SET value = ?1 WHERE cluster_id = ?2 AND key = 'cross_chat_server_aliases'",
-                    rusqlite::params![json_str, cluster_id],
-                );
+                conn.execute(
+                    "UPDATE cluster_settings SET value = ?1 WHERE cluster_id = ?2 AND key = ?3",
+                    rusqlite::params![val, cluster_id, key],
+                )
+                .map_err(|e| e.to_string())?;
             } else {
-                let _ = conn.execute(
-                    "INSERT INTO cluster_settings (cluster_id, key, value) VALUES (?1, 'cross_chat_server_aliases', ?2)",
-                    rusqlite::params![cluster_id, json_str],
-                );
+                conn.execute(
+                    "INSERT INTO cluster_settings (cluster_id, key, value) VALUES (?1, ?2, ?3)",
+                    rusqlite::params![cluster_id, key, val],
+                )
+                .map_err(|e| e.to_string())?;
             }
+        }
+
+        if let Some(aliases) = &config.server_aliases {
+            if let Ok(json_str) = serde_json::to_string(aliases) {
+                let exists: bool = conn
+                    .query_row(
+                        "SELECT COUNT(*) > 0 FROM cluster_settings WHERE cluster_id = ?1 AND key = 'cross_chat_server_aliases'",
+                        rusqlite::params![cluster_id],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(false);
+
+                if exists {
+                    let _ = conn.execute(
+                        "UPDATE cluster_settings SET value = ?1 WHERE cluster_id = ?2 AND key = 'cross_chat_server_aliases'",
+                        rusqlite::params![json_str, cluster_id],
+                    );
+                } else {
+                    let _ = conn.execute(
+                        "INSERT INTO cluster_settings (cluster_id, key, value) VALUES (?1, 'cross_chat_server_aliases', ?2)",
+                        rusqlite::params![cluster_id, json_str],
+                    );
+                }
+            }
+        }
+
+        let mut stmt = conn
+            .prepare("SELECT id, install_path, name FROM servers WHERE cluster_id = ?1")
+            .map_err(|e| e.to_string())?;
+        let server_rows = stmt
+            .query_map([cluster_id], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+
+        let mut list = Vec::new();
+        for server_row in server_rows {
+            if let Ok(row) = server_row {
+                list.push(row);
+            }
+        }
+        list
+    };
+
+    for (server_id, install_path, _name) in server_configs {
+        let install_path_buf = PathBuf::from(install_path);
+        let plugin_config_dir = install_path_buf
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64")
+            .join("ArkApi")
+            .join("Plugins")
+            .join("AsaCrossChat");
+
+        if !plugin_config_dir.exists() {
+            let _ = std::fs::create_dir_all(&plugin_config_dir);
+        }
+
+        let config_file_path = plugin_config_dir.join("config.json");
+        
+        let config_json = serde_json::json!({
+            "MySQL": {
+                "Host": config.host,
+                "User": config.user,
+                "Password": config.pass,
+                "Database": config.db_name,
+                "Port": config.port
+            },
+            "General": {
+                "FetchChatInterval": config.fetch_interval
+            },
+            "ServerKey": format!("Server{}", server_id)
+        });
+
+        if let Ok(config_str) = serde_json::to_string_pretty(&config_json) {
+            let _ = std::fs::write(config_file_path, config_str);
         }
     }
 
-    // Now, write config.json to each server in the cluster!
-    let mut stmt = conn
-        .prepare("SELECT id, install_path, name FROM servers WHERE cluster_id = ?1")
-        .map_err(|e| e.to_string())?;
-    let server_rows = stmt
-        .query_map([cluster_id], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-            ))
-        })
-        .map_err(|e| e.to_string())?;
-
-    for server_row in server_rows {
-        if let Ok((server_id, install_path, _name)) = server_row {
-            let install_path_buf = PathBuf::from(install_path);
-            let plugin_config_dir = install_path_buf
-                .join("ShooterGame")
-                .join("Binaries")
-                .join("Win64")
-                .join("ArkApi")
-                .join("Plugins")
-                .join("AsaCrossChat");
-
-            if !plugin_config_dir.exists() {
-                let _ = std::fs::create_dir_all(&plugin_config_dir);
-            }
-
-            let config_file_path = plugin_config_dir.join("config.json");
-            
-            let config_json = serde_json::json!({
-                "MySQL": {
-                    "Host": config.host,
-                    "User": config.user,
-                    "Password": config.pass,
-                    "Database": config.db_name,
-                    "Port": config.port
-                },
-                "General": {
-                    "FetchChatInterval": config.fetch_interval
-                },
-                "ServerKey": format!("Server{}", server_id)
-            });
-
-            if let Ok(config_str) = serde_json::to_string_pretty(&config_json) {
-                let _ = std::fs::write(config_file_path, config_str);
-            }
-        }
+    // If switched away from native RCON mode, ensure native background relay is shut down immediately
+    if mode_str != "native" {
+        let _ = state.cross_chat.disable_for_cluster(cluster_id).await;
     }
 
     Ok(())

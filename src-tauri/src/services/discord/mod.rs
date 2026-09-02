@@ -354,13 +354,14 @@ impl DiscordEmbed {
         let total_max: i32 = server_details.iter().map(|(_, _, _, m)| m).sum();
 
         let mut fields: Vec<EmbedField> = if server_details.is_empty() {
-            vec![EmbedField {
+            let empty_field: Vec<EmbedField> = vec![EmbedField {
                 name: "No Servers Online".to_string(),
                 value: "All servers are currently offline.".to_string(),
                 inline: false,
-            }]
+            }];
+            empty_field
         } else {
-            server_details
+            let mapped_fields: Vec<EmbedField> = server_details
                 .into_iter()
                 .map(|(name, map, players, max)| EmbedField {
                     name: format!("🖥️ {}", name),
@@ -370,7 +371,8 @@ impl DiscordEmbed {
                     ),
                     inline: true,
                 })
-                .collect()
+                .collect();
+            mapped_fields
         };
 
         // Add summary field

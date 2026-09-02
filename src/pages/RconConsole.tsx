@@ -1124,6 +1124,24 @@ export default function RconConsole() {
         let targetId = giveTargetType === 'online' ? giveSelectedPlayerId : giveManualPlayerId;
         if (giveTargetType === 'online' && resolvedPlayerIds[giveSelectedPlayerId]) {
             targetId = resolvedPlayerIds[giveSelectedPlayerId];
+        } else if (resolvedPlayerIds[targetId]) {
+            targetId = resolvedPlayerIds[targetId];
+        } else if (!/^\d{7,19}$/.test(targetId.trim())) {
+            // It's an alphanumeric EOS / Platform UID or name; resolve on-demand
+            try {
+                const map = await invoke<Record<string, number>>('rcon_resolve_player_ids', {
+                    serverId: selectedServerId,
+                    platformIds: [targetId.trim()]
+                });
+                if (map[targetId.trim()]) {
+                    targetId = String(map[targetId.trim()]);
+                } else {
+                    const firstVal = Object.values(map)[0];
+                    if (firstVal) targetId = String(firstVal);
+                }
+            } catch (e) {
+                console.warn('Failed on-demand UID resolution:', e);
+            }
         }
 
         if (!targetId.trim()) {
