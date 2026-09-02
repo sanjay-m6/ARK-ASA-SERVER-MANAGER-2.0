@@ -1,4 +1,3 @@
-use crate::models::ServerStatus;
 use crate::services::discord::{send_discord_webhook, DiscordEmbed};
 use crate::services::discord_bridge::DiscordBridgeConfig;
 use crate::AppState;
@@ -392,10 +391,9 @@ pub async fn get_discord_player_links(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-    let sql = if let Some(cid) = cluster_id {
-        format!("SELECT discord_user_id, steam_id, player_name, cluster_id, linked_at, verified FROM discord_player_links WHERE cluster_id = {} ORDER BY linked_at DESC", cid)
-    } else {
-        "SELECT discord_user_id, steam_id, player_name, cluster_id, linked_at, verified FROM discord_player_links ORDER BY linked_at DESC".to_string()
+    let sql = match cluster_id {
+        Some(cid) => format!("SELECT discord_user_id, steam_id, player_name, cluster_id, linked_at, verified FROM discord_player_links WHERE cluster_id = {} ORDER BY linked_at DESC", cid),
+        None => "SELECT discord_user_id, steam_id, player_name, cluster_id, linked_at, verified FROM discord_player_links ORDER BY linked_at DESC".to_string(),
     };
 
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
@@ -461,18 +459,9 @@ pub async fn send_discord_status_update(
             let map_name: String = row.get(3).unwrap_or_else(|_| "Unknown".to_string());
             let max_players: i32 = row.get(4).unwrap_or(70);
 
-            let status = match status_str.as_str() {
-                "running" => ServerStatus::Running,
-                "online" => ServerStatus::Online,
-                "starting" => ServerStatus::Starting,
-                "stopped" => ServerStatus::Stopped,
-                "crashed" => ServerStatus::Crashed,
-                "updating" => ServerStatus::Updating,
-                "restarting" => ServerStatus::Restarting,
-                _ => ServerStatus::Stopped,
-            };
+            let is_online = status_str == "running" || status_str == "online";
 
-            servers.push((id, name, status, map_name, max_players));
+            servers.push((id, name, is_online, map_name, max_players));
         }
         servers
     };
@@ -484,9 +473,7 @@ pub async fn send_discord_status_update(
     let total_count = servers.len();
     let online_servers: Vec<(String, String, i32, i32)> = servers
         .iter()
-        .filter(|(_, _, status, _, _)| {
-            matches!(status, ServerStatus::Running | ServerStatus::Online)
-        })
+        .filter(|(_, _, is_online, _, _)| *is_online)
         .map(|(id, name, _, map, max)| {
             let current_players = player_counts.get(id).copied().unwrap_or(0);
             (name.clone(), map.clone(), current_players, *max)

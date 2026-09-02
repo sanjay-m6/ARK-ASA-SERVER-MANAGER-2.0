@@ -131,6 +131,19 @@ export async function getLatestServerVersion(): Promise<string> {
     return await invoke('get_latest_server_version');
 }
 
+export interface ServerUpdateSettings {
+    auto_update: boolean;
+    update_on_start: boolean;
+}
+
+export async function getServerUpdateSettings(serverId: number): Promise<ServerUpdateSettings> {
+    return await invoke('get_server_update_settings', { serverId });
+}
+
+export async function getAllServersUpdateSettings(): Promise<Record<number, ServerUpdateSettings>> {
+    return await invoke('get_all_servers_update_settings');
+}
+
 export interface InstallServerParams {
     serverType: ServerType;
     installPath: string;
@@ -1493,4 +1506,17 @@ export async function rconBroadcast(serverId: number, message: string): Promise<
 export async function rconCommand(serverId: number, command: string): Promise<string> {
     return await invoke('rcon_command', { serverId, command });
 }
+
+// Crash Doctor & Map Recovery
+export async function diagnoseServerCrash(serverId: number): Promise<import('../types').CrashDiagnosisReport> {
+    return await invoke('diagnose_server_crash', { serverId });
+}
+
+export async function repairAndRecoverServer(
+    serverId: number,
+    options?: import('../types').ServerRepairOptions
+): Promise<string> {
+    return await invoke('repair_and_recover_server', { serverId, options });
+}
+
 

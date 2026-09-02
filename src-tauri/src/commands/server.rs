@@ -4486,3 +4486,469 @@ pub async fn get_server_update_settings(server_id: i64, state: State<'_, AppStat
         "update_on_start": update_on_start
     }))
 }
+
+#[tauri::command]
+pub async fn get_all_servers_update_settings(state: State<'_, AppState>) -> Result<std::collections::HashMap<i64, serde_json::Value>, String> {
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let conn = db.get_connection().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, COALESCE(auto_update, 0) != 0, COALESCE(update_on_start, 0) != 0 FROM servers")
+        .map_err(|e| e.to_string())?;
+    
+    let mut map = std::collections::HashMap::new();
+    let rows = stmt.query_map([], |row| {
+        let id: i64 = row.get(0)?;
+        let auto_update: bool = row.get(1)?;
+        let update_on_start: bool = row.get(2)?;
+        Ok((id, auto_update, update_on_start))
+    }).map_err(|e| e.to_string())?;
+
+    for row in rows.flatten() {
+        let (id, auto_update, update_on_start) = row;
+        map.insert(id, serde_json::json!({
+            "auto_update": auto_update,
+            "update_on_start": update_on_start
+        }));
+    }
+
+    Ok(map)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CRASH DOCTOR & ONE-CLICK MAP RECOVERY SUITE
+// ═══════════════════════════════════════════════════════════════
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct ServerRepairOptions {
+    pub quarantine_proxy_dlls: bool,
+    pub clear_mod_cache: bool,
+    pub validate_steam_files: bool,
+    pub wipe_wild_dinos: bool,
+    pub launch_no_mods: bool,
+    pub launch_after_repair: bool,
+}
+
+impl Default for ServerRepairOptions {
+    fn default() -> Self {
+        Self {
+            quarantine_proxy_dlls: true,
+            clear_mod_cache: true,
+            validate_steam_files: false,
+            wipe_wild_dinos: true,
+            launch_no_mods: false,
+            launch_after_repair: true,
+        }
+    }
+}
+
+/// Comprehensive automated diagnosis of server crashes, log errors, proxy DLLs, and mod cache issues.
+#[tauri::command]
+pub async fn diagnose_server_crash(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<serde_json::Value, String> {
+    println!("🩺 Crash Doctor: Diagnosing server {}...", server_id);
+
+    let (server_name, install_path, map_name, server_type, status_str, game_port, query_port, rcon_port): (
+        String, String, String, String, String, u16, u16, u16
+    ) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT name, install_path, map_name, server_type, status, game_port, query_port, rcon_port FROM servers WHERE id = ?1",
+            [server_id],
+            |row| Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get::<_, String>(3).unwrap_or_else(|_| "ASA".to_string()),
+                row.get::<_, String>(4).unwrap_or_else(|_| "stopped".to_string()),
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+            )),
+        )
+        .map_err(|e| format!("Server not found: {}", e))?
+    };
+
+    let install_path_buf = PathBuf::from(&install_path);
+    let win64_dir = install_path_buf.join("ShooterGame").join("Binaries").join("Win64");
+    let log_file_path = install_path_buf.join("ShooterGame").join("Saved").join("Logs").join("ShooterGame.log");
+    let cf_core_log = win64_dir.join("cf-core.log");
+
+    // 1. Inspect Proxy DLLs (AsaApi / ArkApi)
+    let (active_proxy_dlls, quarantined_proxy_dlls) = state.plugin_manager.get_proxy_dlls_info(server_id);
+    let pdb_missing = !win64_dir.join("ArkAscendedServer.pdb").exists();
+
+    // 2. Inspect Mod Cache
+    let mods_dir = win64_dir.join("ShooterGame").join("Mods");
+    let mut mod_cache_size_bytes: u64 = 0;
+    let mut mod_cache_folder_count: usize = 0;
+    if mods_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&mods_dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                if entry.path().is_dir() {
+                    mod_cache_folder_count += 1;
+                }
+                if let Ok(meta) = entry.metadata() {
+                    mod_cache_size_bytes += meta.len();
+                }
+            }
+        }
+    }
+
+    // 3. Inspect Save Files (.ark, SavedArks)
+    let saved_arks_dir = install_path_buf.join("ShooterGame").join("Saved").join("SavedArks");
+    let mut save_file_count = 0;
+    let mut total_save_size_bytes: u64 = 0;
+    let mut primary_save_exists = false;
+    let normalized_map = crate::services::config_generator::normalize_map_name(&map_name);
+
+    if saved_arks_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&saved_arks_dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.is_file() {
+                    save_file_count += 1;
+                    if let Ok(meta) = path.metadata() {
+                        total_save_size_bytes += meta.len();
+                    }
+                    let file_name = path.file_name().unwrap_or_default().to_string_lossy();
+                    if file_name.starts_with(&normalized_map) && file_name.ends_with(".ark") {
+                        primary_save_exists = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Also check for subfolder save structure (e.g. SavedArks/TheIsland_WP/TheIsland_WP.ark)
+    let subfolder_save = saved_arks_dir.join(&normalized_map);
+    if subfolder_save.exists() && subfolder_save.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&subfolder_save) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.is_file() {
+                    save_file_count += 1;
+                    if let Ok(meta) = path.metadata() {
+                        total_save_size_bytes += meta.len();
+                    }
+                    let file_name = path.file_name().unwrap_or_default().to_string_lossy();
+                    if file_name.ends_with(".ark") {
+                        primary_save_exists = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Read last 150 lines from ShooterGame.log
+    let mut log_tail = Vec::new();
+    let mut fatal_error_lines = Vec::new();
+
+    if log_file_path.exists() {
+        if let Ok(file) = std::fs::File::open(&log_file_path) {
+            use std::io::{BufRead, BufReader, Seek, SeekFrom};
+            let mut reader = BufReader::new(file);
+            let meta = std::fs::metadata(&log_file_path);
+            if let Ok(m) = meta {
+                let size = m.len() as i64;
+                let seek_pos = std::cmp::max(0, size - 200_000); // 200KB tail
+                let _ = reader.seek(SeekFrom::Start(seek_pos as u64));
+                if seek_pos > 0 {
+                    let mut skip = String::new();
+                    let _ = reader.read_line(&mut skip);
+                }
+            }
+            let lines: Vec<String> = reader.lines().filter_map(|l| l.ok()).collect();
+            let start_idx = if lines.len() > 150 { lines.len() - 150 } else { 0 };
+            for line in &lines[start_idx..] {
+                let trimmed = line.trim().to_string();
+                if !trimmed.is_empty() {
+                    log_tail.push(trimmed.clone());
+                    let lower = trimmed.to_lowercase();
+                    if lower.contains("fatal error")
+                        || lower.contains("assertion failed")
+                        || lower.contains("exception_access_violation")
+                        || lower.contains("lowlevelfatalerror")
+                        || lower.contains("crash")
+                        || lower.contains("could not find file")
+                        || lower.contains("corrupt")
+                        || lower.contains("bad name index")
+                    {
+                        fatal_error_lines.push(trimmed);
+                    }
+                }
+            }
+        }
+    }
+
+    // 5. Read CFCore log
+    let mut cf_errors = Vec::new();
+    if cf_core_log.exists() {
+        if let Ok(content) = std::fs::read_to_string(&cf_core_log) {
+            for line in content.lines() {
+                let lower = line.to_lowercase();
+                if lower.contains("error") || lower.contains("failed") || lower.contains("exception") {
+                    cf_errors.push(line.trim().to_string());
+                }
+            }
+        }
+    }
+
+    // 6. Check Port Conflicts
+    let port_conflicts = crate::services::network::is_port_in_use(game_port)
+        || crate::services::network::is_port_in_use(query_port)
+        || (rcon_port > 0 && crate::services::network::is_port_in_use(rcon_port));
+
+    // 7. Determine Primary Root Cause & Issues
+    let mut issues = Vec::new();
+    let mut primary_cause = "Unknown / Process Crash".to_string();
+    let mut recommended_action = "Run 1-Click Auto-Fix to quarantine outdated hooks, clear cache, and launch safely.".to_string();
+
+    // Check Issue: Active Proxy DLLs after update (Highest probability of immediate window disappearing crash!)
+    if server_type == "ASA" && !active_proxy_dlls.is_empty() {
+        issues.push(serde_json::json!({
+            "id": "outdated_proxy_dlls",
+            "severity": "critical",
+            "title": "Incompatible Proxy DLLs Active (AsaApi / version.dll)",
+            "description": format!(
+                "Active proxy DLLs ({}) hook into memory offsets that change with every game update. Windows automatically injects these on launch, causing ArkAscendedServer.exe to crash immediately in < 1s.",
+                active_proxy_dlls.join(", ")
+            ),
+            "fix": "Quarantine proxy DLLs by renaming to .disabled until an updated AsaApi release is installed."
+        }));
+        primary_cause = "Incompatible Proxy DLL Hook (AsaApi / version.dll)".to_string();
+        recommended_action = "Quarantine active proxy DLLs (.disabled) and start server cleanly.".to_string();
+    }
+
+    // Check Issue: Stale Mod Cache
+    if mod_cache_folder_count > 0 {
+        issues.push(serde_json::json!({
+            "id": "stale_mod_cache",
+            "severity": if !active_proxy_dlls.is_empty() { "warning" } else { "high" },
+            "title": "Cached Mod Binaries Present",
+            "description": format!(
+                "Found {} cached mod directories ({} MB). Mods compiled for previous engine builds crash when loaded into updated game executables.",
+                mod_cache_folder_count,
+                mod_cache_size_bytes / (1024 * 1024)
+            ),
+            "fix": "Clear CFCore mod cache to force a fresh, clean download of verified mods."
+        }));
+        if primary_cause == "Unknown / Process Crash" {
+            primary_cause = "Corrupted or Outdated CFCore Mod Cache".to_string();
+        }
+    }
+
+    // Check Issue: Fatal Errors in log
+    let has_assertion_error = fatal_error_lines.iter().any(|l| l.to_lowercase().contains("assertion failed"));
+    let has_access_violation = fatal_error_lines.iter().any(|l| l.to_lowercase().contains("exception_access_violation"));
+    let has_corrupt_save = fatal_error_lines.iter().any(|l| l.to_lowercase().contains("corrupt") || l.to_lowercase().contains("bad name index"));
+
+    if has_corrupt_save {
+        issues.push(serde_json::json!({
+            "id": "corrupt_save_actor",
+            "severity": "critical",
+            "title": "World Save Actor Incompatibility",
+            "description": "Log indicates corrupted actors or bad name index during world load. Wiping wild dinos with -ForceRespawnDinos clears invalid spawn actors and restores map loading.",
+            "fix": "Launch with -ForceRespawnDinos or restore an earlier clean backup."
+        }));
+        primary_cause = "Save File Actor Desync / Invalid Dino Spawns".to_string();
+        recommended_action = "Launch server with wild dinosaur wipe (-ForceRespawnDinos) to purge corrupt actors.".to_string();
+    } else if has_assertion_error {
+        issues.push(serde_json::json!({
+            "id": "engine_assertion_failure",
+            "severity": "high",
+            "title": "Unreal Engine Assertion Failed",
+            "description": "Engine assertion failed during map or actor initialization. Usually caused by outdated mod assets or missing validated game files.",
+            "fix": "Run SteamCMD file validation and launch with fresh mod cache."
+        }));
+    } else if has_access_violation && active_proxy_dlls.is_empty() {
+        issues.push(serde_json::json!({
+            "id": "access_violation",
+            "severity": "high",
+            "title": "Access Violation (0xC0000005)",
+            "description": "Memory access violation detected. Verify system RAM, run SteamCMD validation, and launch with -ForceRespawnDinos.",
+            "fix": "Perform SteamCMD file validation and start in Safe Recovery Mode."
+        }));
+    }
+
+    if port_conflicts {
+        issues.push(serde_json::json!({
+            "id": "port_conflict",
+            "severity": "high",
+            "title": "Network Ports In Use",
+            "description": format!("Game Port {}, Query Port {}, or RCON Port {} is already occupied by another running server or socket in TIME_WAIT.", game_port, query_port, rcon_port),
+            "fix": "Stop conflicting processes or allow socket cooldown before restarting."
+        }));
+    }
+
+    let report = serde_json::json!({
+        "server_id": server_id,
+        "server_name": server_name,
+        "map_name": map_name,
+        "normalized_map": normalized_map,
+        "server_type": server_type,
+        "server_status": status_str,
+        "primary_cause": primary_cause,
+        "recommended_action": recommended_action,
+        "active_proxy_dlls": active_proxy_dlls,
+        "quarantined_proxy_dlls": quarantined_proxy_dlls,
+        "pdb_missing": pdb_missing,
+        "mod_cache_folder_count": mod_cache_folder_count,
+        "mod_cache_size_bytes": mod_cache_size_bytes,
+        "save_file_count": save_file_count,
+        "total_save_size_bytes": total_save_size_bytes,
+        "primary_save_exists": primary_save_exists,
+        "log_tail": log_tail,
+        "fatal_error_lines": fatal_error_lines,
+        "cf_errors": cf_errors,
+        "port_conflicts": port_conflicts,
+        "issues": issues,
+    });
+
+    Ok(report)
+}
+
+/// Execute 1-Click Server Recovery & Map Fix
+#[tauri::command]
+pub async fn repair_and_recover_server(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+    server_id: i64,
+    options: Option<ServerRepairOptions>,
+) -> Result<String, String> {
+    let opts = options.unwrap_or_default();
+    println!("🛠️ Repair & Recover: Starting recovery pipeline for server {} (Options: {:?})", server_id, opts);
+
+    let (install_path, server_type, map_name): (String, String, String) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT install_path, server_type, map_name FROM servers WHERE id = ?1",
+            [server_id],
+            |row| Ok((
+                row.get(0)?,
+                row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string()),
+                row.get(2)?,
+            )),
+        )
+        .map_err(|e| format!("Server not found: {}", e))?
+    };
+
+    let install_path_buf = PathBuf::from(&install_path);
+    let win64_dir = install_path_buf.join("ShooterGame").join("Binaries").join("Win64");
+
+    let emit_log = |msg: &str| {
+        let _ = app_handle.emit(
+            "server_log",
+            crate::services::process_manager::ServerLogEvent {
+                server_id,
+                line: format!("[Crash Doctor] {}", msg),
+                is_stderr: false,
+            },
+        );
+        println!("  [Crash Doctor] {}", msg);
+    };
+
+    emit_log("Initiating server recovery pipeline...");
+
+    // Step 1: Ensure server process is fully halted
+    if state.process_manager.is_running(server_id) {
+        emit_log("Stopping running server process...");
+        let _ = state.process_manager.stop_server_with_reason(server_id, crate::services::process_manager::StopReason::UserAction);
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    }
+    state.process_manager.force_cleanup_server_entry(server_id);
+
+    // Step 2: Quarantine Proxy DLLs
+    if opts.quarantine_proxy_dlls && server_type == "ASA" {
+        emit_log("Quarantining incompatible proxy DLLs (version.dll, dxgi.dll, winhttp.dll, psapi.dll)...");
+        match state.plugin_manager.quarantine_proxy_dlls(server_id) {
+            Ok(quarantined) if !quarantined.is_empty() => {
+                emit_log(&format!("Quarantined {} proxy DLLs -> .disabled", quarantined.len()));
+            }
+            Ok(_) => {
+                emit_log("No active proxy DLLs needed quarantining.");
+            }
+            Err(e) => {
+                emit_log(&format!("Notice on proxy DLL quarantine: {}", e));
+            }
+        }
+    }
+
+    // Step 3: Clear CFCore Mod Cache
+    if opts.clear_mod_cache {
+        emit_log("Purging CFCore mod cache and temporary shader/mod compile folders...");
+        let mods_dir = win64_dir.join("ShooterGame").join("Mods");
+        if mods_dir.exists() {
+            let _ = std::fs::remove_dir_all(&mods_dir);
+            emit_log("Purged ShooterGame/Binaries/Win64/ShooterGame/Mods cache.");
+        }
+        let temp_folder = win64_dir.join("ShooterGame").join(".temp");
+        if temp_folder.exists() {
+            let _ = std::fs::remove_dir_all(&temp_folder);
+        }
+        let alt_temp = install_path_buf.join("ShooterGame").join("Mods").join(".temp");
+        if alt_temp.exists() {
+            let _ = std::fs::remove_dir_all(&alt_temp);
+        }
+    }
+
+    // Step 4: Validate SteamCMD files if requested
+    if opts.validate_steam_files {
+        emit_log("Running SteamCMD full file verification (validate)...");
+        let installer = crate::services::server_installer::ServerInstaller::new(app_handle.clone(), install_path.clone());
+        if let Err(e) = installer.update_server(&install_path_buf, &server_type).await {
+            emit_log(&format!("SteamCMD validation returned: {}", e));
+        } else {
+            emit_log("SteamCMD file validation completed successfully.");
+        }
+    }
+
+    // Step 5: Sanitize GameUserSettings.ini / Game.ini legacy keys
+    let gus_path = install_path_buf.join("ShooterGame").join("Saved").join("Config").join("WindowsServer").join("GameUserSettings.ini");
+    if gus_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&gus_path) {
+            let mut cleaned = content.clone();
+            let mut modded = false;
+            if cleaned.contains("ActiveModMap") {
+                cleaned = crate::services::ini_parser::IniParser::remove_key(&cleaned, "ServerSettings", "ActiveModMap");
+                modded = true;
+            }
+            if cleaned.contains("ActiveMapMods") {
+                cleaned = crate::services::ini_parser::IniParser::remove_key(&cleaned, "ServerSettings", "ActiveMapMods");
+                modded = true;
+            }
+            if modded {
+                let _ = std::fs::write(&gus_path, cleaned);
+                emit_log("Sanitized corrupted ActiveMapMod keys from GameUserSettings.ini.");
+            }
+        }
+    }
+
+    emit_log("✅ Server environment healed and ready.");
+
+    // Step 6: Launch map after repair if requested
+    if opts.launch_after_repair {
+        if opts.wipe_wild_dinos {
+            emit_log(&format!("Launching map '{}' with wild dino wipe (-ForceRespawnDinos) to purge corrupted actor references...", map_name));
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+            if opts.launch_no_mods {
+                crate::commands::server::start_server_no_mods(app_handle.clone(), state.clone(), server_id).await?;
+            } else {
+                crate::commands::server::restart_server(state.clone(), server_id, Some(true)).await?;
+            }
+        } else if opts.launch_no_mods {
+            emit_log("Launching server in Clean Safe Mode (No Mods)...");
+            crate::commands::server::start_server_no_mods(app_handle.clone(), state.clone(), server_id).await?;
+        } else {
+            emit_log("Launching server with healed files and fresh mod cache...");
+            crate::commands::server::start_server(app_handle.clone(), server_id, false).await?;
+        }
+    }
+
+    Ok("Server recovery pipeline completed successfully.".to_string())
+}
+
+

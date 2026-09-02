@@ -186,5 +186,5 @@ export function stringifyLootCrate(crate: LootCrate): string {
     return `(MinNumItems=${safeNum(set.MinNumItems, 1)},MaxNumItems=${safeNum(set.MaxNumItems, 1)},NumItemsPower=${safeNum(set.NumItemsPower, 1).toFixed(4)},SetWeight=${safeNum(set.SetWeight, 1).toFixed(4)},bItemsRandomWithoutReplacement=${set.bItemsRandomWithoutReplacement ? 'True' : 'False'},ItemEntries=(${entriesStrings}))`;
   }).join(',');
 
-  return `ConfigOverrideSupplyCrateItems=(SupplyCrateClassString="${crate.SupplyCrateClassString}",MinItemSets=${safeNum(crate.MinItemSets, 1)},MaxItemSets=${safeNum(crate.MaxItemSets, 1)},NumItemSetsPower=${safeNum(crate.NumItemSetsPower, 1).toFixed(4)},bSetsRandomWithoutReplacement=${crate.bSetsRandomWithoutReplacement ? 'True' : 'False'},ItemSets=(${setsStrings}))`;
+  return `(SupplyCrateClassString="${crate.SupplyCrateClassString}",MinItemSets=${safeNum(crate.MinItemSets, 1)},MaxItemSets=${safeNum(crate.MaxItemSets, 1)},NumItemSetsPower=${safeNum(crate.NumItemSetsPower, 1).toFixed(4)},bSetsRandomWithoutReplacement=${crate.bSetsRandomWithoutReplacement ? 'True' : 'False'},ItemSets=(${setsStrings}))`;
 }

@@ -36,7 +36,8 @@ import {
     Sliders,
     Download,
     Zap,
-    Power
+    Power,
+    Key
 } from 'lucide-react';
 import { cn } from '../utils/helpers';
 import { invoke } from '@tauri-apps/api/core';
@@ -46,6 +47,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useServerStore } from '../stores/serverStore';
 import { useRconStore, RconPlayer, CommandHistoryEntry } from '../stores/rconStore';
 import RconHelpModal from '../components/ui/RconHelpModal';
+import InGameAdminModal from '../components/server/InGameAdminModal';
 
 
 interface RconResponse {
@@ -286,6 +288,7 @@ export default function RconConsole() {
     const [activeTab, setActiveTab] = useState<'terminal' | 'log_stream' | 'cluster' | 'save_manager' | 'maintenance' | 'give_items'>('terminal');
 
     const [isHelpOpen, setIsHelpOpen] = useState(false);
+    const [isAdminGuideOpen, setIsAdminGuideOpen] = useState(false);
 
     // Give Items states
     const [giveTargetType, setGiveTargetType] = useState<'online' | 'manual'>('online');
@@ -1272,6 +1275,15 @@ export default function RconConsole() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
+
+                    <button
+                        onClick={() => setIsAdminGuideOpen(true)}
+                        className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                        title="In-Game Admin Authentication & Cheats Guide"
+                    >
+                        <Key className="w-4 h-4" />
+                        <span className="hidden sm:inline">In-Game Admin (`enablecheats`)</span>
+                    </button>
 
                     <button
                         onClick={() => setIsHelpOpen(true)}
@@ -2732,6 +2744,15 @@ export default function RconConsole() {
             <RconHelpModal
                 isOpen={isHelpOpen}
                 onClose={() => setIsHelpOpen(false)}
+            />
+
+            <InGameAdminModal
+                isOpen={isAdminGuideOpen}
+                onClose={() => setIsAdminGuideOpen(false)}
+                adminPassword={selectedServer?.config?.adminPassword ?? (selectedServer as any)?.adminPassword}
+                serverName={selectedServer?.name}
+                gameType="ASA"
+                installPath={selectedServer?.installPath}
             />
         </div>
     );

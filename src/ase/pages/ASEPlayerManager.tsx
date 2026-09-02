@@ -13,12 +13,14 @@ import {
   Upload,
   RefreshCw,
   ExternalLink,
-  Copy
+  Copy,
+  Key
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAseServerStore } from '../stores/aseServerStore';
 import { useAseRconStore } from '../../stores/aseRconStore';
+import InGameAdminModal from '../../components/server/InGameAdminModal';
 
 import {
   getAsePlayers,
@@ -36,6 +38,7 @@ export default function ASEPlayerManager() {
   const [selectedServerId, setSelectedServerId] = useState<number | null>(
     () => activeServer?.id || location.state?.serverId || servers[0]?.id || null
   );
+  const [isAdminGuideOpen, setIsAdminGuideOpen] = useState(false);
 
   useEffect(() => {
     if (activeServer) {
@@ -442,6 +445,13 @@ export default function ASEPlayerManager() {
                       <button onClick={() => handleExport('admins', 'json')} className="w-full px-3 py-1.5 text-left text-[11px] text-slate-300 hover:bg-slate-800">Export JSON</button>
                     </div>
                   </div>
+                  <button
+                    onClick={() => setIsAdminGuideOpen(true)}
+                    className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-xl transition-all border border-amber-500/30"
+                    title="In-Game Admin & Cheats Guide"
+                  >
+                    <Key className="w-4 h-4" />
+                  </button>
                   <button
                     onClick={() => loadData(selectedServerId)}
                     className="p-1.5 bg-slate-800/50 hover:bg-slate-700/60 text-slate-300 rounded-xl transition-all border border-white/5"
@@ -981,6 +991,15 @@ export default function ASEPlayerManager() {
           </div>
         )}
       </AnimatePresence>
+
+      <InGameAdminModal
+        isOpen={isAdminGuideOpen}
+        onClose={() => setIsAdminGuideOpen(false)}
+        adminPassword={config?.serverAdminPassword || servers.find(s => s.id === selectedServerId)?.adminPassword}
+        serverName={servers.find(s => s.id === selectedServerId)?.name}
+        gameType="ASE"
+        installPath={servers.find(s => s.id === selectedServerId)?.installPath}
+      />
     </div>
   );
 }

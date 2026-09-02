@@ -68,27 +68,31 @@ pub async fn create_cluster(
         server_ids.len()
     );
 
+    let trimmed_name = name.trim().to_string();
+    if trimmed_name.is_empty() {
+        return Err("Cluster name cannot be empty".to_string());
+    }
+
     let cluster_id_str_val = match cluster_id_string {
         Some(s) if !s.trim().is_empty() => Some(s.trim().to_string()),
-        _ => Some(name.trim().replace(' ', "_")),
+        _ => Some(trimmed_name.replace(' ', "_")),
     };
 
     // Check if cluster name matches existing one
     let should_auto_link = auto_link_existing.unwrap_or(false);
-    {
+    let existing_cluster: Option<(i64, String)> = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
-        let exists: bool = conn
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM clusters WHERE name = ?1)",
-                [&name],
-                |row| row.get(0),
-            )
-            .unwrap_or(false);
+        conn.query_row(
+            "SELECT id, cluster_path FROM clusters WHERE name = ?1",
+            [&trimmed_name],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .ok()
+    };
 
-        if exists && !should_auto_link {
-            return Err(format!("Cluster with name '{}' already exists", name));
-        }
+    if existing_cluster.is_some() && !should_auto_link {
+        return Err(format!("Cluster with name '{}' already exists", trimmed_name));
     }
 
     // Determine the cluster directory path
@@ -97,16 +101,37 @@ pub async fn create_cluster(
             // Validate the custom path
             let validation = validate_path(p);
             if !validation.valid {
-                return Err(validation.error.unwrap_or("Invalid path".to_string()));
+                return Err(validation.error.unwrap_or_else(|| "Invalid path".to_string()));
             }
             p.trim().replace('\\', "/")
         }
-        _ => format!("{}/{}", get_default_cluster_root(), name.replace(' ', "_")),
+        _ => {
+            if let Some((_, ref old_path)) = existing_cluster {
+                old_path.clone()
+            } else {
+                let default_root = get_default_cluster_root();
+                let sanitized_name = trimmed_name.replace(' ', "_");
+                let target = format!("{}/{}", default_root, sanitized_name);
+                // Attempt creating directory; if denied (e.g. root C:\ permission), fallback to user home directory
+                if std::fs::create_dir_all(&target).is_err() {
+                    let fallback_root = crate::platform::Platform::fallback_cluster_dir();
+                    format!("{}/{}", fallback_root.to_string_lossy().replace('\\', "/"), sanitized_name)
+                } else {
+                    target
+                }
+            }
+        }
     };
 
-    // Create the cluster directory
-    std::fs::create_dir_all(&cluster_dir)
-        .map_err(|e| format!("Failed to create cluster directory: {}", e))?;
+    let dir_existed_before = std::path::Path::new(&cluster_dir).exists();
+
+    // Create the cluster directory if it doesn't already exist
+    if let Err(e) = std::fs::create_dir_all(&cluster_dir) {
+        return Err(format!(
+            "Failed to create cluster directory '{}': {}. Please specify a writable folder using Browse.",
+            cluster_dir, e
+        ));
+    }
 
     // Perform DB operations in a transaction
     let cluster_id: i64 = {
@@ -116,20 +141,30 @@ pub async fn create_cluster(
         // Start transaction
         let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-        // 1. Insert into database
-        // Serialize server_ids as JSON array
+        // 1. Insert or update in database
         let server_ids_json = serde_json::to_string(&server_ids)
             .map_err(|e| format!("Failed to serialize server_ids: {}", e))?;
 
-        let cid = match tx.execute(
-            "INSERT INTO clusters (name, cluster_path, server_ids, cluster_id_string) VALUES (?1, ?2, ?3, ?4)",
-            rusqlite::params![name, cluster_dir, server_ids_json, cluster_id_str_val],
-        ) {
-            Ok(_) => tx.last_insert_rowid(),
-            Err(e) => {
-                // If DB insert fails, try to cleanup directory
-                let _ = std::fs::remove_dir_all(&cluster_dir);
-                return Err(format!("Database error (insert cluster): {}", e));
+        let cid = if let Some((existing_id, _)) = existing_cluster {
+            // Auto-linking: update existing cluster record
+            tx.execute(
+                "UPDATE clusters SET cluster_path = ?1, server_ids = ?2, cluster_id_string = ?3 WHERE id = ?4",
+                rusqlite::params![cluster_dir, server_ids_json, cluster_id_str_val, existing_id],
+            ).map_err(|e| format!("Database error (update cluster): {}", e))?;
+            existing_id
+        } else {
+            // New cluster: insert record
+            match tx.execute(
+                "INSERT INTO clusters (name, cluster_path, server_ids, cluster_id_string) VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![trimmed_name, cluster_dir, server_ids_json, cluster_id_str_val],
+            ) {
+                Ok(_) => tx.last_insert_rowid(),
+                Err(e) => {
+                    if !dir_existed_before {
+                        let _ = std::fs::remove_dir_all(&cluster_dir);
+                    }
+                    return Err(format!("Database error (insert cluster): {}", e));
+                }
             }
         };
 
@@ -140,7 +175,9 @@ pub async fn create_cluster(
                 "INSERT OR REPLACE INTO cluster_servers (cluster_id, server_id) VALUES (?1, ?2)",
                 rusqlite::params![cid, server_id],
             ) {
-                let _ = std::fs::remove_dir_all(&cluster_dir);
+                if !dir_existed_before && existing_cluster.is_none() {
+                    let _ = std::fs::remove_dir_all(&cluster_dir);
+                }
                 return Err(format!("Database error (link server {}): {}", server_id, e));
             }
 
@@ -149,7 +186,9 @@ pub async fn create_cluster(
                 "UPDATE servers SET cluster_id = ?1 WHERE id = ?2",
                 rusqlite::params![cid, server_id],
             ) {
-                let _ = std::fs::remove_dir_all(&cluster_dir);
+                if !dir_existed_before && existing_cluster.is_none() {
+                    let _ = std::fs::remove_dir_all(&cluster_dir);
+                }
                 return Err(format!(
                     "Database error (update server {}): {}",
                     server_id, e
@@ -168,7 +207,9 @@ pub async fn create_cluster(
 
         // Commit transaction
         if let Err(e) = tx.commit() {
-            let _ = std::fs::remove_dir_all(&cluster_dir);
+            if !dir_existed_before && existing_cluster.is_none() {
+                let _ = std::fs::remove_dir_all(&cluster_dir);
+            }
             return Err(format!("Failed to commit transaction: {}", e));
         }
 
@@ -177,14 +218,14 @@ pub async fn create_cluster(
 
     let cluster = Cluster {
         id: cluster_id,
-        name,
+        name: trimmed_name,
         cluster_path: PathBuf::from(&cluster_dir),
         server_ids,
         cluster_id_string: cluster_id_str_val,
         created_at: chrono::Local::now().to_rfc3339(),
     };
 
-    println!("  ✅ Cluster created: ID {}", cluster_id);
+    println!("  ✅ Cluster created/linked: ID {}", cluster_id);
     Ok(cluster)
 }
 
@@ -1641,7 +1682,7 @@ pub async fn validate_cluster_configuration(
             [cluster_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
-        .map_err(|e| format!("Cluster not found: {}", e))?;
+        .map_err(|e| format!("Cluster with ID {} not found in database: {}", cluster_id, e))?;
 
     let cluster_path = raw_cluster_path.clone();
 
@@ -1655,11 +1696,11 @@ pub async fn validate_cluster_configuration(
                  INNER JOIN cluster_servers cs ON s.id = cs.server_id
                  WHERE cs.cluster_id = ?1",
             )
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("Failed to prepare server validation query: {}", e))?;
 
-        let mut rows = stmt.query([cluster_id]).map_err(|e| e.to_string())?;
+        let mut rows = stmt.query([cluster_id]).map_err(|e| format!("Failed to execute server validation query: {}", e))?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        while let Ok(Some(row)) = rows.next() {
             out.push((
                 row.get::<_, i64>(0).unwrap_or(0),
                 row.get::<_, String>(1).unwrap_or_default(),
@@ -1674,6 +1715,15 @@ pub async fn validate_cluster_configuration(
     };
 
     let mut issues: Vec<ClusterValidationIssue> = Vec::new();
+
+    if servers.is_empty() {
+        issues.push(ClusterValidationIssue {
+            server_id: 0,
+            server_name: cluster_name.clone(),
+            level: "warning".to_string(),
+            message: "No servers are currently linked to this cluster.".to_string(),
+        });
+    }
 
     // 1) Validate cluster path itself (existence + permissions)
     let path_validation = validate_path(&cluster_path);

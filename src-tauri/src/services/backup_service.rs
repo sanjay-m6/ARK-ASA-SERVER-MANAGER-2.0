@@ -233,11 +233,21 @@ impl BackupService {
             };
 
             // Determine the target path based on the backup structure
-            let target_path = if out_path.starts_with("SavedArks") {
+            let target_path = if out_path.starts_with("SavedArks") || out_path.starts_with("SavedArksLocal") {
                 if !options.restore_saves {
                     continue;
                 }
                 server_path.join("ShooterGame/Saved").join(&out_path)
+            } else if out_path.starts_with("clusters") {
+                if !options.restore_saves {
+                    continue;
+                }
+                server_path.join("ShooterGame/Saved").join(&out_path)
+            } else if out_path.starts_with("Mods") {
+                if !options.restore_saves {
+                    continue;
+                }
+                server_path.join("ShooterGame/Binaries/Win64/ShooterGame").join(&out_path)
             } else if out_path.starts_with("Config") {
                 if !options.restore_configs {
                     continue;

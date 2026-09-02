@@ -2678,5 +2678,17 @@
     "newTitle": "New Boost Profile",
     "profileName": "Profile Name",
     "profileNamePlaceholder": "e.g. 2x Weekend, Easter Event"
+  },
+  "crashDoctor": {
+    "title": "Crash Doctor & Map Recovery",
+    "refresh": "Re-scan and diagnose",
+    "repairSuccess": "Server environment healed and startup initiated!",
+    "diagnosing": "Analyzing crash dump and server logs...",
+    "primaryCause": "Detected Primary Cause",
+    "quarantineProxyDlls": "Quarantine Proxy DLLs (.disabled)",
+    "purgeModCache": "Purge CFCore Mod Cache",
+    "wipeWildDinos": "Launch with Wild Dino Wipe (-ForceRespawnDinos)",
+    "validateFiles": "Run SteamCMD Full File Verification",
+    "safeRecoveryMode": "Safe Recovery Mode (Start Without Mods)"
   }
 }

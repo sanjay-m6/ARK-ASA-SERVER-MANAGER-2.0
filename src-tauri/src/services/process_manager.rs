@@ -2514,30 +2514,30 @@ pub async fn trigger_intelligent_repair(app_handle: tauri::AppHandle, server_id:
     
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
     
+    // 1. Quarantine proxy DLLs to prevent immediate startup crashes after updates
+    let _ = state.plugin_manager.quarantine_proxy_dlls(server_id);
+    println!("  🛡️ Auto-repair: Quarantined proxy DLLs for server {}", server_id);
+
+    // 2. Clear real CFCore mod cache directory
+    let real_mods_cache = std::path::PathBuf::from(&install_path)
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64")
+        .join("ShooterGame")
+        .join("Mods");
+    if real_mods_cache.exists() {
+        println!("  🗑️ Auto-repair: Clearing CFCore mod cache at {:?}", real_mods_cache);
+        let _ = std::fs::remove_dir_all(&real_mods_cache);
+    }
+
     let temp_folder = std::path::PathBuf::from(&install_path)
         .join("ShooterGame")
         .join("Binaries")
         .join("Win64")
         .join("ShooterGame")
         .join(".temp");
-    
     if temp_folder.exists() {
-        println!("  🗑️ Auto-repair: Clearing mod cache at {:?}", temp_folder);
-        match std::fs::remove_dir_all(&temp_folder) {
-            Ok(_) => {
-                let _ = app_handle.emit(
-                    "server_log",
-                    ServerLogEvent {
-                        server_id,
-                        line: format!("[Manager] Cleared mod cache: {:?}", temp_folder),
-                        is_stderr: false,
-                    },
-                );
-            }
-            Err(e) => {
-                println!("  ⚠️ Failed to clear mod cache: {}", e);
-            }
-        }
+        let _ = std::fs::remove_dir_all(&temp_folder);
     }
     
     // Also try alternate temp location
@@ -2546,7 +2546,6 @@ pub async fn trigger_intelligent_repair(app_handle: tauri::AppHandle, server_id:
         .join("Mods")
         .join(".temp");
     if alt_temp.exists() {
-        println!("  🗑️ Auto-repair: Clearing alternate mod cache at {:?}", alt_temp);
         let _ = std::fs::remove_dir_all(&alt_temp);
     }
     
@@ -2554,7 +2553,7 @@ pub async fn trigger_intelligent_repair(app_handle: tauri::AppHandle, server_id:
         "server_log",
         ServerLogEvent {
             server_id,
-            line: "[Manager] Auto-repair: Starting server without mods...".to_string(),
+            line: "[Manager] Auto-repair: Proxy DLLs quarantined and mod cache purged. Starting server cleanly...".to_string(),
             is_stderr: false,
         },
     );

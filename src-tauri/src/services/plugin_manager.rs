@@ -601,6 +601,98 @@ impl PluginManagerService {
         Ok(())
     }
 
+    /// Safely quarantine all active proxy DLLs by renaming them to .disabled.
+    /// This prevents Windows from injecting outdated/crashing DLLs into ArkAscendedServer.exe after updates.
+    pub fn quarantine_proxy_dlls(&self, server_id: i64) -> Result<Vec<String>, String> {
+        let (install_path, server_type) = match self.get_server_install_path(server_id) {
+            Some(res) => res,
+            None => return Ok(Vec::new()),
+        };
+
+        if server_type != "ASA" {
+            return Ok(Vec::new());
+        }
+
+        let win64_dir = install_path
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64");
+
+        if !win64_dir.exists() {
+            return Ok(Vec::new());
+        }
+
+        let proxy_dlls = ["version.dll", "winhttp.dll", "dxgi.dll", "psapi.dll"];
+        let mut quarantined = Vec::new();
+
+        for dll in proxy_dlls {
+            let active_path = win64_dir.join(dll);
+            let disabled_path = win64_dir.join(format!("{}.disabled", dll));
+
+            if active_path.exists() {
+                if disabled_path.exists() {
+                    let _ = std::fs::remove_file(&disabled_path);
+                }
+                if let Err(e) = std::fs::rename(&active_path, &disabled_path) {
+                    println!("[QUARANTINE] [Error] Failed to quarantine proxy DLL {:?}: {}", dll, e);
+                } else {
+                    println!("[QUARANTINE] Quarantined proxy DLL {:?} -> {}.disabled", dll, dll);
+                    quarantined.push(dll.to_string());
+                }
+            }
+        }
+
+        // Also update database toggle state to disabled
+        if let Some(state) = self.app_handle.try_state::<AppState>() {
+            if let Ok(db) = state.db.lock() {
+                if let Ok(conn) = db.get_connection() {
+                    let _ = conn.execute(
+                        "UPDATE servers SET api_loader_enabled = 0 WHERE id = ?1",
+                        rusqlite::params![server_id],
+                    );
+                }
+            }
+        }
+
+        Ok(quarantined)
+    }
+
+    /// Check active and quarantined proxy DLLs on disk
+    pub fn get_proxy_dlls_info(&self, server_id: i64) -> (Vec<String>, Vec<String>) {
+        let (install_path, server_type) = match self.get_server_install_path(server_id) {
+            Some(res) => res,
+            None => return (Vec::new(), Vec::new()),
+        };
+
+        if server_type != "ASA" {
+            return (Vec::new(), Vec::new());
+        }
+
+        let win64_dir = install_path
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64");
+
+        if !win64_dir.exists() {
+            return (Vec::new(), Vec::new());
+        }
+
+        let proxy_dlls = ["version.dll", "winhttp.dll", "dxgi.dll", "psapi.dll"];
+        let mut active = Vec::new();
+        let mut disabled = Vec::new();
+
+        for dll in proxy_dlls {
+            if win64_dir.join(dll).exists() {
+                active.push(dll.to_string());
+            }
+            if win64_dir.join(format!("{}.disabled", dll)).exists() {
+                disabled.push(dll.to_string());
+            }
+        }
+
+        (active, disabled)
+    }
+
     /// Validate that all dependencies of a plugin are present and enabled
     fn validate_dependencies(&self, server_id: i64, folder_name: &str) -> Result<(), String> {
         let (install_path, _) = self.get_server_install_path(server_id)

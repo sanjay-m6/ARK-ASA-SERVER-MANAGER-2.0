@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     Plus, Play, Square, RotateCw, Trash2, Download, Settings, Terminal, Globe, Shield,
     ChevronDown, ChevronUp, Copy, AppWindow, RefreshCw, ExternalLink,
     Check, XCircle, GripVertical, Network, FolderOpen, Users, PenLine, Cpu, HelpCircle,
-    Loader2, AlertTriangle, GitBranch, FileText, Edit2, LayoutGrid, LayoutList, Sparkles, Timer
+    Loader2, AlertTriangle, GitBranch, FileText, Edit2, LayoutGrid, LayoutList, Sparkles, Timer,
+    Stethoscope
 } from 'lucide-react';
 import { useServerStore } from '../stores/serverStore';
 import { useInstallStore, normalizePath } from '../stores/installStore';
@@ -16,16 +17,17 @@ import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import MoveServerDialog from '../components/server/MoveServerDialog';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import PortConflictModal from '../components/server/PortConflictModal';
+import CrashDoctorModal from '../components/server/CrashDoctorModal';
 import { TimedShutdownModal } from '../components/server/TimedShutdownModal';
 import { ServerTimedShutdownBanner } from '../components/server/ServerTimedShutdownBanner';
 import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-import { startServer, stopServer, restartServer, deleteServer, checkServerHasSaves, ServerSaveInfo, updateServer, updateServerSettings, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, moveServer, clearModCache, openInExplorer } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, checkServerHasSaves, ServerSaveInfo, updateServer, updateServerSettings, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, moveServer, clearModCache, openInExplorer, getAllServersUpdateSettings } from '../utils/tauri';
 import { updateServerCustomization as apiUpdateServerCustomization } from '../utils/serverOrganization';
 import toast from 'react-hot-toast';
-import { listen } from '@tauri-apps/api/event';
+import { useTauriEvent } from '../hooks/useTauriEvent';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 
@@ -79,17 +81,26 @@ export default function ServerManager() {
     const [exportTargetServerIds, setExportTargetServerIds] = useState<number[]>([]);
     const [updateOnStart, setUpdateOnStart] = useState(false);
     const [serverUpdateSettings, setServerUpdateSettings] = useState<Record<number, { auto_update: boolean, update_on_start: boolean }>>({});
+    const [crashDoctorServer, setCrashDoctorServer] = useState<Server | null>(null);
+    const [isCrashDoctorOpen, setIsCrashDoctorOpen] = useState(false);
+
+    const handleOpenCrashDoctor = (server: Server, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        setCrashDoctorServer(server);
+        setIsCrashDoctorOpen(true);
+    };
 
     useEffect(() => {
-        servers.forEach(async (srv) => {
-            try {
-                const res = await invoke<{ auto_update: boolean, update_on_start: boolean }>('get_server_update_settings', { serverId: srv.id });
-                setServerUpdateSettings(prev => ({ ...prev, [srv.id]: res }));
-            } catch (e) {
-                console.error(e);
-            }
-        });
-    }, [servers]);
+        let isMounted = true;
+        getAllServersUpdateSettings()
+            .then(res => {
+                if (isMounted && res) {
+                    setServerUpdateSettings(res);
+                }
+            })
+            .catch(e => console.error("Failed to load server update settings:", e));
+        return () => { isMounted = false; };
+    }, [servers.length]);
 
     const handleToggleAutoUpdate = async (serverId: number, enabled: boolean) => {
         try {
@@ -464,80 +475,6 @@ export default function ServerManager() {
 
 
     useEffect(() => {
-        let unlistenStatus: (() => void) | undefined;
-        let unlistenProgress: (() => void) | undefined;
-        let unlistenMove: (() => void) | undefined;
-        let isMounted = true;
-
-        const setupListeners = async () => {
-            // Listen for startup progress events
-            const u1 = await listen<ServerStartupProgressEvent>('server-startup-progress', (event) => {
-                if (!isMounted) return;
-                setStartupProgress(prev => ({
-                    ...prev,
-                    [event.payload.server_id]: {
-                        elapsed: event.payload.elapsed_seconds,
-                        confirmed: event.payload.startup_confirmed
-                    }
-                }));
-            });
-            if (!isMounted) {
-                u1();
-            } else {
-                unlistenProgress = u1;
-            }
-
-            const uMove = await listen<{ server_id: number, status: string, progress: number }>('server-move-progress', (event) => {
-                if (!isMounted) return;
-                setMoveProgress(prev => ({
-                    ...prev,
-                    [event.payload.server_id]: {
-                        status: event.payload.status,
-                        progress: event.payload.progress
-                    }
-                }));
-            });
-            if (!isMounted) {
-                uMove();
-            } else {
-                unlistenMove = uMove;
-            }
-
-            const u2 = await listen<{ server_id: number, status: any }>('server-status-change', (event) => {
-                if (!isMounted) return;
-                const { server_id, status } = event.payload;
-
-                // If timed out, show error toast
-                if (status === 'startup_timeout') {
-                    toast.error(t('serverManager.startupTimeout'));
-                    setStartupProgress(prev => {
-                        const newProgress = { ...prev };
-                        delete newProgress[server_id];
-                        return newProgress;
-                    });
-                } else if (status === 'online' || status === 'stopped' || status === 'crashed') {
-                    // Clear progress on final states
-                    setStartupProgress(prev => {
-                        const newProgress = { ...prev };
-                        delete newProgress[server_id];
-                        return newProgress;
-                    });
-                }
-
-                updateServerStatus(server_id, status);
-
-                // Refresh list to ensure UI is in sync
-                refreshServers();
-            });
-            if (!isMounted) {
-                u2();
-            } else {
-                unlistenStatus = u2;
-            }
-        };
-
-        setupListeners();
-
         // Initial fetch
         refreshServers();
 
@@ -547,13 +484,63 @@ export default function ServerManager() {
         }, 10000);
 
         return () => {
-            isMounted = false;
-            if (unlistenStatus) unlistenStatus();
-            if (unlistenProgress) unlistenProgress();
-            if (unlistenMove) unlistenMove();
             clearInterval(interval);
         };
-    }, [setServers, updateServerStatus, refreshServers, t]);
+    }, [refreshServers]);
+
+    // Safe event listeners via useTauriEvent hook
+    useTauriEvent<ServerStartupProgressEvent>(
+        'server-startup-progress',
+        useCallback((payload) => {
+            setStartupProgress(prev => ({
+                ...prev,
+                [payload.server_id]: {
+                    elapsed: payload.elapsed_seconds,
+                    confirmed: payload.startup_confirmed
+                }
+            }));
+        }, [])
+    );
+
+    useTauriEvent<{ server_id: number, status: string, progress: number }>(
+        'server-move-progress',
+        useCallback((payload) => {
+            setMoveProgress(prev => ({
+                ...prev,
+                [payload.server_id]: {
+                    status: payload.status,
+                    progress: payload.progress
+                }
+            }));
+        }, [])
+    );
+
+    useTauriEvent<{ server_id: number, status: any }>(
+        'server-status-change',
+        useCallback((payload) => {
+            const { server_id, status } = payload;
+
+            // If timed out, show error toast
+            if (status === 'startup_timeout') {
+                toast.error(t('serverManager.startupTimeout'));
+                setStartupProgress(prev => {
+                    const newProgress = { ...prev };
+                    delete newProgress[server_id];
+                    return newProgress;
+                });
+            } else if (status === 'online' || status === 'stopped' || status === 'crashed') {
+                // Clear progress on final states
+                setStartupProgress(prev => {
+                    const newProgress = { ...prev };
+                    delete newProgress[server_id];
+                    return newProgress;
+                });
+            }
+
+            updateServerStatus(server_id, status);
+            refreshServers();
+        }, [updateServerStatus, refreshServers, t])
+    );
 
     // Fetch latest public version & local server versions on mount/server changes
     useEffect(() => {
@@ -561,18 +548,14 @@ export default function ServerManager() {
         fetchAllServerVersions();
     }, [servers]);
 
-    // Subscribe to server log events
-    useEffect(() => {
-        let unlisten: Function | undefined;
-        let isMounted = true;
-
-        listen<ServerLogEvent>('server_log', (event) => {
-            if (!isMounted) return;
-            const { server_id, line } = event.payload;
+    // Subscribe to server log events safely
+    useTauriEvent<ServerLogEvent>(
+        'server_log',
+        useCallback((payload) => {
+            const { server_id, line } = payload;
 
             setServerLogs(prev => {
                 const logs = prev[server_id] || [];
-                // Deduplicate explicitly to be safe: check if last log line is identical
                 if (logs.length > 0 && logs[logs.length - 1] === line) {
                     return prev;
                 }
@@ -582,35 +565,20 @@ export default function ServerManager() {
 
             // Failsafe: If log indicates startup, force UI to update status
             const lowerLine = line.toLowerCase();
-            // STRICTER CHECK per user request: Only "advertising for join" confirms online
             if (lowerLine.includes('advertising for join')) {
                 console.log(`[Frontend] Detected startup log for server ${server_id}, forcing ONLINE status.`);
                 updateServerStatus(server_id, 'online');
-                // Trigger a refresh to sync with backend DB (which should also be updated by now)
                 setTimeout(() => refreshServers(), 1000);
             }
 
-            // Auto-scroll logic needs to run after render, but we can try here
             setTimeout(() => {
                 const consoleEl = consoleRefs.current[server_id];
                 if (consoleEl) {
                     consoleEl.scrollTop = consoleEl.scrollHeight;
                 }
             }, 0);
-
-        }).then((unlistenFn) => {
-            if (!isMounted) {
-                unlistenFn();
-            } else {
-                unlisten = unlistenFn;
-            }
-        });
-
-        return () => {
-            isMounted = false;
-            if (unlisten) unlisten();
-        };
-    }, []);
+        }, [updateServerStatus, refreshServers])
+    );
 
     // Fetch initial logs for running servers
     const [logsFetched, setLogsFetched] = useState<Record<number, boolean>>({});
@@ -1261,42 +1229,69 @@ export default function ServerManager() {
             >
                 {/* Start / Stop Button */}
                 {server.status === 'stopped' || server.status === 'crashed' ? (
-                    <div className="relative group/gridstart">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartServer(server.id);
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/15 hover:bg-green-500/25 text-green-700 dark:text-green-400 border border-green-500/30 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-green-500/10"
-                            title="Start Server"
-                        >
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                            <span>Start</span>
-                        </button>
-                        {/* Start Options Dropdown */}
-                        <div className="absolute bottom-full left-0 mb-2 w-48 bg-[var(--surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl shadow-2xl opacity-0 invisible group-hover/gridstart:opacity-100 group-hover/gridstart:visible transition-all duration-200 z-50 overflow-hidden scale-95 group-hover/gridstart:scale-100 p-1">
+                    <div className="flex items-center gap-1.5">
+                        <div className="relative group/gridstart">
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleStartServer(server.id);
                                 }}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors flex items-center gap-2 cursor-pointer font-semibold"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/15 hover:bg-green-500/25 text-green-700 dark:text-green-400 border border-green-500/30 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-green-500/10"
+                                title="Start Server"
                             >
-                                <Play className="w-3.5 h-3.5" />
-                                <span>Normal Start</span>
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                                <span>Start</span>
                             </button>
+                            {/* Start Options Dropdown */}
+                            <div className="absolute bottom-full left-0 mb-2 w-52 bg-[var(--surface)] backdrop-blur-xl border border-[var(--border)] rounded-xl shadow-2xl opacity-0 invisible group-hover/gridstart:opacity-100 group-hover/gridstart:visible transition-all duration-200 z-50 overflow-hidden scale-95 group-hover/gridstart:scale-100 p-1">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleStartServer(server.id);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--surface-hover)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors flex items-center gap-2 cursor-pointer font-semibold"
+                                >
+                                    <Play className="w-3.5 h-3.5" />
+                                    <span>Normal Start</span>
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleStartServerNoMods(server.id);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs hover:bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] cursor-pointer font-semibold"
+                                    title="Start server without loading any mods"
+                                >
+                                    <Shield className="w-3.5 h-3.5" />
+                                    <span>Start (No Mods)</span>
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenCrashDoctor(server, e);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs hover:bg-rose-500/15 text-rose-700 dark:text-rose-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] cursor-pointer font-semibold"
+                                    title="Diagnose map crash logs and run automated recovery"
+                                >
+                                    <Stethoscope className="w-3.5 h-3.5 text-rose-500" />
+                                    <span>Crash Doctor & Auto-Fix</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {server.status === 'crashed' && (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    handleStartServerNoMods(server.id);
+                                    handleOpenCrashDoctor(server, e);
                                 }}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] cursor-pointer font-semibold"
-                                title="Start server without loading any mods"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-600 dark:text-rose-300 border border-rose-500/40 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md shadow-rose-500/15 animate-pulse"
+                                title="Diagnose and 1-Click Fix Map Crash"
                             >
-                                <Shield className="w-3.5 h-3.5" />
-                                <span>Start (No Mods)</span>
+                                <Stethoscope className="w-3.5 h-3.5 text-rose-500" />
+                                <span>Fix Crash</span>
                             </button>
-                        </div>
+                        )}
                     </div>
                 ) : (server.status === 'running' || server.status === 'online') ? (
                     <div className="relative group/stop" onClick={(e) => e.stopPropagation()}>
@@ -1372,6 +1367,13 @@ export default function ServerManager() {
                             >
                                 <Shield className="w-3.5 h-3.5" />
                                 <span>Deep Repair</span>
+                            </button>
+                            <button
+                                onClick={() => handleOpenCrashDoctor(server)}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-rose-500/15 text-rose-700 dark:text-rose-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] font-semibold"
+                            >
+                                <Stethoscope className="w-3.5 h-3.5 text-rose-500" />
+                                <span>Crash Doctor</span>
                             </button>
                         </div>
                     </div>
@@ -2444,6 +2446,19 @@ export default function ServerManager() {
                                                                                   <span className="text-[10px] text-[var(--text-muted)] font-normal">Clean boot without mods</span>
                                                                               </div>
                                                                           </button>
+                                                                          <button
+                                                                              onClick={() => handleOpenCrashDoctor(server)}
+                                                                              className="w-full text-left px-3 py-2.5 hover:bg-rose-500/15 text-[var(--text-secondary)] hover:text-rose-600 dark:hover:text-rose-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-semibold group/item cursor-pointer border-t border-[var(--border)] pt-2"
+                                                                              title="Diagnose crash logs and run 1-click map recovery"
+                                                                          >
+                                                                              <div className="w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-500 group-hover/item:scale-110 transition-transform">
+                                                                                  <Stethoscope className="w-3.5 h-3.5" />
+                                                                              </div>
+                                                                              <div className="flex flex-col">
+                                                                                  <span>Crash Doctor & Auto-Fix</span>
+                                                                                  <span className="text-[10px] text-[var(--text-muted)] font-normal">Auto-heal DLLs & mod cache</span>
+                                                                              </div>
+                                                                          </button>
                                                                       </div>
                                                                   </div>
                                                               ) : (server.status === 'running' || server.status === 'online') ? (
@@ -2539,6 +2554,19 @@ export default function ServerManager() {
                                                                           <div className="flex flex-col">
                                                                               <span>{t('serverManager.buttons.deepRepair', 'Deep Repair')}</span>
                                                                               <span className="text-[10px] text-[var(--text-muted)] font-normal">Revalidate mods & files</span>
+                                                                          </div>
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={() => handleOpenCrashDoctor(server)}
+                                                                          className="w-full text-left px-3 py-2.5 hover:bg-rose-500/15 text-[var(--text-secondary)] hover:text-rose-600 dark:hover:text-rose-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-[var(--border)] pt-2"
+                                                                          title="Diagnose crash logs and run 1-click map recovery"
+                                                                      >
+                                                                          <div className="w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center text-rose-500 group-hover/item:scale-110 transition-transform">
+                                                                              <Stethoscope className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <div className="flex flex-col">
+                                                                              <span>Crash Doctor & Auto-Fix</span>
+                                                                              <span className="text-[10px] text-[var(--text-muted)] font-normal">1-Click Map Recovery</span>
                                                                           </div>
                                                                       </button>
                                                                   </div>
@@ -3266,6 +3294,20 @@ export default function ServerManager() {
                     onImmediateStop={() => handleStopServer(timedShutdownServer.id)}
                 />
             )}
+
+            {/* Crash Doctor & Map Recovery Modal */}
+            <CrashDoctorModal
+                isOpen={isCrashDoctorOpen}
+                serverId={crashDoctorServer?.id || null}
+                serverName={crashDoctorServer?.name}
+                onClose={() => {
+                    setIsCrashDoctorOpen(false);
+                    setCrashDoctorServer(null);
+                }}
+                onRepaired={() => {
+                    refreshServers();
+                }}
+            />
         </div>
     );
 }

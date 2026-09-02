@@ -89,7 +89,26 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Improvements in v4.6.17
+            ### 🆕 New Features & Improvements in v4.6.18
+            - **🦖 Dino Spawn & NPCReplacements INI Syntax Resolution**:
+              - Fixed duplicate key prefix serialization in `Game.ini` where dinosaur replacements were being written as `NPCReplacements=NPCReplacements=(FromClassName="...",ToClassName="...")`.
+              - Updated `DinoSpawnEditor.tsx` and the INI parser engine to reliably format and parse clean, valid `NPCReplacements=(FromClassName="...",ToClassName="...")` entries.
+            - **🌐 Cluster Creation & SQLite Validation Hardening**:
+              - Resolved `UNIQUE constraint failed: clusters.name` error when recreating or linking pre-existing cluster directories.
+              - Implemented automatic user profile fallback directory path resolution (`%USERPROFILE%/ASA_Clusters`) when unprivileged Windows accounts are restricted from creating root `C:\` directories.
+              - Added detailed, descriptive toast error alerts across `ClusterManager.tsx` and `ASEClusterManager.tsx` instead of generic masking.
+            - **👑 In-Game Admin Management & Privilege Setup Modal**:
+              - Built dedicated `InGameAdminModal.tsx` accessible from the sidebar and server controls to provide fast setup for in-game administrator privileges (`enablecheats`, `admincheat`, etc.) with one-click clipboard copying and step-by-step console instructions.
+            - **🩺 Crash Doctor & Post-Update Recovery Suite**:
+              - Integrated diagnostic crash recovery to handle instant 1–2s crashes following major Unreal Engine 5 game updates caused by outdated proxy DLL hooks (`version.dll`, `dxgi.dll`, `winhttp.dll`) and stale CFCore mod cache folders.
+              - Added Safe Mode startup options and automated DLL integrity scanning.
+            - **🛡️ Rust Backend Discord Warnings & Status Cleanup**:
+              - Resolved unused imports and deprecation warnings in `discord.rs` and backend command handlers.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.17 — Mod Map Resolution, Discord Setup Fix & Parameter Sync</summary>
+
             - **🗺️ Fixed Mod Map Auto-Injection Bug & Svartalfheim Loading**:
               - Fixed hardcoded typo in the map lookup registry where Svartalfheim was incorrectly mapped to `927083` (the Turkey Trial holiday event mod) instead of `962796` (Svartalfheim Premium).
               - Implemented dynamic mod map resolution (`resolve_map_mod_id`) to automatically detect whether Svartalfheim Premium (`962796`) or Free (`893657` / `927084`), Forglar Premium (`952876`) or Free (`945244`), Amissa (`965379`), Insaluna (`935639`), etc. is installed.
@@ -104,8 +123,7 @@ jobs:
               - Removed duplicate lowercase/PascalCase flags (`-port`/`-Port`, `-queryport`/`-QueryPort`, `-peerport`/`-PeerPort`) from ASA and ASE server launch commands to keep startup arguments clean, optimized, and compliant with Unreal Engine 5 standards.
             - **🛡️ ASA Server API Plugin Status & Port Binding Enhancement**:
               - Enhanced process detection with port-based command line matching and Windows verbatim path normalization (`\\?\`) to ensure accurate "Running" / "Online" detection when using `AsaApiLoader.exe`.
-
-            ### 🛠️ Previous Releases
+            </details>
             <details>
             <summary>v4.6.16 — Global UI/UX Tokenization & Custom Theme Studio</summary>
 

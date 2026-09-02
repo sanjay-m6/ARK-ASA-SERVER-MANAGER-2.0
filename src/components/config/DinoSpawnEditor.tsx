@@ -7,12 +7,12 @@ interface DinoSpawnEditorProps {
   onChange: (value: string) => void;
 }
 
-interface NPCReplacement {
+export interface NPCReplacement {
   FromClassName: string;
   ToClassName: string;
 }
 
-const parseReplacements = (val: string): NPCReplacement[] => {
+export const parseReplacements = (val: string): NPCReplacement[] => {
   if (!val) return [];
   const lines = val.split('\n').filter(l => l.trim());
   return lines.map(line => {
@@ -25,8 +25,8 @@ const parseReplacements = (val: string): NPCReplacement[] => {
   }).filter((r): r is NPCReplacement => r !== null);
 };
 
-const stringifyReplacements = (replacements: NPCReplacement[]): string => {
-  return replacements.map(r => `NPCReplacements=(FromClassName="${r.FromClassName}",ToClassName="${r.ToClassName}")`).join('\n');
+export const stringifyReplacements = (replacements: NPCReplacement[]): string => {
+  return replacements.map(r => `(FromClassName="${r.FromClassName}",ToClassName="${r.ToClassName}")`).join('\n');
 };
 
 export function DinoSpawnEditor({ value, onChange }: DinoSpawnEditorProps) {

@@ -14,7 +14,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../utils/helpers';
 import { getSystemInfo } from '../../utils/tauri';
 import { startAseServer, stopAseServer, restartAseServer } from '../utils/aseCommands';
-import { listen } from '@tauri-apps/api/event';
+import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../../components/performance/PerformanceMonitor';
 import SponsorBanner from '../../components/ui/SponsorBanner';
@@ -213,12 +213,15 @@ export default function ASEDashboard() {
       } catch { }
     };
     fetchSys();
-    let unsub: () => void;
-    listen<{ server_id: number; status: any }>('server-status-change', (e) => { updateServerStatus(e.payload.server_id, e.payload.status); }).then(u => { unsub = u; });
     const i1 = setInterval(() => { if (document.visibilityState === 'visible') fetchSys(); }, 10000);
     const i2 = setInterval(() => { if (document.visibilityState === 'visible') refreshServers(); }, 10000);
-    return () => { clearInterval(i1); clearInterval(i2); if (unsub) unsub(); };
+    return () => { clearInterval(i1); clearInterval(i2); };
   }, []);
+
+  useTauriEvent<{ server_id: number; status: any }>(
+    'server-status-change',
+    (e) => { updateServerStatus(e.server_id, e.status); }
+  );
 
   const running = servers.filter(s => s.status === 'running' || s.status === 'online').length;
   const stopped = servers.filter(s => s.status === 'stopped').length;

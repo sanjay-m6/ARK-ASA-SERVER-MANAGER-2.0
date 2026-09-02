@@ -30,7 +30,8 @@ import {
   Package,
   Sliders,
   Download,
-  Power
+  Power,
+  Key
 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { toast } from 'react-hot-toast';
@@ -40,6 +41,7 @@ import { connectAseRcon, sendAseRcon } from '../utils/aseCommands';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useAseRconStore, defaultAseServerState, LogEntry } from '../../stores/aseRconStore';
+import InGameAdminModal from '../../components/server/InGameAdminModal';
 
 interface SaveValidationInfo {
   exists: boolean;
@@ -266,8 +268,9 @@ export default function ASERconConsole() {
   const resolvedPlayerIds = serverRconState.resolvedPlayerIds;
   const isStreamingLogs = serverRconState.isStreamingLogs;
   const logStream = serverRconState.logStream;
-
   const [isBackupInProgress, setIsBackupInProgress] = useState(false);
+  const [isAdminGuideOpen, setIsAdminGuideOpen] = useState(false);
+  const selectedServer = useMemo(() => servers.find(s => s.id === selectedServerId), [servers, selectedServerId]);
 
   const handleCreateBackup = async () => {
     if (!selectedServerId) return;
@@ -1106,7 +1109,14 @@ export default function ASERconConsole() {
         </div>
         
         <div className="flex items-center gap-3">
-
+          <button
+            onClick={() => setIsAdminGuideOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 h-[42px]"
+            title="In-Game Admin Authentication & Cheats Guide"
+          >
+            <Key className="w-4 h-4" />
+            <span className="hidden sm:inline">In-Game Admin (`enablecheats`)</span>
+          </button>
           
           <button 
             onClick={isConnected ? handleDisconnect : handleConnect} 
@@ -2458,6 +2468,15 @@ export default function ASERconConsole() {
           </motion.div>
         )}
       </div>
+
+      <InGameAdminModal
+        isOpen={isAdminGuideOpen}
+        onClose={() => setIsAdminGuideOpen(false)}
+        adminPassword={selectedServer?.adminPassword}
+        serverName={selectedServer?.name}
+        gameType="ASE"
+        installPath={selectedServer?.installPath}
+      />
     </motion.div>
   );
 }

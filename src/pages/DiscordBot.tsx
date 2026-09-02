@@ -8,7 +8,7 @@ import {
     Copy, UserCheck, UserX, Sparkles, Terminal, Search, ExternalLink,
     Trash2, Sliders, Check, Layers
 } from 'lucide-react';
-import { listen } from '@tauri-apps/api/event';
+import { useTauriEvent } from '../hooks/useTauriEvent';
 
 import { cn } from '../utils/helpers';
 import {
@@ -212,31 +212,20 @@ export default function DiscordBot() {
         loadInitialData();
     }, [refreshServers, t]);
 
-    // Listen for backend real-time Discord notifications
-    useEffect(() => {
-        let unlisten: (() => void) | undefined;
-        let isMounted = true;
-
-        listen('discord-notification', (event: { payload: { type?: string; message?: string; server?: string } }) => {
-            if (!isMounted) return;
+    // Listen for backend real-time Discord notifications safely
+    useTauriEvent<{ type?: string; message?: string; server?: string }>(
+        'discord-notification',
+        useCallback((payload) => {
             const newNotification: RecentNotification = {
                 id: Date.now().toString(),
-                type: event.payload.type || 'Alert',
-                message: event.payload.message || 'Notification sent to Discord',
+                type: payload.type || 'Alert',
+                message: payload.message || 'Notification sent to Discord',
                 timestamp: new Date(),
-                server: event.payload.server
+                server: payload.server
             };
             setRecentNotifications(prev => [newNotification, ...prev].slice(0, 15));
-        }).then(fn => {
-            if (isMounted) unlisten = fn;
-            else fn();
-        }).catch(err => console.error('Failed to listen to discord-notification:', err));
-
-        return () => {
-            isMounted = false;
-            if (unlisten) unlisten();
-        };
-    }, []);
+        }, [])
+    );
 
     // Check connection on webhookUrl change
     useEffect(() => {

@@ -42,6 +42,7 @@ function formatDocTitle(filename: string): string {
         'FileManager': 'File Manager',
         'Hardware': 'Hardware & Telemetry',
         'HardwareAllocation': 'Hardware Resource Allocation',
+        'InGameAdmin': 'In-Game Admin & Cheats Guide',
         'Logs': 'System Logs Overview',
         'LogsConsole': 'Live Log Stream Console',
         'ModManager': 'Mod Manager & Workshop',
@@ -73,7 +74,7 @@ function formatDocTitle(filename: string): string {
 // Categorizer for sidebar grouping
 function getDocCategory(filename: string): { name: string; icon: any } {
     const base = filename.replace(/\.md$/i, '');
-    if (['Dashboard', 'ServerManager', 'Servers', 'ConfigEditor', 'AdvancedConfig'].includes(base)) {
+    if (['Dashboard', 'ServerManager', 'Servers', 'ConfigEditor', 'AdvancedConfig', 'InGameAdmin'].includes(base)) {
         return { name: 'Core Services', icon: Layers };
     }
     if (['AIAssistant', 'Scheduler', 'BackupManager', 'Backups', 'PluginManager', 'Plugins'].includes(base)) {

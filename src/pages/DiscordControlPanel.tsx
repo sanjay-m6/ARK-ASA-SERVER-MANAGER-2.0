@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { useTauriEvent } from '../hooks/useTauriEvent';
 import { getClusters } from '../utils/tauri';
 import { toast } from 'react-hot-toast';
 
@@ -130,31 +130,22 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
     };
   }, [activeClusterId, autoRefresh]);
 
-  // Listen for real-time events
-  useEffect(() => {
-    const unlistenPromises = [
-      listen('server-health-update', async (event) => {
-        console.log('[Discord] Server health update:', event.payload);
-        await fetchServerHealth();
-      }),
-      listen('player-joined', async (event) => {
-        console.log('[Discord] Player joined:', event.payload);
-        await fetchPlayers();
-      }),
-      listen('player-left', async (event) => {
-        console.log('[Discord] Player left:', event.payload);
-        await fetchPlayers();
-      }),
-      listen('discord-command-executed', async (event) => {
-        console.log('[Discord] Command executed:', event.payload);
-        await fetchBridgeStatus();
-      }),
-    ];
+  // Listen for real-time events safely
+  useTauriEvent('server-health-update', useCallback(async (_payload: any) => {
+    await fetchServerHealth();
+  }, [activeClusterId]));
 
-    return () => {
-      unlistenPromises.forEach((p) => p.then((unlisten) => unlisten?.()));
-    };
-  }, []);
+  useTauriEvent('player-joined', useCallback(async (_payload: any) => {
+    await fetchPlayers();
+  }, [activeClusterId]));
+
+  useTauriEvent('player-left', useCallback(async (_payload: any) => {
+    await fetchPlayers();
+  }, [activeClusterId]));
+
+  useTauriEvent('discord-command-executed', useCallback(async (_payload: any) => {
+    await fetchBridgeStatus();
+  }, [activeClusterId]));
 
   const handleStartServer = async (serverId: number) => {
     try {

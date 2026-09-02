@@ -350,3 +350,45 @@ export interface ModValidationReport {
 
 export * from './boost.types';
 
+export interface CrashIssue {
+    id: string;
+    severity: 'critical' | 'high' | 'warning' | 'info';
+    title: string;
+    description: string;
+    fix: string;
+}
+
+export interface CrashDiagnosisReport {
+    server_id: number;
+    server_name: string;
+    map_name: string;
+    normalized_map: string;
+    server_type: string;
+    server_status: string;
+    primary_cause: string;
+    recommended_action: string;
+    active_proxy_dlls: string[];
+    quarantined_proxy_dlls: string[];
+    pdb_missing: boolean;
+    mod_cache_folder_count: number;
+    mod_cache_size_bytes: number;
+    save_file_count: number;
+    total_save_size_bytes: number;
+    primary_save_exists: boolean;
+    log_tail: string[];
+    fatal_error_lines: string[];
+    cf_errors: string[];
+    port_conflicts: boolean;
+    issues: CrashIssue[];
+}
+
+export interface ServerRepairOptions {
+    quarantine_proxy_dlls?: boolean;
+    clear_mod_cache?: boolean;
+    validate_steam_files?: boolean;
+    wipe_wild_dinos?: boolean;
+    launch_no_mods?: boolean;
+    launch_after_repair?: boolean;
+}
+
+

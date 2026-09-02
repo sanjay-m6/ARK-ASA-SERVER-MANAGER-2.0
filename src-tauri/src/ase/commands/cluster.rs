@@ -4,8 +4,6 @@ use serde::Serialize;
 use std::path::PathBuf;
 use tauri::State;
 
-const DEFAULT_CLUSTER_ROOT: &str = "C:/ASE_Clusters";
-
 #[tauri::command]
 pub async fn create_ase_cluster(
     state: State<'_, AppState>,
@@ -19,6 +17,11 @@ pub async fn create_ase_cluster(
         server_ids.len()
     );
 
+    let trimmed_name = name.trim().to_string();
+    if trimmed_name.is_empty() {
+        return Err("Cluster name cannot be empty".to_string());
+    }
+
     // Check if cluster name matches existing one
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -26,13 +29,13 @@ pub async fn create_ase_cluster(
         let exists: bool = conn
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM ase_clusters WHERE name = ?1)",
-                [&name],
+                [&trimmed_name],
                 |row| row.get(0),
             )
             .unwrap_or(false);
 
         if exists {
-            return Err(format!("Cluster with name '{}' already exists", name));
+            return Err(format!("Cluster with name '{}' already exists", trimmed_name));
         }
     }
 
@@ -42,16 +45,32 @@ pub async fn create_ase_cluster(
             // Validate the custom path
             let validation = validate_path(p);
             if !validation.valid {
-                return Err(validation.error.unwrap_or("Invalid path".to_string()));
+                return Err(validation.error.unwrap_or_else(|| "Invalid path".to_string()));
             }
             p.trim().replace('\\', "/")
         }
-        _ => format!("{}/{}", DEFAULT_CLUSTER_ROOT, name.replace(' ', "_")),
+        _ => {
+            let default_root = crate::platform::Platform::default_ase_cluster_dir();
+            let sanitized_name = trimmed_name.replace(' ', "_");
+            let target = format!("{}/{}", default_root.to_string_lossy().replace('\\', "/"), sanitized_name);
+            if std::fs::create_dir_all(&target).is_err() {
+                let fallback_root = crate::platform::Platform::fallback_ase_cluster_dir();
+                format!("{}/{}", fallback_root.to_string_lossy().replace('\\', "/"), sanitized_name)
+            } else {
+                target
+            }
+        }
     };
 
+    let dir_existed_before = std::path::Path::new(&cluster_dir).exists();
+
     // Create the cluster directory
-    std::fs::create_dir_all(&cluster_dir)
-        .map_err(|e| format!("Failed to create cluster directory: {}", e))?;
+    if let Err(e) = std::fs::create_dir_all(&cluster_dir) {
+        return Err(format!(
+            "Failed to create cluster directory '{}': {}. Please specify a writable folder using Browse.",
+            cluster_dir, e
+        ));
+    }
 
     // Perform DB operations in a transaction
     let cluster_id: i64 = {
@@ -64,12 +83,13 @@ pub async fn create_ase_cluster(
         // 1. Insert into database
         let cid = match tx.execute(
             "INSERT INTO ase_clusters (name, cluster_dir) VALUES (?1, ?2)",
-            rusqlite::params![name, cluster_dir],
+            rusqlite::params![trimmed_name, cluster_dir],
         ) {
             Ok(_) => tx.last_insert_rowid(),
             Err(e) => {
-                // If DB insert fails, try to cleanup directory
-                let _ = std::fs::remove_dir_all(&cluster_dir);
+                if !dir_existed_before {
+                    let _ = std::fs::remove_dir_all(&cluster_dir);
+                }
                 return Err(format!("Database error (insert cluster): {}", e));
             }
         };
@@ -81,7 +101,9 @@ pub async fn create_ase_cluster(
                 "INSERT OR REPLACE INTO ase_cluster_servers (cluster_id, server_id) VALUES (?1, ?2)",
                 rusqlite::params![cid, server_id],
             ) {
-                let _ = std::fs::remove_dir_all(&cluster_dir);
+                if !dir_existed_before {
+                    let _ = std::fs::remove_dir_all(&cluster_dir);
+                }
                 return Err(format!("Database error (link server {}): {}", server_id, e));
             }
 
@@ -90,7 +112,9 @@ pub async fn create_ase_cluster(
                 "UPDATE ase_servers SET cluster_id = ?1 WHERE id = ?2",
                 rusqlite::params![cid, server_id],
             ) {
-                let _ = std::fs::remove_dir_all(&cluster_dir);
+                if !dir_existed_before {
+                    let _ = std::fs::remove_dir_all(&cluster_dir);
+                }
                 return Err(format!(
                     "Database error (update server {}): {}",
                     server_id, e
@@ -98,22 +122,20 @@ pub async fn create_ase_cluster(
             }
 
             // Update server's GameUserSettings.ini with ClusterDirOverride
-            // Note: We can only query inside the transaction or need to fetch paths before?
-            // rusqlite transaction allows queries.
             if let Ok(install_path) = tx.query_row::<String, _, _>(
                 "SELECT install_path FROM ase_servers WHERE id = ?1",
                 [server_id],
                 |row| row.get(0),
             ) {
-                // Side effect outside DB - nice to have, but if it fails we don't rollback DB usually
-                // But for consistency we should log it
                 update_ase_cluster_config(&install_path, &cluster_dir);
             }
         }
 
         // Commit transaction
         if let Err(e) = tx.commit() {
-            let _ = std::fs::remove_dir_all(&cluster_dir);
+            if !dir_existed_before {
+                let _ = std::fs::remove_dir_all(&cluster_dir);
+            }
             return Err(format!("Failed to commit transaction: {}", e));
         }
 
@@ -122,7 +144,7 @@ pub async fn create_ase_cluster(
 
     let cluster = Cluster {
         id: cluster_id,
-        name,
+        name: trimmed_name,
         cluster_path: PathBuf::from(&cluster_dir),
         server_ids,
         cluster_id_string: None,
@@ -993,7 +1015,7 @@ pub async fn validate_ase_cluster_configuration(
             [cluster_id],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
-        .map_err(|e| format!("Cluster not found: {}", e))?;
+        .map_err(|e| format!("Cluster with ID {} not found in database: {}", cluster_id, e))?;
 
     let cluster_dir = raw_cluster_dir.clone();
 
@@ -1007,11 +1029,11 @@ pub async fn validate_ase_cluster_configuration(
                  INNER JOIN ase_cluster_servers cs ON s.id = cs.server_id
                  WHERE cs.cluster_id = ?1",
             )
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("Failed to prepare ASE server validation query: {}", e))?;
 
-        let mut rows = stmt.query([cluster_id]).map_err(|e| e.to_string())?;
+        let mut rows = stmt.query([cluster_id]).map_err(|e| format!("Failed to execute ASE server validation query: {}", e))?;
         let mut out = Vec::new();
-        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        while let Ok(Some(row)) = rows.next() {
             out.push((
                 row.get::<_, i64>(0).unwrap_or(0),
                 row.get::<_, String>(1).unwrap_or_default(),
@@ -1026,6 +1048,15 @@ pub async fn validate_ase_cluster_configuration(
     };
 
     let mut issues: Vec<ClusterValidationIssue> = Vec::new();
+
+    if ase_servers.is_empty() {
+        issues.push(ClusterValidationIssue {
+            server_id: 0,
+            server_name: cluster_name.clone(),
+            level: "warning".to_string(),
+            message: "No servers are currently linked to this cluster.".to_string(),
+        });
+    }
 
     // 1) Validate cluster path itself (existence + permissions)
     let path_validation = validate_path(&cluster_dir);

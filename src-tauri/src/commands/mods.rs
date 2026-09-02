@@ -703,15 +703,27 @@ pub async fn get_mod_install_instructions() -> Result<Vec<String>, String> {
         "• Check that mods are compatible with current game version".to_string(),
     ])
 }
-/// Delete the mod download cache (.temp folder)
+/// Delete the mod download and compilation cache
 fn delete_mod_cache(install_path: &PathBuf) -> Result<(), String> {
-    let temp_dir = install_path
-        .join("ShooterGame/Binaries/Win64/ShooterGame/Mods/.temp");
-
-    if temp_dir.exists() {
-        println!("🗑️ removing mod cache at {:?}", temp_dir);
-        std::fs::remove_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+    let mods_cache_dir = install_path
+        .join("ShooterGame/Binaries/Win64/ShooterGame/Mods");
+    if mods_cache_dir.exists() {
+        println!("🗑️ Purging CFCore mod cache at {:?}", mods_cache_dir);
+        let _ = std::fs::remove_dir_all(&mods_cache_dir);
     }
+
+    let temp_dir1 = install_path
+        .join("ShooterGame/Binaries/Win64/ShooterGame/.temp");
+    if temp_dir1.exists() {
+        let _ = std::fs::remove_dir_all(&temp_dir1);
+    }
+
+    let temp_dir2 = install_path
+        .join("ShooterGame/Mods/.temp");
+    if temp_dir2.exists() {
+        let _ = std::fs::remove_dir_all(&temp_dir2);
+    }
+
     Ok(())
 }
 
@@ -720,7 +732,10 @@ pub async fn hardcore_retry_mods(
     state: State<'_, AppState>,
     server_id: i64,
 ) -> Result<(), String> {
-    println!("☢️ Hardcore Mod Retry initiated for server {}", server_id);
+    println!("☢️ Hardcore Mod Retry & Deep Repair initiated for server {}", server_id);
+
+    // Quarantine proxy DLLs to prevent immediate crash loops
+    let _ = state.plugin_manager.quarantine_proxy_dlls(server_id);
 
     // 1. Fetch Server Details & Config (LEFT JOIN clusters for cluster_path)
     let (install_path, session_name, map_name, game_port, query_port, rcon_port, max_players, server_password, admin_password, ip_address, cluster_id, cluster_dir, custom_args, battleye) = {

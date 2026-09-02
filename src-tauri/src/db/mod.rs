@@ -2,11 +2,32 @@ use rusqlite::{Connection, Result};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+pub mod repositories;
+
 pub struct Database {
     conn: Mutex<Connection>,
 }
 
 impl Database {
+    pub fn conn(&self) -> &Mutex<Connection> {
+        &self.conn
+    }
+
+    pub fn with_conn<F, R>(&self, f: F) -> crate::error::AppResult<R>
+    where
+        F: FnOnce(&Connection) -> crate::error::AppResult<R>,
+    {
+        let conn = self.conn.lock().map_err(|e| crate::error::AppError::Lock(e.to_string()))?;
+        f(&conn)
+    }
+
+    pub fn with_conn_mut<F, R>(&self, f: F) -> crate::error::AppResult<R>
+    where
+        F: FnOnce(&mut Connection) -> crate::error::AppResult<R>,
+    {
+        let mut conn = self.conn.lock().map_err(|e| crate::error::AppError::Lock(e.to_string()))?;
+        f(&mut conn)
+    }
     pub fn new(db_path: PathBuf) -> Result<Self> {
         let mut conn = Connection::open(db_path)?;
 

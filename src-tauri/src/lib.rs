@@ -1,8 +1,9 @@
 pub mod commands;
-mod db;
-mod models;
-mod utils;
-mod services;
+pub mod error;
+pub mod db;
+pub mod models;
+pub mod utils;
+pub mod services;
 pub mod ase;
 pub mod platform;
 
@@ -795,9 +796,12 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::move_server, // <-- New Command
             commands::server::clear_mod_cache,
             commands::server::diagnose_mod_loading,
+            commands::server::diagnose_server_crash,
+            commands::server::repair_and_recover_server,
             commands::server::set_auto_update,
             commands::server::set_update_on_start,
             commands::server::get_server_update_settings,
+            commands::server::get_all_servers_update_settings,
             commands::import::import_non_dedicated_save, // <-- New Command
             // Mod commands
             commands::mods::search_mods,

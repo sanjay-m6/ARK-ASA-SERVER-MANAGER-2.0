@@ -82,12 +82,19 @@ export default function TitleBar() {
 
     updateMaximizedStatus();
 
-    const unlistenResize = appWindow.onResized(() => {
-      updateMaximizedStatus();
-    });
+    let isMounted = true;
+    let unlistenResizeFn: (() => void) | null = null;
+
+    appWindow.onResized(() => {
+      if (isMounted) updateMaximizedStatus();
+    }).then((unsub) => {
+      if (isMounted) unlistenResizeFn = unsub;
+      else unsub();
+    }).catch(err => console.error("Error listening to resize:", err));
 
     return () => {
-      unlistenResize.then((unlisten: () => void) => unlisten());
+      isMounted = false;
+      if (unlistenResizeFn) unlistenResizeFn();
     };
   }, [appWindow]);
 
@@ -128,10 +135,13 @@ export default function TitleBar() {
 
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
 
-  // Intercept window close requested event
+  // Intercept window close requested event safely
   useEffect(() => {
     if (!appWindow) return;
-    const unlistenPromise = appWindow.onCloseRequested(async (event: any) => {
+    let isMounted = true;
+    let unlistenCloseFn: (() => void) | null = null;
+
+    appWindow.onCloseRequested(async (event: any) => {
       const remember = localStorage.getItem('rememberCloseAction') === 'true';
       const pref = localStorage.getItem('closeActionPreference');
 
@@ -151,12 +161,16 @@ export default function TitleBar() {
         }
       } else {
         event.preventDefault();
-        setIsCloseModalOpen(true);
+        if (isMounted) setIsCloseModalOpen(true);
       }
-    });
+    }).then((unsub) => {
+      if (isMounted) unlistenCloseFn = unsub;
+      else unsub();
+    }).catch(err => console.error("Error listening to close request:", err));
 
     return () => {
-      unlistenPromise.then((unlisten: () => void) => unlisten());
+      isMounted = false;
+      if (unlistenCloseFn) unlistenCloseFn();
     };
   }, [appWindow]);
 

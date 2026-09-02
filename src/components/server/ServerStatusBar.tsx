@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { Globe, Wifi, Terminal, AlertTriangle, Loader2, Copy, Check, Activity, Cpu, HelpCircle, GraduationCap } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 
@@ -44,26 +44,20 @@ export const ServerStatusBar: React.FC<ServerStatusBarProps> = ({ serverId, serv
 
     useEffect(() => {
         fetchStatus();
-
         // Check availability every 10 seconds to avoid spamming the UDP ports and external IP APIs
         const interval = setInterval(fetchStatus, 10000);
+        return () => clearInterval(interval);
+    }, [serverId, serverType]);
 
-        // Listen for server status transitions to trigger an immediate check
-        let unsubscribe: (() => void) | undefined;
-        
-        listen<{ server_id: number; status: string }>('server-status-change', (event) => {
-            if (event.payload.server_id === serverId) {
+    // Listen for server status transitions to trigger an immediate check safely
+    useTauriEvent<{ server_id: number; status: string }>(
+        'server-status-change',
+        useCallback((payload) => {
+            if (payload.server_id === serverId) {
                 fetchStatus();
             }
-        }).then((unsub) => {
-            unsubscribe = unsub;
-        });
-
-        return () => {
-            clearInterval(interval);
-            if (unsubscribe) unsubscribe();
-        };
-    }, [serverId, serverType]);
+        }, [serverId, serverType])
+    );
 
     const handleCopy = async (text: string, type: 'lan' | 'wan') => {
         try {

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import { useState, useEffect, useCallback } from 'react';
+import { useTauriEvent } from '../../hooks/useTauriEvent';
 import { Shield, AlertTriangle, Save, RefreshCw, Activity, Terminal, Globe, Loader2, Check } from 'lucide-react';
 import { AntiCheatConfig, ViolationEvent, getAntiCheatConfig, saveAntiCheatConfig, getAntiCheatLogs, syncBanlist, type BanlistSyncResult } from '../../utils/tauri';
 import toast from 'react-hot-toast';
@@ -45,19 +45,17 @@ export default function AntiCheatDashboard({ serverId }: { serverId: number | nu
     useEffect(() => {
         if (!serverId) return;
         loadData();
-
-        const unlisten = listen<ViolationEvent>('anti-cheat://new-violation', (event) => {
-            if (event.payload.server_id === serverId) {
-                setLogs(prev => [event.payload, ...prev].slice(0, 50));
-                // Optional: Play sound or show toast
-                // toast('Violation Detected: ' + event.payload.player_name, { icon: '🚨' });
-            }
-        });
-
-        return () => {
-            unlisten.then(f => f());
-        };
     }, [serverId]);
+
+    useTauriEvent<ViolationEvent>(
+        'anti-cheat://new-violation',
+        useCallback((payload) => {
+            if (payload.server_id === serverId) {
+                setLogs(prev => [payload, ...prev].slice(0, 50));
+            }
+        }, [serverId]),
+        Boolean(serverId)
+    );
 
     const loadData = async () => {
         if (!serverId) return;

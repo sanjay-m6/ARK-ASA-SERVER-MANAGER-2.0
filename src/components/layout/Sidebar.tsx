@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Server,
@@ -26,10 +26,10 @@ import {
   RefreshCw,
   Search,
   Languages,
-  Users
+  Users,
+  X
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { AnimatePresence } from 'framer-motion';
 import { cn } from '../../utils/helpers';
 import { useServerStore } from '../../stores/serverStore';
 import { useAseServerStore } from '../../ase/stores/aseServerStore';
@@ -147,11 +147,13 @@ export default function Sidebar() {
         return p === '/servers' || p === '/ase/servers' || p === '/wiki' || p === '/settings' || p === '/ase/settings';
       });
 
-  const accentText = isASE ? 'text-amber-500 dark:text-amber-400' : 'text-sky-600 dark:text-sky-400';
+  const accentText = isASE ? 'text-amber-400' : 'text-sky-400';
   const accentBg = isASE ? 'bg-amber-500/15' : 'bg-sky-500/15';
-  const accentGradient = isASE ? 'from-amber-500/20 to-orange-500/20' : 'from-sky-500/20 to-blue-500/20';
-  const accentBorder = isASE ? 'border-amber-500/30' : 'border-sky-500/30';
-  const accentDot = isASE ? 'bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.6)]' : 'bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.6)]';
+  const accentBorder = isASE ? 'border-amber-500/40' : 'border-sky-500/40';
+  const accentGlow = isASE ? 'shadow-[0_0_20px_rgba(245,158,11,0.2)]' : 'shadow-[0_0_20px_rgba(14,165,233,0.2)]';
+  const accentGradient = isASE ? 'from-amber-500/20 via-amber-500/10 to-transparent' : 'from-sky-500/20 via-sky-500/10 to-transparent';
+  const accentBar = isASE ? 'bg-gradient-to-b from-amber-400 to-orange-500 shadow-[0_0_10px_rgba(251,191,36,0.8)]' : 'bg-gradient-to-b from-sky-400 to-blue-500 shadow-[0_0_10px_rgba(56,189,248,0.8)]';
+  const accentDot = isASE ? 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.9)]' : 'bg-sky-400 shadow-[0_0_8px_rgba(14,165,233,0.9)]';
 
   const handleGameSwitch = (game: 'ASA' | 'ASE') => {
     setActiveGame(game);
@@ -209,26 +211,53 @@ export default function Sidebar() {
   }).filter(Boolean) as NavigationItem[];
 
   return (
-    <div className={cn(
-      "glass-panel static-panel border-r border-[var(--border)] flex flex-col h-full relative z-50 transition-all duration-300 ease-in-out",
+    <aside className={cn(
+      "bg-slate-950/95 border-r border-white/[0.07] flex flex-col h-full relative z-50 transition-all duration-300 ease-in-out backdrop-blur-2xl shadow-2xl select-none",
       isSidebarCollapsed ? "w-20" : "w-72"
     )}>
-      {/* Logo / Header */}
-      <div className={cn("p-6 pb-4", isSidebarCollapsed ? "flex flex-col items-center justify-center gap-3" : "p-8 pb-6")}>
-        <div className={cn("flex items-center w-full", isSidebarCollapsed ? "flex-col justify-center gap-3" : "space-x-4 justify-between")}>
-          <div className="flex items-center space-x-4">
-            <div className="relative group">
-              <div className={cn("absolute inset-0 blur-xl rounded-full opacity-50 group-hover:opacity-100 transition-opacity", isASE ? "bg-amber-500/30" : "bg-sky-500/30")}></div>
+      {/* Subtle Top Ambient Glow Accent */}
+      <div className={cn(
+        "absolute top-0 left-0 right-0 h-40 bg-gradient-to-b to-transparent pointer-events-none opacity-40 blur-2xl",
+        isASE ? "from-amber-500/20" : "from-sky-500/20"
+      )} />
+
+      {/* Brand Header */}
+      <div className={cn(
+        "relative z-10 shrink-0 border-b border-white/[0.04]",
+        isSidebarCollapsed ? "p-3 pb-3 flex flex-col items-center gap-3" : "px-5 py-4"
+      )}>
+        <div className={cn("flex items-center w-full", isSidebarCollapsed ? "flex-col justify-center gap-3" : "justify-between")}>
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Logo with Soft Ambient Halo */}
+            <div className="relative group shrink-0">
+              <div className={cn(
+                "absolute -inset-1 rounded-2xl blur-md opacity-40 group-hover:opacity-80 transition-opacity",
+                isASE ? "bg-amber-500/30" : "bg-sky-500/30"
+              )} />
               <img
                 src={isASE ? aseLogo : asaLogo}
                 alt="ARK Manager"
-                className={cn("rounded-xl object-contain transform transition-transform group-hover:scale-105", isSidebarCollapsed ? "w-10 h-10" : "w-16 h-16", isASE ? "drop-shadow-[0_0_15px_rgba(245,158,11,0.3)]" : "drop-shadow-[0_0_15px_rgba(6,182,212,0.3)]")}
+                className={cn(
+                  "relative rounded-xl object-contain transform transition-transform group-hover:scale-105 border border-white/10 bg-slate-900/60 p-1 shadow-lg",
+                  isSidebarCollapsed ? "w-10 h-10" : "w-11 h-11"
+                )}
               />
             </div>
+
             {!isSidebarCollapsed && (
-              <div>
-                <h1 className={cn("text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r font-display", isASE ? "from-amber-400 to-orange-500" : "from-sky-500 to-blue-600 dark:from-cyan-400 dark:to-blue-500")}>ARK Manager</h1>
-                <p className="text-xs text-[var(--text-muted)] font-medium tracking-wide">{t('sidebar.commandCenter', 'Command Center')} 2.1</p>
+              <div className="min-w-0">
+                <h1 className={cn(
+                  "text-lg font-black tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r truncate",
+                  isASE ? "from-amber-400 via-orange-300 to-amber-500" : "from-sky-400 via-cyan-300 to-blue-500"
+                )}>
+                  ARK Manager
+                </h1>
+                <p className={cn(
+                  "text-[10px] font-bold tracking-[0.18em] uppercase leading-none mt-0.5",
+                  isASE ? "text-amber-400/80" : "text-sky-400/80"
+                )}>
+                  {t('sidebar.commandCenter', 'Command Center')} <span className="text-slate-400 font-mono">2.1</span>
+                </p>
               </div>
             )}
           </div>
@@ -236,7 +265,7 @@ export default function Sidebar() {
           <button
             onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
             className={cn(
-              "p-2 rounded-xl bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer flex items-center justify-center shadow-sm",
+              "p-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/20 text-slate-400 hover:text-white transition-all cursor-pointer flex items-center justify-center shadow-sm active:scale-95 shrink-0",
               isSidebarCollapsed ? "w-10 h-10" : ""
             )}
             title={isSidebarCollapsed ? t('sidebar.expand', 'Expand sidebar') : t('sidebar.collapse', 'Collapse sidebar')}
@@ -246,24 +275,24 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Game Switcher */}
+      {/* Game Mode Switcher (When ASE is toggled ON) */}
       {showAseMode && (
-        <div className={cn("pb-4", isSidebarCollapsed ? "px-3" : "px-5")}>
+        <div className={cn("pt-3 pb-1 shrink-0", isSidebarCollapsed ? "px-3" : "px-4")}>
           {isSidebarCollapsed ? (
             <button
               onClick={() => handleGameSwitch(activeGame === 'ASA' ? 'ASE' : 'ASA')}
               className={cn(
-                "w-12 h-10 mx-auto rounded-xl flex items-center justify-center text-xs font-black tracking-wider transition-all duration-300 border shadow-inner cursor-pointer",
+                "w-10 h-9 mx-auto rounded-xl flex items-center justify-center text-xs font-black tracking-wider transition-all duration-300 border shadow-inner cursor-pointer active:scale-95",
                 activeGame === 'ASE'
-                  ? "bg-amber-500/20 border-amber-500/30 text-amber-600 dark:text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
-                  : "bg-sky-500/20 border-sky-500/30 text-sky-600 dark:text-sky-300 shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                  ? "bg-amber-500/20 border-amber-500/40 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.25)]"
+                  : "bg-sky-500/20 border-sky-500/40 text-sky-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
               )}
               title={t('sidebar.switchGame', `Switch to ${activeGame === 'ASA' ? 'ASE' : 'ASA'}`)}
             >
               {activeGame}
             </button>
           ) : (
-            <div className="relative flex p-1 bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-inner backdrop-blur-xl">
+            <div className="relative flex p-1 bg-black/40 border border-white/[0.08] rounded-xl shadow-inner backdrop-blur-xl">
               {(['ASA', 'ASE'] as const).map((game) => {
                 const isActive = activeGame === game;
                 return (
@@ -271,23 +300,23 @@ export default function Sidebar() {
                     key={game}
                     onClick={() => handleGameSwitch(game)}
                     className={cn(
-                      "relative z-10 flex-1 py-2 rounded-xl text-[11px] font-black tracking-[0.2em] uppercase transition-colors duration-200 cursor-pointer",
+                      "relative z-10 flex-1 py-1.5 rounded-lg text-[11px] font-black tracking-[0.2em] uppercase transition-colors duration-200 cursor-pointer flex items-center justify-center gap-1.5",
                       isActive 
-                        ? (game === 'ASE' ? "text-amber-600 dark:text-amber-300 font-bold" : "text-sky-600 dark:text-sky-300 font-bold")
-                        : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                        ? (game === 'ASE' ? "text-amber-300 font-extrabold" : "text-sky-300 font-extrabold")
+                        : "text-slate-400 hover:text-slate-200"
                     )}
                   >
-                    {game}
+                    <span>{game}</span>
                     {isActive && (
                       <motion.div
                         layoutId="activeGamePill"
                         className={cn(
-                          "absolute inset-0 rounded-xl border z-[-1]",
+                          "absolute inset-0 rounded-lg border z-[-1]",
                           game === 'ASE' 
-                            ? "bg-amber-500/15 border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]" 
-                            : "bg-sky-500/15 border-sky-500/30 shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                            ? "bg-gradient-to-r from-amber-500/25 to-orange-500/25 border-amber-500/40 shadow-[0_0_15px_rgba(245,158,11,0.25)]" 
+                            : "bg-gradient-to-r from-sky-500/25 to-blue-500/25 border-sky-500/40 shadow-[0_0_15px_rgba(6,182,212,0.25)]"
                         )}
-                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                        transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
                       />
                     )}
                   </button>
@@ -298,24 +327,36 @@ export default function Sidebar() {
         </div>
       )}
 
-      {/* Search Input */}
+      {/* Quick Search Bar */}
       {!isSidebarCollapsed && (
-        <div className="px-5 pb-3">
+        <div className="px-4 pt-3 pb-2 shrink-0">
           <div className="relative group">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] group-focus-within:text-sky-500 transition-colors z-10" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-sky-400 transition-colors z-10" />
             <input
               type="text"
-              placeholder={t('sidebar.search', 'Search...')}
+              placeholder={t('sidebar.search', 'Search menu...')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl pl-10 pr-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all relative z-10 shadow-sm"
+              className="w-full bg-black/30 hover:bg-black/40 focus:bg-black/50 border border-white/[0.08] hover:border-white/15 focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none transition-all relative z-10 shadow-inner font-medium"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-slate-500 hover:text-slate-300 z-20"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* Navigation */}
-      <nav className={cn("flex-1 py-2 space-y-1 overflow-y-auto scrollbar-hide", isSidebarCollapsed ? "px-2" : "px-4")}>
+      {/* Navigation List */}
+      <nav className={cn(
+        "flex-1 py-2 space-y-1 overflow-y-auto custom-scrollbar relative z-10",
+        isSidebarCollapsed ? "px-2" : "px-3"
+      )}>
         <AnimatePresence>
           {filteredNavigation.map((item) => {
             if (item.children) {
@@ -343,26 +384,26 @@ export default function Sidebar() {
                       }
                     }}
                     className={cn(
-                      'w-full flex items-center rounded-xl transition-all duration-200 group cursor-pointer',
-                      isSidebarCollapsed ? 'justify-center p-3.5' : 'justify-between px-4 py-3',
+                      'w-full flex items-center rounded-xl transition-all duration-200 group cursor-pointer border',
+                      isSidebarCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5',
                       isChildActive || isOpen
-                        ? 'text-[var(--text-primary)] bg-[var(--surface-active)] border border-[var(--border)] shadow-sm font-bold'
-                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+                        ? 'text-white bg-white/[0.04] border-white/[0.08] shadow-sm font-bold'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.03] border-transparent'
                     )}
                     title={isSidebarCollapsed ? item.name : undefined}
                   >
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <item.icon className={cn(
-                        "w-5 h-5 transition-colors shrink-0",
-                        (isChildActive || isOpen) ? accentText : `text-[var(--text-muted)] group-hover:${accentText}`
+                        "w-4 h-4 transition-transform group-hover:scale-110 shrink-0",
+                        (isChildActive || isOpen) ? accentText : `text-slate-400 group-hover:${accentText}`
                       )} />
                       {!isSidebarCollapsed && (
-                        <span className="text-sm font-semibold tracking-wide">{item.name}</span>
+                        <span className="text-xs font-bold tracking-wide truncate">{item.name}</span>
                       )}
                     </div>
                     {!isSidebarCollapsed && (
                       <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ type: "spring", stiffness: 200, damping: 15 }}>
-                        <ChevronDown className="w-4 h-4 text-[var(--text-muted)] group-hover:text-[var(--text-primary)]" />
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300" />
                       </motion.div>
                     )}
                   </button>
@@ -376,7 +417,7 @@ export default function Sidebar() {
                         transition={{ type: "spring", stiffness: 250, damping: 25 }}
                         className="overflow-hidden"
                       >
-                        <div className="pl-3 pr-1 py-1 space-y-1 border-l-2 border-[var(--border)] ml-6">
+                        <div className="pl-3.5 pr-1 py-1 space-y-0.5 ml-4 border-l border-white/[0.08] relative">
                           {item.children.map(child => {
                             const isActive = location.pathname === child.path;
                             return (
@@ -384,20 +425,23 @@ export default function Sidebar() {
                                 key={child.path}
                                 to={child.path}
                                 className={cn(
-                                  'flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 group relative',
+                                  'flex items-center space-x-2.5 px-3 py-2 rounded-lg transition-all duration-200 group relative text-xs',
                                   isActive
-                                    ? `text-[var(--text-primary)] font-bold ${accentBg} shadow-sm border ${accentBorder}`
-                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+                                    ? `text-white font-bold ${accentBg} shadow-sm border ${accentBorder}`
+                                    : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
                                 )}
                               >
                                 {isActive && (
-                                  <motion.div layoutId={`sidebar-active-indicator-${item.name}`} className={cn("absolute left-0 w-1 h-1/2 rounded-r-full top-1/4", isASE ? "bg-amber-500" : "bg-sky-500")} />
+                                  <motion.div 
+                                    layoutId={`sidebar-sub-active-${item.name}`}
+                                    className={cn("absolute left-0 w-1 h-3/5 rounded-r-full top-1/5", accentBar)} 
+                                  />
                                 )}
                                 <child.icon className={cn(
-                                  "w-4 h-4 transition-colors shrink-0",
-                                  isActive ? accentText : `text-[var(--text-muted)] group-hover:${accentText}`
+                                  "w-3.5 h-3.5 transition-colors shrink-0",
+                                  isActive ? accentText : `text-slate-500 group-hover:${accentText}`
                                 )} />
-                                <span className="text-xs font-semibold tracking-wide">{child.name}</span>
+                                <span className="font-medium tracking-wide truncate">{child.name}</span>
                               </Link>
                             );
                           })}
@@ -421,27 +465,37 @@ export default function Sidebar() {
                 <Link
                   to={item.path || '#'}
                   className={cn(
-                    'flex items-center rounded-xl transition-all duration-200 group relative overflow-hidden',
-                    isSidebarCollapsed ? 'justify-center p-3.5' : 'space-x-3 px-4 py-3',
+                    'flex items-center rounded-xl transition-all duration-200 group relative overflow-hidden text-xs',
+                    isSidebarCollapsed ? 'justify-center p-3' : 'space-x-3 px-3.5 py-2.5',
                     isActive
-                      ? `text-[var(--text-primary)] font-bold ${accentBg} border ${accentBorder} shadow-sm`
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)]'
+                      ? `text-white font-bold bg-gradient-to-r ${accentGradient} border ${accentBorder} ${accentGlow}`
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-white/[0.04] border border-transparent'
                   )}
                   title={isSidebarCollapsed ? item.name : undefined}
                 >
+                  {/* Active Left Indicator Bar */}
                   {isActive && (
-                    <motion.div layoutId="sidebar-active-bg" className={cn("absolute inset-0 bg-gradient-to-r border rounded-xl", accentGradient, accentBorder)}></motion.div>
-                  )}
-                  <item.icon className={cn(
-                    "w-5 h-5 relative z-10 transition-colors shrink-0",
-                    isActive ? accentText : `text-[var(--text-muted)] group-hover:${accentText}`
-                  )} />
-                  {!isSidebarCollapsed && (
-                    <span className="text-[13px] font-semibold tracking-wide relative z-10">{item.name}</span>
+                    <motion.div 
+                      layoutId="sidebar-active-bar" 
+                      className={cn("absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r-full", accentBar)} 
+                    />
                   )}
 
+                  <item.icon className={cn(
+                    "w-4 h-4 relative z-10 transition-transform group-hover:scale-110 shrink-0",
+                    isActive ? `${accentText} drop-shadow-sm` : `text-slate-400 group-hover:${accentText}`
+                  )} />
+
+                  {!isSidebarCollapsed && (
+                    <span className="font-semibold tracking-wide relative z-10 truncate">{item.name}</span>
+                  )}
+
+                  {/* Active Pulse Dot on the right */}
                   {isActive && !isSidebarCollapsed && (
-                    <motion.div layoutId="sidebar-active-dot" className={cn("absolute right-3 w-1.5 h-1.5 rounded-full", accentDot)}></motion.div>
+                    <motion.div 
+                      layoutId="sidebar-active-dot" 
+                      className={cn("absolute right-3 w-1.5 h-1.5 rounded-full animate-pulse", accentDot)} 
+                    />
                   )}
                 </Link>
               </motion.div>
@@ -450,46 +504,60 @@ export default function Sidebar() {
         </AnimatePresence>
       </nav>
 
-      {/* Footer */}
-      <div className={cn("border-t border-[var(--border)]", isSidebarCollapsed ? "p-4" : "p-5")}>
+      {/* Footer System Status Card */}
+      <div className={cn("border-t border-white/[0.06] shrink-0 bg-slate-950/80", isSidebarCollapsed ? "p-3" : "p-3.5")}>
         {isSidebarCollapsed ? (
-          <div className="flex flex-col items-center justify-center gap-3">
+          <div className="flex flex-col items-center justify-center gap-2.5">
             <div
               className={cn(
-                "w-3 h-3 rounded-full animate-pulse",
+                "w-2.5 h-2.5 rounded-full animate-pulse",
                 isAnyServerRunning
-                  ? isASE ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]"
-                  : "bg-slate-400 dark:bg-slate-500 shadow-sm"
+                  ? isASE ? "bg-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.6)]" : "bg-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.6)]"
+                  : "bg-slate-600 shadow-sm"
               )}
               title={`${t('sidebar.systemStatus', 'System Status')}: ${systemStatus}`}
             />
-            <span className="text-[9px] font-mono text-[var(--text-muted)] select-none">
+            <span className="text-[9px] font-mono text-slate-500 select-none">
               v{appVersion.split('-')[0]}
             </span>
           </div>
         ) : (
-          <div className={cn("glass-panel rounded-2xl p-4 border border-[var(--border)] shadow-sm bg-gradient-to-br", isASE ? "from-amber-500/10 to-orange-500/10" : "from-sky-500/10 to-blue-500/10")}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[var(--text-primary)]">{t('sidebar.systemStatus', 'System Status')}</span>
+          <div className={cn(
+            "rounded-2xl p-3.5 border border-white/[0.08] backdrop-blur-xl shadow-lg bg-gradient-to-br space-y-3",
+            isASE ? "from-amber-500/[0.08] via-slate-900/60 to-slate-950/80" : "from-sky-500/[0.08] via-slate-900/60 to-slate-950/80"
+          )}>
+            {/* Header: System Status */}
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                {t('sidebar.systemStatus', 'System Status')}
+              </span>
               <span className={cn(
-                "text-xs font-bold",
-                isAnyServerRunning ? accentText : "text-[var(--text-muted)]"
+                "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1.5 border",
+                isAnyServerRunning 
+                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.15)]" 
+                  : "bg-slate-800/80 border-slate-700 text-slate-400"
               )}>
+                <span className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  isAnyServerRunning ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+                )} />
                 {systemStatus}
               </span>
             </div>
-            <div className="w-full bg-slate-200 dark:bg-slate-700/50 rounded-full h-1.5">
+
+            {/* Glowing Activity / Progress Bar */}
+            <div className="w-full bg-slate-900 rounded-full h-1 overflow-hidden border border-white/[0.04]">
               <div className={cn(
-                "h-1.5 rounded-full w-full",
+                "h-full rounded-full w-full transition-all duration-500",
                 isAnyServerRunning
-                  ? isASE ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.5)]"
-                  : "bg-slate-400 dark:bg-slate-600"
-              )}></div>
+                  ? isASE ? "bg-gradient-to-r from-amber-500 to-orange-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]" : "bg-gradient-to-r from-sky-500 via-cyan-400 to-blue-500 shadow-[0_0_8px_rgba(14,165,233,0.6)]"
+                  : "bg-slate-700"
+              )} />
             </div>
             
-            {/* Evolved support Toggle */}
-            <div className="mt-3.5 pt-3 border-t border-[var(--border)] flex items-center justify-between">
-              <span className="text-[11px] font-bold text-[var(--text-secondary)]">Show Evolved (ASE)</span>
+            {/* Evolved Mode Switch */}
+            <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-300">Show Evolved (ASE)</span>
               <button
                 onClick={() => {
                   const newVal = !showAseMode;
@@ -500,7 +568,7 @@ export default function Sidebar() {
                 }}
                 className={cn(
                   "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
-                  showAseMode ? (isASE ? "bg-amber-500" : "bg-sky-500") : "bg-slate-300 dark:bg-slate-700"
+                  showAseMode ? (isASE ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)]" : "bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.4)]") : "bg-slate-800 border-white/[0.08]"
                 )}
                 role="switch"
                 aria-checked={showAseMode}
@@ -508,30 +576,24 @@ export default function Sidebar() {
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                    "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out",
                     showAseMode ? "translate-x-4" : "translate-x-0"
                   )}
                 />
               </button>
             </div>
 
-            <div className="mt-3 text-[10px] text-[var(--text-muted)] flex items-center justify-center gap-1 font-mono">
-              <span>v{appVersion.replace('-0', '-beta')}</span>
-              {(appVersion.includes('beta') || appVersion.includes('-0')) && (
-                <span className={cn(
-                  "px-1 py-0.2 text-[8px] font-extrabold tracking-wider rounded uppercase scale-90 origin-center leading-none",
-                  isASE
-                    ? "bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400"
-                    : "bg-sky-500/15 border border-sky-500/30 text-sky-600 dark:text-sky-400"
-                )}>
-                  Beta
-                </span>
-              )}
-              <span>• 🐲 {isASE ? 'ASE' : 'ASA'} Manager</span>
+            {/* Version & Brand Footer */}
+            <div className="pt-1.5 border-t border-white/[0.04] text-[10px] text-slate-400 font-mono flex items-center justify-between">
+              <span className="text-slate-400">v{appVersion.replace('-0', '-beta')}</span>
+              <span className="flex items-center gap-1 text-[10px] font-sans font-semibold text-slate-300">
+                <span className={cn("w-1.5 h-1.5 rounded-full", isASE ? "bg-amber-400" : "bg-sky-400")} />
+                {isASE ? 'ASE Manager' : 'ASA Manager'}
+              </span>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </aside>
   );
 }

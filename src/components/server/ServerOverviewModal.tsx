@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { 
     X, Server as ServerIcon, Globe, HardDrive, Shield, Wifi, 
-    Copy, Eye, EyeOff, FolderOpen, Hash, GitBranch
+    Copy, Eye, EyeOff, FolderOpen, Hash, GitBranch, Key
 } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { toast } from 'react-hot-toast';
 import { openInExplorer } from '../../utils/tauri';
 import { useServerStore } from '../../stores/serverStore';
 import { useAseServerStore } from '../../ase/stores/aseServerStore';
+import InGameAdminModal from './InGameAdminModal';
 
 interface ServerOverviewModalProps {
     isOpen: boolean;
@@ -24,6 +25,7 @@ export default function ServerOverviewModal({
     publicIp,
 }: ServerOverviewModalProps) {
     const [showAdminPassword, setShowAdminPassword] = useState(false);
+    const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
     if (!isOpen || !server) return null;
 
@@ -243,9 +245,19 @@ export default function ServerOverviewModal({
                                         <button
                                             onClick={() => setShowAdminPassword(!showAdminPassword)}
                                             className="p-1 text-slate-400 hover:text-white transition-colors"
+                                            title={showAdminPassword ? "Hide password" : "Show password"}
                                         >
                                             {showAdminPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                         </button>
+                                        {adminPassword && adminPassword !== 'N/A' && (
+                                            <button
+                                                onClick={() => handleCopy(adminPassword, 'Admin Password')}
+                                                className="p-1 text-slate-400 hover:text-white transition-colors"
+                                                title="Copy Admin Password"
+                                            >
+                                                <Copy className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -258,6 +270,45 @@ export default function ServerOverviewModal({
                                     <span className="text-slate-400">Cluster ID:</span>
                                     <span className="font-mono font-bold text-purple-400">{clusterId || 'Standalone'}</span>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* In-Game Admin Console Auth Quick Card */}
+                        <div className="mt-2.5 p-3.5 bg-gradient-to-r from-amber-500/10 via-slate-950/90 to-slate-950/90 border border-amber-500/25 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="p-2 bg-amber-500/15 rounded-lg border border-amber-500/30 text-amber-400 shrink-0">
+                                    <Key className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">In-Game Admin Auth</span>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <code className="text-xs font-mono text-amber-300 bg-black/60 px-2 py-0.5 rounded border border-amber-500/20 truncate">
+                                            {adminPassword && adminPassword !== 'N/A' ? `enablecheats ${adminPassword}` : 'enablecheats <AdminPassword>'}
+                                        </code>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    onClick={() => handleCopy(
+                                        adminPassword && adminPassword !== 'N/A' ? `enablecheats ${adminPassword}` : 'enablecheats',
+                                        'In-Game enablecheats Command'
+                                    )}
+                                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 shadow-md shadow-amber-500/10"
+                                    title="Copy enablecheats Command"
+                                >
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>Copy Command</span>
+                                </button>
+                                <button
+                                    onClick={() => setIsAdminModalOpen(true)}
+                                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+                                    title="View In-Game Admin & Cheats Guide"
+                                >
+                                    <Shield className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Admin Guide</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -299,6 +350,16 @@ export default function ServerOverviewModal({
                     </button>
                 </div>
             </div>
+
+            {/* In-Game Admin & Cheats Modal */}
+            <InGameAdminModal
+                isOpen={isAdminModalOpen}
+                onClose={() => setIsAdminModalOpen(false)}
+                adminPassword={adminPassword}
+                serverName={server.name}
+                gameType={isASE ? 'ASE' : 'ASA'}
+                installPath={installPath}
+            />
         </div>,
         document.body
     );

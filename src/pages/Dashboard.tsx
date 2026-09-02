@@ -16,7 +16,7 @@ import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { updateServerCustomization as apiUpdateServerCustomization } from '../utils/serverOrganization';
 import { cn } from '../utils/helpers';
 import { getAllServers, getSystemInfo, startServer, stopServer, restartServer, cloneServer, transferSettings, extractSaveData, openInExplorer } from '../utils/tauri';
-import { listen } from '@tauri-apps/api/event';
+import { useTauriEvent } from '../hooks/useTauriEvent';
 import { invoke } from '@tauri-apps/api/core';
 import PerformanceMonitor from '../components/performance/PerformanceMonitor';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
@@ -379,52 +379,7 @@ export default function Dashboard() {
     // Sync with backend state (initial, uses refreshServers to preserve existing statuses)
     refreshServers();
 
-    // Subscribe to real-time status updates
-    let unlistenStatus: () => void;
-    let unlistenLogAnomaly: () => void;
-    let unlistenModFailure: () => void;
-
-    const setupListener = async () => {
-      unlistenStatus = await listen<{ server_id: number, status: any }>('server-status-change', (event) => {
-        console.log('⚡ Server Status Update:', event.payload);
-        updateServerStatus(event.payload.server_id, event.payload.status);
-      });
-
-      unlistenModFailure = await listen<{ server_id: number, error_type: string, details: string, suggestions: string[] }>('mod_load_failure', (event) => {
-        console.error('🧩 Mod Load Failure:', event.payload);
-        const { server_id, error_type, details, suggestions } = event.payload;
-
-        const srv = servers.find(s => s.id === server_id);
-        const serverName = srv ? srv.name : `Server ${server_id}`;
-
-        import('../stores/crashNotificationStore').then(({ useCrashNotificationStore }) => {
-          useCrashNotificationStore.getState().handleCrashEvent({
-            serverId: server_id,
-            serverName,
-            anomalyType: error_type,
-            details: `${details}\n\nSuggestions:\n${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
-          });
-        });
-      });
-
-      unlistenLogAnomaly = await listen<any>('log_anomaly', async (event) => {
-        console.log('🔥 Log Anomaly Detected:', event.payload);
-        const { server_id, anomaly_type, details } = event.payload;
-
-        const srv = servers.find(s => s.id === server_id);
-        const serverName = srv ? srv.name : `Server ${server_id}`;
-
-        import('../stores/crashNotificationStore').then(({ useCrashNotificationStore }) => {
-          useCrashNotificationStore.getState().handleCrashEvent({
-            serverId: server_id,
-            serverName,
-            anomalyType: anomaly_type,
-            details
-          });
-        });
-      });
-    };
-    setupListener();
+    refreshServers();
 
     // Poll every 10s for smooth chart data (60 points = 10 min history)
     const perfInterval = setInterval(() => {
@@ -438,11 +393,55 @@ export default function Dashboard() {
     return () => {
       clearInterval(perfInterval);
       clearInterval(serverInterval);
-      if (unlistenStatus) unlistenStatus();
-      if (unlistenLogAnomaly) unlistenLogAnomaly();
-      if (unlistenModFailure) unlistenModFailure();
     };
   }, [setServers, setSystemInfo, updateServerStatus, refreshServers]);
+
+  // Safe real-time event subscriptions
+  useTauriEvent<{ server_id: number, status: any }>(
+    'server-status-change',
+    (payload) => {
+      console.log('⚡ Server Status Update:', payload);
+      updateServerStatus(payload.server_id, payload.status);
+    }
+  );
+
+  useTauriEvent<{ server_id: number, error_type: string, details: string, suggestions: string[] }>(
+    'mod_load_failure',
+    (payload) => {
+      console.error('🧩 Mod Load Failure:', payload);
+      const { server_id, error_type, details, suggestions } = payload;
+      const srv = servers.find(s => s.id === server_id);
+      const serverName = srv ? srv.name : `Server ${server_id}`;
+
+      import('../stores/crashNotificationStore').then(({ useCrashNotificationStore }) => {
+        useCrashNotificationStore.getState().handleCrashEvent({
+          serverId: server_id,
+          serverName,
+          anomalyType: error_type,
+          details: `${details}\n\nSuggestions:\n${suggestions.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`
+        });
+      });
+    }
+  );
+
+  useTauriEvent<any>(
+    'log_anomaly',
+    (payload) => {
+      console.log('🔥 Log Anomaly Detected:', payload);
+      const { server_id, anomaly_type, details } = payload;
+      const srv = servers.find(s => s.id === server_id);
+      const serverName = srv ? srv.name : `Server ${server_id}`;
+
+      import('../stores/crashNotificationStore').then(({ useCrashNotificationStore }) => {
+        useCrashNotificationStore.getState().handleCrashEvent({
+          serverId: server_id,
+          serverName,
+          anomalyType: anomaly_type,
+          details
+        });
+      });
+    }
+  );
 
   useEffect(() => {
     servers.forEach(server => {

@@ -409,23 +409,29 @@ impl GuardianService {
                         };
 
                         let server_name: String = {
+                            let mut name = format!("Server {}", server_id);
                             if let Ok(db_guard) = state.db.lock() {
                                 if let Ok(conn) = db_guard.get_connection() {
                                     if server_id < 0 {
-                                        conn.query_row(
+                                        if let Ok(n) = conn.query_row(
                                             "SELECT name FROM ase_servers WHERE id = ?",
                                             [-server_id],
                                             |row| row.get::<_, String>(0)
-                                        ).unwrap_or_else(|_| format!("ASE Server {}", -server_id))
+                                        ) {
+                                            name = n;
+                                        }
                                     } else {
-                                        conn.query_row(
+                                        if let Ok(n) = conn.query_row(
                                             "SELECT name FROM servers WHERE id = ?",
                                             [server_id],
                                             |row| row.get::<_, String>(0)
-                                        ).unwrap_or_else(|_| format!("Server {}", server_id))
+                                        ) {
+                                            name = n;
+                                        }
                                     }
-                                } else { format!("Server {}", server_id) }
-                            } else { format!("Server {}", server_id) }
+                                }
+                            }
+                            name
                         };
 
                         if is_intentionally_stopping {

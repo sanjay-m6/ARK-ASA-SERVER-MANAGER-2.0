@@ -7,7 +7,7 @@ import { startServer, stopServer } from '../utils/tauri';
 import { Cluster, Server } from '../types';
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
-import { listen } from '@tauri-apps/api/event';
+import { useTauriEvent } from '../hooks/useTauriEvent';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
 import DiscordBridgeSettings from '../components/cluster/DiscordBridgeSettings';
 import EditClusterDialog from '../components/cluster/EditClusterDialog';
@@ -80,21 +80,16 @@ export default function ClusterManager() {
 
     useEffect(() => {
         fetchClusters();
+    }, []);
 
-        // Listen for server status changes to update cluster view in realtime
-        // Backend emits 'server-status-change' from process_manager.rs
-        const unlisten = listen('server-status-change', () => {
-            refreshServers();
-        });
-
-        return () => {
-            unlisten.then(fn => fn());
-        };
-    }, [refreshServers]);
+    // Listen for server status changes to update cluster view in realtime safely
+    useTauriEvent('server-status-change', useCallback(() => {
+        refreshServers();
+    }, [refreshServers]));
 
     const handleCreateCluster = async () => {
         if (!newClusterName.trim()) {
-            toast.error(t('clusterManager.clusterNameReq'));
+            toast.error(t('clusterManager.clusterNameReq', 'Cluster name is required'));
             return;
         }
         if (selectedServers.length < 1) {
@@ -104,13 +99,13 @@ export default function ClusterManager() {
 
         try {
             await createCluster(
-                newClusterName,
+                newClusterName.trim(),
                 selectedServers,
                 newClusterPath.trim() || undefined,
                 newClusterIdString.trim() || newClusterName.trim().replace(/\s+/g, '_'),
                 true,
             );
-            toast.success(t('clusterManager.clusterCreated'));
+            toast.success(t('clusterManager.clusterCreated', 'Cluster created successfully'));
             setNewClusterName('');
             setNewClusterPath('');
             setNewClusterIdString('');
@@ -119,7 +114,8 @@ export default function ClusterManager() {
             fetchClusters();
         } catch (error) {
             console.error('Failed to create cluster:', error);
-            toast.error(t('clusterManager.createFailed', { error: typeof error === 'string' ? error : 'Unknown error' }));
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Unknown error';
+            toast.error(t('clusterManager.createFailed', { error: errStr, defaultValue: `Failed to create cluster: ${errStr}` }));
         }
     };
 
@@ -130,12 +126,13 @@ export default function ClusterManager() {
         if (!deleteConfirmCluster) return;
         try {
             await deleteCluster(deleteConfirmCluster.id);
-            toast.success(t('clusterManager.clusterDeleted'));
+            toast.success(t('clusterManager.clusterDeleted', 'Cluster deleted successfully'));
             setDeleteConfirmCluster(null);
             fetchClusters();
         } catch (error) {
             console.error('Failed to delete cluster:', error);
-            toast.error(t('clusterManager.deleteFailed', { error: typeof error === 'string' ? error : 'Unknown error' }));
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Unknown error';
+            toast.error(t('clusterManager.deleteFailed', { error: errStr, defaultValue: `Failed to delete cluster: ${errStr}` }));
         }
     };
 
@@ -155,7 +152,8 @@ export default function ClusterManager() {
             }
         } catch (err) {
             console.error('Failed to scan cluster directories:', err);
-            toast.error('Failed to scan cluster directories');
+            const errStr = typeof err === 'string' ? err : (err as any)?.message || 'Failed to scan cluster directories';
+            toast.error(errStr);
         } finally {
             setIsScanningClusters(false);
         }
@@ -169,7 +167,8 @@ export default function ClusterManager() {
             refreshServers();
         } catch (error) {
             console.error('Failed to start cluster:', error);
-            toast.error(t('clusterManager.startFailed'));
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Failed to start cluster';
+            toast.error(errStr);
         } finally {
             setStartingCluster(null);
         }
@@ -179,11 +178,12 @@ export default function ClusterManager() {
         setStoppingCluster(clusterId);
         try {
             await stopCluster(clusterId);
-            toast.success(t('clusterManager.stopCluster'));
+            toast.success(t('clusterManager.stopCluster', 'Stopping cluster servers'));
             refreshServers();
         } catch (error) {
             console.error('Failed to stop cluster:', error);
-            toast.error(t('clusterManager.stopFailed'));
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Failed to stop cluster';
+            toast.error(errStr);
         } finally {
             setStoppingCluster(null);
         }
@@ -197,7 +197,8 @@ export default function ClusterManager() {
             refreshServers();
         } catch (error) {
             console.error('Failed to restart cluster:', error);
-            toast.error('Failed to restart cluster');
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || 'Failed to restart cluster';
+            toast.error(errStr);
         } finally {
             setRestartingCluster(null);
         }
@@ -219,7 +220,8 @@ export default function ClusterManager() {
             }
         } catch (error) {
             console.error('Failed to validate cluster:', error);
-            toast.error(t('clusterManager.validationFailed', 'Failed to validate cluster configuration'));
+            const errStr = typeof error === 'string' ? error : (error as any)?.message || t('clusterManager.validationFailed', 'Failed to validate cluster configuration');
+            toast.error(errStr);
         } finally {
             setValidatingClusterId(null);
         }

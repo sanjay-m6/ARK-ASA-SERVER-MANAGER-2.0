@@ -104,6 +104,37 @@ impl Platform {
         }
     }
 
+    /// Returns a fallback cluster directory in the user's home folder if root C: is not writable
+    pub fn fallback_cluster_dir() -> PathBuf {
+        if let Some(home) = self::home_dir() {
+            home.join("ASA_Clusters")
+        } else {
+            Self::default_cluster_dir()
+        }
+    }
+
+    /// Returns the default root ASE cluster directory for the current OS
+    pub fn default_ase_cluster_dir() -> PathBuf {
+        if cfg!(target_os = "windows") {
+            PathBuf::from("C:/ASE_Clusters")
+        } else {
+            if let Some(home) = self::home_dir() {
+                home.join("ASE_Clusters")
+            } else {
+                PathBuf::from("/var/clusters/ase_server_manager")
+            }
+        }
+    }
+
+    /// Returns a fallback ASE cluster directory in the user's home folder
+    pub fn fallback_ase_cluster_dir() -> PathBuf {
+        if let Some(home) = self::home_dir() {
+            home.join("ASE_Clusters")
+        } else {
+            Self::default_ase_cluster_dir()
+        }
+    }
+
     /// Return Windows CREATE_NO_WINDOW creation flag (0x08000000 on Windows, 0 on non-Windows)
     pub fn creation_flags() -> u32 {
         if cfg!(target_os = "windows") {

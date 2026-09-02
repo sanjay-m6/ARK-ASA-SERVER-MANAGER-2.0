@@ -906,7 +906,9 @@ fn backup_plugins(install_path: &std::path::Path) -> Option<std::path::PathBuf> 
     Some(backup_dir)
 }
 
-/// Restore plugin loaders & AsaApi directory after SteamCMD completes
+/// Restore plugin loaders & AsaApi directory after SteamCMD completes.
+/// Proxy DLLs are intentionally restored with .disabled extension to quarantine them until verified,
+/// preventing updated server binaries from immediately crashing on startup due to stale memory offsets.
 fn restore_plugins(install_path: &std::path::Path, backup_dir: Option<std::path::PathBuf>) {
     let Some(backup_dir) = backup_dir else { return };
     if !backup_dir.exists() {
@@ -921,16 +923,26 @@ fn restore_plugins(install_path: &std::path::Path, backup_dir: Option<std::path:
 
     let proxy_dlls = [
         "version.dll",
-        "version.dll.disabled",
         "winhttp.dll",
         "dxgi.dll",
         "psapi.dll",
     ];
     for dll in &proxy_dlls {
-        let backup_file = backup_dir.join(dll);
-        let target_file = win64_dir.join(dll);
-        if backup_file.exists() && !target_file.exists() {
-            let _ = std::fs::copy(&backup_file, &target_file);
+        let backup_active = backup_dir.join(dll);
+        let backup_disabled = backup_dir.join(format!("{}.disabled", dll));
+        let target_disabled = win64_dir.join(format!("{}.disabled", dll));
+        let target_active = win64_dir.join(dll);
+
+        // If an active proxy DLL existed before update, remove active version from Win64 and save as .disabled
+        if target_active.exists() {
+            let _ = std::fs::remove_file(&target_active);
+        }
+
+        if backup_active.exists() {
+            let _ = std::fs::copy(&backup_active, &target_disabled);
+            println!("  🛡️ [AUTO-QUARANTINE] Stored proxy DLL {:?} as {:?} to prevent startup crash after game update.", dll, target_disabled.file_name().unwrap_or_default());
+        } else if backup_disabled.exists() && !target_disabled.exists() {
+            let _ = std::fs::copy(&backup_disabled, &target_disabled);
         }
     }
 
