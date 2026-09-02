@@ -40,7 +40,9 @@ impl PluginManagerService {
             .join("Win64");
 
         if !win64_dir.exists() {
-            return Err("Server binaries directory not found. Please install the server first.".to_string());
+            if let Err(e) = std::fs::create_dir_all(&win64_dir) {
+                return Err(format!("Failed to create server binaries directory: {}", e));
+            }
         }
 
         let asa_api_parent = win64_dir.join("AsaApi");

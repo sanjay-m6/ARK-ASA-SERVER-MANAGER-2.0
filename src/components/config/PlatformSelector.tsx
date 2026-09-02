@@ -310,94 +310,96 @@ export const PlatformSelector: React.FC<PlatformSelectorProps> = ({
             <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-cyan-600/10 blur-3xl rounded-full pointer-events-none" />
 
             {/* Header Section */}
-            <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-[var(--border)] pb-5">
-                <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 border border-violet-400/30 flex items-center justify-center shadow-lg shadow-violet-600/30 shrink-0">
-                        <ShieldCheck className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                            <h3 className="text-lg font-bold text-[var(--text-primary)] tracking-tight">
-                                Platform Access Control
-                            </h3>
-                            <span className={cn(
-                                "px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1.5",
-                                isFullCrossplay
-                                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
-                                    : isPcOnly
-                                    ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-400"
-                                    : "bg-violet-500/15 border-violet-500/30 text-violet-400"
-                            )}>
-                                <span className={cn(
-                                    "w-1.5 h-1.5 rounded-full",
-                                    isFullCrossplay ? "bg-emerald-400" : isPcOnly ? "bg-cyan-400" : "bg-violet-400"
-                                )} />
-                                {isFullCrossplay ? 'Full Crossplay' : isPcOnly ? 'PC Exclusive' : isConsolesOnly ? 'Consoles Only' : `Custom (${activeCount}/4)`}
-                            </span>
+            <div className="relative flex flex-col gap-4 border-b border-[var(--border)] pb-5">
+                <div className="flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3.5 min-w-0">
+                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 border border-violet-400/30 flex items-center justify-center shadow-lg shadow-violet-600/30 shrink-0 mt-0.5">
+                            <ShieldCheck className="w-5 h-5 text-white" />
                         </div>
-                        <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed max-w-2xl">
-                            Control multi-platform player connectivity with native Unreal Engine <code className="text-violet-400 font-mono bg-[var(--surface-hover)] px-1.5 py-0.5 rounded border border-[var(--border)]">-ServerPlatform</code> arguments.
-                        </p>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                                <h3 className="text-lg font-bold text-[var(--text-primary)] tracking-tight whitespace-nowrap">
+                                    Platform Access Control
+                                </h3>
+                                <span className={cn(
+                                    "px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1.5 whitespace-nowrap shrink-0",
+                                    isFullCrossplay
+                                        ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                                        : isPcOnly
+                                        ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-400"
+                                        : "bg-violet-500/15 border-violet-500/30 text-violet-400"
+                                )}>
+                                    <span className={cn(
+                                        "w-1.5 h-1.5 rounded-full",
+                                        isFullCrossplay ? "bg-emerald-400" : isPcOnly ? "bg-cyan-400" : "bg-violet-400"
+                                    )} />
+                                    {isFullCrossplay ? 'Full Crossplay' : isPcOnly ? 'PC Exclusive' : isConsolesOnly ? 'Consoles Only' : `Custom (${activeCount}/4)`}
+                                </span>
+                            </div>
+                            <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed">
+                                Control multi-platform player connectivity with native Unreal Engine <code className="text-violet-400 font-mono bg-[var(--surface-hover)] px-1.5 py-0.5 rounded border border-[var(--border)] whitespace-nowrap">-ServerPlatform</code> arguments.
+                            </p>
+                        </div>
                     </div>
-                </div>
 
-                {/* 1-Click Fast Presets */}
-                <div className="flex items-center gap-2 flex-wrap shrink-0">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1 mr-1">
-                        <Sparkles className="w-3.5 h-3.5 text-violet-400" /> Presets:
-                    </span>
+                    {/* 1-Click Fast Presets */}
+                    <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1 mr-1">
+                            <Sparkles className="w-3.5 h-3.5 text-violet-400" /> Presets:
+                        </span>
 
-                    <button
-                        type="button"
-                        onClick={() => applyPreset('fullCrossplay')}
-                        className={cn(
-                            "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
-                            isFullCrossplay
-                                ? "bg-violet-600 border-violet-400 text-white shadow-lg shadow-violet-600/30"
-                                : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                        )}
-                    >
-                        <Globe className="w-3.5 h-3.5" /> Full Crossplay
-                    </button>
+                        <button
+                            type="button"
+                            onClick={() => applyPreset('fullCrossplay')}
+                            className={cn(
+                                "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer whitespace-nowrap",
+                                isFullCrossplay
+                                    ? "bg-violet-600 border-violet-400 text-white shadow-lg shadow-violet-600/30"
+                                    : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            )}
+                        >
+                            <Globe className="w-3.5 h-3.5" /> Full Crossplay
+                        </button>
 
-                    <button
-                        type="button"
-                        onClick={() => applyPreset('pcOnly')}
-                        className={cn(
-                            "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
-                            isPcOnly
-                                ? "bg-cyan-600 border-cyan-400 text-white shadow-lg shadow-cyan-600/30"
-                                : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                        )}
-                    >
-                        <Laptop className="w-3.5 h-3.5" /> PC Only
-                    </button>
+                        <button
+                            type="button"
+                            onClick={() => applyPreset('pcOnly')}
+                            className={cn(
+                                "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer whitespace-nowrap",
+                                isPcOnly
+                                    ? "bg-cyan-600 border-cyan-400 text-white shadow-lg shadow-cyan-600/30"
+                                    : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            )}
+                        >
+                            <Laptop className="w-3.5 h-3.5" /> PC Only
+                        </button>
 
-                    <button
-                        type="button"
-                        onClick={() => applyPreset('consolesOnly')}
-                        className={cn(
-                            "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
-                            isConsolesOnly
-                                ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-600/30"
-                                : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                        )}
-                    >
-                        <Gamepad2 className="w-3.5 h-3.5" /> Consoles Only
-                    </button>
+                        <button
+                            type="button"
+                            onClick={() => applyPreset('consolesOnly')}
+                            className={cn(
+                                "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer whitespace-nowrap",
+                                isConsolesOnly
+                                    ? "bg-blue-600 border-blue-400 text-white shadow-lg shadow-blue-600/30"
+                                    : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            )}
+                        >
+                            <Gamepad2 className="w-3.5 h-3.5" /> Consoles Only
+                        </button>
 
-                    <button
-                        type="button"
-                        onClick={() => applyPreset('allPcClients')}
-                        className={cn(
-                            "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer",
-                            isAllPcClients
-                                ? "bg-sky-600 border-sky-400 text-white shadow-lg shadow-sky-600/30"
-                                : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                        )}
-                    >
-                        <Layers className="w-3.5 h-3.5" /> All PC Stores
-                    </button>
+                        <button
+                            type="button"
+                            onClick={() => applyPreset('allPcClients')}
+                            className={cn(
+                                "px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-150 flex items-center gap-1.5 cursor-pointer whitespace-nowrap",
+                                isAllPcClients
+                                    ? "bg-sky-600 border-sky-400 text-white shadow-lg shadow-sky-600/30"
+                                    : "bg-[var(--surface-hover)] hover:bg-[var(--surface-active)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                            )}
+                        >
+                            <Layers className="w-3.5 h-3.5" /> All PC Stores
+                        </button>
+                    </div>
                 </div>
             </div>
 

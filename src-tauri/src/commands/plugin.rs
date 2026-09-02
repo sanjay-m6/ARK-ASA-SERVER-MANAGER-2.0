@@ -392,7 +392,8 @@ pub async fn install_asa_api(
         .join("Win64");
 
     if !win64_dir.exists() {
-        return Err("Server binaries directory not found. Please install the server first.".to_string());
+        fs::create_dir_all(&win64_dir)
+            .map_err(|e| format!("Failed to create server binaries directory: {}", e))?;
     }
 
     println!("[ASA-API] Fetching latest AsaApi release from GitHub...");

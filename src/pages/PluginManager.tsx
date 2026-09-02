@@ -824,6 +824,33 @@ export default function PluginManager() {
                 </div>
             )}
 
+            {/* Loading state when scan result is not yet available */}
+            {selectedServerId && isLoading && !scanResult && (
+                <div className="flex flex-col items-center justify-center py-24 glass-panel rounded-2xl border border-slate-800 animate-in fade-in duration-300">
+                    <Loader2 className="w-10 h-10 text-violet-500 animate-spin mb-4" />
+                    <p className="text-slate-300 text-base font-semibold">{t('plugins.scanningFolder', 'Scanning plugins folder...')}</p>
+                    <p className="text-slate-500 text-sm mt-1">{t('plugins.loadingDetails', 'Checking server directory and plugin configurations.')}</p>
+                </div>
+            )}
+
+            {/* Error or unable to load state */}
+            {selectedServerId && !isLoading && !scanResult && (
+                <div className="text-center py-20 glass-panel rounded-2xl border-dashed border-2 border-slate-700/50 animate-in fade-in duration-300">
+                    <AlertTriangle className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-bold text-white">{t('plugins.unableToLoad', 'Plugins Unavailable')}</h3>
+                    <p className="text-slate-400 mt-2 mb-6 max-w-md mx-auto leading-relaxed text-sm">
+                        {t('plugins.unableToLoadDesc', 'Could not load plugin data for this server. Check that the server directory exists and is accessible.')}
+                    </p>
+                    <button
+                        onClick={() => loadPluginData()}
+                        className="inline-flex items-center space-x-2 px-5 py-2.5 bg-violet-600/20 hover:bg-violet-500/30 text-violet-300 border border-violet-500/30 rounded-xl transition-all font-semibold cursor-pointer text-sm"
+                    >
+                        <RefreshCw className="w-4 h-4" />
+                        <span>{t('plugins.retry', 'Retry Scan')}</span>
+                    </button>
+                </div>
+            )}
+
             {/* Inactive Server Selected details */}
             {!selectedServerId && (
                 <div className="text-center py-20 glass-panel rounded-2xl border-dashed border-2 border-slate-700/50">
