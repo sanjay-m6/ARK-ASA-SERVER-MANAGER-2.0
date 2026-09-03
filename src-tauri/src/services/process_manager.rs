@@ -488,7 +488,7 @@ impl ProcessManager {
                                 "server-lifecycle-event",
                                 ServerLifecycleEvent {
                                     server_id: *id,
-                                    event: if status_code == 0 || status_code == 1 || status_code == 3 || is_authorized { "STOP".to_string() } else { "CRASH".to_string() },
+                                    event: if (status_code == 0 || status_code == 1 || status_code == 3 || is_authorized) && (is_authorized || proc.has_been_online) { "STOP".to_string() } else { "CRASH".to_string() },
                                     reason: Some(reason_str),
                                     exit_code: Some(status_code),
                                     uptime_seconds: Some(uptime),
@@ -748,7 +748,7 @@ impl ProcessManager {
                 }
 
                 // Now process crashed servers without holding the lock
-                for (id, exit_code, query_port, ip_address, _has_been_online, is_authorized) in crashed_servers {
+                for (id, exit_code, query_port, ip_address, has_been_online, is_authorized) in crashed_servers {
                     // Determine status based on exit code and authorization
                     // Exit code 0 = normal stop, anything else = crash/error
                     // CRITICAL UE5 (ARK ASA) process handoff check:
@@ -778,12 +778,12 @@ impl ProcessManager {
                                 id, exit_code, query_port
                             );
                             "online" // Port is in use, server process still alive
-                        } else if exit_code == 0 || exit_code == 1 || exit_code == 3 {
-                            "stopped" // Clean or standard UE5 shutdown exit without being authorized and not running
+                        } else if has_been_online && (exit_code == 0 || exit_code == 1 || exit_code == 3) {
+                            "stopped" // Clean or standard UE5 shutdown exit after running
                         } else {
                             println!(
-                                "  💥 Server {} genuinely crashed (code {}, port {} free, not reachable).",
-                                id, exit_code, query_port
+                                "  💥 Server {} genuinely crashed / failed to start (code {}, port {} free, has_been_online: {}).",
+                                id, exit_code, query_port, has_been_online
                             );
                             "crashed"
                         }
@@ -1002,7 +1002,7 @@ impl ProcessManager {
         }
 
         // Check ports before starting with graceful wait for sockets in TIME_WAIT from recent stops
-        for &(port_name, port_val) in &[("Game", game_port), ("Query", query_port), ("RCON", rcon_port)] {
+        for &(port_name, port_val) in &[("Game", game_port), ("Peer", game_port + 1), ("Query", query_port), ("RCON", rcon_port)] {
             let mut wait_attempts = 0;
             while network::is_port_in_use(port_val) {
                 if wait_attempts < 10 {
@@ -1065,7 +1065,18 @@ impl ProcessManager {
         if let Some(ip) = ip_address {
             let trimmed_ip = ip.trim();
             if !trimmed_ip.is_empty() && trimmed_ip != "0.0.0.0" && trimmed_ip != "127.0.0.1" {
-                args.push(format!("-MultiHome={}", trimmed_ip));
+                if crate::services::network::is_local_interface_ip(trimmed_ip) {
+                    args.push(format!("-MultiHome={}", trimmed_ip));
+                } else {
+                    println!(
+                        "  ⚠️ [IP BINDING GUARD] '{}' is NOT a local network adapter IP on this machine! Omitting -MultiHome to prevent UE5 socket bind crash (WSAEADDRNOTAVAIL).",
+                        trimmed_ip
+                    );
+                    log::warn!(
+                        "[IP BINDING GUARD] Server {} IP '{}' is not assigned to any local network adapter. Omitting -MultiHome.",
+                        server_id, trimmed_ip
+                    );
+                }
             }
         }
 

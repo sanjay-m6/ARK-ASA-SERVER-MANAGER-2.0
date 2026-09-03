@@ -2080,7 +2080,14 @@ impl SchedulerService {
                 None => continue,
             };
 
-            if local_build != remote_build {
+            let local_num = local_build.trim().parse::<u64>().ok();
+            let remote_num = remote_build.trim().parse::<u64>().ok();
+            let is_outdated = match (local_num, remote_num) {
+                (Some(l), Some(r)) => r > l,
+                _ => local_build != remote_build,
+            };
+
+            if is_outdated {
                 log::warn!("🚀 [AutoUpdate] New Steam build detected for server {} ({})! Local {} vs Remote {}", server_id, name, local_build, remote_build);
 
                 let is_running = state.process_manager.is_running(server_id);

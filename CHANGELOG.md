@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.6.19] — 2026-09-03
+
+### Added
+- **📦 Server Presets & Templates Hub**:
+  - Full server preset & template export, import, starter library (PvE Casual, PvP Hardcore, Primal Chaos, Small Tribes, Ultra Boosted 25x, etc.), and 1-click apply server rates, INIs, and modpacks.
+  - Clone Server and Export as Template actions in Server Manager.
+- **🔌 UPnP Peer Port Forwarding**: Added Peer Port (`game_port + 1`, 7778 UDP) to the UPnP port forwarding matrix.
+
+### Fixed
+- **🛡️ Public IP & MultiHome UE5 Socket Protection**: Added `is_local_interface_ip` to validate local network adapters, automatically omitting `-MultiHome` for external IPs to prevent `WSAEADDRNOTAVAIL` 10049 UE5 socket crashes and offline listing on trackers like `ASA-Server.de`.
+- **🔄 Startup Failure & Exit Code 1 / Code 0 Crash Recovery**: Fixed pre-online process terminations being misclassified as "stopped" instead of "crashed", enabling Guardian auto-restart and diagnostics. Added `PeerPort` (7778) to pre-startup port cleanup loop.
+- **📊 Build Version Comparison Optimization**: Parsed numeric build numbers in version check logic to prevent false-positive update banners.
+
+---
+
+## [4.6.18] — 2026-09-02
+
+### Added
+- **🐕 Mod Update Watchdog Persistence & Auto-Recovery**: Added `mod_watchdog_settings` SQLite table with automatic background reload.
+- **🎯 RCON Give Items Player UID / EOS ID Resolution**: Auto-resolved player profile IDs for RCON `GiveItemToPlayer`.
+- **💾 RCON Verified Save Validation & Deep Search**: Added recursive `.ark` search and size/integrity validation.
+- **⚙️ GameUserSettings.ini & Game.ini Visual Editor Cleanup**: Restructured breeding multipliers and loot quality under appropriate sections.
+- **🧹 Clean INI Generation**: Removed redundant `SessionName=` and obsolete sections from INIs.
+- **👑 In-Game Admin Management & Privilege Setup Modal**: Fast in-game cheat privilege setup.
+- **🩺 Crash Doctor & Post-Update Recovery Suite**: Recovery suite for post-update UE5 DLL hooks.
+
+---
+
 ## [4.6.15] — 2026-08-20
 
 ### Fixed

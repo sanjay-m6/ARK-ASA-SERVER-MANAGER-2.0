@@ -742,10 +742,15 @@ impl ConfigGenerator {
             cmd.push_str("?RCONEnabled=True");
         }
 
-        // Add MultiHome for IP binding
+        // Add MultiHome for IP binding only if a valid local network adapter IP is provided
         if let Some(ref ip) = config.ip_address {
-            if !ip.is_empty() {
-                cmd.push_str(&format!(" -MultiHome={}", ip));
+            let trimmed = ip.trim();
+            if !trimmed.is_empty() && trimmed != "0.0.0.0" && trimmed != "127.0.0.1" {
+                if crate::services::network::is_local_interface_ip(trimmed) {
+                    cmd.push_str(&format!(" -MultiHome={}", trimmed));
+                } else {
+                    log::warn!("[IP BINDING GUARD] Config IP '{}' is not a local adapter IP. Skipping -MultiHome in launch command.", trimmed);
+                }
             }
         }
 
@@ -1176,19 +1181,24 @@ impl ConfigGenerator {
         );
 
         if let Some(ref ip) = ip_address {
-            if !ip.is_empty() {
-                final_gus = crate::services::ini_parser::IniParser::update_key(
-                    &final_gus,
-                    "ServerSettings",
-                    "IPAddress",
-                    ip,
-                );
-                final_gus = crate::services::ini_parser::IniParser::update_key(
-                    &final_gus,
-                    "URL",
-                    "MultiHome",
-                    ip,
-                );
+            let trimmed = ip.trim();
+            if !trimmed.is_empty() && trimmed != "0.0.0.0" && trimmed != "127.0.0.1" {
+                if crate::services::network::is_local_interface_ip(trimmed) {
+                    final_gus = crate::services::ini_parser::IniParser::update_key(
+                        &final_gus,
+                        "ServerSettings",
+                        "IPAddress",
+                        trimmed,
+                    );
+                    final_gus = crate::services::ini_parser::IniParser::update_key(
+                        &final_gus,
+                        "URL",
+                        "MultiHome",
+                        trimmed,
+                    );
+                } else {
+                    log::warn!("[IP BINDING GUARD] Server IP '{}' is not a local adapter IP. Skipping MultiHome in GameUserSettings.ini.", trimmed);
+                }
             }
         }
 

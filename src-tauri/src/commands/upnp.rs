@@ -104,6 +104,7 @@ pub async fn forward_server_ports(
 
     let ports_to_forward = vec![
         (game_port as u16, "UDP", format!("ASM - {} Game", server_name)),
+        ((game_port + 1) as u16, "UDP", format!("ASM - {} Peer", server_name)),
         (query_port as u16, "UDP", format!("ASM - {} Query", server_name)),
         (rcon_port as u16, "TCP", format!("ASM - {} RCON", server_name)),
     ];

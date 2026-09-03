@@ -13,6 +13,8 @@ import { cn } from '../utils/helpers';
 import ImportServerDialog from '../components/server/ImportServerDialog';
 import ImportNonDedicatedDialog from '../components/server/ImportNonDedicatedDialog';
 import ExportProfileModal from '../components/server/ExportProfileModal';
+import ServerPresetModal from '../components/presets/ServerPresetModal';
+import { ArkServerPreset } from '../types/preset.types';
 import CloneOptionsModal from '../components/server/CloneOptionsModal';
 import MoveServerDialog from '../components/server/MoveServerDialog';
 import ConfirmDialog from '../components/ui/ConfirmDialog';
@@ -79,6 +81,32 @@ export default function ServerManager() {
     const [showNonDedicatedImport, setShowNonDedicatedImport] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
     const [exportTargetServerIds, setExportTargetServerIds] = useState<number[]>([]);
+    const [showPresetModal, setShowPresetModal] = useState(false);
+    const [presetModalInitialTab, setPresetModalInitialTab] = useState<'library' | 'export' | 'import'>('library');
+    const [presetModalInitialServerId, setPresetModalInitialServerId] = useState<number | undefined>(undefined);
+
+    const handleOpenPresetModal = (tab: 'library' | 'export' | 'import' = 'library', serverId?: number) => {
+        setPresetModalInitialTab(tab);
+        setPresetModalInitialServerId(serverId);
+        setShowPresetModal(true);
+    };
+
+    const handleCreateServerFromPreset = (preset: ArkServerPreset) => {
+        useInstallStore.getState().setDraftSetup({
+            step: 1,
+            formData: {
+                name: `${preset.name}`,
+                serverType: preset.serverType,
+                mapName: preset.targetMap || (preset.serverType === 'ASE' ? 'TheIsland' : 'TheIsland_WP'),
+                pveMode: preset.serverSettings?.pveMode ?? true,
+                crossplay: preset.serverSettings?.crossplay ?? true,
+                maxPlayers: preset.serverSettings?.maxPlayers ?? 70,
+            },
+            baseDir: '',
+        });
+        useInstallStore.getState().setDraftOpen(true);
+    };
+
     const [updateOnStart, setUpdateOnStart] = useState(false);
     const [serverUpdateSettings, setServerUpdateSettings] = useState<Record<number, { auto_update: boolean, update_on_start: boolean }>>({});
     const [crashDoctorServer, setCrashDoctorServer] = useState<Server | null>(null);
@@ -1487,6 +1515,13 @@ export default function ServerManager() {
                                 <span>Clone Server</span>
                             </button>
                             <button
+                                onClick={() => handleOpenPresetModal('export', server.id)}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-violet-500/15 text-violet-700 dark:text-violet-300 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)]"
+                            >
+                                <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+                                <span>Export as Template</span>
+                            </button>
+                            <button
                                 onClick={() => handleClearModCache(server.id)}
                                 className="w-full text-left px-3 py-2 text-xs hover:bg-orange-500/15 text-orange-700 dark:text-orange-400 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)]"
                             >
@@ -1935,12 +1970,12 @@ export default function ServerManager() {
                         <span>{t('serverManager.buttons.importSave')}</span>
                     </button>
                     <button
-                        onClick={(e) => handleExportProfile(undefined, e)}
-                        className="flex items-center gap-2 h-11 px-4 bg-violet-500/10 hover:bg-violet-500/20 text-violet-600 dark:text-violet-300 border border-violet-500/30 rounded-xl transition-all text-xs font-semibold whitespace-nowrap shadow-md shadow-violet-500/10 active:scale-95 cursor-pointer"
-                        title="Export single, selected, or all server profiles to JSON"
+                        onClick={() => handleOpenPresetModal('library')}
+                        className="flex items-center gap-2 h-11 px-4 bg-gradient-to-r from-violet-500/15 to-purple-500/15 hover:from-violet-500/25 hover:to-purple-500/25 text-violet-600 dark:text-violet-300 border border-violet-500/30 rounded-xl transition-all text-xs font-semibold whitespace-nowrap shadow-md shadow-violet-500/10 active:scale-95 cursor-pointer"
+                        title="Server Templates & Presets: export, import, and 1-click apply server rates, INIs, and modpacks"
                     >
-                        <Download className="w-4 h-4 text-violet-500 shrink-0" />
-                        <span>{t('serverManager.buttons.exportProfiles', 'Export Profiles')}</span>
+                        <Sparkles className="w-4 h-4 text-violet-400 shrink-0" />
+                        <span>Templates & Presets</span>
                     </button>
                     <button
                         onClick={() => setDraftOpen(true)}
@@ -2692,6 +2727,24 @@ export default function ServerManager() {
                                                                           <span>{t('serverManager.buttons.editRawIni', 'Edit Files Manually (IDE)')}</span>
                                                                       </button>
                                                                       <button
+                                                                          onClick={() => openCloneModal(server)}
+                                                                          className="w-full text-left px-3 py-2 hover:bg-sky-500/15 text-[var(--text-secondary)] hover:text-sky-600 dark:hover:text-sky-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-[var(--border)]"
+                                                                      >
+                                                                          <div className="w-6 h-6 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-500 group-hover/item:scale-110 transition-transform">
+                                                                              <Copy className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <span>{t('serverManager.tooltips.clone', 'Clone Server')}</span>
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={() => handleOpenPresetModal('export', server.id)}
+                                                                          className="w-full text-left px-3 py-2 hover:bg-violet-500/15 text-[var(--text-secondary)] hover:text-violet-600 dark:hover:text-violet-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-[var(--border)]"
+                                                                      >
+                                                                          <div className="w-6 h-6 rounded-lg bg-violet-500/15 flex items-center justify-center text-violet-500 group-hover/item:scale-110 transition-transform">
+                                                                              <Sparkles className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <span>Export as Template</span>
+                                                                      </button>
+                                                                      <button
                                                                           onClick={() => navigate('/tools/files', { state: { initialPath: server.installPath } })}
                                                                           className="w-full text-left px-3 py-2 hover:bg-sky-500/15 text-[var(--text-secondary)] hover:text-sky-600 dark:hover:text-sky-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-[var(--border)]"
                                                                       >
@@ -2708,15 +2761,6 @@ export default function ServerManager() {
                                                                               <FolderOpen className="w-3.5 h-3.5" />
                                                                           </div>
                                                                           <span>{t('serverManager.tooltips.move', 'Move Server')}</span>
-                                                                      </button>
-                                                                      <button
-                                                                          onClick={() => openCloneModal(server)}
-                                                                          className="w-full text-left px-3 py-2 hover:bg-sky-500/15 text-[var(--text-secondary)] hover:text-sky-600 dark:hover:text-sky-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-[var(--border)]"
-                                                                      >
-                                                                          <div className="w-6 h-6 rounded-lg bg-sky-500/15 flex items-center justify-center text-sky-500 group-hover/item:scale-110 transition-transform">
-                                                                              <Copy className="w-3.5 h-3.5" />
-                                                                          </div>
-                                                                          <span>{t('serverManager.tooltips.clone', 'Clone Server')}</span>
                                                                       </button>
                                                                       <button
                                                                           onClick={() => handleClearModCache(server.id)}
@@ -3208,6 +3252,16 @@ export default function ServerManager() {
                 onClose={() => setShowExportModal(false)}
                 servers={servers}
                 initialSelectedServerIds={exportTargetServerIds}
+            />
+
+            {/* Server Preset & Template Hub Modal */}
+            <ServerPresetModal
+                isOpen={showPresetModal}
+                onClose={() => setShowPresetModal(false)}
+                servers={servers}
+                initialServerId={presetModalInitialServerId}
+                initialTab={presetModalInitialTab}
+                onCreateServerFromPreset={handleCreateServerFromPreset}
             />
 
             {/* Clone Options Modal */}

@@ -126,6 +126,11 @@ export const useServerStore = create<ServerStore>((set, get) => ({
         if (!localVer || !latestPublicVersion) return false;
         const match = localVer.match(/Build\s+(\d+)/i);
         if (match && match[1]) {
+            const localNum = parseInt(match[1].trim(), 10);
+            const remoteNum = parseInt(latestPublicVersion.trim(), 10);
+            if (!isNaN(localNum) && !isNaN(remoteNum)) {
+                return remoteNum > localNum;
+            }
             return match[1].trim() !== latestPublicVersion.trim();
         }
         if (localVer.startsWith('Build ')) {

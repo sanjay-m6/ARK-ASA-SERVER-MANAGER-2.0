@@ -109,7 +109,7 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 label: 'Server IP Address',
                 type: 'text',
                 defaultValue: '',
-                description: 'Bind server to specific IP address (leave empty for all interfaces)'
+                description: 'Local network adapter IP to bind to (e.g., 192.168.1.50). Leave EMPTY for standard setups. Do NOT enter your Public WAN IP.'
             },
             {
                 section: 'ServerSettings',

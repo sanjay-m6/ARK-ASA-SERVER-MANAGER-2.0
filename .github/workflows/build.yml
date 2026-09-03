@@ -89,7 +89,31 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Improvements in v4.6.18
+            ### 🆕 New Features & Improvements in v4.6.19
+            - **📦 Server Presets & Templates Hub**:
+              - Added a comprehensive Server Presets & Templates Hub for instant server configuration, cloning, and community sharing.
+              - Ships with built-in community templates: *PvE Casual (5x)*, *PvP Hardcore*, *Primal Chaos (10x)*, *Small Tribes Official (3x)*, *Ultra Boosted (25x)*, and *Modded Extinction*.
+              - 1-Click apply to instantly configure multipliers, server settings, and mod setups with safety confirmation modals.
+              - Export custom server setups to portable `.json` preset files or import community presets effortlessly.
+              - Added direct "Save as Template" and "Clone Server" actions into the Server Manager workspace.
+            - **🛡️ Public IP & MultiHome UE5 Socket Protection**:
+              - Resolved critical Unreal Engine 5 startup crashes (`WSAEADDRNOTAVAIL` 10049) when users entered their Public WAN IP in the server settings.
+              - Added intelligent network interface validation (`is_local_interface_ip`) to verify whether configured IP addresses belong to physical local network adapters.
+              - Automatically omits `-MultiHome` when an external IP is detected, logging an informative warning instead of failing socket binding.
+              - Fixed external server lists and community trackers (such as `ASA-Server.de`, BattleMetrics) reporting servers as offline due to improper IP binding.
+            - **🔄 Startup Failure & Exit Code 1 / Code 0 Crash Recovery**:
+              - Fixed an issue where servers failing during startup before ever reaching `online` were misclassified as normal `"stopped"` when exiting with code 0 or 1.
+              - Pre-start socket monitoring now checks `PeerPort` (`game_port + 1`, e.g., 7778 UDP) to ensure lingering `TIME_WAIT` sockets from recent restarts are cleanly released before relaunching.
+              - Enforced proper `crashed` status classification for unauthorized early exits, triggering Guardian watchdog auto-recovery, diagnostics, and Discord notifications.
+            - **🔌 UPnP Port Forwarding Peer Port Addition**:
+              - Added Peer Port (`game_port + 1`, 7778 UDP) to the UPnP port forwarding matrix alongside Game, Query, and RCON ports for routers with UPnP enabled.
+            - **📊 Build Version Comparison Optimization**:
+              - Refactored version check comparison in `serverStore.ts` to parse numeric build numbers, preventing false-positive update banners.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.18 — Mod Watchdog Persistence, RCON GiveItem UID Resolution & Save Validation</summary>
+
             - **🐕 Mod Update Watchdog Persistence & Auto-Recovery**:
               - Fixed an issue where the Mod Update Watchdog disabled itself upon exiting or restarting the application.
               - Added dedicated SQLite database table `mod_watchdog_settings` with automatic schema migrations.
@@ -127,22 +151,6 @@ jobs:
             - **🩺 Crash Doctor & Post-Update Recovery Suite**:
               - Integrated diagnostic crash recovery to handle instant 1–2s crashes following major Unreal Engine 5 game updates caused by outdated proxy DLL hooks (`version.dll`, `dxgi.dll`, `winhttp.dll`) and stale CFCore mod cache folders.
               - Added Safe Mode startup options and automated DLL integrity scanning.
-            - **🛡️ Rust Backend Discord Warnings & Status Cleanup**:
-              - Resolved unused imports and deprecation warnings in `discord.rs` and backend command handlers.
-
-            ### 🛠️ Previous Releases
-            <details>
-            <summary>v4.6.17 — Mod Map Resolution, Discord Setup Fix & Parameter Sync</summary>
-
-            - **🗺️ Fixed Mod Map Auto-Injection Bug & Svartalfheim Loading**:
-              - Dynamic mod map resolution (`resolve_map_mod_id`) to automatically detect whether Svartalfheim Premium (`962796`) or Free (`893657` / `927084`), Forglar, Amissa, etc. is installed.
-              - Automated sanitization on server boot to purge stale `ActiveMapMod` keys.
-            - **🤖 Discord Bot Setup Crash Resolution**:
-              - Authenticated bot token upfront using `http.get_current_user().await` to obtain valid Discord Snowflake `UserId` for channel permission overwrites.
-            - **⚡ Real-Time Boot Launch Parameters Synchronization**:
-              - Fixed state comparison in `serverStore.ts` and `aseServerStore.ts` with deep object comparisons for instant UI updates.
-            - **🔌 Clean Network Port Command Line Generation**:
-              - Normalized command-line flags to eliminate duplicate port parameters from launch arguments.
             </details>
 
             *For full release notes of previous versions, please visit the [Releases Archive](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases).*

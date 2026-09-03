@@ -20,6 +20,40 @@ pub async fn get_public_ip() -> Result<String, String> {
     Ok(ip)
 }
 
+/// Check if an IP address string belongs to a local network interface on this machine.
+/// Used to prevent passing public/WAN IPs to `-MultiHome`, which causes UE5/ShooterGame
+/// socket bind failures (WSAEADDRNOTAVAIL 10049) and crashes.
+pub fn is_local_interface_ip(ip_str: &str) -> bool {
+    let trimmed = ip_str.trim();
+    if trimmed.is_empty() || trimmed == "0.0.0.0" || trimmed == "127.0.0.1" {
+        return true;
+    }
+
+    let target_ip: std::net::IpAddr = match trimmed.parse() {
+        Ok(ip) => ip,
+        Err(_) => return false,
+    };
+
+    if target_ip.is_loopback() {
+        return true;
+    }
+
+    // Check all network interfaces on the host
+    if let Ok(interfaces) = local_ip_address::list_afinet_netifas() {
+        for (_name, iface_ip) in interfaces {
+            if iface_ip == target_ip {
+                return true;
+            }
+        }
+    } else if let Ok(default_local) = local_ip_address::local_ip() {
+        if default_local == target_ip {
+            return true;
+        }
+    }
+
+    false
+}
+
 pub fn check_port_open(ip: &str, port: u16) -> bool {
     let addr = format!("{}:{}", ip, port);
     if let Ok(addrs) = addr.to_socket_addrs() {

@@ -26,6 +26,7 @@ import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboar
 import { MODDED_MAP_PRESETS, buildLaunchArgs, getModdedMapByMapArg } from '../data/moddedMapRegistry';
 import PlatformSelector from '../components/config/PlatformSelector';
 import ServerSelect from '../components/ui/ServerSelect';
+import ServerPresetModal from '../components/presets/ServerPresetModal';
 
 // Map images
 import mapTheIsland from '../assets/maps/the_island.png';
@@ -1577,6 +1578,8 @@ export default function ConfigEditor() {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isResizing, setIsResizing] = useState(false);
     const [currentPreset, setCurrentPreset] = useState<string | undefined>();
+    const [showPresetHub, setShowPresetHub] = useState(false);
+    const [configReloadTrigger, setConfigReloadTrigger] = useState(0);
     const [modifiedSettings, setModifiedSettings] = useState<Set<string>>(new Set());
 
     // Store parsed configs: CaseInsensitiveMap<Section, CaseInsensitiveMap<Key, Value>>
@@ -1652,7 +1655,7 @@ export default function ConfigEditor() {
             }
         };
         load();
-    }, [selectedServerId]);
+    }, [selectedServerId, configReloadTrigger]);
 
 
 
@@ -2078,6 +2081,15 @@ export default function ConfigEditor() {
                             currentPreset={currentPreset}
                             onSaveCurrentAsPreset={handleSaveCurrentAsPreset}
                         />
+
+                        <button
+                            onClick={() => setShowPresetHub(true)}
+                            className="px-3.5 py-2 bg-gradient-to-r from-violet-500/15 to-purple-500/15 hover:from-violet-500/25 hover:to-purple-500/25 text-violet-600 dark:text-violet-300 border border-violet-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+                            title="Server Templates Hub: Export or import complete server presets"
+                        >
+                            <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                            <span>Template Hub</span>
+                        </button>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -2480,6 +2492,18 @@ export default function ConfigEditor() {
                     </div>
                 )}
             </div>
+
+            {/* Server Preset & Template Hub Modal */}
+            <ServerPresetModal
+                isOpen={showPresetHub}
+                onClose={() => {
+                    setShowPresetHub(false);
+                    setConfigReloadTrigger(c => c + 1);
+                }}
+                servers={servers}
+                initialServerId={selectedServerId || undefined}
+                initialTab="library"
+            />
         </div>
     );
 }

@@ -271,20 +271,43 @@ impl ServerInstaller {
                 );
                 self.emit_console(&format!("  Latest Steam BuildID: {}", remote_build), "info");
 
-                if current_local == remote_build && !force_update {
+                let local_num = current_local.trim().parse::<u64>().ok();
+                let remote_num = remote_build.trim().parse::<u64>().ok();
+
+                let is_up_to_date = match (local_num, remote_num) {
+                    (Some(l), Some(r)) => l >= r,
+                    _ => current_local == remote_build,
+                };
+
+                let is_ahead = match (local_num, remote_num) {
+                    (Some(l), Some(r)) => l > r,
+                    _ => false,
+                };
+
+                if is_up_to_date && !force_update {
                     self.emit_console("", "info");
                     self.emit_console(
                         "═══════════════════════════════════════════════════════════",
                         "success",
                     );
                     self.emit_console("  ✨ Server is already UP TO DATE!", "success");
-                    self.emit_console(
-                        &format!(
-                            "  Local BuildID {} matches latest Steam release.",
-                            current_local
-                        ),
-                        "success",
-                    );
+                    if is_ahead {
+                        self.emit_console(
+                            &format!(
+                                "  Local BuildID {} is newer than Steam API cache ({}) — no update needed.",
+                                current_local, remote_build
+                            ),
+                            "success",
+                        );
+                    } else {
+                        self.emit_console(
+                            &format!(
+                                "  Local BuildID {} matches latest Steam release.",
+                                current_local
+                            ),
+                            "success",
+                        );
+                    }
                     self.emit_console(
                         "═══════════════════════════════════════════════════════════",
                         "success",
@@ -293,9 +316,9 @@ impl ServerInstaller {
                     self.emit_progress("finishing", 100.0, "Server up to date!");
                     self.emit_complete("Server up to date!");
                     return Ok(false);
-                } else if current_local == remote_build && force_update {
+                } else if is_up_to_date && force_update {
                     self.emit_console(
-                        &format!("  Current Local BuildID {} matches Steam API, but update/validation was explicitly requested. Executing SteamCMD...", current_local),
+                        &format!("  Current Local BuildID {} is up to date, but update/validation was explicitly requested. Executing SteamCMD...", current_local),
                         "info",
                     );
                 } else {
