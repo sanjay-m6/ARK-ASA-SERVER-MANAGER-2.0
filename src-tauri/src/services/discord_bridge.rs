@@ -855,64 +855,11 @@ impl DiscordBridgeService {
             *cfg = Some(config);
         }
 
-        if is_enabled && !self.gateway_running.load(Ordering::Relaxed) {
-            let app_handle = self.app_handle.clone();
-            let config_arc = self.config.clone();
-            let gateway_running = self.gateway_running.clone();
-            let commands_processed = self.commands_processed.clone();
-            let command_log = self.command_log.clone();
-            let shard_manager = self.shard_manager.clone();
-            let rate_limiter = self.rate_limiter_service.clone();
-
-            gateway_running.store(true, Ordering::Relaxed);
-            tauri::async_runtime::spawn(async move {
-                let token = {
-                    let config_guard = config_arc.lock().await;
-                    match config_guard.as_ref() {
-                        Some(c) if !c.bot_token.is_empty() => c.bot_token.clone(),
-                        _ => {
-                            gateway_running.store(false, Ordering::Relaxed);
-                            return;
-                        }
-                    }
-                };
-
-                let intents = GatewayIntents::GUILDS
-                    | GatewayIntents::GUILD_MESSAGES
-                    | GatewayIntents::MESSAGE_CONTENT;
-
-                match SerenityClient::builder(&token, intents)
-                    .event_handler(GatewayHandler { 
-                        app_handle, 
-                        config: config_arc,
-                        commands_processed,
-                        command_log,
-                        rate_limiter,
-                    })
-                    .await
-                {
-                    Ok(mut client) => {
-                        log::info!("🔌 Connecting to Discord Gateway...");
-                        {
-                            let mut sm = shard_manager.lock().await;
-                            *sm = Some(client.shard_manager.clone());
-                        }
-
-                        if let Err(e) = client.start().await {
-                            log::error!("❌ Discord Gateway error: {:?}", e);
-                        }
-                        {
-                            let mut sm = shard_manager.lock().await;
-                            *sm = None;
-                        }
-                        gateway_running.store(false, Ordering::Relaxed);
-                    }
-                    Err(e) => {
-                        log::error!("❌ Failed to build Discord client: {:?}", e);
-                        gateway_running.store(false, Ordering::Relaxed);
-                    }
-                }
-            });
+        if is_enabled {
+            self.running.store(true, Ordering::SeqCst);
+            if !self.gateway_running.load(Ordering::Relaxed) {
+                self.start_gateway_connection().await;
+            }
         }
     }
 
@@ -1297,87 +1244,102 @@ impl DiscordBridgeService {
         });
     }
 
-    /// Connect to Discord Gateway via serenity so the bot appears online
+    /// Connect to Discord Gateway via serenity with automatic reconnection
     async fn start_gateway_connection(&self) {
-        if self.gateway_running.load(Ordering::Relaxed) {
-            log::info!("🟢 Gateway already connected");
+        if self.gateway_running.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+            log::info!("🟢 Gateway already connected or starting");
             return;
         }
 
-        let token = {
-            let config = self.config.lock().await;
-            match config.as_ref() {
-                Some(c) if !c.bot_token.is_empty() => c.bot_token.clone(),
-                _ => {
-                    log::warn!("⚠️ No bot token configured, skipping Gateway connection");
-                    return;
-                }
-            }
-        };
-
-        self.gateway_running.store(true, Ordering::Relaxed);
-
-        // MESSAGE_CONTENT is a privileged intent.
-        // It MUST be enabled in the Discord Developer Portal:
-        //   https://discord.com/developers/applications → Your App → Bot → Privileged Gateway Intents → Message Content Intent → ON
-        let intents = GatewayIntents::GUILDS
-            | GatewayIntents::GUILD_MESSAGES
-            | GatewayIntents::MESSAGE_CONTENT;
-
+        let app_handle = self.app_handle.clone();
+        let config_arc = self.config.clone();
+        let commands_processed = self.commands_processed.clone();
+        let command_log = self.command_log.clone();
+        let shard_manager = self.shard_manager.clone();
+        let rate_limiter = self.rate_limiter_service.clone();
+        let running = self.running.clone();
         let gateway_running = self.gateway_running.clone();
 
-        // Clone for handler
-        let app_handle = self.app_handle.clone();
-        let config = self.config.clone();
+        tauri::async_runtime::spawn(async move {
+            let intents = GatewayIntents::GUILDS
+                | GatewayIntents::GUILD_MESSAGES
+                | GatewayIntents::MESSAGE_CONTENT;
 
-        let rate_limiter = self.rate_limiter_service.clone();
+            let mut backoff_secs: u64 = 5;
 
-        match SerenityClient::builder(&token, intents)
-            .event_handler(GatewayHandler { 
-                app_handle, 
-                config,
-                commands_processed: self.commands_processed.clone(),
-                command_log: self.command_log.clone(),
-                rate_limiter,
-            })
-            .await
-        {
-            Ok(mut client) => {
+            while running.load(Ordering::Relaxed) {
+                let token = {
+                    let config_guard = config_arc.lock().await;
+                    match config_guard.as_ref() {
+                        Some(c) if c.enabled && !c.bot_token.is_empty() => c.bot_token.clone(),
+                        _ => {
+                            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                            continue;
+                        }
+                    }
+                };
+
                 log::info!("🔌 Connecting to Discord Gateway...");
 
-                // Store the ShardManager so stop() can shut down the gateway
+                match SerenityClient::builder(&token, intents)
+                    .event_handler(GatewayHandler { 
+                        app_handle: app_handle.clone(), 
+                        config: config_arc.clone(),
+                        commands_processed: commands_processed.clone(),
+                        command_log: command_log.clone(),
+                        rate_limiter: rate_limiter.clone(),
+                    })
+                    .await
                 {
-                    let mut sm = self.shard_manager.lock().await;
-                    *sm = Some(client.shard_manager.clone());
-                }
+                    Ok(mut client) => {
+                        {
+                            let mut sm = shard_manager.lock().await;
+                            *sm = Some(client.shard_manager.clone());
+                        }
 
-                if let Err(e) = client.start().await {
-                    let err_str = format!("{:?}", e);
-                    if err_str.contains("DisallowedGatewayIntents") {
-                        log::error!(
-                            "❌ Discord Gateway error: DisallowedGatewayIntents\n\
-                            ➡️  FIX: The bot requires the 'Message Content' privileged intent.\n\
-                            ➡️  Go to: https://discord.com/developers/applications\n\
-                            ➡️  Select your app → Bot → Privileged Gateway Intents\n\
-                            ➡️  Enable: ✅ MESSAGE CONTENT INTENT → Save Changes\n\
-                            ➡️  Then restart the Discord Bridge."
-                        );
-                    } else {
-                        log::error!("❌ Discord Gateway error: {:?}", e);
+                        // Connected successfully; reset backoff
+                        backoff_secs = 5;
+
+                        if let Err(e) = client.start().await {
+                            let err_str = format!("{:?}", e);
+                            if err_str.contains("DisallowedGatewayIntents") {
+                                log::error!(
+                                    "❌ Discord Gateway error: DisallowedGatewayIntents\n\
+                                    ➡️  FIX: The bot requires the 'Message Content' privileged intent.\n\
+                                    ➡️  Go to: https://discord.com/developers/applications\n\
+                                    ➡️  Select your app → Bot → Privileged Gateway Intents\n\
+                                    ➡️  Enable: ✅ MESSAGE CONTENT INTENT → Save Changes\n\
+                                    ➡️  Then restart the Discord Bridge."
+                                );
+                                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                            } else {
+                                log::warn!("⚠️ Discord Gateway connection lost ({:?}). Auto-reconnecting in {}s...", e, backoff_secs);
+                            }
+                        } else {
+                            log::info!("ℹ️ Discord Gateway disconnected. Auto-reconnecting in {}s...", backoff_secs);
+                        }
+
+                        {
+                            let mut sm = shard_manager.lock().await;
+                            *sm = None;
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("❌ Failed to build Discord client: {:?}. Retrying in {}s...", e, backoff_secs);
                     }
                 }
-                // Clear stored shard manager after disconnect
-                {
-                    let mut sm = self.shard_manager.lock().await;
-                    *sm = None;
+
+                if !running.load(Ordering::Relaxed) {
+                    break;
                 }
-                gateway_running.store(false, Ordering::Relaxed);
+
+                tokio::time::sleep(std::time::Duration::from_secs(backoff_secs)).await;
+                backoff_secs = (backoff_secs * 2).min(60);
             }
-            Err(e) => {
-                log::error!("❌ Failed to build Discord client: {:?}", e);
-                gateway_running.store(false, Ordering::Relaxed);
-            }
-        }
+
+            gateway_running.store(false, Ordering::SeqCst);
+            log::info!("🔌 Discord Gateway runner terminated.");
+        });
     }
 
     /// Stop the bridge — shuts down the live serenity Gateway connection
@@ -1722,17 +1684,20 @@ impl DiscordBridgeService {
             // Update DB and in-memory config with new message ID
             self.save_message_id_to_db(cluster_id, col_name, &new_id);
             self.update_in_memory_message_id(msg_type, &new_id).await;
-        } else if let Err(_) = self
+        } else if let Err(e) = self
             .edit_discord_message(channel_id, message_id, &bot_token, payload)
             .await
         {
-            println!("⚠️ Failed to edit Discord message, sending new one.");
-            let new_id = self
-                .send_discord_message(channel_id, &bot_token, payload)
-                .await?;
-            // Update DB and in-memory config with new message ID
-            self.save_message_id_to_db(cluster_id, col_name, &new_id);
-            self.update_in_memory_message_id(msg_type, &new_id).await;
+            println!("⚠️ Failed to edit Discord message ({}), checking fallback...", e);
+            // If it's a rate limit (429), DO NOT immediately send a new message
+            if !e.contains("429") {
+                let new_id = self
+                    .send_discord_message(channel_id, &bot_token, payload)
+                    .await?;
+                // Update DB and in-memory config with new message ID
+                self.save_message_id_to_db(cluster_id, col_name, &new_id);
+                self.update_in_memory_message_id(msg_type, &new_id).await;
+            }
         }
         Ok(())
     }
@@ -1914,7 +1879,9 @@ impl DiscordBridgeService {
         if response.status().is_success() {
             Ok(())
         } else {
-            Err(format!("Status: {}", response.status()))
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            Err(format!("Status: {} - {}", status, body))
         }
     }
 

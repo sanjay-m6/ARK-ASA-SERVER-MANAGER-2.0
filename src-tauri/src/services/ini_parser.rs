@@ -208,12 +208,37 @@ impl IniParser {
         Ok(Self::normalize_ini_text(&s))
     }
 
+    /// Check if a file exists and is marked as Read-Only on disk.
+    pub fn is_file_readonly(path: &std::path::Path) -> bool {
+        if let Ok(meta) = std::fs::metadata(path) {
+            meta.permissions().readonly()
+        } else {
+            false
+        }
+    }
+
     /// Write an INI string safely to disk as pure UTF-8 (without BOM, with Windows CRLF line endings).
+    /// If the target file has the Read-Only attribute (e.g. set by user to prevent automated edits),
+    /// this function will temporarily remove the Read-Only attribute, write the content safely, and
+    /// restore the Read-Only attribute so the file remains protected from outside processes.
     pub fn write_string_to_file_utf8(path: &std::path::Path, content: &str) -> std::io::Result<()> {
         use std::io::Write;
 
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
+        }
+
+        let was_readonly = if let Ok(meta) = std::fs::metadata(path) {
+            meta.permissions().readonly()
+        } else {
+            false
+        };
+
+        if was_readonly {
+            if let Ok(mut perms) = std::fs::metadata(path).map(|m| m.permissions()) {
+                perms.set_readonly(false);
+                let _ = std::fs::set_permissions(path, perms);
+            }
         }
 
         let mut normalized_crlf = String::with_capacity(content.len() + 64);
@@ -225,18 +250,28 @@ impl IniParser {
 
         // Atomic write via temp file
         let tmp_path = path.with_extension("tmp");
-        if let Ok(mut file) = std::fs::File::create(&tmp_path) {
-            if file.write_all(normalized_crlf.as_bytes()).is_ok() && file.flush().is_ok() {
-                drop(file);
-                if std::fs::rename(&tmp_path, path).is_ok() {
-                    return Ok(());
-                }
-                let _ = std::fs::remove_file(&tmp_path);
+        let write_result = (|| -> std::io::Result<()> {
+            let mut file = std::fs::File::create(&tmp_path)?;
+            file.write_all(normalized_crlf.as_bytes())?;
+            file.flush()?;
+            drop(file);
+            if std::fs::rename(&tmp_path, path).is_ok() {
+                return Ok(());
+            }
+            let _ = std::fs::remove_file(&tmp_path);
+            std::fs::write(path, normalized_crlf.as_bytes())
+        })();
+
+        // Restore Read-Only attribute if it was originally set
+        if was_readonly {
+            if let Ok(mut perms) = std::fs::metadata(path).map(|m| m.permissions()) {
+                perms.set_readonly(true);
+                let _ = std::fs::set_permissions(path, perms);
+                println!("  🔒 [Read-Only Guard] Re-applied Read-Only lock to {:?}", path);
             }
         }
 
-        // Direct write fallback
-        std::fs::write(path, normalized_crlf.as_bytes())
+        write_result
     }
 
     /// Merge two INI contents. `updates` take precedence over `base`.
@@ -287,56 +322,112 @@ impl IniParser {
         entries.get(entry_key).cloned()
     }
 
-    /// Update a specific key in a section, preserving all other content.
-    #[allow(dead_code)]
+    /// Update a specific key in a section in-place, strictly preserving ALL comments,
+    /// blank lines, duplicate keys, and untouched sections/keys without any loss.
     pub fn update_key(content: &str, section: &str, key: &str, value: &str) -> String {
-        let mut parsed = Self::parse_ordered(content);
+        let normalized = Self::normalize_ini_text(content);
+        let section_lower = section.trim().to_lowercase();
+        let key_lower = key.trim().to_lowercase();
 
-        let target_section = parsed
-            .keys()
-            .find(|k| k.eq_ignore_ascii_case(section))
-            .cloned()
-            .unwrap_or_else(|| {
-                parsed.insert(section.to_string(), IndexMap::new());
-                section.to_string()
-            });
+        let mut lines: Vec<String> = normalized.lines().map(|l| l.trim_end_matches('\r').to_string()).collect();
+        let mut in_target_section = false;
+        let mut found_key_idx = None;
+        let mut last_section_line_idx = None;
 
-        let entries = parsed.get_mut(&target_section).unwrap();
-
-        let existing_key = entries.keys().find(|k| k.eq_ignore_ascii_case(key)).cloned();
-        if let Some(existing) = existing_key {
-            if existing != key {
-                entries.shift_remove(&existing);
-                entries.insert(key.to_string(), value.to_string());
-            } else {
-                entries.insert(existing, value.to_string());
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('[') {
+                if let Some(end_bracket) = trimmed.find(']') {
+                    let sec_name = trimmed[1..end_bracket].trim().to_lowercase();
+                    if in_target_section {
+                        // Reached next section
+                        break;
+                    }
+                    if sec_name == section_lower {
+                        in_target_section = true;
+                        last_section_line_idx = Some(i);
+                        continue;
+                    }
+                }
             }
-        } else {
-            entries.insert(key.to_string(), value.to_string());
-        }
 
-        Self::serialize_ordered(&parsed)
-    }
-
-    /// Remove a specific key from a section, case-insensitively.
-    pub fn remove_key(content: &str, section: &str, key: &str) -> String {
-        let mut parsed = Self::parse_ordered(content);
-
-        let target_section = parsed
-            .keys()
-            .find(|k| k.eq_ignore_ascii_case(section))
-            .cloned();
-
-        if let Some(target) = target_section {
-            if let Some(entries) = parsed.get_mut(&target) {
-                let existing_key = entries.keys().find(|k| k.eq_ignore_ascii_case(key)).cloned();
-                if let Some(existing) = existing_key {
-                    entries.shift_remove(&existing);
+            if in_target_section {
+                last_section_line_idx = Some(i);
+                if !trimmed.starts_with(';') && !trimmed.starts_with('#') && !trimmed.starts_with("//") {
+                    if let Some((k, _)) = trimmed.split_once('=') {
+                        if k.trim().to_lowercase() == key_lower {
+                            found_key_idx = Some(i);
+                            break;
+                        }
+                    }
                 }
             }
         }
 
-        Self::serialize_ordered(&parsed)
+        if let Some(idx) = found_key_idx {
+            lines[idx] = format!("{}={}", key, value);
+        } else if let Some(last_idx) = last_section_line_idx {
+            lines.insert(last_idx + 1, format!("{}={}", key, value));
+        } else {
+            if !lines.is_empty() && !lines.last().map(|l| l.trim().is_empty()).unwrap_or(true) {
+                lines.push(String::new());
+            }
+            lines.push(format!("[{}]", section));
+            lines.push(format!("{}={}", key, value));
+        }
+
+        let mut res = lines.join("\r\n");
+        if !res.ends_with("\r\n") {
+            res.push_str("\r\n");
+        }
+        res
+    }
+
+    /// Remove a specific key from a section in-place, preserving all comments and other lines.
+    pub fn remove_key(content: &str, section: &str, key: &str) -> String {
+        let normalized = Self::normalize_ini_text(content);
+        let section_lower = section.trim().to_lowercase();
+        let key_lower = key.trim().to_lowercase();
+
+        let mut lines: Vec<String> = normalized.lines().map(|l| l.trim_end_matches('\r').to_string()).collect();
+        let mut in_target_section = false;
+        let mut remove_indices = Vec::new();
+
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if trimmed.starts_with('[') {
+                if let Some(end_bracket) = trimmed.find(']') {
+                    let sec_name = trimmed[1..end_bracket].trim().to_lowercase();
+                    if in_target_section {
+                        break;
+                    }
+                    if sec_name == section_lower {
+                        in_target_section = true;
+                        continue;
+                    }
+                }
+            }
+
+            if in_target_section {
+                if !trimmed.starts_with(';') && !trimmed.starts_with('#') && !trimmed.starts_with("//") {
+                    if let Some((k, _)) = trimmed.split_once('=') {
+                        if k.trim().to_lowercase() == key_lower {
+                            remove_indices.push(i);
+                        }
+                    }
+                }
+            }
+        }
+
+        for idx in remove_indices.into_iter().rev() {
+            lines.remove(idx);
+        }
+
+        let mut res = lines.join("\r\n");
+        if !res.ends_with("\r\n") {
+            res.push_str("\r\n");
+        }
+        res
     }
 }
 
@@ -465,5 +556,85 @@ bAllowFlyerSpeedLeveling=True\r
         let game_mode = parsed.get("/Script/ShooterGame.ShooterGameMode").expect("ShooterGameMode section must be parsed");
         let stack_override = game_mode.get("ConfigOverrideItemMaxQuantity").unwrap();
         assert!(stack_override.contains("\"PrimalItemResource_Wood_C\""), "Smart quotes should be converted to standard ASCII double quotes");
+    }
+
+    #[test]
+    fn test_update_key_preserves_comments_and_formatting() {
+        let original = "\
+; Section for core ARK server settings
+[ServerSettings]
+# Custom admin setting added by user
+ServerPassword=MySecret
+; Next line is important
+MaxPlayers=70
+CrossARKAllowForeignDinoDownloads=False
+
+[/Script/ShooterGame.ShooterGameMode]
+// Mode comment
+bAllowSpeedLeveling=True
+";
+        // Update CrossARKAllowForeignDinoDownloads in place
+        let updated = IniParser::update_key(original, "ServerSettings", "CrossARKAllowForeignDinoDownloads", "True");
+
+        // Verify comments and lines are strictly preserved
+        assert!(updated.contains("; Section for core ARK server settings"));
+        assert!(updated.contains("# Custom admin setting added by user"));
+        assert!(updated.contains("; Next line is important"));
+        assert!(updated.contains("// Mode comment"));
+        assert!(updated.contains("CrossARKAllowForeignDinoDownloads=True"));
+        assert!(updated.contains("ServerPassword=MySecret"));
+        assert!(updated.contains("bAllowSpeedLeveling=True"));
+
+        // Add a new key to ServerSettings
+        let with_new_key = IniParser::update_key(&updated, "ServerSettings", "NoTributeDownloads", "False");
+        assert!(with_new_key.contains("NoTributeDownloads=False"));
+        assert!(with_new_key.contains("; Section for core ARK server settings"));
+    }
+
+    #[test]
+    fn test_remove_key_preserves_comments() {
+        let original = "\
+[ServerSettings]
+# User notes here
+ActiveMapMod=12345
+SessionName=My Server
+";
+        let updated = IniParser::remove_key(original, "ServerSettings", "ActiveMapMod");
+        assert!(!updated.contains("ActiveMapMod=12345"));
+        assert!(updated.contains("# User notes here"));
+        assert!(updated.contains("SessionName=My Server"));
+    }
+
+    #[test]
+    fn test_readonly_file_write_preserves_attribute() {
+        let tmp_dir = std::env::temp_dir().join(format!("ini_test_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()));
+        let _ = std::fs::create_dir_all(&tmp_dir);
+        let test_file = tmp_dir.join("GameUserSettings.ini");
+
+        // Create initial file
+        std::fs::write(&test_file, "[ServerSettings]\r\nSessionName=Before\r\n").unwrap();
+
+        // Mark as Read-Only
+        let mut perms = std::fs::metadata(&test_file).unwrap().permissions();
+        perms.set_readonly(true);
+        std::fs::set_permissions(&test_file, perms).unwrap();
+        assert!(IniParser::is_file_readonly(&test_file));
+
+        // Write new content via write_string_to_file_utf8
+        let write_res = IniParser::write_string_to_file_utf8(&test_file, "[ServerSettings]\r\nSessionName=After\r\n");
+        assert!(write_res.is_ok(), "Writing to read-only file must succeed: {:?}", write_res);
+
+        // Verify content was updated
+        let read_back = std::fs::read_to_string(&test_file).unwrap();
+        assert!(read_back.contains("SessionName=After"));
+
+        // Verify file is STILL Read-Only
+        assert!(IniParser::is_file_readonly(&test_file), "File must retain Read-Only attribute after safe write");
+
+        // Cleanup
+        let mut perms = std::fs::metadata(&test_file).unwrap().permissions();
+        perms.set_readonly(false);
+        let _ = std::fs::set_permissions(&test_file, perms);
+        let _ = std::fs::remove_dir_all(&tmp_dir);
     }
 }

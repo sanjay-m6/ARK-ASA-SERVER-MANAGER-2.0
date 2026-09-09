@@ -122,6 +122,7 @@ pub struct ServerConfig {
 
     // Advanced
     pub ip_address: Option<String>,
+    pub crossark_allow_foreign_dino_downloads: bool,
 }
 
 impl Default for ServerConfig {
@@ -132,6 +133,7 @@ impl Default for ServerConfig {
             admin_password: "".to_string(),
             max_players: 70,
             map_name: "TheIsland_WP".to_string(),
+            crossark_allow_foreign_dino_downloads: true,
             game_port: 7777,
             query_port: 27015,
             rcon_port: 32330,
@@ -454,6 +456,19 @@ impl ConfigGenerator {
                 content.push_str(&format!("IPAddress={}\r\n", ip));
             }
         }
+
+        // Cross-ARK & Transfers (allow foreign dinos by default e.g. Extinction dinos on The Island)
+        content.push_str(&format!(
+            "CrossARKAllowForeignDinoDownloads={}\r\n",
+            ark_bool(config.crossark_allow_foreign_dino_downloads)
+        ));
+        content.push_str("NoTributeDownloads=False\r\n");
+        content.push_str("PreventDownloadDinos=False\r\n");
+        content.push_str("PreventUploadDinos=False\r\n");
+        content.push_str("PreventDownloadItems=False\r\n");
+        content.push_str("PreventUploadItems=False\r\n");
+        content.push_str("PreventDownloadSurvivors=False\r\n");
+        content.push_str("PreventUploadSurvivors=False\r\n");
 
         // Rates
         content.push_str(&format!("XPMultiplier={:.2}\r\n", config.xp_multiplier));
@@ -881,16 +896,16 @@ impl ConfigGenerator {
                 let merged =
                     crate::services::ini_parser::IniParser::merge(&existing, &gus_content);
                 println!("  📝 Merging GameUserSettings.ini (preserving custom keys, updating known values)");
-                fs::write(&gus_path, merged)
+                crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &merged)
                     .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
             } else {
                 println!("  📝 Writing fresh GameUserSettings.ini to: {:?}", gus_path);
-                fs::write(&gus_path, gus_content)
+                crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &gus_content)
                     .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
             }
         } else {
             println!("  📝 Creating initial GameUserSettings.ini at: {:?}", gus_path);
-            fs::write(&gus_path, gus_content)
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &gus_content)
                 .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
         }
 
@@ -903,11 +918,11 @@ impl ConfigGenerator {
             let merged =
                 crate::services::ini_parser::IniParser::merge(&existing, &new_game_content);
             println!("  📝 Merging Game.ini (preserving custom keys, updating multipliers)");
-            fs::write(&game_path, merged)
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&game_path, &merged)
                 .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
         } else {
             println!("  📝 Creating initial Game.ini at: {:?}", game_path);
-            fs::write(&game_path, new_game_content)
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&game_path, &new_game_content)
                 .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
         }
 
@@ -919,11 +934,11 @@ impl ConfigGenerator {
             let merged =
                 crate::services::ini_parser::IniParser::merge(&existing, &new_engine_content);
             println!("  📝 Merging Engine.ini (preserving custom optimizations, updating netcode defaults)");
-            fs::write(&engine_path, merged)
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&engine_path, &merged)
                 .map_err(|e| format!("Failed to write Engine.ini: {}", e))?;
         } else {
             println!("  📝 Creating initial Engine.ini at: {:?}", engine_path);
-            fs::write(&engine_path, new_engine_content)
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&engine_path, &new_engine_content)
                 .map_err(|e| format!("Failed to write Engine.ini: {}", e))?;
         }
 
@@ -1269,7 +1284,12 @@ impl ConfigGenerator {
 
             // Write Game.ini immediately since Transfer Policy doesn't touch it YET
             println!("  📝 [Debug] Writing Game.ini with Event overrides...");
-            fs::write(&game_path, game_content).map_err(|e| e.to_string())?;
+            if crate::services::ini_parser::IniParser::is_file_readonly(&game_path) {
+                println!("  🔒 [Read-Only Guard] Game.ini is marked Read-Only by user. Preserving manual lock and skipping automated event override.");
+            } else {
+                crate::services::ini_parser::IniParser::write_string_to_file_utf8(&game_path, &game_content)
+                    .map_err(|e| e.to_string())?;
+            }
         } else {
             println!("📅 No Event Profile Active.");
             // logic to revert to base? For now, we assume user manages base via UI or files.
@@ -1291,6 +1311,14 @@ impl ConfigGenerator {
                     "True",
                 );
             }
+        } else {
+            // By default, ensure CrossARK foreign dino downloads and tribute downloads are enabled
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "CrossARKAllowForeignDinoDownloads",
+                "True",
+            );
         }
 
         // 5.5. For ASE, automatically sync enabled mods to ActiveMods inside [ServerSettings]
@@ -1362,8 +1390,13 @@ impl ConfigGenerator {
         }
 
         // 6. Write GUS
-        println!("  💾 Overwriting GameUserSettings.ini with Event/Policy modifications...");
-        fs::write(&gus_path, final_gus).map_err(|e| e.to_string())?;
+        if crate::services::ini_parser::IniParser::is_file_readonly(&gus_path) {
+            println!("  🔒 [Read-Only Guard] GameUserSettings.ini is marked Read-Only by user. Preserving manual lock and skipping automated startup overwrite.");
+        } else {
+            println!("  💾 Updating GameUserSettings.ini with current server settings...");
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &final_gus)
+                .map_err(|e| e.to_string())?;
+        }
 
         Ok(())
     }

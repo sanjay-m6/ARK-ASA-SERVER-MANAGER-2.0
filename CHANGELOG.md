@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.6.20] — 2026-09-09
+
+### Fixed
+- **🛡️ Cross-Server Process Isolation & Multi-Game Protection (Rust / Palworld Conflict Fix)**:
+  - Resolved an issue where restarting or stopping an ARK server unintentionally adopted and terminated external dedicated game servers (e.g., `RustDedicated.exe`, Palworld).
+  - Enforced strict process whitelist validation (`is_ark_executable_name`) across all process termination pathways (`ArkAscendedServer.exe`, `ShooterGameServer.exe`, `AsaApiLoader.exe`, `ServerApiLoader.exe`).
+  - Refactored `kill_processes_on_ports` to parse exclusively the `Local Address` column and perform strict integer port comparisons, ignoring foreign addresses and ephemeral port collisions.
+  - Hardened UDP listener discovery in `find_game_server_pid_by_install_path` so non-ARK processes are never adopted or tracked.
+  - Protected database orphan cleanup and startup timeout kill handlers with mandatory ARK executable verification.
+- **🧩 ASE Unreal Engine 4 Plugin Hang & Crash Doctor Resolution (`RuntimeMeshComponent`)**:
+  - Resolved headless server boot hangs where `ShooterGameServer.exe` halted with a modal Win32 message box (`Plugin 'RuntimeMeshComponent' failed to load because module 'RuntimeMeshComponent' could not be found`).
+  - Added automated pre-launch project sanitization (`sanitize_ase_project_plugins`) to inspect `ShooterGame.uproject` and automatically set missing/uncompiled plugins (`RuntimeMeshComponent`) to `Enabled: false` with automatic `.bak` backups.
+  - Automatically quarantines empty or uncompiled plugin folders (`RuntimeMeshComponent.disabled`) to prevent UE4 engine loader assertions.
+  - Integrated missing UE4 plugin detection and 1-click healing into the **Crash Doctor** suite (`diagnose_server_crash` & `repair_and_recover_server`).
+- **🧹 INI Parser Type Serialization Fix**:
+  - Fixed compiler diagnostic warnings in `src-tauri/src/ase/ini_parser.rs` (`IniDocument::serialize` and `IniData::serialize`) to guarantee clean, strongly typed INI generation.
+
+---
+
 ## [4.6.19] — 2026-09-03
 
 ### Added

@@ -165,6 +165,155 @@ pub struct ModLoadFailureEvent {
     pub suggestions: Vec<String>,
 }
 
+#[cfg(target_os = "windows")]
+fn find_child_pid_via_toolhelp(parent_pid: u32, is_ase: bool) -> Option<u32> {
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+    };
+    use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
+
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if snapshot == INVALID_HANDLE_VALUE {
+            return None;
+        }
+
+        let mut entry: PROCESSENTRY32W = std::mem::zeroed();
+        entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+
+        if Process32FirstW(snapshot, &mut entry) != 0 {
+            loop {
+                if entry.th32ParentProcessID == parent_pid && entry.th32ProcessID > 4 {
+                    let len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
+                    let exe_name = String::from_utf16_lossy(&entry.szExeFile[..len]);
+                    let lower = exe_name.to_lowercase();
+                    let matches = if is_ase {
+                        lower.contains("shootergame")
+                    } else {
+                        lower.contains("arkascendedserver")
+                    };
+                    if matches {
+                        println!("  🎯 [Handoff] Found child process {} ('{}') via ToolHelp snapshot matching parent PID {}", entry.th32ProcessID, exe_name, parent_pid);
+                        windows_sys::Win32::Foundation::CloseHandle(snapshot);
+                        return Some(entry.th32ProcessID);
+                    }
+                }
+                if Process32NextW(snapshot, &mut entry) == 0 {
+                    break;
+                }
+            }
+        }
+        windows_sys::Win32::Foundation::CloseHandle(snapshot);
+    }
+    None
+}
+
+/// Helper to verify if an executable or task name belongs to an ARK server process.
+/// This strictly prevents any interaction with external processes on the host machine (such as RustDedicated, Palworld, etc.).
+pub fn is_ark_executable_name(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    lower.contains("arkascendedserver")
+        || lower.contains("shootergameserver")
+        || lower.contains("asaapiloader")
+        || lower.contains("serverapiloader")
+}
+
+/// Inspects ShooterGame.uproject and ShooterGame/Plugins for ASE servers.
+/// Disables missing or uncompiled plugin modules (such as RuntimeMeshComponent)
+/// which otherwise trigger a blocking UE4 Windows MessageBox modal on headless servers.
+pub fn sanitize_ase_project_plugins(install_path: &std::path::Path) -> bool {
+    let mut modified = false;
+
+    // 1. Sanitize ShooterGame.uproject
+    let uproject_path = install_path.join("ShooterGame").join("ShooterGame.uproject");
+    if uproject_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&uproject_path) {
+            if let Ok(mut json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(plugins) = json.get_mut("Plugins").and_then(|p| p.as_array_mut()) {
+                    for plugin in plugins.iter_mut() {
+                        let is_rmc_enabled = plugin
+                            .get("Name")
+                            .and_then(|n| n.as_str())
+                            .map(|n| n.eq_ignore_ascii_case("RuntimeMeshComponent"))
+                            .unwrap_or(false)
+                            && plugin
+                                .get("Enabled")
+                                .and_then(|e| e.as_bool())
+                                .unwrap_or(false);
+
+                        if is_rmc_enabled {
+                            plugin["Enabled"] = serde_json::Value::Bool(false);
+                            modified = true;
+                            println!("[ASE-SANITIZER] Disabled 'RuntimeMeshComponent' in ShooterGame.uproject");
+                        }
+                    }
+                }
+
+                if modified {
+                    let bak_path = install_path.join("ShooterGame").join("ShooterGame.uproject.bak");
+                    let _ = std::fs::copy(&uproject_path, &bak_path);
+                    if let Ok(pretty) = serde_json::to_string_pretty(&json) {
+                        let _ = std::fs::write(&uproject_path, pretty);
+                        println!("[ASE-SANITIZER] Saved sanitized ShooterGame.uproject (backup created at {:?})", bak_path);
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Quarantine orphan RuntimeMeshComponent plugin folder if missing Win64 DLLs
+    let rmc_dir = install_path.join("ShooterGame").join("Plugins").join("RuntimeMeshComponent");
+    if rmc_dir.exists() {
+        let win64_dir = rmc_dir.join("Binaries").join("Win64");
+        let has_dll = if win64_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(&win64_dir) {
+                entries.filter_map(|e| e.ok()).any(|e| {
+                    e.path().extension().map_or(false, |ext| ext.eq_ignore_ascii_case("dll"))
+                })
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if !has_dll {
+            let disabled_dir = install_path.join("ShooterGame").join("Plugins").join("RuntimeMeshComponent.disabled");
+            println!("[ASE-SANITIZER] Quarantining uncompiled RuntimeMeshComponent plugin folder to {:?}", disabled_dir);
+            if std::fs::rename(&rmc_dir, &disabled_dir).is_ok() {
+                modified = true;
+            }
+        }
+    }
+
+    // 3. Quarantine orphan Engine/Plugins/RuntimeMeshComponent if missing Win64 DLLs
+    let engine_rmc_dir = install_path.join("Engine").join("Plugins").join("RuntimeMeshComponent");
+    if engine_rmc_dir.exists() {
+        let win64_dir = engine_rmc_dir.join("Binaries").join("Win64");
+        let has_dll = if win64_dir.exists() {
+            if let Ok(entries) = std::fs::read_dir(&win64_dir) {
+                entries.filter_map(|e| e.ok()).any(|e| {
+                    e.path().extension().map_or(false, |ext| ext.eq_ignore_ascii_case("dll"))
+                })
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if !has_dll {
+            let disabled_dir = install_path.join("Engine").join("Plugins").join("RuntimeMeshComponent.disabled");
+            println!("[ASE-SANITIZER] Quarantining uncompiled Engine RuntimeMeshComponent plugin folder to {:?}", disabled_dir);
+            if std::fs::rename(&engine_rmc_dir, &disabled_dir).is_ok() {
+                modified = true;
+            }
+        }
+    }
+
+    modified
+}
+
 pub fn find_game_server_pid_by_install_path(
     install_path: &str,
     server_type: &str,
@@ -172,20 +321,36 @@ pub fn find_game_server_pid_by_install_path(
     query_port: Option<u16>,
     game_port: Option<u16>,
 ) -> Option<u32> {
+    let is_ase = server_type.eq_ignore_ascii_case("ASE");
+
+    // 1. Try Windows native ToolHelp snapshot first (most reliable for finding child of loader even after loader exits)
+    #[cfg(target_os = "windows")]
+    if let Some(ppid) = parent_pid {
+        if let Some(child_pid) = find_child_pid_via_toolhelp(ppid, is_ase) {
+            return Some(child_pid);
+        }
+    }
+
     use sysinfo::System;
     let mut sys = System::new();
     sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
-    let is_ase = server_type.eq_ignore_ascii_case("ASE");
-    let primary_target = if is_ase {
-        "ShooterGameServer.exe"
-    } else {
-        "ArkAscendedServer.exe"
+    let is_target_proc = |name: &str| -> bool {
+        let lower = name.to_lowercase();
+        if is_ase {
+            lower.contains("shootergame")
+        } else {
+            lower.contains("arkascendedserver")
+        }
     };
-    let loader_target = if is_ase {
-        "ServerApiLoader.exe"
-    } else {
-        "AsaApiLoader.exe"
+
+    let is_loader_proc = |name: &str| -> bool {
+        let lower = name.to_lowercase();
+        if is_ase {
+            lower.contains("serverapiloader")
+        } else {
+            lower.contains("asaapiloader")
+        }
     };
 
     // Helper to normalize Windows paths removing extended verbatim prefixes and casing
@@ -203,11 +368,11 @@ pub fn find_game_server_pid_by_install_path(
 
     let norm_install = normalize_path(install_path);
 
-    // 1. Try parent PID matching first (if loader directly spawned the game server)
+    // 2. Sysinfo parent PID matching (fallback)
     if let Some(ppid) = parent_pid {
         for (pid, process) in sys.processes() {
             let name = process.name().to_string_lossy();
-            if name.eq_ignore_ascii_case(primary_target) {
+            if is_target_proc(&name) {
                 if let Some(parent) = process.parent() {
                     if parent.as_u32() == ppid {
                         println!("  🎯 [Handoff] Found child process {} with parent PID {}", pid, ppid);
@@ -218,12 +383,12 @@ pub fn find_game_server_pid_by_install_path(
         }
     }
 
-    // 2. High-precision port matching: Check query_port / game_port in command line args
+    // 3. High-precision port matching: Check query_port / game_port in command line args
     // In multi-server and cluster setups, each server instance has unique game & query ports.
     if query_port.is_some() || game_port.is_some() {
         for (pid, process) in sys.processes() {
             let name = process.name().to_string_lossy();
-            if name.eq_ignore_ascii_case(primary_target) || name.eq_ignore_ascii_case(loader_target) {
+            if is_target_proc(&name) || is_loader_proc(&name) {
                 let cmd = process.cmd();
                 if !cmd.is_empty() {
                     let cmd_str = cmd.iter()
@@ -259,11 +424,11 @@ pub fn find_game_server_pid_by_install_path(
         }
     }
 
-    // 3. Path-based matching (normalized executable path, working directory, or cmd path)
+    // 4. Path-based matching (normalized executable path, working directory, or cmd path)
     if !norm_install.is_empty() {
         for (pid, process) in sys.processes() {
             let name = process.name().to_string_lossy();
-            if name.eq_ignore_ascii_case(primary_target) || name.eq_ignore_ascii_case(loader_target) {
+            if is_target_proc(&name) || is_loader_proc(&name) {
                 // Check process.exe() path
                 if let Some(exe_path) = process.exe() {
                     let norm_exe = normalize_path(&exe_path.to_string_lossy());
@@ -300,7 +465,7 @@ pub fn find_game_server_pid_by_install_path(
         }
     }
 
-    // 4. Windows Fallback: Check UDP port listener via netstat if query_port is known
+    // 5. Windows Fallback: Check UDP port listener via netstat if query_port is known
     #[cfg(target_os = "windows")]
     {
         if let Some(qp) = query_port {
@@ -310,14 +475,40 @@ pub fn find_game_server_pid_by_install_path(
                 .output()
             {
                 let stdout = String::from_utf8_lossy(&output.stdout);
-                let port_pattern = format!(":{}", qp);
                 for line in stdout.lines() {
-                    if line.contains(&port_pattern) {
-                        if let Some(pid_str) = line.split_whitespace().last() {
-                            if let Ok(pid) = pid_str.parse::<u32>() {
-                                if pid > 4 {
-                                    println!("  🎯 [Handoff] Found server PID {} listening on UDP port {}", pid, qp);
-                                    return Some(pid);
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 4 && parts[0].eq_ignore_ascii_case("UDP") {
+                        // Extract port strictly from Local Address (parts[1])
+                        let local_addr = parts[1];
+                        if let Some(port) = local_addr.rsplit(':').next().and_then(|p| p.parse::<u16>().ok()) {
+                            if port == qp {
+                                if let Some(pid) = parts.last().and_then(|p| p.parse::<u32>().ok()) {
+                                    if pid > 4 {
+                                        // CRITICAL VERIFICATION: Ensure the listening process is ACTUALLY an ARK server process
+                                        // before adopting this PID. Otherwise we could hijack external servers (e.g. Rust, Palworld).
+                                        let is_ark = if let Some(proc) = sys.process(sysinfo::Pid::from_u32(pid)) {
+                                            let name = proc.name().to_string_lossy();
+                                            is_target_proc(&name) || is_loader_proc(&name)
+                                        } else {
+                                            if let Ok(task_out) = Command::new("tasklist")
+                                                .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
+                                                .no_window()
+                                                .output()
+                                            {
+                                                let task_str = String::from_utf8_lossy(&task_out.stdout).to_lowercase();
+                                                is_ark_executable_name(&task_str)
+                                            } else {
+                                                false
+                                            }
+                                        };
+
+                                        if is_ark {
+                                            println!("  🎯 [Handoff] Found verified ARK server PID {} listening on UDP port {}", pid, qp);
+                                            return Some(pid);
+                                        } else {
+                                            println!("  🛡️ [Handoff] Ignoring non-ARK process PID {} listening on UDP port {} (not an ARK server).", pid, qp);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -342,6 +533,8 @@ struct ServerProcess {
     ip_address: Option<String>,
     startup_confirmed: Arc<AtomicBool>,
     has_been_online: bool,
+    game_port: u16,
+    is_loader: bool,
 }
 
 pub struct ProcessManager {
@@ -399,8 +592,8 @@ impl ProcessManager {
                                 Ok(Some(status)) => {
                                     // Parent exited. Check if handoff exists (with retry since it may take a moment to spawn)
                                     let mut handoff_pid = None;
-                                    for _ in 0..15 {
-                                        if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, Some(proc.pid), Some(proc.query_port), None) {
+                                    for _ in 0..40 {
+                                        if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, Some(proc.pid), Some(proc.query_port), Some(proc.game_port)) {
                                             handoff_pid = Some(new_pid);
                                             break;
                                         }
@@ -411,6 +604,7 @@ impl ProcessManager {
                                         println!("  🔄 [Handoff] Monitor: Handoff detected for server {}! Swapping tracking to PID {}.", id, new_pid);
                                         proc.pid = new_pid;
                                         proc.child = None;
+                                        proc.is_loader = false;
 
                                         // Update process_id in DB
                                         if let Some(state) = monitor_handle.try_state::<AppState>() {
@@ -452,12 +646,22 @@ impl ProcessManager {
                         } else {
                             // Tracking by system PID (child is None)
                             // Use targeted single-PID refresh instead of scanning all processes
-                            let is_alive = {
+                            let mut is_alive = {
                                 let target_pid = sysinfo::Pid::from_u32(proc.pid);
                                 let mut sys = sysinfo::System::new();
                                 sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target_pid]), true);
                                 sys.process(target_pid).is_some()
                             };
+
+                            // If targeted PID not found, try to locate game server via install path/ports before declaring dead
+                            if !is_alive {
+                                if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, None, Some(proc.query_port), Some(proc.game_port)) {
+                                    println!("  🔄 [Handoff] Monitor: Re-discovered running server {} with PID {}", id, new_pid);
+                                    proc.pid = new_pid;
+                                    is_alive = true;
+                                }
+                            }
+
                             if !is_alive {
                                 has_exited = true;
                                 status_code = -1;
@@ -488,7 +692,7 @@ impl ProcessManager {
                                 "server-lifecycle-event",
                                 ServerLifecycleEvent {
                                     server_id: *id,
-                                    event: if (status_code == 0 || status_code == 1 || status_code == 3 || is_authorized) && (is_authorized || proc.has_been_online) { "STOP".to_string() } else { "CRASH".to_string() },
+                                    event: if status_code == 0 || ((status_code == 1 || status_code == 3 || is_authorized) && (is_authorized || proc.has_been_online)) { "STOP".to_string() } else { "CRASH".to_string() },
                                     reason: Some(reason_str),
                                     exit_code: Some(status_code),
                                     uptime_seconds: Some(uptime),
@@ -665,10 +869,25 @@ impl ProcessManager {
                                     let _pid = proc.pid;
                                     #[cfg(target_os = "windows")]
                                     {
-                                        let _ = Command::new("taskkill")
-                                            .args(["/F", "/T", "/PID", &_pid.to_string()])
+                                        let is_ark = if let Ok(task_out) = Command::new("tasklist")
+                                            .args(["/FI", &format!("PID eq {}", _pid), "/FO", "CSV", "/NH"])
                                             .no_window()
-                                            .output();
+                                            .output()
+                                        {
+                                            let task_str = String::from_utf8_lossy(&task_out.stdout).to_lowercase();
+                                            is_ark_executable_name(&task_str)
+                                        } else {
+                                            false
+                                        };
+
+                                        if is_ark {
+                                            let _ = Command::new("taskkill")
+                                                .args(["/F", "/T", "/PID", &_pid.to_string()])
+                                                .no_window()
+                                                .output();
+                                        } else {
+                                            println!("  🛡️ [SAFETY] Server {} PID {} is NOT an ARK server. Skipping timeout taskkill.", id, _pid);
+                                        }
                                     }
                                     if let Some(ref mut child) = proc.child {
                                         let _ = child.kill();
@@ -778,8 +997,8 @@ impl ProcessManager {
                                 id, exit_code, query_port
                             );
                             "online" // Port is in use, server process still alive
-                        } else if has_been_online && (exit_code == 0 || exit_code == 1 || exit_code == 3) {
-                            "stopped" // Clean or standard UE5 shutdown exit after running
+                        } else if exit_code == 0 || (has_been_online && (exit_code == 1 || exit_code == 3)) {
+                            "stopped" // Clean or standard UE5 shutdown exit
                         } else {
                             println!(
                                 "  💥 Server {} genuinely crashed / failed to start (code {}, port {} free, has_been_online: {}).",
@@ -923,6 +1142,7 @@ impl ProcessManager {
         }
 
         let executable = if server_type == "ASE" {
+            let _ = sanitize_ase_project_plugins(install_path);
             win64_dir.join("ShooterGameServer.exe")
         } else {
             // Plugin-driven launch: scan plugins to determine which exe to use
@@ -1083,6 +1303,9 @@ impl ProcessManager {
         // Add cluster configuration for cross-ARK travel
         if let (Some(cid), Some(cdir)) = (cluster_id, cluster_dir) {
             if !cid.is_empty() && !cdir.is_empty() {
+                if let Err(e) = std::fs::create_dir_all(cdir) {
+                    println!("  ⚠️ Failed to create cluster directory at '{}': {}", cdir, e);
+                }
                 args.push(format!("-clusterid={}", cid));
                 args.push(format!("-ClusterDirOverride={}", cdir));
                 println!(
@@ -1218,7 +1441,11 @@ impl ProcessManager {
                 }
 
                 if modified {
-                    let _ = std::fs::write(&gus_path, &cleaned);
+                    if !crate::services::ini_parser::IniParser::is_file_readonly(&gus_path) {
+                        let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &cleaned);
+                    } else {
+                        println!("  🔒 [Read-Only Guard] Skipping ActiveMapMod sanitation because GameUserSettings.ini is marked Read-Only");
+                    }
                 }
 
                 let mut in_server_settings = false;
@@ -1356,9 +1583,12 @@ impl ProcessManager {
             .stderr(Stdio::piped());
 
         // Spawn in a new process group so the server survives if the manager exits
+        let is_loader = executable.file_name().map_or(false, |f| {
+            let s = f.to_string_lossy().to_lowercase();
+            s.contains("loader") || s == "asaapiloader.exe"
+        });
         #[cfg(target_os = "windows")]
         {
-            let is_loader = executable.file_name().map_or(false, |f| f == "AsaApiLoader.exe");
             if is_loader {
                 command.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NEW_CONSOLE);
             } else {
@@ -1661,6 +1891,8 @@ impl ProcessManager {
                 ip_address: ip_address.map(|s| s.to_string()),
                 startup_confirmed,
                 has_been_online: false,
+                game_port,
+                is_loader,
             });
         }
 
@@ -1933,34 +2165,68 @@ impl ProcessManager {
                 {
                     let stdout = String::from_utf8_lossy(&output.stdout);
                     for line in stdout.lines() {
-                        for &port in &valid_ports {
-                            let port_pattern = format!(":{}", port);
-                            if line.contains(&port_pattern) {
-                                if let Some(pid_str) = line.split_whitespace().last() {
-                                    if let Ok(pid) = pid_str.parse::<u32>() {
-                                        if pid > 4 && pid != current_pid {
-                                            if let Ok(task_out) = Command::new("tasklist")
-                                                .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
-                                                .no_window()
-                                                .output()
-                                            {
-                                                let task_str = String::from_utf8_lossy(&task_out.stdout).to_lowercase();
-                                                if task_str.contains("asa-server-manager") || task_str.contains("cargo") || task_str.contains("tauri") || task_str.contains("node") {
-                                                    println!("  ⚠️ [SAFETY] Skipping termination of manager/dev process PID {}", pid);
-                                                    continue;
-                                                }
-                                            }
-
-                                            println!("  🧹 [BACKGROUND CLEANUP] Terminating background server process on port {}: PID {}", port, pid);
-                                            let _ = Command::new("taskkill")
-                                                .args(["/F", "/PID", &pid.to_string()])
-                                                .no_window()
-                                                .output();
-                                        }
-                                    }
-                                }
-                            }
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        // Format:
+                        // TCP: Proto LocalAddress ForeignAddress State PID (>= 5 tokens)
+                        // UDP: Proto LocalAddress ForeignAddress PID (>= 4 tokens)
+                        if parts.len() < 4 {
+                            continue;
                         }
+
+                        // Extract local port strictly from Local Address (parts[1]) ONLY
+                        let local_addr = parts[1];
+                        let local_port = local_addr
+                            .rsplit(':')
+                            .next()
+                            .and_then(|p| p.parse::<u16>().ok());
+
+                        let Some(port) = local_port else {
+                            continue;
+                        };
+
+                        if !valid_ports.contains(&port) {
+                            continue;
+                        }
+
+                        // Extract PID from the last token
+                        let Some(pid) = parts.last().and_then(|p| p.parse::<u32>().ok()) else {
+                            continue;
+                        };
+
+                        if pid <= 4 || pid == current_pid {
+                            continue;
+                        }
+
+                        let task_str = if let Ok(task_out) = Command::new("tasklist")
+                            .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
+                            .no_window()
+                            .output()
+                        {
+                            String::from_utf8_lossy(&task_out.stdout).to_lowercase()
+                        } else {
+                            String::new()
+                        };
+
+                        if task_str.contains("asa-server-manager") || task_str.contains("cargo") || task_str.contains("tauri") || task_str.contains("node") {
+                            println!("  ⚠️ [SAFETY] Skipping termination of manager/dev process PID {}", pid);
+                            continue;
+                        }
+
+                        // STRICT CHECK: Only terminate verified ARK server processes.
+                        // NEVER terminate external game servers (e.g. RustDedicated.exe) or general applications.
+                        if !is_ark_executable_name(&task_str) {
+                            println!(
+                                "  🛡️ [SAFETY] Process PID {} on port {} is NOT an ARK server (process: {}). Skipping termination.",
+                                pid, port, task_str.trim()
+                            );
+                            continue;
+                        }
+
+                        println!("  🧹 [BACKGROUND CLEANUP] Terminating verified ARK server process on port {}: PID {}", port, pid);
+                        let _ = Command::new("taskkill")
+                            .args(["/F", "/PID", &pid.to_string()])
+                            .no_window()
+                            .output();
                     }
                 }
             }
@@ -2019,10 +2285,25 @@ impl ProcessManager {
             let _pid = server_proc.pid;
             #[cfg(target_os = "windows")]
             {
-                let _ = Command::new("taskkill")
-                    .args(["/F", "/T", "/PID", &_pid.to_string()])
+                let is_ark = if let Ok(task_out) = Command::new("tasklist")
+                    .args(["/FI", &format!("PID eq {}", _pid), "/FO", "CSV", "/NH"])
                     .no_window()
-                    .output();
+                    .output()
+                {
+                    let task_str = String::from_utf8_lossy(&task_out.stdout).to_lowercase();
+                    is_ark_executable_name(&task_str)
+                } else {
+                    false
+                };
+
+                if is_ark {
+                    let _ = Command::new("taskkill")
+                        .args(["/F", "/T", "/PID", &_pid.to_string()])
+                        .no_window()
+                        .output();
+                } else {
+                    println!("  🛡️ [SAFETY] Tracked PID {} for server {} is NOT an ARK server. Skipping taskkill to protect external applications.", _pid, server_id);
+                }
             }
 
             // Fallback
@@ -2097,13 +2378,28 @@ impl ProcessManager {
                         let query = format!("SELECT process_id FROM {} WHERE id = ?1", table);
                         if let Ok(pid_opt) = conn.query_row(&query, [server_id], |row| row.get::<_, Option<u32>>(0)) {
                             if let Some(pid) = pid_opt {
-                                println!("  ⚠️ [PROCESS RECOVERY] Killing orphaned server {} with PID {}", server_id, pid);
                                 #[cfg(target_os = "windows")]
                                 {
-                                    let _ = Command::new("taskkill")
-                                        .args(["/F", "/T", "/PID", &pid.to_string()])
+                                    let is_ark = if let Ok(task_out) = Command::new("tasklist")
+                                        .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
                                         .no_window()
-                                        .output();
+                                        .output()
+                                    {
+                                        let task_str = String::from_utf8_lossy(&task_out.stdout).to_lowercase();
+                                        is_ark_executable_name(&task_str)
+                                    } else {
+                                        false
+                                    };
+
+                                    if is_ark {
+                                        println!("  ⚠️ [PROCESS RECOVERY] Killing orphaned server {} with PID {}", server_id, pid);
+                                        let _ = Command::new("taskkill")
+                                            .args(["/F", "/T", "/PID", &pid.to_string()])
+                                            .no_window()
+                                            .output();
+                                    } else {
+                                        println!("  🛡️ [PROCESS RECOVERY] Stored PID {} for server {} is NOT an ARK server. Skipping taskkill to protect external processes.", pid, server_id);
+                                    }
                                 }
                             }
                         }
@@ -2220,8 +2516,8 @@ impl ProcessManager {
                     Ok(Some(status)) => {
                         // Parent exited. Check if handoff exists (with retry since it may take a moment to spawn)
                         let mut handoff_pid = None;
-                        for _ in 0..20 {
-                            if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type, Some(server_proc.pid), Some(server_proc.query_port), None) {
+                        for _ in 0..40 {
+                            if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type, Some(server_proc.pid), Some(server_proc.query_port), Some(server_proc.game_port)) {
                                 handoff_pid = Some(new_pid);
                                 break;
                             }
@@ -2232,6 +2528,7 @@ impl ProcessManager {
                             println!("  🔄 [Handoff] is_running: Handoff detected for server {}! Swapping tracking to PID {}.", server_id, new_pid);
                             server_proc.pid = new_pid;
                             server_proc.child = None;
+                            server_proc.is_loader = false;
 
                             // Update process_id in DB
                             if let Some(state) = self.app_handle.try_state::<AppState>() {
@@ -2304,12 +2601,20 @@ impl ProcessManager {
                 }
             } else {
                 // Tracking by system PID — targeted single-PID refresh
-                let is_alive = {
+                let mut is_alive = {
                     let target_pid = sysinfo::Pid::from_u32(server_proc.pid);
                     let mut sys = sysinfo::System::new();
                     sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target_pid]), true);
                     sys.process(target_pid).is_some()
                 };
+
+                if !is_alive {
+                    if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type, None, Some(server_proc.query_port), Some(server_proc.game_port)) {
+                        println!("  🔄 [Handoff] is_running: Re-discovered running server {} with PID {}", server_id, new_pid);
+                        server_proc.pid = new_pid;
+                        is_alive = true;
+                    }
+                }
 
                 if !is_alive {
                     println!(
@@ -2464,6 +2769,8 @@ impl ProcessManager {
                 ip_address,
                 startup_confirmed,
                 has_been_online: true,
+                game_port: query_port,
+                is_loader: false,
             });
 
             println!(

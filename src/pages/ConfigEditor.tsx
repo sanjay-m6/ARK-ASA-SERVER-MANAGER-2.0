@@ -19,7 +19,7 @@ import { EngramOverridesEditor } from '../components/config/EngramOverridesEdito
 import { EngramPointsPerLevelEditor } from '../components/config/EngramPointsPerLevelEditor';
 import { LootCrateEditor } from '../components/config/LootCrateEditor';
 import { DinoSpawnEditor } from '../components/config/DinoSpawnEditor';
-import { applyPreset, ConfigPreset, createPresetFromConfig, saveCustomPreset } from '../data/presets';
+import { applyPreset, ConfigPreset, createPresetFromConfig, saveCustomPreset, updateCustomPreset, getCustomPresets } from '../data/presets';
 import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
 import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboard';
@@ -1630,9 +1630,27 @@ export default function ConfigEditor() {
                 const parsedGame = parseIniContent(gameContent);
 
                 // Migrate legacy ServerName to SessionName if present
-                const serverSettings = parsedGus.get('ServerSettings');
-                if (serverSettings && serverSettings.has('ServerName') && !serverSettings.has('SessionName')) {
+                let serverSettings = parsedGus.get('ServerSettings');
+                if (!serverSettings) {
+                    serverSettings = new CaseInsensitiveMap<string>();
+                    parsedGus.set('ServerSettings', serverSettings);
+                }
+                if (serverSettings.has('ServerName') && !serverSettings.has('SessionName')) {
                     serverSettings.set('SessionName', serverSettings.get('ServerName')!);
+                }
+
+                // Initialize MapName, Port, and QueryPort from current server configuration if missing in INI
+                const currentServer = useServerStore.getState().servers.find(s => s.id === selectedServerId);
+                if (currentServer) {
+                    if (!serverSettings.has('MapName') && currentServer.config?.mapName) {
+                        serverSettings.set('MapName', currentServer.config.mapName);
+                    }
+                    if (!serverSettings.has('Port') && currentServer.ports?.gamePort) {
+                        serverSettings.set('Port', String(currentServer.ports.gamePort));
+                    }
+                    if (!serverSettings.has('QueryPort') && currentServer.ports?.queryPort) {
+                        serverSettings.set('QueryPort', String(currentServer.ports.queryPort));
+                    }
                 }
 
                 setConfigs({
@@ -1951,6 +1969,17 @@ export default function ConfigEditor() {
         toast.success(t('configEditor.toasts.presetSaved', 'Preset saved successfully'));
     }, [configs, t]);
 
+    const handleUpdatePresetWithCurrent = useCallback((presetId: string) => {
+        const currentPresetObj = getCustomPresets().find(p => p.id === presetId);
+        if (!currentPresetObj) return;
+
+        const updatedData = createPresetFromConfig(currentPresetObj.name, currentPresetObj.description, configs);
+        updateCustomPreset(presetId, {
+            settings: updatedData.settings
+        });
+        toast.success(t('configEditor.toasts.presetUpdated', { name: currentPresetObj.name, defaultValue: `Preset "${currentPresetObj.name}" updated with current settings` }));
+    }, [configs, t]);
+
     // Custom Level Generator Functions
     const applyDinoLevel = (level: number) => {
         setCustomDinoLevel(level);
@@ -2080,6 +2109,7 @@ export default function ConfigEditor() {
                             onApplyPreset={handleApplyPreset}
                             currentPreset={currentPreset}
                             onSaveCurrentAsPreset={handleSaveCurrentAsPreset}
+                            onUpdatePresetWithCurrent={handleUpdatePresetWithCurrent}
                         />
 
                         <button

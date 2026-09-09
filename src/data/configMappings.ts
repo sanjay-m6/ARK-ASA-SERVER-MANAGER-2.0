@@ -69,12 +69,70 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 description: 'The name of your server'
             },
             {
+                section: 'ServerSettings',
+                key: 'MapName',
+                label: 'Map',
+                type: 'dropdown',
+                defaultValue: 'TheIsland_WP',
+                description: 'The map to load on the server',
+                options: [
+                    // Official Release Maps
+                    { value: 'TheIsland_WP', label: 'The Island', group: 'released' },
+                    { value: 'ScorchedEarth_WP', label: 'Scorched Earth', group: 'released' },
+                    { value: 'TheCenter_WP', label: 'The Center', group: 'released' },
+                    { value: 'Aberration_WP', label: 'Aberration', group: 'released' },
+                    { value: 'Extinction_WP', label: 'Extinction', group: 'released' },
+
+                    // Premium Mod Maps
+                    { value: 'LostColony_WP', label: 'Lost Colony', group: 'premium' },
+                    { value: 'Astraeos_WP', label: 'Astraeos', group: 'premium' },
+                    { value: 'Forglar_WP', label: 'Forglar', group: 'premium' },
+                    { value: 'TemptressLagoon_WP', label: 'Temptress Lagoon', group: 'premium' },
+                    { value: 'Reverence_WP', label: 'Reverence', group: 'premium' },
+
+                    // Modded Expansion Maps
+                    { value: 'ScorchedEarthRM_WP', label: 'Scorched Earth Reborn', group: 'modded' },
+                    { value: 'Svartalfheim_WP', label: 'Svartalfheim', group: 'modded' },
+                    { value: 'Amissa_WP', label: 'Amissa', group: 'modded' },
+                    { value: 'Insaluna_WP', label: 'Insaluna', group: 'modded' },
+                    { value: 'Bjarnheim_WP', label: 'Bjarnheim', group: 'modded' },
+
+                    // Upcoming Official Maps
+                    { value: 'Ragnarok_WP', label: 'Ragnarok', group: 'upcoming' },
+                    { value: 'Valguero_WP', label: 'Valguero', group: 'upcoming' },
+                    { value: 'Genesis_WP', label: 'Genesis Part 1', group: 'upcoming' },
+                    { value: 'Genesis2_WP', label: 'Genesis Part 2', group: 'upcoming' },
+                    { value: 'Fjordur_WP', label: 'Fjordur', group: 'upcoming' },
+                    { value: 'CrystalIsles_WP', label: 'Crystal Isles', group: 'upcoming' },
+                    { value: 'LostIsland_WP', label: 'Lost Island', group: 'upcoming' },
+
+                    // Custom / Mod Map
+                    { value: '__CUSTOM__', label: 'Custom Map / Mod Map...', group: 'custom' },
+                ]
+            },
+            {
                 section: 'MessageOfTheDay',
                 key: 'Message',
                 label: 'Message of the Day',
                 type: 'textarea',
                 defaultValue: '',
                 description: 'Message shown to players when they join. Use \\n for new lines.'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'Port',
+                label: 'Game Port',
+                type: 'number',
+                defaultValue: '7777',
+                description: 'Main game port for player connections (default: 7777)'
+            },
+            {
+                section: 'ServerSettings',
+                key: 'QueryPort',
+                label: 'Query Port',
+                type: 'number',
+                defaultValue: '27015',
+                description: 'Port for server browser queries (default: 27015)'
             },
             {
                 section: 'ServerSettings',
@@ -882,8 +940,8 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 key: 'CrossARKAllowForeignDinoDownloads',
                 label: 'Allow Foreign Dinos',
                 type: 'boolean',
-                defaultValue: 'False',
-                description: 'Allow dinos from other maps'
+                defaultValue: 'True',
+                description: 'Allow dinos from other maps (e.g. Extinction, Aberration, Scorched Earth) to be downloaded on The Island'
             }
         ]
     },

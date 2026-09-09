@@ -89,9 +89,27 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Improvements in v4.6.19
+            ### 🆕 New Features & Improvements in v4.6.20
+            - **🛡️ Cross-Server Process Isolation & Multi-Game Protection**:
+              - Resolved a critical conflict where restarting or stopping ARK servers inadvertently detected and force-terminated co-hosted external game servers (such as Rust Dedicated Server / `RustDedicated.exe`, Palworld, etc.).
+              - Implemented strict binary identity whitelisting (`is_ark_executable_name`) across all process termination and cleanup routines (`ArkAscendedServer.exe`, `ShooterGameServer.exe`, `AsaApiLoader.exe`, `ServerApiLoader.exe`).
+              - Replaced naive substring port matching in `kill_processes_on_ports` with column-delimited `Local Address` numeric port parsing, preventing accidental kills on foreign addresses or ephemeral client sockets.
+              - Hardened UDP listener discovery in `find_game_server_pid_by_install_path` to strictly verify process identity before adopting server PIDs.
+              - Added ARK binary verification to startup timeout watchdog and database orphan recovery kill paths.
+            - **🧩 ASE Unreal Engine 4 Plugin Hang & Crash Doctor Resolution (`RuntimeMeshComponent`)**:
+              - Resolved dedicated server startup freeze where `ShooterGameServer.exe` halted with a modal Win32 message box (`Plugin 'RuntimeMeshComponent' failed to load because module 'RuntimeMeshComponent' could not be found`).
+              - Added pre-launch sanitization (`sanitize_ase_project_plugins`) to inspect `ShooterGame.uproject` and automatically disable missing or uncompiled plugins (`RuntimeMeshComponent`) with safe `.bak` backups.
+              - Automatically quarantines uncompiled plugin folders (`RuntimeMeshComponent.disabled`) to stop UE4 engine loader assertions.
+              - Enhanced **Crash Doctor** with automated missing UE4 plugin detection and 1-click healing (`diagnose_server_crash` & `repair_and_recover_server`).
+            - **🧹 INI Parser Type Serialization Fix**:
+              - Fixed compiler diagnostic warnings in `src-tauri/src/ase/ini_parser.rs` (`IniDocument::serialize` and `IniData::serialize`) to guarantee clean, strongly typed INI generation.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.19 — Server Presets Hub, MultiHome Socket Protection & Startup Crash Recovery</summary>
+
             - **📦 Server Presets & Templates Hub**:
-              - Added a comprehensive Server Presets & Templates Hub for instant server configuration, cloning, and community sharing.
+              - Added Server Presets & Templates Hub for instant server configuration, cloning, and community sharing.
               - Ships with built-in community templates: *PvE Casual (5x)*, *PvP Hardcore*, *Primal Chaos (10x)*, *Small Tribes Official (3x)*, *Ultra Boosted (25x)*, and *Modded Extinction*.
               - 1-Click apply to instantly configure multipliers, server settings, and mod setups with safety confirmation modals.
               - Export custom server setups to portable `.json` preset files or import community presets effortlessly.
@@ -100,17 +118,13 @@ jobs:
               - Resolved critical Unreal Engine 5 startup crashes (`WSAEADDRNOTAVAIL` 10049) when users entered their Public WAN IP in the server settings.
               - Added intelligent network interface validation (`is_local_interface_ip`) to verify whether configured IP addresses belong to physical local network adapters.
               - Automatically omits `-MultiHome` when an external IP is detected, logging an informative warning instead of failing socket binding.
-              - Fixed external server lists and community trackers (such as `ASA-Server.de`, BattleMetrics) reporting servers as offline due to improper IP binding.
             - **🔄 Startup Failure & Exit Code 1 / Code 0 Crash Recovery**:
-              - Fixed an issue where servers failing during startup before ever reaching `online` were misclassified as normal `"stopped"` when exiting with code 0 or 1.
-              - Pre-start socket monitoring now checks `PeerPort` (`game_port + 1`, e.g., 7778 UDP) to ensure lingering `TIME_WAIT` sockets from recent restarts are cleanly released before relaunching.
+              - Fixed an issue where servers failing during startup before reaching `online` were misclassified as normal `"stopped"` when exiting with code 0 or 1.
               - Enforced proper `crashed` status classification for unauthorized early exits, triggering Guardian watchdog auto-recovery, diagnostics, and Discord notifications.
             - **🔌 UPnP Port Forwarding Peer Port Addition**:
-              - Added Peer Port (`game_port + 1`, 7778 UDP) to the UPnP port forwarding matrix alongside Game, Query, and RCON ports for routers with UPnP enabled.
-            - **📊 Build Version Comparison Optimization**:
-              - Refactored version check comparison in `serverStore.ts` to parse numeric build numbers, preventing false-positive update banners.
+              - Added Peer Port (`game_port + 1`, 7778 UDP) to the UPnP port forwarding matrix.
+            </details>
 
-            ### 🛠️ Previous Releases
             <details>
             <summary>v4.6.18 — Mod Watchdog Persistence, RCON GiveItem UID Resolution & Save Validation</summary>
 

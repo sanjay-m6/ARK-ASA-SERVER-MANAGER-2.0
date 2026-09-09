@@ -527,12 +527,12 @@ impl IniDocument {
         }
 
         // Trim trailing newlines and add exactly one CRLF
-        let trimmed = out.trim_end_matches(&['\r', '\n'][..]);
-        if trimmed.is_empty() {
-            String::new()
-        } else {
-            format!("{}\r\n", trimmed)
+        let trimmed_len = out.trim_end_matches(&['\r', '\n'][..]).len();
+        out.truncate(trimmed_len);
+        if !out.is_empty() {
+            out.push_str("\r\n");
         }
+        out
     }
 
     /// Convert to the legacy IniData format for backward compatibility.
@@ -675,12 +675,12 @@ impl IniData {
             out.push_str("\r\n");
         }
 
-        let trimmed = out.trim_end_matches(&['\r', '\n'][..]);
-        if trimmed.is_empty() {
-            String::new()
-        } else {
-            format!("{}\r\n", trimmed)
+        let trimmed_len = out.trim_end_matches(&['\r', '\n'][..]).len();
+        out.truncate(trimmed_len);
+        if !out.is_empty() {
+            out.push_str("\r\n");
         }
+        out
     }
 
     pub fn get_section_mut(&mut self, name: &str) -> Option<&mut IniSection> {

@@ -214,6 +214,27 @@ function findSectionByKey(key: string, schema: ConfigGroup[]): string | null {
     return null;
 }
 
+/**
+ * Keys that belong to server identity, network ports, and credentials.
+ * These must NEVER be captured into or applied from a gameplay/rate preset.
+ */
+export const SERVER_IDENTITY_KEYS = new Set([
+    'SessionName',
+    'ServerName',
+    'MapName',
+    'ServerMap',
+    'Port',
+    'QueryPort',
+    'RCONPort',
+    'ServerPassword',
+    'ServerAdminPassword',
+    'SpectatorPassword',
+    'RCONPassword',
+    'IPAddress',
+    'ActiveMapMod',
+    'MultiHome',
+]);
+
 // Helper to apply preset to current config
 export function applyPreset(
     preset: ConfigPreset,
@@ -230,16 +251,18 @@ export function applyPreset(
         Game: new Map(currentConfigs.Game)
     };
 
-    // Apply GameUserSettings changes
+    // Apply GameUserSettings changes (skip identity keys)
     Object.entries(preset.settings.GameUserSettings).forEach(([key, value]) => {
+        if (SERVER_IDENTITY_KEYS.has(key)) return;
         const section = findSectionByKey(key, GAME_USER_SETTINGS_SCHEMA) || 'ServerSettings';
         const sectionMap = new Map(newConfigs.GameUserSettings.get(section) || []);
         sectionMap.set(key, value);
         newConfigs.GameUserSettings.set(section, sectionMap);
     });
 
-    // Apply Game.ini changes
+    // Apply Game.ini changes (skip identity keys)
     Object.entries(preset.settings.Game).forEach(([key, value]) => {
+        if (SERVER_IDENTITY_KEYS.has(key)) return;
         const section = findSectionByKey(key, GAME_INI_SCHEMA) || '/Script/ShooterGame.ShooterGameMode';
         const sectionMap = new Map(newConfigs.Game.get(section) || []);
         sectionMap.set(key, value);
@@ -275,15 +298,74 @@ export function saveCustomPreset(preset: ConfigPreset): void {
     localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(existing));
 }
 
-/** Load all custom presets from localStorage */
+/** Load all custom presets from localStorage (sanitizing any legacy identity keys) */
 export function getCustomPresets(): ConfigPreset[] {
     try {
         const raw = localStorage.getItem(CUSTOM_PRESETS_KEY);
         if (!raw) return [];
-        return JSON.parse(raw) as ConfigPreset[];
+        const parsed = JSON.parse(raw) as ConfigPreset[];
+        let modified = false;
+        const sanitized = parsed.map(preset => {
+            if (preset.settings?.GameUserSettings) {
+                const cleanedGus: Record<string, string> = {};
+                let hasIdentity = false;
+                Object.entries(preset.settings.GameUserSettings).forEach(([k, v]) => {
+                    if (!SERVER_IDENTITY_KEYS.has(k)) {
+                        cleanedGus[k] = v;
+                    } else {
+                        hasIdentity = true;
+                    }
+                });
+                if (hasIdentity) {
+                    modified = true;
+                    return {
+                        ...preset,
+                        settings: {
+                            ...preset.settings,
+                            GameUserSettings: cleanedGus
+                        }
+                    };
+                }
+            }
+            return preset;
+        });
+
+        if (modified) {
+            localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(sanitized));
+        }
+        return sanitized;
     } catch {
         return [];
     }
+}
+
+/** Update an existing custom preset's metadata and/or settings */
+export function updateCustomPreset(
+    presetId: string,
+    updates: {
+        name?: string;
+        description?: string;
+        settings?: {
+            GameUserSettings: Record<string, string>;
+            Game: Record<string, string>;
+        };
+    }
+): ConfigPreset | null {
+    const existing = getCustomPresets();
+    const idx = existing.findIndex(p => p.id === presetId);
+    if (idx === -1) return null;
+
+    const current = existing[idx];
+    const updated: ConfigPreset = {
+        ...current,
+        name: updates.name !== undefined ? updates.name.trim() : current.name,
+        description: updates.description !== undefined ? updates.description.trim() : current.description,
+        settings: updates.settings !== undefined ? updates.settings : current.settings,
+    };
+
+    existing[idx] = updated;
+    localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(existing));
+    return updated;
 }
 
 /** Delete a custom preset by ID */
@@ -326,13 +408,24 @@ export function importPresetFromJson(jsonString: string): ConfigPreset {
         throw new Error('Invalid preset file: missing GameUserSettings or Game settings');
     }
 
+    // Sanitize any identity keys
+    const cleanedGus: Record<string, string> = {};
+    Object.entries(data.preset.settings.GameUserSettings as Record<string, string>).forEach(([k, v]) => {
+        if (!SERVER_IDENTITY_KEYS.has(k)) {
+            cleanedGus[k] = v;
+        }
+    });
+
     const preset: ConfigPreset = {
         id: `custom_${Date.now()}`,
         name: data.preset.name,
         description: data.preset.description || 'Imported preset',
         icon: data.preset.icon || '📦',
         color: data.preset.color || 'from-slate-500 to-slate-600',
-        settings: data.preset.settings,
+        settings: {
+            GameUserSettings: cleanedGus,
+            Game: data.preset.settings.Game,
+        },
     };
 
     return preset;
@@ -350,17 +443,21 @@ export function createPresetFromConfig(
     const gusSettings: Record<string, string> = {};
     const gameSettings: Record<string, string> = {};
 
-    // Extract all sections from GameUserSettings
+    // Extract all sections from GameUserSettings, excluding server identity keys
     configs.GameUserSettings.forEach((sectionMap) => {
         sectionMap.forEach((value, key) => {
-            gusSettings[key] = value;
+            if (!SERVER_IDENTITY_KEYS.has(key)) {
+                gusSettings[key] = value;
+            }
         });
     });
 
-    // Extract all sections from Game.ini
+    // Extract all sections from Game.ini, excluding server identity keys
     configs.Game.forEach((sectionMap) => {
         sectionMap.forEach((value, key) => {
-            gameSettings[key] = value;
+            if (!SERVER_IDENTITY_KEYS.has(key)) {
+                gameSettings[key] = value;
+            }
         });
     });
 

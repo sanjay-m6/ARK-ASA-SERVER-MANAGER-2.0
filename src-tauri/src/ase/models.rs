@@ -584,7 +584,7 @@ impl Default for AseGameConfig {
             prevent_upload_items: false,
             prevent_upload_dinos: false,
             disable_custom_folders_in_tribute_inventories: false,
-            crossark_allow_foreign_dino_downloads: false,
+            crossark_allow_foreign_dino_downloads: true,
             day_cycle_speed_scale: 1.0,
             day_time_speed_scale: 1.0,
             night_time_speed_scale: 1.0,

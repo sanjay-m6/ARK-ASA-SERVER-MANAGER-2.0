@@ -1021,13 +1021,14 @@ pub async fn start_server(
     );
 
     // Run startup logic directly and return the result
-    perform_server_startup(&app_handle, server_id, update_on_start).await
+    perform_server_startup(&app_handle, server_id, update_on_start, false).await
 }
 
 async fn perform_server_startup(
     app_handle: &tauri::AppHandle,
     server_id: i64,
     update_on_start: bool,
+    force_wipe_dinos: bool,
 ) -> Result<(), String> {
     let state = app_handle.state::<AppState>();
 
@@ -1038,7 +1039,7 @@ async fn perform_server_startup(
         let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "starting" }));
     }
 
-    let result = perform_server_startup_inner(app_handle, server_id, update_on_start).await;
+    let result = perform_server_startup_inner(app_handle, server_id, update_on_start, force_wipe_dinos).await;
     if let Err(ref e) = result {
         // Reset status back to stopped (non-blocking)
         let _ = state.db.lock().map(|db| {
@@ -1077,6 +1078,7 @@ async fn perform_server_startup_inner(
     app_handle: &tauri::AppHandle,
     server_id: i64,
     update_on_start: bool,
+    force_wipe_dinos: bool,
 ) -> Result<(), String> {
     println!(
         "  🔍 [Debug] perform_server_startup entered for {}",
@@ -1422,6 +1424,20 @@ async fn perform_server_startup_inner(
         install_path_buf, game_port, map_name
     );
 
+    let effective_custom_args = if force_wipe_dinos {
+        let mut base = custom_args.unwrap_or_default();
+        if !base.contains("-ForceRespawnDinos") {
+            println!("  🦖 Injecting -ForceRespawnDinos flag for server {} to purge corrupted actor references on boot", server_id);
+            if !base.is_empty() {
+                base.push(' ');
+            }
+            base.push_str("-ForceRespawnDinos");
+        }
+        Some(base)
+    } else {
+        custom_args
+    };
+
     state
         .process_manager
         .start_server(
@@ -1440,7 +1456,7 @@ async fn perform_server_startup_inner(
             cluster_name.as_deref() as Option<&str>,
             cluster_path.as_deref() as Option<&str>,
             mods_option,
-            custom_args.as_deref() as Option<&str>,
+            effective_custom_args.as_deref() as Option<&str>,
             battleye,
         )
         .map_err(|e: AnyhowError| {
@@ -1804,6 +1820,29 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
     // Clear residual tracking entry to ensure a pristine start
     state.process_manager.force_cleanup_server_entry(server_id);
 
+    // Clean stale .temp cache folders that cause deserialization / mod compilation crashes
+    if let Ok(db) = state.db.lock() {
+        if let Ok(conn) = db.get_connection() {
+            if let Ok(install_path) = conn.query_row(
+                "SELECT install_path FROM servers WHERE id = ?1",
+                [server_id],
+                |row| row.get::<_, String>(0),
+            ) {
+                let p = PathBuf::from(install_path);
+                let temp_dirs = [
+                    p.join("ShooterGame").join("Binaries").join("Win64").join("ShooterGame").join(".temp"),
+                    p.join("ShooterGame").join("Mods").join(".temp"),
+                ];
+                for t in &temp_dirs {
+                    if t.exists() {
+                        println!("  🧹 Cleaning stale temporary mod cache: {:?}", t);
+                        let _ = std::fs::remove_dir_all(t);
+                    }
+                }
+            }
+        }
+    }
+
     // Optional: Backup before restart
     let backup_before_restart = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -1830,7 +1869,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
 
     // Run full server startup pipeline (includes config generation, port checks, log watcher, Discord alerts, etc.)
     let app_handle = state.app_handle.clone();
-    perform_server_startup(&app_handle, server_id, false).await?;
+    perform_server_startup(&app_handle, server_id, false, wipe_dinos.unwrap_or(false)).await?;
 
     if wipe_dinos.unwrap_or(false) {
         let app_clone = app_handle.clone();
@@ -4783,6 +4822,46 @@ pub async fn diagnose_server_crash(
         }));
     }
 
+    // Check Issue: Missing UE4 Plugin Modules (e.g. RuntimeMeshComponent) in ShooterGame.uproject or Plugins dir
+    let uproject_path = install_path_buf.join("ShooterGame").join("ShooterGame.uproject");
+    let mut has_broken_rmc_plugin = false;
+    if uproject_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&uproject_path) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(plugins) = json.get("Plugins").and_then(|p| p.as_array()) {
+                    for plugin in plugins {
+                        if let Some(name) = plugin.get("Name").and_then(|n| n.as_str()) {
+                            let enabled = plugin.get("Enabled").and_then(|e| e.as_bool()).unwrap_or(false);
+                            if enabled && name.eq_ignore_ascii_case("RuntimeMeshComponent") {
+                                has_broken_rmc_plugin = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let rmc_folder = install_path_buf.join("ShooterGame").join("Plugins").join("RuntimeMeshComponent");
+    let engine_rmc_folder = install_path_buf.join("Engine").join("Plugins").join("RuntimeMeshComponent");
+    if rmc_folder.exists() || engine_rmc_folder.exists() {
+        has_broken_rmc_plugin = true;
+    }
+
+    if has_broken_rmc_plugin {
+        issues.push(serde_json::json!({
+            "id": "missing_rmc_plugin",
+            "severity": "critical",
+            "title": "Missing Engine Plugin: RuntimeMeshComponent",
+            "description": "ShooterGame.uproject has 'RuntimeMeshComponent' enabled or uncompiled plugin folders exist. On dedicated servers, this displays a modal Windows popup error and freezes server boot.",
+            "fix": "Disable RuntimeMeshComponent in ShooterGame.uproject and quarantine orphan plugin folder."
+        }));
+        if primary_cause == "Unknown / Process Crash" {
+            primary_cause = "Missing UE4 Plugin Module (RuntimeMeshComponent)".to_string();
+            recommended_action = "Run 1-Click Auto-Fix to disable RuntimeMeshComponent in ShooterGame.uproject and heal server startup.".to_string();
+        }
+    }
+
     let report = serde_json::json!({
         "server_id": server_id,
         "server_name": server_name,
@@ -4925,6 +5004,12 @@ pub async fn repair_and_recover_server(
                 emit_log("Sanitized corrupted ActiveMapMod keys from GameUserSettings.ini.");
             }
         }
+    }
+
+    // Step 5b: Sanitize ShooterGame.uproject and quarantine uncompiled UE4 plugins (e.g. RuntimeMeshComponent)
+    emit_log("Inspecting ShooterGame.uproject and scanning for uncompiled engine plugins...");
+    if crate::services::process_manager::sanitize_ase_project_plugins(&install_path_buf) {
+        emit_log("Successfully disabled missing plugin modules (RuntimeMeshComponent) in ShooterGame.uproject.");
     }
 
     emit_log("✅ Server environment healed and ready.");

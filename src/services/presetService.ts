@@ -282,10 +282,42 @@ export async function applyPresetToServer(
     // 2. Apply INI configurations
     if (options.applyConfigs) {
         if (preset.configs.gameUserSettings) {
+            let targetGus = preset.configs.gameUserSettings;
+
+            // Preserve existing server's SessionName, passwords, and ports if present on target server
+            try {
+                const existingGus = isAse
+                    ? await readAseIniRaw(server.id, 'GameUserSettings')
+                    : await readConfig(server.id, 'GameUserSettings');
+
+                if (existingGus) {
+                    const keysToPreserve = [
+                        'SessionName', 'ServerName', 'MapName', 'ServerMap',
+                        'Port', 'QueryPort', 'RCONPort',
+                        'ServerPassword', 'ServerAdminPassword', 'RCONPassword', 'SpectatorPassword',
+                        'IPAddress'
+                    ];
+
+                    for (const key of keysToPreserve) {
+                        const regex = new RegExp(`^\\s*${key}\\s*=\\s*(.*?)\\s*$`, 'mi');
+                        const match = existingGus.match(regex);
+                        if (match && match[1] !== undefined && match[1] !== '') {
+                            const existingVal = match[1];
+                            const targetRegex = new RegExp(`^(\\s*${key}\\s*=).*$`, 'mi');
+                            if (targetRegex.test(targetGus)) {
+                                targetGus = targetGus.replace(targetRegex, `$1${existingVal}`);
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Could not read existing GameUserSettings to preserve identity:', err);
+            }
+
             if (isAse) {
-                await writeAseIniRaw(server.id, 'GameUserSettings', preset.configs.gameUserSettings);
+                await writeAseIniRaw(server.id, 'GameUserSettings', targetGus);
             } else {
-                await saveConfig(server.id, 'GameUserSettings', preset.configs.gameUserSettings);
+                await saveConfig(server.id, 'GameUserSettings', targetGus);
             }
         }
 
@@ -667,4 +699,24 @@ export function deleteLocalPreset(presetId: string): void {
     const existing = getLocalPresets();
     const updated = existing.filter(p => p.id !== presetId);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+}
+
+export function updateLocalPreset(
+    presetId: string,
+    updates: { name?: string; description?: string }
+): ArkServerPreset | null {
+    const existing = getLocalPresets();
+    const idx = existing.findIndex(p => p.id === presetId);
+    if (idx === -1) return null;
+
+    const current = existing[idx];
+    const updated: ArkServerPreset = {
+        ...current,
+        name: updates.name !== undefined ? updates.name.trim() : current.name,
+        description: updates.description !== undefined ? updates.description.trim() : current.description,
+    };
+
+    existing[idx] = updated;
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(existing));
+    return updated;
 }

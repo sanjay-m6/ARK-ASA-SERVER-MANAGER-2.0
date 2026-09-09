@@ -103,7 +103,7 @@ const defaultConfig: AseGameConfig = {
   // Tribute / Transfer
   maxTributeDinos: 20, maxTributeItems: 50, noTributeDownloads: false, preventDownloadSurvivors: false,
   preventDownloadItems: false, preventDownloadDinos: false, preventUploadSurvivors: false, preventUploadItems: false,
-  preventUploadDinos: false, disableCustomFoldersInTributeInventories: false, crossarkAllowForeignDinoDownloads: false,
+  preventUploadDinos: false, disableCustomFoldersInTributeInventories: false, crossarkAllowForeignDinoDownloads: true,
   // Environment
   dayCycleSpeedScale: 1.0, dayTimeSpeedScale: 1.0, nightTimeSpeedScale: 1.0, spoilingTimeMultiplier: 1.0,
   itemDecompositionTimeMultiplier: 1.0, corpseDecompositionTimeMultiplier: 1.0, cropGrowthSpeedMultiplier: 1.0,

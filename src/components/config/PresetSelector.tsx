@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Check, Sparkles, Download, Upload, Save, Trash2, X } from 'lucide-react';
+import { ChevronDown, Check, Sparkles, Download, Upload, Save, Trash2, X, Pencil, RefreshCw } from 'lucide-react';
 import {
     PRESETS,
     ConfigPreset,
     getCustomPresets,
     saveCustomPreset,
+    updateCustomPreset,
     deleteCustomPreset,
     exportPresetToJson,
     importPresetFromJson,
@@ -16,14 +17,19 @@ interface PresetSelectorProps {
     onApplyPreset: (preset: ConfigPreset) => void;
     currentPreset?: string;
     onSaveCurrentAsPreset?: (name: string, description: string) => void;
+    onUpdatePresetWithCurrent?: (presetId: string) => void;
 }
 
-export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPreset }: PresetSelectorProps) => {
+export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPreset, onUpdatePresetWithCurrent }: PresetSelectorProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const [customPresets, setCustomPresets] = useState<ConfigPreset[]>([]);
     const [showSaveDialog, setShowSaveDialog] = useState(false);
     const [saveName, setSaveName] = useState('');
     const [saveDesc, setSaveDesc] = useState('');
+    const [showEditDialog, setShowEditDialog] = useState(false);
+    const [editingPreset, setEditingPreset] = useState<ConfigPreset | null>(null);
+    const [editName, setEditName] = useState('');
+    const [editDesc, setEditDesc] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const buttonRef = useRef<HTMLButtonElement>(null);
     const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
@@ -70,6 +76,37 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
         setSaveName('');
         setSaveDesc('');
         setCustomPresets(getCustomPresets());
+    };
+
+    const handleOpenEditDialog = (preset: ConfigPreset, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setEditingPreset(preset);
+        setEditName(preset.name);
+        setEditDesc(preset.description || '');
+        setShowEditDialog(true);
+        setIsOpen(false);
+    };
+
+    const handleSaveEdit = (alsoUpdateSettings: boolean = false) => {
+        if (!editingPreset) return;
+        if (!editName.trim()) {
+            toast.error('Please enter a name');
+            return;
+        }
+
+        if (alsoUpdateSettings && onUpdatePresetWithCurrent) {
+            onUpdatePresetWithCurrent(editingPreset.id);
+        }
+
+        updateCustomPreset(editingPreset.id, {
+            name: editName.trim(),
+            description: editDesc.trim(),
+        });
+
+        setShowEditDialog(false);
+        setEditingPreset(null);
+        setCustomPresets(getCustomPresets());
+        toast.success(`Preset "${editName.trim()}" updated`);
     };
 
     return (
@@ -208,6 +245,14 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                                                 </div>
                                                 <div className="flex items-center gap-1 flex-shrink-0">
                                                     <button
+                                                        onClick={(e) => handleOpenEditDialog(preset, e)}
+                                                        className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-sky-400 transition-colors"
+                                                        title="Rename / Edit"
+                                                        aria-label={`Edit ${preset.name}`}
+                                                    >
+                                                        <Pencil className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <button
                                                         onClick={(e) => handleExportPreset(preset, e)}
                                                         className="p-1 hover:bg-white/10 rounded text-slate-500 hover:text-white transition-colors"
                                                         title="Export"
@@ -279,6 +324,63 @@ export const PresetSelector = ({ onApplyPreset, currentPreset, onSaveCurrentAsPr
                             >
                                 Save Preset
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Preset Dialog */}
+            {showEditDialog && editingPreset && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-96 shadow-2xl animate-fadeIn">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-white">Edit Preset</h3>
+                            <button onClick={() => { setShowEditDialog(false); setEditingPreset(null); }} className="p-1 hover:bg-white/10 rounded" aria-label="Close edit dialog">
+                                <X className="w-5 h-5 text-slate-400" />
+                            </button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label htmlFor="edit-preset-name" className="block text-sm text-slate-400 mb-1">Preset Name</label>
+                                <input
+                                    id="edit-preset-name"
+                                    type="text"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-orange-500"
+                                    placeholder="Preset Name"
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="edit-preset-desc" className="block text-sm text-slate-400 mb-1">Description (optional)</label>
+                                <input
+                                    id="edit-preset-desc"
+                                    type="text"
+                                    value={editDesc}
+                                    onChange={(e) => setEditDesc(e.target.value)}
+                                    className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-orange-500"
+                                    placeholder="Description"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2 pt-2">
+                                <button
+                                    onClick={() => handleSaveEdit(false)}
+                                    className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-orange-500/20 transition-all text-sm cursor-pointer"
+                                >
+                                    Save Changes
+                                </button>
+                                {onUpdatePresetWithCurrent && (
+                                    <button
+                                        onClick={() => handleSaveEdit(true)}
+                                        className="w-full py-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-200 font-medium rounded-lg transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                                        title="Overwrite preset settings with current configuration rates and rules"
+                                    >
+                                        <RefreshCw className="w-3.5 h-3.5 text-sky-400" />
+                                        <span>Save & Update With Current Settings</span>
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

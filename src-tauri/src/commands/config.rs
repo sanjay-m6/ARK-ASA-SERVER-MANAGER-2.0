@@ -199,7 +199,7 @@ pub async fn save_config(
         clean_content
     };
 
-    fs::write(&file_path, &final_content).map_err(|e| e.to_string())?;
+    IniParser::write_string_to_file_utf8(&file_path, &final_content).map_err(|e| e.to_string())?;
     println!("  ✅ Saved {} to {:?}", config_type, file_path);
 
     // If custom config folder is active, also sync/dual-write to the default server config directory
@@ -209,7 +209,7 @@ pub async fn save_config(
             println!("  ⚠️ [WARNING] Failed to create default config directory: {}", e);
         } else {
             let default_file_path = default_dir.join(format!("{}.ini", config_type));
-            if let Err(e) = fs::write(&default_file_path, &final_content) {
+            if let Err(e) = IniParser::write_string_to_file_utf8(&default_file_path, &final_content) {
                 println!("  ⚠️ [WARNING] Failed to dual-write config to default path: {}", e);
             } else {
                 println!("  🔄 [Sync] Dual-wrote config to default path {:?}", default_file_path);

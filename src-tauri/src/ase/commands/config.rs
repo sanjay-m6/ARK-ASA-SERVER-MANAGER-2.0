@@ -389,7 +389,7 @@ pub async fn read_ase_config_internal(
             false,
         );
         config.crossark_allow_foreign_dino_downloads =
-            ini_get_bool(&sections, ss, "CrossARKAllowForeignDinoDownloads", false);
+            ini_get_bool(&sections, ss, "CrossARKAllowForeignDinoDownloads", true);
 
         config.day_cycle_speed_scale = ini_get_f64(&sections, ss, "DayCycleSpeedScale", 1.0);
         config.day_time_speed_scale = ini_get_f64(&sections, ss, "DayTimeSpeedScale", 1.0);

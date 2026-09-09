@@ -143,7 +143,7 @@ export default function IniVisualEditor({ activeTab, searchQuery }: { activeTab:
     { tab: 'transfer', section: 'ServerSettings', type: 'toggle', key: 'PreventUploadSurvivors', label: 'Prevent Upload Survivors', def: false },
     { tab: 'transfer', section: 'ServerSettings', type: 'toggle', key: 'PreventUploadItems', label: 'Prevent Upload Items', def: false },
     { tab: 'transfer', section: 'ServerSettings', type: 'toggle', key: 'PreventUploadDinos', label: 'Prevent Upload Dinos', def: false },
-    { tab: 'transfer', section: 'ServerSettings', type: 'toggle', key: 'CrossARKAllowForeignDinoDownloads', label: 'CrossARK Allow Foreign Dino Downloads', def: false },
+    { tab: 'transfer', section: 'ServerSettings', type: 'toggle', key: 'CrossARKAllowForeignDinoDownloads', label: 'CrossARK Allow Foreign Dino Downloads', def: true },
 
     // ENVIRONMENT
     { tab: 'environment', section: 'ServerSettings', type: 'number', key: 'DayCycleSpeedScale', label: 'Day Cycle Speed', step: 0.1, def: 1.0 },

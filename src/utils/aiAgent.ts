@@ -616,7 +616,7 @@ export async function sendAiMessage(
     model: string
 ): Promise<AiResponse> {
     const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('AI request timed out after 50 seconds. Please check your AI API key or network connection.')), 50000);
+        setTimeout(() => reject(new Error('AI request timed out after 130 seconds. Please check your AI API key, selected model, or network connection.')), 130000);
     });
 
     return await Promise.race([

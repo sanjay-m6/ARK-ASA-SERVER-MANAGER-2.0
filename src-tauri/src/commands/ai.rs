@@ -508,13 +508,15 @@ struct AiProviderConfig {
 }
 
 /// Normalizes an OpenAI-compatible base URL to a `/chat/completions` endpoint.
-/// Accepts either a bare base ("http://localhost:1234/v1") or a full endpoint.
+/// Accepts bare bases ("http://localhost:1234", "http://localhost:1234/v1") or a full endpoint.
 fn build_openai_endpoint(base: &str) -> String {
     let trimmed = base.trim().trim_end_matches('/');
     if trimmed.ends_with("/chat/completions") {
         trimmed.to_string()
-    } else {
+    } else if trimmed.ends_with("/v1") {
         format!("{}/chat/completions", trimmed)
+    } else {
+        format!("{}/v1/chat/completions", trimmed)
     }
 }
 
@@ -563,7 +565,9 @@ fn resolve_ai_config(
 
 // ── Commands ───────────────────────────────────────────────────────────
 
-/// Non-streaming AI chat — sends messages to the configured provider and returns full response
+/// Non-streaming AI chat — sends messages to the configured provider and returns full response.
+/// Includes automatic retry for transient network drops and automatic fallback if a model
+/// does not support function calling (tools).
 #[tauri::command]
 pub async fn ai_chat(
     state: tauri::State<'_, AppState>,
@@ -572,45 +576,86 @@ pub async fn ai_chat(
 ) -> Result<AiResponse, String> {
     let config = resolve_ai_config(&state, model)?;
 
-    // Build request body
-    let body = serde_json::json!({
-        "model": config.model,
-        "messages": messages,
-        "tools": get_tool_definitions(),
-        "tool_choice": "auto",
-        "temperature": 0.7,
-        "max_tokens": 4096,
-    });
-
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(45))
+        .timeout(std::time::Duration::from_secs(120))
+        .tcp_keepalive(std::time::Duration::from_secs(30))
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-        .pool_max_idle_per_host(0)
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
-    let mut req = client
-        .post(&config.endpoint)
-        .header("Content-Type", "application/json")
-        .json(&body);
-    if let Some(key) = &config.api_key {
-        req = req.header("Authorization", format!("Bearer {}", key));
+
+    // Helper closure to dispatch request with or without tools
+    let send_request = |include_tools: bool| {
+        let client = client.clone();
+        let endpoint = config.endpoint.clone();
+        let api_key = config.api_key.clone();
+        let model = config.model.clone();
+        let msgs = messages.clone();
+
+        async move {
+            let mut body_map = serde_json::json!({
+                "model": model,
+                "messages": msgs,
+                "temperature": 0.7,
+                "max_tokens": 4096,
+            });
+
+            if include_tools {
+                body_map["tools"] = get_tool_definitions();
+                body_map["tool_choice"] = serde_json::json!("auto");
+            }
+
+            let mut req = client
+                .post(&endpoint)
+                .header("Content-Type", "application/json")
+                .json(&body_map);
+
+            if let Some(key) = &api_key {
+                req = req.header("Authorization", format!("Bearer {}", key));
+            }
+
+            req.send().await
+        }
+    };
+
+    // First attempt with tools enabled
+    let mut response_result = send_request(true).await;
+
+    // Retry once on transient network errors (connection dropped, timeout, etc.)
+    if response_result.is_err() {
+        log::warn!("⚠️ First AI request attempt failed, retrying in 2s...");
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        response_result = send_request(true).await;
     }
-    let response = req
-        .send()
-        .await
-        .map_err(|e| {
-            println!("❌ AI request error for {}: {:?}", config.endpoint, e);
-            format!("API request failed: {}", e)
-        })?;
+
+    let response = response_result.map_err(|e| {
+        println!("❌ AI request error for {}: {:?}", config.endpoint, e);
+        format!("API request failed: {}", e)
+    })?;
 
     let status = response.status();
-    let response_text = response
+    let mut response_text = response
         .text()
         .await
         .map_err(|e| format!("Failed to read response: {}", e))?;
 
-    if !status.is_success() {
-        // Try to parse error message from API
+    // If status indicates tools are not supported (400 or 422 with "tools" in error message),
+    // retry cleanly without tools
+    if !status.is_success() && (status.as_u16() == 422 || status.as_u16() == 400) {
+        let lower = response_text.to_lowercase();
+        if lower.contains("tool") || lower.contains("function") {
+            log::info!("ℹ️ Model '{}' does not support tools/function-calling. Retrying without tools...", config.model);
+            if let Ok(retry_resp) = send_request(false).await {
+                if retry_resp.status().is_success() {
+                    if let Ok(retry_text) = retry_resp.text().await {
+                        response_text = retry_text;
+                    }
+                }
+            }
+        }
+    }
+
+    // Check status after potential tool-fallback retry
+    if !status.is_success() && !response_text.contains("\"choices\"") {
         if let Ok(err_resp) = serde_json::from_str::<AiApiResponse>(&response_text) {
             if let Some(err) = err_resp.error {
                 return Err(format!("API error ({}): {}", status, err.message));
@@ -665,9 +710,9 @@ pub async fn ai_chat_stream(
     });
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(45))
+        .timeout(std::time::Duration::from_secs(120))
+        .tcp_keepalive(std::time::Duration::from_secs(30))
         .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-        .pool_max_idle_per_host(0)
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
     let mut req = client
@@ -766,9 +811,19 @@ pub async fn lmstudio_list_models(
         (base, get("lmstudio_api_key"))
     };
 
-    let url = format!("{}/models", base.trim().trim_end_matches('/'));
+    let trimmed = base.trim().trim_end_matches('/');
+    let url = if trimmed.ends_with("/models") {
+        trimmed.to_string()
+    } else if trimmed.ends_with("/v1") {
+        format!("{}/models", trimmed)
+    } else {
+        format!("{}/v1/models", trimmed)
+    };
 
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
     let mut req = client.get(&url);
     if let Some(key) = &api_key {
         req = req.header("Authorization", format!("Bearer {}", key));
