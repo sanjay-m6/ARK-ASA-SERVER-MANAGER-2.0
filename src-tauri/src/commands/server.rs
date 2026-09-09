@@ -201,32 +201,51 @@ pub async fn show_server_console(state: State<'_, AppState>, server_id: i64) -> 
 }
 
 pub fn parse_acf_build_id(manifest_path: &std::path::Path) -> Option<String> {
-    if !manifest_path.exists() {
-        return None;
-    }
-    if let Ok(content) = std::fs::read_to_string(manifest_path) {
-        for line in content.lines() {
-            let trimmed = line.trim();
-            if trimmed.contains("\"buildid\"") {
-                let parts: Vec<&str> = trimmed.split('"').collect();
-                for (idx, part) in parts.iter().enumerate() {
-                    if *part == "buildid" && idx + 2 < parts.len() {
-                        let id = parts[idx + 2].trim();
-                        if !id.is_empty() && id.chars().all(|c| c.is_ascii_digit()) {
+    let extract = |path: &std::path::Path| -> Option<String> {
+        if !path.exists() {
+            return None;
+        }
+        if let Ok(content) = std::fs::read_to_string(path) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                if trimmed.contains("\"buildid\"") {
+                    let parts: Vec<&str> = trimmed.split('"').collect();
+                    for (idx, part) in parts.iter().enumerate() {
+                        if *part == "buildid" && idx + 2 < parts.len() {
+                            let id = parts[idx + 2].trim();
+                            if !id.is_empty() && id.chars().all(|c| c.is_ascii_digit()) && id != "0" {
+                                return Some(id.to_string());
+                            }
+                        }
+                    }
+                    let ws_parts: Vec<&str> = trimmed.split_whitespace().collect();
+                    if ws_parts.len() >= 2 {
+                        let id = ws_parts[ws_parts.len() - 1].trim_matches('"');
+                        if !id.is_empty() && id.chars().all(|c| c.is_ascii_digit()) && id != "0" {
                             return Some(id.to_string());
                         }
                     }
                 }
-                let ws_parts: Vec<&str> = trimmed.split_whitespace().collect();
-                if ws_parts.len() >= 2 {
-                    let id = ws_parts[ws_parts.len() - 1].trim_matches('"');
-                    if !id.is_empty() && id.chars().all(|c| c.is_ascii_digit()) {
-                        return Some(id.to_string());
-                    }
-                }
+            }
+        }
+        None
+    };
+
+    if let Some(bid) = extract(manifest_path) {
+        return Some(bid);
+    }
+
+    // Try pre_update_bak if manifest was wiped or had "0"
+    if let Some(parent) = manifest_path.parent() {
+        if let Some(fname) = manifest_path.file_name().and_then(|f| f.to_str()) {
+            let bak_path = parent.join(format!("{}.pre_update_bak", fname));
+            if let Some(bak_bid) = extract(&bak_path) {
+                let _ = std::fs::copy(&bak_path, manifest_path);
+                return Some(bak_bid);
             }
         }
     }
+
     None
 }
 
@@ -2239,6 +2258,27 @@ pub async fn update_server(
     };
 
     log_msg(&format!("📥 update_server called for server_id {}", server_id));
+
+    // Guard against duplicate / concurrent update executions on the same server
+    {
+        let mut active = crate::services::server_installer::ACTIVE_SERVER_UPDATES.lock().unwrap_or_else(|e| e.into_inner());
+        if !active.insert(server_id) {
+            let msg = format!("⚠️ Update already in progress for server_id {}. Request ignored.", server_id);
+            log_msg(&msg);
+            println!("{}", msg);
+            return Ok(false);
+        }
+    }
+
+    struct UpdateGuard(i64);
+    impl Drop for UpdateGuard {
+        fn drop(&mut self) {
+            if let Ok(mut active) = crate::services::server_installer::ACTIVE_SERVER_UPDATES.lock() {
+                active.remove(&self.0);
+            }
+        }
+    }
+    let _update_guard = UpdateGuard(server_id);
 
     // Emit initial status change so UI updates immediately
     let _ = app_handle.emit("server-status-change", serde_json::json!({ "server_id": server_id, "status": "updating" }));

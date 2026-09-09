@@ -2052,7 +2052,7 @@ export default function ModManager() {
                                                 </div>
 
                                                 <div className="flex items-center justify-between p-3 bg-slate-950/70 rounded-xl border border-white/5">
-                                                    <span className="text-slate-400 font-medium">{t('common.status', 'Status')}</span>
+                                                    <span className="text-slate-400 font-medium">{t('common.statusLabel', 'Status')}</span>
                                                     {selectedModDetail.compatible ? (
                                                         <span className="text-emerald-400 font-bold flex items-center gap-1 bg-emerald-500/15 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                                                             <CheckCircle className="w-3.5 h-3.5" /> 

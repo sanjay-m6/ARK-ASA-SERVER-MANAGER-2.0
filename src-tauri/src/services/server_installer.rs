@@ -30,6 +30,12 @@ pub struct ConsoleOutput {
     pub timestamp: String,
 }
 
+use std::collections::HashSet;
+use std::sync::{LazyLock, Mutex};
+
+pub static ACTIVE_SERVER_UPDATES: LazyLock<Mutex<HashSet<i64>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+
 static STEAMCMD_EXECUTION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 pub struct ServerInstaller {
@@ -519,12 +525,12 @@ impl ServerInstaller {
             self.emit_console("  ⚠️ WARNING: Target server drive has < 45 GB space. ASA server update requires ~60 GB disk space.", "warning");
         }
 
-        // Build the SteamCMD command (+login anonymous MUST precede +force_install_dir)
+        // Build the SteamCMD command (+force_install_dir MUST precede +login)
         let mut steamcmd_args = vec![
-            "+login".to_string(),
-            "anonymous".to_string(),
             "+force_install_dir".to_string(),
             force_install_dir_val,
+            "+login".to_string(),
+            "anonymous".to_string(),
             "+app_update".to_string(),
             app_id.to_string(),
         ];
@@ -556,41 +562,50 @@ impl ServerInstaller {
         // Backup AsaApi and proxy DLLs so validate doesn't wipe installed plugins
         let api_backup = backup_plugins(&install_path);
 
+        // Pre-update manifest protection: backup valid existing appmanifest to preserve incremental delta updates
+        let manifest_path = install_path
+            .join("steamapps")
+            .join(format!("appmanifest_{}.acf", app_id));
+        let bak_path = install_path
+            .join("steamapps")
+            .join(format!("appmanifest_{}.acf.pre_update_bak", app_id));
+
+        if manifest_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+                let has_valid_build = content.lines().any(|l| {
+                    let t = l.trim();
+                    t.contains("\"buildid\"") && !t.contains("\"0\"")
+                });
+                if has_valid_build {
+                    let _ = std::fs::copy(&manifest_path, &bak_path);
+                    self.emit_console("  📋 Created pre-update backup of appmanifest to preserve incremental updates.", "info");
+                }
+            }
+        }
+
         let mut last_error_msg = String::new();
+        let mut had_state_0x202 = false;
 
         for attempt in 1..=3 {
-            self.emit_console(
-                &format!("Checking for and terminating any background SteamCMD processes (Attempt {}/3)...", attempt),
-                "info",
-            );
-            let steamcmd_service = crate::services::steamcmd::SteamCmdService::with_custom_dir(
-                self.app_handle.clone(),
-                steamcmd_dir.clone(),
-            );
-            let _ = steamcmd_service.kill_existing_processes();
-
-            // Clear stale downloading cache & target manifest ONLY on retry attempts
-            if attempt > 1 {
+            // Only terminate orphaned SteamCMD processes on attempt 1
+            if attempt == 1 {
                 self.emit_console(
-                    &format!("  🔄 [AUTO-HEAL] Clearing stale downloading cache & manifests (Attempt {}/3)...", attempt),
-                    "warning",
+                    "Checking for any orphaned background SteamCMD processes...",
+                    "info",
                 );
-                if let Err(e) = steamcmd_service.clear_downloading_cache() {
-                    self.emit_console(
-                        &format!("  ⚠️ [AUTO-HEAL] Downloading cache clear notice: {}", e),
-                        "warning",
-                    );
-                }
-                if let Err(e) =
-                    steamcmd_service.clear_target_manifest_and_cache(&install_path, app_id)
-                {
-                    self.emit_console(
-                        &format!("  ⚠️ [AUTO-HEAL] Target manifest clear notice: {}", e),
-                        "warning",
-                    );
-                }
-                self.emit_console("  ✅ [AUTO-HEAL] Stale appmanifest & downloading folders cleared successfully.", "success");
-                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                let steamcmd_service = crate::services::steamcmd::SteamCmdService::with_custom_dir(
+                    self.app_handle.clone(),
+                    steamcmd_dir.clone(),
+                );
+                let _ = steamcmd_service.kill_existing_processes();
+            } else {
+                self.emit_console(
+                    &format!("Retrying SteamCMD (Attempt {}/3) — resuming partial download chunks...", attempt),
+                    "info",
+                );
+                // DO NOT wipe downloading cache or appmanifest on retry!
+                // Keeping steamapps/downloading and manifests allows SteamCMD to resume seamlessly.
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
             }
 
             self.emit_progress(
@@ -653,6 +668,11 @@ impl ServerInstaller {
                     let trimmed = line.trim();
                     if trimmed.is_empty() {
                         continue;
+                    }
+
+                    if trimmed.contains("state is 0x202") || trimmed.contains("0x202") {
+                        had_state_0x202 = true;
+                        self.emit_console("  ⏸️ SteamCMD reported State 0x202 (Update Paused). Download progress is preserved and resumable.", "warning");
                     }
 
                     let line_type = if line.contains("Error")
@@ -733,28 +753,40 @@ impl ServerInstaller {
                         return Ok(true);
                     } else {
                         let code = status.code();
-                        last_error_msg = match code {
-                            Some(8) => "SteamCMD Error (8): Download failed due to disk space, network, or permissions.".to_string(),
-                            Some(7) => "SteamCMD Error (7): Command failure. Steam servers busy or invalid format.".to_string(),
-                            Some(c) => format!("SteamCMD exited with code: {}", c),
-                            None => "SteamCMD process terminated without exit code.".to_string(),
+                        last_error_msg = if had_state_0x202 {
+                            "SteamCMD update paused / interrupted (State 0x202). Download chunks are preserved and resumable.".to_string()
+                        } else {
+                            match code {
+                                Some(8) => "SteamCMD Error (8): Download interrupted or connection dropped.".to_string(),
+                                Some(7) => "SteamCMD Error (7): Command failure. Steam servers busy or invalid format.".to_string(),
+                                Some(c) => format!("SteamCMD exited with code: {}", c),
+                                None => "SteamCMD process terminated without exit code.".to_string(),
+                            }
                         };
+
+                        // Check if manifest was corrupted or wiped by aborted SteamCMD
+                        if manifest_path.exists() {
+                            if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+                                let has_empty_build = content.lines().any(|l| {
+                                    let t = l.trim();
+                                    t.contains("\"buildid\"") && t.contains("\"0\"")
+                                });
+                                if has_empty_build && bak_path.exists() {
+                                    let _ = std::fs::copy(&bak_path, &manifest_path);
+                                    self.emit_console("  ♻️ Restored appmanifest from backup to preserve existing game files.", "warning");
+                                }
+                            }
+                        } else if bak_path.exists() {
+                            let _ = std::fs::copy(&bak_path, &manifest_path);
+                            self.emit_console("  ♻️ Restored missing appmanifest from backup.", "warning");
+                        }
 
                         if attempt < 3 {
                             self.emit_console(
-                                &format!("  ⚠️ [AUTO-HEAL] {} — Cleared SteamCMD cache & appmanifests, retrying attempt {}/3...", last_error_msg, attempt + 1),
+                                &format!("  ⚠️ {} Retrying download attempt {}/3...", last_error_msg, attempt + 1),
                                 "warning",
                             );
-                            let steamcmd_service =
-                                crate::services::steamcmd::SteamCmdService::with_custom_dir(
-                                    self.app_handle.clone(),
-                                    steamcmd_dir.clone(),
-                                );
-                            let _ = steamcmd_service.clear_cache();
-                            let _ = steamcmd_service
-                                .clear_target_manifest_and_cache(&install_path, app_id);
-
-                            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                             continue;
                         }
                     }
@@ -770,14 +802,47 @@ impl ServerInstaller {
             }
         }
 
+        // Restore manifest if needed
+        if manifest_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+                let has_empty_build = content.lines().any(|l| {
+                    let t = l.trim();
+                    t.contains("\"buildid\"") && t.contains("\"0\"")
+                });
+                if has_empty_build && bak_path.exists() {
+                    let _ = std::fs::copy(&bak_path, &manifest_path);
+                }
+            }
+        } else if bak_path.exists() {
+            let _ = std::fs::copy(&bak_path, &manifest_path);
+        }
+
+        let mut fix_steps = Vec::new();
+        if install_drive_space < 50.0 || steamcmd_drive_space < 50.0 {
+            fix_steps.push(format!("1. Disk Space: Low space detected! Server drive: {:.1} GB free, SteamCMD drive: {:.1} GB free (at least 60 GB recommended).", install_drive_space, steamcmd_drive_space));
+        } else {
+            fix_steps.push(format!("1. Disk Space: OK ({:.1} GB free on server drive, {:.1} GB free on SteamCMD drive).", install_drive_space, steamcmd_drive_space));
+        }
+
+        if had_state_0x202 {
+            fix_steps.push("2. Download Paused (State 0x202): SteamCMD connection was paused or interrupted. Download chunks in steamapps/downloading are preserved and can be resumed.".to_string());
+        } else {
+            fix_steps.push("2. Connection: Check network connection stability and Steam server availability.".to_string());
+        }
+        fix_steps.push("3. Permissions: Verify the target directory is writeable and run ARK Server Manager as Administrator.".to_string());
+        fix_steps.push("4. Resume: Click 'Try Again' or 'Update' to resume downloading from the saved chunks.".to_string());
+
+        let fix_steps_str = fix_steps.join("\n");
+
         let full_error = format!(
-            "SteamCMD Update Failed for Server at {}\n\nDiagnostic Summary:\n• Target Server Path: {} ({:.1} GB Free)\n• SteamCMD Staging Dir: {} ({:.1} GB Free)\n• Error Details: {}\n\nActionable Fix Steps:\n1. Disk Space: Ensure at least 60 GB free space on both server drive and SteamCMD drive.\n2. Permissions: Verify the target directory is writeable and run ARK Server Manager as Administrator.\n3. Custom Path: Configure a Custom SteamCMD Path in Settings on a drive with ample disk space.\n4. Cache Recovery: Stale manifests and download caches have been auto-cleared.",
+            "SteamCMD Update Failed for Server at {}\n\nDiagnostic Summary:\n• Target Server Path: {} ({:.1} GB Free)\n• SteamCMD Staging Dir: {} ({:.1} GB Free)\n• Error Details: {}\n\nActionable Fix Steps:\n{}",
             self.install_path,
             install_path.display(),
             install_drive_space,
             steamcmd_dir.display(),
             steamcmd_drive_space,
-            last_error_msg
+            last_error_msg,
+            fix_steps_str
         );
         restore_plugins(&install_path, api_backup);
         self.emit_error(&full_error);
@@ -804,22 +869,59 @@ pub(crate) fn get_local_build_id(install_path: &PathBuf, app_id: &str) -> Option
     let manifest_path = install_path
         .join("steamapps")
         .join(format!("appmanifest_{}.acf", app_id));
-    if !manifest_path.exists() {
-        return None;
+    let bak_path = install_path
+        .join("steamapps")
+        .join(format!("appmanifest_{}.acf.pre_update_bak", app_id));
+
+    let extract_build = |path: &PathBuf| -> Option<String> {
+        if !path.exists() {
+            return None;
+        }
+        if let Ok(content) = std::fs::read_to_string(path) {
+            for line in content.lines() {
+                if line.contains("\"buildid\"") {
+                    let parts: Vec<&str> = line.split('"').collect();
+                    if parts.len() >= 4 {
+                        let build_id = parts[3].trim().to_string();
+                        if !build_id.is_empty() && build_id != "0" {
+                            return Some(build_id);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    };
+
+    // 1. Try active manifest
+    if let Some(bid) = extract_build(&manifest_path) {
+        return Some(bid);
     }
-    if let Ok(content) = std::fs::read_to_string(&manifest_path) {
-        for line in content.lines() {
-            if line.contains("\"buildid\"") {
-                let parts: Vec<&str> = line.split('"').collect();
-                if parts.len() >= 4 {
-                    let build_id = parts[3].trim().to_string();
-                    if !build_id.is_empty() {
-                        return Some(build_id);
+
+    // 2. If active manifest is missing or has buildid "0", try backup
+    if let Some(bak_bid) = extract_build(&bak_path) {
+        // Restore active manifest from backup to restore SteamCMD incremental tracking
+        let _ = std::fs::copy(&bak_path, &manifest_path);
+        return Some(bak_bid);
+    }
+
+    // 3. Fallback: if active manifest literally has "0", return Some("0")
+    if manifest_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&manifest_path) {
+            for line in content.lines() {
+                if line.contains("\"buildid\"") {
+                    let parts: Vec<&str> = line.split('"').collect();
+                    if parts.len() >= 4 {
+                        let build_id = parts[3].trim().to_string();
+                        if !build_id.is_empty() {
+                            return Some(build_id);
+                        }
                     }
                 }
             }
         }
     }
+
     None
 }
 

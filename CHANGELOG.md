@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.6.21] — 2026-09-09
+
+### Fixed
+- **🚀 SteamCMD Auto-Update Runaway Loop, Argument Ordering & Cache Protection**:
+  - Resolved a critical bug where auto-update re-launched SteamCMD every ~60 seconds, prematurely killing ~12 GB full server downloads at ~10% and retrying indefinitely.
+  - Corrected SteamCMD argument order to place `+force_install_dir <path>` strictly before `+login anonymous`, ensuring SteamCMD respects designated server directories without state resets.
+  - Fixed handling of Steam state `0x202` (Update Required / Pre-allocating / Paused) so ongoing or resumable downloads are recognized as active progress rather than treated as fatal errors.
+  - Implemented automatic backup and recovery for `appmanifest_2430930.acf`, preventing premature manifest deletion from wiping download cache and forcing full re-downloads.
+  - Replaced false "out of disk space" alerts with accurate, measured disk space diagnostics via system drive APIs, preventing spurious warnings on drives with ample space.
+  - Added scheduler cooldown and running-state locks to prevent auto-update tasks from re-invoking SteamCMD concurrently while an update is underway.
+
+### Added
+- **🌐 Complete Chinese Localization Pack (100% i18n Coverage)**:
+  - Completed comprehensive Simplified Chinese (`zh-CN`) and Traditional Chinese (`zh-TW`) language packs across all modules, including Crash Doctor, Mod Manager, Boost Manager, Cross-Chat Translator, Cluster Manager, and Server Configuration.
+  - Resolved all untranslated strings and hardcoded labels in `CrashDoctorModal.tsx` and `ModManager.tsx`.
+  - Verified 0 missing keys across all components via AST static analysis.
+
+---
+
 ## [4.6.20] — 2026-09-09
 
 ### Fixed

@@ -89,7 +89,23 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Improvements in v4.6.20
+            ### 🆕 New Features & Improvements in v4.6.21
+            - **🚀 SteamCMD Auto-Update Runaway Loop & Cache Protection**:
+              - Fixed an auto-update loop where SteamCMD was relaunched roughly every 60 seconds, aborting ~12 GB full server downloads at ~10% and retrying endlessly (46+ retries).
+              - Corrected argument ordering to pass `+force_install_dir <path>` strictly prior to `+login anonymous`, ensuring SteamCMD respects target install paths without resetting directory states.
+              - Added recognition for Steam status `0x202` (Update Required / Pre-allocating / Paused) so in-progress partial downloads are handled as active progress instead of terminating prematurely.
+              - Added manifest backup and restoration for `appmanifest_2430930.acf` to prevent cache wiping and avoidable full re-downloads.
+              - Fixed misleading "disk space low" error alerts by implementing exact measured disk capacity queries via Win32 drive APIs instead of static heuristics.
+              - Hardened background scheduler with active task guards and cooldowns to prevent overlapping auto-update invocations while SteamCMD is actively running.
+            - **🌐 Complete Chinese Language Pack (Simplified & Traditional - 100% Coverage)**:
+              - Full translation coverage for Simplified Chinese (`zh-CN`) and Traditional Chinese (`zh-TW`) across all UI modules.
+              - Complete localization for Mod Manager, Crash Doctor, Chat Translator, Boost Manager, Cluster Manager, and INI configuration editors.
+              - Automated AST static validation ensuring 0 missing i18n keys across all pages and modals.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.20 — Cross-Server Process Isolation, ASE RuntimeMeshComponent Hang Fix & Crash Doctor</summary>
+
             - **🛡️ Cross-Server Process Isolation & Multi-Game Protection**:
               - Resolved a critical conflict where restarting or stopping ARK servers inadvertently detected and force-terminated co-hosted external game servers (such as Rust Dedicated Server / `RustDedicated.exe`, Palworld, etc.).
               - Implemented strict binary identity whitelisting (`is_ark_executable_name`) across all process termination and cleanup routines (`ArkAscendedServer.exe`, `ShooterGameServer.exe`, `AsaApiLoader.exe`, `ServerApiLoader.exe`).
@@ -103,8 +119,8 @@ jobs:
               - Enhanced **Crash Doctor** with automated missing UE4 plugin detection and 1-click healing (`diagnose_server_crash` & `repair_and_recover_server`).
             - **🧹 INI Parser Type Serialization Fix**:
               - Fixed compiler diagnostic warnings in `src-tauri/src/ase/ini_parser.rs` (`IniDocument::serialize` and `IniData::serialize`) to guarantee clean, strongly typed INI generation.
+            </details>
 
-            ### 🛠️ Previous Releases
             <details>
             <summary>v4.6.19 — Server Presets Hub, MultiHome Socket Protection & Startup Crash Recovery</summary>
 

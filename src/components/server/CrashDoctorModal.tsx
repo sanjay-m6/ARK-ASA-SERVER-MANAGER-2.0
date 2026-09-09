@@ -177,8 +177,8 @@ export default function CrashDoctorModal({
                                 <ShieldAlert className="w-6 h-6 text-rose-400 absolute inset-0 m-auto" />
                             </div>
                             <div className="text-center">
-                                <p className="text-sm font-semibold text-slate-200">Analyzing crash dump and server logs...</p>
-                                <p className="text-xs text-slate-400 mt-1">Inspecting proxy DLL hooks, mod cache, and world save integrity</p>
+                                <p className="text-sm font-semibold text-slate-200">{t('crashDoctor.diagnosing', 'Analyzing crash dump and server logs...')}</p>
+                                <p className="text-xs text-slate-400 mt-1">{t('crashDoctor.diagnosingDesc', 'Inspecting proxy DLL hooks, mod cache, and world save integrity')}</p>
                             </div>
                         </div>
                     ) : report ? (
@@ -191,7 +191,7 @@ export default function CrashDoctorModal({
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                                            Detected Primary Cause
+                                            {t('crashDoctor.primaryCause', 'Detected Primary Cause')}
                                         </span>
                                     </div>
                                     <h3 className="text-sm font-bold text-white mt-0.5">
@@ -213,7 +213,7 @@ export default function CrashDoctorModal({
                                         : "bg-slate-950/40 border-white/5"
                                 )}>
                                     <div className="flex items-center justify-between text-slate-400">
-                                        <span className="text-[11px] font-semibold uppercase tracking-wider">Proxy DLLs</span>
+                                        <span className="text-[11px] font-semibold uppercase tracking-wider">{t('crashDoctor.metrics.proxyDlls', 'Proxy DLLs')}</span>
                                         <Cpu className="w-3.5 h-3.5" />
                                     </div>
                                     <div className="mt-2">
@@ -221,10 +221,10 @@ export default function CrashDoctorModal({
                                             "text-sm font-bold",
                                             report.active_proxy_dlls.length > 0 ? "text-rose-400" : "text-emerald-400"
                                         )}>
-                                            {report.active_proxy_dlls.length > 0 ? `${report.active_proxy_dlls.length} Active (Crashing)` : "Clean (Quarantined)"}
+                                            {report.active_proxy_dlls.length > 0 ? t('crashDoctor.metrics.activeCrashing', '{{count}} Active (Crashing)', { count: report.active_proxy_dlls.length }) : t('crashDoctor.metrics.cleanQuarantined', 'Clean (Quarantined)')}
                                         </div>
                                         <div className="text-[10px] text-slate-400 mt-0.5 truncate">
-                                            {report.active_proxy_dlls.join(', ') || 'No active hooks'}
+                                            {report.active_proxy_dlls.join(', ') || t('crashDoctor.metrics.noHooks', 'No active hooks')}
                                         </div>
                                     </div>
                                 </div>
@@ -232,15 +232,15 @@ export default function CrashDoctorModal({
                                 {/* Mod Cache */}
                                 <div className="p-3 rounded-xl border bg-slate-950/40 border-white/5 flex flex-col justify-between">
                                     <div className="flex items-center justify-between text-slate-400">
-                                        <span className="text-[11px] font-semibold uppercase tracking-wider">Mod Cache</span>
+                                        <span className="text-[11px] font-semibold uppercase tracking-wider">{t('crashDoctor.metrics.modCache', 'Mod Cache')}</span>
                                         <Layers className="w-3.5 h-3.5" />
                                     </div>
                                     <div className="mt-2">
                                         <div className="text-sm font-bold text-white">
-                                            {report.mod_cache_folder_count} Cached
+                                            {t('crashDoctor.metrics.cachedCount', '{{count}} Cached', { count: report.mod_cache_folder_count })}
                                         </div>
                                         <div className="text-[10px] text-slate-400 mt-0.5">
-                                            {(report.mod_cache_size_bytes / (1024 * 1024)).toFixed(1)} MB compiled
+                                            {t('crashDoctor.metrics.mbCompiled', '{{size}} MB compiled', { size: (report.mod_cache_size_bytes / (1024 * 1024)).toFixed(1) })}
                                         </div>
                                     </div>
                                 </div>
@@ -248,15 +248,15 @@ export default function CrashDoctorModal({
                                 {/* Save World Integrity */}
                                 <div className="p-3 rounded-xl border bg-slate-950/40 border-white/5 flex flex-col justify-between">
                                     <div className="flex items-center justify-between text-slate-400">
-                                        <span className="text-[11px] font-semibold uppercase tracking-wider">World Save</span>
+                                        <span className="text-[11px] font-semibold uppercase tracking-wider">{t('crashDoctor.metrics.worldSave', 'World Save')}</span>
                                         <CheckCircle2 className="w-3.5 h-3.5" />
                                     </div>
                                     <div className="mt-2">
                                         <div className="text-sm font-bold text-white">
-                                            {report.primary_save_exists ? "Map Save OK" : "New / Fresh Map"}
+                                            {report.primary_save_exists ? t('crashDoctor.metrics.saveOk', 'Map Save OK') : t('crashDoctor.metrics.freshMap', 'New / Fresh Map')}
                                         </div>
                                         <div className="text-[10px] text-slate-400 mt-0.5">
-                                            {(report.total_save_size_bytes / (1024 * 1024)).toFixed(1)} MB ({report.save_file_count} files)
+                                            {t('crashDoctor.metrics.saveFiles', '{{size}} MB ({{count}} files)', { size: (report.total_save_size_bytes / (1024 * 1024)).toFixed(1), count: report.save_file_count })}
                                         </div>
                                     </div>
                                 </div>
@@ -269,7 +269,7 @@ export default function CrashDoctorModal({
                                         : "bg-slate-950/40 border-white/5"
                                 )}>
                                     <div className="flex items-center justify-between text-slate-400">
-                                        <span className="text-[11px] font-semibold uppercase tracking-wider">Crash Errors</span>
+                                        <span className="text-[11px] font-semibold uppercase tracking-wider">{t('crashDoctor.metrics.crashErrors', 'Crash Errors')}</span>
                                         <AlertTriangle className="w-3.5 h-3.5" />
                                     </div>
                                     <div className="mt-2">
@@ -277,10 +277,10 @@ export default function CrashDoctorModal({
                                             "text-sm font-bold",
                                             report.fatal_error_lines.length > 0 ? "text-amber-400" : "text-slate-300"
                                         )}>
-                                            {report.fatal_error_lines.length} Detected
+                                            {t('crashDoctor.metrics.detectedCount', '{{count}} Detected', { count: report.fatal_error_lines.length })}
                                         </div>
                                         <div className="text-[10px] text-slate-400 mt-0.5 truncate">
-                                            {report.fatal_error_lines.length > 0 ? 'In ShooterGame.log' : 'No assert errors'}
+                                            {report.fatal_error_lines.length > 0 ? t('crashDoctor.metrics.inShooterLog', 'In ShooterGame.log') : t('crashDoctor.metrics.noAssertErrors', 'No assert errors')}
                                         </div>
                                     </div>
                                 </div>
@@ -291,7 +291,7 @@ export default function CrashDoctorModal({
                                 <div className="space-y-2.5">
                                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                                         <Info className="w-3.5 h-3.5 text-rose-400" />
-                                        Identified Crash Factors ({report.issues.length})
+                                        {t('crashDoctor.identifiedFactors', 'Identified Crash Factors ({{count}})', { count: report.issues.length })}
                                     </h4>
                                     <div className="space-y-2">
                                         {report.issues.map((issue) => (
@@ -330,7 +330,7 @@ export default function CrashDoctorModal({
                                     >
                                         <div className="flex items-center gap-2 text-rose-400">
                                             <Terminal className="w-4 h-4" />
-                                            <span>Recent Crash Logs & Fatal Error Callstack ({report.fatal_error_lines.length} lines)</span>
+                                            <span>{t('crashDoctor.recentLogsTitle', 'Recent Crash Logs & Fatal Error Callstack ({{count}} lines)', { count: report.fatal_error_lines.length })}</span>
                                         </div>
                                         {showLogTail ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                                     </button>
@@ -353,7 +353,7 @@ export default function CrashDoctorModal({
                                     className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
                                 >
                                     {showAdvanced ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                                    <span>Customize Healing Pipeline Options</span>
+                                    <span>{t('crashDoctor.customizePipeline', 'Customize Healing Pipeline Options')}</span>
                                 </button>
 
                                 {showAdvanced && (
@@ -366,8 +366,8 @@ export default function CrashDoctorModal({
                                                 className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-rose-600 focus:ring-rose-500"
                                             />
                                             <div>
-                                                <span className="font-semibold text-white">Quarantine Proxy DLLs (.disabled)</span>
-                                                <span className="block text-[11px] text-slate-400">Safely disables version.dll, dxgi.dll, winhttp.dll to prevent immediate process crash</span>
+                                                <span className="font-semibold text-white">{t('crashDoctor.quarantineProxyDlls', 'Quarantine Proxy DLLs (.disabled)')}</span>
+                                                <span className="block text-[11px] text-slate-400">{t('crashDoctor.quarantineDesc', 'Safely disables version.dll, dxgi.dll, winhttp.dll to prevent immediate process crash')}</span>
                                             </div>
                                         </label>
 
@@ -379,8 +379,8 @@ export default function CrashDoctorModal({
                                                 className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-rose-600 focus:ring-rose-500"
                                             />
                                             <div>
-                                                <span className="font-semibold text-white">Purge CFCore Mod Cache</span>
-                                                <span className="block text-[11px] text-slate-400">Cleans ShooterGame/Binaries/Win64/ShooterGame/Mods to recompile fresh mod assets</span>
+                                                <span className="font-semibold text-white">{t('crashDoctor.purgeModCache', 'Purge CFCore Mod Cache')}</span>
+                                                <span className="block text-[11px] text-slate-400">{t('crashDoctor.purgeModCacheDesc', 'Cleans ShooterGame/Binaries/Win64/ShooterGame/Mods to recompile fresh mod assets')}</span>
                                             </div>
                                         </label>
 
@@ -392,8 +392,8 @@ export default function CrashDoctorModal({
                                                 className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-rose-600 focus:ring-rose-500"
                                             />
                                             <div>
-                                                <span className="font-semibold text-white">Launch with Wild Dino Wipe (-ForceRespawnDinos)</span>
-                                                <span className="block text-[11px] text-slate-400">Purges corrupt spawn actors that crash world loading on updated maps</span>
+                                                <span className="font-semibold text-white">{t('crashDoctor.wipeWildDinos', 'Launch with Wild Dino Wipe (-ForceRespawnDinos)')}</span>
+                                                <span className="block text-[11px] text-slate-400">{t('crashDoctor.wipeWildDinosDesc', 'Purges corrupt spawn actors that crash world loading on updated maps')}</span>
                                             </div>
                                         </label>
 
@@ -405,8 +405,8 @@ export default function CrashDoctorModal({
                                                 className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-rose-600 focus:ring-rose-500"
                                             />
                                             <div>
-                                                <span className="font-semibold text-white">Run SteamCMD Full File Verification (validate)</span>
-                                                <span className="block text-[11px] text-slate-400">Repairs missing or incomplete game engine binaries (takes 2-5 minutes)</span>
+                                                <span className="font-semibold text-white">{t('crashDoctor.validateFiles', 'Run SteamCMD Full File Verification (validate)')}</span>
+                                                <span className="block text-[11px] text-slate-400">{t('crashDoctor.validateFilesDesc', 'Repairs missing or incomplete game engine binaries (takes 2-5 minutes)')}</span>
                                             </div>
                                         </label>
 
@@ -418,8 +418,8 @@ export default function CrashDoctorModal({
                                                 className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-rose-600 focus:ring-rose-500"
                                             />
                                             <div>
-                                                <span className="font-semibold text-white">Safe Recovery Mode (Start Without Mods)</span>
-                                                <span className="block text-[11px] text-slate-400">Boots pure vanilla map to verify base game and save file health</span>
+                                                <span className="font-semibold text-white">{t('crashDoctor.safeRecoveryMode', 'Safe Recovery Mode (Start Without Mods)')}</span>
+                                                <span className="block text-[11px] text-slate-400">{t('crashDoctor.safeRecoveryDesc', 'Boots pure vanilla map to verify base game and save file health')}</span>
                                             </div>
                                         </label>
                                     </div>
@@ -464,17 +464,17 @@ export default function CrashDoctorModal({
                             {repairing ? (
                                 <>
                                     <RefreshCw className="w-4 h-4 animate-spin" />
-                                    <span>Healing Server Environment...</span>
+                                    <span>{t('crashDoctor.healing', 'Healing Server Environment...')}</span>
                                 </>
                             ) : repairSuccess ? (
                                 <>
                                     <CheckCircle2 className="w-4 h-4" />
-                                    <span>Healed & Launched Cleanly</span>
+                                    <span>{t('crashDoctor.healedCleanly', 'Healed & Launched Cleanly')}</span>
                                 </>
                             ) : (
                                 <>
                                     <Wand2 className="w-4 h-4" />
-                                    <span>1-Click Auto-Fix & Launch Map</span>
+                                    <span>{t('crashDoctor.autoFixLaunch', '1-Click Auto-Fix & Launch Map')}</span>
                                 </>
                             )}
                         </button>

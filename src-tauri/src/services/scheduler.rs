@@ -14,6 +14,7 @@ use tokio::time::sleep;
 use crate::platform::CommandNoWindowExt;
 
 static LAST_ADVANCED_RUN: LazyLock<Mutex<HashMap<i64, DateTime<Local>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static AUTO_UPDATE_COOLDOWNS: LazyLock<Mutex<HashMap<i64, (DateTime<Local>, u32)>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub struct SchedulerService {
     app_handle: AppHandle,
@@ -2067,6 +2068,114 @@ impl SchedulerService {
         }
 
         for (server_id, name, install_path_str, server_type) in auto_update_servers {
+            // 1. Concurrency Check: Skip if this server is actively updating right now
+            {
+                let active = crate::services::server_installer::ACTIVE_SERVER_UPDATES
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                if active.contains(&server_id) {
+                    log::debug!(
+                        "⏳ [AutoUpdate] Server {} ({}) is currently updating. Skipping scheduler tick.",
+                        server_id,
+                        name
+                    );
+                    continue;
+                }
+            }
+
+            // 2. DB Status Check: Skip if marked as 'updating' in database
+            let db_status = {
+                if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        conn.query_row(
+                            "SELECT status FROM servers WHERE id = ?1",
+                            [server_id],
+                            |row| row.get::<_, String>(0),
+                        )
+                        .ok()
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            };
+
+            if matches!(
+                db_status.as_deref().map(|s| s.to_lowercase()).as_deref(),
+                Some("updating")
+            ) {
+                log::debug!(
+                    "⏳ [AutoUpdate] Server {} ({}) status in DB is 'updating'. Skipping scheduler tick.",
+                    server_id,
+                    name
+                );
+                continue;
+            }
+
+            // 3. Maintenance Window Check: Honour scheduler_settings.advanced_time when advanced_update = 1
+            // If the user configured an automated maintenance window with updates, defer to that window!
+            let has_scheduled_maintenance_update = {
+                if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        let table = if server_type == "ASE" {
+                            "ase_scheduler_settings"
+                        } else {
+                            "scheduler_settings"
+                        };
+                        let query = format!(
+                            "SELECT mode, advanced_update FROM {} WHERE server_id = ?1",
+                            table
+                        );
+                        conn.query_row(&query, [server_id], |row| {
+                            let mode: String = row.get(0)?;
+                            let adv_update: i32 = row.get(1).unwrap_or(0);
+                            Ok(mode == "advanced" && adv_update == 1)
+                        })
+                        .unwrap_or(false)
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            };
+
+            if has_scheduled_maintenance_update {
+                log::debug!(
+                    "⏸️ [AutoUpdate] Server {} ({}) has scheduled maintenance updates configured. Deferring to maintenance window.",
+                    server_id,
+                    name
+                );
+                continue;
+            }
+
+            // 4. Exponential Backoff Cooldown Check on Failed / Interrupted Updates
+            {
+                let cooldowns = AUTO_UPDATE_COOLDOWNS
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                if let Some((last_attempt, fail_count)) = cooldowns.get(&server_id) {
+                    let cooldown_secs = match fail_count {
+                        1 => 900,  // 15 minutes
+                        2 => 1800, // 30 minutes
+                        _ => 3600, // 60 minutes
+                    };
+                    let elapsed = (_time - *last_attempt).num_seconds();
+                    if elapsed < cooldown_secs {
+                        log::debug!(
+                            "⏸️ [AutoUpdate] Server {} ({}) in failure cooldown (fails: {}, elapsed: {}s/{}s). Skipping.",
+                            server_id,
+                            name,
+                            fail_count,
+                            elapsed,
+                            cooldown_secs
+                        );
+                        continue;
+                    }
+                }
+            }
+
             let app_id = if server_type == "ASE" { "237090" } else { "2430930" };
             let install_path = PathBuf::from(&install_path_str);
 
@@ -2091,14 +2200,6 @@ impl SchedulerService {
                 log::warn!("🚀 [AutoUpdate] New Steam build detected for server {} ({})! Local {} vs Remote {}", server_id, name, local_build, remote_build);
 
                 let is_running = state.process_manager.is_running(server_id);
-                let db_status = {
-                    if let Ok(db) = state.db.lock() {
-                        if let Ok(conn) = db.get_connection() {
-                            conn.query_row("SELECT status FROM servers WHERE id = ?1", [server_id], |row| row.get::<_, String>(0)).ok()
-                        } else { None }
-                    } else { None }
-                };
-
                 let is_online = is_running || matches!(db_status.as_deref().map(|s| s.to_lowercase()).as_deref(), Some("running" | "online" | "starting"));
 
                 if is_online {
@@ -2154,7 +2255,21 @@ impl SchedulerService {
 
                     log::info!("  [AutoUpdate] Executing update for server {}", server_id);
                     let app = (*app_handle).clone();
-                    let _ = crate::commands::server::update_server(app, state.clone(), server_id).await;
+                    let update_res = crate::commands::server::update_server(app, state.clone(), server_id).await;
+
+                    match update_res {
+                        Ok(was_updated) => {
+                            log::info!("  ✅ [AutoUpdate] Server {} update completed successfully (was_updated={})", server_id, was_updated);
+                            let mut cooldowns = AUTO_UPDATE_COOLDOWNS.lock().unwrap_or_else(|e| e.into_inner());
+                            cooldowns.remove(&server_id);
+                        }
+                        Err(e) => {
+                            log::warn!("  ⚠️ [AutoUpdate] Server {} update failed or paused: {}. Entering failure cooldown.", server_id, e);
+                            let mut cooldowns = AUTO_UPDATE_COOLDOWNS.lock().unwrap_or_else(|e| e.into_inner());
+                            let count = cooldowns.get(&server_id).map(|(_, c)| c + 1).unwrap_or(1);
+                            cooldowns.insert(server_id, (Local::now(), count));
+                        }
+                    }
 
                     log::info!("  [AutoUpdate] Restarting server {}", server_id);
                     let app = (*app_handle).clone();
@@ -2162,7 +2277,21 @@ impl SchedulerService {
                 } else {
                     log::info!("  [AutoUpdate] Server {} is offline. Updating server files...", server_id);
                     let app = (*app_handle).clone();
-                    let _ = crate::commands::server::update_server(app, state.clone(), server_id).await;
+                    let update_res = crate::commands::server::update_server(app, state.clone(), server_id).await;
+
+                    match update_res {
+                        Ok(was_updated) => {
+                            log::info!("  ✅ [AutoUpdate] Server {} update completed successfully (was_updated={})", server_id, was_updated);
+                            let mut cooldowns = AUTO_UPDATE_COOLDOWNS.lock().unwrap_or_else(|e| e.into_inner());
+                            cooldowns.remove(&server_id);
+                        }
+                        Err(e) => {
+                            log::warn!("  ⚠️ [AutoUpdate] Server {} update failed or paused: {}. Entering failure cooldown.", server_id, e);
+                            let mut cooldowns = AUTO_UPDATE_COOLDOWNS.lock().unwrap_or_else(|e| e.into_inner());
+                            let count = cooldowns.get(&server_id).map(|(_, c)| c + 1).unwrap_or(1);
+                            cooldowns.insert(server_id, (Local::now(), count));
+                        }
+                    }
                 }
             }
         }
