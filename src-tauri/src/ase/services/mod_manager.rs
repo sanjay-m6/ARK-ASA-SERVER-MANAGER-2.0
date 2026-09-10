@@ -546,14 +546,15 @@ impl AseModManager {
                                     }
                                 }
 
-                                let msg = if total_b > 0 {
+                                if total_b > 0 {
                                     let dl_mb = dl_bytes as f64 / 1_048_576.0;
                                     let total_mb = total_b as f64 / 1_048_576.0;
-                                    format!("Downloading... {:.1}% ({:.1} MB / {:.1} MB) [Attempt {}/{}]", pct_float, dl_mb, total_mb, attempt, _retries)
+                                    let msg = format!("Downloading... {:.1}% ({:.1} MB / {:.1} MB) [Attempt {}/{}]", pct_float, dl_mb, total_mb, attempt, _retries);
+                                    emit_mod_progress_bytes(_app_handle, workshop_id, "downloading", pct_float, &msg, dl_bytes, total_b);
                                 } else {
-                                    format!("Downloading... {:.1}% [Attempt {}/{}]", pct_float, attempt, _retries)
-                                };
-                                emit_mod_progress_bytes(_app_handle, workshop_id, "downloading", pct_float, &msg, dl_bytes, total_b);
+                                    let msg = format!("Downloading... {:.1}% [Attempt {}/{}]", pct_float, attempt, _retries);
+                                    emit_mod_progress_bytes(_app_handle, workshop_id, "downloading", pct_float, &msg, dl_bytes, total_b);
+                                }
                             }
                         } else if trimmed.contains("Logging in") {
                             emit_mod_progress(_app_handle, workshop_id, "downloading", 10.0, &format!("Logging into Steam anonymously... [Attempt {}/{}]", attempt, _retries));
@@ -647,7 +648,7 @@ impl AseModManager {
         }
 
         if !success {
-            let err_msg = format!("Failed to download mod {} after {} retries: {}", workshop_id, _retries, last_err);
+            let err_msg: String = format!("Failed to download mod {} after {} retries: {}", workshop_id, _retries, last_err);
             emit_mod_progress(_app_handle, workshop_id, "failed", 100.0, &err_msg);
             return Err(err_msg);
         }
@@ -707,7 +708,7 @@ impl AseModManager {
             }
 
             if let Err(e) = generate_mod_file(workshop_id, &download_dir, &target_mod_file) {
-                let err_msg = format!("Failed to generate .mod file: {}", e);
+                let err_msg: String = format!("Failed to generate .mod file: {}", e);
                 emit_mod_progress(_app_handle, workshop_id, "failed", 100.0, &err_msg);
                 emit_mod_log(_app_handle, workshop_id, &format!("Error: {}", err_msg));
                 return Err(err_msg);

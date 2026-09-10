@@ -16,12 +16,11 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
     let conn = db
         .get_connection()
         .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-
     let mut stmt = conn
         .prepare(
             "SELECT id, name, install_path, status, game_port, query_port, rcon_port, max_players, 
           server_password, admin_password, ip_address, created_at, last_started, 
-          auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args, server_type, battleye FROM servers",
+          auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args, server_type, battleye, rcon_enabled FROM servers",
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
 
@@ -45,6 +44,7 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
         let auto_stop: i32 = row.get(14).unwrap_or(0);
         let intelligent_mode: i32 = row.get(15).unwrap_or(0);
         let battleye: i32 = row.get(20).unwrap_or(1);
+        let rcon_enabled: i32 = row.get(21).unwrap_or(1);
 
         servers.push(Server {
             id: row.get(0).map_err(|e| e.to_string())?,
@@ -68,7 +68,7 @@ pub async fn get_all_servers(state: State<'_, AppState>) -> Result<Vec<Server>, 
                 custom_args: row.get::<_, Option<String>>(18).unwrap_or(None),
             },
             rcon_config: RconConfig {
-                enabled: true,
+                enabled: rcon_enabled != 0,
                 password: "".to_string(),
             },
             ip_address: row.get(10).map_err(|e| e.to_string())?,
@@ -123,12 +123,11 @@ pub async fn get_server_by_id(
     let conn = db
         .get_connection()
         .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-
     let mut stmt = conn
         .prepare(
             "SELECT id, name, install_path, status, game_port, query_port, rcon_port, max_players, 
          server_password, admin_password, ip_address, created_at, last_started, 
-         auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args, server_type, battleye FROM servers WHERE id = ?1",
+         auto_start, auto_stop, intelligent_mode, map_name, session_name, custom_args, server_type, battleye, rcon_enabled FROM servers WHERE id = ?1",
         )
         .map_err(|e: rusqlite::Error| e.to_string())?;
 
@@ -151,6 +150,7 @@ pub async fn get_server_by_id(
         let auto_stop: i32 = row.get(14).unwrap_or(0);
         let intelligent_mode: i32 = row.get(15).unwrap_or(0);
         let battleye: i32 = row.get(20).unwrap_or(1);
+        let rcon_enabled: i32 = row.get(21).unwrap_or(1);
 
         let server = Server {
             id: row.get(0).map_err(|e| e.to_string())?,
@@ -174,7 +174,7 @@ pub async fn get_server_by_id(
                 custom_args: row.get::<_, Option<String>>(18).unwrap_or(None),
             },
             rcon_config: RconConfig {
-                enabled: true,
+                enabled: rcon_enabled != 0,
                 password: "".to_string(),
             },
             ip_address: row.get(10).map_err(|e| e.to_string())?,
@@ -189,6 +189,47 @@ pub async fn get_server_by_id(
     } else {
         Ok(None)
     }
+}
+
+#[tauri::command]
+pub async fn sync_server_from_ini(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<Option<Server>, String> {
+    println!("🔄 [INI Sync] Manual sync requested for server {}", server_id);
+
+    {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+        let conn = db
+            .get_connection()
+            .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
+
+        let (install_path, server_type) = conn
+            .query_row(
+                "SELECT install_path, server_type FROM servers WHERE id = ?1",
+                [server_id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?
+                            .unwrap_or_else(|| "ASA".to_string()),
+                    ))
+                },
+            )
+            .map_err(|e| format!("Server not found: {}", e))?;
+
+        let _ = crate::services::ini_sync::sync_server_from_ini_if_changed(
+            &conn,
+            server_id,
+            &std::path::PathBuf::from(&install_path),
+            &server_type,
+        )?;
+    }
+
+    get_server_by_id(state, server_id).await
 }
 
 #[tauri::command]
@@ -1227,6 +1268,7 @@ async fn perform_server_startup_inner(
         custom_args,
         server_type,
         battleye,
+        rcon_enabled,
     ): (
         String,
         String,
@@ -1244,6 +1286,7 @@ async fn perform_server_startup_inner(
         Option<String>,
         String,
         bool,
+        bool,
     ) = {
         let db = state
             .db
@@ -1253,10 +1296,24 @@ async fn perform_server_startup_inner(
             .get_connection()
             .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
+        // Sync from INI if Beacon or manual edits happened before startup
+        if let Ok((inst_path, s_type)) = conn.query_row(
+            "SELECT install_path, server_type FROM servers WHERE id = ?1",
+            [server_id],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_else(|| "ASA".to_string()))),
+        ) {
+            let _ = crate::services::ini_sync::sync_server_from_ini_if_changed(
+                &conn,
+                server_id,
+                &std::path::PathBuf::from(inst_path),
+                &s_type,
+            );
+        }
+
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address, s.cluster_id,
-             COALESCE(c.cluster_id_string, c.name), c.cluster_path, s.custom_args, s.server_type, s.battleye
+             COALESCE(c.cluster_id_string, c.name), c.cluster_path, s.custom_args, s.server_type, s.battleye, s.rcon_enabled
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
@@ -1279,6 +1336,7 @@ async fn perform_server_startup_inner(
                     row.get::<usize, Option<String>>(13)?,
                     row.get::<usize, String>(14).unwrap_or_else(|_| "ASA".to_string()),
                     row.get::<usize, i32>(15).unwrap_or(1) != 0,
+                    row.get::<usize, i32>(16).unwrap_or(1) != 0,
                 ))
             },
         )
@@ -1468,6 +1526,7 @@ async fn perform_server_startup_inner(
             game_port,
             query_port,
             rcon_port,
+            rcon_enabled,
             max_players,
             server_password.as_deref() as Option<&str>,
             &admin_password,
@@ -1535,6 +1594,7 @@ pub async fn start_server_no_mods(
         custom_args,
         server_type,
         battleye,
+        rcon_enabled,
     ): (
         String,
         String,
@@ -1551,6 +1611,7 @@ pub async fn start_server_no_mods(
         Option<String>,
         String,
         bool,
+        bool,
     ) = {
         let db = state
             .db
@@ -1560,11 +1621,24 @@ pub async fn start_server_no_mods(
             .get_connection()
             .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
 
+        if let Ok((inst_path, s_type)) = conn.query_row(
+            "SELECT install_path, server_type FROM servers WHERE id = ?1",
+            [server_id],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_else(|| "ASA".to_string()))),
+        ) {
+            let _ = crate::services::ini_sync::sync_server_from_ini_if_changed(
+                &conn,
+                server_id,
+                &std::path::PathBuf::from(inst_path),
+                &s_type,
+            );
+        }
+
         // Join with clusters table to get cluster details if assigned
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 
              s.max_players, s.server_password, s.admin_password, s.ip_address,
-             c.name, c.cluster_path, s.custom_args, s.server_type, s.battleye
+             c.name, c.cluster_path, s.custom_args, s.server_type, s.battleye, s.rcon_enabled
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
@@ -1586,6 +1660,7 @@ pub async fn start_server_no_mods(
                     row.get::<usize, Option<String>>(12)?,
                     row.get::<usize, String>(13).unwrap_or_else(|_| "ASA".to_string()),
                     row.get::<usize, i32>(14).unwrap_or(1) != 0,
+                    row.get::<usize, i32>(15).unwrap_or(1) != 0,
                 ))
             },
         )
@@ -1646,6 +1721,7 @@ pub async fn start_server_no_mods(
             game_port,
             query_port,
             rcon_port,
+            rcon_enabled,
             max_players,
             server_password.as_deref() as Option<&str>,
             &admin_password,
@@ -4785,6 +4861,27 @@ pub async fn diagnose_server_crash(
     let mut primary_cause = "Unknown / Process Crash".to_string();
     let mut recommended_action = "Run 1-Click Auto-Fix to quarantine outdated hooks, clear cache, and launch safely.".to_string();
 
+    // Check Issue: Unavailable / Rogue CurseForge Mod (e.g. Mongoland 960144)
+    let has_unavailable_mod = log_tail.iter().any(|l| {
+        let low = l.to_lowercase();
+        low.contains("unavailable mod") || low.contains("mongoland") || low.contains("960144")
+    }) || cf_errors.iter().any(|l| {
+        let low = l.to_lowercase();
+        low.contains("unavailable mod") || low.contains("mongoland") || low.contains("960144")
+    });
+
+    if has_unavailable_mod {
+        issues.push(serde_json::json!({
+            "id": "unavailable_mod_crash",
+            "severity": "critical",
+            "title": "Unavailable / Rogue CurseForge Mod (Mongoland 960144)",
+            "description": "LogCFCore detected an unavailable mod ID (960144 - Mongoland) that crashes the server on boot. Astraeos is an official expansion map and does not require this mod.",
+            "fix": "Run 1-Click Recovery to purge rogue mod 960144 from database, launch arguments, and server files."
+        }));
+        primary_cause = "Unavailable CurseForge Mod (Mongoland 960144)".to_string();
+        recommended_action = "Run 1-Click Recovery to purge rogue mod 960144 and launch Astraeos cleanly.".to_string();
+    }
+
     // Check Issue: Active Proxy DLLs after update (Highest probability of immediate window disappearing crash!)
     if server_type == "ASA" && !active_proxy_dlls.is_empty() {
         issues.push(serde_json::json!({
@@ -5014,6 +5111,39 @@ pub async fn repair_and_recover_server(
         }
     }
 
+    // Step 3b: Clean up rogue non-ASA mods (Mongoland 960144) from DB, arguments, and disk
+    {
+        emit_log("Sanitizing rogue/unavailable mod registrations (960144, 982315, 980421)...");
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                let _ = conn.execute(
+                    "DELETE FROM mods WHERE server_id = ?1 AND (mod_id IN ('960144', '982315', '980421') OR LOWER(name) LIKE '%mongoland%')",
+                    [server_id],
+                );
+                if let Ok(mut stmt) = conn.prepare("SELECT custom_args FROM servers WHERE id = ?1") {
+                    if let Ok(custom_args) = stmt.query_row([server_id], |r| r.get::<_, Option<String>>(0)) {
+                        if let Some(cargs) = custom_args {
+                            let cleaned_args = cargs
+                                .replace("-MapModID=960144", "")
+                                .replace("-MapModID=982315", "")
+                                .replace("-MapModID=980421", "")
+                                .replace("960144", "")
+                                .replace("982315", "")
+                                .replace("980421", "");
+                            let _ = conn.execute("UPDATE servers SET custom_args = ?1 WHERE id = ?2", rusqlite::params![cleaned_args.trim(), server_id]);
+                        }
+                    }
+                }
+            }
+        }
+        for rogue_id in &["960144", "982315", "980421"] {
+            let p1 = win64_dir.join("ShooterGame").join("Mods").join(rogue_id);
+            if p1.exists() { let _ = std::fs::remove_dir_all(&p1); }
+            let p2 = install_path_buf.join("ShooterGame").join("Content").join("Mods").join(rogue_id);
+            if p2.exists() { let _ = std::fs::remove_dir_all(&p2); }
+        }
+    }
+
     // Step 4: Validate SteamCMD files if requested
     if opts.validate_steam_files {
         emit_log("Running SteamCMD full file verification (validate)...");
@@ -5039,9 +5169,20 @@ pub async fn repair_and_recover_server(
                 cleaned = crate::services::ini_parser::IniParser::remove_key(&cleaned, "ServerSettings", "ActiveMapMods");
                 modded = true;
             }
+            if let Some(active_mods_val) = crate::services::ini_parser::IniParser::get_value(&cleaned, "ServerSettings", "ActiveMods") {
+                if active_mods_val.contains("960144") || active_mods_val.contains("982315") || active_mods_val.contains("980421") {
+                    let cleaned_mods: Vec<&str> = active_mods_val
+                        .split(',')
+                        .map(|s| s.trim())
+                        .filter(|s| !s.is_empty() && *s != "960144" && *s != "982315" && *s != "980421")
+                        .collect();
+                    cleaned = crate::services::ini_parser::IniParser::update_key(&cleaned, "ServerSettings", "ActiveMods", &cleaned_mods.join(","));
+                    modded = true;
+                }
+            }
             if modded {
                 let _ = std::fs::write(&gus_path, cleaned);
-                emit_log("Sanitized corrupted ActiveMapMod keys from GameUserSettings.ini.");
+                emit_log("Sanitized corrupted ActiveMapMod/ActiveMods keys from GameUserSettings.ini.");
             }
         }
     }

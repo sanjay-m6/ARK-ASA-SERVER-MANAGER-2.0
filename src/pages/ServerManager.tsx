@@ -26,7 +26,7 @@ import { useServerOrganizationStore } from '../stores/serverOrganizationStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-import { startServer, stopServer, restartServer, deleteServer, checkServerHasSaves, ServerSaveInfo, updateServer, updateServerSettings, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, moveServer, clearModCache, openInExplorer, getAllServersUpdateSettings } from '../utils/tauri';
+import { startServer, stopServer, restartServer, deleteServer, checkServerHasSaves, ServerSaveInfo, updateServer, updateServerSettings, getServerLogs, cloneServer, transferSettings, extractSaveData, showServerConsole, hardcoreRetryMods, startServerNoMods, toggleServerAutomation, checkPortConflicts, ConflictCheckResult, setServerStartupConfig, moveServer, clearModCache, openInExplorer, getAllServersUpdateSettings, syncServerFromIni } from '../utils/tauri';
 import { updateServerCustomization as apiUpdateServerCustomization } from '../utils/serverOrganization';
 import toast from 'react-hot-toast';
 import { useTauriEvent } from '../hooks/useTauriEvent';
@@ -570,6 +570,14 @@ export default function ServerManager() {
         }, [updateServerStatus, refreshServers, t])
     );
 
+    useTauriEvent<{ server_id: number }>(
+        'server-config-synced',
+        useCallback((payload) => {
+            console.log(`[Config Sync] Config synced from disk for server ${payload.server_id}`);
+            refreshServers();
+        }, [refreshServers])
+    );
+
     // Fetch latest public version & local server versions on mount/server changes
     useEffect(() => {
         fetchLatestPublicVersion();
@@ -881,6 +889,25 @@ export default function ServerManager() {
         } catch (error) {
             updateServerStatus(serverId, 'stopped');
             toast.error(t('serverManager.deepRepairFailed', { error }));
+        }
+    };
+
+    const handleSyncFromIni = async (serverId: number, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        try {
+            toast.loading('Syncing settings from disk / Beacon...', { id: `sync-${serverId}` });
+            const updated = await syncServerFromIni(serverId);
+            await refreshServers();
+            if (updated) {
+                toast.success(
+                    `Synced from INI: Max Players: ${updated.config.maxPlayers}, IP: ${updated.ipAddress || 'Default'}, RCON: ${updated.rconConfig?.enabled ? 'Enabled' : 'Disabled'}`,
+                    { id: `sync-${serverId}`, duration: 5000 }
+                );
+            } else {
+                toast.success('Settings are already in sync with INI', { id: `sync-${serverId}` });
+            }
+        } catch (err: any) {
+            toast.error(`Sync failed: ${err}`, { id: `sync-${serverId}` });
         }
     };
 
@@ -1492,6 +1519,14 @@ export default function ServerManager() {
                             >
                                 <FileText className="w-3.5 h-3.5 text-amber-500" />
                                 <span>Edit Raw INI Files</span>
+                            </button>
+                            <button
+                                onClick={(e) => handleSyncFromIni(server.id, e)}
+                                className="w-full text-left px-3 py-2 text-xs hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-lg transition-colors flex items-center gap-2 border-t border-[var(--border)] cursor-pointer font-medium"
+                                title="Sync Max Players, Server IP, RCON and Ports from GameUserSettings.ini or Beacon"
+                            >
+                                <RotateCw className="w-3.5 h-3.5 text-emerald-500" />
+                                <span>Sync from INI / Beacon</span>
                             </button>
                             <button
                                 onClick={() => navigate('/tools/files', { state: { initialPath: server.installPath } })}
@@ -2725,6 +2760,16 @@ export default function ServerManager() {
                                                                               <FileText className="w-3.5 h-3.5" />
                                                                           </div>
                                                                           <span>{t('serverManager.buttons.editRawIni', 'Edit Files Manually (IDE)')}</span>
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={(e) => handleSyncFromIni(server.id, e)}
+                                                                          className="w-full text-left px-3 py-2 hover:bg-emerald-500/15 text-[var(--text-secondary)] hover:text-emerald-600 dark:hover:text-emerald-300 rounded-xl transition-all flex items-center gap-2.5 text-xs font-medium group/item cursor-pointer border-t border-[var(--border)]"
+                                                                          title="Sync Max Players, Server IP, RCON and Ports from GameUserSettings.ini or Beacon"
+                                                                      >
+                                                                          <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-500 group-hover/item:scale-110 transition-transform">
+                                                                              <RotateCw className="w-3.5 h-3.5" />
+                                                                          </div>
+                                                                          <span>Sync from INI / Beacon</span>
                                                                       </button>
                                                                       <button
                                                                           onClick={() => openCloneModal(server)}

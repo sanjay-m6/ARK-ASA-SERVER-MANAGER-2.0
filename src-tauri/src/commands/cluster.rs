@@ -820,6 +820,7 @@ pub async fn start_cluster(
         u16,
         u16,
         u16,
+        bool,
         i32,
         Option<String>,
         String,
@@ -833,7 +834,7 @@ pub async fn start_cluster(
         let mut stmt = conn
             .prepare(
                 "SELECT s.id, s.install_path, s.map_name, s.session_name, s.game_port, 
-                        s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address, s.custom_args, s.battleye
+                        s.query_port, s.rcon_port, s.rcon_enabled, s.max_players, s.server_password, s.admin_password, s.ip_address, s.custom_args, s.battleye
                  FROM servers s
                  INNER JOIN cluster_servers cs ON s.id = cs.server_id
                  WHERE cs.cluster_id = ?1 AND s.status NOT IN ('running', 'online', 'starting', 'updating', 'restarting')",
@@ -851,12 +852,13 @@ pub async fn start_cluster(
                 row.get::<_, u16>(4).unwrap_or(7777),
                 row.get::<_, u16>(5).unwrap_or(27015),
                 row.get::<_, u16>(6).unwrap_or(27020),
-                row.get::<_, i32>(7).unwrap_or(70),
-                row.get::<_, Option<String>>(8).unwrap_or(None),
-                row.get::<_, String>(9).unwrap_or_default(),
-                row.get::<_, Option<String>>(10).unwrap_or(None),
+                row.get::<_, i32>(7).unwrap_or(1) != 0,
+                row.get::<_, i32>(8).unwrap_or(70),
+                row.get::<_, Option<String>>(9).unwrap_or(None),
+                row.get::<_, String>(10).unwrap_or_default(),
                 row.get::<_, Option<String>>(11).unwrap_or(None),
-                row.get::<_, i32>(12).unwrap_or(1) != 0,
+                row.get::<_, Option<String>>(12).unwrap_or(None),
+                row.get::<_, i32>(13).unwrap_or(1) != 0,
             ));
         }
         result
@@ -871,6 +873,7 @@ pub async fn start_cluster(
         game_port,
         query_port,
         rcon_port,
+        rcon_enabled,
         max_players,
         server_password,
         admin_password,
@@ -924,6 +927,7 @@ pub async fn start_cluster(
             game_port,
             query_port,
             rcon_port,
+            rcon_enabled,
             max_players,
             server_password_ref,
             &admin_password,

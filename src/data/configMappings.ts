@@ -82,6 +82,7 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                     { value: 'TheCenter_WP', label: 'The Center', group: 'released' },
                     { value: 'Aberration_WP', label: 'Aberration', group: 'released' },
                     { value: 'Extinction_WP', label: 'Extinction', group: 'released' },
+                    { value: 'Astraeos_WP', label: 'Astraeos', group: 'released' },
                     { value: 'Ragnarok_WP', label: 'Ragnarok', group: 'released' },
                     { value: 'Valguero_WP', label: 'Valguero', group: 'released' },
                     { value: 'Genesis_WP', label: 'Genesis Part 1', group: 'released' },
@@ -89,17 +90,20 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
 
                     // Premium Mod Maps
                     { value: 'LostColony_WP', label: 'Lost Colony', group: 'premium' },
-                    { value: 'Astraeos_WP', label: 'Astraeos', group: 'premium' },
                     { value: 'Forglar_WP', label: 'Forglar', group: 'premium' },
                     { value: 'TemptressLagoon_WP', label: 'Temptress Lagoon', group: 'premium' },
                     { value: 'Reverence_WP', label: 'Reverence', group: 'premium' },
 
                     // Modded Expansion Maps
+                    { value: 'TheIslandReforged_WP', label: 'The Island Reforged', group: 'modded' },
                     { value: 'ScorchedEarthRM_WP', label: 'Scorched Earth Reborn', group: 'modded' },
                     { value: 'Svartalfheim_WP', label: 'Svartalfheim', group: 'modded' },
                     { value: 'Amissa_WP', label: 'Amissa', group: 'modded' },
                     { value: 'Insaluna_WP', label: 'Insaluna', group: 'modded' },
                     { value: 'Bjarnheim_WP', label: 'Bjarnheim', group: 'modded' },
+                    { value: 'Althemia_WP', label: 'Althemia', group: 'modded' },
+                    { value: 'Vanna_WP', label: 'Vanna', group: 'modded' },
+                    { value: 'TaeniaStella_WP', label: 'TaeniaStella', group: 'modded' },
 
                     // Upcoming Official Maps (Roadmap)
                     { value: 'Genesis2_WP', label: 'Genesis Part 2', group: 'upcoming' },

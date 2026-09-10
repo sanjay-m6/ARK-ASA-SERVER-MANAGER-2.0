@@ -512,12 +512,12 @@ struct AiProviderConfig {
 fn build_openai_endpoint(base: &str) -> String {
     let trimmed = base.trim().trim_end_matches('/');
     if trimmed.ends_with("/chat/completions") {
-        trimmed.to_string()
-    } else if trimmed.ends_with("/v1") {
-        format!("{}/chat/completions", trimmed)
-    } else {
-        format!("{}/v1/chat/completions", trimmed)
+        return trimmed.to_string();
     }
+    if trimmed.ends_with("/v1") {
+        return format!("{}/chat/completions", trimmed);
+    }
+    format!("{}/v1/chat/completions", trimmed)
 }
 
 /// Resolves the AI provider config from the settings DB.
@@ -812,7 +812,7 @@ pub async fn lmstudio_list_models(
     };
 
     let trimmed = base.trim().trim_end_matches('/');
-    let url = if trimmed.ends_with("/models") {
+    let url: String = if trimmed.ends_with("/models") {
         trimmed.to_string()
     } else if trimmed.ends_with("/v1") {
         format!("{}/models", trimmed)

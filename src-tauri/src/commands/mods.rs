@@ -738,12 +738,12 @@ pub async fn hardcore_retry_mods(
     let _ = state.plugin_manager.quarantine_proxy_dlls(server_id);
 
     // 1. Fetch Server Details & Config (LEFT JOIN clusters for cluster_path)
-    let (install_path, session_name, map_name, game_port, query_port, rcon_port, max_players, server_password, admin_password, ip_address, cluster_id, cluster_dir, custom_args, battleye) = {
+    let (install_path, session_name, map_name, game_port, query_port, rcon_port, rcon_enabled, max_players, server_password, admin_password, ip_address, cluster_id, cluster_dir, custom_args, battleye) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         
         conn.query_row(
-            "SELECT s.install_path, s.session_name, s.map_name, s.game_port, s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address, s.cluster_id, c.cluster_path, s.custom_args, s.battleye 
+            "SELECT s.install_path, s.session_name, s.map_name, s.game_port, s.query_port, s.rcon_port, s.rcon_enabled, s.max_players, s.server_password, s.admin_password, s.ip_address, s.cluster_id, c.cluster_path, s.custom_args, s.battleye 
              FROM servers s
              LEFT JOIN clusters c ON s.cluster_id = c.id
              WHERE s.id = ?1",
@@ -755,14 +755,15 @@ pub async fn hardcore_retry_mods(
                 row.get::<_, i32>(3)?,    // game_port
                 row.get::<_, i32>(4)?,    // query_port
                 row.get::<_, i32>(5)?,    // rcon_port
-                row.get::<_, i32>(6)?,    // max_players
-                row.get::<_, Option<String>>(7)?, // server_password
-                row.get::<_, String>(8)?, // admin_password
-                row.get::<_, Option<String>>(9)?, // ip_address
-                row.get::<_, Option<i64>>(10)?.map(|id| id.to_string()), // cluster_id
-                row.get::<_, Option<String>>(11)?, // cluster_path (from clusters table)
-                row.get::<_, Option<String>>(12)?, // custom_args
-                row.get::<_, i32>(13).unwrap_or(1) != 0, // battleye
+                row.get::<_, i32>(6).unwrap_or(1) != 0, // rcon_enabled
+                row.get::<_, i32>(7)?,    // max_players
+                row.get::<_, Option<String>>(8)?, // server_password
+                row.get::<_, String>(9)?, // admin_password
+                row.get::<_, Option<String>>(10)?, // ip_address
+                row.get::<_, Option<i64>>(11)?.map(|id| id.to_string()), // cluster_id
+                row.get::<_, Option<String>>(12)?, // cluster_path (from clusters table)
+                row.get::<_, Option<String>>(13)?, // custom_args
+                row.get::<_, i32>(14).unwrap_or(1) != 0, // battleye
             )),
         ).map_err(|e| e.to_string())?
     };
@@ -813,6 +814,7 @@ pub async fn hardcore_retry_mods(
         game_port as u16,
         query_port as u16,
         rcon_port as u16,
+        rcon_enabled,
         max_players,
         server_password.as_deref(),
         &admin_password,

@@ -159,7 +159,7 @@ function App() {
             if (savedLang && savedLang !== i18n.language) {
                 i18n.changeLanguage(savedLang);
             }
-        }).catch(() => {});
+        }).catch(() => { });
 
         // Initialize global Tauri installation event listeners
         initializeInstallListeners();

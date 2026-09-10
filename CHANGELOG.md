@@ -5,6 +5,27 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.23] — 2026-09-11
+
+### Fixed & Improved
+- **🌋 Astraeos Map Startup Crash & Official Map Status Resolution**:
+  - Resolved instant server crash during startup when selecting the official `Astraeos` map (`Astraeos_WP`).
+  - Diagnosed that Astraeos was erroneously associated with inactive CurseForge mod ID `960144`, which caused Wildcard's server engine to crash when attempting to download/verify non-existent mod files.
+  - Classified `Astraeos_WP` strictly under `OFFICIAL_MAP_ARGUMENTS` and removed invalid mod ID references from `moddedMapRegistry.ts`.
+  - Added pre-launch safety guards in `process_manager.rs` (`is_official_map`) that completely bypass mod installation checks, auto-clean corrupt `960144` cache directories on disk, sanitize `ActiveMods` INI entries, and prevent `-MapModID=` injection for official maps.
+  - Enhanced Crash Doctor with automated `unavailable_mod_crash` diagnosis and 1-click self-healing repair.
+- **🎨 Config Editor UI & UX Design Fixes**:
+  - **Fixed Vertical Grid Stretching & Empty Dead Space (`Server Name` card)**: Added `items-start` to settings card grids, eliminating ~800px of empty black void caused by default CSS Grid height stretching.
+  - **Fixed False `__CUSTOM__` Trigger on Installed & Preset Maps**: Dynamic `allKnownValues` now verifies static options, installed server mods (`detectMapArgumentFromMod` and mod IDs), curated mod presets (`ASA_MODDED_MAP_PRESETS`), and `MAP_METADATA` keys with case-insensitive matching. Selected mod maps like `TheIslandReforged_WP` now display cleanly with their proper badge, author, and preview card without opening custom mode.
+  - **Eliminated 5x Redundancy & Cluttered 8-Tile Sub-Grid**: Streamlined the custom map view into a sleek `Terminal` launch argument input, compact quick-fill chips from installed server mods (`[The Island Reforged (TheIslandReforged_WP)]`), and a direct link to the full `Modded Maps Hub`.
+- **🤖 Discord Bot & Command Center Cluster Synchronization**:
+  - Resolved cluster server reporting in Discord Bot Command Center (`Cluster Servers 0 / 0 Online`).
+  - Ensured active servers correctly link to their parent cluster across Tauri backend commands and real-time status embeds.
+- **⚙️ Config Persistence & INI Synchronization**:
+  - Hardened bidirectional synchronization for server name (`SessionName`), map arguments, and player limits between `GameUserSettings.ini` and internal server configurations.
+
+---
+
 ## [4.6.22] — 2026-09-10
 
 ### Added

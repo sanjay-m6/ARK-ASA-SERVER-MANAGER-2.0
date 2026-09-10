@@ -14,7 +14,7 @@ import { generateAutoServerName } from '../../utils/helpers';
 import { allocateNextAvailablePorts } from '../../utils/portAllocator';
 import toast from 'react-hot-toast';
 import type { ServerType } from '../../types';
-import { MODDED_MAP_PRESETS, getModdedMapByMapArg, buildLaunchArgs } from '../../data/moddedMapRegistry';
+import { MODDED_MAP_PRESETS, getModdedMapByMapArg, buildLaunchArgs, isOfficialMap } from '../../data/moddedMapRegistry';
 
 import { useTranslation } from 'react-i18next';
 
@@ -290,19 +290,21 @@ export default function InstallServerDialog({ onClose }: Props) {
         try {
             const server = await installServer(formData);
 
-            // If it is a modded map, auto-inject launch arguments
-            const moddedPreset = getModdedMapByMapArg(formData.mapName, 'ASA');
-            if (moddedPreset) {
-                const newCustomArgs = buildLaunchArgs(moddedPreset, '');
-                try {
-                    await updateServerSettings({
-                        serverId: server.id,
-                        customArgs: newCustomArgs
-                    });
-                    server.config.customArgs = newCustomArgs;
-                    server.config.custom_args = newCustomArgs;
-                } catch (err) {
-                    console.error('Failed to auto-configure modded map launch args:', err);
+            // If it is a modded map, auto-inject launch arguments (never for official maps)
+            if (!isOfficialMap(formData.mapName)) {
+                const moddedPreset = getModdedMapByMapArg(formData.mapName, 'ASA');
+                if (moddedPreset?.mapModId) {
+                    const newCustomArgs = buildLaunchArgs(moddedPreset, '');
+                    try {
+                        await updateServerSettings({
+                            serverId: server.id,
+                            customArgs: newCustomArgs
+                        });
+                        server.config.customArgs = newCustomArgs;
+                        server.config.custom_args = newCustomArgs;
+                    } catch (err) {
+                        console.error('Failed to auto-configure modded map launch args:', err);
+                    }
                 }
             }
 
@@ -988,183 +990,182 @@ export default function InstallServerDialog({ onClose }: Props) {
                             const hasWarnings = hasDuplicatePorts || hasPrivilegedPorts || weakPassword;
 
                             return (
-                            <div className="space-y-4 max-w-lg mx-auto">
-                                <div>
-                                    <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Download className="w-4 h-4 text-emerald-400" />{t('dialogs.installServer.preflight', 'Pre-flight Review')}</h3>
-                                    <p className="text-xs text-slate-500">{t('dialogs.installServer.preflightDesc', 'Verify every detail before the installation begins')}</p>
-                                </div>
+                                <div className="space-y-4 max-w-lg mx-auto">
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-white mb-1 flex items-center gap-2"><Download className="w-4 h-4 text-emerald-400" />{t('dialogs.installServer.preflight', 'Pre-flight Review')}</h3>
+                                        <p className="text-xs text-slate-500">{t('dialogs.installServer.preflightDesc', 'Verify every detail before the installation begins')}</p>
+                                    </div>
 
-                                {/* Global Status Banner */}
-                                <div className={`flex items-center gap-3 p-3 rounded-xl border text-xs font-medium ${
-                                    hasWarnings
-                                        ? 'bg-amber-500/5 border-amber-500/15 text-amber-300/90'
-                                        : 'bg-emerald-500/5 border-emerald-500/15 text-emerald-300/90'
-                                }`}>
-                                    {hasWarnings ? (
-                                        <><AlertTriangle className="w-4 h-4 flex-shrink-0" />{t('dialogs.installServer.preflightWarning', 'Some settings need attention — review the warnings below')}</>
-                                    ) : (
-                                        <><CheckCircle className="w-4 h-4 flex-shrink-0" />{t('dialogs.installServer.preflightOk', 'All settings look good — ready to deploy')}</>
-                                    )}
-                                </div>
-
-                                {/* Map Preview Card */}
-                                <div className="relative h-24 rounded-xl overflow-hidden border border-white/10 shadow-lg">
-                                    {selectedMap.image ? (
-                                        <img src={selectedMap.image} alt={selectedMap.name} className="w-full h-full object-cover opacity-60" />
-                                    ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800" />
-                                    )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-                                    <div className="absolute bottom-3 left-4">
-                                        <p className="text-sm font-bold text-white">{selectedMap.name}</p>
-                                        <p className="text-[10px] text-slate-300 leading-normal">{selectedMap.description}</p>
-                                    </div>
-                                    <div className="absolute top-3 right-3">
-                                        <span className="text-2xl">{selectedMap.icon}</span>
-                                    </div>
-                                </div>
-
-                                {/* Section: Identity */}
-                                <div className="rounded-xl border border-white/5 overflow-hidden">
-                                    <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
-                                        <Server className="w-3.5 h-3.5 text-emerald-400" />
-                                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewIdentity', 'Identity')}</span>
-                                        <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
-                                    </div>
-                                    <div className="divide-y divide-white/5">
-                                        {[
-                                            { label: t('dialogs.installServer.serverName', 'Server Name'), value: formData.name },
-                                            { label: t('dialogs.installServer.sessionName', 'Session Name'), value: formData.sessionName || formData.name, sub: t('dialogs.installServer.publicVisibility', 'Shown in server browser') },
-                                            { label: t('dialogs.installServer.maxPlayers', 'Max Players'), value: String(formData.maxPlayers ?? 70) },
-                                        ].map(row => (
-                                            <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
-                                                <div>
-                                                    <span className="text-[11px] text-slate-500">{row.label}</span>
-                                                    {row.sub && <span className="text-[9px] text-slate-600 ml-1.5">({row.sub})</span>}
-                                                </div>
-                                                <span className="text-xs font-semibold text-white font-mono truncate max-w-[180px]" title={row.value}>{row.value}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Section: Game Mode */}
-                                <div className="rounded-xl border border-white/5 overflow-hidden">
-                                    <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
-                                        <Settings className="w-3.5 h-3.5 text-emerald-400" />
-                                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewGameMode', 'Game Mode')}</span>
-                                        <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
-                                    </div>
-                                    <div className="divide-y divide-white/5">
-                                        <div className="flex items-center justify-between px-3.5 py-2.5">
-                                            <span className="text-[11px] text-slate-500">{t('dialogs.installServer.gameMode', 'Mode')}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-lg">{formData.pveMode !== false ? '🌿' : '⚔️'}</span>
-                                                <span className="text-xs font-semibold text-white">{formData.pveMode !== false ? t('dialogs.installServer.pve', 'PvE') : t('dialogs.installServer.pvp', 'PvP')}</span>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center justify-between px-3.5 py-2.5">
-                                            <span className="text-[11px] text-slate-500">{t('dialogs.installServer.crossplay', 'Crossplay')}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-lg">{formData.crossplay === true ? '🎮' : '🖥️'}</span>
-                                                <span className="text-xs font-semibold text-white">{formData.crossplay === true ? t('dialogs.installServer.crossplay', 'Crossplay') : t('dialogs.installServer.pcOnly', 'PC Only')}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Section: Network */}
-                                <div className="rounded-xl border border-white/5 overflow-hidden">
-                                    <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
-                                        <Network className="w-3.5 h-3.5 text-emerald-400" />
-                                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewNetwork', 'Network')}</span>
-                                        {(hasDuplicatePorts || hasPrivilegedPorts) ? (
-                                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 ml-auto" />
+                                    {/* Global Status Banner */}
+                                    <div className={`flex items-center gap-3 p-3 rounded-xl border text-xs font-medium ${hasWarnings
+                                            ? 'bg-amber-500/5 border-amber-500/15 text-amber-300/90'
+                                            : 'bg-emerald-500/5 border-emerald-500/15 text-emerald-300/90'
+                                        }`}>
+                                        {hasWarnings ? (
+                                            <><AlertTriangle className="w-4 h-4 flex-shrink-0" />{t('dialogs.installServer.preflightWarning', 'Some settings need attention — review the warnings below')}</>
                                         ) : (
-                                            <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                                            <><CheckCircle className="w-4 h-4 flex-shrink-0" />{t('dialogs.installServer.preflightOk', 'All settings look good — ready to deploy')}</>
                                         )}
                                     </div>
-                                    <div className="divide-y divide-white/5">
-                                        {[
-                                            { label: t('dialogs.installServer.gamePort', 'Game Port'), value: formData.gamePort, protocol: 'UDP' },
-                                            { label: t('dialogs.installServer.queryPort', 'Query Port'), value: formData.queryPort, protocol: 'UDP/TCP' },
-                                            { label: t('dialogs.installServer.rconPort', 'RCON Port'), value: formData.rconPort, protocol: 'TCP' },
-                                        ].map(row => (
-                                            <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[11px] text-slate-500">{row.label}</span>
+
+                                    {/* Map Preview Card */}
+                                    <div className="relative h-24 rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                                        {selectedMap.image ? (
+                                            <img src={selectedMap.image} alt={selectedMap.name} className="w-full h-full object-cover opacity-60" />
+                                        ) : (
+                                            <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800" />
+                                        )}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                                        <div className="absolute bottom-3 left-4">
+                                            <p className="text-sm font-bold text-white">{selectedMap.name}</p>
+                                            <p className="text-[10px] text-slate-300 leading-normal">{selectedMap.description}</p>
+                                        </div>
+                                        <div className="absolute top-3 right-3">
+                                            <span className="text-2xl">{selectedMap.icon}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Section: Identity */}
+                                    <div className="rounded-xl border border-white/5 overflow-hidden">
+                                        <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
+                                            <Server className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewIdentity', 'Identity')}</span>
+                                            <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                                        </div>
+                                        <div className="divide-y divide-white/5">
+                                            {[
+                                                { label: t('dialogs.installServer.serverName', 'Server Name'), value: formData.name },
+                                                { label: t('dialogs.installServer.sessionName', 'Session Name'), value: formData.sessionName || formData.name, sub: t('dialogs.installServer.publicVisibility', 'Shown in server browser') },
+                                                { label: t('dialogs.installServer.maxPlayers', 'Max Players'), value: String(formData.maxPlayers ?? 70) },
+                                            ].map(row => (
+                                                <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
+                                                    <div>
+                                                        <span className="text-[11px] text-slate-500">{row.label}</span>
+                                                        {row.sub && <span className="text-[9px] text-slate-600 ml-1.5">({row.sub})</span>}
+                                                    </div>
+                                                    <span className="text-xs font-semibold text-white font-mono truncate max-w-[180px]" title={row.value}>{row.value}</span>
                                                 </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Section: Game Mode */}
+                                    <div className="rounded-xl border border-white/5 overflow-hidden">
+                                        <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
+                                            <Settings className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewGameMode', 'Game Mode')}</span>
+                                            <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                                        </div>
+                                        <div className="divide-y divide-white/5">
+                                            <div className="flex items-center justify-between px-3.5 py-2.5">
+                                                <span className="text-[11px] text-slate-500">{t('dialogs.installServer.gameMode', 'Mode')}</span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-[9px] font-mono text-slate-600">{row.protocol}</span>
-                                                    <span className="text-xs font-bold text-white font-mono">{row.value}</span>
+                                                    <span className="text-lg">{formData.pveMode !== false ? '🌿' : '⚔️'}</span>
+                                                    <span className="text-xs font-semibold text-white">{formData.pveMode !== false ? t('dialogs.installServer.pve', 'PvE') : t('dialogs.installServer.pvp', 'PvP')}</span>
                                                 </div>
                                             </div>
-                                        ))}
+                                            <div className="flex items-center justify-between px-3.5 py-2.5">
+                                                <span className="text-[11px] text-slate-500">{t('dialogs.installServer.crossplay', 'Crossplay')}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-lg">{formData.crossplay === true ? '🎮' : '🖥️'}</span>
+                                                    <span className="text-xs font-semibold text-white">{formData.crossplay === true ? t('dialogs.installServer.crossplay', 'Crossplay') : t('dialogs.installServer.pcOnly', 'PC Only')}</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    {hasDuplicatePorts && (
-                                        <div className="flex items-start gap-2 px-3.5 py-2 bg-red-500/5 border-t border-red-500/10">
-                                            <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
-                                            <span className="text-[10px] text-red-300/80">{t('dialogs.installServer.portCollision', 'Port collision detected — game, query, and RCON ports must all be different')}</span>
-                                        </div>
-                                    )}
-                                    {hasPrivilegedPorts && (
-                                        <div className="flex items-start gap-2 px-3.5 py-2 bg-amber-500/5 border-t border-amber-500/10">
-                                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                                            <span className="text-[10px] text-amber-300/80">{t('dialogs.installServer.privilegedPorts', 'Ports below 1024 are privileged and may require administrator access')}</span>
-                                        </div>
-                                    )}
-                                </div>
 
-                                {/* Section: Security */}
-                                <div className="rounded-xl border border-white/5 overflow-hidden">
-                                    <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
-                                        <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewSecurity', 'Security')}</span>
-                                        {weakPassword ? (
-                                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 ml-auto" />
-                                        ) : (
-                                            <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                                    {/* Section: Network */}
+                                    <div className="rounded-xl border border-white/5 overflow-hidden">
+                                        <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
+                                            <Network className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewNetwork', 'Network')}</span>
+                                            {(hasDuplicatePorts || hasPrivilegedPorts) ? (
+                                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 ml-auto" />
+                                            ) : (
+                                                <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                                            )}
+                                        </div>
+                                        <div className="divide-y divide-white/5">
+                                            {[
+                                                { label: t('dialogs.installServer.gamePort', 'Game Port'), value: formData.gamePort, protocol: 'UDP' },
+                                                { label: t('dialogs.installServer.queryPort', 'Query Port'), value: formData.queryPort, protocol: 'UDP/TCP' },
+                                                { label: t('dialogs.installServer.rconPort', 'RCON Port'), value: formData.rconPort, protocol: 'TCP' },
+                                            ].map(row => (
+                                                <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[11px] text-slate-500">{row.label}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[9px] font-mono text-slate-600">{row.protocol}</span>
+                                                        <span className="text-xs font-bold text-white font-mono">{row.value}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        {hasDuplicatePorts && (
+                                            <div className="flex items-start gap-2 px-3.5 py-2 bg-red-500/5 border-t border-red-500/10">
+                                                <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                                                <span className="text-[10px] text-red-300/80">{t('dialogs.installServer.portCollision', 'Port collision detected — game, query, and RCON ports must all be different')}</span>
+                                            </div>
+                                        )}
+                                        {hasPrivilegedPorts && (
+                                            <div className="flex items-start gap-2 px-3.5 py-2 bg-amber-500/5 border-t border-amber-500/10">
+                                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                                <span className="text-[10px] text-amber-300/80">{t('dialogs.installServer.privilegedPorts', 'Ports below 1024 are privileged and may require administrator access')}</span>
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="divide-y divide-white/5">
-                                        <div className="flex items-center justify-between px-3.5 py-2.5">
-                                            <span className="text-[11px] text-slate-500">{t('dialogs.installServer.adminPassword', 'Admin Password')}</span>
-                                            <span className="text-xs font-mono text-white tracking-widest">{'•'.repeat(Math.min((formData.adminPassword ?? '').length, 12)) || '—'}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between px-3.5 py-2.5">
-                                            <span className="text-[11px] text-slate-500">{t('dialogs.installServer.serverPassword', 'Server Password')}</span>
-                                            <span className="text-xs font-mono text-white tracking-widest">{(formData.serverPassword ?? '').length > 0 ? '•'.repeat(Math.min((formData.serverPassword ?? '').length, 12)) : t('dialogs.installServer.publicAccess', 'Public')}</span>
-                                        </div>
-                                    </div>
-                                    {weakPassword && (
-                                        <div className="flex items-start gap-2 px-3.5 py-2 bg-amber-500/5 border-t border-amber-500/10">
-                                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                                            <span className="text-[10px] text-amber-300/80">{t('dialogs.installServer.weakPassword', 'Password is short — consider using 6+ characters for better security')}</span>
-                                        </div>
-                                    )}
-                                </div>
 
-                                {/* Section: Storage */}
-                                <div className="rounded-xl border border-white/5 overflow-hidden">
-                                    <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
-                                        <HardDrive className="w-3.5 h-3.5 text-emerald-400" />
-                                        <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewStorage', 'Storage')}</span>
-                                        <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
-                                    </div>
-                                    <div className="px-3.5 py-2.5">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[11px] text-slate-500">{t('dialogs.installServer.installPath', 'Install Path')}</span>
+                                    {/* Section: Security */}
+                                    <div className="rounded-xl border border-white/5 overflow-hidden">
+                                        <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
+                                            <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewSecurity', 'Security')}</span>
+                                            {weakPassword ? (
+                                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 ml-auto" />
+                                            ) : (
+                                                <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                                            )}
                                         </div>
-                                        <span className="text-[10px] font-mono text-white/80 break-all leading-relaxed" title={formData.installPath}>{formData.installPath}</span>
+                                        <div className="divide-y divide-white/5">
+                                            <div className="flex items-center justify-between px-3.5 py-2.5">
+                                                <span className="text-[11px] text-slate-500">{t('dialogs.installServer.adminPassword', 'Admin Password')}</span>
+                                                <span className="text-xs font-mono text-white tracking-widest">{'•'.repeat(Math.min((formData.adminPassword ?? '').length, 12)) || '—'}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between px-3.5 py-2.5">
+                                                <span className="text-[11px] text-slate-500">{t('dialogs.installServer.serverPassword', 'Server Password')}</span>
+                                                <span className="text-xs font-mono text-white tracking-widest">{(formData.serverPassword ?? '').length > 0 ? '•'.repeat(Math.min((formData.serverPassword ?? '').length, 12)) : t('dialogs.installServer.publicAccess', 'Public')}</span>
+                                            </div>
+                                        </div>
+                                        {weakPassword && (
+                                            <div className="flex items-start gap-2 px-3.5 py-2 bg-amber-500/5 border-t border-amber-500/10">
+                                                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                                <span className="text-[10px] text-amber-300/80">{t('dialogs.installServer.weakPassword', 'Password is short — consider using 6+ characters for better security')}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Section: Storage */}
+                                    <div className="rounded-xl border border-white/5 overflow-hidden">
+                                        <div className="flex items-center gap-2 px-3.5 py-2 bg-slate-800/50 border-b border-white/5">
+                                            <HardDrive className="w-3.5 h-3.5 text-emerald-400" />
+                                            <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">{t('dialogs.installServer.reviewStorage', 'Storage')}</span>
+                                            <Check className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+                                        </div>
+                                        <div className="px-3.5 py-2.5">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[11px] text-slate-500">{t('dialogs.installServer.installPath', 'Install Path')}</span>
+                                            </div>
+                                            <span className="text-[10px] font-mono text-white/80 break-all leading-relaxed" title={formData.installPath}>{formData.installPath}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Download Warning */}
+                                    <div className="flex items-center gap-2 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                                        <HardDrive className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                                        <span className="text-xs text-amber-300/80 font-medium">{t('dialogs.installServer.downloadWarning', 'SteamCMD will download ~60 GB of server files (AppID 2430930)')}</span>
                                     </div>
                                 </div>
-
-                                {/* Download Warning */}
-                                <div className="flex items-center gap-2 p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
-                                    <HardDrive className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                                    <span className="text-xs text-amber-300/80 font-medium">{t('dialogs.installServer.downloadWarning', 'SteamCMD will download ~60 GB of server files (AppID 2430930)')}</span>
-                                </div>
-                            </div>
                             );
                         })()}
 
@@ -1409,7 +1410,7 @@ export default function InstallServerDialog({ onClose }: Props) {
                                         <span>{t('dialogs.installServer.cancelOptionsTitle', 'Cancellation Options')}</span>
                                         <XCircle className="w-3.5 h-3.5 text-slate-500 cursor-pointer hover:text-slate-300" onClick={() => setShowCancelMenu(false)} />
                                     </div>
-                                    
+
                                     {/* Option 1: Keep partial files */}
                                     <button
                                         onClick={() => handleCancelInstall(false, false)}

@@ -11,6 +11,7 @@ pub mod file_watcher;
 pub mod log_watcher;
 pub mod guardian;
 pub mod ini_parser;
+pub mod ini_sync;
 pub mod mod_scraper;
 pub mod network;
 pub mod player_intelligence;

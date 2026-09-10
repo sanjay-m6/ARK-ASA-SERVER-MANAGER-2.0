@@ -182,10 +182,15 @@ export default function ASEServerManager() {
         }
       });
 
+      const unlistenConfigSync = await listen('server-config-synced', () => {
+        refreshServers();
+      });
+
       return () => {
         unlistenStatus();
         unlistenProgress();
         unlistenConsole();
+        unlistenConfigSync();
       };
     };
     let unlistenPromise = setupListener();

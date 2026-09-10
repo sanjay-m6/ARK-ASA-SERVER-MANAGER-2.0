@@ -18,6 +18,7 @@ export interface Server {
     status: ServerStatus;
     config: ServerConfig;
     ports: ServerPorts;
+    rconConfig?: { enabled: boolean; password?: string; port?: number };
     ipAddress?: string;
     createdAt: string;
     lastStarted?: string;

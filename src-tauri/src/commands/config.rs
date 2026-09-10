@@ -334,6 +334,8 @@ pub async fn save_config(
 
             if let Some(v) = session_name {
                 updates.push("session_name = ?");
+                params.push(Box::new(v.clone()));
+                updates.push("name = ?");
                 params.push(Box::new(v));
             }
             if let Some(v) = map_name {
@@ -804,7 +806,7 @@ pub async fn write_server_configs(
 
     if server_type == "ASE" {
         conn.execute(
-            "UPDATE ase_servers SET max_players = ?1, map_name = ?2, session_name = ?3, 
+            "UPDATE ase_servers SET max_players = ?1, map_name = ?2, session_name = ?3, name = ?3, 
              port = ?4, query_port = ?5, rcon_port = ?6, admin_password = ?7,
              server_password = ?8 WHERE id = ?9",
             rusqlite::params![
@@ -822,7 +824,7 @@ pub async fn write_server_configs(
         .map_err(|e| e.to_string())?;
     } else {
         conn.execute(
-            "UPDATE servers SET max_players = ?1, map_name = ?2, session_name = ?3, 
+            "UPDATE servers SET max_players = ?1, map_name = ?2, session_name = ?3, name = ?3,
              game_port = ?4, query_port = ?5, rcon_port = ?6, admin_password = ?7,
              server_password = ?8, rcon_enabled = ?9, ip_address = ?10 WHERE id = ?11",
             rusqlite::params![

@@ -828,6 +828,7 @@ pub async fn start_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> R
             game_port,
             query_port,
             rcon_port,
+            true, // rcon_enabled
             max_players,
             server_password_ref,
             &admin_password,

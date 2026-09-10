@@ -123,6 +123,10 @@ export async function getServerById(serverId: number): Promise<Server | null> {
     return await invoke('get_server_by_id', { serverId });
 }
 
+export async function syncServerFromIni(serverId: number): Promise<Server | null> {
+    return await invoke('sync_server_from_ini', { serverId });
+}
+
 export async function getServerVersion(serverId: number): Promise<string> {
     return await invoke('get_server_version', { serverId });
 }

@@ -684,14 +684,14 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                     println!("🚀 Safe Mode is ENABLED. Skipping sequential boot sequence.");
                 }
 
-                // 2. Initialize File Watchers for Auto-Stop
+                // 2. Initialize File Watchers for all servers (keeps config synced from Beacon/disk, and handles Auto-Stop)
                 if !safe_mode {
                     if let Ok(db_guard) = state.db.lock() {
                         if let Ok(conn) = db_guard.get_connection() {
-                            let mut stmt_stop = match conn.prepare("SELECT id, install_path FROM servers WHERE auto_stop = 1") {
+                            let mut stmt_stop = match conn.prepare("SELECT id, install_path FROM servers") {
                                 Ok(s) => s,
                                 Err(e) => {
-                                    eprintln!("❌ Failed to prepare auto-stop stmt: {}", e);
+                                    eprintln!("❌ Failed to prepare servers stmt for file watching: {}", e);
                                     return;
                                 }
                             };
@@ -765,6 +765,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::server::get_all_servers,
             commands::server::update_server_status_in_db,
             commands::server::get_server_by_id,
+            commands::server::sync_server_from_ini,
             commands::server::get_server_version,
             commands::server::get_latest_server_version,
             commands::server::install_server,

@@ -7,7 +7,7 @@ use std::sync::mpsc::RecvTimeoutError;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 pub struct FileWatcherService {
     app_handle: tauri::AppHandle,
@@ -126,43 +126,69 @@ impl FileWatcherService {
                             }
 
                             println!(
-                                "🛡️ Automation: Triggering Auto-Stop for server {} (config change detected)...",
+                                "🛡️ Automation: Detected config change for server {}, checking sync and auto-stop...",
                                 server_id_clone
                             );
 
-                            // Trigger Stop Command
                             let app_handle_bg = app_handle_clone.clone();
 
                             tauri::async_runtime::spawn(async move {
                                 let state = app_handle_bg.state::<AppState>();
 
-                                // Fetch server details for Intelligent Mode check
-                                let server_details = {
+                                // 1. Sync config from INI into DB if anything changed (Beacon or manual edits)
+                                let (sync_changed, server_details) = {
                                     if let Ok(db) = state.db.lock() {
                                         if let Ok(conn) = db.get_connection() {
-                                            conn.query_row(
-                                                "SELECT intelligent_mode, rcon_enabled, admin_password, query_port, ip_address FROM servers WHERE id = ?1",
+                                            let s_info = conn.query_row(
+                                                "SELECT install_path, server_type, auto_stop, intelligent_mode, rcon_enabled, admin_password, query_port, ip_address FROM servers WHERE id = ?1",
                                                 [server_id_clone],
                                                 |row: &Row| {
                                                     Ok((
-                                                        row.get::<usize, i32>(0)? != 0, // intelligent_mode
-                                                        row.get::<usize, i32>(1)? != 0, // rcon_enabled
-                                                        row.get::<usize, String>(2)?,   // admin_password
-                                                        row.get::<usize, u16>(3)?,      // query_port
-                                                        row.get::<usize, Option<String>>(4)?, // ip_address
+                                                        row.get::<usize, String>(0)?,
+                                                        row.get::<usize, Option<String>>(1)?.unwrap_or_else(|| "ASA".to_string()),
+                                                        row.get::<usize, i32>(2)? != 0, // auto_stop
+                                                        row.get::<usize, i32>(3)? != 0, // intelligent_mode
+                                                        row.get::<usize, i32>(4)? != 0, // rcon_enabled
+                                                        row.get::<usize, String>(5)?,   // admin_password
+                                                        row.get::<usize, u16>(6)?,      // query_port
+                                                        row.get::<usize, Option<String>>(7)?, // ip_address
                                                     ))
                                                 }
-                                            ).ok()
+                                            ).ok();
+
+                                            if let Some(ref info) = s_info {
+                                                let changed = crate::services::ini_sync::sync_server_from_ini_if_changed(
+                                                    &conn,
+                                                    server_id_clone,
+                                                    &std::path::PathBuf::from(&info.0),
+                                                    &info.1,
+                                                ).map(|r| r.updated).unwrap_or(false);
+
+                                                (changed, s_info)
+                                            } else {
+                                                (false, None)
+                                            }
                                         } else {
-                                            None
+                                            (false, None)
                                         }
                                     } else {
-                                        None
+                                        (false, None)
                                     }
                                 };
 
-                                if let Some((intel_mode, rcon_on, pass, port, ip)) = server_details
-                                {
+                                if sync_changed {
+                                    println!("🔄 [FileWatcher] Config synced from disk for server {}, emitting server-config-synced", server_id_clone);
+                                    let _ = app_handle_bg.emit("server-config-synced", serde_json::json!({
+                                        "server_id": server_id_clone
+                                    }));
+                                }
+
+                                // 2. Check if Auto-Stop is enabled and server is running
+                                if let Some((_, _, auto_stop, intel_mode, rcon_on, pass, port, ip)) = server_details {
+                                    if !auto_stop {
+                                        return;
+                                    }
+
                                     // Check if the server process is actually running before attempting to stop
                                     if !state.process_manager.is_server_running(server_id_clone) {
                                         println!("🛡️ Automation: Server {} is not running, skipping auto-stop.", server_id_clone);
@@ -172,7 +198,7 @@ impl FileWatcherService {
                                     println!("🛡️ Automation: Stopping server {} (Intelligent Mode: {})...", server_id_clone, intel_mode);
 
                                     if intel_mode && rcon_on {
-                                        // 1. Graceful shutdown
+                                        // Graceful shutdown
                                         let addr = ip.unwrap_or_else(|| "127.0.0.1".to_string());
                                         let rcon_state = state
                                             .app_handle
@@ -197,7 +223,7 @@ impl FileWatcherService {
                                             );
                                         }
                                     } else {
-                                        // 1. Force stop with AutoStop reason
+                                        // Force stop with AutoStop reason
                                         if let Err(e) = state
                                             .process_manager
                                             .stop_server_with_reason(
@@ -208,7 +234,7 @@ impl FileWatcherService {
                                         }
                                     }
 
-                                    // 2. Update DB status
+                                    // Update DB status
                                     if let Ok(db) = state.db.lock() {
                                         if let Ok(conn) = db.get_connection() {
                                             let _ = conn.execute(

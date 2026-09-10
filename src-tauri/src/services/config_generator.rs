@@ -186,7 +186,11 @@ pub struct ConfigGenerator;
 /// ARK's Unreal Engine INI parser requires capitalized boolean values;
 /// Rust's Display trait outputs lowercase "true"/"false" which ARK ignores.
 fn ark_bool(value: bool) -> &'static str {
-    if value { "True" } else { "False" }
+    if value {
+        "True"
+    } else {
+        "False"
+    }
 }
 
 impl ConfigGenerator {
@@ -199,9 +203,10 @@ impl ConfigGenerator {
             .filter_map(|line| {
                 let trimmed = line.trim();
                 // BUG FIX: Prevent "Ticking loop" on Club Ark/Mod Maps by stripping ActiveMapMods=0 / ActiveMapMod=0
-                if trimmed.eq_ignore_ascii_case("ActiveMapMods=0") 
+                if trimmed.eq_ignore_ascii_case("ActiveMapMods=0")
                     || trimmed.eq_ignore_ascii_case("ActiveModMap=0")
-                    || trimmed.eq_ignore_ascii_case("ActiveMapMod=0") {
+                    || trimmed.eq_ignore_ascii_case("ActiveMapMod=0")
+                {
                     return None;
                 }
                 if let Some(rest) = trimmed.strip_prefix("ServerAdminPassword=") {
@@ -408,7 +413,7 @@ impl ConfigGenerator {
                 recommended_mods: vec!["1376189".to_string()],
                 custom_settings: HashMap::new(),
             },
-        ]
+        ];
     }
 
     /// Get profile for a specific map
@@ -449,7 +454,10 @@ impl ConfigGenerator {
             .unwrap_or(&config.admin_password);
         content.push_str(&format!("ServerAdminPassword={}\r\n", clean_admin_password));
         content.push_str(&format!("MaxPlayers={}\r\n", config.max_players));
-        content.push_str(&format!("RCONEnabled={}\r\n", ark_bool(config.rcon_enabled)));
+        content.push_str(&format!(
+            "RCONEnabled={}\r\n",
+            ark_bool(config.rcon_enabled)
+        ));
         content.push_str(&format!("RCONPort={}\r\n", config.rcon_port));
         if let Some(ref ip) = config.ip_address {
             if !ip.is_empty() {
@@ -567,7 +575,10 @@ impl ConfigGenerator {
 
         // PvP/PvE
         content.push_str(&format!("ServerPVE={}\r\n", ark_bool(config.pve_mode)));
-        content.push_str(&format!("EnablePvPGamma={}\r\n", ark_bool(config.pvp_gamma)));
+        content.push_str(&format!(
+            "EnablePvPGamma={}\r\n",
+            ark_bool(config.pvp_gamma)
+        ));
         content.push_str(&format!(
             "DisableFriendlyFire={}\r\n",
             ark_bool(!config.friendly_fire)
@@ -575,13 +586,20 @@ impl ConfigGenerator {
 
         // Genesis Specific
         if config.map_name.starts_with("Genesis") {
-            content.push_str(&format!("AllowTekSuitPowersInGenesis={}\r\n", ark_bool(config.allow_tek_suit_powers_in_genesis)));
+            content.push_str(&format!(
+                "AllowTekSuitPowersInGenesis={}\r\n",
+                ark_bool(config.allow_tek_suit_powers_in_genesis)
+            ));
         }
 
         // Mods & Map Mod Auto-Injection
-        let mut valid_mods: Vec<String> = config.active_mods.iter()
+        let mut valid_mods: Vec<String> = config
+            .active_mods
+            .iter()
             .map(|m| m.trim().to_string())
-            .filter(|m| !m.is_empty() && m != "0" && m != "927083" && m.chars().all(|c| c.is_ascii_digit()))
+            .filter(|m| {
+                !m.is_empty() && m != "0" && m != "927083" && m.chars().all(|c| c.is_ascii_digit())
+            })
             .collect();
 
         let effective_map = normalize_map_name(&config.map_name);
@@ -708,28 +726,38 @@ impl ConfigGenerator {
     }
 
     /// Generate server startup command
-    pub fn generate_startup_command(config: &ServerConfig, install_path: &PathBuf, server_type: &str) -> String {
+    pub fn generate_startup_command(
+        config: &ServerConfig,
+        install_path: &PathBuf,
+        server_type: &str,
+    ) -> String {
         let exe_name = if server_type == "ASE" {
             "ShooterGameServer.exe"
         } else {
             "ArkAscendedServer.exe"
         };
-        
+
         let exe_path = install_path
             .join("ShooterGame")
             .join("Binaries")
             .join("Win64")
             .join(exe_name);
 
+        let rcon_param = if config.rcon_enabled && config.rcon_port > 0 {
+            format!("?RCONPort={}", config.rcon_port)
+        } else {
+            String::new()
+        };
+
         let mut cmd = if server_type == "ASE" {
             let mut base = format!(
-                "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={}?RCONPort={}?MaxPlayers={}",
+                "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={}{}?MaxPlayers={}",
                 exe_path.display(),
                 config.map_name,
                 config.session_name,
                 config.game_port,
                 config.query_port,
-                config.rcon_port,
+                rcon_param,
                 config.max_players
             );
             if !config.active_mods.is_empty() {
@@ -738,13 +766,13 @@ impl ConfigGenerator {
             base
         } else {
             format!(
-                "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={}?RCONPort={}?MaxPlayers={}",
+                "\"{}\" {}?listen?SessionName=\"{}\"?Port={}?QueryPort={}{}?MaxPlayers={}",
                 exe_path.display(),
                 config.map_name,
                 config.session_name,
                 config.game_port,
                 config.query_port,
-                config.rcon_port,
+                rcon_param,
                 config.max_players
             )
         };
@@ -753,8 +781,10 @@ impl ConfigGenerator {
         // on the command line. They are already written to GameUserSettings.ini.
         // Passing them here causes the ARK engine URL parser to corrupt them.
 
-        if config.rcon_enabled {
+        if config.rcon_enabled && config.rcon_port > 0 {
             cmd.push_str("?RCONEnabled=True");
+        } else {
+            cmd.push_str("?RCONEnabled=False");
         }
 
         // Add MultiHome for IP binding only if a valid local network adapter IP is provided
@@ -778,7 +808,10 @@ impl ConfigGenerator {
     }
 
     /// Get target configuration subdirectory dynamically based on platform or directory structure.
-    pub fn get_config_subdirectory(install_path: &PathBuf, server_type: Option<&str>) -> &'static str {
+    pub fn get_config_subdirectory(
+        install_path: &PathBuf,
+        server_type: Option<&str>,
+    ) -> &'static str {
         #[cfg(target_os = "linux")]
         {
             if server_type == Some("ASA") {
@@ -791,8 +824,17 @@ impl ConfigGenerator {
             if server_type == Some("ASA") {
                 return "WindowsServer";
             }
-            if install_path.join("ShooterGame").join("Binaries").join("Linux").exists()
-                || install_path.join("ShooterGame").join("Saved").join("Config").join("LinuxServer").exists()
+            if install_path
+                .join("ShooterGame")
+                .join("Binaries")
+                .join("Linux")
+                .exists()
+                || install_path
+                    .join("ShooterGame")
+                    .join("Saved")
+                    .join("Config")
+                    .join("LinuxServer")
+                    .exists()
             {
                 "LinuxServer"
             } else {
@@ -888,25 +930,37 @@ impl ConfigGenerator {
         let gus_content = Self::generate_game_user_settings(config);
         let gus_path = config_dir.join("GameUserSettings.ini");
         if gus_path.exists() {
-            let raw_existing = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path).unwrap_or_default();
+            let raw_existing =
+                crate::services::ini_parser::IniParser::read_file_to_string(&gus_path)
+                    .unwrap_or_default();
             if !raw_existing.is_empty() {
                 // BUG FIX: Strip ?ServerPassword= corruption from existing file before merge
                 // ARK engine may have appended it at runtime
                 let existing = Self::sanitize_ini_content(&raw_existing);
-                let merged =
-                    crate::services::ini_parser::IniParser::merge(&existing, &gus_content);
+                let merged = crate::services::ini_parser::IniParser::merge(&existing, &gus_content);
                 println!("  📝 Merging GameUserSettings.ini (preserving custom keys, updating known values)");
-                crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &merged)
-                    .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
+                crate::services::ini_parser::IniParser::write_string_to_file_utf8(
+                    &gus_path, &merged,
+                )
+                .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
             } else {
                 println!("  📝 Writing fresh GameUserSettings.ini to: {:?}", gus_path);
-                crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &gus_content)
-                    .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
+                crate::services::ini_parser::IniParser::write_string_to_file_utf8(
+                    &gus_path,
+                    &gus_content,
+                )
+                .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
             }
         } else {
-            println!("  📝 Creating initial GameUserSettings.ini at: {:?}", gus_path);
-            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &gus_content)
-                .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
+            println!(
+                "  📝 Creating initial GameUserSettings.ini at: {:?}",
+                gus_path
+            );
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(
+                &gus_path,
+                &gus_content,
+            )
+            .map_err(|e| format!("Failed to write GameUserSettings.ini: {}", e))?;
         }
 
         // Write Game.ini — use merge strategy to preserve custom keys
@@ -914,7 +968,8 @@ impl ConfigGenerator {
         let game_path = config_dir.join("Game.ini");
         let new_game_content = Self::generate_game_ini(config);
         if game_path.exists() {
-            let existing = crate::services::ini_parser::IniParser::read_file_to_string(&game_path).unwrap_or_default();
+            let existing = crate::services::ini_parser::IniParser::read_file_to_string(&game_path)
+                .unwrap_or_default();
             let merged =
                 crate::services::ini_parser::IniParser::merge(&existing, &new_game_content);
             println!("  📝 Merging Game.ini (preserving custom keys, updating multipliers)");
@@ -922,24 +977,35 @@ impl ConfigGenerator {
                 .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
         } else {
             println!("  📝 Creating initial Game.ini at: {:?}", game_path);
-            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&game_path, &new_game_content)
-                .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(
+                &game_path,
+                &new_game_content,
+            )
+            .map_err(|e| format!("Failed to write Game.ini: {}", e))?;
         }
 
         // Write Engine.ini — use merge strategy if exists or create new
         let engine_path = config_dir.join("Engine.ini");
         let new_engine_content = Self::generate_engine_ini(config);
         if engine_path.exists() {
-            let existing = crate::services::ini_parser::IniParser::read_file_to_string(&engine_path).unwrap_or_default();
+            let existing =
+                crate::services::ini_parser::IniParser::read_file_to_string(&engine_path)
+                    .unwrap_or_default();
             let merged =
                 crate::services::ini_parser::IniParser::merge(&existing, &new_engine_content);
             println!("  📝 Merging Engine.ini (preserving custom optimizations, updating netcode defaults)");
-            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&engine_path, &merged)
-                .map_err(|e| format!("Failed to write Engine.ini: {}", e))?;
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(
+                &engine_path,
+                &merged,
+            )
+            .map_err(|e| format!("Failed to write Engine.ini: {}", e))?;
         } else {
             println!("  📝 Creating initial Engine.ini at: {:?}", engine_path);
-            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&engine_path, &new_engine_content)
-                .map_err(|e| format!("Failed to write Engine.ini: {}", e))?;
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(
+                &engine_path,
+                &new_engine_content,
+            )
+            .map_err(|e| format!("Failed to write Engine.ini: {}", e))?;
         }
 
         Ok(())
@@ -964,21 +1030,20 @@ impl ConfigGenerator {
 
         let mut config = ServerConfig::default();
 
-        stmt
-            .query_row([server_id], |row| {
-                config.session_name = row.get(0)?;
-                config.server_password = row.get(1)?;
-                config.admin_password = row.get(2)?;
-                config.max_players = row.get(3)?;
-                config.map_name = row.get(4)?;
-                config.game_port = row.get(5)?;
-                config.query_port = row.get(6)?;
-                config.rcon_port = row.get(7)?;
-                config.rcon_enabled = row.get(8)?;
-                // Not getting install_path (9) as it's not part of ServerConfig
-                Ok(())
-            })
-            .map_err(|e| e.to_string())?;
+        stmt.query_row([server_id], |row| {
+            config.session_name = row.get(0)?;
+            config.server_password = row.get(1)?;
+            config.admin_password = row.get(2)?;
+            config.max_players = row.get(3)?;
+            config.map_name = row.get(4)?;
+            config.game_port = row.get(5)?;
+            config.query_port = row.get(6)?;
+            config.rcon_port = row.get(7)?;
+            config.rcon_enabled = row.get(8)?;
+            // Not getting install_path (9) as it's not part of ServerConfig
+            Ok(())
+        })
+        .map_err(|e| e.to_string())?;
 
         // Fetch separate IP address column
         let ip_result: Result<Option<String>, _> = conn.query_row(
@@ -1007,23 +1072,31 @@ impl ConfigGenerator {
         let (install_path_str, server_type) = match db_conn.query_row(
             "SELECT install_path, server_type FROM servers WHERE id = ?1",
             [server_id],
-            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1).unwrap_or_else(|_| "ASA".to_string()))),
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)
+                        .unwrap_or_else(|_| "ASA".to_string()),
+                ))
+            },
         ) {
             Ok(info) => info,
-            Err(rusqlite::Error::QueryReturnedNoRows) => {
-                db_conn.query_row(
+            Err(rusqlite::Error::QueryReturnedNoRows) => db_conn
+                .query_row(
                     "SELECT install_path FROM ase_servers WHERE id = ?1",
                     [server_id],
                     |row| Ok((row.get::<_, String>(0)?, "ASE".to_string())),
                 )
-                .map_err(|e| format!("Server not found in servers or ase_servers: {}", e))?
-            }
+                .map_err(|e| format!("Server not found in servers or ase_servers: {}", e))?,
             Err(e) => return Err(e.to_string()),
         };
         let install_path = PathBuf::from(install_path_str);
         let sub_dir = Self::get_config_subdirectory(&install_path, Some(&server_type));
-        let config_dir = install_path.join("ShooterGame").join("Saved").join("Config").join(sub_dir);
-
+        let config_dir = install_path
+            .join("ShooterGame")
+            .join("Saved")
+            .join("Config")
+            .join(sub_dir);
         // Fetch settings from DB to sync into GameUserSettings.ini
         let mut map_name = String::new();
         let mut session_name = String::new();
@@ -1080,17 +1153,17 @@ impl ConfigGenerator {
         } else {
             "user_config_folder"
         };
-        let user_folder_raw: String = db_conn.query_row(
-            "SELECT value FROM settings WHERE key = ?1",
-            [key],
-            |row| row.get(0)
-        ).unwrap_or_default();
+        let user_folder_raw: String = db_conn
+            .query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+                row.get(0)
+            })
+            .unwrap_or_default();
 
         if !user_folder_raw.is_empty() {
             let user_dir = PathBuf::from(&user_folder_raw);
             if user_dir.exists() && user_dir.is_dir() {
                 let _ = fs::create_dir_all(&config_dir);
-                
+
                 // Copy GameUserSettings.ini only if destination does not exist
                 let gus_dest = config_dir.join("GameUserSettings.ini");
                 if !gus_dest.exists() {
@@ -1099,7 +1172,10 @@ impl ConfigGenerator {
                         let _ = fs::copy(&user_gus, &gus_dest);
                         println!("  🔄 [Startup Sync] Initialized GameUserSettings.ini from custom folder to config dir");
                     } else {
-                        let user_sub_gus = user_dir.join(format!("ShooterGame/Saved/Config/{}/GameUserSettings.ini", sub_dir));
+                        let user_sub_gus = user_dir.join(format!(
+                            "ShooterGame/Saved/Config/{}/GameUserSettings.ini",
+                            sub_dir
+                        ));
                         if user_sub_gus.exists() {
                             let _ = fs::copy(&user_sub_gus, &gus_dest);
                             println!("  🔄 [Startup Sync] Initialized GameUserSettings.ini (sub-path) from custom folder to config dir");
@@ -1115,7 +1191,8 @@ impl ConfigGenerator {
                         let _ = fs::copy(&user_game, &game_dest);
                         println!("  🔄 [Startup Sync] Initialized Game.ini from custom folder to config dir");
                     } else {
-                        let user_sub_game = user_dir.join(format!("ShooterGame/Saved/Config/{}/Game.ini", sub_dir));
+                        let user_sub_game =
+                            user_dir.join(format!("ShooterGame/Saved/Config/{}/Game.ini", sub_dir));
                         if user_sub_game.exists() {
                             let _ = fs::copy(&user_sub_game, &game_dest);
                             println!("  🔄 [Startup Sync] Initialized Game.ini (sub-path) from custom folder to config dir");
@@ -1128,7 +1205,8 @@ impl ConfigGenerator {
         // 2. Read existing Configs (as Base)
         let gus_path = config_dir.join("GameUserSettings.ini");
         let initial_gus_content = if gus_path.exists() {
-            crate::services::ini_parser::IniParser::read_file_to_string(&gus_path).map_err(|e| e.to_string())?
+            crate::services::ini_parser::IniParser::read_file_to_string(&gus_path)
+                .map_err(|e| e.to_string())?
         } else {
             return Err("Cannot regenerate config: GameUserSettings.ini missing".to_string());
         };
@@ -1177,6 +1255,12 @@ impl ConfigGenerator {
         final_gus = crate::services::ini_parser::IniParser::update_key(
             &final_gus,
             "ServerSettings",
+            "MaxPlayers",
+            &max_players.to_string(),
+        );
+        final_gus = crate::services::ini_parser::IniParser::update_key(
+            &final_gus,
+            "/Script/Engine.GameSession",
             "MaxPlayers",
             &max_players.to_string(),
         );
@@ -1270,7 +1354,8 @@ impl ConfigGenerator {
             // Apply Multipliers to Game.ini
             let game_path = config_dir.join("Game.ini");
             let mut game_content = if game_path.exists() {
-                crate::services::ini_parser::IniParser::read_file_to_string(&game_path).unwrap_or_default()
+                crate::services::ini_parser::IniParser::read_file_to_string(&game_path)
+                    .unwrap_or_default()
             } else {
                 String::new()
             };
@@ -1287,8 +1372,11 @@ impl ConfigGenerator {
             if crate::services::ini_parser::IniParser::is_file_readonly(&game_path) {
                 println!("  🔒 [Read-Only Guard] Game.ini is marked Read-Only by user. Preserving manual lock and skipping automated event override.");
             } else {
-                crate::services::ini_parser::IniParser::write_string_to_file_utf8(&game_path, &game_content)
-                    .map_err(|e| e.to_string())?;
+                crate::services::ini_parser::IniParser::write_string_to_file_utf8(
+                    &game_path,
+                    &game_content,
+                )
+                .map_err(|e| e.to_string())?;
             }
         } else {
             println!("📅 No Event Profile Active.");
@@ -1394,8 +1482,10 @@ impl ConfigGenerator {
             println!("  🔒 [Read-Only Guard] GameUserSettings.ini is marked Read-Only by user. Preserving manual lock and skipping automated startup overwrite.");
         } else {
             println!("  💾 Updating GameUserSettings.ini with current server settings...");
-            crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &final_gus)
-                .map_err(|e| e.to_string())?;
+            crate::services::ini_parser::IniParser::write_string_to_file_utf8(
+                &gus_path, &final_gus,
+            )
+            .map_err(|e| e.to_string())?;
         }
 
         Ok(())
@@ -1407,10 +1497,16 @@ pub fn normalize_map_name(map: &str) -> String {
     if trimmed.eq_ignore_ascii_case("TheIsland") || trimmed.eq_ignore_ascii_case("TheIsland_WP") {
         return "TheIsland_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("TheCenter") || trimmed.eq_ignore_ascii_case("TheCenter_WP") || trimmed.eq_ignore_ascii_case("The Center") {
+    if trimmed.eq_ignore_ascii_case("TheCenter")
+        || trimmed.eq_ignore_ascii_case("TheCenter_WP")
+        || trimmed.eq_ignore_ascii_case("The Center")
+    {
         return "TheCenter_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("ScorchedEarth") || trimmed.eq_ignore_ascii_case("ScorchedEarth_WP") || trimmed.eq_ignore_ascii_case("Scorched Earth") {
+    if trimmed.eq_ignore_ascii_case("ScorchedEarth")
+        || trimmed.eq_ignore_ascii_case("ScorchedEarth_WP")
+        || trimmed.eq_ignore_ascii_case("Scorched Earth")
+    {
         return "ScorchedEarth_WP".to_string();
     }
     if trimmed.eq_ignore_ascii_case("Aberration") || trimmed.eq_ignore_ascii_case("Aberration_WP") {
@@ -1425,10 +1521,16 @@ pub fn normalize_map_name(map: &str) -> String {
     if trimmed.eq_ignore_ascii_case("Valguero") || trimmed.eq_ignore_ascii_case("Valguero_WP") {
         return "Valguero_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("Astraos") || trimmed.eq_ignore_ascii_case("Astraos_WP") || trimmed.eq_ignore_ascii_case("Astraeos") || trimmed.eq_ignore_ascii_case("Astraeos_WP") {
+    if trimmed.eq_ignore_ascii_case("Astraos")
+        || trimmed.eq_ignore_ascii_case("Astraos_WP")
+        || trimmed.eq_ignore_ascii_case("Astraeos")
+        || trimmed.eq_ignore_ascii_case("Astraeos_WP")
+    {
         return "Astraeos_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("Svartalfheim") || trimmed.eq_ignore_ascii_case("Svartalfheim_WP") {
+    if trimmed.eq_ignore_ascii_case("Svartalfheim")
+        || trimmed.eq_ignore_ascii_case("Svartalfheim_WP")
+    {
         return "Svartalfheim_WP".to_string();
     }
     if trimmed.eq_ignore_ascii_case("Forglar") || trimmed.eq_ignore_ascii_case("Forglar_WP") {
@@ -1440,7 +1542,9 @@ pub fn normalize_map_name(map: &str) -> String {
     if trimmed.eq_ignore_ascii_case("Insaluna") || trimmed.eq_ignore_ascii_case("Insaluna_WP") {
         return "Insaluna_WP".to_string();
     }
-    if trimmed.eq_ignore_ascii_case("TemptressLagoon") || trimmed.eq_ignore_ascii_case("TemptressLagoon_WP") {
+    if trimmed.eq_ignore_ascii_case("TemptressLagoon")
+        || trimmed.eq_ignore_ascii_case("TemptressLagoon_WP")
+    {
         return "TemptressLagoon_WP".to_string();
     }
     if trimmed.eq_ignore_ascii_case("Reverence") || trimmed.eq_ignore_ascii_case("Reverence_WP") {
@@ -1452,9 +1556,39 @@ pub fn normalize_map_name(map: &str) -> String {
     trimmed.to_string()
 }
 
+pub fn is_official_map(map: &str) -> bool {
+    let normalized = normalize_map_name(map);
+    const OFFICIAL_MAPS: &[&str] = &[
+        "TheIsland_WP",
+        "TheIsland",
+        "ScorchedEarth_WP",
+        "TheCenter_WP",
+        "Aberration_WP",
+        "Extinction_WP",
+        "Ragnarok_WP",
+        "Valguero_WP",
+        "Genesis_WP",
+        "Genesis2_WP",
+        "ClubARK_WP",
+        "LostColony_WP",
+        "Fjordur_WP",
+        "CrystalIsles_WP",
+        "LostIsland_WP",
+        "Astraeos_WP",
+        "Astraeos",
+    ];
+    OFFICIAL_MAPS.iter().any(|m| m.eq_ignore_ascii_case(&normalized) || m.eq_ignore_ascii_case(map.trim()))
+}
+
 pub fn resolve_map_mod_id(map: &str, active_mods: &[String]) -> Option<String> {
     let trimmed = map.trim();
-    if trimmed.eq_ignore_ascii_case("Svartalfheim") || trimmed.eq_ignore_ascii_case("Svartalfheim_WP") || trimmed.eq_ignore_ascii_case("SVARTALFHEIM") {
+    if is_official_map(trimmed) {
+        return None;
+    }
+    if trimmed.eq_ignore_ascii_case("Svartalfheim")
+        || trimmed.eq_ignore_ascii_case("Svartalfheim_WP")
+        || trimmed.eq_ignore_ascii_case("SVARTALFHEIM")
+    {
         // Check for Free version (893657 or 927084), else default to Premium (962796)
         if active_mods.iter().any(|m| m == "893657") {
             return Some("893657".to_string());
@@ -1464,43 +1598,78 @@ pub fn resolve_map_mod_id(map: &str, active_mods: &[String]) -> Option<String> {
         }
         return Some("962796".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("Forglar") || trimmed.eq_ignore_ascii_case("Forglar_WP") || trimmed.eq_ignore_ascii_case("FORGLAR") {
+    if trimmed.eq_ignore_ascii_case("Forglar")
+        || trimmed.eq_ignore_ascii_case("Forglar_WP")
+        || trimmed.eq_ignore_ascii_case("FORGLAR")
+    {
         if active_mods.iter().any(|m| m == "945244") {
             return Some("945244".to_string());
         }
         return Some("952876".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("Amissa") || trimmed.eq_ignore_ascii_case("Amissa_WP") || trimmed.eq_ignore_ascii_case("AMISSA") {
+    if trimmed.eq_ignore_ascii_case("Amissa")
+        || trimmed.eq_ignore_ascii_case("Amissa_WP")
+        || trimmed.eq_ignore_ascii_case("AMISSA")
+    {
         return Some("965379".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("Insaluna") || trimmed.eq_ignore_ascii_case("Insaluna_WP") || trimmed.eq_ignore_ascii_case("INSALUNA") {
+    if trimmed.eq_ignore_ascii_case("Insaluna")
+        || trimmed.eq_ignore_ascii_case("Insaluna_WP")
+        || trimmed.eq_ignore_ascii_case("INSALUNA")
+    {
         return Some("935639".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("TemptressLagoon") || trimmed.eq_ignore_ascii_case("TemptressLagoon_WP") || trimmed.eq_ignore_ascii_case("Temptress_Lagoon") {
+    if trimmed.eq_ignore_ascii_case("TemptressLagoon")
+        || trimmed.eq_ignore_ascii_case("TemptressLagoon_WP")
+        || trimmed.eq_ignore_ascii_case("Temptress_Lagoon")
+    {
         return Some("935048".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("Reverence") || trimmed.eq_ignore_ascii_case("Reverence_WP") || trimmed.eq_ignore_ascii_case("REVERENCE") {
+    if trimmed.eq_ignore_ascii_case("Reverence")
+        || trimmed.eq_ignore_ascii_case("Reverence_WP")
+        || trimmed.eq_ignore_ascii_case("REVERENCE")
+    {
         return Some("932906".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("Bjarnheim") || trimmed.eq_ignore_ascii_case("Bjarnheim_WP") || trimmed.eq_ignore_ascii_case("BJARNHEIM") {
+    if trimmed.eq_ignore_ascii_case("Bjarnheim")
+        || trimmed.eq_ignore_ascii_case("Bjarnheim_WP")
+        || trimmed.eq_ignore_ascii_case("BJARNHEIM")
+    {
         return Some("1376189".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("ScorchedEarthRM_WP") || trimmed.eq_ignore_ascii_case("ScorchedEarthRM") || trimmed.eq_ignore_ascii_case("ScorchedEarthReborn") {
+    if trimmed.eq_ignore_ascii_case("ScorchedEarthRM_WP")
+        || trimmed.eq_ignore_ascii_case("ScorchedEarthRM")
+        || trimmed.eq_ignore_ascii_case("ScorchedEarthReborn")
+    {
         return Some("1465909".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("TheIslandReforged") || trimmed.eq_ignore_ascii_case("IslandReforged") {
+    if trimmed.eq_ignore_ascii_case("TheIslandReforged")
+        || trimmed.eq_ignore_ascii_case("IslandReforged")
+    {
         return Some("1460513".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("ClubARK_WP") || trimmed.eq_ignore_ascii_case("ClubARK") || trimmed.eq_ignore_ascii_case("ClubArk") {
+    if trimmed.eq_ignore_ascii_case("ClubARK_WP")
+        || trimmed.eq_ignore_ascii_case("ClubARK")
+        || trimmed.eq_ignore_ascii_case("ClubArk")
+    {
         return Some("949666".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("Althemia") || trimmed.eq_ignore_ascii_case("Althemia_WP") || trimmed.eq_ignore_ascii_case("ALTHEMIA") {
+    if trimmed.eq_ignore_ascii_case("Althemia")
+        || trimmed.eq_ignore_ascii_case("Althemia_WP")
+        || trimmed.eq_ignore_ascii_case("ALTHEMIA")
+    {
         return Some("1016843".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("Vanna") || trimmed.eq_ignore_ascii_case("Vanna_WP") || trimmed.eq_ignore_ascii_case("VANNA") {
+    if trimmed.eq_ignore_ascii_case("Vanna")
+        || trimmed.eq_ignore_ascii_case("Vanna_WP")
+        || trimmed.eq_ignore_ascii_case("VANNA")
+    {
         return Some("944358".to_string());
     }
-    if trimmed.eq_ignore_ascii_case("TaeniaStella") || trimmed.eq_ignore_ascii_case("TaeniaStella_WP") || trimmed.eq_ignore_ascii_case("TAENIASTELLA") {
+    if trimmed.eq_ignore_ascii_case("TaeniaStella")
+        || trimmed.eq_ignore_ascii_case("TaeniaStella_WP")
+        || trimmed.eq_ignore_ascii_case("TAENIASTELLA")
+    {
         return Some("965905".to_string());
     }
     None

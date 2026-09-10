@@ -515,6 +515,7 @@ pub async fn check_mod_updates(
         let mods = search_resp
             .data
             .into_iter()
+            .filter(|cf_mod| cf_mod.game_id == 83374)
             .map(|cf_mod| ModInfo {
                 id: cf_mod.id.to_string(),
                 curseforge_id: Some(cf_mod.id as i64),
@@ -568,6 +569,15 @@ pub async fn get_mod_by_id(
         let body_text = resp.text().await?;
         let mod_resp: CurseForgeGetModResponse = serde_json::from_str(&body_text)?;
         let cf_mod = mod_resp.data;
+
+        // Verify that the mod belongs to ARK: Survival Ascended (gameId: 83374)
+        if cf_mod.game_id != 83374 {
+            return Err(format!(
+                "Mod {} does not belong to ARK: Survival Ascended (Game ID: {})",
+                mod_id, cf_mod.game_id
+            )
+            .into());
+        }
 
         Ok(ModInfo {
             id: cf_mod.id.to_string(),

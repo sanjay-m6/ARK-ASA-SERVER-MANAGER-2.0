@@ -53,6 +53,31 @@ impl Database {
             println!("⚠️ Database cleanup warning: failed to purge invalid mods: {}", e);
         }
 
+        // Clean up rogue non-ASA/Minecraft mods (e.g. Mongoland 960144, 982315, 980421) from the database
+        if let Err(e) = conn.execute(
+            "DELETE FROM mods WHERE mod_id IN ('960144', '982315', '980421') OR LOWER(name) LIKE '%mongoland%'",
+            [],
+        ) {
+            println!("⚠️ Database cleanup warning: failed to purge rogue mods: {}", e);
+        }
+
+        // Clean up rogue -MapModID=960144 and other bad arguments from servers table custom_args
+        if let Ok(mut stmt) = conn.prepare("SELECT id, custom_args FROM servers WHERE custom_args LIKE '%960144%' OR custom_args LIKE '%982315%' OR custom_args LIKE '%980421%'") {
+            let rows: Vec<(i64, String)> = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+                .map(|mapped| mapped.filter_map(Result::ok).collect())
+                .unwrap_or_default();
+            for (sid, cargs) in rows {
+                let cleaned = cargs
+                    .replace("-MapModID=960144", "")
+                    .replace("-MapModID=982315", "")
+                    .replace("-MapModID=980421", "")
+                    .replace("960144", "")
+                    .replace("982315", "")
+                    .replace("980421", "");
+                let _ = conn.execute("UPDATE servers SET custom_args = ?1 WHERE id = ?2", rusqlite::params![cleaned.trim(), sid]);
+            }
+        }
+
         Ok(Database {
             conn: Mutex::new(conn),
         })

@@ -1119,6 +1119,7 @@ impl ProcessManager {
         game_port: u16,
         query_port: u16,
         rcon_port: u16,
+        rcon_enabled: bool,
         max_players: i32,
         _server_password: Option<&str>,
         _admin_password: &str,
@@ -1251,9 +1252,11 @@ impl ProcessManager {
         connection_url.push_str(&format!("?SessionName=\"{}\"", session_name));
         connection_url.push_str(&format!("?Port={}", game_port));
         connection_url.push_str(&format!("?QueryPort={}", query_port));
-        connection_url.push_str(&format!("?RCONPort={}", rcon_port));
-        if rcon_port > 0 {
+        if rcon_enabled && rcon_port > 0 {
+            connection_url.push_str(&format!("?RCONPort={}", rcon_port));
             connection_url.push_str("?RCONEnabled=True");
+        } else {
+            connection_url.push_str("?RCONEnabled=False");
         }
         connection_url.push_str(&format!("?MaxPlayers={}", max_players));
         
@@ -1277,7 +1280,7 @@ impl ProcessManager {
         args.push(format!("-Port={}", game_port));
         args.push(format!("-QueryPort={}", query_port));
         args.push(format!("-PeerPort={}", game_port + 1));
-        if rcon_port > 0 {
+        if rcon_enabled && rcon_port > 0 {
             args.push(format!("-RCONPort={}", rcon_port));
         }
 
@@ -1349,16 +1352,46 @@ impl ProcessManager {
             None => Vec::new(),
         };
 
-        // DYNAMIC MAP MOD DETECTION & AUTO-INJECTION
-        // Detect map mod ID from: 1) preset lookup/active mods resolution, 2) custom_args (-MapModID=xxxx)
-        let mut detected_map_mod: Option<String> = crate::services::config_generator::resolve_map_mod_id(&effective_map, &valid_mods);
+        // Purge any rogue / unavailable mod folders on disk (e.g. Mongoland 960144)
+        for rogue_id in &["960144", "982315", "980421"] {
+            let r_path1 = install_path
+                .join("ShooterGame")
+                .join("Binaries")
+                .join("Win64")
+                .join("ShooterGame")
+                .join("Mods")
+                .join(rogue_id);
+            if r_path1.exists() {
+                let _ = std::fs::remove_dir_all(&r_path1);
+            }
+            let r_path2 = install_path
+                .join("ShooterGame")
+                .join("Content")
+                .join("Mods")
+                .join(rogue_id);
+            if r_path2.exists() {
+                let _ = std::fs::remove_dir_all(&r_path2);
+            }
+        }
 
-        if detected_map_mod.is_none() {
+        // Always strip known rogue / unavailable mods from server launch list
+        valid_mods.retain(|m| m != "960144" && m != "982315" && m != "980421");
+
+        // DYNAMIC MAP MOD DETECTION & AUTO-INJECTION
+        // Official DLC maps (e.g. Astraeos, The Center, Scorched Earth) NEVER use -MapModID or auto-injected map mods
+        let is_official = crate::services::config_generator::is_official_map(&effective_map);
+        let mut detected_map_mod: Option<String> = if is_official {
+            None
+        } else {
+            crate::services::config_generator::resolve_map_mod_id(&effective_map, &valid_mods)
+        };
+
+        if !is_official && detected_map_mod.is_none() {
             if let Some(custom) = custom_args {
                 for part in custom.split_whitespace() {
                     if part.to_lowercase().starts_with("-mapmodid=") {
                         let id = part.split_once('=').map(|(_, v)| v.trim()).unwrap_or("");
-                        if !id.is_empty() && id != "0" && id != "927083" && id.chars().all(|c| c.is_ascii_digit()) {
+                        if !id.is_empty() && id != "0" && id != "927083" && id != "960144" && id != "982315" && id != "980421" && id.chars().all(|c| c.is_ascii_digit()) {
                             detected_map_mod = Some(id.to_string());
                             println!("  🔍 Detected custom map mod ID from launch args: {}", id);
                             break;
@@ -1374,8 +1407,8 @@ impl ProcessManager {
                 println!("  ✨ Auto-injected required map mod ID {} for map {}", map_mod_id, effective_map);
             }
         } else if effective_map == "Astraeos_WP" || effective_map == "Astraeos" {
-            // Astraeos is an official expansion DLC map — do not send -mods=988598
-            valid_mods.retain(|m| m != "988598");
+            // Astraeos is an official expansion DLC map — do not send -mods=988598 or rogue 960144
+            valid_mods.retain(|m| m != "988598" && m != "960144");
         }
 
         if !valid_mods.is_empty() {
@@ -1440,6 +1473,20 @@ impl ProcessManager {
                     }
                 }
 
+                // Clean rogue or unavailable mod IDs from ActiveMods in GameUserSettings.ini
+                if let Some(active_mods_val) = crate::services::ini_parser::IniParser::get_value(&cleaned, "ServerSettings", "ActiveMods") {
+                    if active_mods_val.contains("960144") || active_mods_val.contains("982315") || active_mods_val.contains("980421") || (is_official && active_mods_val.contains("988598")) {
+                        let cleaned_mods: Vec<&str> = active_mods_val
+                            .split(',')
+                            .map(|s| s.trim())
+                            .filter(|s| !s.is_empty() && *s != "960144" && *s != "982315" && *s != "980421" && !(is_official && *s == "988598"))
+                            .collect();
+                        cleaned = crate::services::ini_parser::IniParser::update_key(&cleaned, "ServerSettings", "ActiveMods", &cleaned_mods.join(","));
+                        modified = true;
+                        println!("  🧹 Sanitized rogue mod IDs from ActiveMods in GameUserSettings.ini for server {}", server_id);
+                    }
+                }
+
                 if modified {
                     if !crate::services::ini_parser::IniParser::is_file_readonly(&gus_path) {
                         let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&gus_path, &cleaned);
@@ -1496,6 +1543,18 @@ impl ProcessManager {
 
                 for s in custom_parts {
                     let lower = s.to_lowercase();
+                    // Strip -MapModID if this is an official map or if it points to rogue mods
+                    if lower.starts_with("-mapmodid=") {
+                        if is_official || lower.contains("960144") || lower.contains("982315") || lower.contains("980421") {
+                            println!("  🧹 Stripped invalid/redundant {} from launch args", s);
+                            continue;
+                        }
+                    }
+                    // Strip rogue mod IDs from custom launch args
+                    if lower.contains("960144") || lower.contains("982315") || lower.contains("980421") {
+                        println!("  🧹 Stripped rogue mod ID from launch arg: {}", s);
+                        continue;
+                    }
                     if lower.starts_with("-mods=") {
                         let has_managed_mods = match mods {
                             Some(m) => !m.is_empty(),
@@ -2659,6 +2718,7 @@ impl ProcessManager {
         game_port: u16,
         query_port: u16,
         rcon_port: u16,
+        rcon_enabled: bool,
         max_players: i32,
         server_password: Option<&str>,
         admin_password: &str,
@@ -2685,6 +2745,7 @@ impl ProcessManager {
             game_port,
             query_port,
             rcon_port,
+            rcon_enabled,
             max_players,
             server_password,
             admin_password,

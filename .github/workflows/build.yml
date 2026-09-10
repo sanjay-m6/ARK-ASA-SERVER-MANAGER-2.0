@@ -89,7 +89,27 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Improvements in v4.6.22
+            ### 🆕 New Features & Bug Fixes in v4.6.23
+            - **🌋 Astraeos Map Startup Crash & Official Map Status Resolution**:
+              - Resolved instant server crash during startup when selecting the official `Astraeos` map (`Astraeos_WP`).
+              - Diagnosed that Astraeos was erroneously associated with inactive CurseForge mod ID `960144`, which caused Wildcard's server engine to crash when attempting to download/verify non-existent mod files.
+              - Classified `Astraeos_WP` strictly under `OFFICIAL_MAP_ARGUMENTS` and removed invalid mod ID references from `moddedMapRegistry.ts`.
+              - Added pre-launch safety guards in `process_manager.rs` (`is_official_map`) that completely bypass mod installation checks, auto-clean corrupt `960144` cache directories on disk, sanitize `ActiveMods` INI entries, and prevent `-MapModID=` injection for official maps.
+              - Enhanced Crash Doctor with automated `unavailable_mod_crash` diagnosis and 1-click self-healing repair.
+            - **🎨 Config Editor UI & UX Design Fixes**:
+              - **Fixed Vertical Grid Stretching & Empty Dead Space (`Server Name` card)**: Added `items-start` to settings card grids, eliminating ~800px of empty black void caused by default CSS Grid height stretching.
+              - **Fixed False `__CUSTOM__` Trigger on Installed & Preset Maps**: Dynamic `allKnownValues` now verifies static options, installed server mods (`detectMapArgumentFromMod` and mod IDs), curated mod presets (`ASA_MODDED_MAP_PRESETS`), and `MAP_METADATA` keys with case-insensitive matching. Selected mod maps like `TheIslandReforged_WP` now display cleanly with their proper badge, author, and preview card without opening custom mode.
+              - **Eliminated 5x Redundancy & Cluttered 8-Tile Sub-Grid**: Streamlined the custom map view into a sleek `Terminal` launch argument input, compact quick-fill chips from installed server mods (`[The Island Reforged (TheIslandReforged_WP)]`), and a direct link to the full `Modded Maps Hub`.
+            - **🤖 Discord Bot & Command Center Cluster Synchronization**:
+              - Resolved cluster server reporting in Discord Bot Command Center (`Cluster Servers 0 / 0 Online`).
+              - Ensured active servers correctly link to their parent cluster across Tauri backend commands and real-time status embeds.
+            - **⚙️ Config Persistence & INI Synchronization**:
+              - Hardened bidirectional synchronization for server name (`SessionName`), map arguments, and player limits between `GameUserSettings.ini` and internal server configurations.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.22 — 1-Click ASA Modded Map Hub, Official Roadmap Alignment & In-Place Installer</summary>
+
             - **🗺️ 1-Click ASA Modded Map Hub & In-Place Installation**:
               - Added dedicated **Modded Map Hub Modal** (`ModMapHubModal.tsx`) with curated popular ASA presets (*Amissa*, *Svartalfheim*, *Insaluna*, *Forglar*, *Astraeos*, *Temptress Lagoon*, *Bjarnheim*, *Reverence*, *Lost Colony*, *ALTHEMIA*, *THARAT*).
               - Live debounced CurseForge API map search and direct Mod ID quick installer for custom/private map packages.
@@ -107,8 +127,7 @@ jobs:
               - Added 1-click `[Set as Map]` inline button on installed mod rows (with active status badge if already active).
               - Added `🗺️ Set as Active Server Map` 1-click action in the Mod Detail inspection modal.
               - Automatic launch argument injection ensuring `-MapModID=<id>` and `-mods=<id>` are correctly passed to the server process.
-
-            ### 🛠️ Previous Releases
+            </details>
             <details>
             <summary>v4.6.21 — SteamCMD Auto-Update Runaway Loop Fix & Complete Chinese Localization</summary>
 

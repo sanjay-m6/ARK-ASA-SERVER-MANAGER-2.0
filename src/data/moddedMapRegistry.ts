@@ -49,7 +49,7 @@ export const MODDED_MAP_PRESETS: ModdedMapPreset[] = [
     description: 'An updated, beautiful and expanded version of the classic Island map by Nekatus for ASA.',
     icon: '🏝️',
     color: '#10b981',
-    mapArgument: 'TheIsland',
+    mapArgument: 'TheIslandReforged_WP',
     mapModId: '1460513',
     dlcType: 'CurseForge Mod',
     size: 'Large (~8 GB)'
@@ -120,19 +120,6 @@ export const MODDED_MAP_PRESETS: ModdedMapPreset[] = [
     size: 'Large (~11 GB)'
   },
   {
-    id: 'asa_astraeos',
-    serverType: 'ASA',
-    name: 'Astraeos',
-    author: 'SNOW',
-    description: 'Expansive high-fantasy map with floating islands, mystical groves, and unique elemental creatures.',
-    icon: '✨',
-    color: '#6366f1',
-    mapArgument: 'Astraeos_WP',
-    mapModId: '960144',
-    dlcType: 'CurseForge Mod',
-    size: 'Large (~12 GB)'
-  },
-  {
     id: 'asa_temptress',
     serverType: 'ASA',
     name: 'Temptress Lagoon',
@@ -157,32 +144,6 @@ export const MODDED_MAP_PRESETS: ModdedMapPreset[] = [
     mapModId: '973412',
     dlcType: 'CurseForge Mod',
     size: 'Large (~8 GB)'
-  },
-  {
-    id: 'asa_lost_colony',
-    serverType: 'ASA',
-    name: 'Lost Colony',
-    author: 'Nekatus',
-    description: 'Futuristic sci-fi wasteland map featuring overgrown colonies, subterranean vaults, and bio-domes.',
-    icon: '🌌',
-    color: '#8b5cf6',
-    mapArgument: 'LostColony_WP',
-    mapModId: '982315',
-    dlcType: 'CurseForge Mod',
-    size: 'Large (~14 GB)'
-  },
-  {
-    id: 'asa_club_ark',
-    serverType: 'ASA',
-    name: 'Club ARK',
-    author: 'Studio Wildcard',
-    description: 'Official social hub and minigame resort map.',
-    icon: '🎰',
-    color: '#ec4899',
-    mapArgument: 'ClubARK_WP',
-    mapModId: '980421',
-    dlcType: 'CurseForge Mod',
-    size: 'Small (~2 GB)'
   },
   {
     id: 'asa_althemia',
@@ -244,7 +205,7 @@ export function isModLikelyMap(mod: { id?: string; name: string; description?: s
   // Match known presets
   if (mod.id && MODDED_MAP_PRESETS.some(p => p.mapModId === String(mod.id))) return true;
   if (MODDED_MAP_PRESETS.some(p => p.name.toLowerCase() === mod.name.toLowerCase())) return true;
-  
+
   const text = `${mod.name} ${mod.description || ''}`.toLowerCase();
   // Name or description explicitly mentions map, expansion, _wp, etc.
   if (/\b(map|custom map|mod map|_wp)\b/i.test(text)) return true;
@@ -307,4 +268,31 @@ export function buildLaunchArgs(preset: ModdedMapPreset | { mapModId?: string },
   }
 
   return args;
+}
+
+export const OFFICIAL_MAP_ARGUMENTS = [
+  'TheIsland_WP',
+  'TheIsland',
+  'ScorchedEarth_WP',
+  'TheCenter_WP',
+  'Aberration_WP',
+  'Extinction_WP',
+  'Ragnarok_WP',
+  'Valguero_WP',
+  'Genesis_WP',
+  'Genesis2_WP',
+  'ClubARK_WP',
+  'LostColony_WP',
+  'Fjordur_WP',
+  'CrystalIsles_WP',
+  'LostIsland_WP',
+  'Astraeos_WP',
+  'Astraeos',
+];
+
+export function isOfficialMap(mapName?: string): boolean {
+  if (!mapName) return false;
+  return OFFICIAL_MAP_ARGUMENTS.some(
+    m => m.toLowerCase() === mapName.trim().toLowerCase()
+  );
 }
