@@ -82,6 +82,10 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                     { value: 'TheCenter_WP', label: 'The Center', group: 'released' },
                     { value: 'Aberration_WP', label: 'Aberration', group: 'released' },
                     { value: 'Extinction_WP', label: 'Extinction', group: 'released' },
+                    { value: 'Ragnarok_WP', label: 'Ragnarok', group: 'released' },
+                    { value: 'Valguero_WP', label: 'Valguero', group: 'released' },
+                    { value: 'Genesis_WP', label: 'Genesis Part 1', group: 'released' },
+                    { value: 'ClubARK_WP', label: 'Club ARK', group: 'released' },
 
                     // Premium Mod Maps
                     { value: 'LostColony_WP', label: 'Lost Colony', group: 'premium' },
@@ -97,10 +101,7 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                     { value: 'Insaluna_WP', label: 'Insaluna', group: 'modded' },
                     { value: 'Bjarnheim_WP', label: 'Bjarnheim', group: 'modded' },
 
-                    // Upcoming Official Maps
-                    { value: 'Ragnarok_WP', label: 'Ragnarok', group: 'upcoming' },
-                    { value: 'Valguero_WP', label: 'Valguero', group: 'upcoming' },
-                    { value: 'Genesis_WP', label: 'Genesis Part 1', group: 'upcoming' },
+                    // Upcoming Official Maps (Roadmap)
                     { value: 'Genesis2_WP', label: 'Genesis Part 2', group: 'upcoming' },
                     { value: 'Fjordur_WP', label: 'Fjordur', group: 'upcoming' },
                     { value: 'CrystalIsles_WP', label: 'Crystal Isles', group: 'upcoming' },

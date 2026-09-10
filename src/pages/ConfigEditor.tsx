@@ -2,9 +2,9 @@
 import { useState, useEffect, useMemo, memo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
-import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3, Shield, X, ChevronDown, ChevronUp, MapPin, Compass, Clock, Sparkles, Globe } from 'lucide-react';
+import { Save, Loader2, Search, Sliders, ExternalLink, FileText, Copy, Check, RotateCcw, AlertTriangle, GraduationCap, BarChart3, Shield, X, ChevronDown, ChevronUp, MapPin, Compass, Clock, Sparkles, Globe, Package, Download } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { readConfig, saveConfig, updateServerSettings } from '../utils/tauri';
+import { readConfig, saveConfig, updateServerSettings, getInstalledMods, installMod } from '../utils/tauri';
 import toast from 'react-hot-toast';
 import { useServerStore } from '../stores/serverStore';
 import { useLocation } from 'react-router-dom';
@@ -23,10 +23,12 @@ import { applyPreset, ConfigPreset, createPresetFromConfig, saveCustomPreset, up
 import StatMultiplierEditor from '../components/config/StatMultiplierEditor';
 import AntiCheatDashboard from '../components/server/AntiCheatDashboard';
 import AdvancedConfigDashboard from '../components/server/AdvancedConfigDashboard';
-import { MODDED_MAP_PRESETS, buildLaunchArgs, getModdedMapByMapArg } from '../data/moddedMapRegistry';
+import { MODDED_MAP_PRESETS, ASA_MODDED_MAP_PRESETS, buildLaunchArgs, getModdedMapByMapArg, isModLikelyMap, detectMapArgumentFromMod, type ModdedMapPreset } from '../data/moddedMapRegistry';
 import PlatformSelector from '../components/config/PlatformSelector';
 import ServerSelect from '../components/ui/ServerSelect';
 import ServerPresetModal from '../components/presets/ServerPresetModal';
+import ModMapHubModal from '../components/modals/ModMapHubModal';
+import type { ModInfo } from '../types';
 
 // Map images
 import mapTheIsland from '../assets/maps/the_island.png';
@@ -227,12 +229,12 @@ const MAP_METADATA: Record<string, MapInfo> = {
     },
     'Genesis_WP': {
         name: 'Genesis Part 1',
-        description: 'Virtual simulation with extreme environments.',
+        description: 'Virtual simulation with extreme environments and unique mission biomes.',
         color: '#14b8a6',
         icon: '🧬',
         size: 'Medium (~7 GB)',
         image: mapGenesis,
-        dlcType: 'Official Expansion'
+        dlcType: 'Official Release'
     },
     'Genesis2_WP': {
         name: 'Genesis Part 2',
@@ -718,20 +720,16 @@ const MapSelectorDropdown = ({
     selectedMapMeta,
     selectedOption,
     groupedOptions,
-    isCustomValue,
     handleChange,
-    labelContent,
-    containerClassName
+    matchedInstalledMod,
 }: {
     value: string;
     dropdownValue: string;
     selectedMapMeta: MapInfo | undefined;
     selectedOption: any;
     groupedOptions: Record<string, any[]>;
-    isCustomValue: boolean;
     handleChange: (val: string) => void;
-    labelContent: React.ReactNode;
-    containerClassName: string;
+    matchedInstalledMod?: ModInfo;
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -779,39 +777,46 @@ const MapSelectorDropdown = ({
     }, [isOpen]);
 
     return (
-        <div
-            className={cn(
-                containerClassName.replace('overflow-hidden', 'overflow-visible'),
-                isOpen ? "z-30" : "z-10"
-            )}
-        >
-            {labelContent}
-
+        <div ref={dropdownRef} className={cn("relative z-20", isOpen ? "z-30" : "z-20")}>
             {/* Custom Select Button */}
-            <div ref={dropdownRef} className="relative z-20">
-                <button
-                    ref={mapButtonRef}
-                    type="button"
-                    onClick={() => {
-                        setIsOpen(!isOpen);
-                    }}
-                    className="w-full flex items-center justify-between bg-[var(--input-background)] border border-[var(--input-border)] hover:border-violet-500/50 rounded-xl px-4 py-3 text-[var(--text-primary)] transition-all focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] text-left cursor-pointer"
-                >
-                    <div className="flex items-center gap-2.5">
-                        <span className="text-xl">
-                            {selectedMapMeta ? selectedMapMeta.icon : (dropdownValue === '__CUSTOM__' ? '✏️' : '🗺️')}
-                        </span>
-                        <div>
-                            <div className="font-semibold text-[var(--text-primary)] leading-tight">
-                                {selectedMapMeta ? selectedMapMeta.name : (selectedOption ? selectedOption.label.replace(/^[^\s]+\s+/, '') : value || 'Custom Map')}
-                            </div>
-                            <div className="text-[10px] text-violet-400 font-medium tracking-wider uppercase mt-0.5">
-                                {selectedMapMeta ? (selectedMapMeta.author ? `${selectedMapMeta.dlcType} • By ${selectedMapMeta.author}` : selectedMapMeta.dlcType) : (dropdownValue === '__CUSTOM__' ? 'Custom ID' : 'Custom Mod Map')}
-                            </div>
+            <button
+                ref={mapButtonRef}
+                type="button"
+                onClick={() => {
+                    setIsOpen(!isOpen);
+                }}
+                className="w-full flex items-center justify-between bg-[var(--input-background)] border border-[var(--input-border)] hover:border-violet-500/50 rounded-xl px-4 py-3 text-[var(--text-primary)] transition-all focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] text-left cursor-pointer"
+            >
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-xl flex-shrink-0">
+                        {matchedInstalledMod ? '📦' : selectedMapMeta ? selectedMapMeta.icon : (dropdownValue === '__CUSTOM__' ? '✏️' : '🗺️')}
+                    </span>
+                    <div className="min-w-0">
+                        <div className="font-semibold text-[var(--text-primary)] leading-tight truncate">
+                            {matchedInstalledMod
+                                ? matchedInstalledMod.name
+                                : (dropdownValue === '__CUSTOM__'
+                                    ? (value || 'Custom Map')
+                                    : (selectedMapMeta ? selectedMapMeta.name : (selectedOption ? selectedOption.label.replace(/^[^\s]+\s+/, '') : value || 'Custom Map')))}
+                        </div>
+                        <div className="text-[10px] text-violet-400 font-medium tracking-wider uppercase mt-0.5 truncate flex items-center gap-1.5">
+                            {matchedInstalledMod ? (
+                                <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    Installed Mod Map • ID: {matchedInstalledMod.id}
+                                </span>
+                            ) : dropdownValue === '__CUSTOM__' ? (
+                                value ? 'Custom Mod Map' : 'Custom Map Argument'
+                            ) : selectedMapMeta ? (
+                                selectedMapMeta.author ? `${selectedMapMeta.dlcType} • By ${selectedMapMeta.author}` : selectedMapMeta.dlcType
+                            ) : (
+                                'Official Map'
+                            )}
                         </div>
                     </div>
-                    {isOpen ? <ChevronUp className="w-5 h-5 text-[var(--text-muted)]" /> : <ChevronDown className="w-5 h-5 text-[var(--text-muted)]" />}
-                </button>
+                </div>
+                {isOpen ? <ChevronUp className="w-5 h-5 text-[var(--text-muted)] flex-shrink-0" /> : <ChevronDown className="w-5 h-5 text-[var(--text-muted)] flex-shrink-0" />}
+            </button>
 
                 {/* Grouped Dropdown Options List — fixed so it escapes overflow:hidden/scroll ancestors */}
                 {isOpen && createPortal(
@@ -820,6 +825,90 @@ const MapSelectorDropdown = ({
                         className="fixed bg-[var(--card-background)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden max-h-[380px] overflow-y-auto backdrop-blur-md transition-all duration-200 z-[150] custom-scrollbar p-1.5 space-y-3"
                         style={{ top: mapDropdownPos.top, left: mapDropdownPos.left, width: mapDropdownPos.width }}
                     >
+
+                        {/* Installed Mod Maps */}
+                        {groupedOptions.installed && groupedOptions.installed.length > 0 && (
+                            <div className="space-y-1">
+                                <div className="px-3 py-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-widest bg-emerald-950/40 border border-emerald-500/30 rounded-lg flex items-center justify-between select-none">
+                                    <div className="flex items-center gap-1.5">
+                                        <Package className="w-3.5 h-3.5 text-emerald-400" /> Installed Mod Maps
+                                    </div>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                                        {groupedOptions.installed.length} detected
+                                    </span>
+                                </div>
+                                <div className="space-y-1">
+                                    {groupedOptions.installed.map(opt => {
+                                        const isSelected = dropdownValue === opt.value || value === opt.value;
+                                        const mod = opt.mod as ModInfo | undefined;
+                                        const meta = MAP_METADATA[opt.value];
+                                        const thumbnail = mod?.thumbnailUrl || meta?.image;
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    handleChange(opt.value);
+                                                    setIsOpen(false);
+                                                }}
+                                                className={cn(
+                                                    "w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-sm transition-all duration-150 border gap-3 cursor-pointer",
+                                                    isSelected
+                                                        ? "bg-emerald-600/25 border-emerald-500/60 text-[var(--text-primary)] font-medium shadow-sm"
+                                                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] border-transparent hover:text-[var(--text-primary)] hover:border-[var(--border)]"
+                                                )}
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    {thumbnail ? (
+                                                        <div className="w-14 h-9 rounded-md overflow-hidden relative border border-emerald-500/30 flex-shrink-0 bg-slate-950">
+                                                            <img
+                                                                src={thumbnail}
+                                                                alt={opt.label}
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    (e.currentTarget as HTMLElement).style.display = 'none';
+                                                                }}
+                                                            />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="w-14 h-9 rounded-md border border-emerald-500/30 flex-shrink-0 bg-emerald-950/40 flex items-center justify-center text-emerald-400">
+                                                            <Package className="w-5 h-5" />
+                                                        </div>
+                                                    )}
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-1.5 font-semibold text-[var(--text-primary)]">
+                                                            <span className="truncate">{opt.label}</span>
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 truncate mt-0.5 flex items-center gap-1.5">
+                                                            <span className="font-mono text-emerald-400/90">{opt.value}</span>
+                                                            {mod?.id && (
+                                                                <>
+                                                                    <span className="w-1 h-1 rounded-full bg-slate-600" />
+                                                                    <span>Mod ID: {mod.id}</span>
+                                                                </>
+                                                            )}
+                                                            {mod?.author && (
+                                                                <>
+                                                                    <span className="w-1 h-1 rounded-full bg-slate-600" />
+                                                                    <span className="text-emerald-400 font-medium">By {mod.author}</span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <span className="hidden sm:inline-block text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-emerald-950/80 border border-emerald-500/40 text-emerald-300">
+                                                        Installed
+                                                    </span>
+                                                    {isSelected && <Check className="w-4 h-4 text-emerald-400" />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Released/Official Maps */}
                         {groupedOptions.released && groupedOptions.released.length > 0 && (
@@ -1094,7 +1183,7 @@ const MapSelectorDropdown = ({
                                                 key={opt.value}
                                                 type="button"
                                                 onClick={() => {
-                                                    handleChange(isCustomValue ? value : '');
+                                                    handleChange('__CUSTOM__');
                                                     setIsOpen(false);
                                                 }}
                                                 className={cn(
@@ -1123,7 +1212,6 @@ const MapSelectorDropdown = ({
                     </div>,
                     document.body
                 )}
-            </div>
         </div>
     );
 };
@@ -1136,16 +1224,25 @@ const ConfigInput = memo(({
     source,
     onFieldChange,
     isModified,
-    onFieldReset
+    onFieldReset,
+    installedMods,
+    selectedServerId,
+    onOpenMapHub,
+    onRefreshInstalledMods
 }: {
     field: ConfigField,
     value: string,
     source: 'GameUserSettings' | 'Game',
     onFieldChange: (source: 'GameUserSettings' | 'Game', section: string, key: string, val: string, defaultValue?: string) => void,
     isModified?: boolean,
-    onFieldReset?: (source: 'GameUserSettings' | 'Game', section: string, key: string, defaultValue: string) => void
+    onFieldReset?: (source: 'GameUserSettings' | 'Game', section: string, key: string, defaultValue: string) => void,
+    installedMods?: ModInfo[],
+    selectedServerId?: number | null,
+    onOpenMapHub?: () => void,
+    onRefreshInstalledMods?: () => Promise<void> | void
 }) => {
     const { t } = useTranslation();
+    const [isInstallingMap, setIsInstallingMap] = useState(false);
 
     const fieldLabel = t(`configEditor.fields.${field.key}.label`, { defaultValue: field.label });
     const fieldDescription = field.description
@@ -1261,26 +1358,83 @@ const ConfigInput = memo(({
                 </div>
             );
         case 'dropdown': {
-            // Detect if the current value is a custom (not in predefined options)
+            const hasCustomOption = field.options?.some(o => o.value === '__CUSTOM__') ?? false;
             const knownValues = field.options?.filter(o => o.value !== '__CUSTOM__').map(o => o.value) || [];
-            const isCustomValue = value !== '' && !knownValues.includes(value);
+            const [isCustomMode, setIsCustomMode] = useState<boolean>(() => {
+                return hasCustomOption && !knownValues.includes(value);
+            });
+
+            const lastKnownValueRef = useRef(value);
+            useEffect(() => {
+                if (hasCustomOption && value !== lastKnownValueRef.current) {
+                    lastKnownValueRef.current = value;
+                    if (knownValues.includes(value)) {
+                        setIsCustomMode(false);
+                    } else if (value !== '') {
+                        setIsCustomMode(true);
+                    }
+                }
+            }, [value, hasCustomOption, knownValues]);
+
+            const isCustomValue = hasCustomOption && (isCustomMode || !knownValues.includes(value));
             const dropdownValue = isCustomValue ? '__CUSTOM__' : value;
 
+            const handleDropdownSelect = (selectedVal: string) => {
+                if (selectedVal === '__CUSTOM__') {
+                    setIsCustomMode(true);
+                    if (!isCustomValue) {
+                        handleChange('');
+                    }
+                } else {
+                    setIsCustomMode(false);
+                    handleChange(selectedVal);
+                }
+            };
+
             if (field.key === 'MapName') {
+                // Filter installed mods that are likely maps
+                const installedModMaps = (installedMods || []).filter(isModLikelyMap);
+
+                // Find currently matched installed mod by value or map argument or ID or name
+                const matchedInstalledMod = (installedMods || []).find(m =>
+                    m.id === value ||
+                    detectMapArgumentFromMod(m).toLowerCase() === value.toLowerCase() ||
+                    m.name.toLowerCase() === value.toLowerCase()
+                );
+
                 // Find currently selected map metadata
                 const selectedMapMeta = MAP_METADATA[value];
                 const selectedOption = field.options?.find(o => o.value === dropdownValue);
 
                 // Group options by their group property for premium organization
-                // Groups: released, premium, modded, upcoming, custom
+                // Groups: installed, released, premium, modded, upcoming, custom
                 const groupedOptions: Record<string, any[]> = {
+                    installed: [],
                     released: [],
                     premium: [],
                     modded: [],
                     upcoming: [],
                     custom: []
                 };
+
+                // Add detected installed mod maps to groupedOptions.installed
+                const addedInstalledValues = new Set<string>();
+                installedModMaps.forEach(mod => {
+                    const mapArg = detectMapArgumentFromMod(mod);
+                    addedInstalledValues.add(mapArg.toLowerCase());
+                    groupedOptions.installed.push({
+                        value: mapArg,
+                        label: mod.name,
+                        group: 'installed',
+                        mod: mod
+                    });
+                });
+
                 field.options?.forEach(opt => {
+                    // Don't duplicate if already in installed mod maps unless custom
+                    if (addedInstalledValues.has(opt.value.toLowerCase()) && opt.group !== 'custom') {
+                        return;
+                    }
                     const g = opt.group || 'released';
                     if (groupedOptions[g]) {
                         groupedOptions[g].push(opt);
@@ -1289,79 +1443,339 @@ const ConfigInput = memo(({
                     }
                 });
 
+                const knownModPreset = ASA_MODDED_MAP_PRESETS.find(
+                    (p: ModdedMapPreset) => p.mapArgument.toLowerCase() === value.toLowerCase() || p.mapModId === value
+                ) || getModdedMapByMapArg(value, 'ASA');
+
+                const isModdedMapNotInstalled = Boolean(
+                    knownModPreset && !matchedInstalledMod && (installedMods || []).every(m => m.id !== knownModPreset.mapModId && detectMapArgumentFromMod(m).toLowerCase() !== value.toLowerCase())
+                );
+
                 return (
                     <div className={containerClassName}>
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                                {labelContent}
+                            </div>
+                            {onOpenMapHub && (
+                                <button
+                                    type="button"
+                                    onClick={onOpenMapHub}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-600/20 to-indigo-600/20 hover:from-violet-600/35 hover:to-indigo-600/35 border border-violet-500/40 hover:border-violet-400 rounded-xl text-xs font-semibold text-violet-300 hover:text-white transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
+                                    title="Open Curated Modded Maps Hub: browse popular maps, search CurseForge & 1-click install"
+                                >
+                                    <Sparkles className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
+                                    <span>✨ Modded Maps Hub</span>
+                                </button>
+                            )}
+                        </div>
+
                         <MapSelectorDropdown
                             value={value}
                             dropdownValue={dropdownValue}
                             selectedMapMeta={selectedMapMeta}
                             selectedOption={selectedOption}
                             groupedOptions={groupedOptions}
-                            isCustomValue={isCustomValue}
-                            handleChange={handleChange}
-                            labelContent={labelContent}
-                            containerClassName={containerClassName}
+                            handleChange={handleDropdownSelect}
+                            matchedInstalledMod={matchedInstalledMod}
                         />
 
                         {/* Custom Map Text Input when custom selection or non-predefined map name */}
-                        {(dropdownValue === '__CUSTOM__') && (
-                            <div className="mt-3.5 space-y-2 relative z-10 animate-fadeIn">
-                                <label className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider">Custom Map Name / Server Argument</label>
-                                <input
-                                    type="text"
-                                    value={value}
-                                    onChange={(e) => handleChange(e.target.value)}
-                                    placeholder="e.g. ScorchedEarthRM_WP"
-                                    className="w-full bg-[#1a1a2e] border-2 border-amber-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.2)] font-mono text-sm transition-all placeholder-slate-500"
-                                />
-                                <p className="text-[11px] text-slate-500">Enter the exact map identifier from the mod (e.g. <code className="text-amber-400/80">ScorchedEarthRM_WP</code>)</p>
+                        {dropdownValue === '__CUSTOM__' && (
+                            <div className="mt-3.5 space-y-3 relative z-10 animate-fadeIn">
+                                {/* Quick picker for detected installed mod maps */}
+                                {installedModMaps.length > 0 && (
+                                    <div className="p-3 bg-slate-900/90 border border-emerald-500/30 rounded-xl space-y-2.5 shadow-lg">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                                                <Package className="w-4 h-4 text-emerald-400" />
+                                                <span>Installed Mod Maps ({installedModMaps.length})</span>
+                                            </div>
+                                            <span className="text-[10px] text-slate-400">Click a mod map to auto-fill</span>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-0.5">
+                                            {installedModMaps.map(mod => {
+                                                const mapArg = detectMapArgumentFromMod(mod);
+                                                const isSelected = value.toLowerCase() === mapArg.toLowerCase() || value === mod.id;
+                                                const meta = MAP_METADATA[mapArg];
+                                                const thumbnail = mod.thumbnailUrl || meta?.image;
+                                                return (
+                                                    <button
+                                                        key={mod.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsCustomMode(true);
+                                                            handleChange(mapArg);
+                                                        }}
+                                                        className={cn(
+                                                            "flex items-center gap-2.5 p-2 rounded-lg border text-left transition-all duration-150 cursor-pointer group",
+                                                            isSelected
+                                                                ? "bg-emerald-500/20 border-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+                                                                : "bg-slate-950/60 border-slate-800 hover:border-emerald-500/40 text-slate-300 hover:text-white"
+                                                        )}
+                                                    >
+                                                        {thumbnail ? (
+                                                            <div className="w-10 h-10 rounded-md overflow-hidden relative border border-emerald-500/30 flex-shrink-0 bg-slate-950">
+                                                                <img
+                                                                    src={thumbnail}
+                                                                    alt={mod.name}
+                                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                                                    onError={(e) => {
+                                                                        (e.currentTarget as HTMLElement).style.display = 'none';
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-10 h-10 rounded-md border border-emerald-500/30 flex-shrink-0 bg-emerald-950/40 flex items-center justify-center text-emerald-400">
+                                                                <Package className="w-5 h-5" />
+                                                            </div>
+                                                        )}
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="font-semibold text-xs truncate text-slate-100 group-hover:text-emerald-300 transition-colors">
+                                                                {mod.name}
+                                                            </div>
+                                                            <div className="text-[10px] text-slate-400 font-mono truncate">
+                                                                {mapArg}
+                                                            </div>
+                                                            <div className="text-[9px] text-emerald-400/80 mt-0.5">
+                                                                ID: {mod.id}
+                                                            </div>
+                                                        </div>
+                                                        {isSelected && (
+                                                            <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Popular Curated ASA Maps Quick-Select */}
+                                <div className="p-3 bg-slate-900/80 border border-violet-500/30 rounded-xl space-y-2.5 shadow-lg">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-xs font-bold text-violet-300 uppercase tracking-wider">
+                                            <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                                            <span>Popular ASA Modded Maps</span>
+                                        </div>
+                                        {onOpenMapHub && (
+                                            <button
+                                                type="button"
+                                                onClick={onOpenMapHub}
+                                                className="text-[10px] text-violet-400 hover:text-violet-200 font-semibold underline cursor-pointer"
+                                            >
+                                                Browse All & Search Hub →
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {ASA_MODDED_MAP_PRESETS.slice(0, 8).map((preset: ModdedMapPreset) => {
+                                            const isInstalled = (installedMods || []).some(
+                                                m => m.id === preset.mapModId || detectMapArgumentFromMod(m).toLowerCase() === preset.mapArgument.toLowerCase()
+                                            );
+                                            const isSelected = value.toLowerCase() === preset.mapArgument.toLowerCase();
+                                            return (
+                                                <button
+                                                    key={preset.mapModId || preset.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setIsCustomMode(true);
+                                                        handleChange(preset.mapArgument);
+                                                    }}
+                                                    className={cn(
+                                                        "p-2 rounded-lg border text-left transition-all duration-150 cursor-pointer group flex flex-col justify-between min-h-[64px]",
+                                                        isSelected
+                                                            ? "bg-violet-500/25 border-violet-500 text-white shadow-md shadow-violet-500/20"
+                                                            : "bg-slate-950/60 border-slate-800 hover:border-violet-500/40 text-slate-300 hover:text-white"
+                                                    )}
+                                                >
+                                                    <div className="min-w-0">
+                                                        <div className="font-bold text-xs truncate group-hover:text-violet-300 transition-colors">
+                                                            {preset.name}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 font-mono truncate">
+                                                            {preset.mapArgument}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between mt-1 pt-1 border-t border-white/5">
+                                                        <span className="text-[9px] font-mono text-slate-500">#{preset.mapModId}</span>
+                                                        {isInstalled ? (
+                                                            <span className="text-[9px] font-bold text-emerald-400">✓ Installed</span>
+                                                        ) : (
+                                                            <span className="text-[9px] font-bold text-violet-400">⚡ 1-Click</span>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Quick dropdown for all installed mods on server if user wants to select any mod */}
+                                {installedMods && installedMods.length > 0 && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] text-slate-400 flex-shrink-0">Or pick from all installed mods:</span>
+                                        <select
+                                            className="w-full text-xs bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500 cursor-pointer"
+                                            value={installedMods.some(m => detectMapArgumentFromMod(m).toLowerCase() === value.toLowerCase() || m.id === value) ? value : ''}
+                                            onChange={(e) => {
+                                                if (e.target.value) {
+                                                    setIsCustomMode(true);
+                                                    handleChange(e.target.value);
+                                                }
+                                            }}
+                                        >
+                                            <option value="">Select an installed mod to use as map...</option>
+                                            {installedMods.map(m => (
+                                                <option key={m.id} value={detectMapArgumentFromMod(m)}>
+                                                    {m.name} ({detectMapArgumentFromMod(m)}) - Mod ID: {m.id}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold text-amber-400/90 uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>Custom Map Name / Server Argument</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={value}
+                                        onChange={(e) => handleChange(e.target.value)}
+                                        placeholder="e.g. ScorchedEarthRM_WP, Amissa_WP, or Mod Map Name"
+                                        autoFocus={!value}
+                                        className="w-full bg-[#1a1a2e] border-2 border-amber-500/30 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-amber-500 focus:shadow-[0_0_15px_rgba(245,158,11,0.2)] font-mono text-sm transition-all placeholder-slate-500"
+                                    />
+                                    <p className="text-[11px] text-slate-500">
+                                        Enter the exact map identifier from the mod (e.g. <code className="text-amber-400/80">ScorchedEarthRM_WP</code>)
+                                    </p>
+                                </div>
                             </div>
                         )}
 
                         {/* Real-time Premium Map Preview Card */}
                         <div className="mt-4 relative rounded-xl overflow-hidden border-2 border-[#2d2d44] bg-slate-900 group/card min-h-[190px] flex flex-col justify-end transition-all duration-300 hover:border-violet-500/50 hover:shadow-[0_0_20px_rgba(139,92,246,0.15)] select-none">
-                            {selectedMapMeta ? (
+                            {selectedMapMeta || matchedInstalledMod || knownModPreset ? (
                                 <>
                                     {/* Image background with zoom and transition */}
                                     <img
-                                        src={selectedMapMeta.image}
-                                        alt={selectedMapMeta.name}
+                                        src={matchedInstalledMod?.thumbnailUrl || selectedMapMeta?.image || mapTheIsland}
+                                        alt={matchedInstalledMod?.name || selectedMapMeta?.name || knownModPreset?.name}
                                         className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out group-hover/card:scale-105"
+                                        onError={(e) => {
+                                            if (selectedMapMeta?.image) {
+                                                e.currentTarget.src = selectedMapMeta.image;
+                                            }
+                                        }}
                                     />
                                     {/* Glassmorphic/gradient overlay */}
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/10" />
 
                                     {/* Header badges */}
                                     <div className="absolute top-3 right-3 flex gap-1.5 items-center z-10">
-                                        <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-black/60 border border-white/10 text-slate-300 backdrop-blur-md">
-                                            {selectedMapMeta.size}
-                                        </span>
+                                        {matchedInstalledMod ? (
+                                            <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-emerald-500/30 border border-emerald-400/50 text-emerald-300 backdrop-blur-md">
+                                                Installed Mod Map
+                                            </span>
+                                        ) : isModdedMapNotInstalled ? (
+                                            <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-amber-500/30 border border-amber-400/50 text-amber-300 backdrop-blur-md">
+                                                Mod Not Installed
+                                            </span>
+                                        ) : (
+                                            <span className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider bg-black/60 border border-white/10 text-slate-300 backdrop-blur-md">
+                                                {selectedMapMeta?.size || knownModPreset?.size || 'Mod Map'}
+                                            </span>
+                                        )}
                                         <span
                                             className="text-[9px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider text-white backdrop-blur-md"
-                                            style={{ backgroundColor: `${selectedMapMeta.color}70`, border: `1px solid ${selectedMapMeta.color}` }}
+                                            style={{
+                                                backgroundColor: matchedInstalledMod ? '#10b98170' : `${selectedMapMeta?.color || '#8b5cf6'}70`,
+                                                border: `1px solid ${matchedInstalledMod ? '#10b981' : (selectedMapMeta?.color || '#8b5cf6')}`
+                                            }}
                                         >
-                                            {selectedMapMeta.dlcType}
+                                            {matchedInstalledMod
+                                                ? `Mod ID: ${matchedInstalledMod.id}`
+                                                : knownModPreset
+                                                    ? `Mod ID: ${knownModPreset.mapModId}`
+                                                    : selectedMapMeta?.dlcType}
                                         </span>
                                     </div>
 
                                     {/* Details content */}
                                     <div className="relative p-4 z-10">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-lg">{selectedMapMeta.icon}</span>
-                                            <h4 className="font-bold text-white text-base leading-tight drop-shadow-md">{selectedMapMeta.name}</h4>
+                                            <span className="text-lg">{matchedInstalledMod ? '📦' : selectedMapMeta?.icon || knownModPreset?.icon || '🗺️'}</span>
+                                            <h4 className="font-bold text-white text-base leading-tight drop-shadow-md">
+                                                {matchedInstalledMod ? matchedInstalledMod.name : (selectedMapMeta?.name || knownModPreset?.name)}
+                                            </h4>
                                         </div>
-                                        {selectedMapMeta.author && (
+                                        {(matchedInstalledMod?.author || selectedMapMeta?.author || knownModPreset?.author) && (
                                             <div className="text-[10px] text-amber-400 font-semibold mb-1">
-                                                By {selectedMapMeta.author}
+                                                By {matchedInstalledMod?.author || selectedMapMeta?.author || knownModPreset?.author}
                                             </div>
                                         )}
-                                        <p className="text-xs text-slate-300/90 leading-normal drop-shadow-sm line-clamp-2 mb-2">{selectedMapMeta.description}</p>
+                                        <p className="text-xs text-slate-300/90 leading-normal drop-shadow-sm line-clamp-2 mb-2">
+                                            {matchedInstalledMod?.description || selectedMapMeta?.description || knownModPreset?.description}
+                                        </p>
+
+                                        {/* In-place 1-Click Install Banner when modded map is selected but not yet installed */}
+                                        {isModdedMapNotInstalled && knownModPreset && (
+                                            <div className="mt-3 p-3 bg-gradient-to-r from-amber-500/20 via-slate-900/95 to-amber-500/10 border border-amber-500/40 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 backdrop-blur-md shadow-lg animate-in fade-in">
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center flex-shrink-0 text-amber-300">
+                                                        <Download className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className="text-xs font-bold text-amber-200 truncate flex items-center gap-1.5">
+                                                            <span>Mod Map files not installed on server</span>
+                                                            <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 border border-amber-500/30 rounded text-amber-300 font-normal">Required</span>
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                                                            Mod ID: <span className="font-mono text-amber-400 font-bold">{knownModPreset.mapModId}</span> • Creator: {knownModPreset.author}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    disabled={isInstallingMap}
+                                                    onClick={async () => {
+                                                        if (!selectedServerId) {
+                                                            toast.error('Please select a server first');
+                                                            return;
+                                                        }
+                                                        try {
+                                                            setIsInstallingMap(true);
+                                                            toast.loading(`Installing ${knownModPreset.name}...`, { id: `install-${knownModPreset.mapModId}` });
+                                                            await installMod(selectedServerId, {
+                                                                id: knownModPreset.mapModId || '',
+                                                                name: knownModPreset.name,
+                                                                description: knownModPreset.description,
+                                                                author: knownModPreset.author,
+                                                            });
+                                                            toast.success(`Installed & configured ${knownModPreset.name}!`, { id: `install-${knownModPreset.mapModId}` });
+                                                            if (onRefreshInstalledMods) await onRefreshInstalledMods();
+                                                        } catch (err: any) {
+                                                            toast.error(`Installation failed: ${err?.message || err}`, { id: `install-${knownModPreset.mapModId}` });
+                                                        } finally {
+                                                            setIsInstallingMap(false);
+                                                        }
+                                                    }}
+                                                    className="w-full sm:w-auto flex-shrink-0 px-3.5 py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                                                >
+                                                    {isInstallingMap ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                                    <span>⚡ 1-Click Install Mod</span>
+                                                </button>
+                                            </div>
+                                        )}
 
                                         {/* Auto-injected indicator */}
-                                        {dropdownValue && getModdedMapByMapArg(dropdownValue, 'ASA') && (
+                                        {((dropdownValue && getModdedMapByMapArg(dropdownValue, 'ASA')) || matchedInstalledMod) && (
                                             <div className="mt-2 text-[10px] px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium rounded-lg flex items-center gap-1.5 backdrop-blur-md">
                                                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping" />
-                                                <span>✓ Launch configuration will be set automatically</span>
+                                                <span>
+                                                    ✓ Launch configuration will be set automatically (-MapModID={matchedInstalledMod?.id || getModdedMapByMapArg(dropdownValue, 'ASA')?.mapModId})
+                                                </span>
                                             </div>
                                         )}
                                     </div>
@@ -1407,21 +1821,14 @@ const ConfigInput = memo(({
                     {labelContent}
                     <select
                         value={dropdownValue}
-                        onChange={(e) => {
-                            const selected = e.target.value;
-                            if (selected === '__CUSTOM__') {
-                                handleChange(isCustomValue ? value : '');
-                            } else {
-                                handleChange(selected);
-                            }
-                        }}
+                        onChange={(e) => handleDropdownSelect(e.target.value)}
                         className="w-full bg-[var(--input-background)] border border-[var(--input-border)] rounded-xl px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:border-violet-500 focus:shadow-[0_0_15px_rgba(139,92,246,0.2)] cursor-pointer transition-all hover:border-[var(--border-hover)]"
                     >
                         {field.options?.map(opt => (
                             <option key={opt.value} value={opt.value} className="bg-[var(--card-background)] text-[var(--text-primary)]">{opt.label}</option>
                         ))}
                     </select>
-                    {(dropdownValue === '__CUSTOM__') && (
+                    {dropdownValue === '__CUSTOM__' && (
                         <div className="mt-3 space-y-2">
                             <label className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Custom Value</label>
                             <input
@@ -1579,8 +1986,28 @@ export default function ConfigEditor() {
     const [isResizing, setIsResizing] = useState(false);
     const [currentPreset, setCurrentPreset] = useState<string | undefined>();
     const [showPresetHub, setShowPresetHub] = useState(false);
+    const [showMapHubModal, setShowMapHubModal] = useState(false);
     const [configReloadTrigger, setConfigReloadTrigger] = useState(0);
     const [modifiedSettings, setModifiedSettings] = useState<Set<string>>(new Set());
+    const [installedMods, setInstalledMods] = useState<ModInfo[]>([]);
+
+    // Fetch installed mods for current server to populate modded map options
+    useEffect(() => {
+        if (!selectedServerId) {
+            setInstalledMods([]);
+            return;
+        }
+        let isMounted = true;
+        getInstalledMods(selectedServerId)
+            .then(mods => {
+                if (isMounted) setInstalledMods(mods || []);
+            })
+            .catch(err => {
+                console.error('Failed to load installed mods in ConfigEditor:', err);
+                if (isMounted) setInstalledMods([]);
+            });
+        return () => { isMounted = false; };
+    }, [selectedServerId, configReloadTrigger]);
 
     // Store parsed configs: CaseInsensitiveMap<Section, CaseInsensitiveMap<Key, Value>>
     const [configs, setConfigs] = useState<{
@@ -1778,6 +2205,24 @@ export default function ConfigEditor() {
         toast.success(t('configEditor.toasts.resetSuccess'));
     }, [handleUpdate]);
 
+    // Stable callback to refresh installed mods on demand
+    const refreshInstalledMods = useCallback(async () => {
+        if (!selectedServerId) return;
+        try {
+            const mods = await getInstalledMods(selectedServerId);
+            setInstalledMods(mods || []);
+        } catch (err) {
+            console.error('Failed to refresh installed mods in ConfigEditor:', err);
+        }
+    }, [selectedServerId]);
+
+    // Handle 1-click install & activate from ModMapHubModal
+    const handleMapInstalledAndSelected = useCallback(async (mapArg: string, _modId?: string) => {
+        handleUpdate('GameUserSettings', 'ServerSettings', 'MapName', mapArg);
+        await refreshInstalledMods();
+        setShowMapHubModal(false);
+    }, [handleUpdate, refreshInstalledMods]);
+
     const handleSave = async () => {
         if (!selectedServerId) return;
         setIsLoading(true);
@@ -1833,14 +2278,35 @@ export default function ConfigEditor() {
             if (mapName) {
                 updateParams.mapName = mapName;
 
-                // If it is a modded map, auto-inject launch arguments
+                // If it is a modded map or installed mod map, auto-inject launch arguments
+                let targetModId: string | undefined = undefined;
                 const moddedPreset = getModdedMapByMapArg(mapName, 'ASA');
-                if (moddedPreset) {
+                if (moddedPreset?.mapModId) {
+                    targetModId = moddedPreset.mapModId;
+                } else {
+                    const matchedMod = installedMods.find(m =>
+                        m.id === mapName ||
+                        detectMapArgumentFromMod(m).toLowerCase() === mapName.toLowerCase() ||
+                        m.name.toLowerCase() === mapName.toLowerCase()
+                    );
+                    if (matchedMod?.id) {
+                        targetModId = matchedMod.id;
+                    }
+                }
+
+                if (targetModId) {
                     const server = useServerStore.getState().servers.find(s => s.id === selectedServerId);
                     const currentCustomArgs = server?.config?.customArgs || server?.config?.custom_args || '';
-                    const newCustomArgs = buildLaunchArgs(moddedPreset, currentCustomArgs);
+                    const newCustomArgs = buildLaunchArgs({ mapModId: targetModId }, currentCustomArgs);
                     if (newCustomArgs !== currentCustomArgs) {
                         updateParams.customArgs = newCustomArgs;
+                    }
+                } else if (['TheIsland_WP', 'ScorchedEarth_WP', 'TheCenter_WP', 'Aberration_WP', 'Extinction_WP'].includes(mapName)) {
+                    // Official map - clean up -MapModID if present
+                    const server = useServerStore.getState().servers.find(s => s.id === selectedServerId);
+                    const currentCustomArgs = server?.config?.customArgs || server?.config?.custom_args || '';
+                    if (/-MapModID=[^\s]+/i.test(currentCustomArgs)) {
+                        updateParams.customArgs = currentCustomArgs.replace(/-MapModID=[^\s]+/gi, '').replace(/\s+/g, ' ').trim();
                     }
                 }
             }
@@ -2397,6 +2863,10 @@ export default function ConfigEditor() {
                                                         onFieldChange={handleUpdate}
                                                         isModified={modifiedSettings.has(`${field.section}.${field.key}`)}
                                                         onFieldReset={handleReset}
+                                                        installedMods={field.key === 'MapName' ? installedMods : undefined}
+                                                        selectedServerId={selectedServerId}
+                                                        onOpenMapHub={() => setShowMapHubModal(true)}
+                                                        onRefreshInstalledMods={refreshInstalledMods}
                                                     />
                                                 ))}
                                             </div>
@@ -2533,6 +3003,17 @@ export default function ConfigEditor() {
                 servers={servers}
                 initialServerId={selectedServerId || undefined}
                 initialTab="library"
+            />
+
+            {/* Curated Modded Map Hub Modal */}
+            <ModMapHubModal
+                isOpen={showMapHubModal}
+                onClose={() => setShowMapHubModal(false)}
+                serverId={selectedServerId || 0}
+                currentMapArg={getValue('GameUserSettings', 'ServerSettings', 'MapName', 'TheIsland_WP')}
+                installedMods={installedMods}
+                onMapInstalledAndSelected={handleMapInstalledAndSelected}
+                onRefreshInstalledMods={refreshInstalledMods}
             />
         </div>
     );

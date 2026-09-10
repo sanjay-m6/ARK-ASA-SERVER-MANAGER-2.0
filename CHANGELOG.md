@@ -5,6 +5,29 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.22] — 2026-09-10
+
+### Added
+- **🗺️ 1-Click ASA Modded Map Hub & Instant In-Place Installation**:
+  - Added dedicated **Modded Map Hub Modal** (`ModMapHubModal.tsx`) with curated popular ASA presets (*Amissa*, *Svartalfheim*, *Insaluna*, *Forglar*, *Astraeos*, *Temptress Lagoon*, *Bjarnheim*, *Reverence*, *Lost Colony*, *ALTHEMIA*, *THARAT*).
+  - Live debounced CurseForge API map search and direct Mod ID quick installer for custom or private test maps.
+  - 1-Click "Install & Activate": automatically downloads, verifies, and installs mod packages to the server, then automatically sets the server active `MapName` and refreshes installed mods.
+  - **In-Place 1-Click Install Banner** on the Config Editor Real-time Map Preview Card when selecting an uninstalled modded map, showing mod details, author, and an instant `[⚡ 1-Click Install Mod]` action without navigating away from the page.
+  - Added `[✨ Modded Maps Hub]` shortcut button directly in the Config Editor map field header and quick 8-map preset grid.
+
+### Fixed & Improved
+- **🌐 Official ASA Map Roadmap Alignment & Main Release Organization**:
+  - Researched and synchronized official map statuses according to current Studio Wildcard Community Crunches and release schedules.
+  - Corrected **Ragnarok** (`Ragnarok_WP`), **Valguero** (`Valguero_WP`), **Genesis Part 1** (`Genesis_WP`), and **Club ARK** (`ClubARK_WP`) to appear under **Official / Main Release Maps** (`released`) instead of being mistakenly grouped in "Upcoming (Soon)".
+  - Streamlined the **Upcoming Maps (Soon)** section to strictly show confirmed upcoming roadmap maps (**Genesis Part 2**, **Fjordur**, **Crystal Isles**, **Lost Island**).
+- **🧭 Enhanced Mod Manager Map Management & Direct Server Activation**:
+  - Added `🗺️ Maps Only` toggle chip in the Available Mods browser to instantly filter out dinos, items, and weapons.
+  - Added dedicated `🗺️ Maps ({count})` filter tab in Installed Mods.
+  - Added `🗺️ Map: <name_WP>` badge on installed map mod rows.
+  - Added 1-click `[Set as Map]` inline button on installed mod rows (with active status badge if already active).
+  - Added `🗺️ Set as Active Server Map` 1-click action in the Mod Detail inspection modal.
+  - Automatic launch argument injection ensuring `-MapModID=<id>` and `-mods=<id>` are correctly passed to the server process.
+
 ---
 
 ## [4.6.21] — 2026-09-09

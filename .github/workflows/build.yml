@@ -89,7 +89,29 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Improvements in v4.6.21
+            ### 🆕 New Features & Improvements in v4.6.22
+            - **🗺️ 1-Click ASA Modded Map Hub & In-Place Installation**:
+              - Added dedicated **Modded Map Hub Modal** (`ModMapHubModal.tsx`) with curated popular ASA presets (*Amissa*, *Svartalfheim*, *Insaluna*, *Forglar*, *Astraeos*, *Temptress Lagoon*, *Bjarnheim*, *Reverence*, *Lost Colony*, *ALTHEMIA*, *THARAT*).
+              - Live debounced CurseForge API map search and direct Mod ID quick installer for custom/private map packages.
+              - 1-Click "Install & Activate": automatically downloads, verifies, and installs mod packages to the server, then automatically sets the server active `MapName` and refreshes installed packages.
+              - **In-Place 1-Click Install Banner** on the Config Editor Real-time Map Preview Card when selecting an uninstalled modded map, showing mod details, author, and an instant `[⚡ 1-Click Install Mod]` action without navigating away from the page.
+              - Added `[✨ Modded Maps Hub]` shortcut button directly in the Config Editor map field header and quick 8-map preset grid.
+            - **🌐 Official ASA Map Roadmap Alignment & Main Release Organization**:
+              - Researched and synchronized official map statuses according to current Studio Wildcard Community Crunches and release schedules.
+              - Corrected **Ragnarok** (`Ragnarok_WP`), **Valguero** (`Valguero_WP`), **Genesis Part 1** (`Genesis_WP`), and **Club ARK** (`ClubARK_WP`) to appear under **Official / Main Release Maps** (`released`) instead of being mistakenly grouped in "Upcoming (Soon)".
+              - Streamlined the **Upcoming Maps (Soon)** section to strictly show confirmed upcoming roadmap maps (**Genesis Part 2**, **Fjordur**, **Crystal Isles**, **Lost Island**).
+            - **🧭 Enhanced Mod Manager Map Management & Direct Server Activation**:
+              - Added `🗺️ Maps Only` toggle chip in the Available Mods browser to instantly filter out dinos, items, and weapons.
+              - Added dedicated `🗺️ Maps ({count})` filter tab in Installed Mods.
+              - Added `🗺️ Map: <name_WP>` badge on installed map mod rows.
+              - Added 1-click `[Set as Map]` inline button on installed mod rows (with active status badge if already active).
+              - Added `🗺️ Set as Active Server Map` 1-click action in the Mod Detail inspection modal.
+              - Automatic launch argument injection ensuring `-MapModID=<id>` and `-mods=<id>` are correctly passed to the server process.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.21 — SteamCMD Auto-Update Runaway Loop Fix & Complete Chinese Localization</summary>
+
             - **🚀 SteamCMD Auto-Update Runaway Loop & Cache Protection**:
               - Fixed an auto-update loop where SteamCMD was relaunched roughly every 60 seconds, aborting ~12 GB full server downloads at ~10% and retrying endlessly (46+ retries).
               - Corrected argument ordering to pass `+force_install_dir <path>` strictly prior to `+login anonymous`, ensuring SteamCMD respects target install paths without resetting directory states.
@@ -101,8 +123,7 @@ jobs:
               - Full translation coverage for Simplified Chinese (`zh-CN`) and Traditional Chinese (`zh-TW`) across all UI modules.
               - Complete localization for Mod Manager, Crash Doctor, Chat Translator, Boost Manager, Cluster Manager, and INI configuration editors.
               - Automated AST static validation ensuring 0 missing i18n keys across all pages and modals.
-
-            ### 🛠️ Previous Releases
+            </details>
             <details>
             <summary>v4.6.20 — Cross-Server Process Isolation, ASE RuntimeMeshComponent Hang Fix & Crash Doctor</summary>
 

@@ -993,7 +993,21 @@ export default function ASEConfigEditor() {
   }, [mapName]);
 
   const knownValues = useMemo(() => ASE_MAPS.map(m => m.serverArg), []);
-  const isCustomValue = mapName !== '' && !knownValues.includes(mapName);
+  const [isCustomMode, setIsCustomMode] = useState<boolean>(() => !knownValues.includes(mapName));
+
+  const lastKnownValueRef = useRef(mapName);
+  useEffect(() => {
+    if (mapName !== lastKnownValueRef.current) {
+      lastKnownValueRef.current = mapName;
+      if (knownValues.includes(mapName)) {
+        setIsCustomMode(false);
+      } else if (mapName !== '') {
+        setIsCustomMode(true);
+      }
+    }
+  }, [mapName, knownValues]);
+
+  const isCustomValue = isCustomMode || !knownValues.includes(mapName);
   const dropdownValue = isCustomValue ? '__CUSTOM__' : mapName;
 
   const groupedMaps = useMemo(() => {
@@ -1046,10 +1060,10 @@ export default function ASEConfigEditor() {
               </span>
               <div>
                 <div className="font-semibold text-slate-100 leading-tight">
-                  {selectedMapMeta ? selectedMapMeta.name : (mapName || 'Custom Map')}
+                  {dropdownValue === '__CUSTOM__' ? (mapName || 'Custom Map') : (selectedMapMeta ? selectedMapMeta.name : (mapName || 'Custom Map'))}
                 </div>
                 <div className="text-[10px] text-amber-500 font-semibold tracking-wider uppercase mt-0.5">
-                  {selectedMapMeta ? (selectedMapMeta.author ? `${selectedMapMeta.dlcType} • By ${selectedMapMeta.author}` : selectedMapMeta.dlcType) : 'Custom Mod Map'}
+                  {dropdownValue === '__CUSTOM__' ? (mapName ? 'Custom Mod Map' : 'Custom Map Argument') : (selectedMapMeta ? (selectedMapMeta.author ? `${selectedMapMeta.dlcType} • By ${selectedMapMeta.author}` : selectedMapMeta.dlcType) : 'Official Map')}
                 </div>
               </div>
             </div>
@@ -1073,6 +1087,7 @@ export default function ASEConfigEditor() {
                         key={m.serverArg}
                         type="button"
                         onClick={() => {
+                          setIsCustomMode(false);
                           handleMapChange(m.serverArg);
                           setIsMapOpen(false);
                         }}
@@ -1132,6 +1147,7 @@ export default function ASEConfigEditor() {
                           key={m.serverArg}
                           type="button"
                           onClick={() => {
+                            setIsCustomMode(false);
                             handleMapChange(m.serverArg);
                             setIsMapOpen(false);
                           }}
@@ -1190,7 +1206,10 @@ export default function ASEConfigEditor() {
                   <button
                     type="button"
                     onClick={() => {
-                      handleMapChange(isCustomValue ? mapName : '');
+                      setIsCustomMode(true);
+                      if (!isCustomValue) {
+                        handleMapChange('');
+                      }
                       setIsMapOpen(false);
                     }}
                     className={cn(

@@ -2,9 +2,9 @@ import React, { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Code, Shield, Upload, PackagePlus, ScanSearch, ShieldCheck, GripVertical, Key, MessageSquare, FolderArchive, Image as ImageIcon, GitFork, Sparkles, CheckCircle } from 'lucide-react';
+import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Code, Shield, Upload, PackagePlus, ScanSearch, ShieldCheck, GripVertical, Key, MessageSquare, FolderArchive, Image as ImageIcon, GitFork, Sparkles, CheckCircle, MapPin } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, toggleAllMods, getModDescription, getModScreenshots, copyModsToServer, type ModConfigPreview, getModCategories, type CurseForgeCategory, checkModConflicts, exportModpack, importModpack, type ModConflict, type ModpackImportResult } from '../utils/tauri';
+import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, toggleAllMods, getModDescription, getModScreenshots, copyModsToServer, type ModConfigPreview, getModCategories, type CurseForgeCategory, checkModConflicts, exportModpack, importModpack, type ModConflict, type ModpackImportResult, updateServerSettings } from '../utils/tauri';
 import { ModInfo } from '../types';
 import toast from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
@@ -16,6 +16,7 @@ import { useServerStore } from '../stores/serverStore';
 import ModOrganizationBar from '../components/mods/ModOrganizationBar';
 import ModCategorySelector from '../components/mods/ModCategorySelector';
 import { useModOrganizationStore } from '../stores/modOrganizationStore';
+import { isModLikelyMap, detectMapArgumentFromMod } from '../data/moddedMapRegistry';
 
 interface ServerBasic {
     id: number;
@@ -138,6 +139,11 @@ const ModCard = memo(({
                         <span className="px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-bold uppercase tracking-wider">
                             ASA Crossplay
                         </span>
+                        {isModLikelyMap(mod) && (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-500/25 text-amber-300 border border-amber-500/40 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                                🗺️ Map
+                            </span>
+                        )}
                         {mod.enabled && (
                             <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
                                 <CheckCircle className="w-3 h-3" /> Installed
@@ -499,15 +505,21 @@ export default function ModManager() {
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-    // Filter available mods by active category selection
+    // Available & Map Filters
+    const [mapsOnlyFilter, setMapsOnlyFilter] = useState(false);
+
+    // Filter available mods by active category selection and maps filter
     const filteredAvailableMods = useMemo(() => {
-        if (activeCategoryId === 'all') return availableMods;
-        return availableMods.filter((mod) => isModInCategory(mod.id, activeCategoryId));
-    }, [availableMods, activeCategoryId, isModInCategory]);
+        let list = activeCategoryId === 'all' ? availableMods : availableMods.filter((mod) => isModInCategory(mod.id, activeCategoryId));
+        if (mapsOnlyFilter) {
+            list = list.filter(isModLikelyMap);
+        }
+        return list;
+    }, [availableMods, activeCategoryId, isModInCategory, mapsOnlyFilter]);
 
     // Installed Mods State
     const [installedMods, setInstalledMods] = useState<ModInfo[]>([]);
-    const [installedFilter, setInstalledFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
+    const [installedFilter, setInstalledFilter] = useState<'all' | 'enabled' | 'disabled' | 'maps'>('all');
     const [isSyncing, setIsSyncing] = useState(false);
 
     // Compute mod counts per category folder
@@ -2018,6 +2030,41 @@ export default function ModManager() {
                                                     </button>
                                                 )}
 
+                                                {/* Set as Server Map 1-Click Action for Map Mods */}
+                                                {isModLikelyMap(selectedModDetail) && (
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (!selectedServerId) {
+                                                                toast.error(t('modManager.selectServerFirst', 'Please select a server first'));
+                                                                return;
+                                                            }
+                                                            const mapArg = detectMapArgumentFromMod(selectedModDetail);
+                                                            const isInstalled = installedMods.some(m => m.id === selectedModDetail.id);
+                                                            try {
+                                                                if (!isInstalled) {
+                                                                    toast.loading(`Installing and configuring ${selectedModDetail.name} as server map...`, { id: `map-${selectedModDetail.id}` });
+                                                                    await installMod(selectedServerId, selectedModDetail);
+                                                                } else {
+                                                                    toast.loading(`Setting ${mapArg} as active server map...`, { id: `map-${selectedModDetail.id}` });
+                                                                }
+                                                                await updateServerSettings({
+                                                                    serverId: selectedServerId,
+                                                                    mapName: mapArg
+                                                                });
+                                                                await useServerStore.getState().refreshServers();
+                                                                toast.success(`Server map successfully set to ${mapArg}!`, { id: `map-${selectedModDetail.id}` });
+                                                                await fetchInstalled();
+                                                            } catch (err: any) {
+                                                                toast.error(`Failed to set server map: ${err?.message || err}`, { id: `map-${selectedModDetail.id}` });
+                                                            }
+                                                        }}
+                                                        className="w-full py-3.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 active:scale-[0.98] text-white rounded-xl text-center font-bold transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer border border-emerald-400/30"
+                                                    >
+                                                        <MapPin className="w-4 h-4 text-emerald-200 animate-pulse" />
+                                                        <span>🗺️ Set as Active Server Map ({detectMapArgumentFromMod(selectedModDetail)})</span>
+                                                    </button>
+                                                )}
+
                                                 <a 
                                                     href={selectedModDetail.curseforge_url || selectedModDetail.workshopUrl} 
                                                     target="_blank" 
@@ -2169,16 +2216,32 @@ export default function ModManager() {
                         {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4 text-sky-400" /> : <ArrowDown className="w-4 h-4 text-sky-400" />}
                     </button>
 
+                    {/* Maps Only Quick Toggle Filter */}
+                    <button
+                        onClick={() => setMapsOnlyFilter(prev => !prev)}
+                        className={cn(
+                            "px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95",
+                            mapsOnlyFilter
+                                ? "bg-amber-500/25 border-amber-500 text-amber-300 shadow-amber-500/20"
+                                : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-amber-500/40"
+                        )}
+                        title="Filter and show only ARK custom & modded map packages"
+                    >
+                        <span>🗺️ Maps Only</span>
+                        {mapsOnlyFilter && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                    </button>
+
                     {/* Clear Filters */}
-                    {(selectedCategory || sortField !== 2 || sortOrder !== 'desc') && (
+                    {(selectedCategory || sortField !== 2 || sortOrder !== 'desc' || mapsOnlyFilter) && (
                         <button
                             onClick={() => {
                                 setSelectedCategory(undefined);
                                 setSortField(2);
                                 setSortOrder('desc');
+                                setMapsOnlyFilter(false);
                                 setSearchQuery('');
                             }}
-                            className="ml-auto text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1.5 font-medium px-3 py-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/20 border border-sky-500/20 transition-all"
+                            className="ml-auto text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1.5 font-medium px-3 py-2 bg-sky-500/10 rounded-lg hover:bg-sky-500/20 border border-sky-500/20 transition-all cursor-pointer"
                         >
                             <X className="w-3 h-3" /> {t('modManager.clearFilters')}
                         </button>
@@ -2476,6 +2539,18 @@ export default function ModManager() {
                                 >
                                     Disabled ({installedMods.filter(m => !m.enabled).length})
                                 </button>
+                                <button
+                                    onClick={() => setInstalledFilter('maps')}
+                                    className={cn(
+                                        "px-4 py-1.5 rounded-xl transition-all flex items-center gap-1.5",
+                                        installedFilter === 'maps'
+                                            ? "bg-amber-600 text-white shadow-md font-extrabold"
+                                            : "text-slate-400 hover:text-white"
+                                    )}
+                                >
+                                    <span>🗺️ Maps</span>
+                                    <span>({installedMods.filter(isModLikelyMap).length})</span>
+                                </button>
                             </div>
 
                             {/* Bulk Enable / Disable Action Buttons */}
@@ -2522,6 +2597,7 @@ export default function ModManager() {
                                                     if (!matchesSearch) return false;
                                                     if (installedFilter === 'enabled') return mod.enabled;
                                                     if (installedFilter === 'disabled') return !mod.enabled;
+                                                    if (installedFilter === 'maps') return isModLikelyMap(mod);
                                                     if (activeCategoryId !== 'all' && !isModInCategory(mod.id, activeCategoryId)) return false;
                                                     return true;
                                                 })
@@ -2601,6 +2677,13 @@ export default function ModManager() {
                                                                                     #{mod.id}
                                                                                 </button>
 
+                                                                                {isModLikelyMap(mod) && (
+                                                                                    <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold rounded-md flex items-center gap-1">
+                                                                                        <MapPin className="w-3 h-3" />
+                                                                                        Map: {detectMapArgumentFromMod(mod)}
+                                                                                    </span>
+                                                                                )}
+
                                                                                 {mod.enabled ? (
                                                                                     <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold rounded-md flex items-center gap-1">
                                                                                         <CheckCircle className="w-3 h-3" /> Active #{originalIndex + 1}
@@ -2631,6 +2714,41 @@ export default function ModManager() {
 
                                                                     {/* Right Control Action Buttons */}
                                                                     <div className="flex items-center gap-2 shrink-0 self-end sm:self-center" onClick={(e) => e.stopPropagation()}>
+                                                                        {isModLikelyMap(mod) && (
+                                                                            activeServer?.config?.mapName?.toLowerCase() === detectMapArgumentFromMod(mod).toLowerCase() ? (
+                                                                                <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-extrabold flex items-center gap-1.5 shadow-sm">
+                                                                                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                                                                                    <span>Active Map</span>
+                                                                                </span>
+                                                                            ) : (
+                                                                                <button
+                                                                                    onClick={async () => {
+                                                                                        if (!selectedServerId) {
+                                                                                            toast.error(t('modManager.selectServerFirst'));
+                                                                                            return;
+                                                                                        }
+                                                                                        const mapArg = detectMapArgumentFromMod(mod);
+                                                                                        try {
+                                                                                            await updateServerSettings({
+                                                                                                serverId: selectedServerId,
+                                                                                                mapName: mapArg
+                                                                                            });
+                                                                                            await useServerStore.getState().refreshServers();
+                                                                                            toast.success(`Server map updated to ${mod.name} (${mapArg})!`);
+                                                                                        } catch (err) {
+                                                                                            console.error("Failed to set active server map:", err);
+                                                                                            toast.error("Failed to set active server map");
+                                                                                        }
+                                                                                    }}
+                                                                                    className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:shadow-amber-500/20 hover:border-amber-400"
+                                                                                    title={`Set server active map to ${detectMapArgumentFromMod(mod)}`}
+                                                                                >
+                                                                                    <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                                                                                    <span>Set as Map</span>
+                                                                                </button>
+                                                                            )
+                                                                        )}
+
                                                                         <button
                                                                             onClick={() => setSelectedModDetail(mod)}
                                                                             className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 text-xs font-bold transition-all flex items-center gap-1.5"
