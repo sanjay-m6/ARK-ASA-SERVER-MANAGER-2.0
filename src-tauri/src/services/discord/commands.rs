@@ -6,7 +6,8 @@ use tauri::{AppHandle, Manager};
 use serenity::all::{
     CommandInteraction, Context, CreateEmbed, CreateEmbedFooter,
     CreateInteractionResponse, CreateInteractionResponseMessage,
-    CreateModal, CreateInputText, InputTextStyle, CreateActionRow
+    CreateModal, CreateInputText, InputTextStyle, CreateActionRow,
+    EditInteractionResponse
 };
 
 use super::auth::AuthGuard;
@@ -210,6 +211,8 @@ impl CommandHandler {
                         return;
                     }
 
+                    let _ = command.defer_ephemeral(&ctx.http).await;
+
                     let rcon_state = app_handle.try_state::<crate::commands::rcon::RconState>();
                     if let Some(rcon) = rcon_state {
                         let rcon_service = &rcon.inner().0;
@@ -241,21 +244,20 @@ impl CommandHandler {
                                     .footer(CreateEmbedFooter::new("ARK Server Manager • Remote RCON"))
                                     .timestamp(serenity::model::Timestamp::now());
 
-                                let resp = CreateInteractionResponseMessage::new().embed(embed).ephemeral(true);
-                                let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                                let _ = command.edit_response(&ctx.http, EditInteractionResponse::new().embed(embed)).await;
                             }
                             Err(e) => {
-                                let resp = CreateInteractionResponseMessage::new()
-                                    .content(format!("❌ **RCON Execution Failed:** {}", e))
-                                    .ephemeral(true);
-                                let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                                let _ = command.edit_response(
+                                    &ctx.http,
+                                    EditInteractionResponse::new().content(format!("❌ **RCON Execution Failed:** {}", e)),
+                                ).await;
                             }
                         }
                     } else {
-                        let resp = CreateInteractionResponseMessage::new()
-                            .content("❌ RCON Service is currently unavailable.")
-                            .ephemeral(true);
-                        let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                        let _ = command.edit_response(
+                            &ctx.http,
+                            EditInteractionResponse::new().content("❌ RCON Service is currently unavailable."),
+                        ).await;
                     }
                 } else {
                     // Open Modal for interactive RCON input
@@ -365,16 +367,16 @@ impl CommandHandler {
 
             "player" => {
                 if let Some(ref q) = query {
+                    let _ = command.defer_ephemeral(&ctx.http).await;
                     match PlayerManager::build_player_dossier(app_handle, q).await {
                         Ok(embed) => {
-                            let resp = CreateInteractionResponseMessage::new().embed(embed).ephemeral(true);
-                            let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                            let _ = command.edit_response(&ctx.http, EditInteractionResponse::new().embed(embed)).await;
                         }
                         Err(e) => {
-                            let resp = CreateInteractionResponseMessage::new()
-                                .content(format!("❌ {}", e))
-                                .ephemeral(true);
-                            let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                            let _ = command.edit_response(
+                                &ctx.http,
+                                EditInteractionResponse::new().content(format!("❌ {}", e)),
+                            ).await;
                         }
                     }
                 } else {
@@ -387,6 +389,7 @@ impl CommandHandler {
 
             "link" => {
                 if let Some(ref sid) = steam_id {
+                    let _ = command.defer_ephemeral(&ctx.http).await;
                     let g_str = guild_id.map(|g| g.to_string()).unwrap_or_default();
                     match PlayerManager::link_player(
                         app_handle,
@@ -404,14 +407,13 @@ impl CommandHandler {
                                 .footer(CreateEmbedFooter::new("ARK Server Manager • Identity & Access"))
                                 .timestamp(serenity::model::Timestamp::now());
 
-                            let resp = CreateInteractionResponseMessage::new().embed(embed).ephemeral(true);
-                            let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                            let _ = command.edit_response(&ctx.http, EditInteractionResponse::new().embed(embed)).await;
                         }
                         Err(e) => {
-                            let resp = CreateInteractionResponseMessage::new()
-                                .content(format!("❌ **Account Link Failed:** {}", e))
-                                .ephemeral(true);
-                            let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                            let _ = command.edit_response(
+                                &ctx.http,
+                                EditInteractionResponse::new().content(format!("❌ **Account Link Failed:** {}", e)),
+                            ).await;
                         }
                     }
                 } else {
@@ -424,6 +426,7 @@ impl CommandHandler {
 
             "whitelist" => {
                 if let Some(ref sid) = steam_id {
+                    let _ = command.defer_ephemeral(&ctx.http).await;
                     let g_str = guild_id.map(|g| g.to_string()).unwrap_or_default();
                     match WhitelistService::add_to_whitelist(
                         app_handle,
@@ -434,14 +437,13 @@ impl CommandHandler {
                         server_id,
                     ).await {
                         Ok(embed) => {
-                            let resp = CreateInteractionResponseMessage::new().embed(embed).ephemeral(true);
-                            let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                            let _ = command.edit_response(&ctx.http, EditInteractionResponse::new().embed(embed)).await;
                         }
                         Err(e) => {
-                            let resp = CreateInteractionResponseMessage::new()
-                                .content(format!("❌ **Whitelist Failed:** {}", e))
-                                .ephemeral(true);
-                            let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                            let _ = command.edit_response(
+                                &ctx.http,
+                                EditInteractionResponse::new().content(format!("❌ **Whitelist Failed:** {}", e)),
+                            ).await;
                         }
                     }
                 } else {
@@ -454,6 +456,7 @@ impl CommandHandler {
 
             "kick" => {
                 if let (Some(srv_id), Some(sid)) = (server_id, steam_id) {
+                    let _ = command.defer_ephemeral(&ctx.http).await;
                     let g_str = guild_id.map(|g| g.to_string()).unwrap_or_default();
                     match PlayerManager::kick_player(
                         app_handle,
@@ -464,14 +467,13 @@ impl CommandHandler {
                         reason.as_deref(),
                     ).await {
                         Ok(msg) => {
-                            let resp = CreateInteractionResponseMessage::new().content(msg).ephemeral(true);
-                            let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                            let _ = command.edit_response(&ctx.http, EditInteractionResponse::new().content(msg)).await;
                         }
                         Err(e) => {
-                            let resp = CreateInteractionResponseMessage::new()
-                                .content(format!("❌ **Kick Failed:** {}", e))
-                                .ephemeral(true);
-                            let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                            let _ = command.edit_response(
+                                &ctx.http,
+                                EditInteractionResponse::new().content(format!("❌ **Kick Failed:** {}", e)),
+                            ).await;
                         }
                     }
                 } else {
@@ -484,6 +486,7 @@ impl CommandHandler {
 
             "ban" => {
                 if let (Some(srv_id), Some(sid)) = (server_id, steam_id) {
+                    let _ = command.defer_ephemeral(&ctx.http).await;
                     let g_str = guild_id.map(|g| g.to_string()).unwrap_or_default();
                     match PlayerManager::ban_player(
                         app_handle,
@@ -494,14 +497,13 @@ impl CommandHandler {
                         reason.as_deref(),
                     ).await {
                         Ok(msg) => {
-                            let resp = CreateInteractionResponseMessage::new().content(msg).ephemeral(true);
-                            let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                            let _ = command.edit_response(&ctx.http, EditInteractionResponse::new().content(msg)).await;
                         }
                         Err(e) => {
-                            let resp = CreateInteractionResponseMessage::new()
-                                .content(format!("❌ **Ban Failed:** {}", e))
-                                .ephemeral(true);
-                            let _ = command.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                            let _ = command.edit_response(
+                                &ctx.http,
+                                EditInteractionResponse::new().content(format!("❌ **Ban Failed:** {}", e)),
+                            ).await;
                         }
                     }
                 } else {

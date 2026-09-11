@@ -303,6 +303,9 @@ impl RconService {
                 }
             }
         } else {
+            // Drop sessions mutex guard immediately to avoid lock contention with state.db
+            drop(sessions);
+
             // Check if we can automatically establish the connection
             let mut auto_connected = false;
             let mut ip = String::new();
@@ -313,8 +316,8 @@ impl RconService {
                 if let Some(state) = app_handle.try_state::<crate::AppState>() {
                     if let Ok(db) = state.db.lock() {
                         if let Ok(conn) = db.get_connection() {
-                            if server_id > 0 {
-                                // ASA
+                                                        if server_id > 0 {
+                                // 1. Try ASA servers
                                 if let Ok(mut stmt) = conn.prepare("SELECT COALESCE(ip_address, '127.0.0.1'), rcon_port, admin_password FROM servers WHERE id = ?1") {
                                     if let Ok(mut rows) = stmt.query([server_id]) {
                                         if let Ok(Some(row)) = rows.next() {
@@ -327,10 +330,12 @@ impl RconService {
                                         }
                                     }
                                 }
-                            } else {
-                                // ASE (negative ID)
+                            }
+
+                            // 2. If not found in ASA servers (or if negative ID), check ASE ase_servers
+                            if !auto_connected {
                                 let clean_id = server_id.abs();
-                                if let Ok(mut stmt) = conn.prepare("SELECT '127.0.0.1', rcon_port, admin_password FROM ase_servers WHERE id = ?1") {
+                                if let Ok(mut stmt) = conn.prepare("SELECT '127.0.0.1', rcon_port, COALESCE(NULLIF(rcon_password, ''), admin_password) FROM ase_servers WHERE id = ?1") {
                                     if let Ok(mut rows) = stmt.query([clean_id]) {
                                         if let Ok(Some(row)) = rows.next() {
                                             if let (Ok(db_ip), Ok(db_port), Ok(db_pwd)) = (row.get::<_, String>(0), row.get::<_, i64>(1), row.get::<_, String>(2)) {
@@ -362,7 +367,7 @@ impl RconService {
                     .unwrap_or(&pwd)
                     .to_string();
 
-                drop(sessions); // Drop mutex guard before calling connect to avoid deadlock!
+                // drop(sessions) already released before DB queries above
 
                 if let Ok(resp) = self.connect(server_id, &ip, port, &clean_password).await {
                     if resp.success {

@@ -23,55 +23,57 @@ impl PlayerManager {
             return Err("Identifier cannot be empty.".to_string());
         }
 
-        let state = app_handle.try_state::<AppState>().ok_or("AppState not found")?;
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        {
+            let state = app_handle.try_state::<AppState>().ok_or("AppState not found")?;
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        // Check if this Steam/EOS ID is already claimed by ANOTHER Discord user
-        let existing_claim: Option<String> = conn.query_row(
-            "SELECT discord_user_id FROM discord_player_links WHERE (steam_id = ?1 OR eos_id = ?1) AND discord_user_id != ?2",
-            [clean_id, discord_user_id],
-            |row| row.get(0)
-        ).ok();
+            // Check if this Steam/EOS ID is already claimed by ANOTHER Discord user
+            let existing_claim: Option<String> = conn.query_row(
+                "SELECT discord_user_id FROM discord_player_links WHERE (steam_id = ?1 OR eos_id = ?1) AND discord_user_id != ?2",
+                [clean_id, discord_user_id],
+                |row| row.get(0)
+            ).ok();
 
-        if let Some(other_discord_id) = existing_claim {
-            return Err(format!(
-                "This in-game ID is already linked to another Discord user (<@{}>). Please contact a server admin if this is an error.",
-                other_discord_id
-            ));
+            if let Some(other_discord_id) = existing_claim {
+                return Err(format!(
+                    "This in-game ID is already linked to another Discord user (<@{}>). Please contact a server admin if this is an error.",
+                    other_discord_id
+                ));
+            }
+
+            let is_steam = clean_id.chars().all(|c| c.is_ascii_digit()) && clean_id.len() >= 17;
+            let steam_id = if is_steam { clean_id } else { "" };
+            let eos_id = if !is_steam { clean_id } else { "" };
+
+            conn.execute(
+                "INSERT INTO discord_player_links (
+                    discord_user_id, guild_id, steam_id, eos_id, player_name, cluster_id, verified, last_verified_at
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, CURRENT_TIMESTAMP)
+                ON CONFLICT(discord_user_id) DO UPDATE SET
+                    guild_id = excluded.guild_id,
+                    steam_id = excluded.steam_id,
+                    eos_id = excluded.eos_id,
+                    player_name = excluded.player_name,
+                    cluster_id = excluded.cluster_id,
+                    verified = 1,
+                    last_verified_at = CURRENT_TIMESTAMP",
+                rusqlite::params![
+                    discord_user_id,
+                    guild_id,
+                    steam_id,
+                    eos_id,
+                    discord_username,
+                    cluster_id
+                ],
+            ).map_err(|e| format!("Database error: {}", e))?;
+
+            // Also update discord_users table for backwards compatibility
+            let _ = conn.execute(
+                "INSERT OR REPLACE INTO discord_users (discord_id, steam_id, discord_username) VALUES (?1, ?2, ?3)",
+                rusqlite::params![discord_user_id, clean_id, discord_username],
+            );
         }
-
-        let is_steam = clean_id.chars().all(|c| c.is_ascii_digit()) && clean_id.len() >= 17;
-        let steam_id = if is_steam { clean_id } else { "" };
-        let eos_id = if !is_steam { clean_id } else { "" };
-
-        conn.execute(
-            "INSERT INTO discord_player_links (
-                discord_user_id, guild_id, steam_id, eos_id, player_name, cluster_id, verified, last_verified_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, CURRENT_TIMESTAMP)
-            ON CONFLICT(discord_user_id) DO UPDATE SET
-                guild_id = excluded.guild_id,
-                steam_id = excluded.steam_id,
-                eos_id = excluded.eos_id,
-                player_name = excluded.player_name,
-                cluster_id = excluded.cluster_id,
-                verified = 1,
-                last_verified_at = CURRENT_TIMESTAMP",
-            rusqlite::params![
-                discord_user_id,
-                guild_id,
-                steam_id,
-                eos_id,
-                discord_username,
-                cluster_id
-            ],
-        ).map_err(|e| format!("Database error: {}", e))?;
-
-        // Also update discord_users table for backwards compatibility
-        let _ = conn.execute(
-            "INSERT OR REPLACE INTO discord_users (discord_id, steam_id, discord_username) VALUES (?1, ?2, ?3)",
-            rusqlite::params![discord_user_id, clean_id, discord_username],
-        );
 
         AuditLogger::log(
             app_handle,
@@ -134,13 +136,15 @@ impl PlayerManager {
         admin_discord_id: &str,
         target_discord_id: &str,
     ) -> Result<(), String> {
-        let state = app_handle.try_state::<AppState>().ok_or("AppState not found")?;
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        {
+            let state = app_handle.try_state::<AppState>().ok_or("AppState not found")?;
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        conn.execute("DELETE FROM discord_player_links WHERE discord_user_id = ?1", [target_discord_id])
-            .map_err(|e| e.to_string())?;
-        let _ = conn.execute("DELETE FROM discord_users WHERE discord_id = ?1", [target_discord_id]);
+            conn.execute("DELETE FROM discord_player_links WHERE discord_user_id = ?1", [target_discord_id])
+                .map_err(|e| e.to_string())?;
+            let _ = conn.execute("DELETE FROM discord_users WHERE discord_id = ?1", [target_discord_id]);
+        }
 
         AuditLogger::log(
             app_handle,

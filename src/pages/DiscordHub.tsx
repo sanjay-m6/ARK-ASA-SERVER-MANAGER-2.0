@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, Variants } from 'framer-motion';
 import {
     Bot, MessageSquare, Bell, Shield, Wifi, WifiOff,
@@ -21,6 +22,7 @@ import {
     startDiscordBridge, stopDiscordBridge, testDiscordConnection,
     generateBotInviteUrl,
     getClusters, createCluster,
+    getAseClusters, createAseCluster,
     triggerDiscordSetup, refreshDiscordDashboard,
     getDiscordPlayerLinks, unlinkDiscordPlayer,
     getDiscordAuditLogs, clearDiscordAuditLogs,
@@ -29,6 +31,8 @@ import {
     type DiscordAuditLogEntry
 } from '../utils/tauri';
 import { useServerStore } from '../stores/serverStore';
+import { useAseServerStore } from '../ase/stores/aseServerStore';
+import { useGameStore } from '../stores/gameStore';
 
 interface LiveChatMessage {
     id: string;
@@ -125,7 +129,14 @@ const DEFAULT_BRIDGE_CONFIG: DiscordBridgeConfig = {
 };
 
 export default function DiscordHub() {
-    const { servers, refreshServers } = useServerStore();
+    const location = useLocation();
+    const { activeGame } = useGameStore();
+    const isAse = activeGame === 'ASE' || location.pathname.includes('/ase');
+
+    const { servers: asaServers, refreshServers: refreshAsaServers } = useServerStore();
+    const { servers: aseServers, refreshServers: refreshAseServers } = useAseServerStore();
+
+    const allServers = isAse ? aseServers : asaServers;
 
     // Tab state
     const [activeTab, setActiveTab] = useState<'guide' | 'chat' | 'status' | 'alerts' | 'bot' | 'players' | 'audit' | 'rcon' | 'ratelimit'>('guide');
@@ -133,6 +144,9 @@ export default function DiscordHub() {
     // Clusters & Config State
     const [clusters, setClusters] = useState<{ id: number; name: string }[]>([]);
     const [selectedClusterId, setSelectedClusterId] = useState<number | null>(null);
+    const selectedClusterIdRef = useRef<number | null>(null);
+    selectedClusterIdRef.current = selectedClusterId;
+
     const [config, setConfig] = useState<DiscordBridgeConfig>(DEFAULT_BRIDGE_CONFIG);
     const [webhookUrl, setWebhookUrl] = useState('');
     const [savedWebhookUrl, setSavedWebhookUrl] = useState('');
@@ -200,15 +214,21 @@ export default function DiscordHub() {
                 setSavedWebhookUrl(wh);
             }
 
-            const clusterList = await getClusters();
+            const clusterList = isAse ? await getAseClusters() : await getClusters();
             setClusters(clusterList);
 
-            let clusterId = clusterList.length > 0 ? clusterList[0].id : null;
+            const currentSelected = selectedClusterIdRef.current;
+            let clusterId = (currentSelected && clusterList.some(c => c.id === currentSelected))
+                ? currentSelected
+                : (clusterList.length > 0 ? clusterList[0].id : null);
+
             if (clusterId) {
                 setSelectedClusterId(clusterId);
             } else {
                 try {
-                    const newCluster = await createCluster("Main Cluster", []);
+                    const newCluster = isAse
+                        ? await createAseCluster("Main Cluster", [])
+                        : await createCluster("Main Cluster", []);
                     clusterId = newCluster.id;
                     setSelectedClusterId(clusterId);
                     setClusters([newCluster]);
@@ -240,7 +260,7 @@ export default function DiscordHub() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [isAse]);
 
     const fetchHealthAndBridge = async (clusterId: number) => {
         try {
@@ -282,8 +302,12 @@ export default function DiscordHub() {
 
     useEffect(() => {
         loadData();
-        refreshServers();
-    }, [loadData, refreshServers]);
+        if (isAse) {
+            refreshAseServers();
+        } else {
+            refreshAsaServers();
+        }
+    }, [loadData, isAse, refreshAseServers, refreshAsaServers]);
 
     // Live polling loop (every 8s)
     useEffect(() => {
@@ -531,7 +555,18 @@ export default function DiscordHub() {
         return true;
     });
 
-    const onlineServersCount = servers.filter(s => s.status === 'running' || s.status === 'online').length;
+    const clusterServers = serverHealth.length > 0
+        ? serverHealth.map(sh => {
+            const matchingStore = allServers.find(s => s.id === sh.id);
+            return {
+                ...sh,
+                port: (matchingStore as any)?.port || (matchingStore as any)?.config?.port || (matchingStore as any)?.config?.gamePort || 7777,
+                map_name: (matchingStore as any)?.map_name || (matchingStore as any)?.config?.mapName || 'The Island',
+            };
+        })
+        : allServers;
+
+    const onlineServersCount = clusterServers.filter(s => s.status === 'running' || s.status === 'online').length;
     const totalPlayersCount = serverHealth.reduce((acc, s) => acc + s.playerCount, 0);
 
     if (isLoading) {
@@ -706,7 +741,7 @@ export default function DiscordHub() {
                         </div>
                         <div>
                             <div className="text-[10px] text-[var(--text-muted)] font-semibold uppercase tracking-wider">Cluster Servers</div>
-                            <div className="text-sm font-bold text-[var(--text-primary)]">{onlineServersCount} / {servers.length} Online</div>
+                            <div className="text-sm font-bold text-[var(--text-primary)]">{onlineServersCount} / {clusterServers.length} Online</div>
                         </div>
                     </div>
 
@@ -1269,23 +1304,23 @@ export default function DiscordHub() {
                                             {/* Server Card Inside Embed */}
                                             <div className="p-3.5 rounded-lg bg-black/40 border border-white/5 space-y-2.5">
                                                 <div className="flex items-center justify-between">
-                                                    {servers.length > 1 ? (
+                                                    {clusterServers.length > 1 ? (
                                                         <select
                                                             value={simulatedServerIndex}
                                                             onChange={(e) => setSimulatedServerIndex(Number(e.target.value))}
                                                             className="bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-xs font-bold text-white focus:outline-none focus:border-[#5865F2]"
                                                         >
-                                                            {servers.map((s, idx) => (
+                                                            {clusterServers.map((s, idx) => (
                                                                 <option key={s.id} value={idx}>🦕 {s.name}</option>
                                                             ))}
                                                         </select>
                                                     ) : (
                                                         <div className="font-bold text-white text-xs">
-                                                            🦕 {servers[simulatedServerIndex]?.name || 'ARK Ascended Server #1 (The Island)'}
+                                                            🦕 {clusterServers[simulatedServerIndex]?.name || (isAse ? 'ARK: Survival Evolved Server' : 'ARK Ascended Server #1 (The Island)')}
                                                         </div>
                                                     )}
                                                     <span className="text-[10px] font-mono text-cyan-400">
-                                                        Map: {(servers[simulatedServerIndex] as any)?.map_name || 'The Island'} • Port 7777
+                                                        Map: {(clusterServers[simulatedServerIndex] as any)?.map_name || 'The Island'} • Port {(clusterServers[simulatedServerIndex] as any)?.port || 7777}
                                                     </span>
                                                 </div>
 
@@ -1747,16 +1782,16 @@ export default function DiscordHub() {
                         <div className="glass-panel rounded-2xl border border-[var(--border)] p-5 shadow-xl space-y-3">
                             <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
                                 <ServerIcon className="w-4 h-4 text-emerald-400" />
-                                <span>Active Cluster Servers ({servers.length})</span>
+                                <span>Active Cluster Servers ({clusterServers.length})</span>
                             </h3>
                             <div className="space-y-2">
-                                {servers.map(s => {
+                                {clusterServers.map(s => {
                                     const isOnline = s.status === 'running' || s.status === 'online';
                                     return (
                                         <div key={s.id} className="p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] flex items-center justify-between">
                                             <div>
                                                 <div className="text-xs font-bold text-[var(--text-primary)]">{s.name}</div>
-                                                <div className="text-[10px] text-[var(--text-muted)]">Port {(s as any).port || (s.config as any)?.port || (s.config as any)?.gamePort || 7777} • Map {(s as any).map_name || (s.config as any)?.mapName || 'The Island'}</div>
+                                                <div className="text-[10px] text-[var(--text-muted)]">Port {(s as any).port || (s as any).config?.port || (s as any).config?.gamePort || 7777} • Map {(s as any).map_name || (s as any).config?.mapName || 'The Island'}</div>
                                             </div>
                                             <span className={cn(
                                                 "text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider",
@@ -1825,19 +1860,19 @@ export default function DiscordHub() {
                         {/* Discord Dark Theme Embed Card Mockup */}
                         <div className="p-5 rounded-2xl bg-[#2B2D31] border-l-4 border-[#5865F2] text-slate-200 shadow-2xl space-y-4 font-sans">
                             <div className="flex items-center justify-between">
-                                <span className="font-bold text-sm text-white">🦖 ARK: Survival Ascended Cluster Dashboard</span>
+                                <span className="font-bold text-sm text-white">🦖 {isAse ? 'ARK: Survival Evolved' : 'ARK: Survival Ascended'} Cluster Dashboard</span>
                                 <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold">ONLINE</span>
                             </div>
 
                             <div className="text-xs text-slate-300 flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                                <span>Cluster Status: {onlineServersCount} / {servers.length} Servers Running</span>
+                                <span>Cluster Status: {onlineServersCount} / {clusterServers.length} Servers Running</span>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3 text-xs pt-2">
-                                {servers.map(s => {
-                                    const map = (s as any).map_name || s.config?.mapName || 'The Island';
-                                    const maxP = (s as any).max_players || s.config?.maxPlayers || 70;
+                                {clusterServers.map(s => {
+                                    const map = (s as any).map_name || (s as any).config?.mapName || 'The Island';
+                                    const maxP = (s as any).max_players || (s as any).maxPlayers || (s as any).config?.maxPlayers || 70;
                                     const isRunning = s.status === 'running' || s.status === 'online';
                                     return (
                                         <div key={s.id} className="p-2.5 rounded bg-[#1E1F22] border border-white/5">
@@ -1848,14 +1883,14 @@ export default function DiscordHub() {
                                                 </span>
                                             </div>
                                             <div className="text-[11px] text-slate-400 mt-1">Map: {map}</div>
-                                            <div className="text-[11px] text-slate-400">Players: 0 / {maxP}</div>
+                                            <div className="text-[11px] text-slate-400">Players: {(s as any).playerCount || 0} / {maxP}</div>
                                         </div>
                                     );
                                 })}
                             </div>
 
                             <div className="text-[10px] text-slate-400 pt-2 border-t border-white/5 flex items-center justify-between">
-                                <span>ARK: Survival Ascended Server Manager 2.1</span>
+                                <span>{isAse ? 'ARK: Survival Evolved' : 'ARK: Survival Ascended'} Server Manager 2.1</span>
                                 <span>Updates every {config.status_update_interval || 60}s</span>
                             </div>
                         </div>

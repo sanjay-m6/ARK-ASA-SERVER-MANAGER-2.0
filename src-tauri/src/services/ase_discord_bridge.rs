@@ -1485,6 +1485,25 @@ impl AseDiscordBridgeService {
                     }
                 };
 
+                                // If unified discord_bridge is already managing this token, do not start a duplicate gateway connection
+                let is_duplicate = {
+                    if let Some(state) = app_handle.try_state::<crate::AppState>() {
+                        if let Some(unified_cfg) = state.discord_bridge.get_config().await {
+                            unified_cfg.enabled && unified_cfg.bot_token == token
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                };
+
+                if is_duplicate {
+                    log::info!("ℹ️ ASE Discord Gateway connection skipped: unified Discord bridge is already managing this bot token.");
+                    tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+                    continue;
+                }
+
                 log::info!("🔌 Connecting to ASE Discord Gateway...");
 
                 match SerenityClient::builder(&token, intents)

@@ -46,22 +46,59 @@ pub async fn get_cluster_servers_health(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, name, status, max_players, last_started FROM servers WHERE cluster_id = ?1"
-        )
-        .map_err(|e| e.to_string())?;
-
     let mut servers = Vec::new();
-    let mut rows = stmt.query([cluster_id]).map_err(|e| e.to_string())?;
 
-    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
-        let id: i64 = row.get(0).map_err(|e| e.to_string())?;
-        let name: String = row.get(1).unwrap_or_default();
-        let status: String = row.get(2).unwrap_or_default();
-        let max_players: i32 = row.get(3).unwrap_or(0);
-        let last_started: Option<String> = row.get(4).unwrap_or_default();
+    // 1. Try ASA servers
+    let mut is_ase = false;
+    let mut raw_rows = Vec::new();
+    if let Ok(mut stmt) = conn.prepare(
+        "SELECT s.id, s.name, s.status, s.max_players, s.last_started 
+         FROM servers s 
+         WHERE s.cluster_id = ?1 
+            OR s.id IN (SELECT server_id FROM cluster_servers WHERE cluster_id = ?1)
+         ORDER BY s.id ASC"
+    ) {
+        if let Ok(mut rows) = stmt.query([cluster_id]) {
+            while let Ok(Some(row)) = rows.next() {
+                let id: i64 = row.get(0).unwrap_or(0);
+                let name: String = row.get(1).unwrap_or_default();
+                let status: String = row.get(2).unwrap_or_default();
+                let max_players: i32 = row.get(3).unwrap_or(0);
+                let last_started: Option<String> = row.get(4).unwrap_or_default();
+                raw_rows.push((id, name, status, max_players, last_started));
+            }
+        }
+    }
 
+    // 2. If no ASA servers found, try ASE servers
+    if raw_rows.is_empty() {
+        if let Ok(mut stmt) = conn.prepare(
+            "SELECT s.id, s.name, s.status, s.max_players, NULL AS last_started 
+             FROM ase_servers s 
+             WHERE s.cluster_id = ?1 
+                OR CAST(s.cluster_id AS INTEGER) = ?1 
+                OR s.id IN (SELECT server_id FROM ase_cluster_servers WHERE cluster_id = ?1)
+             ORDER BY s.id ASC"
+        ) {
+            if let Ok(mut rows) = stmt.query([cluster_id]) {
+                while let Ok(Some(row)) = rows.next() {
+                    let id: i64 = row.get(0).unwrap_or(0);
+                    let name: String = row.get(1).unwrap_or_default();
+                    let status: String = row.get(2).unwrap_or_default();
+                    let max_players: i32 = row.get(3).unwrap_or(0);
+                    let last_started: Option<String> = row.get(4).unwrap_or_default();
+                    raw_rows.push((id, name, status, max_players, last_started));
+                }
+            }
+        }
+        if !raw_rows.is_empty() {
+            is_ase = true;
+        }
+    }
+
+    log::info!("🔍 [DiscordPanel] get_cluster_servers_health for cluster {}: found {} servers (is_ase: {})", cluster_id, raw_rows.len(), is_ase);
+
+    for (id, name, status, max_players, last_started) in raw_rows {
         let player_count = player_counts.get(&id).copied().unwrap_or(0);
 
         // Calculate uptime
@@ -80,9 +117,10 @@ pub async fn get_cluster_servers_health(
             "Not running".to_string()
         };
 
-        // Get mods for this server
+        // Get mods for this server (use ase_mods if ASE server)
+        let mod_table = if is_ase { "ase_mods" } else { "mods" };
         let mods: Vec<String> = conn
-            .prepare("SELECT name FROM mods WHERE server_id = ?1 AND enabled = 1")
+            .prepare(&format!("SELECT name FROM {} WHERE server_id = ?1 AND enabled = 1", mod_table))
             .ok()
             .and_then(|mut stmt| {
                 stmt.query_map([id], |row| row.get::<_, String>(0))

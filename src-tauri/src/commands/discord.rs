@@ -14,8 +14,8 @@ pub async fn save_discord_bridge_config(
         let cx_db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = cx_db.get_connection().map_err(|e| e.to_string())?;
 
-        // 0. Verify Cluster Exists
-        let cluster_exists: i32 = conn
+        // 0. Verify Cluster Exists (check both ASA clusters and ASE ase_clusters)
+        let asa_cluster_exists: i32 = conn
             .query_row(
                 "SELECT COUNT(*) FROM clusters WHERE id = ?1",
                 [config.cluster_id],
@@ -23,17 +23,28 @@ pub async fn save_discord_bridge_config(
             )
             .unwrap_or(0);
 
-        if cluster_exists == 0 {
+        let ase_cluster_exists: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM ase_clusters WHERE id = ?1",
+                [config.cluster_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        if asa_cluster_exists == 0 && ase_cluster_exists == 0 {
             return Err(format!(
                 "Cluster ID {} not found. Please create a cluster first.",
                 config.cluster_id
             ));
         }
 
+        let is_ase = ase_cluster_exists > 0 && asa_cluster_exists == 0;
+        let table_name = if is_ase { "ase_discord_bridge_config" } else { "discord_bridge_config" };
+
         // Check if config exists for this cluster
         let exists: i32 = conn
             .query_row(
-                "SELECT COUNT(*) FROM discord_bridge_config WHERE cluster_id = ?1",
+                &format!("SELECT COUNT(*) FROM {} WHERE cluster_id = ?1", table_name),
                 [config.cluster_id],
                 |row| row.get(0),
             )
@@ -41,55 +52,55 @@ pub async fn save_discord_bridge_config(
 
         // Ensure columns exist (Migrations)
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN admin_channel_id TEXT DEFAULT ''",
+            &format!("ALTER TABLE {} ADD COLUMN admin_channel_id TEXT DEFAULT ''", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN admin_role_ids TEXT DEFAULT '[]'",
+            &format!("ALTER TABLE {} ADD COLUMN admin_role_ids TEXT DEFAULT '[]'", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN moderator_role_ids TEXT DEFAULT '[]'",
+            &format!("ALTER TABLE {} ADD COLUMN moderator_role_ids TEXT DEFAULT '[]'", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN notifications_channel_id TEXT DEFAULT ''",
+            &format!("ALTER TABLE {} ADD COLUMN notifications_channel_id TEXT DEFAULT ''", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN notify_player_join_leave INTEGER DEFAULT 1",
+            &format!("ALTER TABLE {} ADD COLUMN notify_player_join_leave INTEGER DEFAULT 1", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN notify_server_crashes INTEGER DEFAULT 1",
+            &format!("ALTER TABLE {} ADD COLUMN notify_server_crashes INTEGER DEFAULT 1", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN notify_server_recovery INTEGER DEFAULT 1",
+            &format!("ALTER TABLE {} ADD COLUMN notify_server_recovery INTEGER DEFAULT 1", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN notify_scheduled_restarts INTEGER DEFAULT 1",
+            &format!("ALTER TABLE {} ADD COLUMN notify_scheduled_restarts INTEGER DEFAULT 1", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN notify_backup_completion INTEGER DEFAULT 1",
+            &format!("ALTER TABLE {} ADD COLUMN notify_backup_completion INTEGER DEFAULT 1", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN notify_performance_alerts INTEGER DEFAULT 1",
+            &format!("ALTER TABLE {} ADD COLUMN notify_performance_alerts INTEGER DEFAULT 1", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN notify_mod_watchdog INTEGER DEFAULT 1",
+            &format!("ALTER TABLE {} ADD COLUMN notify_mod_watchdog INTEGER DEFAULT 1", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN notify_anti_cheat INTEGER DEFAULT 1",
+            &format!("ALTER TABLE {} ADD COLUMN notify_anti_cheat INTEGER DEFAULT 1", table_name),
             [],
         );
         let _ = conn.execute(
-            "ALTER TABLE discord_bridge_config ADD COLUMN status_update_interval INTEGER DEFAULT 60",
+            &format!("ALTER TABLE {} ADD COLUMN status_update_interval INTEGER DEFAULT 60", table_name),
             [],
         );
 
@@ -98,7 +109,7 @@ pub async fn save_discord_bridge_config(
 
         if exists > 0 {
             conn.execute(
-                "UPDATE discord_bridge_config SET 
+                &format!("UPDATE {} SET 
                     enabled = ?1, bot_token = ?2, guild_id = ?3, channel_id = ?4,
                     game_to_discord = ?5, discord_to_game = ?6,
                     server_list_enabled = ?7, server_list_channel_id = ?8, server_list_message_id = ?9,
@@ -110,7 +121,7 @@ pub async fn save_discord_bridge_config(
                     notify_performance_alerts = ?24, notify_mod_watchdog = ?25, notify_anti_cheat = ?26,
                     status_update_interval = ?27,
                     updated_at = CURRENT_TIMESTAMP
-                WHERE cluster_id = ?28",
+                WHERE cluster_id = ?28", table_name),
                 rusqlite::params![
                     config.enabled,
                     config.bot_token,
@@ -145,7 +156,7 @@ pub async fn save_discord_bridge_config(
             .map_err(|e| e.to_string())?;
         } else {
             conn.execute(
-                "INSERT INTO discord_bridge_config (
+                &format!("INSERT INTO {} (
                     cluster_id, enabled, bot_token, guild_id, channel_id,
                     game_to_discord, discord_to_game,
                     server_list_enabled, server_list_channel_id, server_list_message_id,
@@ -155,7 +166,7 @@ pub async fn save_discord_bridge_config(
                     notifications_channel_id, notify_player_join_leave, notify_server_crashes,
                     notify_server_recovery, notify_scheduled_restarts, notify_backup_completion,
                     notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat, status_update_interval
-                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)",
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28)", table_name),
                 rusqlite::params![
                     config.cluster_id,
                     config.enabled,
@@ -221,12 +232,58 @@ pub async fn get_discord_bridge_config(
         }
     }
 
-    // 2. Fallback to DB
+    // 2. Fallback to DB (check discord_bridge_config then ase_discord_bridge_config)
     let result = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        conn.query_row(
+        let parse_row = |row: &rusqlite::Row| -> rusqlite::Result<DiscordBridgeConfig> {
+            let admin_roles_json: Option<String> = row.get(16)?;
+            let mod_roles_json: Option<String> = row.get(17)?;
+            
+            let admin_role_ids = admin_roles_json
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default();
+                
+            let moderator_role_ids = mod_roles_json
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default();
+
+            let interval: u64 = row.get::<_, Option<i64>>(27)?.unwrap_or(60) as u64;
+
+            Ok(DiscordBridgeConfig {
+                cluster_id: row.get(0)?,
+                enabled: row.get::<_, i32>(1)? != 0,
+                bot_token: row.get(2)?,
+                guild_id: row.get(3)?,
+                channel_id: row.get(4)?,
+                game_to_discord: row.get::<_, i32>(5)? != 0,
+                discord_to_game: row.get::<_, i32>(6)? != 0,
+                server_list_enabled: row.get::<_, i32>(7)? != 0,
+                server_list_channel_id: row.get(8)?,
+                server_list_message_id: row.get(9)?,
+                player_list_enabled: row.get::<_, i32>(10)? != 0,
+                player_list_channel_id: row.get(11)?,
+                player_list_message_id: row.get(12)?,
+                show_tribe_names: row.get::<_, i32>(13)? != 0,
+                show_playtime: row.get::<_, i32>(14)? != 0,
+                admin_channel_id: row.get::<_, Option<String>>(15)?.unwrap_or_default(),
+                admin_role_ids,
+                moderator_role_ids,
+                notifications_channel_id: row.get::<_, Option<String>>(18)?.unwrap_or_default(),
+                notify_player_join_leave: row.get::<_, i32>(19)? != 0,
+                notify_server_crashes: row.get::<_, i32>(20)? != 0,
+                notify_server_recovery: row.get::<_, i32>(21)? != 0,
+                notify_scheduled_restarts: row.get::<_, i32>(22)? != 0,
+                notify_backup_completion: row.get::<_, i32>(23)? != 0,
+                notify_performance_alerts: row.get::<_, i32>(24)? != 0,
+                notify_mod_watchdog: row.get::<_, i32>(25)? != 0,
+                notify_anti_cheat: row.get::<_, i32>(26)? != 0,
+                status_update_interval: if interval == 0 { 60 } else { interval },
+            })
+        };
+
+        if let Ok(cfg) = conn.query_row(
             "SELECT cluster_id, enabled, bot_token, guild_id, channel_id,
                     game_to_discord, discord_to_game,
                     server_list_enabled, server_list_channel_id, server_list_message_id,
@@ -238,61 +295,43 @@ pub async fn get_discord_bridge_config(
                     notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat, status_update_interval
              FROM discord_bridge_config WHERE cluster_id = ?1",
             [cluster_id],
-            |row| {
-                let admin_roles_json: Option<String> = row.get(16)?;
-                let mod_roles_json: Option<String> = row.get(17)?;
-                
-                let admin_role_ids = admin_roles_json
-                    .and_then(|s| serde_json::from_str(&s).ok())
-                    .unwrap_or_default();
-                    
-                let moderator_role_ids = mod_roles_json
-                    .and_then(|s| serde_json::from_str(&s).ok())
-                    .unwrap_or_default();
+            &parse_row,
+        ) {
+            Ok(Some(cfg))
+        } else {
+            let _ = conn.execute("ALTER TABLE ase_discord_bridge_config ADD COLUMN admin_role_ids TEXT DEFAULT '[]'", []);
+            let _ = conn.execute("ALTER TABLE ase_discord_bridge_config ADD COLUMN moderator_role_ids TEXT DEFAULT '[]'", []);
+            let _ = conn.execute("ALTER TABLE ase_discord_bridge_config ADD COLUMN status_update_interval INTEGER DEFAULT 60", []);
 
-                let interval: u64 = row.get::<_, Option<i64>>(27)?.unwrap_or(60) as u64;
-
-                Ok(DiscordBridgeConfig {
-                    cluster_id: row.get(0)?,
-                    enabled: row.get::<_, i32>(1)? != 0,
-                    bot_token: row.get(2)?,
-                    guild_id: row.get(3)?,
-                    channel_id: row.get(4)?,
-                    game_to_discord: row.get::<_, i32>(5)? != 0,
-                    discord_to_game: row.get::<_, i32>(6)? != 0,
-                    server_list_enabled: row.get::<_, i32>(7)? != 0,
-                    server_list_channel_id: row.get(8)?,
-                    server_list_message_id: row.get(9)?,
-                    player_list_enabled: row.get::<_, i32>(10)? != 0,
-                    player_list_channel_id: row.get(11)?,
-                    player_list_message_id: row.get(12)?,
-                    show_tribe_names: row.get::<_, i32>(13)? != 0,
-                    show_playtime: row.get::<_, i32>(14)? != 0,
-                    admin_channel_id: row.get::<_, Option<String>>(15)?.unwrap_or_default(),
-                    admin_role_ids,
-                    moderator_role_ids,
-                    notifications_channel_id: row.get::<_, Option<String>>(18)?.unwrap_or_default(),
-                    notify_player_join_leave: row.get::<_, i32>(19)? != 0,
-                    notify_server_crashes: row.get::<_, i32>(20)? != 0,
-                    notify_server_recovery: row.get::<_, i32>(21)? != 0,
-                    notify_scheduled_restarts: row.get::<_, i32>(22)? != 0,
-                    notify_backup_completion: row.get::<_, i32>(23)? != 0,
-                    notify_performance_alerts: row.get::<_, i32>(24)? != 0,
-                    notify_mod_watchdog: row.get::<_, i32>(25)? != 0,
-                    notify_anti_cheat: row.get::<_, i32>(26)? != 0,
-                    status_update_interval: if interval == 0 { 60 } else { interval },
-                })
-            },
-        )
+            conn.query_row(
+                "SELECT cluster_id, enabled, bot_token, guild_id, channel_id,
+                        game_to_discord, discord_to_game,
+                        server_list_enabled, server_list_channel_id, server_list_message_id,
+                        player_list_enabled, player_list_channel_id, player_list_message_id,
+                        show_tribe_names, show_playtime, admin_channel_id,
+                        admin_role_ids, moderator_role_ids,
+                        notifications_channel_id, notify_player_join_leave, notify_server_crashes,
+                        notify_server_recovery, notify_scheduled_restarts, notify_backup_completion,
+                        notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat, status_update_interval
+                 FROM ase_discord_bridge_config WHERE cluster_id = ?1",
+                [cluster_id],
+                &parse_row,
+            )
+            .map(|c| Some(c))
+            .or_else(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(other),
+            })
+        }
     };
 
     match result {
-        Ok(config) => {
+        Ok(Some(config)) => {
             // Populate memory cache
             state.discord_bridge.configure(config.clone()).await;
             Ok(Some(config))
         }
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Ok(None) => Ok(None),
         Err(e) => Err(e.to_string()),
     }
 }

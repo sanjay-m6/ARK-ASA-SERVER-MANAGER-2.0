@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 import { useTauriEvent } from '../hooks/useTauriEvent';
-import { getClusters } from '../utils/tauri';
+import { getClusters, getAseClusters } from '../utils/tauri';
+import { useGameStore } from '../stores/gameStore';
 import { toast } from 'react-hot-toast';
 
 interface ServerHealth {
@@ -40,10 +41,18 @@ interface DiscordBridgeStatus {
   last_command_user: string | null;
 }
 
-const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: propClusterId }) => {
+interface DiscordControlPanelProps {
+  clusterId?: number;
+}
+
+const DiscordControlPanel = ({ clusterId: propClusterId }: DiscordControlPanelProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { activeGame } = useGameStore();
+  const isAse = activeGame === 'ASE' || location.pathname.includes('/ase');
+
+  const [clusters, setClusters] = useState<{ id: number; name: string }[]>([]);
   const [activeClusterId, setActiveClusterId] = useState<number | null>(propClusterId ?? null);
-  const [clusters, setClusters] = useState<any[]>([]);
   const [servers, setServers] = useState<ServerHealth[]>([]);
   const [players, setPlayers] = useState<PlayerInfo[]>([]);
   const [bridgeStatus, setBridgeStatus] = useState<DiscordBridgeStatus | null>(null);
@@ -56,7 +65,8 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
     if (propClusterId) {
       setActiveClusterId(propClusterId);
     } else {
-      getClusters()
+      const fetcher = isAse ? getAseClusters() : getClusters();
+      fetcher
         .then((fetched) => {
           setClusters(fetched);
           if (fetched.length > 0) {
@@ -70,7 +80,7 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
           setLoading(false);
         });
     }
-  }, [propClusterId]);
+  }, [propClusterId, isAse]);
 
   // Fetch server health data
   const fetchServerHealth = async () => {
@@ -149,7 +159,11 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
 
   const handleStartServer = async (serverId: number) => {
     try {
-      await invoke('start_server', { serverId, updateOnStart: false });
+      if (isAse) {
+        await invoke('start_ase_server', { serverId });
+      } else {
+        await invoke('start_server', { serverId, updateOnStart: false });
+      }
     } catch (err) {
       toast.error(`Failed to start server: ${err}`);
     }
@@ -157,7 +171,11 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
 
   const handleStopServer = async (serverId: number) => {
     try {
-      await invoke('stop_server', { serverId });
+      if (isAse) {
+        await invoke('stop_ase_server', { serverId });
+      } else {
+        await invoke('stop_server', { serverId });
+      }
     } catch (err) {
       toast.error(`Failed to stop server: ${err}`);
     }
@@ -165,7 +183,11 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
 
   const handleRestartServer = async (serverId: number) => {
     try {
-      await invoke('restart_server', { serverId, wipeDinos: false });
+      if (isAse) {
+        await invoke('restart_ase_server', { serverId, wipeDinos: false });
+      } else {
+        await invoke('restart_server', { serverId, wipeDinos: false });
+      }
     } catch (err) {
       toast.error(`Failed to restart server: ${err}`);
     }
@@ -173,7 +195,11 @@ const DiscordControlPanel: React.FC<{ clusterId?: number }> = ({ clusterId: prop
 
   const handleUpdateServer = async (serverId: number) => {
     try {
-      await invoke('update_server', { serverId });
+      if (isAse) {
+        await invoke('update_ase_server_install', { serverId });
+      } else {
+        await invoke('update_server', { serverId });
+      }
       toast.success(`Update command sent for server #${serverId}.`);
     } catch (err) {
       toast.error(`Failed to update server: ${err}`);

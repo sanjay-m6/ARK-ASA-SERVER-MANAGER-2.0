@@ -26,40 +26,51 @@ impl AuditLogger {
             guild_id, discord_user_id, action, server_id, status
         );
 
-        if let Some(state) = app_handle.try_state::<AppState>() {
-            if let Ok(db) = state.db.lock() {
-                if let Ok(conn) = db.get_connection() {
-                    let _ = conn.execute(
-                        "INSERT INTO discord_audit_log 
-                        (guild_id, discord_user_id, server_id, action, target, status, reason, metadata_json) 
-                        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                        rusqlite::params![
-                            guild_id,
-                            discord_user_id,
-                            server_id,
-                            action,
-                            target,
-                            status,
-                            reason,
-                            metadata_str
-                        ],
-                    );
+        let app_handle_c = app_handle.clone();
+        let guild_id_c = guild_id.to_string();
+        let discord_user_id_c = discord_user_id.to_string();
+        let action_c = action.to_string();
+        let target_c = target.map(|s| s.to_string());
+        let status_c = status.to_string();
+        let reason_c = reason.map(|s| s.to_string());
+
+        // Offload DB insert to a background task so caller threads holding DB locks never deadlock
+        tauri::async_runtime::spawn_blocking(move || {
+            if let Some(state) = app_handle_c.try_state::<AppState>() {
+                if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        let _ = conn.execute(
+                            "INSERT INTO discord_audit_log 
+                            (guild_id, discord_user_id, server_id, action, target, status, reason, metadata_json) 
+                            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                            rusqlite::params![
+                                guild_id_c,
+                                discord_user_id_c,
+                                server_id,
+                                action_c,
+                                target_c,
+                                status_c,
+                                reason_c,
+                                metadata_str
+                            ],
+                        );
+                    }
                 }
             }
-        }
 
-        // Notify desktop UI about new audit entry
-        let event_payload = serde_json::json!({
-            "guild_id": guild_id,
-            "discord_user_id": discord_user_id,
-            "server_id": server_id,
-            "action": action,
-            "target": target,
-            "status": status,
-            "reason": reason,
-            "timestamp": chrono::Utc::now().to_rfc3339()
+            // Notify desktop UI about new audit entry
+            let event_payload = serde_json::json!({
+                "guild_id": guild_id_c,
+                "discord_user_id": discord_user_id_c,
+                "server_id": server_id,
+                "action": action_c,
+                "target": target_c,
+                "status": status_c,
+                "reason": reason_c,
+                "timestamp": chrono::Utc::now().to_rfc3339()
+            });
+            let _ = app_handle_c.emit("discord-audit-entry", event_payload);
         });
-        let _ = app_handle.emit("discord-audit-entry", event_payload);
     }
 
     /// Retrieve audit logs from SQLite

@@ -30,42 +30,92 @@ impl DashboardBuilder {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        let sql = if cluster_id > 0 {
-            "SELECT id, name, map_name, status, max_players, last_started FROM servers WHERE cluster_id = ?1 ORDER BY id ASC"
-        } else {
-            "SELECT id, name, map_name, status, max_players, last_started FROM servers ORDER BY id ASC"
-        };
-
-        let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
         let mut servers = Vec::new();
 
+        // 1. Try ASA servers
         if cluster_id > 0 {
-            let rows = stmt.query_map([cluster_id], |row| {
-                Ok(ClusterServerSummary {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    map_name: row.get(2)?,
-                    status: row.get(3)?,
-                    max_players: row.get(4)?,
-                    last_started: row.get(5)?,
-                })
-            }).map_err(|e| e.to_string())?;
-            for r in rows.flatten() {
-                servers.push(r);
+            if let Ok(mut stmt) = conn.prepare(
+                "SELECT s.id, s.name, s.map_name, s.status, s.max_players, s.last_started 
+                 FROM servers s 
+                 WHERE s.cluster_id = ?1 
+                    OR s.id IN (SELECT server_id FROM cluster_servers WHERE cluster_id = ?1)
+                 ORDER BY s.id ASC"
+            ) {
+                if let Ok(rows) = stmt.query_map([cluster_id], |row| {
+                    Ok(ClusterServerSummary {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        map_name: row.get(2)?,
+                        status: row.get(3)?,
+                        max_players: row.get(4)?,
+                        last_started: row.get(5)?,
+                    })
+                }) {
+                    servers = rows.flatten().collect();
+                }
             }
         } else {
-            let rows = stmt.query_map([], |row| {
-                Ok(ClusterServerSummary {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    map_name: row.get(2)?,
-                    status: row.get(3)?,
-                    max_players: row.get(4)?,
-                    last_started: row.get(5)?,
-                })
-            }).map_err(|e| e.to_string())?;
-            for r in rows.flatten() {
-                servers.push(r);
+            if let Ok(mut stmt) = conn.prepare(
+                "SELECT id, name, map_name, status, max_players, last_started FROM servers ORDER BY id ASC"
+            ) {
+                if let Ok(rows) = stmt.query_map([], |row| {
+                    Ok(ClusterServerSummary {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        map_name: row.get(2)?,
+                        status: row.get(3)?,
+                        max_players: row.get(4)?,
+                        last_started: row.get(5)?,
+                    })
+                }) {
+                    servers = rows.flatten().collect();
+                }
+            }
+        }
+
+        if !servers.is_empty() {
+            return Ok(servers);
+        }
+
+        // 2. Try ASE servers (using NULL as last_started)
+        if cluster_id > 0 {
+            if let Ok(mut stmt) = conn.prepare(
+                "SELECT s.id, s.name, s.map_name, s.status, s.max_players, NULL AS last_started 
+                 FROM ase_servers s 
+                 WHERE s.cluster_id = ?1 
+                    OR CAST(s.cluster_id AS INTEGER) = ?1 
+                    OR s.id IN (SELECT server_id FROM ase_cluster_servers WHERE cluster_id = ?1)
+                 ORDER BY s.id ASC"
+            ) {
+                if let Ok(rows) = stmt.query_map([cluster_id], |row| {
+                    Ok(ClusterServerSummary {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        map_name: row.get(2)?,
+                        status: row.get(3)?,
+                        max_players: row.get(4)?,
+                        last_started: row.get(5)?,
+                    })
+                }) {
+                    servers = rows.flatten().collect();
+                }
+            }
+        } else {
+            if let Ok(mut stmt) = conn.prepare(
+                "SELECT id, name, map_name, status, max_players, NULL AS last_started FROM ase_servers ORDER BY id ASC"
+            ) {
+                if let Ok(rows) = stmt.query_map([], |row| {
+                    Ok(ClusterServerSummary {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                        map_name: row.get(2)?,
+                        status: row.get(3)?,
+                        max_players: row.get(4)?,
+                        last_started: row.get(5)?,
+                    })
+                }) {
+                    servers = rows.flatten().collect();
+                }
             }
         }
 
@@ -266,8 +316,17 @@ impl DashboardBuilder {
             let db_opt = state.db.lock().ok();
             db_opt.and_then(|db| {
                 let conn = db.get_connection().ok()?;
-                conn.query_row(
+                // Try ASA
+                if let Ok(info) = conn.query_row(
                     "SELECT name, status, map_name, max_players, last_started FROM servers WHERE id = ?1",
+                    [server_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+                ) {
+                    return Some(info);
+                }
+                // Try ASE (NULL for last_started)
+                conn.query_row(
+                    "SELECT name, status, map_name, max_players, NULL FROM ase_servers WHERE id = ?1",
                     [server_id],
                     |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
                 ).ok()

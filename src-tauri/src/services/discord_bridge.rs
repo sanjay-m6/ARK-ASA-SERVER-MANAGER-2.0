@@ -440,35 +440,41 @@ impl SerenityEventHandler for GatewayHandler {
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        match interaction {
-            Interaction::Command(command) => {
-                crate::services::discord::commands::CommandHandler::handle(
-                    &ctx,
-                    &command,
-                    &self.app_handle,
-                    &self.config,
-                    &self.rate_limiter,
-                ).await;
+        let app_handle = self.app_handle.clone();
+        let config = self.config.clone();
+        let rate_limiter = self.rate_limiter.clone();
+
+        tauri::async_runtime::spawn(async move {
+            match interaction {
+                Interaction::Command(command) => {
+                    crate::services::discord::commands::CommandHandler::handle(
+                        &ctx,
+                        &command,
+                        &app_handle,
+                        &config,
+                        &rate_limiter,
+                    ).await;
+                }
+                Interaction::Component(component) => {
+                    crate::services::discord::components::ComponentHandler::handle_component(
+                        &ctx,
+                        &component,
+                        &app_handle,
+                        &config,
+                        &rate_limiter,
+                    ).await;
+                }
+                Interaction::Modal(modal) => {
+                    crate::services::discord::components::ComponentHandler::handle_modal(
+                        &ctx,
+                        &modal,
+                        &app_handle,
+                        &config,
+                    ).await;
+                }
+                _ => {}
             }
-            Interaction::Component(component) => {
-                crate::services::discord::components::ComponentHandler::handle_component(
-                    &ctx,
-                    &component,
-                    &self.app_handle,
-                    &self.config,
-                    &self.rate_limiter,
-                ).await;
-            }
-            Interaction::Modal(modal) => {
-                crate::services::discord::components::ComponentHandler::handle_modal(
-                    &ctx,
-                    &modal,
-                    &self.app_handle,
-                    &self.config,
-                ).await;
-            }
-            _ => {}
-        }
+        });
     }
 
     async fn message(&self, ctx: Context, msg: Message) {
@@ -788,12 +794,10 @@ impl SerenityEventHandler for GatewayHandler {
 async fn get_all_servers_status(state: &AppState) -> Result<Vec<ClusterServerInfo>, String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let conn = db.get_connection().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare("SELECT id, name, status FROM servers")
-        .map_err(|e| e.to_string())?;
+    let mut servers = Vec::new();
 
-    let servers = stmt
-        .query_map([], |row| {
+    if let Ok(mut stmt) = conn.prepare("SELECT id, name, status FROM servers") {
+        if let Ok(rows) = stmt.query_map([], |row| {
             Ok(ClusterServerInfo {
                 id: row.get(0)?,
                 name: row.get(1)?,
@@ -801,10 +805,28 @@ async fn get_all_servers_status(state: &AppState) -> Result<Vec<ClusterServerInf
                 max_players: 0, // Not needed for simple list
                 last_started: None,
             })
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+        }) {
+            for s in rows.filter_map(|r| r.ok()) {
+                servers.push(s);
+            }
+        }
+    }
+
+    if let Ok(mut stmt) = conn.prepare("SELECT id, name, status FROM ase_servers") {
+        if let Ok(rows) = stmt.query_map([], |row| {
+            Ok(ClusterServerInfo {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                status: row.get(2)?,
+                max_players: 0,
+                last_started: None,
+            })
+        }) {
+            for s in rows.filter_map(|r| r.ok()) {
+                servers.push(s);
+            }
+        }
+    }
 
     Ok(servers)
 }
@@ -923,13 +945,60 @@ impl DiscordBridgeService {
 
     /// Load the first enabled bridge config from the database.
     /// Used at startup to auto-load config without waiting for a frontend call.
-    pub fn load_config_from_db(&self) -> Option<DiscordBridgeConfig> {
+        pub fn load_config_from_db(&self) -> Option<DiscordBridgeConfig> {
         use tauri::Manager;
         let state = self.app_handle.try_state::<crate::AppState>()?;
         let db = state.db.lock().ok()?;
         let conn = db.get_connection().ok()?;
 
-        conn.query_row(
+        let parse_row = |row: &rusqlite::Row| -> rusqlite::Result<DiscordBridgeConfig> {
+            let admin_roles_json: Option<String> = row.get(16)?;
+            let mod_roles_json: Option<String> = row.get(17)?;
+            
+            let admin_role_ids = admin_roles_json
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default();
+                
+            let moderator_role_ids = mod_roles_json
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default();
+
+            let interval: u64 = row.get::<_, Option<i64>>(27)?.unwrap_or(60) as u64;
+
+            Ok(DiscordBridgeConfig {
+                cluster_id: row.get(0)?,
+                enabled: row.get::<_, i32>(1)? != 0,
+                bot_token: row.get(2)?,
+                guild_id: row.get(3)?,
+                channel_id: row.get(4)?,
+                game_to_discord: row.get::<_, i32>(5)? != 0,
+                discord_to_game: row.get::<_, i32>(6)? != 0,
+                server_list_enabled: row.get::<_, i32>(7)? != 0,
+                server_list_channel_id: row.get(8)?,
+                server_list_message_id: row.get(9)?,
+                player_list_enabled: row.get::<_, i32>(10)? != 0,
+                player_list_channel_id: row.get(11)?,
+                player_list_message_id: row.get(12)?,
+                show_tribe_names: row.get::<_, i32>(13)? != 0,
+                show_playtime: row.get::<_, i32>(14)? != 0,
+                admin_channel_id: row.get::<_, Option<String>>(15)?.unwrap_or_default(),
+                admin_role_ids,
+                moderator_role_ids,
+                notifications_channel_id: row.get::<_, Option<String>>(18)?.unwrap_or_default(),
+                notify_player_join_leave: row.get::<_, i32>(19)? != 0,
+                notify_server_crashes: row.get::<_, i32>(20)? != 0,
+                notify_server_recovery: row.get::<_, i32>(21)? != 0,
+                notify_scheduled_restarts: row.get::<_, i32>(22)? != 0,
+                notify_backup_completion: row.get::<_, i32>(23)? != 0,
+                notify_performance_alerts: row.get::<_, i32>(24)? != 0,
+                notify_mod_watchdog: row.get::<_, i32>(25)? != 0,
+                notify_anti_cheat: row.get::<_, i32>(26)? != 0,
+                status_update_interval: if interval == 0 { 60 } else { interval },
+            })
+        };
+
+        // 1. Try ASA discord_bridge_config
+        if let Ok(cfg) = conn.query_row(
             "SELECT cluster_id, enabled, bot_token, guild_id, channel_id,
                     game_to_discord, discord_to_game,
                     server_list_enabled, server_list_channel_id, server_list_message_id,
@@ -941,53 +1010,30 @@ impl DiscordBridgeService {
                     notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat, status_update_interval
              FROM discord_bridge_config WHERE enabled = 1 LIMIT 1",
             [],
-            |row| {
-                let admin_roles_json: Option<String> = row.get(16)?;
-                let mod_roles_json: Option<String> = row.get(17)?;
-                
-                let admin_role_ids = admin_roles_json
-                    .and_then(|s| serde_json::from_str(&s).ok())
-                    .unwrap_or_default();
-                    
-                let moderator_role_ids = mod_roles_json
-                    .and_then(|s| serde_json::from_str(&s).ok())
-                    .unwrap_or_default();
+            &parse_row,
+        ) {
+            return Some(cfg);
+        }
 
-                let interval: u64 = row.get::<_, Option<i64>>(27)?.unwrap_or(60) as u64;
+        // 2. Try ASE ase_discord_bridge_config (ensure optional columns exist first)
+        let _ = conn.execute("ALTER TABLE ase_discord_bridge_config ADD COLUMN admin_role_ids TEXT DEFAULT '[]'", []);
+        let _ = conn.execute("ALTER TABLE ase_discord_bridge_config ADD COLUMN moderator_role_ids TEXT DEFAULT '[]'", []);
+        let _ = conn.execute("ALTER TABLE ase_discord_bridge_config ADD COLUMN status_update_interval INTEGER DEFAULT 60", []);
 
-                Ok(DiscordBridgeConfig {
-                    cluster_id: row.get(0)?,
-                    enabled: row.get::<_, i32>(1)? != 0,
-                    bot_token: row.get(2)?,
-                    guild_id: row.get(3)?,
-                    channel_id: row.get(4)?,
-                    game_to_discord: row.get::<_, i32>(5)? != 0,
-                    discord_to_game: row.get::<_, i32>(6)? != 0,
-                    server_list_enabled: row.get::<_, i32>(7)? != 0,
-                    server_list_channel_id: row.get(8)?,
-                    server_list_message_id: row.get(9)?,
-                    player_list_enabled: row.get::<_, i32>(10)? != 0,
-                    player_list_channel_id: row.get(11)?,
-                    player_list_message_id: row.get(12)?,
-                    show_tribe_names: row.get::<_, i32>(13)? != 0,
-                    show_playtime: row.get::<_, i32>(14)? != 0,
-                    admin_channel_id: row.get::<_, Option<String>>(15)?.unwrap_or_default(),
-                    admin_role_ids,
-                    moderator_role_ids,
-                    notifications_channel_id: row.get::<_, Option<String>>(18)?.unwrap_or_default(),
-                    notify_player_join_leave: row.get::<_, i32>(19)? != 0,
-                    notify_server_crashes: row.get::<_, i32>(20)? != 0,
-                    notify_server_recovery: row.get::<_, i32>(21)? != 0,
-                    notify_scheduled_restarts: row.get::<_, i32>(22)? != 0,
-                    notify_backup_completion: row.get::<_, i32>(23)? != 0,
-                    notify_performance_alerts: row.get::<_, i32>(24)? != 0,
-                    notify_mod_watchdog: row.get::<_, i32>(25)? != 0,
-                    notify_anti_cheat: row.get::<_, i32>(26)? != 0,
-                    status_update_interval: if interval == 0 { 60 } else { interval },
-                })
-            },
-        )
-        .ok()
+        conn.query_row(
+            "SELECT cluster_id, enabled, bot_token, guild_id, channel_id,
+                    game_to_discord, discord_to_game,
+                    server_list_enabled, server_list_channel_id, server_list_message_id,
+                    player_list_enabled, player_list_channel_id, player_list_message_id,
+                    show_tribe_names, show_playtime, admin_channel_id,
+                    admin_role_ids, moderator_role_ids,
+                    notifications_channel_id, notify_player_join_leave, notify_server_crashes,
+                    notify_server_recovery, notify_scheduled_restarts, notify_backup_completion,
+                    notify_performance_alerts, notify_mod_watchdog, notify_anti_cheat, status_update_interval
+             FROM ase_discord_bridge_config WHERE enabled = 1 LIMIT 1",
+            [],
+            &parse_row,
+        ).ok()
     }
 
     /// Load rate limit configuration for a cluster from the database
@@ -996,7 +1042,7 @@ impl DiscordBridgeService {
         let db = state.db.lock().ok()?;
         let conn = db.get_connection().ok()?;
 
-        conn.query_row(
+        if let Ok(res) = conn.query_row(
             "SELECT max_messages_per_window, window_seconds FROM discord_rate_limits WHERE cluster_id = ?1 AND enabled = 1",
             [cluster_id],
             |row| {
@@ -1004,8 +1050,19 @@ impl DiscordBridgeService {
                 let window: i32 = row.get(1)?;
                 Ok((max_msgs as usize, window as u64))
             },
-        )
-        .ok()
+        ) {
+            return Some(res);
+        }
+
+        conn.query_row(
+            "SELECT max_messages_per_window, window_seconds FROM ase_discord_rate_limits WHERE cluster_id = ?1 AND enabled = 1",
+            [cluster_id],
+            |row| {
+                let max_msgs: i32 = row.get(0)?;
+                let window: i32 = row.get(1)?;
+                Ok((max_msgs as usize, window as u64))
+            },
+        ).ok()
     }
 
     /// Test Discord connection by fetching channel info
@@ -1472,8 +1529,13 @@ impl DiscordBridgeService {
             }
         };
 
-        let cpu_bar = render_bar(cpu_usage, 10);
+                let cpu_bar = render_bar(cpu_usage, 10);
         let ram_bar = render_bar(ram_usage, 10);
+
+        log::info!("📊 [DiscordBridge] update_server_list for cluster {}: found {} servers", config.cluster_id, servers.len());
+        for s in &servers {
+            log::info!("   - Server #{}: {} | status: {} | max_players: {}", s.id, s.name, s.status, s.max_players);
+        }
 
         let mut desc = format!("⏱️ **Live Status Dashboard** • Updated: <t:{}:R>\n\n", chrono::Utc::now().timestamp());
         let mut select_options = Vec::new();
@@ -1550,25 +1612,25 @@ impl DiscordBridgeService {
                     "type": 2,
                     "label": "Start All",
                     "style": 3,
-                    "custom_id": "start_all"
+                    "custom_id": "cluster_start_all"
                 },
                 {
                     "type": 2,
                     "label": "Stop All",
                     "style": 4,
-                    "custom_id": "stop_all"
+                    "custom_id": "cluster_stop_all"
                 },
                 {
                     "type": 2,
                     "label": "Restart All",
                     "style": 1,
-                    "custom_id": "restart_all"
+                    "custom_id": "cluster_restart_all"
                 },
                 {
                     "type": 2,
                     "label": "Update All",
                     "style": 2,
-                    "custom_id": "update_all"
+                    "custom_id": "cluster_update_all"
                 }
             ]
         }));
@@ -1772,16 +1834,22 @@ impl DiscordBridgeService {
         Ok(count > 0)
     }
 
-    /// Fetch servers for a cluster (sync helper to avoid non-Send across await)
+        /// Fetch servers for a cluster (sync helper to avoid non-Send across await)
     fn fetch_cluster_servers(&self, cluster_id: i64) -> Result<Vec<ClusterServerInfo>, String> {
         let state = self.app_handle.state::<AppState>();
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        // 1. Try ASA servers (both direct cluster_id and cluster_servers junction table)
         let mut stmt = conn.prepare(
-            "SELECT id, name, status, max_players, last_started FROM servers WHERE cluster_id = ?1"
+            "SELECT s.id, s.name, s.status, s.max_players, s.last_started 
+             FROM servers s 
+             WHERE s.cluster_id = ?1 
+                OR s.id IN (SELECT server_id FROM cluster_servers WHERE cluster_id = ?1)
+             ORDER BY s.id ASC"
         ).map_err(|e| e.to_string())?;
 
-        let servers = stmt
+        let mut servers: Vec<ClusterServerInfo> = stmt
             .query_map([cluster_id], |row| {
                 Ok(ClusterServerInfo {
                     id: row.get(0)?,
@@ -1795,6 +1863,39 @@ impl DiscordBridgeService {
             .filter_map(|r| r.ok())
             .collect();
 
+        if !servers.is_empty() {
+            log::info!("🔍 [DiscordBridge] Discovered {} ASA servers for cluster {}", servers.len(), cluster_id);
+            return Ok(servers);
+        }
+
+        // 2. If no ASA servers found, try ASE servers (both direct cluster_id and ase_cluster_servers junction table)
+        // Note: ase_servers does not have last_started column, so we select NULL as last_started
+        if let Ok(mut ase_stmt) = conn.prepare(
+            "SELECT s.id, s.name, s.status, s.max_players, NULL AS last_started 
+             FROM ase_servers s 
+             WHERE s.cluster_id = ?1 
+                OR CAST(s.cluster_id AS INTEGER) = ?1 
+                OR s.id IN (SELECT server_id FROM ase_cluster_servers WHERE cluster_id = ?1)
+             ORDER BY s.id ASC"
+        ) {
+            if let Ok(rows) = ase_stmt.query_map([cluster_id], |row| {
+                Ok(ClusterServerInfo {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    status: row.get(2)?,
+                    max_players: row.get(3)?,
+                    last_started: row.get(4)?,
+                })
+            }) {
+                servers = rows.filter_map(|r| r.ok()).collect();
+                if !servers.is_empty() {
+                    log::info!("🦖 [DiscordBridge] Discovered {} ASE servers for cluster {}", servers.len(), cluster_id);
+                    return Ok(servers);
+                }
+            }
+        }
+
+        log::warn!("⚠️ [DiscordBridge] No servers found for cluster {} (checked both ASA and ASE tables)", cluster_id);
         Ok(servers)
     }
 
@@ -1803,17 +1904,38 @@ impl DiscordBridgeService {
         let state = self.app_handle.state::<AppState>();
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
-        let mut stmt = conn
-            .prepare("SELECT id, name FROM servers WHERE cluster_id = ?1")
-            .map_err(|e| e.to_string())?;
 
-        let map = stmt
-            .query_map([cluster_id], |row| {
+        // 1. Try ASA
+        let mut map: HashMap<i64, String> = HashMap::new();
+        if let Ok(mut stmt) = conn.prepare(
+            "SELECT s.id, s.name FROM servers s 
+             WHERE s.cluster_id = ?1 
+                OR s.id IN (SELECT server_id FROM cluster_servers WHERE cluster_id = ?1)"
+        ) {
+            if let Ok(rows) = stmt.query_map([cluster_id], |row| {
                 Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| e.to_string())?
-            .filter_map(|r| r.ok())
-            .collect();
+            }) {
+                map = rows.filter_map(|r| r.ok()).collect();
+            }
+        }
+
+        if !map.is_empty() {
+            return Ok(map);
+        }
+
+        // 2. Try ASE
+        if let Ok(mut ase_stmt) = conn.prepare(
+            "SELECT s.id, s.name FROM ase_servers s 
+             WHERE s.cluster_id = ?1 
+                OR CAST(s.cluster_id AS INTEGER) = ?1 
+                OR s.id IN (SELECT server_id FROM ase_cluster_servers WHERE cluster_id = ?1)"
+        ) {
+            if let Ok(rows) = ase_stmt.query_map([cluster_id], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            }) {
+                map = rows.filter_map(|r| r.ok()).collect();
+            }
+        }
 
         Ok(map)
     }

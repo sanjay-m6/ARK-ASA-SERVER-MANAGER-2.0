@@ -436,23 +436,40 @@ impl ComponentHandler {
                 if action_type.starts_with("cluster_") {
                     let sub_action = action_type.trim_start_matches("cluster_");
                     if let Some(state) = ah.try_state::<AppState>() {
-                        match sub_action {
-                            "start_all" => {
-                                let _ = crate::commands::cluster::start_cluster(state, config.cluster_id, None).await;
+                        let is_ase = {
+                            if let Ok(db) = state.db.lock() {
+                                if let Ok(conn) = db.get_connection() {
+                                    conn.query_row(
+                                        "SELECT COUNT(*) > 0 FROM ase_clusters WHERE id = ?1",
+                                        [config.cluster_id],
+                                        |r| r.get(0),
+                                    ).unwrap_or(false)
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
                             }
-                            "stop_all" => {
-                                let _ = crate::commands::cluster::stop_cluster(state, config.cluster_id).await;
-                            }
-                            "restart_all" => {
-                                let _ = crate::commands::cluster::restart_cluster(state, config.cluster_id, None).await;
-                            }
-                            "update_all" => {
-                                let server_ids = {
-                                    if let Ok(db) = state.db.lock() {
-                                        if let Ok(conn) = db.get_connection() {
-                                            if let Ok(mut stmt) = conn.prepare("SELECT id FROM servers WHERE cluster_id = ?1") {
-                                                if let Ok(rows) = stmt.query_map([config.cluster_id], |r| r.get::<_, i64>(0)) {
-                                                    rows.flatten().collect::<Vec<_>>()
+                        };
+
+                        if is_ase {
+                            match sub_action {
+                                "start_all" => {
+                                    let _ = crate::ase::commands::cluster::start_ase_cluster(state, config.cluster_id).await;
+                                }
+                                "stop_all" => {
+                                    let _ = crate::ase::commands::cluster::stop_ase_cluster(state, config.cluster_id).await;
+                                }
+                                "restart_all" => {
+                                    let server_ids = {
+                                        if let Ok(db) = state.db.lock() {
+                                            if let Ok(conn) = db.get_connection() {
+                                                if let Ok(mut stmt) = conn.prepare("SELECT server_id FROM ase_cluster_servers WHERE cluster_id = ?1") {
+                                                    if let Ok(rows) = stmt.query_map([config.cluster_id], |r| r.get::<_, i64>(0)) {
+                                                        rows.flatten().collect::<Vec<_>>()
+                                                    } else {
+                                                        Vec::new()
+                                                    }
                                                 } else {
                                                     Vec::new()
                                                 }
@@ -462,41 +479,142 @@ impl ComponentHandler {
                                         } else {
                                             Vec::new()
                                         }
-                                    } else {
-                                        Vec::new()
+                                    };
+                                    for sid in server_ids {
+                                        let _ = crate::ase::commands::server::restart_ase_server(ah.clone(), sid, None, state.clone()).await;
                                     }
-                                };
-                                for sid in server_ids {
-                                    let _ = crate::commands::server::update_server(ah.clone(), state.clone(), sid).await;
                                 }
+                                "update_all" => {
+                                    let server_ids = {
+                                        if let Ok(db) = state.db.lock() {
+                                            if let Ok(conn) = db.get_connection() {
+                                                if let Ok(mut stmt) = conn.prepare("SELECT server_id FROM ase_cluster_servers WHERE cluster_id = ?1") {
+                                                    if let Ok(rows) = stmt.query_map([config.cluster_id], |r| r.get::<_, i64>(0)) {
+                                                        rows.flatten().collect::<Vec<_>>()
+                                                    } else {
+                                                        Vec::new()
+                                                    }
+                                                } else {
+                                                    Vec::new()
+                                                }
+                                            } else {
+                                                Vec::new()
+                                            }
+                                        } else {
+                                            Vec::new()
+                                        }
+                                    };
+                                    for sid in server_ids {
+                                        let _ = crate::ase::commands::server::update_ase_server_install(ah.clone(), sid, state.clone()).await;
+                                    }
+                                }
+                                _ => {}
                             }
-                            _ => {}
+                        } else {
+                            match sub_action {
+                                "start_all" => {
+                                    let _ = crate::commands::cluster::start_cluster(state, config.cluster_id, None).await;
+                                }
+                                "stop_all" => {
+                                    let _ = crate::commands::cluster::stop_cluster(state, config.cluster_id).await;
+                                }
+                                "restart_all" => {
+                                    let _ = crate::commands::cluster::restart_cluster(state, config.cluster_id, None).await;
+                                }
+                                "update_all" => {
+                                    let server_ids = {
+                                        if let Ok(db) = state.db.lock() {
+                                            if let Ok(conn) = db.get_connection() {
+                                                if let Ok(mut stmt) = conn.prepare("SELECT id FROM servers WHERE cluster_id = ?1") {
+                                                    if let Ok(rows) = stmt.query_map([config.cluster_id], |r| r.get::<_, i64>(0)) {
+                                                        rows.flatten().collect::<Vec<_>>()
+                                                    } else {
+                                                        Vec::new()
+                                                    }
+                                                } else {
+                                                    Vec::new()
+                                                }
+                                            } else {
+                                                Vec::new()
+                                            }
+                                        } else {
+                                            Vec::new()
+                                        }
+                                    };
+                                    for sid in server_ids {
+                                        let _ = crate::commands::server::update_server(ah.clone(), state.clone(), sid).await;
+                                    }
+                                }
+                                _ => {}
+                            }
                         }
                     }
                 } else if let Some(srv_id) = srv_id_opt {
                     if let Some(state) = ah.try_state::<AppState>() {
-                        match action_type.as_str() {
-                            "start" => {
-                                if let Err(e) = crate::commands::server::start_server(ah.clone(), srv_id, false).await {
-                                    exec_result = Err(e);
+                        let is_ase = {
+                            if let Ok(db) = state.db.lock() {
+                                if let Ok(conn) = db.get_connection() {
+                                    conn.query_row(
+                                        "SELECT COUNT(*) > 0 FROM ase_servers WHERE id = ?1",
+                                        [srv_id],
+                                        |r| r.get(0),
+                                    ).unwrap_or(false)
+                                } else {
+                                    false
                                 }
+                            } else {
+                                false
                             }
-                            "stop" => {
-                                if let Err(e) = crate::commands::server::stop_server(state, srv_id).await {
-                                    exec_result = Err(e);
+                        };
+
+                        if is_ase {
+                            match action_type.as_str() {
+                                "start" => {
+                                    if let Err(e) = crate::ase::commands::server::start_ase_server(ah.clone(), srv_id, state).await {
+                                        exec_result = Err(e);
+                                    }
                                 }
-                            }
-                            "restart" => {
-                                if let Err(e) = crate::commands::server::restart_server(state, srv_id, None).await {
-                                    exec_result = Err(e);
+                                "stop" => {
+                                    if let Err(e) = crate::ase::commands::server::stop_ase_server(srv_id, state).await {
+                                        exec_result = Err(e);
+                                    }
                                 }
-                            }
-                            "update" => {
-                                if let Err(e) = crate::commands::server::update_server(ah.clone(), state, srv_id).await {
-                                    exec_result = Err(e);
+                                "restart" => {
+                                    if let Err(e) = crate::ase::commands::server::restart_ase_server(ah.clone(), srv_id, None, state).await {
+                                        exec_result = Err(e);
+                                    }
                                 }
+                                "update" => {
+                                    if let Err(e) = crate::ase::commands::server::update_ase_server_install(ah.clone(), srv_id, state).await {
+                                        exec_result = Err(e);
+                                    }
+                                }
+                                _ => {}
                             }
-                            _ => {}
+                        } else {
+                            match action_type.as_str() {
+                                "start" => {
+                                    if let Err(e) = crate::commands::server::start_server(ah.clone(), srv_id, false).await {
+                                        exec_result = Err(e);
+                                    }
+                                }
+                                "stop" => {
+                                    if let Err(e) = crate::commands::server::stop_server(state, srv_id).await {
+                                        exec_result = Err(e);
+                                    }
+                                }
+                                "restart" => {
+                                    if let Err(e) = crate::commands::server::restart_server(state, srv_id, None).await {
+                                        exec_result = Err(e);
+                                    }
+                                }
+                                "update" => {
+                                    if let Err(e) = crate::commands::server::update_server(ah.clone(), state, srv_id).await {
+                                        exec_result = Err(e);
+                                    }
+                                }
+                                _ => {}
+                            }
                         }
                     }
                 }
@@ -565,7 +683,26 @@ impl ComponentHandler {
                     let ah = app_handle.clone();
                     tokio::spawn(async move {
                         if let Some(state) = ah.try_state::<AppState>() {
-                            let _ = crate::commands::server::update_server(ah.clone(), state, srv_id).await;
+                            let is_ase = {
+                                if let Ok(db) = state.db.lock() {
+                                    if let Ok(conn) = db.get_connection() {
+                                        conn.query_row(
+                                            "SELECT COUNT(*) > 0 FROM ase_servers WHERE id = ?1",
+                                            [srv_id],
+                                            |r| r.get(0),
+                                        ).unwrap_or(false)
+                                    } else {
+                                        false
+                                    }
+                                } else {
+                                    false
+                                }
+                            };
+                            if is_ase {
+                                let _ = crate::ase::commands::server::update_ase_server_install(ah.clone(), srv_id, state).await;
+                            } else {
+                                let _ = crate::commands::server::update_server(ah.clone(), state, srv_id).await;
+                            }
                         }
                     });
                     return;
@@ -658,6 +795,8 @@ impl ComponentHandler {
                 return;
             }
 
+            let _ = interaction.defer_ephemeral(&ctx.http).await;
+
             let rcon_state = app_handle.try_state::<crate::commands::rcon::RconState>();
             if let Some(rcon) = rcon_state {
                 let rcon_service = &rcon.inner().0;
@@ -689,16 +828,20 @@ impl ComponentHandler {
                             .footer(CreateEmbedFooter::new("ARK Server Manager • Remote RCON"))
                             .timestamp(serenity::model::Timestamp::now());
 
-                        let resp = CreateInteractionResponseMessage::new().embed(embed).ephemeral(true);
-                        let _ = interaction.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                        let _ = interaction.edit_response(&ctx.http, EditInteractionResponse::new().embed(embed)).await;
                     }
                     Err(e) => {
-                        let resp = CreateInteractionResponseMessage::new()
-                            .content(format!("❌ **RCON Error:** {}", e))
-                            .ephemeral(true);
-                        let _ = interaction.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                        let _ = interaction.edit_response(
+                            &ctx.http,
+                            EditInteractionResponse::new().content(format!("❌ **RCON Error:** {}", e)),
+                        ).await;
                     }
                 }
+            } else {
+                let _ = interaction.edit_response(
+                    &ctx.http,
+                    EditInteractionResponse::new().content("❌ RCON Service is currently unavailable."),
+                ).await;
             }
             return;
         }
@@ -727,6 +870,8 @@ impl ComponentHandler {
                 return;
             }
 
+            let _ = interaction.defer_ephemeral(&ctx.http).await;
+
             let rcon_state = app_handle.try_state::<crate::commands::rcon::RconState>();
             if let Some(rcon) = rcon_state {
                 let rcon_service = &rcon.inner().0;
@@ -745,18 +890,23 @@ impl ComponentHandler {
                             None,
                         );
 
-                        let resp = CreateInteractionResponseMessage::new()
-                            .content(format!("📢 **In-Game Broadcast Sent to Server #{}:**\n> {}", srv_id, message_text))
-                            .ephemeral(true);
-                        let _ = interaction.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                        let _ = interaction.edit_response(
+                            &ctx.http,
+                            EditInteractionResponse::new().content(format!("📢 **In-Game Broadcast Sent to Server #{}:**\n> {}", srv_id, message_text)),
+                        ).await;
                     }
                     Err(e) => {
-                        let resp = CreateInteractionResponseMessage::new()
-                            .content(format!("❌ Failed to send broadcast: {}", e))
-                            .ephemeral(true);
-                        let _ = interaction.create_response(&ctx.http, CreateInteractionResponse::Message(resp)).await;
+                        let _ = interaction.edit_response(
+                            &ctx.http,
+                            EditInteractionResponse::new().content(format!("❌ Failed to send broadcast: {}", e)),
+                        ).await;
                     }
                 }
+            } else {
+                let _ = interaction.edit_response(
+                    &ctx.http,
+                    EditInteractionResponse::new().content("❌ RCON Service is currently unavailable."),
+                ).await;
             }
             return;
         }
