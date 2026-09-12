@@ -1326,7 +1326,16 @@ impl DiscordBridgeService {
 
             while running.load(Ordering::Relaxed) {
                 let token = {
-                    let config_guard = config_arc.lock().await;
+                    let mut config_guard = config_arc.lock().await;
+                    if config_guard.is_none() {
+                        if let Some(state) = app_handle.try_state::<AppState>() {
+                            if let Some(loaded) = state.discord_bridge.load_config_from_db() {
+                                if loaded.enabled {
+                                    *config_guard = Some(loaded);
+                                }
+                            }
+                        }
+                    }
                     match config_guard.as_ref() {
                         Some(c) if c.enabled && !c.bot_token.is_empty() => c.bot_token.clone(),
                         _ => {
@@ -1470,7 +1479,13 @@ impl DiscordBridgeService {
             }
         }
 
-        self.run_status_loop().await;
+        while self.running.load(Ordering::Relaxed) {
+            self.run_status_loop().await;
+            if self.running.load(Ordering::Relaxed) {
+                log::warn!("⚠️ [Discord] Live updates status loop stopped unexpectedly. Auto-recovering in 5s...");
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            }
+        }
     }
 
     // Status update loop
@@ -1514,7 +1529,10 @@ impl DiscordBridgeService {
         // Fetch System Metrics
         let (cpu_usage, ram_usage) = {
             if let Some(state) = self.app_handle.try_state::<AppState>() {
-                let mut sys = state.sys.lock().unwrap();
+                let mut sys = state.sys.lock().unwrap_or_else(|poisoned| {
+                    log::warn!("⚠️ state.sys mutex was poisoned, recovering inner state");
+                    poisoned.into_inner()
+                });
                 sys.refresh_cpu_usage();
                 let cpus = sys.cpus();
                 let cpu_u = if !cpus.is_empty() {
@@ -2010,6 +2028,11 @@ impl DiscordBridgeService {
     /// Check if running
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::Relaxed)
+    }
+
+    /// Check if Discord Gateway is running
+    pub fn is_gateway_running(&self) -> bool {
+        self.gateway_running.load(Ordering::Relaxed)
     }
 
     /// Get active bridge status snapshot

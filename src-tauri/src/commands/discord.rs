@@ -576,7 +576,9 @@ pub async fn set_discord_rate_limit_config(
     }
     if window_seconds < 1 {
         return Err("window_seconds must be at least 1".to_string());
-    }    {
+    }
+
+    {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 

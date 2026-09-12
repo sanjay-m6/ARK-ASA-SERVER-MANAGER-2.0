@@ -69,6 +69,11 @@ impl PlayerManager {
             ).map_err(|e| format!("Database error: {}", e))?;
 
             // Also update discord_users table for backwards compatibility
+            // Ensure player_stats record exists first so FOREIGN KEY(steam_id) REFERENCES player_stats(steam_id) is satisfied
+            let _ = conn.execute(
+                "INSERT INTO player_stats (steam_id, display_name) VALUES (?1, ?2) ON CONFLICT(steam_id) DO NOTHING",
+                rusqlite::params![clean_id, discord_username],
+            );
             let _ = conn.execute(
                 "INSERT OR REPLACE INTO discord_users (discord_id, steam_id, discord_username) VALUES (?1, ?2, ?3)",
                 rusqlite::params![discord_user_id, clean_id, discord_username],

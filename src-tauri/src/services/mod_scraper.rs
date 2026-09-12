@@ -30,6 +30,17 @@ pub struct CurseForgeCategory {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct CurseForgeFile {
+    #[serde(rename = "displayName")]
+    display_name: Option<String>,
+    #[serde(rename = "fileName")]
+    file_name: Option<String>,
+    #[serde(rename = "fileDate")]
+    file_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct CurseForgeMod {
     id: i32,
     #[serde(rename = "gameId")]
@@ -44,6 +55,8 @@ struct CurseForgeMod {
     download_count: Option<f64>,
     #[serde(rename = "dateModified")]
     date_modified: Option<String>,
+    #[serde(rename = "latestFiles")]
+    latest_files: Option<Vec<CurseForgeFile>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -516,20 +529,26 @@ pub async fn check_mod_updates(
             .data
             .into_iter()
             .filter(|cf_mod| cf_mod.game_id == 83374)
-            .map(|cf_mod| ModInfo {
-                id: cf_mod.id.to_string(),
-                curseforge_id: Some(cf_mod.id as i64),
-                name: cf_mod.name,
-                author: cf_mod.authors.as_ref().and_then(|a| a.first()).map(|a| a.name.clone()),
-                version: None, // We could fetch latest file version here if needed
-                downloads: cf_mod.download_count.map(|d| d as i64),
-                description: cf_mod.summary,
-                thumbnail_url: cf_mod.logo.map(|l| l.thumbnail_url),
-                curseforge_url: cf_mod.links.map(|l| l.website_url),
-                enabled: true,
-                load_order: 0,
-                last_updated: cf_mod.date_modified,
-                is_local: None,
+            .map(|cf_mod| {
+                let latest_version = cf_mod.latest_files.as_ref()
+                    .and_then(|files| files.first())
+                    .and_then(|f| f.display_name.clone().or_else(|| f.file_name.clone()));
+
+                ModInfo {
+                    id: cf_mod.id.to_string(),
+                    curseforge_id: Some(cf_mod.id as i64),
+                    name: cf_mod.name,
+                    author: cf_mod.authors.as_ref().and_then(|a| a.first()).map(|a| a.name.clone()),
+                    version: latest_version,
+                    downloads: cf_mod.download_count.map(|d| d as i64),
+                    description: cf_mod.summary,
+                    thumbnail_url: cf_mod.logo.map(|l| l.thumbnail_url),
+                    curseforge_url: cf_mod.links.map(|l| l.website_url),
+                    enabled: true,
+                    load_order: 0,
+                    last_updated: cf_mod.date_modified,
+                    is_local: None,
+                }
             })
             .collect();
 
@@ -579,12 +598,16 @@ pub async fn get_mod_by_id(
             .into());
         }
 
+        let latest_version = cf_mod.latest_files.as_ref()
+            .and_then(|files| files.first())
+            .and_then(|f| f.display_name.clone().or_else(|| f.file_name.clone()));
+
         Ok(ModInfo {
             id: cf_mod.id.to_string(),
             curseforge_id: Some(cf_mod.id as i64),
             name: cf_mod.name,
             author: cf_mod.authors.as_ref().and_then(|a| a.first()).map(|a| a.name.clone()),
-            version: None,
+            version: latest_version,
             downloads: cf_mod.download_count.map(|d| d as i64),
             description: cf_mod.summary,
             thumbnail_url: cf_mod.logo.map(|l| l.thumbnail_url),

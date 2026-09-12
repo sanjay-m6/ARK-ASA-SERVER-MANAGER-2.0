@@ -89,7 +89,28 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Bug Fixes in v4.6.23
+            ### 🆕 New Features & Bug Fixes in v4.6.24
+            - **⚡ Online CurseForge Mod Update Checking & Batch Synchronization**:
+              - Added direct **"Check Updates"** capability to the Installed Server Mods Management section (`/mods`).
+              - Built high-performance batch query engine (`check_server_mod_updates`) querying CurseForge API in a single HTTP request for all installed mods on the server without N+1 overhead.
+              - Accurately compares remote file release dates (`dateModified`, `latestFiles`) and version strings against local SQLite database records and on-disk files.
+              - Displays eye-catching **`{N} Updates Ready`** badge in the header, introduces a dedicated **`Updates ({N})`** filter tab, and renders animated **`Update Ready (vX.X)`** badges directly on affected mod cards.
+            - **🛡️ Rollback-Protected Mod Update Push Engine (`push_mod_updates`)**:
+              - **100% Rollback Protection**: Automatically archives existing mod folders into `ShooterGame/Saved/ModBackups/{modId}_{timestamp}` before modifying or removing files.
+              - **Pre-Patch Crash Loop Prevention & Clean Cache Purge**: Automatically sweeps and purges stale `.pak` and temporary mod cache files in `ShooterGame/Binaries/Win64/ShooterGame/Mods/{id}` and `.temp/` directories. This prevents the dedicated server binary from crashing on boot due to outdated/mismatched pre-patch assets during major game updates.
+              - **Database & INI Synchronization**: Automatically synchronizes updated mod version tags, names, and timestamps in SQLite, and ensures active mod lists are written to `GameUserSettings.ini`.
+              - **Graceful Running Server Restarts & RCON Warning Countdowns**: If the server is actively running, administrators can trigger broadcast player warning announcements via RCON (Immediate, 1 min, 3 min, or 5 min), execute world saves (`saveworld`), cleanly stop the instance, and automatically reboot.
+              - **Discord Webhook Alerts**: Automatically dispatches notification embeds to configured Discord webhooks when mod updates are pushed and servers are restarted.
+            - **💻 Interactive Mod Push Modal (`PushModUpdatesModal.tsx`)**:
+              - Provides multi-mod selection checklist with Select All / Deselect All controls, version comparison, rollback protection indicators, server restart controls, and live step-by-step progress status.
+              - Supports both bulk updates ("Push All Updates") and targeted single-mod updates ("Push Update").
+            - **🛠️ Rust Analyzer IDE Diagnostics Fix**:
+              - Configured `rust-analyzer.linkedProjects` and `rust-analyzer.check.command` in `.vscode/settings.json` to resolve false-positive `format!` macro-expansion diagnostics in Tauri subfolder projects on modern Rust toolchains.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.23 — Astraeos Map Startup Crash Fix & Config Editor UI Enhancements</summary>
+
             - **🌋 Astraeos Map Startup Crash & Official Map Status Resolution**:
               - Resolved instant server crash during startup when selecting the official `Astraeos` map (`Astraeos_WP`).
               - Diagnosed that Astraeos was erroneously associated with inactive CurseForge mod ID `960144`, which caused Wildcard's server engine to crash when attempting to download/verify non-existent mod files.
@@ -105,8 +126,7 @@ jobs:
               - Ensured active servers correctly link to their parent cluster across Tauri backend commands and real-time status embeds.
             - **⚙️ Config Persistence & INI Synchronization**:
               - Hardened bidirectional synchronization for server name (`SessionName`), map arguments, and player limits between `GameUserSettings.ini` and internal server configurations.
-
-            ### 🛠️ Previous Releases
+            </details>
             <details>
             <summary>v4.6.22 — 1-Click ASA Modded Map Hub, Official Roadmap Alignment & In-Place Installer</summary>
 

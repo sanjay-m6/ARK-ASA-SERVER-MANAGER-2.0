@@ -163,6 +163,39 @@ export interface ModInfo {
     enabled?: boolean;
     loadOrder?: number;
     isLocal?: boolean;
+    lastUpdated?: string;
+    last_updated?: string;
+}
+
+export interface ModUpdateInfo {
+    modId: string;
+    name: string;
+    currentVersion?: string;
+    latestVersion?: string;
+    currentUpdatedAt?: string;
+    latestUpdatedAt?: string;
+    hasUpdate: boolean;
+    thumbnailUrl?: string;
+    curseforgeUrl?: string;
+    author?: string;
+}
+
+export interface ServerModUpdateReport {
+    serverId: number;
+    totalMods: number;
+    updatesAvailable: number;
+    updatesAvailableCount?: number;
+    updates_available?: number;
+    checkedAt: string;
+    mods: ModUpdateInfo[];
+}
+
+export interface PushModUpdatesResult {
+    success: boolean;
+    updatedModIds: string[];
+    backedUpCount: number;
+    serverRestarted: boolean;
+    message: string;
 }
 
 export interface Backup {

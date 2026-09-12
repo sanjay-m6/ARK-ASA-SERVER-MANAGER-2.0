@@ -16,6 +16,9 @@ import type {
     ProfileExportOptions,
     ServerExportProfile,
     ProfileExportBundle,
+    ServerModUpdateReport,
+    PushModUpdatesResult,
+    ModUpdateInfo,
 } from '../types';
 
 export type {
@@ -31,6 +34,9 @@ export type {
     ProfileExportOptions,
     ServerExportProfile,
     ProfileExportBundle,
+    ServerModUpdateReport,
+    PushModUpdatesResult,
+    ModUpdateInfo,
 };
 
 // ============================================================================
@@ -512,6 +518,24 @@ export async function hardcoreRetryMods(serverId: number): Promise<void> {
 
 export async function copyModsToServer(sourceServerId: number, targetServerId: number): Promise<void> {
     return await invoke('copy_mods_to_server', { sourceServerId, targetServerId });
+}
+
+export async function checkServerModUpdates(serverId: number): Promise<ServerModUpdateReport> {
+    return await invoke('check_server_mod_updates', { serverId });
+}
+
+export async function pushModUpdates(
+    serverId: number,
+    modIds: string[] = [],
+    restartServer: boolean = true,
+    warningMinutes?: number
+): Promise<PushModUpdatesResult> {
+    return await invoke('push_mod_updates', {
+        serverId,
+        modIds,
+        restartServer,
+        warningMinutes: warningMinutes ?? null,
+    });
 }
 
 // Mod Conflict Scanner

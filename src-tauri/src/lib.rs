@@ -828,6 +828,8 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
             commands::mods::export_modpack,
             commands::mods::import_modpack,
             commands::mods::sync_banlist,
+            commands::mods::check_server_mod_updates,
+            commands::mods::push_mod_updates,
             // Config commands
             commands::config::read_config,
             commands::config::save_config,

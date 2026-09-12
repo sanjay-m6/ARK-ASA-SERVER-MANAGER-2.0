@@ -15,10 +15,10 @@ use tokio::sync::Mutex;
 use tokio::time::Duration;
 
 /// Maximum number of retry attempts when connecting
-const MAX_RETRIES: u32 = 10;
+const MAX_RETRIES: u32 = 4;
 
 /// Base delay between retries (multiplied by attempt number for linear backoff)
-const RETRY_BASE_DELAY: Duration = Duration::from_secs(2);
+const RETRY_BASE_DELAY: Duration = Duration::from_millis(1000);
 
 struct RconSession {
     connection: ArkRconClient,
@@ -316,11 +316,15 @@ impl RconService {
                 if let Some(state) = app_handle.try_state::<crate::AppState>() {
                     if let Ok(db) = state.db.lock() {
                         if let Ok(conn) = db.get_connection() {
-                                                        if server_id > 0 {
+                            if server_id > 0 {
                                 // 1. Try ASA servers
-                                if let Ok(mut stmt) = conn.prepare("SELECT COALESCE(ip_address, '127.0.0.1'), rcon_port, admin_password FROM servers WHERE id = ?1") {
+                                if let Ok(mut stmt) = conn.prepare("SELECT COALESCE(ip_address, '127.0.0.1'), rcon_port, admin_password, status FROM servers WHERE id = ?1") {
                                     if let Ok(mut rows) = stmt.query([server_id]) {
                                         if let Ok(Some(row)) = rows.next() {
+                                            let status = row.get::<_, String>(3).unwrap_or_default();
+                                            if status != "online" && status != "running" {
+                                                return Err(format!("Server #{} is currently {} (not running). Cannot connect to RCON.", server_id, status));
+                                            }
                                             if let (Ok(db_ip), Ok(db_port), Ok(db_pwd)) = (row.get::<_, String>(0), row.get::<_, i64>(1), row.get::<_, String>(2)) {
                                                 ip = db_ip;
                                                 port = db_port as u16;
@@ -335,9 +339,13 @@ impl RconService {
                             // 2. If not found in ASA servers (or if negative ID), check ASE ase_servers
                             if !auto_connected {
                                 let clean_id = server_id.abs();
-                                if let Ok(mut stmt) = conn.prepare("SELECT '127.0.0.1', rcon_port, COALESCE(NULLIF(rcon_password, ''), admin_password) FROM ase_servers WHERE id = ?1") {
+                                if let Ok(mut stmt) = conn.prepare("SELECT '127.0.0.1', rcon_port, COALESCE(NULLIF(rcon_password, ''), admin_password), status FROM ase_servers WHERE id = ?1") {
                                     if let Ok(mut rows) = stmt.query([clean_id]) {
                                         if let Ok(Some(row)) = rows.next() {
+                                            let status = row.get::<_, String>(3).unwrap_or_default();
+                                            if status != "online" && status != "running" {
+                                                return Err(format!("Server #{} is currently {} (not running). Cannot connect to RCON.", clean_id, status));
+                                            }
                                             if let (Ok(db_ip), Ok(db_port), Ok(db_pwd)) = (row.get::<_, String>(0), row.get::<_, i64>(1), row.get::<_, String>(2)) {
                                                 ip = db_ip;
                                                 port = db_port as u16;

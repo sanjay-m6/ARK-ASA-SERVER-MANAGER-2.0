@@ -2,15 +2,16 @@ import React, { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Code, Shield, Upload, PackagePlus, ScanSearch, ShieldCheck, GripVertical, Key, MessageSquare, FolderArchive, Image as ImageIcon, GitFork, Sparkles, CheckCircle, MapPin } from 'lucide-react';
+import { Search, Download, Check, X, Loader2, Package, ExternalLink, Save, BookOpen, AlertTriangle, FileText, Terminal, Copy, Info, ListChecks, Square, CheckSquare, ArrowUp, ArrowDown, Trash2, Power, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Code, Shield, Upload, PackagePlus, ScanSearch, ShieldCheck, GripVertical, Key, MessageSquare, FolderArchive, Image as ImageIcon, GitFork, Sparkles, CheckCircle, MapPin, RefreshCw } from 'lucide-react';
 import { cn } from '../utils/helpers';
-import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, toggleAllMods, getModDescription, getModScreenshots, copyModsToServer, type ModConfigPreview, getModCategories, type CurseForgeCategory, checkModConflicts, exportModpack, importModpack, type ModConflict, type ModpackImportResult, updateServerSettings } from '../utils/tauri';
+import { searchMods, installMod, generateModConfig, applyModsToServer, getModInstallInstructions, getInstalledMods, updateModOrder, uninstallMod, toggleMod, toggleAllMods, getModDescription, getModScreenshots, copyModsToServer, type ModConfigPreview, getModCategories, type CurseForgeCategory, checkModConflicts, exportModpack, importModpack, type ModConflict, type ModpackImportResult, updateServerSettings, checkServerModUpdates, type ServerModUpdateReport, type ModUpdateInfo } from '../utils/tauri';
 import { ModInfo } from '../types';
 import toast from 'react-hot-toast';
 import { invoke } from '@tauri-apps/api/core';
 import { AdvancedModInput } from '../components/mods/AdvancedModInput';
 import { ModWatchdogDashboard } from '../components/mods/ModWatchdogDashboard';
 import CurseForgeKeyModal from '../components/modals/CurseForgeKeyModal';
+import PushModUpdatesModal from '../components/mods/PushModUpdatesModal';
 import ServerSelect from '../components/ui/ServerSelect';
 import { useServerStore } from '../stores/serverStore';
 import ModOrganizationBar from '../components/mods/ModOrganizationBar';
@@ -519,8 +520,14 @@ export default function ModManager() {
 
     // Installed Mods State
     const [installedMods, setInstalledMods] = useState<ModInfo[]>([]);
-    const [installedFilter, setInstalledFilter] = useState<'all' | 'enabled' | 'disabled' | 'maps'>('all');
+    const [installedFilter, setInstalledFilter] = useState<'all' | 'enabled' | 'disabled' | 'maps' | 'updates'>('all');
     const [isSyncing, setIsSyncing] = useState(false);
+
+    // Mod Updates State
+    const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+    const [updateReport, setUpdateReport] = useState<ServerModUpdateReport | null>(null);
+    const [pushModalOpen, setPushModalOpen] = useState(false);
+    const [modsForPushModal, setModsForPushModal] = useState<ModUpdateInfo[]>([]);
 
     // Compute mod counts per category folder
     const modCountMap = useMemo(() => {
@@ -805,6 +812,11 @@ export default function ModManager() {
         }
     }, [activeServer]);
 
+    // Reset update report on server switch
+    useEffect(() => {
+        setUpdateReport(null);
+    }, [selectedServerId]);
+
     // Fetch Installed Mods
     const fetchInstalled = async () => {
         if (!selectedServerId) return;
@@ -837,6 +849,74 @@ export default function ModManager() {
             toast.error(`Sync failed: ${err}`);
         } finally {
             setIsSyncing(false);
+        }
+    };
+
+    const handleCheckForUpdates = async () => {
+        if (!selectedServerId) {
+            toast.error(t('modManager.selectServerFirst', 'Please select a server first'));
+            return;
+        }
+        if (installedMods.length === 0) {
+            toast.error(t('modManager.noInstalledModsToCheck', 'No installed mods to check on this server.'));
+            return;
+        }
+        setIsCheckingUpdates(true);
+        try {
+            const report = await checkServerModUpdates(selectedServerId);
+            setUpdateReport(report);
+            if (report.updatesAvailable > 0) {
+                toast.success(
+                    t('modManager.updatesFoundNotice', {
+                        count: report.updatesAvailable,
+                        defaultValue: `Found ${report.updatesAvailable} mod update(s) available!`
+                    }),
+                    { duration: 5000 }
+                );
+            } else {
+                toast.success(
+                    t('modManager.allModsUpToDate', 'All installed mods are up to date!'),
+                    { icon: '✨' }
+                );
+            }
+        } catch (err: unknown) {
+            console.error('Failed to check for mod updates:', err);
+            const errMsg = String(err);
+            if (errMsg.includes('API key is missing') || errMsg.includes('CurseForge API key not found')) {
+                setShowKeyModal(true);
+                toast.error(t('modManager.apiKeyRequiredForUpdates', 'CurseForge API key required to check updates.'));
+            } else {
+                toast.error(`${t('modManager.checkUpdatesFailed', 'Failed to check updates')}: ${errMsg}`);
+            }
+        } finally {
+            setIsCheckingUpdates(false);
+        }
+    };
+
+    const handleOpenPushAll = () => {
+        if (!updateReport || updateReport.updatesAvailable === 0) {
+            toast.error(t('modManager.noUpdatesAvailable', 'No mod updates available to push'));
+            return;
+        }
+        const toUpdate = updateReport.mods.filter(m => m.hasUpdate);
+        setModsForPushModal(toUpdate);
+        setPushModalOpen(true);
+    };
+
+    const handleOpenPushSingle = (modUpdate: ModUpdateInfo) => {
+        setModsForPushModal([modUpdate]);
+        setPushModalOpen(true);
+    };
+
+    const handlePushSuccess = async () => {
+        await fetchInstalled();
+        if (selectedServerId) {
+            try {
+                const newReport = await checkServerModUpdates(selectedServerId);
+                setUpdateReport(newReport);
+            } catch (e) {
+                console.error('Could not refresh report after push:', e);
+            }
         }
     };
 
@@ -2480,11 +2560,17 @@ export default function ModManager() {
                                     <Sparkles className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <h3 className="font-extrabold text-white text-base sm:text-lg">Installed Server Mods Configuration</h3>
                                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-mono font-bold">
                                             {installedMods.filter(m => m.enabled).length} Active / {installedMods.length} Total
                                         </span>
+                                        {updateReport && updateReport.updatesAvailable > 0 && (
+                                            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold animate-pulse flex items-center gap-1">
+                                                <RefreshCw className="w-3 h-3 text-amber-400" />
+                                                {updateReport.updatesAvailable} Update{updateReport.updatesAvailable > 1 ? 's' : ''} Ready
+                                            </span>
+                                        )}
                                     </div>
                                     <p className="text-xs text-slate-300 mt-1">
                                         Drag & drop or use arrow keys to reorder load sequence. Click any mod to view description, files & notes.
@@ -2492,14 +2578,36 @@ export default function ModManager() {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={handleSyncModsToServer}
-                                disabled={isSyncing || !selectedServerId || installedMods.length === 0}
-                                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-2xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50 shrink-0 self-end md:self-center"
-                            >
-                                {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                <span>Sync & Apply to Server</span>
-                            </button>
+                            <div className="flex items-center gap-2.5 shrink-0 self-end md:self-center flex-wrap">
+                                <button
+                                    onClick={handleCheckForUpdates}
+                                    disabled={isCheckingUpdates || !selectedServerId || installedMods.length === 0}
+                                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-sky-300 hover:text-white border border-sky-500/30 rounded-2xl font-bold text-xs flex items-center gap-2 transition-all shadow-md active:scale-95 disabled:opacity-50"
+                                    title="Check CurseForge for latest mod updates across installed packages"
+                                >
+                                    <RefreshCw className={cn("w-4 h-4 text-sky-400", isCheckingUpdates && "animate-spin")} />
+                                    <span>{isCheckingUpdates ? t('modManager.checkingUpdates', 'Checking Updates...') : t('modManager.checkUpdates', 'Check Updates')}</span>
+                                </button>
+
+                                {updateReport && updateReport.updatesAvailable > 0 && (
+                                    <button
+                                        onClick={handleOpenPushAll}
+                                        className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-2xl font-extrabold text-xs flex items-center gap-2 transition-all shadow-lg shadow-amber-500/25 active:scale-95 animate-pulse"
+                                    >
+                                        <Upload className="w-4 h-4" />
+                                        <span>{t('modManager.pushAllUpdates', 'Push All Updates')} ({updateReport.updatesAvailable})</span>
+                                    </button>
+                                )}
+
+                                <button
+                                    onClick={handleSyncModsToServer}
+                                    disabled={isSyncing || !selectedServerId || installedMods.length === 0}
+                                    className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-2xl font-bold text-xs flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50 shrink-0"
+                                >
+                                    {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    <span>Sync & Apply to Server</span>
+                                </button>
+                            </div>
                         </div>
 
                         {/* Filter Status Pills & Bulk Controls */}
@@ -2551,6 +2659,23 @@ export default function ModManager() {
                                     <span>🗺️ Maps</span>
                                     <span>({installedMods.filter(isModLikelyMap).length})</span>
                                 </button>
+                                {updateReport && updateReport.updatesAvailable > 0 && (
+                                    <button
+                                        onClick={() => setInstalledFilter('updates')}
+                                        className={cn(
+                                            "px-4 py-1.5 rounded-xl transition-all flex items-center gap-1.5",
+                                            installedFilter === 'updates'
+                                                ? "bg-amber-500 text-white shadow-md font-extrabold"
+                                                : "text-amber-400/90 hover:text-amber-300 hover:bg-amber-500/10"
+                                        )}
+                                    >
+                                        <RefreshCw className="w-3 h-3 text-amber-300" />
+                                        <span>Updates</span>
+                                        <span className="px-1.5 py-0.2 rounded-full bg-amber-600/50 text-[10px] text-white">
+                                            {updateReport.updatesAvailable}
+                                        </span>
+                                    </button>
+                                )}
                             </div>
 
                             {/* Bulk Enable / Disable Action Buttons */}
@@ -2598,11 +2723,16 @@ export default function ModManager() {
                                                     if (installedFilter === 'enabled') return mod.enabled;
                                                     if (installedFilter === 'disabled') return !mod.enabled;
                                                     if (installedFilter === 'maps') return isModLikelyMap(mod);
+                                                    if (installedFilter === 'updates') {
+                                                        const updateInfo = updateReport?.mods.find(m => String(m.modId) === String(mod.id));
+                                                        return Boolean(updateInfo?.hasUpdate);
+                                                    }
                                                     if (activeCategoryId !== 'all' && !isModInCategory(mod.id, activeCategoryId)) return false;
                                                     return true;
                                                 })
                                                 .map((mod, index) => {
                                                     const originalIndex = installedMods.findIndex(m => m.id === mod.id);
+                                                    const updateInfo = updateReport?.mods.find(m => String(m.modId) === String(mod.id));
                                                     return (
                                                         <Draggable key={mod.id} draggableId={mod.id} index={index} isDragDisabled={searchQuery.length > 0 || installedFilter !== 'all'}>
                                                             {(provided, snapshot) => (
@@ -2684,6 +2814,13 @@ export default function ModManager() {
                                                                                     </span>
                                                                                 )}
 
+                                                                                {updateInfo && updateInfo.hasUpdate && (
+                                                                                    <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold rounded-md flex items-center gap-1 shadow-sm animate-pulse">
+                                                                                        <RefreshCw className="w-3 h-3 text-amber-400" />
+                                                                                        Update Ready {updateInfo.latestVersion ? `(v${updateInfo.latestVersion})` : ''}
+                                                                                    </span>
+                                                                                )}
+
                                                                                 {mod.enabled ? (
                                                                                     <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold rounded-md flex items-center gap-1">
                                                                                         <CheckCircle className="w-3 h-3" /> Active #{originalIndex + 1}
@@ -2747,6 +2884,17 @@ export default function ModManager() {
                                                                                     <span>Set as Map</span>
                                                                                 </button>
                                                                             )
+                                                                        )}
+
+                                                                        {updateInfo && updateInfo.hasUpdate && (
+                                                                            <button
+                                                                                onClick={() => handleOpenPushSingle(updateInfo)}
+                                                                                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white border border-amber-400/40 text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-md shadow-amber-500/20 active:scale-95"
+                                                                                title={`Push update to latest version (${updateInfo.latestVersion || 'latest'})`}
+                                                                            >
+                                                                                <RefreshCw className="w-3.5 h-3.5" />
+                                                                                <span>Push Update</span>
+                                                                            </button>
                                                                         )}
 
                                                                         <button
@@ -2837,6 +2985,19 @@ export default function ModManager() {
                 onClose={() => setActiveLightboxImage(null)}
                 onSelectImage={setActiveLightboxImage}
             />
+
+            {/* Push Mod Updates Modal */}
+            {selectedServerId && (
+                <PushModUpdatesModal
+                    isOpen={pushModalOpen}
+                    serverId={selectedServerId}
+                    serverName={servers.find(s => s.id === selectedServerId)?.name || `Server #${selectedServerId}`}
+                    isServerRunning={Boolean(activeServer?.id === selectedServerId && activeServer?.status === 'running')}
+                    modsToUpdate={modsForPushModal}
+                    onClose={() => setPushModalOpen(false)}
+                    onSuccess={handlePushSuccess}
+                />
+            )}
         </div>
     );
 }

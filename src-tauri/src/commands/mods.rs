@@ -1,8 +1,9 @@
 use crate::models::ModInfo;
 use crate::services::mod_scraper;
+use crate::services::process_manager::StopReason;
 use crate::AppState;
 use std::path::PathBuf;
-use tauri::State;
+use tauri::{Manager, State};
 
 #[tauri::command]
 pub async fn search_mods(
@@ -149,8 +150,8 @@ pub async fn install_mod(
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         conn.execute(
-            "INSERT OR REPLACE INTO mods (server_id, mod_id, name, version, author, description, workshop_url, thumbnail_url, server_type, enabled, load_order)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'ASA', 1, ?9)",
+            "INSERT OR REPLACE INTO mods (server_id, mod_id, name, version, author, description, workshop_url, thumbnail_url, server_type, enabled, load_order, last_updated)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'ASA', 1, ?9, ?10)",
             rusqlite::params![
                 server_id,
                 final_mod_info.id,
@@ -160,7 +161,8 @@ pub async fn install_mod(
                 final_mod_info.description.clone().unwrap_or_default(),
                 final_mod_info.curseforge_url.clone().unwrap_or_default(),
                 final_mod_info.thumbnail_url.clone().unwrap_or_default(),
-                max_order + 1
+                max_order + 1,
+                final_mod_info.last_updated.clone()
             ],
         ).map_err(|e| e.to_string())?;
     }
@@ -219,7 +221,7 @@ pub async fn get_installed_mods(
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         let mut stmt = conn.prepare(
-            "SELECT mod_id, name, version, author, description, workshop_url, thumbnail_url, enabled, load_order 
+            "SELECT mod_id, name, version, author, description, workshop_url, thumbnail_url, enabled, load_order, last_updated 
              FROM mods WHERE server_id = ?1 ORDER BY load_order ASC"
         ).map_err(|e| e.to_string())?;
 
@@ -237,7 +239,7 @@ pub async fn get_installed_mods(
                     curseforge_url: row.get::<_, Option<String>>(5).ok().flatten(),
                     enabled: row.get::<_, bool>(7).unwrap_or(true),
                     load_order: row.get::<_, i32>(8).unwrap_or(0),
-                    last_updated: None,
+                    last_updated: row.get::<_, Option<String>>(9).ok().flatten(),
                     is_local: None,
                 })
             })
@@ -1305,4 +1307,515 @@ pub struct BanlistSyncResult {
     pub new_bans_added: usize,
     pub total_bans: usize,
     pub source_url: String,
+}
+
+// =============================================================================
+// MOD UPDATE CHECK & PUSH (ASA)
+// =============================================================================
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModUpdateInfo {
+    pub mod_id: String,
+    pub name: String,
+    pub current_version: Option<String>,
+    pub latest_version: Option<String>,
+    pub current_updated_at: Option<String>,
+    pub latest_updated_at: Option<String>,
+    pub has_update: bool,
+    pub thumbnail_url: Option<String>,
+    pub curseforge_url: Option<String>,
+    pub author: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerModUpdateReport {
+    pub server_id: i64,
+    pub total_mods: usize,
+    pub updates_available: usize,
+    pub checked_at: String,
+    pub mods: Vec<ModUpdateInfo>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PushModUpdatesResult {
+    pub success: bool,
+    pub updated_mod_ids: Vec<String>,
+    pub backed_up_count: usize,
+    pub server_restarted: bool,
+    pub message: String,
+}
+
+/// Recursively copies directory contents for rollback backups
+fn backup_mod_folder_recursive(src: &PathBuf, dst: &PathBuf) -> std::io::Result<usize> {
+    if !src.exists() {
+        return Ok(0);
+    }
+    std::fs::create_dir_all(dst)?;
+    let mut count = 0;
+    if let Ok(entries) = std::fs::read_dir(src) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(file_name) = path.file_name() {
+                let target = dst.join(file_name);
+                if path.is_dir() {
+                    count += backup_mod_folder_recursive(&path, &target)?;
+                } else if path.is_file() {
+                    if std::fs::copy(&path, &target).is_ok() {
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+    Ok(count)
+}
+
+/// Check for online mod updates from CurseForge for a specific server
+#[tauri::command]
+pub async fn check_server_mod_updates(
+    state: State<'_, AppState>,
+    server_id: i64,
+) -> Result<ServerModUpdateReport, String> {
+    println!("🔍 [Mod Update Check] Checking updates for server {}", server_id);
+
+    // 1. Get installed mods for this server
+    let installed = get_installed_mods(state.clone(), server_id).await?;
+    if installed.is_empty() {
+        return Ok(ServerModUpdateReport {
+            server_id,
+            total_mods: 0,
+            updates_available: 0,
+            checked_at: chrono::Utc::now().to_rfc3339(),
+            mods: Vec::new(),
+        });
+    }
+
+    // 2. Extract numeric Mod IDs
+    let mut numeric_ids = Vec::new();
+    for m in &installed {
+        if let Ok(id_num) = m.id.parse::<i32>() {
+            numeric_ids.push(id_num);
+        }
+    }
+
+    if numeric_ids.is_empty() {
+        return Ok(ServerModUpdateReport {
+            server_id,
+            total_mods: installed.len(),
+            updates_available: 0,
+            checked_at: chrono::Utc::now().to_rfc3339(),
+            mods: installed
+                .into_iter()
+                .map(|m| ModUpdateInfo {
+                    mod_id: m.id,
+                    name: m.name,
+                    current_version: m.version,
+                    latest_version: None,
+                    current_updated_at: m.last_updated,
+                    latest_updated_at: None,
+                    has_update: false,
+                    thumbnail_url: m.thumbnail_url,
+                    curseforge_url: m.curseforge_url,
+                    author: m.author,
+                })
+                .collect(),
+        });
+    }
+
+    // 3. Get CurseForge API key
+    let api_key = crate::services::api_key_manager::ApiKeyManager::get_curseforge_key(&state);
+    if api_key.is_none() {
+        return Err("CurseForge API Key is not configured. Please configure your key in Settings or click 'Configure CurseForge API Key'.".to_string());
+    }
+
+    // 4. Query CurseForge for latest mod details in batch
+    let remote_mods = mod_scraper::check_mod_updates(numeric_ids, api_key)
+        .await
+        .map_err(|e| format!("Failed to check CurseForge mod updates: {}", e))?;
+
+    let remote_map: std::collections::HashMap<String, ModInfo> = remote_mods
+        .into_iter()
+        .map(|m| (m.id.clone(), m))
+        .collect();
+
+    // 5. Get server install path to inspect local disk timestamps if needed
+    let install_path: Option<String> = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT install_path FROM servers WHERE id = ?1",
+            [server_id],
+            |row| row.get(0),
+        )
+        .ok()
+    };
+
+    let mods_dir = install_path.map(|p| {
+        PathBuf::from(p)
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64")
+            .join("ShooterGame")
+            .join("Mods")
+    });
+
+    let mut update_infos = Vec::new();
+    let mut updates_available_count = 0;
+
+    for local_mod in installed {
+        let remote = remote_map.get(&local_mod.id);
+        let mut has_update = false;
+        let mut latest_version = None;
+        let mut latest_updated_at = None;
+        let mut thumb = local_mod.thumbnail_url.clone();
+        let mut author = local_mod.author.clone();
+        let mut cf_url = local_mod.curseforge_url.clone();
+
+        if let Some(r) = remote {
+            latest_version = r.version.clone();
+            latest_updated_at = r.last_updated.clone();
+            if r.thumbnail_url.is_some() {
+                thumb = r.thumbnail_url.clone();
+            }
+            if r.author.is_some() {
+                author = r.author.clone();
+            }
+            if r.curseforge_url.is_some() {
+                cf_url = r.curseforge_url.clone();
+            }
+
+            // Check if update is available
+            if let Some(remote_date_str) = &r.last_updated {
+                if let Some(local_date_str) = &local_mod.last_updated {
+                    // Compare timestamps
+                    if remote_date_str != local_date_str {
+                        if let (Ok(r_dt), Ok(l_dt)) = (
+                            chrono::DateTime::parse_from_rfc3339(remote_date_str),
+                            chrono::DateTime::parse_from_rfc3339(local_date_str),
+                        ) {
+                            if r_dt > l_dt {
+                                has_update = true;
+                            }
+                        } else {
+                            has_update = true;
+                        }
+                    }
+                } else {
+                    // Local last_updated was not recorded in DB. Check local folder modification time on disk
+                    if let Some(ref md) = mods_dir {
+                        let mod_folder = md.join(&local_mod.id);
+                        if mod_folder.exists() {
+                            if let Ok(meta) = std::fs::metadata(&mod_folder) {
+                                if let Ok(mod_time) = meta.modified() {
+                                    let dt: chrono::DateTime<chrono::Utc> = mod_time.into();
+                                    if let Ok(r_dt) = chrono::DateTime::parse_from_rfc3339(remote_date_str) {
+                                        // Allow 5 minutes buffer for download/extraction time
+                                        if r_dt.with_timezone(&chrono::Utc) > dt + chrono::Duration::minutes(5) {
+                                            has_update = true;
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // Mod folder doesn't exist on disk yet
+                            has_update = true;
+                        }
+                    } else {
+                        has_update = false;
+                    }
+                }
+            }
+
+            // Also check version string change if available
+            if !has_update && latest_version.is_some() && local_mod.version.is_some() && latest_version != local_mod.version {
+                has_update = true;
+            }
+        }
+
+        if has_update {
+            updates_available_count += 1;
+        }
+
+        update_infos.push(ModUpdateInfo {
+            mod_id: local_mod.id,
+            name: local_mod.name,
+            current_version: local_mod.version,
+            latest_version,
+            current_updated_at: local_mod.last_updated,
+            latest_updated_at,
+            has_update,
+            thumbnail_url: thumb,
+            curseforge_url: cf_url,
+            author,
+        });
+    }
+
+    Ok(ServerModUpdateReport {
+        server_id,
+        total_mods: update_infos.len(),
+        updates_available: updates_available_count,
+        checked_at: chrono::Utc::now().to_rfc3339(),
+        mods: update_infos,
+    })
+}
+
+/// Push mod updates: back up current files, purge cache, update DB metadata, sync INI, and optionally restart
+#[tauri::command]
+pub async fn push_mod_updates(
+    state: State<'_, AppState>,
+    server_id: i64,
+    mod_ids: Vec<String>,
+    restart_server: bool,
+    warning_minutes: Option<u32>,
+) -> Result<PushModUpdatesResult, String> {
+    println!(
+        "🚀 [Push Mod Updates] Initiated for server {} with {} target mods (restart={})",
+        server_id,
+        mod_ids.len(),
+        restart_server
+    );
+
+    // 1. Fetch server info & credentials from DB
+    let (install_path, rcon_port, admin_password, ip_address, _session_name) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT install_path, rcon_port, admin_password, ip_address, session_name FROM servers WHERE id = ?1",
+            [server_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, u16>(1).unwrap_or(0),
+                    row.get::<_, String>(2).unwrap_or_default(),
+                    row.get::<_, Option<String>>(3)?.unwrap_or_else(|| "127.0.0.1".to_string()),
+                    row.get::<_, String>(4).unwrap_or_else(|_| "Server".to_string()),
+                ))
+            },
+        )
+        .map_err(|e| format!("Server {} not found: {}", server_id, e))?
+    };
+
+    // 2. Determine target mods to push
+    let all_installed = get_installed_mods(state.clone(), server_id).await?;
+    let targets: Vec<ModInfo> = if mod_ids.is_empty() {
+        all_installed.clone()
+    } else {
+        let id_set: std::collections::HashSet<String> = mod_ids.into_iter().collect();
+        all_installed
+            .into_iter()
+            .filter(|m| id_set.contains(&m.id))
+            .collect()
+    };
+
+    if targets.is_empty() {
+        return Ok(PushModUpdatesResult {
+            success: true,
+            updated_mod_ids: Vec::new(),
+            backed_up_count: 0,
+            server_restarted: false,
+            message: "No matching mods to update.".to_string(),
+        });
+    }
+
+    let is_running = state.process_manager.is_running(server_id);
+    let install_dir = PathBuf::from(&install_path);
+    let mods_root = install_dir
+        .join("ShooterGame")
+        .join("Binaries")
+        .join("Win64")
+        .join("ShooterGame")
+        .join("Mods");
+
+    // 3. If server is running and restart requested, perform in-game countdown & graceful save
+    let rcon_state = state.app_handle.try_state::<crate::commands::rcon::RconState>();
+    if is_running && restart_server && rcon_port > 0 {
+        if let Some(ref rcon_s) = rcon_state {
+            let rcon = &rcon_s.inner().0;
+            if rcon.connect(server_id, &ip_address, rcon_port, &admin_password).await.is_ok() {
+                let wait_mins = warning_minutes.unwrap_or(0);
+                if wait_mins > 0 {
+                    let _ = rcon
+                        .broadcast(
+                            server_id,
+                            &format!(
+                                "⚠️ SERVER NOTICE: Mod update push initiated. Server restarting in {} minute(s). Please get to safety!",
+                                wait_mins
+                            ),
+                        )
+                        .await;
+                    tokio::time::sleep(std::time::Duration::from_secs((wait_mins as u64) * 60)).await;
+                } else {
+                    let _ = rcon
+                        .broadcast(
+                            server_id,
+                            "⚠️ SERVER NOTICE: Pushing mod updates now! Saving world and restarting...",
+                        )
+                        .await;
+                    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                }
+
+                println!("  💾 Saving world before mod push...");
+                let _ = rcon.broadcast(server_id, "Saving world...").await;
+                let _ = rcon.save_world(server_id).await;
+                tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+            }
+        }
+    }
+
+    // 4. If running and restarting, stop the server before touching files
+    if is_running && restart_server {
+        println!("  🛑 Stopping server {} for mod update...", server_id);
+        let _ = state.process_manager.stop_server_with_reason(server_id, StopReason::UpdateRequired);
+
+        let mut wait_attempts = 0;
+        while state.process_manager.is_running(server_id) && wait_attempts < 25 {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            wait_attempts += 1;
+        }
+    }
+
+    // 5. Back up existing mod folders and purge local mod cache
+    let backup_root = install_dir.join("ModBackups");
+    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+    let mut backed_up_count = 0;
+    let mut updated_ids = Vec::new();
+
+    for target_mod in &targets {
+        let mod_folder = mods_root.join(&target_mod.id);
+        if mod_folder.exists() {
+            let target_backup = backup_root.join(format!("{}_{}", target_mod.id, timestamp));
+            println!("  📦 Backing up mod {} to {:?}", target_mod.id, target_backup);
+            if let Ok(count) = backup_mod_folder_recursive(&mod_folder, &target_backup) {
+                backed_up_count += count;
+            }
+            // Purge cached directory
+            println!("  🗑️ Purging cached mod folder {:?}", mod_folder);
+            let _ = std::fs::remove_dir_all(&mod_folder);
+        }
+        updated_ids.push(target_mod.id.clone());
+    }
+
+    // Purge temp folders
+    let temp1 = install_dir.join("ShooterGame/Binaries/Win64/ShooterGame/.temp");
+    if temp1.exists() {
+        let _ = std::fs::remove_dir_all(&temp1);
+    }
+    let temp2 = install_dir.join("ShooterGame/Mods/.temp");
+    if temp2.exists() {
+        let _ = std::fs::remove_dir_all(&temp2);
+    }
+
+    // 6. Fetch latest CurseForge metadata and update SQLite DB records
+    let api_key = crate::services::api_key_manager::ApiKeyManager::get_curseforge_key(&state);
+    let mut numeric_ids = Vec::new();
+    for t in &targets {
+        if let Ok(n) = t.id.parse::<i32>() {
+            numeric_ids.push(n);
+        }
+    }
+
+    if !numeric_ids.is_empty() && api_key.is_some() {
+        if let Ok(latest_infos) = mod_scraper::check_mod_updates(numeric_ids, api_key).await {
+            if let Ok(db) = state.db.lock() {
+                if let Ok(conn) = db.get_connection() {
+                    for latest in latest_infos {
+                        let _ = conn.execute(
+                            "UPDATE mods SET 
+                                last_updated = ?1, 
+                                version = COALESCE(?2, version), 
+                                name = COALESCE(?3, name),
+                                thumbnail_url = COALESCE(?4, thumbnail_url) 
+                             WHERE server_id = ?5 AND mod_id = ?6",
+                            rusqlite::params![
+                                latest.last_updated,
+                                latest.version,
+                                latest.name,
+                                latest.thumbnail_url,
+                                server_id,
+                                latest.id
+                            ],
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // 7. Sync INI configuration
+    let _ = sync_mods_to_ini(&state, server_id).await;
+
+    // 8. If server was stopped for restart, boot it back up
+    let mut restarted = false;
+    if is_running && restart_server {
+        println!("  ▶️ Restarting server {} after mod push...", server_id);
+        match crate::commands::server::start_server(state.app_handle.clone(), server_id, false).await {
+            Ok(_) => {
+                restarted = true;
+                println!("  ✅ Server restart triggered successfully");
+            }
+            Err(e) => println!("  ⚠️ Failed to restart server automatically: {}", e),
+        }
+    }
+
+    // 9. Send Discord notification if configured
+    let app_h = state.app_handle.clone();
+    let mod_names_str = targets.iter().map(|m| m.name.as_str()).collect::<Vec<_>>().join(", ");
+    tauri::async_runtime::spawn(async move {
+        let name = crate::services::discord::get_server_name(&app_h, server_id);
+        let desc = if restarted {
+            format!(
+                "Mod updates pushed for server **{}** ({} mod(s): {}). Server restarted safely.",
+                name,
+                targets.len(),
+                mod_names_str
+            )
+        } else {
+            format!(
+                "Mod updates pushed for server **{}** ({} mod(s): {}). Cache purged, files ready for next launch.",
+                name,
+                targets.len(),
+                mod_names_str
+            )
+        };
+        crate::services::discord::send_discord_webhook(
+            &app_h,
+            "serverStart",
+            crate::services::discord::DiscordEmbed::custom(
+                "Mod Updates Pushed",
+                &desc,
+                3066993, // Emerald Green
+            ),
+        )
+        .await;
+    });
+
+    let message = if restarted {
+        format!(
+            "Successfully pushed {} mod update(s)! Rollback backup saved, cache purged, and server restarted.",
+            updated_ids.len()
+        )
+    } else if is_running {
+        format!(
+            "Successfully pushed {} mod update(s)! Stale cache purged and configuration synchronized. Updates will be loaded on the next server restart.",
+            updated_ids.len()
+        )
+    } else {
+        format!(
+            "Successfully pushed {} mod update(s)! Mod cache has been cleared and configuration synchronized. The server will download fresh mod files on startup.",
+            updated_ids.len()
+        )
+    };
+
+    println!("  ✅ [Push Mod Updates] Completed: {}", message);
+
+    Ok(PushModUpdatesResult {
+        success: true,
+        updated_mod_ids: updated_ids,
+        backed_up_count,
+        server_restarted: restarted,
+        message,
+    })
 }

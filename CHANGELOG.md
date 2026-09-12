@@ -5,6 +5,28 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.24] — 2026-09-12
+
+### Added & Improved
+- **⚡ Online CurseForge Mod Update Checking & Batch Synchronization**:
+  - Added direct **"Check Updates"** capability to the Installed Server Mods Management section (`/mods`).
+  - Built high-performance batch query engine (`check_server_mod_updates`) querying CurseForge API in a single HTTP request for all installed mods on the server without N+1 overhead.
+  - Accurately compares remote file release dates (`dateModified`, `latestFiles`) and version strings against local SQLite database records and on-disk files.
+  - Displays eye-catching **`{N} Updates Ready`** badge in the header, introduces a dedicated **`Updates ({N})`** filter tab, and renders animated **`Update Ready (vX.X)`** badges directly on affected mod cards.
+- **🛡️ Rollback-Protected Mod Update Push Engine (`push_mod_updates`)**:
+  - **100% Rollback Protection**: Automatically archives existing mod folders into `ShooterGame/Saved/ModBackups/{modId}_{timestamp}` before modifying or removing files.
+  - **Pre-Patch Crash Loop Prevention & Clean Cache Purge**: Automatically sweeps and purges stale `.pak` and temporary mod cache files in `ShooterGame/Binaries/Win64/ShooterGame/Mods/{id}` and `.temp/` directories. This prevents the dedicated server binary from crashing on boot due to outdated/mismatched pre-patch assets during major game updates.
+  - **Database & INI Synchronization**: Automatically synchronizes updated mod version tags, names, and timestamps in SQLite, and ensures active mod lists are written to `GameUserSettings.ini`.
+  - **Graceful Running Server Restarts & RCON Warning Countdowns**: If the server is actively running, administrators can trigger broadcast player warning announcements via RCON (Immediate, 1 min, 3 min, or 5 min), execute world saves (`saveworld`), cleanly stop the instance, and automatically reboot.
+  - **Discord Webhook Alerts**: Automatically dispatches notification embeds to configured Discord webhooks when mod updates are pushed and servers are restarted.
+- **💻 Interactive Mod Push Modal (`PushModUpdatesModal.tsx`)**:
+  - Provides multi-mod selection checklist with Select All / Deselect All controls, version comparison, rollback protection indicators, server restart controls, and live step-by-step progress status.
+  - Supports both bulk updates ("Push All Updates") and targeted single-mod updates ("Push Update").
+- **🛠️ Rust Analyzer IDE Diagnostics Fix**:
+  - Configured `rust-analyzer.linkedProjects` and `rust-analyzer.check.command` in `.vscode/settings.json` to resolve false-positive `format!` macro-expansion diagnostics in Tauri subfolder projects on modern Rust toolchains.
+
+---
+
 ## [4.6.23] — 2026-09-11
 
 ### Fixed & Improved

@@ -238,7 +238,7 @@ pub async fn get_discord_bridge_status(
 // Helper function to get server metrics (CPU, RAM, FPS)
 // In a real implementation, these would come from system monitoring
 fn get_server_metrics(state: &AppState, _server_id: i64) -> (f64, f64, f64) {
-    let mut sys = state.sys.lock().unwrap();
+    let mut sys = state.sys.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     sys.refresh_cpu_usage();
     let cpus = sys.cpus();
     let cpu_usage = if !cpus.is_empty() {

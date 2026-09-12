@@ -138,6 +138,9 @@ impl Database {
         // Mod thumbnail migration
         Self::run_mods_thumbnail_migration(conn)?;
 
+        // Mod last_updated migration
+        Self::run_mods_last_updated_migration(conn)?;
+
         // Cross-computer cluster linking (cluster_id_string column)
         Self::run_cluster_id_string_migration(conn)?;
 
@@ -1155,6 +1158,7 @@ impl Database {
                         enabled BOOLEAN DEFAULT 1,
                         load_order INTEGER NOT NULL,
                         installed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_updated TEXT,
                         FOREIGN KEY (server_id) REFERENCES servers (id) ON DELETE CASCADE,
                         UNIQUE(server_id, mod_id)
                     )",
@@ -1788,6 +1792,27 @@ impl Database {
 
         if !has_column {
             conn.execute("ALTER TABLE mods ADD COLUMN thumbnail_url TEXT", [])?;
+        }
+        Ok(())
+    }
+
+    fn run_mods_last_updated_migration(conn: &Connection) -> Result<()> {
+        let has_column = {
+            let mut stmt = conn.prepare("PRAGMA table_info(mods)")?;
+            let mut rows = stmt.query([])?;
+            let mut found = false;
+            while let Some(row) = rows.next()? {
+                let name: String = row.get(1)?;
+                if name == "last_updated" {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+
+        if !has_column {
+            conn.execute("ALTER TABLE mods ADD COLUMN last_updated TEXT", [])?;
         }
         Ok(())
     }

@@ -1485,14 +1485,17 @@ impl AseDiscordBridgeService {
                     }
                 };
 
-                                // If unified discord_bridge is already managing this token, do not start a duplicate gateway connection
+                // If unified discord_bridge is already managing this token or gateway, do not start a duplicate gateway connection
                 let is_duplicate = {
                     if let Some(state) = app_handle.try_state::<crate::AppState>() {
-                        if let Some(unified_cfg) = state.discord_bridge.get_config().await {
-                            unified_cfg.enabled && unified_cfg.bot_token == token
+                        let unified_token = if let Some(unified_cfg) = state.discord_bridge.get_config().await {
+                            if unified_cfg.enabled { unified_cfg.bot_token } else { String::new() }
+                        } else if let Some(unified_cfg) = state.discord_bridge.load_config_from_db() {
+                            if unified_cfg.enabled { unified_cfg.bot_token } else { String::new() }
                         } else {
-                            false
-                        }
+                            String::new()
+                        };
+                        (!unified_token.is_empty() && unified_token == token) || state.discord_bridge.is_gateway_running()
                     } else {
                         false
                     }
@@ -1660,7 +1663,10 @@ impl AseDiscordBridgeService {
         // Fetch System Metrics
         let (cpu_usage, ram_usage) = {
             if let Some(state) = self.app_handle.try_state::<AppState>() {
-                let mut sys = state.sys.lock().unwrap();
+                let mut sys = state.sys.lock().unwrap_or_else(|poisoned| {
+                    log::warn!("⚠️ state.sys mutex was poisoned, recovering inner state");
+                    poisoned.into_inner()
+                });
                 sys.refresh_cpu_usage();
                 let cpus = sys.cpus();
                 let cpu_u = if !cpus.is_empty() {
