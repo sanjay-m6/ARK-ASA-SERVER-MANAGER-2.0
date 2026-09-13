@@ -80,6 +80,8 @@ jobs:
           tagName: ${{ steps.version.outputs.version }}
           releaseName: 'ARK Server Manager ${{ steps.version.outputs.version }}'
           prerelease: false
+          # Note: GitHub Actions limits expressions to 21,000 characters. Keep only the current release
+          # and immediate prior release in releaseBody; historical changelogs are in CHANGELOG.md.
           releaseBody: |
             ## 🚀 ARK Server Manager ${{ steps.version.outputs.version }} (Latest Release)
 
@@ -128,142 +130,8 @@ jobs:
             - **🛠️ Rust Analyzer IDE Diagnostics Fix**:
               - Configured `rust-analyzer.linkedProjects` and `rust-analyzer.check.command` in `.vscode/settings.json` to resolve false-positive `format!` macro-expansion diagnostics in Tauri subfolder projects on modern Rust toolchains.
             </details>
-            <details>
-            <summary>v4.6.23 — Astraeos Map Startup Crash Fix & Config Editor UI Enhancements</summary>
 
-            - **🌋 Astraeos Map Startup Crash & Official Map Status Resolution**:
-              - Resolved instant server crash during startup when selecting the official `Astraeos` map (`Astraeos_WP`).
-              - Diagnosed that Astraeos was erroneously associated with inactive CurseForge mod ID `960144`, which caused Wildcard's server engine to crash when attempting to download/verify non-existent mod files.
-              - Classified `Astraeos_WP` strictly under `OFFICIAL_MAP_ARGUMENTS` and removed invalid mod ID references from `moddedMapRegistry.ts`.
-              - Added pre-launch safety guards in `process_manager.rs` (`is_official_map`) that completely bypass mod installation checks, auto-clean corrupt `960144` cache directories on disk, sanitize `ActiveMods` INI entries, and prevent `-MapModID=` injection for official maps.
-              - Enhanced Crash Doctor with automated `unavailable_mod_crash` diagnosis and 1-click self-healing repair.
-            - **🎨 Config Editor UI & UX Design Fixes**:
-              - **Fixed Vertical Grid Stretching & Empty Dead Space (`Server Name` card)**: Added `items-start` to settings card grids, eliminating ~800px of empty black void caused by default CSS Grid height stretching.
-              - **Fixed False `__CUSTOM__` Trigger on Installed & Preset Maps**: Dynamic `allKnownValues` now verifies static options, installed server mods (`detectMapArgumentFromMod` and mod IDs), curated mod presets (`ASA_MODDED_MAP_PRESETS`), and `MAP_METADATA` keys with case-insensitive matching. Selected mod maps like `TheIslandReforged_WP` now display cleanly with their proper badge, author, and preview card without opening custom mode.
-              - **Eliminated 5x Redundancy & Cluttered 8-Tile Sub-Grid**: Streamlined the custom map view into a sleek `Terminal` launch argument input, compact quick-fill chips from installed server mods (`[The Island Reforged (TheIslandReforged_WP)]`), and a direct link to the full `Modded Maps Hub`.
-            - **🤖 Discord Bot & Command Center Cluster Synchronization**:
-              - Resolved cluster server reporting in Discord Bot Command Center (`Cluster Servers 0 / 0 Online`).
-              - Ensured active servers correctly link to their parent cluster across Tauri backend commands and real-time status embeds.
-            - **⚙️ Config Persistence & INI Synchronization**:
-              - Hardened bidirectional synchronization for server name (`SessionName`), map arguments, and player limits between `GameUserSettings.ini` and internal server configurations.
-            </details>
-            <details>
-            <summary>v4.6.22 — 1-Click ASA Modded Map Hub, Official Roadmap Alignment & In-Place Installer</summary>
-
-            - **🗺️ 1-Click ASA Modded Map Hub & In-Place Installation**:
-              - Added dedicated **Modded Map Hub Modal** (`ModMapHubModal.tsx`) with curated popular ASA presets (*Amissa*, *Svartalfheim*, *Insaluna*, *Forglar*, *Astraeos*, *Temptress Lagoon*, *Bjarnheim*, *Reverence*, *Lost Colony*, *ALTHEMIA*, *THARAT*).
-              - Live debounced CurseForge API map search and direct Mod ID quick installer for custom/private map packages.
-              - 1-Click "Install & Activate": automatically downloads, verifies, and installs mod packages to the server, then automatically sets the server active `MapName` and refreshes installed packages.
-              - **In-Place 1-Click Install Banner** on the Config Editor Real-time Map Preview Card when selecting an uninstalled modded map, showing mod details, author, and an instant `[⚡ 1-Click Install Mod]` action without navigating away from the page.
-              - Added `[✨ Modded Maps Hub]` shortcut button directly in the Config Editor map field header and quick 8-map preset grid.
-            - **🌐 Official ASA Map Roadmap Alignment & Main Release Organization**:
-              - Researched and synchronized official map statuses according to current Studio Wildcard Community Crunches and release schedules.
-              - Corrected **Ragnarok** (`Ragnarok_WP`), **Valguero** (`Valguero_WP`), **Genesis Part 1** (`Genesis_WP`), and **Club ARK** (`ClubARK_WP`) to appear under **Official / Main Release Maps** (`released`) instead of being mistakenly grouped in "Upcoming (Soon)".
-              - Streamlined the **Upcoming Maps (Soon)** section to strictly show confirmed upcoming roadmap maps (**Genesis Part 2**, **Fjordur**, **Crystal Isles**, **Lost Island**).
-            - **🧭 Enhanced Mod Manager Map Management & Direct Server Activation**:
-              - Added `🗺️ Maps Only` toggle chip in the Available Mods browser to instantly filter out dinos, items, and weapons.
-              - Added dedicated `🗺️ Maps ({count})` filter tab in Installed Mods.
-              - Added `🗺️ Map: <name_WP>` badge on installed map mod rows.
-              - Added 1-click `[Set as Map]` inline button on installed mod rows (with active status badge if already active).
-              - Added `🗺️ Set as Active Server Map` 1-click action in the Mod Detail inspection modal.
-              - Automatic launch argument injection ensuring `-MapModID=<id>` and `-mods=<id>` are correctly passed to the server process.
-            </details>
-            <details>
-            <summary>v4.6.21 — SteamCMD Auto-Update Runaway Loop Fix & Complete Chinese Localization</summary>
-
-            - **🚀 SteamCMD Auto-Update Runaway Loop & Cache Protection**:
-              - Fixed an auto-update loop where SteamCMD was relaunched roughly every 60 seconds, aborting ~12 GB full server downloads at ~10% and retrying endlessly (46+ retries).
-              - Corrected argument ordering to pass `+force_install_dir <path>` strictly prior to `+login anonymous`, ensuring SteamCMD respects target install paths without resetting directory states.
-              - Added recognition for Steam status `0x202` (Update Required / Pre-allocating / Paused) so in-progress partial downloads are handled as active progress instead of terminating prematurely.
-              - Added manifest backup and restoration for `appmanifest_2430930.acf` to prevent cache wiping and avoidable full re-downloads.
-              - Fixed misleading "disk space low" error alerts by implementing exact measured disk capacity queries via Win32 drive APIs instead of static heuristics.
-              - Hardened background scheduler with active task guards and cooldowns to prevent overlapping auto-update invocations while SteamCMD is actively running.
-            - **🌐 Complete Chinese Language Pack (Simplified & Traditional - 100% Coverage)**:
-              - Full translation coverage for Simplified Chinese (`zh-CN`) and Traditional Chinese (`zh-TW`) across all UI modules.
-              - Complete localization for Mod Manager, Crash Doctor, Chat Translator, Boost Manager, Cluster Manager, and INI configuration editors.
-              - Automated AST static validation ensuring 0 missing i18n keys across all pages and modals.
-            </details>
-            <details>
-            <summary>v4.6.20 — Cross-Server Process Isolation, ASE RuntimeMeshComponent Hang Fix & Crash Doctor</summary>
-
-            - **🛡️ Cross-Server Process Isolation & Multi-Game Protection**:
-              - Resolved a critical conflict where restarting or stopping ARK servers inadvertently detected and force-terminated co-hosted external game servers (such as Rust Dedicated Server / `RustDedicated.exe`, Palworld, etc.).
-              - Implemented strict binary identity whitelisting (`is_ark_executable_name`) across all process termination and cleanup routines (`ArkAscendedServer.exe`, `ShooterGameServer.exe`, `AsaApiLoader.exe`, `ServerApiLoader.exe`).
-              - Replaced naive substring port matching in `kill_processes_on_ports` with column-delimited `Local Address` numeric port parsing, preventing accidental kills on foreign addresses or ephemeral client sockets.
-              - Hardened UDP listener discovery in `find_game_server_pid_by_install_path` to strictly verify process identity before adopting server PIDs.
-              - Added ARK binary verification to startup timeout watchdog and database orphan recovery kill paths.
-            - **🧩 ASE Unreal Engine 4 Plugin Hang & Crash Doctor Resolution (`RuntimeMeshComponent`)**:
-              - Resolved dedicated server startup freeze where `ShooterGameServer.exe` halted with a modal Win32 message box (`Plugin 'RuntimeMeshComponent' failed to load because module 'RuntimeMeshComponent' could not be found`).
-              - Added pre-launch sanitization (`sanitize_ase_project_plugins`) to inspect `ShooterGame.uproject` and automatically disable missing or uncompiled plugins (`RuntimeMeshComponent`) with safe `.bak` backups.
-              - Automatically quarantines uncompiled plugin folders (`RuntimeMeshComponent.disabled`) to stop UE4 engine loader assertions.
-              - Enhanced **Crash Doctor** with automated missing UE4 plugin detection and 1-click healing (`diagnose_server_crash` & `repair_and_recover_server`).
-            - **🧹 INI Parser Type Serialization Fix**:
-              - Fixed compiler diagnostic warnings in `src-tauri/src/ase/ini_parser.rs` (`IniDocument::serialize` and `IniData::serialize`) to guarantee clean, strongly typed INI generation.
-            </details>
-
-            <details>
-            <summary>v4.6.19 — Server Presets Hub, MultiHome Socket Protection & Startup Crash Recovery</summary>
-
-            - **📦 Server Presets & Templates Hub**:
-              - Added Server Presets & Templates Hub for instant server configuration, cloning, and community sharing.
-              - Ships with built-in community templates: *PvE Casual (5x)*, *PvP Hardcore*, *Primal Chaos (10x)*, *Small Tribes Official (3x)*, *Ultra Boosted (25x)*, and *Modded Extinction*.
-              - 1-Click apply to instantly configure multipliers, server settings, and mod setups with safety confirmation modals.
-              - Export custom server setups to portable `.json` preset files or import community presets effortlessly.
-              - Added direct "Save as Template" and "Clone Server" actions into the Server Manager workspace.
-            - **🛡️ Public IP & MultiHome UE5 Socket Protection**:
-              - Resolved critical Unreal Engine 5 startup crashes (`WSAEADDRNOTAVAIL` 10049) when users entered their Public WAN IP in the server settings.
-              - Added intelligent network interface validation (`is_local_interface_ip`) to verify whether configured IP addresses belong to physical local network adapters.
-              - Automatically omits `-MultiHome` when an external IP is detected, logging an informative warning instead of failing socket binding.
-            - **🔄 Startup Failure & Exit Code 1 / Code 0 Crash Recovery**:
-              - Fixed an issue where servers failing during startup before reaching `online` were misclassified as normal `"stopped"` when exiting with code 0 or 1.
-              - Enforced proper `crashed` status classification for unauthorized early exits, triggering Guardian watchdog auto-recovery, diagnostics, and Discord notifications.
-            - **🔌 UPnP Port Forwarding Peer Port Addition**:
-              - Added Peer Port (`game_port + 1`, 7778 UDP) to the UPnP port forwarding matrix.
-            </details>
-
-            <details>
-            <summary>v4.6.18 — Mod Watchdog Persistence, RCON GiveItem UID Resolution & Save Validation</summary>
-
-            - **🐕 Mod Update Watchdog Persistence & Auto-Recovery**:
-              - Fixed an issue where the Mod Update Watchdog disabled itself upon exiting or restarting the application.
-              - Added dedicated SQLite database table `mod_watchdog_settings` with automatic schema migrations.
-              - Background watchdog worker now automatically loads saved watchdog settings on application startup and synchronizes state seamlessly.
-            - **🎯 RCON Give Items Player UID / EOS ID Resolution**:
-              - Fixed item spawning failure when using Player UID or EOS ID in RCON Console (`GiveItemToPlayer`).
-              - Implemented recursive directory scanning across `SavedArks`, `SavedArksLocal`, and map subdirectories to locate player profile (`.arkprofile`) files.
-              - Enhanced binary profile parsing to support both `PlayerDataID` and `PlayerID` properties, automatically resolving player UIDs and EOS IDs to their required 64-bit integer IDs.
-            - **💾 RCON Verified Save Validation & Deep Search**:
-              - Fixed save verification continually failing in RCON Console.
-              - Enhanced `SaveValidationInfo` to include `integrity_ok` and `file_size_bytes` data properties.
-              - Added recursive `.ark` save search across map subdirectories (`SavedArks/<Map_WP>`) to accurately verify save existence, freshness, and file size (> 1KB).
-            - **⚙️ GameUserSettings.ini & Game.ini Visual Editor Cleanup**:
-              - Removed Breeding Settings from `GameUserSettings.ini` schema (as breeding multipliers are strictly `Game.ini` settings), eliminating user confusion.
-              - Removed Agricultural & Ecosystem and Loot Quality sections from `GameUserSettings.ini` schema.
-              - Restructured `Spoilage & World Resources` and `Dino Feeding & Decay Rules` under `[ServerSettings]`, keeping valid settings such as `AllowRaidDinoFeeding`.
-              - Added `Loot Quality` (`SupplyCrateLootQualityMultiplier`, `FishingLootQualityMultiplier`), `PoopIntervalMultiplier`, `AllowAnyoneBabyImprintCuddle`, and `DisableImprintDinoBuff` to `Game.ini` under `[/Script/ShooterGame.ShooterGameMode]`.
-            - **🧹 Clean INI Generation**:
-              - Fixed redundant INI generation where `SessionName=` appeared under `[ServerSettings]`; it now outputs cleanly only under `[SessionSettings]`.
-              - Removed obsolete `MapName=` from `[ServerSettings]` as the map is defined via command-line arguments.
-              - Removed deprecated `[URL]` section (`Port=...`, `QueryPort=...`) as `QueryPort` is deprecated in ASA and network ports are managed via command line.
-            - **🚀 New ASA Launch Arguments Matrix**:
-              - Added `-usestore`, `-converttostore`, and `-DoCustomCosmeticValidation` flags to the Launch Arguments preset matrix with one-click toggles and descriptions.
-            - **💬 Cluster Cross-Chat & RCON Filtering**:
-              - Added strict regex and prefix filtering to suppress HTTP responses, CurseForge API JSON data, Sentry error logs, and echo loops from broadcasting in RCON cross-server chat.
-            - **🦖 Dino Spawn & NPCReplacements INI Syntax Resolution**:
-              - Fixed duplicate key prefix serialization in `Game.ini` where dinosaur replacements were being written as `NPCReplacements=NPCReplacements=(FromClassName="...",ToClassName="...")`.
-              - Updated `DinoSpawnEditor.tsx` and the INI parser engine to reliably format and parse clean, valid `NPCReplacements=(FromClassName="...",ToClassName="...")` entries.
-            - **🌐 Cluster Creation & SQLite Validation Hardening**:
-              - Resolved `UNIQUE constraint failed: clusters.name` error when recreating or linking pre-existing cluster directories.
-              - Implemented automatic user profile fallback directory path resolution (`%USERPROFILE%/ASA_Clusters`) when unprivileged Windows accounts are restricted from creating root `C:\` directories.
-              - Added detailed, descriptive toast error alerts across `ClusterManager.tsx` and `ASEClusterManager.tsx` instead of generic masking.
-            - **👑 In-Game Admin Management & Privilege Setup Modal**:
-              - Built dedicated `InGameAdminModal.tsx` accessible from the sidebar and server controls to provide fast setup for in-game administrator privileges (`enablecheats`, `admincheat`, etc.) with one-click clipboard copying and step-by-step console instructions.
-            - **🩺 Crash Doctor & Post-Update Recovery Suite**:
-              - Integrated diagnostic crash recovery to handle instant 1–2s crashes following major Unreal Engine 5 game updates caused by outdated proxy DLL hooks (`version.dll`, `dxgi.dll`, `winhttp.dll`) and stale CFCore mod cache folders.
-              - Added Safe Mode startup options and automated DLL integrity scanning.
-            </details>
-
-            *For full release notes of previous versions, please visit the [Releases Archive](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases).*
+            *For full release notes of previous versions, please visit the [Releases Archive](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases) or see [CHANGELOG.md](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/blob/main/CHANGELOG.md).*
           releaseDraft: false
           includeUpdaterJson: true
 
