@@ -2320,7 +2320,8 @@ impl ProcessManager {
                 if let Ok(conn) = db_guard.get_connection() {
                     let is_ase = conn.query_row("SELECT 1 FROM ase_servers WHERE id = ?1", [server_id], |_| Ok(true)).unwrap_or(false);
                     let table = if is_ase { "ase_servers" } else { "servers" };
-                    let query = format!("SELECT game_port, query_port, rcon_port FROM {} WHERE id = ?1", table);
+                    let port_col = if is_ase { "port" } else { "game_port" };
+                    let query = format!("SELECT {}, query_port, rcon_port FROM {} WHERE id = ?1", port_col, table);
                     if let Ok((g, q, r)) = conn.query_row(&query, [server_id], |row| {
                         Ok((row.get::<_, u16>(0).unwrap_or(0), row.get::<_, u16>(1).unwrap_or(0), row.get::<_, u16>(2).unwrap_or(0)))
                     }) {

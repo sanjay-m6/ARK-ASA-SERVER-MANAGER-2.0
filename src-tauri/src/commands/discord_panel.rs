@@ -102,19 +102,23 @@ pub async fn get_cluster_servers_health(
         let player_count = player_counts.get(&id).copied().unwrap_or(0);
 
         // Calculate uptime
-        let uptime = if let Some(started_ts_str) = &last_started {
-            if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(started_ts_str, "%Y-%m-%d %H:%M:%S") {
-                let started_ts = dt.and_utc().timestamp();
-                let now_ts = chrono::Utc::now().timestamp();
-                let elapsed = now_ts - started_ts;
-                let hours = elapsed / 3600;
-                let minutes = (elapsed % 3600) / 60;
-                format!("{}h {}m", hours, minutes)
-            } else {
-                "Unknown".to_string()
-            }
-        } else {
-            "Not running".to_string()
+        let uptime: String = match &last_started {
+            Some(started_ts_str) => match chrono::NaiveDateTime::parse_from_str(started_ts_str, "%Y-%m-%d %H:%M:%S") {
+                Ok(dt) => {
+                    let started_ts = dt.and_utc().timestamp();
+                    let now_ts = chrono::Utc::now().timestamp();
+                    let elapsed = (now_ts - started_ts).max(0);
+                    let hours = elapsed / 3600;
+                    let minutes = (elapsed % 3600) / 60;
+                    let mut s = hours.to_string();
+                    s.push_str("h ");
+                    s.push_str(&minutes.to_string());
+                    s.push('m');
+                    s
+                }
+                Err(_) => "Unknown".to_string(),
+            },
+            None => "Not running".to_string(),
         };
 
         // Get mods for this server (use ase_mods if ASE server)

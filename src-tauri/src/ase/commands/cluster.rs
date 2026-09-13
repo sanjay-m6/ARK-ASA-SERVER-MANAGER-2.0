@@ -1,3 +1,4 @@
+use crate::ase::ini_parser::IniDocument;
 use crate::models::{Cluster, ClusterStatus, ServerStatus, ServerStatusInfo};
 use crate::AppState;
 use serde::Serialize;
@@ -573,46 +574,53 @@ fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> Result<(), String> {
 
 /// Update GameUserSettings.ini with ClusterDirOverride
 fn update_ase_cluster_config(install_path: &str, cluster_dir: &str) {
-    let mut config_path = PathBuf::from(install_path)
-        .join("ShooterGame/Saved/Config/WindowsServer/GameUserSettings.ini");
-        
-    if !config_path.exists() {
-        config_path = PathBuf::from(install_path)
-            .join("ShooterGame/Saved/Config/Windows/GameUserSettings.ini");
-    }
+    let candidate_dirs = [
+        PathBuf::from(install_path).join("ShooterGame").join("Saved").join("Config").join("WindowsServer"),
+        PathBuf::from(install_path).join("ShooterGame").join("Saved").join("Config").join("Windows"),
+    ];
 
-    if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&config_path) {
-        let cluster_line = format!("ClusterDirOverride={}", cluster_dir);
+    let cluster_line = format!("ClusterDirOverride={}", cluster_dir);
 
-        let new_content = if content.contains("ClusterDirOverride=") {
-            content
-                .lines()
-                .map(|line| {
-                    if line.starts_with("ClusterDirOverride=") {
-                        cluster_line.as_str()
-                    } else {
-                        line
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        } else {
-            let mut result = String::new();
-            let mut added = false;
+    for dir in &candidate_dirs {
+        let config_path = dir.join("GameUserSettings.ini");
+        if dir.exists() || config_path.exists() {
+            let content = crate::services::ini_parser::IniParser::read_file_to_string(&config_path)
+                .unwrap_or_else(|_| "[ServerSettings]\n".to_string());
+
+            let mut lines: Vec<String> = Vec::new();
+            let mut found = false;
+            let mut in_server_settings = false;
+
             for line in content.lines() {
-                result.push_str(line);
-                result.push('\n');
-                if line.starts_with("[ServerSettings]") && !added {
-                    result.push_str(&cluster_line);
-                    result.push('\n');
-                    added = true;
+                let trimmed = line.trim();
+                if trimmed.starts_with('[') {
+                    if in_server_settings && !found {
+                        lines.push(cluster_line.clone());
+                        found = true;
+                    }
+                    in_server_settings = trimmed.eq_ignore_ascii_case("[ServerSettings]");
+                    lines.push(line.to_string());
+                } else if in_server_settings && trimmed.to_lowercase().starts_with("clusterdiroverride=") {
+                    lines.push(cluster_line.clone());
+                    found = true;
+                } else {
+                    lines.push(line.to_string());
                 }
             }
-            result
-        };
 
-        let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&config_path, &new_content);
-        println!("  📝 Updated cluster config for server at {}", install_path);
+            if !found {
+                if in_server_settings {
+                    lines.push(cluster_line.clone());
+                } else {
+                    lines.push("[ServerSettings]".to_string());
+                    lines.push(cluster_line.clone());
+                }
+            }
+
+            let _ = std::fs::create_dir_all(dir);
+            let _ = crate::services::ini_parser::IniParser::write_string_to_file_utf8(&config_path, &lines.join("\n"));
+            println!("  📝 Updated cluster config for server at {:?}", config_path);
+        }
     }
 }
 
@@ -736,8 +744,8 @@ pub async fn start_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> R
 
         let mut stmt = conn
             .prepare(
-                "SELECT s.id, s.install_path, s.map_name, s.session_name, s.game_port, 
-                        s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address, s.custom_args, s.battleye
+                "SELECT s.id, s.install_path, s.map_name, s.session_name, s.port, 
+                        s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address, s.extra_args, s.battleye
                  FROM ase_servers s
                  INNER JOIN ase_cluster_servers cs ON s.id = cs.server_id
                  WHERE cs.cluster_id = ?1 AND s.status = 'stopped'",
@@ -1026,25 +1034,43 @@ pub async fn validate_ase_cluster_configuration(
     let ase_servers: Vec<(i64, String, u16, u16, u16, Option<String>, Option<String>)> = {
         let mut stmt = conn
             .prepare(
-                "SELECT s.id, s.name, s.game_port, s.query_port, s.rcon_port, s.custom_args, s.install_path
+                "SELECT DISTINCT s.id, s.name, s.port, s.query_port, s.rcon_port, s.extra_args, s.install_path
                  FROM ase_servers s
-                 INNER JOIN ase_cluster_servers cs ON s.id = cs.server_id
-                 WHERE cs.cluster_id = ?1",
+                 LEFT JOIN ase_cluster_servers cs ON s.id = cs.server_id
+                 WHERE cs.cluster_id = ?1 OR s.cluster_id = ?1 OR s.cluster_id = CAST(?1 AS TEXT)",
             )
             .map_err(|e| format!("Failed to prepare ASE server validation query: {}", e))?;
 
         let mut rows = stmt.query([cluster_id]).map_err(|e| format!("Failed to execute ASE server validation query: {}", e))?;
         let mut out = Vec::new();
         while let Ok(Some(row)) = rows.next() {
-            out.push((
-                row.get::<_, i64>(0).unwrap_or(0),
-                row.get::<_, String>(1).unwrap_or_default(),
-                row.get::<_, u16>(2).unwrap_or(7777),
-                row.get::<_, u16>(3).unwrap_or(27015),
-                row.get::<_, u16>(4).unwrap_or(27020),
-                row.get::<_, Option<String>>(5).unwrap_or(None),
-                row.get::<_, Option<String>>(6).unwrap_or(None),
-            ));
+            let id: i64 = row.get(0).unwrap_or(0);
+            let name: String = row.get(1).unwrap_or_default();
+            let mut port: u16 = row.get(2).unwrap_or(7777);
+            let mut query_port: u16 = row.get(3).unwrap_or(27015);
+            let rcon_port: u16 = row.get(4).unwrap_or(27020);
+            let extra_args: Option<String> = row.get(5).unwrap_or(None);
+            let install_path: Option<String> = row.get(6).unwrap_or(None);
+
+            // Fallback: If port or query_port are 7777/27015 default, inspect extra_args for explicit port parameters
+            if let Some(ref args) = extra_args {
+                for part in args.split_whitespace() {
+                    for segment in part.split('?') {
+                        let seg_lower = segment.to_lowercase();
+                        if let Some(val) = seg_lower.strip_prefix("port=") {
+                            if let Ok(p) = val.parse::<u16>() {
+                                if p > 0 { port = p; }
+                            }
+                        } else if let Some(val) = seg_lower.strip_prefix("queryport=") {
+                            if let Ok(qp) = val.parse::<u16>() {
+                                if qp > 0 { query_port = qp; }
+                            }
+                        }
+                    }
+                }
+            }
+
+            out.push((id, name, port, query_port, rcon_port, extra_args, install_path));
         }
         out
     };
@@ -1149,53 +1175,99 @@ pub async fn validate_ase_cluster_configuration(
             }
         }
 
-        // 4) Ensure GameUserSettings.ini has matching ClusterDirOverride
+        // 4) Ensure GameUserSettings.ini has matching ClusterDirOverride (with auto-repair)
         if let Some(install_path) = install_path {
-            let ini_path = PathBuf::from(install_path)
-                .join("ShooterGame")
-                .join("Saved")
-                .join("Config")
-                .join("WindowsServer")
-                .join("GameUserSettings.ini");
+            let candidate_paths = [
+                PathBuf::from(install_path).join("ShooterGame").join("Saved").join("Config").join("WindowsServer").join("GameUserSettings.ini"),
+                PathBuf::from(install_path).join("ShooterGame").join("Saved").join("Config").join("Windows").join("GameUserSettings.ini"),
+                PathBuf::from(install_path).join("ShooterGame").join("Saved").join("Config").join("LinuxServer").join("GameUserSettings.ini"),
+            ];
+
+            let mut matched_ini = None;
+            for cp in &candidate_paths {
+                if cp.exists() {
+                    matched_ini = Some(cp.clone());
+                    break;
+                }
+            }
+
+            let ini_path = matched_ini.unwrap_or_else(|| candidate_paths[0].clone());
 
             if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&ini_path) {
-                let mut found = false;
-                for line in content.lines() {
-                    if let Some(value) = line.strip_prefix("ClusterDirOverride=") {
-                        found = true;
-                        if value.trim().replace('\\', "/") != cluster_dir.replace('\\', "/") {
+                let mut doc = IniDocument::parse(&content);
+                let current_override: Option<String> = doc.get_value("ServerSettings", "ClusterDirOverride")
+                    .map(|s| s.to_string())
+                    .or_else(|| {
+                        for line in content.lines() {
+                            let trimmed = line.trim();
+                            if let Some((k, v)) = trimmed.split_once('=') {
+                                if k.trim().eq_ignore_ascii_case("ClusterDirOverride") {
+                                    return Some(v.trim().to_string());
+                                }
+                            }
+                        }
+                        None
+                    });
+
+                let norm_cluster_dir = cluster_dir.replace('\\', "/").trim_end_matches('/').to_lowercase();
+
+                match current_override {
+                    Some(val) => {
+                        let norm_val = val.replace('\\', "/").trim_end_matches('/').to_lowercase();
+                        if norm_val != norm_cluster_dir {
+                            // Auto-correct to match the configured cluster dir
+                            doc.set_value("ServerSettings", "ClusterDirOverride", &cluster_dir);
+                            if let Ok(()) = std::fs::write(&ini_path, doc.serialize()) {
+                                log::info!("Auto-corrected ClusterDirOverride in {:?}", ini_path);
+                            } else {
+                                issues.push(ClusterValidationIssue {
+                                    server_id: *server_id,
+                                    server_name: server_name.clone(),
+                                    level: "warning".to_string(),
+                                    message: format!(
+                                        "GameUserSettings.ini ClusterDirOverride ({}) does not match cluster path ({})",
+                                        val.trim(),
+                                        cluster_dir
+                                    ),
+                                });
+                            }
+                        }
+                    }
+                    None => {
+                        // Auto-inject missing ClusterDirOverride into GameUserSettings.ini
+                        doc.set_value("ServerSettings", "ClusterDirOverride", &cluster_dir);
+                        if let Ok(()) = std::fs::write(&ini_path, doc.serialize()) {
+                            log::info!("Auto-injected missing ClusterDirOverride into {:?}", ini_path);
+                        } else {
                             issues.push(ClusterValidationIssue {
                                 server_id: *server_id,
                                 server_name: server_name.clone(),
                                 level: "warning".to_string(),
-                                message: format!(
-                                    "GameUserSettings.ini ClusterDirOverride ({}) does not match cluster path ({})",
-                                    value.trim(),
-                                    cluster_dir
-                                ),
+                                message:
+                                    "GameUserSettings.ini is missing ClusterDirOverride entry; failed to auto-inject"
+                                        .to_string(),
                             });
                         }
-                        break;
                     }
                 }
-                if !found {
+            } else {
+                // If the INI file does not exist yet, attempt to create it with ClusterDirOverride
+                if let Some(parent) = ini_path.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let mut doc = IniDocument::new();
+                doc.set_value("ServerSettings", "ClusterDirOverride", &cluster_dir);
+                if let Ok(()) = std::fs::write(&ini_path, doc.serialize()) {
+                    log::info!("Created initial GameUserSettings.ini with ClusterDirOverride at {:?}", ini_path);
+                } else {
                     issues.push(ClusterValidationIssue {
                         server_id: *server_id,
                         server_name: server_name.clone(),
                         level: "warning".to_string(),
-                        message:
-                            "GameUserSettings.ini is missing ClusterDirOverride entry; manager will inject it automatically on cluster changes"
-                                .to_string(),
+                        message: "Could not read or initialize GameUserSettings.ini to verify ClusterDirOverride"
+                            .to_string(),
                     });
                 }
-            } else {
-                issues.push(ClusterValidationIssue {
-                    server_id: *server_id,
-                    server_name: server_name.clone(),
-                    level: "warning".to_string(),
-                    message: "Could not read GameUserSettings.ini to verify ClusterDirOverride"
-                        .to_string(),
-                });
             }
         }
     }

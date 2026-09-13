@@ -340,7 +340,7 @@ impl GuardianService {
                                 if let Ok(conn) = db_guard.get_connection() {
                                     if server_id < 0 {
                                         conn.query_row(
-                                            "SELECT install_path, query_port, game_port FROM ase_servers WHERE id = ?",
+                                            "SELECT install_path, query_port, port FROM ase_servers WHERE id = ?",
                                             [-server_id],
                                             |row| Ok((
                                                 row.get::<_, String>(0)?,

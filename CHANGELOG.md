@@ -5,6 +5,28 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.25] — 2026-09-13
+
+### Fixed & Improved
+- **⚡ ASE Cluster Port Conflict Resolution & Validation Engine (`cluster.rs`)**:
+  - Resolved false-positive Port Collision alerts (e.g. *"Multiple servers are using Game Port 7777"*) occurring during ARK: Survival Evolved (ASE) cluster validation even when individual servers had distinct unique ports configured in the UI.
+  - Fixed database column index extraction in `validate_ase_cluster` to accurately map `port`, `query_port`, and `rcon_port`.
+  - Added robust deep inspection parsing for launch arguments (`?Port=`, `?QueryPort=`, `?RCONPort=`) and `GameUserSettings.ini` values to ensure the cluster validator verifies actual runtime ports rather than stale database defaults.
+  - Upgraded validation error reporting to identify conflicting server names and IDs directly, providing actionable remediation steps.
+- **⚡ ASE Clustered Server Version Mismatch Resolution (`ASEServerManager.tsx`)**:
+  - Resolved persistent "Cluster Mismatch" dashboard warnings (*"Version mismatch detected among clustered servers! Ensure all servers are updated"*) that persisted even after running server updates multiple times.
+  - Replaced superficial timestamp and raw build string comparisons with canonical integer Steam Build ID extraction (`buildid` from `steamapps/appmanifest_376030.acf`), ensuring accurate version consistency across all servers in a cluster.
+- **⚡ Automatic `ClusterDirOverride` Injection & Bidirectional INI Sync (`config.rs`, `server.rs`)**:
+  - Implemented automatic injection of `-ClusterDirOverride="<path>"` into server launch arguments upon cluster association or path update, ensuring seamless cross-server survivor and dinosaur transfers.
+  - Normalized Windows backslash paths to prevent Unreal Engine dedicated server path parsing errors.
+  - Enforced bidirectional synchronization of `Port`, `QueryPort`, and `RCONPort` across SQLite database records, server launch arguments, and `GameUserSettings.ini`.
+- **🛡️ Guardian & Process Manager Health Check Alignment**:
+  - Updated background health monitor in `guardian.rs` and process launcher in `process_manager.rs` to monitor the resolved runtime Game Port rather than falling back to default port 7777.
+- **🛠️ Rust Analyzer & Diagnostic Hardening (`discord_panel.rs`, `rcon.rs`)**:
+  - Cleaned up string formatting macros across `discord_panel.rs` and `rcon.rs` using direct type conversions (`.to_string()`, `.as_str()`) to prevent macro-expansion ambiguities and IDE diagnostic warnings.
+
+---
+
 ## [4.6.24] — 2026-09-12
 
 ### Added & Improved

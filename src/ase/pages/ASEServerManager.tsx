@@ -776,8 +776,21 @@ export default function ASEServerManager() {
                       )}
                       {(() => {
                         if (!srv.clusterId || !serverVersions[srv.id]) return null;
+                        const extractBuildId = (ver?: string): string => {
+                          if (!ver) return '';
+                          const match = ver.match(/Build\s+(\d+)/i);
+                          if (match) return match[1].trim();
+                          const dateMatch = ver.match(/(\d{4}\.\d{2}\.\d{2})/);
+                          if (dateMatch) return dateMatch[1].trim();
+                          return ver.trim();
+                        };
+                        const currentBuild = extractBuildId(serverVersions[srv.id]);
+                        if (!currentBuild) return null;
                         const clusterServers = servers.filter(s => s.clusterId === srv.clusterId && s.id !== srv.id);
-                        const hasMismatch = clusterServers.some(other => serverVersions[other.id] && serverVersions[other.id] !== serverVersions[srv.id]);
+                        const hasMismatch = clusterServers.some(other => {
+                          const otherBuild = extractBuildId(serverVersions[other.id]);
+                          return otherBuild && otherBuild !== currentBuild;
+                        });
                         if (!hasMismatch) return null;
                         return (
                           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-500/15 rounded-xl shadow-inner border border-rose-500/30 text-rose-700 dark:text-rose-400 font-bold" title="Version mismatch detected among clustered servers! Ensure all servers are updated.">

@@ -844,15 +844,18 @@ pub async fn write_ase_config(
             )
             .map_err(|e| format!("Server not found: {}", e))?;
 
-        let db_values: Option<(String, String, String, String)> = conn
+        let db_values: Option<(String, String, String, String, u16, u16, u16)> = conn
             .query_row(
-                "SELECT session_name, active_mods, server_password, admin_password FROM ase_servers WHERE id = ?1",
+                "SELECT session_name, active_mods, server_password, admin_password, port, query_port, rcon_port FROM ase_servers WHERE id = ?1",
                 [server_id],
                 |row| Ok((
                     row.get::<_, String>(0).unwrap_or_default(),
                     row.get::<_, String>(1).unwrap_or_default(),
                     row.get::<_, String>(2).unwrap_or_default(),
                     row.get::<_, String>(3).unwrap_or_default(),
+                    row.get::<_, u16>(4).unwrap_or(7777),
+                    row.get::<_, u16>(5).unwrap_or(27015),
+                    row.get::<_, u16>(6).unwrap_or(27020),
                 ))
             )
             .ok();
@@ -967,6 +970,18 @@ pub async fn write_ase_config(
     ini_set("ServerSettings", "ServerPassword", final_server_password.clone());
     ini_set("ServerSettings", "ServerAdminPassword", final_server_admin_password.clone());
     ini_set("ServerSettings", "MaxPlayers", config.max_players.to_string());
+
+    // Network & Ports
+    let port = db_values.as_ref().map(|v| v.4).unwrap_or(7777);
+    let query_port = db_values.as_ref().map(|v| v.5).unwrap_or(27015);
+    let rcon_port = if config.rcon_port > 0 { config.rcon_port } else { db_values.as_ref().map(|v| v.6).unwrap_or(27020) };
+
+    ini_set("ServerSettings", "Port", port.to_string());
+    ini_set("URL", "Port", port.to_string());
+    ini_set("ServerSettings", "QueryPort", query_port.to_string());
+    ini_set("URL", "QueryPort", query_port.to_string());
+    ini_set("ServerSettings", "RCONPort", rcon_port.to_string());
+    ini_set("ServerSettings", "RCONEnabled", if config.rcon_enabled { "True" } else { "False" }.to_string());
 
     // Difficulty
     ini_set(
@@ -2159,6 +2174,33 @@ pub async fn sync_ase_server_from_ini(
     let conn = db.get_connection().map_err(|e| e.to_string())?;
     let now = chrono::Utc::now().to_rfc3339();
 
+    // Read port/query_port from GameUserSettings.ini if explicitly configured
+    let (ini_port, ini_query_port) = {
+        let (install_path, user_folder) = conn.query_row(
+            "SELECT install_path, (SELECT value FROM settings WHERE key = 'ase_user_config_folder') FROM ase_servers WHERE id = ?1",
+            [server_id],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)),
+        ).unwrap_or_default();
+        let config_dir = get_config_path(&install_path, user_folder.as_deref());
+        let gus_path = config_dir.join("GameUserSettings.ini");
+        let mut p = None;
+        let mut qp = None;
+        if let Ok(content) = crate::services::ini_parser::IniParser::read_file_to_string(&gus_path) {
+            let doc = IniDocument::parse(&content);
+            if let Some(val) = doc.get_value("ServerSettings", "Port").or_else(|| doc.get_value("URL", "Port")) {
+                if let Ok(num) = val.trim().parse::<u16>() {
+                    if num > 0 { p = Some(num); }
+                }
+            }
+            if let Some(val) = doc.get_value("ServerSettings", "QueryPort").or_else(|| doc.get_value("URL", "QueryPort")) {
+                if let Ok(num) = val.trim().parse::<u16>() {
+                    if num > 0 { qp = Some(num); }
+                }
+            }
+        }
+        (p, qp)
+    };
+
     // Update main database record
     conn.execute(
         "UPDATE ase_servers SET 
@@ -2184,6 +2226,13 @@ pub async fn sync_ase_server_from_ini(
             server_id
         ],
     ).map_err(|e| format!("Failed to sync ase_servers: {}", e))?;
+
+    if let Some(p) = ini_port {
+        let _ = conn.execute("UPDATE ase_servers SET port = ?1 WHERE id = ?2", rusqlite::params![p as i32, server_id]);
+    }
+    if let Some(qp) = ini_query_port {
+        let _ = conn.execute("UPDATE ase_servers SET query_port = ?1 WHERE id = ?2", rusqlite::params![qp as i32, server_id]);
+    }
 
     // Synchronize ase_mods table
     let mod_ids: Vec<String> = config.active_mods.split(',')

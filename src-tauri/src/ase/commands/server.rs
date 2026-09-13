@@ -160,6 +160,8 @@ pub async fn update_ase_server(server_id: i64, updates: serde_json::Value, state
             "autoStart" => "auto_start",
             "autoStop" => "auto_stop",
             "intelligentMode" => "intelligent_mode",
+            "gamePort" | "game_port" => "port",
+            "customArgs" | "custom_args" => "extra_args",
             "startupDelay" => "startup_delay",
             "startupPriority" => "startup_priority",
             k => k,

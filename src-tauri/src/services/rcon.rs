@@ -505,22 +505,28 @@ impl RconService {
     /// Broadcast a message to all players
     pub async fn broadcast(&self, server_id: i64, message: &str) -> Result<RconResponse, String> {
         let trimmed = message.trim();
-        let command = if trimmed.starts_with('"') && trimmed.ends_with('"') {
-            format!("Broadcast {}", trimmed)
+        let mut command = String::from("Broadcast ");
+        if trimmed.starts_with('"') && trimmed.ends_with('"') {
+            command.push_str(trimmed);
         } else {
-            format!("Broadcast \"{}\"", trimmed)
-        };
+            command.push('"');
+            command.push_str(trimmed);
+            command.push('"');
+        }
         self.send_command(server_id, &command).await
     }
 
     /// Send a global in-game chat message to players (ServerChat - without [ANNOUNCEMENT] banner prefix)
     pub async fn server_chat(&self, server_id: i64, message: &str) -> Result<RconResponse, String> {
         let trimmed = message.trim();
-        let command = if trimmed.starts_with('"') && trimmed.ends_with('"') {
-            format!("ServerChat {}", trimmed)
+        let mut command = String::from("ServerChat ");
+        if trimmed.starts_with('"') && trimmed.ends_with('"') {
+            command.push_str(trimmed);
         } else {
-            format!("ServerChat \"{}\"", trimmed)
-        };
+            command.push('"');
+            command.push_str(trimmed);
+            command.push('"');
+        }
         self.send_command(server_id, &command).await
     }
 
