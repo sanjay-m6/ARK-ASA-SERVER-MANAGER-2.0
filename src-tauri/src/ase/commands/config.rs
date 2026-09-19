@@ -614,7 +614,7 @@ pub async fn read_ase_config_internal(
         config.speed_hack_cpu_bias = ini_get_f64(&sections, "ASM2", "SpeedHackCpuBias", 1.0);
         config.disable_movement_validation = ini_get_bool(&sections, "ASM2", "DisableMovementValidation", false);
         config.output_server_log_to_console = ini_get_bool(&sections, ss, "OutputServerLogToConsole", false) || ini_get_bool(&sections, "ASM2", "OutputServerLogToConsole", false);
-        config.no_hang_det = ini_get_bool(&sections, "ASM2", "NoHangDet", false);
+        config.no_hang_det = ini_get_bool(&sections, "ASM2", "NoHangDet", true);
         config.no_dinos = ini_get_bool(&sections, "ASM2", "NoDinos", false);
         config.no_under_mesh_checking = ini_get_bool(&sections, "ASM2", "NoUnderMeshChecking", false);
         config.no_under_mesh_killing = ini_get_bool(&sections, "ASM2", "NoUnderMeshKilling", false);

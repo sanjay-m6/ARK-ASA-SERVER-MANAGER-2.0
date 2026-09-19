@@ -91,7 +91,29 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Bug Fixes in v4.6.25
+            ### 🆕 New Features & Bug Fixes in v4.6.26
+            - **🛡️ Fix Server Startup Configuration Vanishing & Resetting**:
+              - Resolved critical bug where custom server configurations (SessionName, ServerPassword, ports, player limits, and custom multipliers) vanished and reverted back to original factory defaults on server start.
+              - Added pre-launch INI synchronization (`sync_server_from_ini_if_changed`) to ensure manual or visual editor settings are absorbed into SQLite prior to startup config generation.
+              - Introduced disambiguated type-safe config generation (`generate_config_for_type`) to eliminate SQLite ID collisions between ASA (`servers`) and ASE (`ase_servers`) tables.
+              - Guarded custom template folder copying (`ase_user_config_folder`) so that existing `GameUserSettings.ini` and `Game.ini` are never overwritten on server boot.
+              - Preserved manual `ActiveMods` and custom mod map keys (`ActiveMapMod`) during startup config generation.
+            - **⚡ Fix UE4 Fatal Error Startup Hang Crash (`FHangThreadWatcher::HangeDetected()`)**:
+              - Resolved fatal error crash dialog (`ShooterGameServer.exe!FHangThreadWatcher::HangeDetected() [gameengine.cpp:172]`) during server startup on Wine, Proton, Linux AppImage, and modded servers.
+              - Unconditionally passed `-NoHangDetection` on dedicated server startup, preventing Unreal Engine 4's watchdog thread from aborting during asset/mod loading and flushing uninitialized in-memory defaults to disk.
+              - Defaulted `no_hang_det` to `true` in configuration models, UI controls, and INI parsers.
+            - **🐧 Linux & Wine Config Subdirectory Resolution**:
+              - Updated `get_config_subdirectory` to dynamically verify whether Windows binaries (`ShooterGameServer.exe`) or `Saved/Config/WindowsServer` folders exist before falling back to `LinuxServer`.
+              - Ensures servers executed under Wine/Proton on Linux (including AppImage environments) read and write to `WindowsServer/` where the Windows executable expects them.
+            - **🔌 Fix RCON Loopback Binding & Connection (`WSAEADDRNOTAVAIL 10049`)**:
+              - Fixed RCON connection failure when pressing the "Connect" button in the RCON Console.
+              - Resolved inverted `0.0.0.0` address filtering, automatically mapping wildcards (`0.0.0.0`, `""`, `localhost`) to loopback target `127.0.0.1:<port>`.
+              - Added defense-in-depth normalization in `ArkRconClient::connect`, background heartbeat loops, and RCON Console UI to guarantee `TcpStream::connect` never receives an illegal wildcard bind address.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.25 — ASE Cluster Port Conflict Resolution & Version Mismatch Engine</summary>
+
             - **⚡ ASE Cluster Port Conflict Resolution & Validation Engine (`cluster.rs`)**:
               - Resolved false-positive Port Collision alerts (e.g. *"Multiple servers are using Game Port 7777"*) occurring during ARK: Survival Evolved (ASE) cluster validation even when individual servers had distinct unique ports configured in the UI.
               - Fixed database column index extraction in `validate_ase_cluster` to accurately map `port`, `query_port`, and `rcon_port`.
@@ -108,10 +130,7 @@ jobs:
               - Updated background health monitor in `guardian.rs` and process launcher in `process_manager.rs` to monitor the resolved runtime Game Port rather than falling back to default port 7777.
             - **🛠️ Rust Analyzer & Diagnostic Hardening (`discord_panel.rs`, `rcon.rs`)**:
               - Cleaned up string formatting macros across `discord_panel.rs` and `rcon.rs` using direct type conversions (`.to_string()`, `.as_str()`) to prevent macro-expansion ambiguities and IDE diagnostic warnings.
-
-            ### 🛠️ Previous Releases
-            <details>
-            <summary>v4.6.24 — Online CurseForge Mod Update Checking & Rollback-Protected Push Engine</summary>
+            </details>
 
             - **⚡ Online CurseForge Mod Update Checking & Batch Synchronization**:
               - Added direct **"Check Updates"** capability to the Installed Server Mods Management section (`/mods`).

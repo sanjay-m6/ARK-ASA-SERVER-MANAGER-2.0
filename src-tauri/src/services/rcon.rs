@@ -59,10 +59,22 @@ impl RconService {
         port: u16,
         password: &str,
     ) -> Result<RconResponse, String> {
-        let targets = if address != "127.0.0.1" && address != "localhost" && address != "0.0.0.0" {
-            vec![format!("{}:{}", address, port), format!("127.0.0.1:{}", port)]
+        let clean_address = address.trim();
+        let is_unspecified_or_loopback = clean_address.is_empty()
+            || clean_address == "0.0.0.0"
+            || clean_address == "127.0.0.1"
+            || clean_address.eq_ignore_ascii_case("localhost");
+
+        let targets = if is_unspecified_or_loopback {
+            vec![format!("127.0.0.1:{}", port)]
         } else {
-            vec![format!("{}:{}", address, port)]
+            // A non-loopback IP/host was configured. Since ARK servers run locally,
+            // prioritize 127.0.0.1 first to avoid NAT loopback/hairpinning issues on routers,
+            // with fallback to the configured IP if the server was specifically bound with -MultiHome.
+            vec![
+                format!("127.0.0.1:{}", port),
+                format!("{}:{}", clean_address, port),
+            ]
         };
 
         log::info!(
@@ -90,7 +102,11 @@ impl RconService {
                             server_id,
                             RconSession {
                                 connection: conn,
-                                address: address.to_string(),
+                                address: if is_unspecified_or_loopback {
+                                    "127.0.0.1".to_string()
+                                } else {
+                                    clean_address.to_string()
+                                },
                                 port,
                                 password: password.to_string(),
                             },
@@ -318,7 +334,7 @@ impl RconService {
                         if let Ok(conn) = db.get_connection() {
                             if server_id > 0 {
                                 // 1. Try ASA servers
-                                if let Ok(mut stmt) = conn.prepare("SELECT COALESCE(ip_address, '127.0.0.1'), rcon_port, admin_password, status FROM servers WHERE id = ?1") {
+                                if let Ok(mut stmt) = conn.prepare("SELECT COALESCE(NULLIF(NULLIF(ip_address, ''), '0.0.0.0'), '127.0.0.1'), rcon_port, admin_password, status FROM servers WHERE id = ?1") {
                                     if let Ok(mut rows) = stmt.query([server_id]) {
                                         if let Ok(Some(row)) = rows.next() {
                                             let status = row.get::<_, String>(3).unwrap_or_default();
@@ -622,7 +638,7 @@ impl RconService {
                         if let Ok(db) = state.db.lock() {
                             if let Ok(conn) = db.get_connection() {
                                 let mut stmt = match conn.prepare(
-                                    "SELECT id, COALESCE(ip_address, '127.0.0.1') AS ip_address, rcon_port, admin_password \
+                                    "SELECT id, COALESCE(NULLIF(NULLIF(ip_address, ''), '0.0.0.0'), '127.0.0.1') AS ip_address, rcon_port, admin_password \
                                      FROM servers \
                                      WHERE status IN ('running', 'online') \
                                        AND rcon_enabled = 1 \
@@ -680,12 +696,17 @@ impl RconService {
 
                     // Auto-connect if no active session exists
                     if !service.is_connected(*server_id).await {
+                        let clean_addr = if address.trim().is_empty() || address == "0.0.0.0" || address.eq_ignore_ascii_case("localhost") {
+                            "127.0.0.1"
+                        } else {
+                            address.as_str()
+                        };
                         log::info!(
                             "[RCON Heartbeat] Auto-connecting to server {} at {}:{} for player tracking",
-                            server_id, address, rcon_port
+                            server_id, clean_addr, rcon_port
                         );
                         // Use a single attempt (not full retry loop) to avoid blocking the heartbeat
-                        let addr = format!("{}:{}", address, rcon_port);
+                        let addr = format!("{}:{}", clean_addr, rcon_port);
                         match crate::services::ark_rcon::ArkRconClient::connect(&addr, &clean_password).await {
                             Ok(conn) => {
                                 let mut sessions = service.sessions.lock().await;
@@ -693,7 +714,7 @@ impl RconService {
                                     *server_id,
                                     RconSession {
                                         connection: conn,
-                                        address: address.clone(),
+                                        address: clean_addr.to_string(),
                                         port: *rcon_port,
                                         password: clean_password.clone(),
                                     },

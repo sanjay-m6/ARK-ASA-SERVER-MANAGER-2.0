@@ -157,7 +157,7 @@ const defaultConfig: AseGameConfig = {
   badWordListUrl: '', badWordWhiteListUrl: '', bFilterTribeNames: false, bFilterCharacterNames: false, bFilterChat: false,
   banListUrl: '', useBanListUrl: false, useDynamicConfigUrl: false, useCustomLiveTuningUrl: false,
   kickIdlePlayersPeriod: 3600.0, enableIdleTimeout: false, noPlayervac: false, noAntiSpeedHack: false,
-  speedHackCpuBias: 1.0, disableMovementValidation: false, outputServerLogToConsole: true, noHangDet: false,
+  speedHackCpuBias: 1.0, disableMovementValidation: false, outputServerLogToConsole: true, noHangDet: true,
   noDinos: false, noUnderMeshChecking: false, noUnderMeshKilling: false, enableVivox: false,
   allowSharedConnections: false, creatureUploadIssueProtection: false, additionalDupeProtection: false,
   secureItemDinoSpawningRules: false, forceRespawnDinosOnStartup: false, enableAutoForceRespawnDinos: false,

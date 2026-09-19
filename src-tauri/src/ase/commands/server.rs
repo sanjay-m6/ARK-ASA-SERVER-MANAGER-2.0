@@ -186,10 +186,11 @@ pub async fn update_ase_server(server_id: i64, updates: serde_json::Value, state
     }
 
     // Sync updated settings to INI files on disk immediately
-    if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config(
+    if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config_for_type(
         &state.app_handle,
         &conn,
         server_id,
+        Some("ASE"),
     ) {
         println!("⚠️ Failed to write synced ASE database settings to INI: {}", e);
     } else {

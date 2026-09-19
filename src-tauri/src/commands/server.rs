@@ -1153,6 +1153,20 @@ async fn perform_server_startup_inner(
         println!("  ✅ [Debug] DB lock acquired. Getting connection...");
         let conn = db_lock.get_connection().map_err(|e| e.to_string())?;
 
+        // Sync from INI first if Beacon or manual Notepad edits happened while offline
+        if let Ok((inst_path, s_type)) = conn.query_row(
+            "SELECT install_path, server_type FROM servers WHERE id = ?1",
+            [server_id],
+            |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_else(|| "ASA".to_string()))),
+        ) {
+            let _ = crate::services::ini_sync::sync_server_from_ini_if_changed(
+                &conn,
+                server_id,
+                &std::path::PathBuf::from(inst_path),
+                &s_type,
+            );
+        }
+
         println!("  🔍 [Debug] Calling ConfigGenerator::generate_config...");
         if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config(
             app_handle, &conn, server_id,
@@ -1295,20 +1309,6 @@ async fn perform_server_startup_inner(
         let conn = db
             .get_connection()
             .map_err(|e: std::sync::PoisonError<_>| e.to_string())?;
-
-        // Sync from INI if Beacon or manual edits happened before startup
-        if let Ok((inst_path, s_type)) = conn.query_row(
-            "SELECT install_path, server_type FROM servers WHERE id = ?1",
-            [server_id],
-            |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_else(|| "ASA".to_string()))),
-        ) {
-            let _ = crate::services::ini_sync::sync_server_from_ini_if_changed(
-                &conn,
-                server_id,
-                &std::path::PathBuf::from(inst_path),
-                &s_type,
-            );
-        }
 
         conn.query_row(
             "SELECT s.install_path, s.map_name, s.session_name, s.game_port, s.query_port, s.rcon_port, 

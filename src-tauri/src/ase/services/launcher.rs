@@ -304,8 +304,8 @@ impl AseLauncher {
         // Apply advanced launch parameters from config
         if _config.no_playervac { args.push("-insecure".to_string()); }
         if _config.enable_exclusive_join { args.push("-exclusivejoin".to_string()); }
-        if _config.disable_movement_validation { args.push("-DisablePhysX".to_string()); }
-        if _config.no_hang_det { args.push("-NoHangDetection".to_string()); }
+        // Always pass -NoHangDetection to prevent FHangThreadWatcher::HangeDetected() fatal crashes during startup
+        args.push("-NoHangDetection".to_string());
         if _config.no_dinos { args.push("-NoDinos".to_string()); }
         if _config.no_under_mesh_checking { args.push("-NoUnderMeshChecking".to_string()); }
         if _config.no_under_mesh_killing { args.push("-NoUnderMeshKilling".to_string()); }
@@ -391,10 +391,27 @@ impl AseLauncher {
         {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let conn = db.get_connection().map_err(|e| e.to_string())?;
-            if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config(
+
+            // Sync from disk INI first if modified externally or in visual editor
+            let install_path: Result<String, _> = conn.query_row(
+                "SELECT install_path FROM ase_servers WHERE id = ?1",
+                [server_id],
+                |row| row.get(0),
+            );
+            if let Ok(ref ip) = install_path {
+                let _ = crate::services::ini_sync::sync_server_from_ini_if_changed(
+                    &conn,
+                    server_id,
+                    &std::path::PathBuf::from(ip),
+                    "ASE",
+                );
+            }
+
+            if let Err(e) = crate::services::config_generator::ConfigGenerator::generate_config_for_type(
                 &_app,
                 &conn,
                 server_id,
+                Some("ASE"),
             ) {
                 println!(
                     "⚠️ Failed to sync config files for ASE server {} on startup: {}",
@@ -429,7 +446,7 @@ impl AseLauncher {
             (server, active_mods, cluster_dir)
         };
 
-        // If user config folder is active, copy the INI files from the custom folder to the default directory before starting the server
+        // If user config folder is active, copy the INI files from the custom folder only if the default directory does not already have them
         let user_folder_raw: String = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             db.get_setting("ase_user_config_folder").ok().flatten().unwrap_or_default()
@@ -445,29 +462,35 @@ impl AseLauncher {
                 
                 let _ = std::fs::create_dir_all(&default_config_dir);
                 
-                // Copy GameUserSettings.ini
-                let user_gus = user_dir.join("GameUserSettings.ini");
-                if user_gus.exists() {
-                    let _ = std::fs::copy(&user_gus, default_config_dir.join("GameUserSettings.ini"));
-                    println!("  🔄 [ASE Startup Sync] Copied GameUserSettings.ini from custom folder to default config dir");
-                } else {
-                    let user_sub_gus = user_dir.join("ShooterGame/Saved/Config/WindowsServer/GameUserSettings.ini");
-                    if user_sub_gus.exists() {
-                        let _ = std::fs::copy(&user_sub_gus, default_config_dir.join("GameUserSettings.ini"));
-                        println!("  🔄 [ASE Startup Sync] Copied GameUserSettings.ini (sub-path) from custom folder to default config dir");
+                // Copy GameUserSettings.ini only if destination does not exist
+                let dest_gus = default_config_dir.join("GameUserSettings.ini");
+                if !dest_gus.exists() {
+                    let user_gus = user_dir.join("GameUserSettings.ini");
+                    if user_gus.exists() {
+                        let _ = std::fs::copy(&user_gus, &dest_gus);
+                        println!("  🔄 [ASE Startup Sync] Initialized GameUserSettings.ini from custom folder to default config dir");
+                    } else {
+                        let user_sub_gus = user_dir.join("ShooterGame/Saved/Config/WindowsServer/GameUserSettings.ini");
+                        if user_sub_gus.exists() {
+                            let _ = std::fs::copy(&user_sub_gus, &dest_gus);
+                            println!("  🔄 [ASE Startup Sync] Initialized GameUserSettings.ini (sub-path) from custom folder to default config dir");
+                        }
                     }
                 }
 
-                // Copy Game.ini
-                let user_game = user_dir.join("Game.ini");
-                if user_game.exists() {
-                    let _ = std::fs::copy(&user_game, default_config_dir.join("Game.ini"));
-                    println!("  🔄 [ASE Startup Sync] Copied Game.ini from custom folder to default config dir");
-                } else {
-                    let user_sub_game = user_dir.join("ShooterGame/Saved/Config/WindowsServer/Game.ini");
-                    if user_sub_game.exists() {
-                        let _ = std::fs::copy(&user_sub_game, default_config_dir.join("Game.ini"));
-                        println!("  🔄 [ASE Startup Sync] Copied Game.ini (sub-path) from custom folder to default config dir");
+                // Copy Game.ini only if destination does not exist
+                let dest_game = default_config_dir.join("Game.ini");
+                if !dest_game.exists() {
+                    let user_game = user_dir.join("Game.ini");
+                    if user_game.exists() {
+                        let _ = std::fs::copy(&user_game, &dest_game);
+                        println!("  🔄 [ASE Startup Sync] Initialized Game.ini from custom folder to default config dir");
+                    } else {
+                        let user_sub_game = user_dir.join("ShooterGame/Saved/Config/WindowsServer/Game.ini");
+                        if user_sub_game.exists() {
+                            let _ = std::fs::copy(&user_sub_game, &dest_game);
+                            println!("  🔄 [ASE Startup Sync] Initialized Game.ini (sub-path) from custom folder to default config dir");
+                        }
                     }
                 }
             }

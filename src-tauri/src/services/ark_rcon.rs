@@ -34,7 +34,20 @@ pub struct RconPacket {
 impl ArkRconClient {
     /// Connects to the RCON server and performs authentication.
     pub async fn connect(address: &str, password: &str) -> Result<Self, String> {
-        let stream = match timeout(Duration::from_secs(10), TcpStream::connect(address)).await {
+        let clean = address.trim();
+        let target_address = if clean.starts_with("0.0.0.0:") {
+            format!("127.0.0.1:{}", &clean[8..])
+        } else if clean.starts_with(":") {
+            format!("127.0.0.1{}", clean)
+        } else if clean.starts_with("localhost:") {
+            format!("127.0.0.1:{}", &clean[10..])
+        } else if clean == "0.0.0.0" || clean.is_empty() {
+            "127.0.0.1:27020".to_string()
+        } else {
+            clean.to_string()
+        };
+
+        let stream = match timeout(Duration::from_secs(10), TcpStream::connect(&target_address)).await {
             Ok(Ok(s)) => s,
             Ok(Err(e)) => return Err(format!("Connection Refused: {}", e)),
             Err(_) => return Err("Connection Timed Out: Server not reachable or firewall blocked".to_string()),

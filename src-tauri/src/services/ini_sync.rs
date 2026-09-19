@@ -104,13 +104,13 @@ pub fn sync_server_from_ini_if_changed(
     .and_then(|v| v.trim_matches('"').trim_matches('\'').parse::<i32>().ok())
     .filter(|&p| p > 0);
 
-    // 2. Server IP / MultiHome (support [URL] MultiHome, [ServerSettings] MultiHome, IPAddress, ServerIP, ListenIP)
+    // 2. Server IP / MultiHome (support [ServerSettings] IPAddress, MultiHome, ServerIP, ListenIP, then [URL])
     let ip_address: Option<String> = ini_get(
         &sections,
-        &["URL", "ServerSettings", "SessionSettings"],
-        "MultiHome",
+        &["ServerSettings", "URL"],
+        "IPAddress",
     )
-    .or_else(|| ini_get(&sections, &["ServerSettings", "URL"], "IPAddress"))
+    .or_else(|| ini_get(&sections, &["ServerSettings", "URL", "SessionSettings"], "MultiHome"))
     .or_else(|| ini_get(&sections, &["ServerSettings"], "ServerIP"))
     .or_else(|| ini_get(&sections, &["ServerSettings"], "ListenIP"))
     .map(|s| s.trim_matches('"').trim_matches('\'').trim().to_string())
@@ -141,7 +141,7 @@ pub fn sync_server_from_ini_if_changed(
     // 5. Game Port
     let game_port: Option<u16> = ini_get(
         &sections,
-        &["URL", "ServerSettings", "SessionSettings"],
+        &["ServerSettings", "URL", "SessionSettings"],
         "Port",
     )
     .or_else(|| ini_get(&sections, &["ServerSettings"], "GamePort"))
@@ -151,7 +151,7 @@ pub fn sync_server_from_ini_if_changed(
     // 6. Query Port
     let query_port: Option<u16> = ini_get(
         &sections,
-        &["URL", "ServerSettings", "SessionSettings"],
+        &["ServerSettings", "URL", "SessionSettings"],
         "QueryPort",
     )
     .and_then(|v| v.trim_matches('"').trim_matches('\'').parse::<u16>().ok())

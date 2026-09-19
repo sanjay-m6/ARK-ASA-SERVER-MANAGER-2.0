@@ -812,34 +812,52 @@ impl ConfigGenerator {
         install_path: &PathBuf,
         server_type: Option<&str>,
     ) -> &'static str {
+        if server_type == Some("ASA") {
+            return "WindowsServer";
+        }
+
+        // Check if this is a Windows server installation (running directly on Windows or via Wine/Proton on Linux)
+        let is_win_binary = install_path
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Win64")
+            .join("ShooterGameServer.exe")
+            .exists();
+        let win_config_exists = install_path
+            .join("ShooterGame")
+            .join("Saved")
+            .join("Config")
+            .join("WindowsServer")
+            .exists();
+
+        if is_win_binary || win_config_exists {
+            return "WindowsServer";
+        }
+
+        // Check if native Linux binary or directory exists
+        let is_linux_binary = install_path
+            .join("ShooterGame")
+            .join("Binaries")
+            .join("Linux")
+            .exists();
+        let linux_config_exists = install_path
+            .join("ShooterGame")
+            .join("Saved")
+            .join("Config")
+            .join("LinuxServer")
+            .exists();
+
+        if is_linux_binary || linux_config_exists {
+            return "LinuxServer";
+        }
+
         #[cfg(target_os = "linux")]
         {
-            if server_type == Some("ASA") {
-                return "WindowsServer";
-            }
             "LinuxServer"
         }
         #[cfg(not(target_os = "linux"))]
         {
-            if server_type == Some("ASA") {
-                return "WindowsServer";
-            }
-            if install_path
-                .join("ShooterGame")
-                .join("Binaries")
-                .join("Linux")
-                .exists()
-                || install_path
-                    .join("ShooterGame")
-                    .join("Saved")
-                    .join("Config")
-                    .join("LinuxServer")
-                    .exists()
-            {
-                "LinuxServer"
-            } else {
-                "WindowsServer"
-            }
+            "WindowsServer"
         }
     }
 
@@ -1068,27 +1086,59 @@ impl ConfigGenerator {
         db_conn: &rusqlite::Connection,
         server_id: i64,
     ) -> Result<(), String> {
+        Self::generate_config_for_type(_app_handle, db_conn, server_id, None)
+    }
+
+    /// Regenerate config files applying event overrides with an optional server_type hint ("ASE" or "ASA")
+    pub fn generate_config_for_type(
+        _app_handle: &tauri::AppHandle,
+        db_conn: &rusqlite::Connection,
+        server_id: i64,
+        server_type_hint: Option<&str>,
+    ) -> Result<(), String> {
         // 1. Get install path and server type from servers or ase_servers
-        let (install_path_str, server_type) = match db_conn.query_row(
-            "SELECT install_path, server_type FROM servers WHERE id = ?1",
-            [server_id],
-            |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)
-                        .unwrap_or_else(|_| "ASA".to_string()),
-                ))
-            },
-        ) {
-            Ok(info) => info,
-            Err(rusqlite::Error::QueryReturnedNoRows) => db_conn
-                .query_row(
+        let (install_path_str, server_type) = match server_type_hint {
+            Some("ASE") => {
+                db_conn.query_row(
                     "SELECT install_path FROM ase_servers WHERE id = ?1",
                     [server_id],
                     |row| Ok((row.get::<_, String>(0)?, "ASE".to_string())),
-                )
-                .map_err(|e| format!("Server not found in servers or ase_servers: {}", e))?,
-            Err(e) => return Err(e.to_string()),
+                ).map_err(|e| format!("Server {} not found in ase_servers: {}", server_id, e))?
+            }
+            Some("ASA") => {
+                db_conn.query_row(
+                    "SELECT install_path, server_type FROM servers WHERE id = ?1",
+                    [server_id],
+                    |row| {
+                        Ok((
+                            row.get::<_, String>(0)?,
+                            row.get::<_, String>(1)
+                                .unwrap_or_else(|_| "ASA".to_string()),
+                        ))
+                    },
+                ).map_err(|e| format!("Server {} not found in servers: {}", server_id, e))?
+            }
+            _ => match db_conn.query_row(
+                "SELECT install_path, server_type FROM servers WHERE id = ?1",
+                [server_id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)
+                            .unwrap_or_else(|_| "ASA".to_string()),
+                    ))
+                },
+            ) {
+                Ok(info) => info,
+                Err(rusqlite::Error::QueryReturnedNoRows) => db_conn
+                    .query_row(
+                        "SELECT install_path FROM ase_servers WHERE id = ?1",
+                        [server_id],
+                        |row| Ok((row.get::<_, String>(0)?, "ASE".to_string())),
+                    )
+                    .map_err(|e| format!("Server not found in servers or ase_servers: {}", e))?,
+                Err(e) => return Err(e.to_string()),
+            },
         };
         let install_path = PathBuf::from(install_path_str);
         let sub_dir = Self::get_config_subdirectory(&install_path, Some(&server_type));
@@ -1220,50 +1270,57 @@ impl ConfigGenerator {
         let mut final_gus = initial_gus_content.clone();
 
         // 4. Update identity/network settings from database
-        final_gus = crate::services::ini_parser::IniParser::update_key(
-            &final_gus,
-            "ServerSettings",
-            "SessionName",
-            &session_name,
-        );
-        final_gus = crate::services::ini_parser::IniParser::update_key(
-            &final_gus,
-            "SessionSettings",
-            "SessionName",
-            &session_name,
-        );
+        if !session_name.trim().is_empty() {
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "SessionName",
+                &session_name,
+            );
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "SessionSettings",
+                "SessionName",
+                &session_name,
+            );
+        }
 
-        let pwd = server_password.unwrap_or_default();
-        final_gus = crate::services::ini_parser::IniParser::update_key(
-            &final_gus,
-            "ServerSettings",
-            "ServerPassword",
-            &pwd,
-        );
+        if let Some(ref pwd) = server_password {
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "ServerPassword",
+                pwd,
+            );
+        }
 
-        let clean_admin = admin_password
-            .split("?ServerPassword=")
-            .next()
-            .unwrap_or(&admin_password);
-        final_gus = crate::services::ini_parser::IniParser::update_key(
-            &final_gus,
-            "ServerSettings",
-            "ServerAdminPassword",
-            clean_admin,
-        );
+        if !admin_password.trim().is_empty() {
+            let clean_admin = admin_password
+                .split("?ServerPassword=")
+                .next()
+                .unwrap_or(&admin_password);
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "ServerAdminPassword",
+                clean_admin,
+            );
+        }
 
-        final_gus = crate::services::ini_parser::IniParser::update_key(
-            &final_gus,
-            "ServerSettings",
-            "MaxPlayers",
-            &max_players.to_string(),
-        );
-        final_gus = crate::services::ini_parser::IniParser::update_key(
-            &final_gus,
-            "/Script/Engine.GameSession",
-            "MaxPlayers",
-            &max_players.to_string(),
-        );
+        if max_players > 0 {
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "MaxPlayers",
+                &max_players.to_string(),
+            );
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "/Script/Engine.GameSession",
+                "MaxPlayers",
+                &max_players.to_string(),
+            );
+        }
 
         final_gus = crate::services::ini_parser::IniParser::update_key(
             &final_gus,
@@ -1272,12 +1329,14 @@ impl ConfigGenerator {
             if rcon_enabled { "True" } else { "False" },
         );
 
-        final_gus = crate::services::ini_parser::IniParser::update_key(
-            &final_gus,
-            "ServerSettings",
-            "RCONPort",
-            &rcon_port.to_string(),
-        );
+        if rcon_port > 0 {
+            final_gus = crate::services::ini_parser::IniParser::update_key(
+                &final_gus,
+                "ServerSettings",
+                "RCONPort",
+                &rcon_port.to_string(),
+            );
+        }
 
         if let Some(ref ip) = ip_address {
             let trimmed = ip.trim();
@@ -1419,14 +1478,16 @@ impl ConfigGenerator {
                 let id: String = row.get(0).map_err(|e| e.to_string())?;
                 ids.push(id);
             }
-            let active_mods_val = ids.join(",");
-            println!("  📝 [Startup Mod Sync] Syncing {} active mods to GameUserSettings.ini for server {}", ids.len(), server_id);
-            final_gus = crate::services::ini_parser::IniParser::update_key(
-                &final_gus,
-                "ServerSettings",
-                "ActiveMods",
-                &active_mods_val,
-            );
+            if !ids.is_empty() {
+                let active_mods_val = ids.join(",");
+                println!("  📝 [Startup Mod Sync] Syncing {} active mods to GameUserSettings.ini for server {}", ids.len(), server_id);
+                final_gus = crate::services::ini_parser::IniParser::update_key(
+                    &final_gus,
+                    "ServerSettings",
+                    "ActiveMods",
+                    &active_mods_val,
+                );
+            }
             ids
         } else {
             let mut stmt = db_conn.prepare("SELECT mod_id FROM mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC")
@@ -1459,7 +1520,7 @@ impl ConfigGenerator {
                 "ServerSettings",
                 "ActiveMapMods",
             );
-        } else {
+        } else if is_official_map(&effective_map) {
             final_gus = crate::services::ini_parser::IniParser::remove_key(
                 &final_gus,
                 "ServerSettings",

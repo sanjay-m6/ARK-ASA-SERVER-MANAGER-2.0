@@ -698,7 +698,7 @@ impl Default for AseGameConfig {
             speed_hack_cpu_bias: 1.0,
             disable_movement_validation: false,
             output_server_log_to_console: false,
-            no_hang_det: false,
+            no_hang_det: true,
             no_dinos: false,
             no_under_mesh_checking: false,
             no_under_mesh_killing: false,

@@ -5,6 +5,29 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.26] — 2026-09-20
+
+### Fixed & Improved
+- **🛡️ Fix Server Startup Configuration Vanishing & Resetting**:
+  - Resolved critical bug where custom server configurations (SessionName, ServerPassword, ports, player limits, and custom multipliers) vanished and reverted back to original factory defaults on server start.
+  - Added pre-launch INI synchronization (`sync_server_from_ini_if_changed`) to ensure manual or visual editor settings are absorbed into SQLite prior to startup config generation.
+  - Introduced disambiguated type-safe config generation (`generate_config_for_type`) to eliminate SQLite ID collisions between ASA (`servers`) and ASE (`ase_servers`) tables.
+  - Guarded custom template folder copying (`ase_user_config_folder`) so that existing `GameUserSettings.ini` and `Game.ini` are never overwritten on server boot.
+  - Preserved manual `ActiveMods` and custom mod map keys (`ActiveMapMod`) during startup config generation.
+- **⚡ Fix UE4 Fatal Error Startup Hang Crash (`FHangThreadWatcher::HangeDetected()`)**:
+  - Resolved fatal error crash dialog (`ShooterGameServer.exe!FHangThreadWatcher::HangeDetected() [gameengine.cpp:172]`) during server startup on Wine, Proton, Linux AppImage, and modded servers.
+  - Unconditionally passed `-NoHangDetection` on dedicated server startup, preventing Unreal Engine 4's watchdog thread from aborting during asset/mod loading and flushing uninitialized in-memory defaults to disk.
+  - Defaulted `no_hang_det` to `true` in configuration models, UI controls, and INI parsers.
+- **🐧 Linux & Wine Config Subdirectory Resolution**:
+  - Updated `get_config_subdirectory` to dynamically verify whether Windows binaries (`ShooterGameServer.exe`) or `Saved/Config/WindowsServer` folders exist before falling back to `LinuxServer`.
+  - Ensures servers executed under Wine/Proton on Linux (including AppImage environments) read and write to `WindowsServer/` where the Windows executable expects them.
+- **🔌 Fix RCON Loopback Binding & Connection (`WSAEADDRNOTAVAIL 10049`)**:
+  - Fixed RCON connection failure when pressing the "Connect" button in the RCON Console.
+  - Resolved inverted `0.0.0.0` address filtering, automatically mapping wildcards (`0.0.0.0`, `""`, `localhost`) to loopback target `127.0.0.1:<port>`.
+  - Added defense-in-depth normalization in `ArkRconClient::connect`, background heartbeat loops, and RCON Console UI to guarantee `TcpStream::connect` never receives an illegal wildcard bind address.
+
+---
+
 ## [4.6.25] — 2026-09-13
 
 ### Fixed & Improved

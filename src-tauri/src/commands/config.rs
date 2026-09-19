@@ -305,18 +305,18 @@ pub async fn save_config(
             .or_else(|| IniParser::get_value(&content, "URL", "RCONPort"))
             .and_then(|v| v.trim_matches('"').trim_matches('\'').parse().ok());
 
-        let game_port: Option<u16> = IniParser::get_value(&content, "URL", "Port")
-            .or_else(|| IniParser::get_value(&content, "ServerSettings", "Port"))
+        let game_port: Option<u16> = IniParser::get_value(&content, "ServerSettings", "Port")
             .or_else(|| IniParser::get_value(&content, "ServerSettings", "GamePort"))
+            .or_else(|| IniParser::get_value(&content, "URL", "Port"))
             .and_then(|v| v.trim_matches('"').trim_matches('\'').parse().ok());
 
-        let query_port: Option<u16> = IniParser::get_value(&content, "URL", "QueryPort")
-            .or_else(|| IniParser::get_value(&content, "ServerSettings", "QueryPort"))
+        let query_port: Option<u16> = IniParser::get_value(&content, "ServerSettings", "QueryPort")
+            .or_else(|| IniParser::get_value(&content, "URL", "QueryPort"))
             .and_then(|v| v.trim_matches('"').trim_matches('\'').parse().ok());
 
-        let ip_address = IniParser::get_value(&content, "URL", "MultiHome")
+        let ip_address = IniParser::get_value(&content, "ServerSettings", "IPAddress")
             .or_else(|| IniParser::get_value(&content, "ServerSettings", "MultiHome"))
-            .or_else(|| IniParser::get_value(&content, "ServerSettings", "IPAddress"))
+            .or_else(|| IniParser::get_value(&content, "URL", "MultiHome"))
             .map(|s| s.trim_matches('"').trim_matches('\'').to_string());
 
         // Perform the update in a nested scope to drop the lock before firewall call

@@ -1993,7 +1993,11 @@ export default function ConfigEditor() {
                 }
 
                 // Initialize MapName, Port, and QueryPort from current server configuration if missing in INI
-                const currentServer = useServerStore.getState().servers.find(s => s.id === selectedServerId);
+                let currentServer = useServerStore.getState().servers.find(s => s.id === selectedServerId);
+                if (!currentServer) {
+                    await useServerStore.getState().refreshServers();
+                    currentServer = useServerStore.getState().servers.find(s => s.id === selectedServerId);
+                }
                 if (currentServer) {
                     if (!serverSettings.has('MapName') && currentServer.config?.mapName) {
                         serverSettings.set('MapName', currentServer.config.mapName);
@@ -2003,6 +2007,17 @@ export default function ConfigEditor() {
                     }
                     if (!serverSettings.has('QueryPort') && currentServer.ports?.queryPort) {
                         serverSettings.set('QueryPort', String(currentServer.ports.queryPort));
+                    }
+                }
+
+                // Also ensure [URL] section is in sync with ServerSettings if both exist
+                const urlSection = parsedGus.get('URL');
+                if (urlSection && serverSettings) {
+                    if (serverSettings.has('Port')) {
+                        urlSection.set('Port', serverSettings.get('Port')!);
+                    }
+                    if (serverSettings.has('QueryPort')) {
+                        urlSection.set('QueryPort', serverSettings.get('QueryPort')!);
                     }
                 }
 
@@ -2170,6 +2185,13 @@ export default function ConfigEditor() {
                 gameString = rawText.game;
             } else {
                 // For all other modes, generate INI from the current state maps
+                // Keep URL section in sync with ServerSettings so both sections reflect user port edits
+                const srv = configs.GameUserSettings.get('ServerSettings');
+                const url = configs.GameUserSettings.get('URL');
+                if (srv && url) {
+                    if (srv.has('Port')) url.set('Port', srv.get('Port')!);
+                    if (srv.has('QueryPort')) url.set('QueryPort', srv.get('QueryPort')!);
+                }
                 gusString = generateIniContent(configs.GameUserSettings);
                 gameString = generateIniContent(configs.Game);
             }
@@ -2265,19 +2287,25 @@ export default function ConfigEditor() {
             const adminPassword = getSetting(serverSettings, 'ServerAdminPassword');
             if (adminPassword) updateParams.adminPassword = adminPassword;
 
-            // Ports from URL or ServerSettings section
-            const gamePort = getSetting(urlSettings, 'Port') || getSetting(serverSettings, 'Port') || getSetting(serverSettings, 'GamePort');
-            if (gamePort) updateParams.gamePort = parseInt(gamePort, 10);
+            // Ports from ServerSettings or URL section (prioritize ServerSettings where visual editor fields reside)
+            const gamePort = getSetting(serverSettings, 'Port') || getSetting(serverSettings, 'GamePort') || getSetting(urlSettings, 'Port');
+            if (gamePort) {
+                updateParams.gamePort = parseInt(gamePort, 10);
+                if (urlSettings) urlSettings.set('Port', gamePort);
+            }
 
-            const queryPort = getSetting(urlSettings, 'QueryPort') || getSetting(serverSettings, 'QueryPort');
-            if (queryPort) updateParams.queryPort = parseInt(queryPort, 10);
+            const queryPort = getSetting(serverSettings, 'QueryPort') || getSetting(urlSettings, 'QueryPort');
+            if (queryPort) {
+                updateParams.queryPort = parseInt(queryPort, 10);
+                if (urlSettings) urlSettings.set('QueryPort', queryPort);
+            }
 
             // RCON port from ServerSettings
             const rconPort = getSetting(serverSettings, 'RCONPort');
             if (rconPort) updateParams.rconPort = parseInt(rconPort, 10);
 
             // IP Address from ServerSettings
-            const ipAddress = getSetting(serverSettings, 'IPAddress') || getSetting(urlSettings, 'MultiHome');
+            const ipAddress = getSetting(serverSettings, 'IPAddress') || getSetting(serverSettings, 'MultiHome') || getSetting(urlSettings, 'MultiHome');
             if (ipAddress !== undefined) updateParams.ipAddress = ipAddress;
 
             // Sync critical settings to database

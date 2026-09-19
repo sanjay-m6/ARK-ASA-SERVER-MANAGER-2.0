@@ -772,8 +772,11 @@ export default function RconConsole() {
         setConnecting(selectedServer.id, true);
         setLastError(selectedServer.id, null);
         try {
-            const address = selectedServer.ipAddress || '127.0.0.1';
-            const port = selectedServer.ports.rconPort;
+            const rawAddress = selectedServer.ipAddress?.trim();
+            const address = (!rawAddress || rawAddress === '0.0.0.0' || rawAddress.toLowerCase() === 'localhost')
+                ? '127.0.0.1'
+                : rawAddress;
+            const port = selectedServer.ports?.rconPort || 27020;
             console.log(`[RCON] Connecting to ${address}:${port}...`);
             const response = await invoke<RconResponse>('rcon_connect', {
                 serverId: selectedServer.id,
@@ -1814,7 +1817,7 @@ export default function RconConsole() {
                                             />
                                             <div className="truncate">
                                                 <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{server.name}</p>
-                                                <p className="text-[10px] text-[var(--text-muted)] font-mono">{server.ipAddress || '127.0.0.1'}:{server.ports.rconPort}</p>
+                                                <p className="text-[10px] text-[var(--text-muted)] font-mono">{(!server.ipAddress || server.ipAddress === '0.0.0.0' || server.ipAddress.toLowerCase() === 'localhost') ? '127.0.0.1' : server.ipAddress}:{server.ports?.rconPort || 27020}</p>
                                             </div>
                                         </label>
                                     ))}
