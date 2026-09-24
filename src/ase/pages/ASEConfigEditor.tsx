@@ -56,6 +56,7 @@ const defaultConfig: AseGameConfig = {
   bAllowRaidDinoFeeding: false,
   raidDinoCharacterFoodDrainMultiplier: 1.0,
   forceAllowCaveFlyers: false,
+  bForceCanRideFliers: true,
   preventDinoMateBoost: false,
   disableDinoDecayPve: false,
   allowDinoLevelUpAnimation: true,
@@ -1454,6 +1455,7 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'general', type: 'number', key: 'extinctionEventTimeInterval', label: 'Extinction Interval (Days)', desc: 'Number of days between automatic server wipes' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'allowHitMarkers', label: 'Allow Hit Markers', desc: 'Displays crosshair hit indicators when damaging targets' },
     { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'forceFlyerexplosives', label: 'Force Flyer Explosives', desc: 'Allows placing C4 explosives on flying tames' },
+    { file: 'GameUserSettings.ini', tab: 'general', type: 'toggle', key: 'bForceCanRideFliers', label: 'Force Can Ride Fliers', desc: 'Allow riding flyers on Genesis: Part 1 and other flyer-restricted maps (bForceCanRideFliers)' },
 
     // RATES - GameUserSettings.ini
     { file: 'GameUserSettings.ini', tab: 'rates', type: 'number', key: 'xpMultiplier', label: 'XP Multiplier', desc: 'Global experience gain rate', step: 0.1 },
@@ -1528,6 +1530,7 @@ export default function ASEConfigEditor() {
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bUseTameLimitForStructuresOnly', label: 'Use Tame Limit For Structures Only', desc: 'Restrict tame limits rules to structure-carrying saddles only' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bAllowRaidDinoFeeding', label: 'Allow Raid Dino Feeding', desc: 'Allow feeding raid/titan dinos so they don\'t starve' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'forceAllowCaveFlyers', label: 'Force Allow Cave Flyers', desc: 'Allow riding flyers inside caves' },
+    { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'bForceCanRideFliers', label: 'Force Can Ride Fliers (Genesis / Restricted Maps)', desc: 'Allow riding flyers on Genesis: Part 1 and other flyer-restricted maps (bForceCanRideFliers)' },
     { file: 'Game.ini', tab: 'player', type: 'toggle', key: 'preventDinoMateBoost', label: 'Prevent Dino Mate Boost', desc: 'Disables mate boosting stat improvements for wild and tamed dinos' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'disableDinoDecayPve', label: 'Disable Dino Decay (PvE)', desc: 'Disable decay timer for tames in PvE mode' },
     { file: 'GameUserSettings.ini', tab: 'player', type: 'toggle', key: 'disableDinoDecayPvp', label: 'Disable Dino Decay (PvP)', desc: 'Disable decay timer for tames in PvP mode' },

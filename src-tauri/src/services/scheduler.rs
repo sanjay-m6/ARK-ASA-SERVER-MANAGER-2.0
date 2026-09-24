@@ -217,13 +217,34 @@ impl SchedulerService {
 
                         tauri::async_runtime::spawn(async move {
                             let state = app.state::<AppState>();
+                            let server_name = get_server_name(&app, server_id);
                             if pre_warning_minutes > 0 {
                                 for min_left in (1..=pre_warning_minutes).rev() {
                                     let msg = format!("⚠️ SERVER RESTARTING IN {} MINUTE(S)!", min_left);
                                     let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast {}", msg), state.clone()).await;
                                     let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat {}", msg), state.clone()).await;
+
+                                    let app_clone = app.clone();
+                                    let name_clone = server_name.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        crate::services::discord::send_discord_webhook(
+                                            &app_clone,
+                                            "scheduledRestarts",
+                                            crate::services::discord::DiscordEmbed::scheduled_task(
+                                                &name_clone,
+                                                "Scheduled Restart Warning",
+                                                &format!("Scheduled restart in **{} minutes** for server **{}**.", min_left, name_clone),
+                                            ),
+                                        ).await;
+                                    });
+
                                     sleep(Duration::from_secs(60)).await;
                                 }
+                            }
+
+                            if let Some(guardian) = app.try_state::<crate::services::guardian::GuardianState>() {
+                                let guard = guardian.0.lock().await;
+                                guard.mark_as_stopping(-server_id.abs()).await;
                             }
 
                             let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
@@ -231,7 +252,7 @@ impl SchedulerService {
                             sleep(Duration::from_secs(3)).await;
 
                             let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
-                            sleep(Duration::from_secs(5)).await;
+                            sleep(Duration::from_secs(2)).await;
                             let _ = crate::ase::commands::server::start_ase_server(app.clone(), server_id, state.clone()).await;
                         });
                     }
@@ -734,22 +755,7 @@ impl SchedulerService {
             sleep(Duration::from_secs(3)).await;
 
             let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
-
-            let mut wait_attempts = 0;
-            while state.process_manager.is_running(server_id) && wait_attempts < 25 {
-                sleep(Duration::from_secs(1)).await;
-                wait_attempts += 1;
-            }
-
-            if state.process_manager.is_running(server_id) {
-                let _ = state.process_manager.stop_server_with_reason(
-                    server_id,
-                    crate::services::process_manager::StopReason::ScheduledRestart,
-                );
-            }
             sleep(Duration::from_secs(2)).await;
-
-            state.process_manager.force_cleanup_server_entry(server_id);
             let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
 
             Self::update_ase_next_run(app_handle, server_id, interval, now).await;
@@ -859,31 +865,12 @@ impl SchedulerService {
 
             if shutdown || restart || update {
                 log::info!("  [Advanced ASE] Step 1/5: Graceful Shutdown (scheduled maintenance)");
-                state.process_manager.set_pending_stop_reason(
-                    server_id,
-                    crate::services::process_manager::StopReason::ScheduledRestart,
-                );
                 if let Some(guardian) = app_handle.try_state::<crate::services::guardian::GuardianState>() {
                     let guard = guardian.0.lock().await;
-                    guard.mark_as_stopping(-server_id).await;
+                    guard.mark_as_stopping(-server_id.abs()).await;
                 }
 
                 let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
-
-                let mut wait_attempts = 0;
-                while state.process_manager.is_running(server_id) && wait_attempts < 25 {
-                    sleep(Duration::from_secs(1)).await;
-                    wait_attempts += 1;
-                }
-
-                if state.process_manager.is_running(server_id) {
-                    log::warn!("  ⚠️ ASE Server {} still running after 25s — forcing process stop", server_id);
-                    let _ = state.process_manager.stop_server_with_reason(
-                        server_id,
-                        crate::services::process_manager::StopReason::ScheduledRestart,
-                    );
-                }
-
                 sleep(Duration::from_secs(2)).await;
             }
 
@@ -926,7 +913,6 @@ impl SchedulerService {
 
             if restart {
                 log::info!("  [Advanced ASE] Step 4/5: Starting server up");
-                state.process_manager.force_cleanup_server_entry(server_id);
                 let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
                 
                 if dino_wipe {
@@ -1597,11 +1583,22 @@ fn get_server_name(app_handle: &AppHandle, server_id: i64) -> String {
         let state = app_handle.try_state::<AppState>()?;
         let db = state.db.lock().ok()?;
         let conn = db.get_connection().ok()?;
-        conn.query_row(
+        if let Ok(n) = conn.query_row(
             "SELECT name FROM servers WHERE id = ?1",
             [server_id],
             |row| row.get::<_, String>(0),
-        ).ok()
+        ) {
+            return Some(n);
+        }
+        let abs_id = server_id.abs();
+        if let Ok(n) = conn.query_row(
+            "SELECT name FROM ase_servers WHERE id = ?1",
+            [abs_id],
+            |row| row.get::<_, String>(0),
+        ) {
+            return Some(n);
+        }
+        None
     })();
 
     name_opt.unwrap_or_else(|| format!("Server #{}", server_id))
@@ -1640,10 +1637,34 @@ async fn run_task_pre_warnings(app_handle: &AppHandle, task: &ScheduledTask) {
     tauri::async_runtime::spawn(async move {
         let server_name = get_server_name(&app_handle_clone, task_clone.server_id);
         let mins = task_clone.pre_warning_minutes;
+        let is_ase = {
+            if let Some(state) = app_handle_clone.try_state::<AppState>() {
+                if let Ok(db) = state.db.lock() {
+                    if let Ok(conn) = db.get_connection() {
+                        let in_ase = conn.query_row(
+                            "SELECT 1 FROM ase_servers WHERE id = ?1",
+                            [task_clone.server_id.abs()],
+                            |_| Ok(true),
+                        ).unwrap_or(false);
+                        let is_ase_type: bool = conn.query_row(
+                            "SELECT server_type FROM servers WHERE id = ?1",
+                            [task_clone.server_id],
+                            |row| row.get::<_, String>(0),
+                        ).map(|t| t.to_uppercase() == "ASE").unwrap_or(false);
+                        in_ase || is_ase_type
+                    } else { false }
+                } else { false }
+            } else { false }
+        };
 
         for min_left in (1..=mins).rev() {
             let msg = format_warning_message(task_clone.message.as_deref(), &task_clone.task_type, min_left, &server_name);
-            if let Some(rcon_state) = app_handle_clone.try_state::<RconState>() {
+            if is_ase {
+                if let Some(state) = app_handle_clone.try_state::<AppState>() {
+                    let _ = crate::ase::commands::rcon::send_ase_rcon(task_clone.server_id, format!("Broadcast \"{}\"", msg), state.clone()).await;
+                    let _ = crate::ase::commands::rcon::send_ase_rcon(task_clone.server_id, format!("ServerChat \"{}\"", msg), state).await;
+                }
+            } else if let Some(rcon_state) = app_handle_clone.try_state::<RconState>() {
                 let rcon = &rcon_state.inner().0;
                 let _ = rcon.send_command(task_clone.server_id, &format!("Broadcast \"{}\"", msg)).await;
                 let _ = rcon.send_command(task_clone.server_id, &format!("ServerChat \"{}\"", msg)).await;
@@ -1673,16 +1694,46 @@ async fn run_task_pre_warnings(app_handle: &AppHandle, task: &ScheduledTask) {
 
 // Logic helpers
 async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
+    let app = app_handle.clone();
+    let task_clone = task.clone();
+    tauri::async_runtime::spawn(async move {
+        commands_restart_inner(&app, &task_clone).await;
+    });
+}
+
+async fn commands_restart_inner(app_handle: &AppHandle, task: &ScheduledTask) {
     let state = app_handle.state::<AppState>();
     let server_id = task.server_id;
     let name = get_server_name(app_handle, server_id);
+
+    // Determine if server is ASE or ASA
+    let is_ase = {
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                let in_ase = conn.query_row(
+                    "SELECT 1 FROM ase_servers WHERE id = ?1",
+                    [server_id.abs()],
+                    |_| Ok(true),
+                ).unwrap_or(false);
+                let is_ase_type: bool = conn.query_row(
+                    "SELECT server_type FROM servers WHERE id = ?1",
+                    [server_id],
+                    |row| row.get::<_, String>(0),
+                ).map(|t| t.to_uppercase() == "ASE").unwrap_or(false);
+                in_ase || is_ase_type
+            } else { false }
+        } else { false }
+    };
 
     // Warn players & countdown sequentially if pre_warning_minutes > 0
     if task.pre_warning_minutes > 0 {
         let mins = task.pre_warning_minutes;
         for min_left in (1..=mins).rev() {
             let msg = format_warning_message(task.message.as_deref(), &task.task_type, min_left, &name);
-            if let Some(rcon_state) = app_handle.try_state::<RconState>() {
+            if is_ase {
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("Broadcast \"{}\"", msg), state.clone()).await;
+                let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, format!("ServerChat \"{}\"", msg), state.clone()).await;
+            } else if let Some(rcon_state) = app_handle.try_state::<RconState>() {
                 let rcon = &rcon_state.inner().0;
                 let _ = rcon.send_command(server_id, &format!("Broadcast \"{}\"", msg)).await;
                 let _ = rcon.send_command(server_id, &format!("ServerChat \"{}\"", msg)).await;
@@ -1709,51 +1760,41 @@ async fn commands_restart(app_handle: &AppHandle, task: &ScheduledTask) {
         }
     }
 
-    // Determine if server is ASE or ASA
-    let server_type: String = {
-        if let Ok(db) = state.db.lock() {
-            if let Ok(conn) = db.get_connection() {
-                conn.query_row(
-                    "SELECT server_type FROM servers WHERE id = ?1",
-                    [server_id],
-                    |row| row.get(0),
-                ).unwrap_or_else(|_| "ASA".to_string())
-            } else { "ASA".to_string() }
-        } else { "ASA".to_string() }
-    };
-
-    if server_type.to_uppercase() == "ASE" {
+    if is_ase {
         log::info!("🚀 [Scheduled Restart] Restarting ASE Server {}", server_id);
-        state.process_manager.set_pending_stop_reason(
-            server_id,
-            crate::services::process_manager::StopReason::ScheduledRestart,
-        );
         if let Some(guardian) = app_handle.try_state::<crate::services::guardian::GuardianState>() {
             let guard = guardian.0.lock().await;
-            guard.mark_as_stopping(-server_id).await;
+            guard.mark_as_stopping(-server_id.abs()).await;
         }
 
         let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "SaveWorld".into(), state.clone()).await;
         let _ = crate::ase::commands::rcon::send_ase_rcon(server_id, "Broadcast ⚠️ RESTARTING SERVER NOW!".into(), state.clone()).await;
         sleep(Duration::from_secs(3)).await;
+
         let _ = crate::ase::commands::server::stop_ase_server(server_id, state.clone()).await;
-
-        let mut wait_attempts = 0;
-        while state.process_manager.is_running(server_id) && wait_attempts < 25 {
-            sleep(Duration::from_secs(1)).await;
-            wait_attempts += 1;
-        }
-
-        if state.process_manager.is_running(server_id) {
-            let _ = state.process_manager.stop_server_with_reason(
-                server_id,
-                crate::services::process_manager::StopReason::ScheduledRestart,
-            );
-        }
         sleep(Duration::from_secs(2)).await;
 
-        state.process_manager.force_cleanup_server_entry(server_id);
-        let _ = crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await;
+        match crate::ase::commands::server::start_ase_server((*app_handle).clone(), server_id, state.clone()).await {
+            Ok(_) => {
+                log::info!("  ✅ Scheduled restart initiated for ASE server {}", server_id);
+            }
+            Err(e) => {
+                log::error!("  ⚠️ Scheduled restart failed for ASE server {}: {}", server_id, e);
+                let app_handle_clone = app_handle.clone();
+                let name_clone = name.clone();
+                tauri::async_runtime::spawn(async move {
+                    crate::services::discord::send_discord_webhook(
+                        &app_handle_clone,
+                        "scheduledRestarts",
+                        crate::services::discord::DiscordEmbed::scheduled_task(
+                            &name_clone,
+                            "Server Restart Failed",
+                            &format!("❌ Scheduled ASE server restart failed: **{}**", e),
+                        ),
+                    ).await;
+                });
+            }
+        }
     } else {
         log::info!("🚀 [Scheduled Restart] Restarting ASA Server {}", server_id);
         if let Some(rcon_state) = app_handle.try_state::<RconState>() {

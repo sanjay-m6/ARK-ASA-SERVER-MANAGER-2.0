@@ -946,7 +946,7 @@ export const GAME_USER_SETTINGS_SCHEMA: ConfigGroup[] = [
                 label: 'Allow Foreign Dinos',
                 type: 'boolean',
                 defaultValue: 'True',
-                description: 'Allow dinos from other maps (e.g. Extinction, Aberration, Scorched Earth) to be downloaded on The Island'
+                description: 'Allow non-native dinos to be downloaded (e.g. allowing foreign dinos on Aberration or Island). Set to False on Aberration to block foreign dino downloads.'
             }
         ]
     },

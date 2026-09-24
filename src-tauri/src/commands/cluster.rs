@@ -1018,7 +1018,29 @@ pub async fn restart_cluster(
 ) -> Result<(), String> {
     println!("🔄 Restarting all servers in cluster {}", cluster_id);
     let _ = stop_cluster(state.clone(), cluster_id).await;
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    // Wait until all cluster servers have fully reached stopped state
+    let start_wait = std::time::Instant::now();
+    while start_wait.elapsed().as_secs() < 30 {
+        let any_running = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let conn = db.get_connection().map_err(|e| e.to_string())?;
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM servers s
+                 INNER JOIN cluster_servers cs ON s.id = cs.server_id
+                 WHERE cs.cluster_id = ?1 AND s.status IN ('running', 'online', 'starting', 'restarting')",
+                [cluster_id],
+                |r| r.get(0),
+            ).unwrap_or(0);
+            count > 0
+        };
+        if !any_running {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
     start_cluster(state, cluster_id, delay_seconds).await
 }
 

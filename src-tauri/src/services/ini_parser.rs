@@ -637,4 +637,14 @@ SessionName=My Server
         let _ = std::fs::set_permissions(&test_file, perms);
         let _ = std::fs::remove_dir_all(&tmp_dir);
     }
+
+    #[test]
+    fn test_crossark_allow_foreign_dinos_false_preserved() {
+        let original = "[ServerSettings]\r\nSessionName=AberrationServer\r\nCrossARKAllowForeignDinoDownloads=False\r\n";
+        // Update SessionName
+        let updated = IniParser::update_key(original, "ServerSettings", "SessionName", "AberrationServerNew");
+        assert!(updated.contains("CrossARKAllowForeignDinoDownloads=False"));
+        assert!(updated.contains("SessionName=AberrationServerNew"));
+        assert!(!updated.contains("CrossARKAllowForeignDinoDownloads=True"));
+    }
 }

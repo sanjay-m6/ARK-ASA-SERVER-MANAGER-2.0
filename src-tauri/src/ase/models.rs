@@ -99,6 +99,9 @@ pub struct AseCluster {
     pub allow_transfer_dinos: bool,
     pub created_at: String,
 }
+fn default_true_opt() -> Option<bool> {
+    Some(true)
+}
 
 /// Full ASE Game Config (GameUserSettings.ini + Game.ini fields)
 /// Matches all classic ARK Server Manager configuration sections
@@ -154,6 +157,8 @@ pub struct AseGameConfig {
     pub b_allow_raid_dino_feeding: bool,
     pub raid_dino_character_food_drain_multiplier: f64,
     pub force_allow_cave_flyers: bool,
+    #[serde(default = "default_true_opt", alias = "bForceCanRideFliers", alias = "b_force_can_ride_fliers")]
+    pub b_force_can_ride_fliers: Option<bool>,
     pub prevent_dino_mate_boost: bool,
     #[serde(alias = "disableDinoDecayPvE", alias = "disableDinoDecayPve", alias = "DisableDinoDecayPvE")]
     pub disable_dino_decay_pve: bool,
@@ -734,6 +739,7 @@ impl Default for AseGameConfig {
             b_allow_raid_dino_feeding: false,
             raid_dino_character_food_drain_multiplier: 1.0,
             force_allow_cave_flyers: false,
+            b_force_can_ride_fliers: Some(true),
             prevent_dino_mate_boost: false,
             disable_dino_decay_pve: false,
             allow_dino_level_up_animation: true,

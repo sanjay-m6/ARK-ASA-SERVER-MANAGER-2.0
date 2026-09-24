@@ -1470,6 +1470,7 @@ impl Database {
                     cluster_id TEXT NOT NULL DEFAULT '',
                     battleye INTEGER NOT NULL DEFAULT 1,
                     extra_args TEXT NOT NULL DEFAULT '',
+                    ip_address TEXT DEFAULT '',
                     status TEXT NOT NULL DEFAULT 'stopped',
                     process_id INTEGER,
                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -1591,6 +1592,7 @@ impl Database {
             ("startup_delay", "INTEGER NOT NULL DEFAULT 0"),
             ("startup_priority", "INTEGER NOT NULL DEFAULT 100"),
             ("branch", "TEXT NOT NULL DEFAULT 'default'"),
+            ("ip_address", "TEXT DEFAULT ''"),
         ];
 
         for (col_name, col_type) in new_cols {

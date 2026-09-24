@@ -430,6 +430,11 @@ impl ConfigGenerator {
         config.harvest_amount_multiplier = profile.harvest_multiplier;
         config.taming_speed_multiplier = profile.taming_multiplier;
 
+        // Aberration restricts foreign dino downloads by default
+        if profile.map_id.to_lowercase().contains("aberration") {
+            config.crossark_allow_foreign_dino_downloads = false;
+        }
+
         // Add recommended mods if not already present
         for mod_id in &profile.recommended_mods {
             if !config.active_mods.contains(mod_id) {
@@ -1458,14 +1463,6 @@ impl ConfigGenerator {
                     "True",
                 );
             }
-        } else {
-            // By default, ensure CrossARK foreign dino downloads and tribute downloads are enabled
-            final_gus = crate::services::ini_parser::IniParser::update_key(
-                &final_gus,
-                "ServerSettings",
-                "CrossARKAllowForeignDinoDownloads",
-                "True",
-            );
         }
 
         // 5.5. For ASE, automatically sync enabled mods to ActiveMods inside [ServerSettings]

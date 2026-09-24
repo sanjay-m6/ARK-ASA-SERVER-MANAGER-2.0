@@ -402,6 +402,7 @@ CREATE TABLE IF NOT EXISTS ase_servers (
     cluster_id TEXT NOT NULL DEFAULT '',
     battleye INTEGER NOT NULL DEFAULT 1,
     extra_args TEXT NOT NULL DEFAULT '',
+    ip_address TEXT DEFAULT '',
     status TEXT NOT NULL DEFAULT 'stopped',
     process_id INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),

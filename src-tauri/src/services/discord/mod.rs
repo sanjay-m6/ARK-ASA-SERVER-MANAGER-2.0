@@ -87,23 +87,57 @@ pub async fn send_discord_webhook(
     );
 
     let client = Client::new();
-    match client.post(&webhook_url).json(&payload).send().await {
-        Ok(resp) => {
-            if resp.status().is_success() {
-                println!("  ✅ [DISCORD] Webhook SENT successfully: '{}'", event_key);
-            } else {
+    let mut attempts = 0;
+    const MAX_ATTEMPTS: u32 = 4;
+
+    while attempts < MAX_ATTEMPTS {
+        attempts += 1;
+        match client.post(&webhook_url).json(&payload).send().await {
+            Ok(resp) => {
                 let status = resp.status();
-                println!(
-                    "  ⚠️ [DISCORD] Webhook returned HTTP {}: '{}'",
-                    status, event_key
-                );
-                if let Ok(body) = resp.text().await {
-                    println!("  ⚠️ [DISCORD] Error body: {}", body);
+                if status.is_success() {
+                    println!("  ✅ [DISCORD] Webhook SENT successfully: '{}'", event_key);
+                    break;
+                } else if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    let mut wait_secs = 2.0;
+                    if let Some(retry_after_hdr) = resp.headers().get("Retry-After") {
+                        if let Ok(val_str) = retry_after_hdr.to_str() {
+                            if let Ok(val) = val_str.parse::<f64>() {
+                                wait_secs = val.max(0.5);
+                            }
+                        }
+                    } else if let Ok(body) = resp.text().await {
+                        if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&body) {
+                            if let Some(retry_after) = json_val.get("retry_after").and_then(|v| v.as_f64()) {
+                                wait_secs = retry_after.max(0.5);
+                            }
+                        }
+                    }
+                    println!(
+                        "  ⏳ [DISCORD] Rate limited (429) for '{}'. Waiting {:.2}s before retry (attempt {}/{})",
+                        event_key, wait_secs, attempts, MAX_ATTEMPTS
+                    );
+                    tokio::time::sleep(tokio::time::Duration::from_millis((wait_secs * 1000.0) as u64 + 150)).await;
+                } else {
+                    println!(
+                        "  ⚠️ [DISCORD] Webhook returned HTTP {}: '{}'",
+                        status, event_key
+                    );
+                    if let Ok(body) = resp.text().await {
+                        println!("  ⚠️ [DISCORD] Error body: {}", body);
+                    }
+                    break;
                 }
             }
-        }
-        Err(e) => {
-            println!("  ❌ [DISCORD] Webhook FAILED for '{}': {}", event_key, e);
+            Err(e) => {
+                println!(
+                    "  ❌ [DISCORD] Webhook FAILED for '{}' (attempt {}/{}): {}",
+                    event_key, attempts, MAX_ATTEMPTS, e
+                );
+                if attempts < MAX_ATTEMPTS {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                }
+            }
         }
     }
 }
@@ -120,9 +154,19 @@ pub fn get_server_name(app_handle: &tauri::AppHandle, server_id: i64) -> String 
     if let Some(state) = app_handle.try_state::<AppState>() {
         if let Ok(db) = state.db.lock() {
             if let Ok(conn) = db.get_connection() {
+                // Check ASA servers table
                 if let Ok(name) = conn.query_row(
                     "SELECT name FROM servers WHERE id = ?1",
                     [server_id],
+                    |row| row.get::<_, String>(0),
+                ) {
+                    return name;
+                }
+                // Check ASE servers table (matching positive ID or negative watchdog key)
+                let abs_id = server_id.abs();
+                if let Ok(name) = conn.query_row(
+                    "SELECT name FROM ase_servers WHERE id = ?1 OR id = ?2",
+                    [server_id, abs_id],
                     |row| row.get::<_, String>(0),
                 ) {
                     return name;

@@ -180,6 +180,7 @@ export interface AseGameConfig {
   bAllowRaidDinoFeeding: boolean;
   raidDinoCharacterFoodDrainMultiplier: number;
   forceAllowCaveFlyers: boolean;
+  bForceCanRideFliers?: boolean;
   preventDinoMateBoost: boolean;
   disableDinoDecayPve: boolean;
   allowDinoLevelUpAnimation: boolean;

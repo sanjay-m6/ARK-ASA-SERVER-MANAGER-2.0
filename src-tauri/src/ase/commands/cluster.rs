@@ -710,158 +710,62 @@ pub async fn get_ase_cluster_status(
 pub async fn start_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> Result<(), String> {
     println!("▶️ Starting all ase_servers in cluster {}", cluster_id);
 
-    // Get cluster info first
-    let (cluster_name, cluster_dir): (String, String) = {
+    // Verify cluster exists
+    let _cluster_name: String = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
         conn.query_row(
-            "SELECT name, cluster_dir FROM ase_clusters WHERE id = ?1",
+            "SELECT name FROM ase_clusters WHERE id = ?1",
             [cluster_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| row.get(0),
         )
         .map_err(|e| format!("Cluster not found: {}", e))?
     };
 
-    // Get all server info for this cluster
-    let ase_servers: Vec<(
-        i64,
-        String,
-        String,
-        String,
-        u16,
-        u16,
-        u16,
-        i32,
-        Option<String>,
-        String,
-        Option<String>,
-        Option<String>,
-        bool,
-    )> = {
+    // Get all server IDs for this cluster that are not already running/starting
+    let server_ids: Vec<i64> = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
         let mut stmt = conn
             .prepare(
-                "SELECT s.id, s.install_path, s.map_name, s.session_name, s.port, 
-                        s.query_port, s.rcon_port, s.max_players, s.server_password, s.admin_password, s.ip_address, s.extra_args, s.battleye
+                "SELECT DISTINCT s.id
                  FROM ase_servers s
-                 INNER JOIN ase_cluster_servers cs ON s.id = cs.server_id
-                 WHERE cs.cluster_id = ?1 AND s.status = 'stopped'",
+                 LEFT JOIN ase_cluster_servers cs ON s.id = cs.server_id
+                 WHERE (cs.cluster_id = ?1 OR s.cluster_id = ?1 OR s.cluster_id = CAST(?1 AS TEXT))
+                   AND s.status NOT IN ('running', 'online', 'starting', 'updating', 'restarting')",
             )
             .map_err(|e| e.to_string())?;
 
-        let mut result = Vec::new();
         let mut rows = stmt.query([cluster_id]).map_err(|e| e.to_string())?;
+        let mut ids = Vec::new();
         while let Some(row) = rows.next().map_err(|e| e.to_string())? {
-            result.push((
-                row.get::<_, i64>(0).unwrap_or(0),
-                row.get::<_, String>(1).unwrap_or_default(),
-                row.get::<_, String>(2).unwrap_or_default(),
-                row.get::<_, String>(3).unwrap_or_default(),
-                row.get::<_, u16>(4).unwrap_or(7777),
-                row.get::<_, u16>(5).unwrap_or(27015),
-                row.get::<_, u16>(6).unwrap_or(27020),
-                row.get::<_, i32>(7).unwrap_or(70),
-                row.get::<_, Option<String>>(8).unwrap_or(None),
-                row.get::<_, String>(9).unwrap_or_default(),
-                row.get::<_, Option<String>>(10).unwrap_or(None),
-                row.get::<_, Option<String>>(11).unwrap_or(None),
-                row.get::<_, i32>(12).unwrap_or(1) != 0,
-            ));
+            if let Ok(id) = row.get::<_, i64>(0) {
+                ids.push(id);
+            }
         }
-        result
+        ids
     };
 
-    // Start each server with cluster args
-    for (
-        server_id,
-        install_path,
-        map_name,
-        session_name,
-        game_port,
-        query_port,
-        rcon_port,
-        max_players,
-        server_password,
-        admin_password,
-        ip_address,
-        custom_args,
-        battleye_enabled,
-    ) in ase_servers
-    {
-        // Get enabled mods for this server
-        let enabled_mods: Vec<String> = {
-            let db = state.db.lock().map_err(|e| e.to_string())?;
-            let conn = db.get_connection().map_err(|e| e.to_string())?;
+    println!("  🚀 Found {} servers to start in cluster {}", server_ids.len(), cluster_id);
 
-            let mut stmt = conn.prepare(
-                "SELECT mod_id FROM mods WHERE server_id = ?1 AND enabled = 1 ORDER BY load_order ASC"
-            ).map_err(|e| e.to_string())?;
-
-            let mut rows = stmt.query([server_id]).map_err(|e| e.to_string())?;
-            let mut mods = Vec::new();
-            while let Some(row) = rows.next().map_err(|e| e.to_string())? {
-                if let Ok(mod_id) = row.get::<_, String>(0) {
-                    mods.push(mod_id);
-                }
-            }
-            mods
-        };
-
-        if !enabled_mods.is_empty() {
-            println!(
-                "  🧩 Found {} enabled mods for server {}",
-                enabled_mods.len(),
-                server_id
-            );
-        }
-
-        let install_path = PathBuf::from(&install_path);
-        let server_password_ref = server_password.as_deref();
-        let ip_address_ref = ip_address.as_deref();
-        let mods_option = if enabled_mods.is_empty() {
-            None
-        } else {
-            Some(enabled_mods.as_slice())
-        };
-
-        if let Err(e) = state.process_manager.start_server(
+    // Start each server via AseLauncher
+    for server_id in server_ids {
+        println!("  ▶️ Launching ASE server {}...", server_id);
+        if let Err(e) = crate::ase::services::launcher::AseLauncher::spawn_server(
+            state.app_handle.clone(),
             server_id,
-            "ASE",
-            &install_path,
-            &map_name,
-            &session_name,
-            game_port,
-            query_port,
-            rcon_port,
-            true, // rcon_enabled
-            max_players,
-            server_password_ref,
-            &admin_password,
-            ip_address_ref,
-            Some(&cluster_name),
-            Some(&cluster_dir),
-            mods_option,
-            custom_args.as_deref(),
-            battleye_enabled,
-        ) {
-            println!("  ⚠️ Failed to start server {}: {}", server_id, e);
+            &state,
+            None,
+        ).await {
+            eprintln!("  ⚠️ Failed to start cluster server {}: {}", server_id, e);
         } else {
-            // Update status in database
-            if let Ok(db) = state.db.lock() {
-                if let Ok(conn) = db.get_connection() {
-                    let _ = conn.execute(
-                        "UPDATE ase_servers SET status = 'starting' WHERE id = ?1",
-                        [server_id],
-                    );
-                }
-            }
-            println!("  ✅ Started server {}", server_id);
+            println!("  ✅ Successfully started server {}", server_id);
         }
-        // Small delay between starts to prevent overwhelming the system
-        std::thread::sleep(std::time::Duration::from_secs(5));
+
+        // Small delay between starts to prevent overwhelming system CPU/IO
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     }
 
     Ok(())
@@ -878,9 +782,10 @@ pub async fn stop_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> Re
 
         let mut stmt = conn
             .prepare(
-                "SELECT s.id FROM ase_servers s
-                 INNER JOIN ase_cluster_servers cs ON s.id = cs.server_id
-                 WHERE cs.cluster_id = ?1 AND s.status IN ('running', 'online', 'starting', 'restarting')",
+                "SELECT DISTINCT s.id FROM ase_servers s
+                 LEFT JOIN ase_cluster_servers cs ON s.id = cs.server_id
+                 WHERE (cs.cluster_id = ?1 OR s.cluster_id = ?1 OR s.cluster_id = CAST(?1 AS TEXT))
+                   AND s.status IN ('running', 'online', 'starting', 'restarting')",
             )
             .map_err(|e| e.to_string())?;
 
@@ -894,28 +799,25 @@ pub async fn stop_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> Re
         result
     };
 
-    // Stop each server
+    // Stop each server via AseLauncher
     for server_id in server_ids {
-        if let Err(e) = state.process_manager.stop_server_with_reason(
-            server_id,
-            crate::services::process_manager::StopReason::UserAction,
-        ) {
+        if let Err(e) = crate::ase::services::launcher::AseLauncher::stop_server(server_id, &state).await {
             println!("  ⚠️ Failed to stop server {}: {}", server_id, e);
         } else {
-            // Update status in database
-            if let Ok(db) = state.db.lock() {
-                if let Ok(conn) = db.get_connection() {
-                    let _ = conn.execute(
-                        "UPDATE ase_servers SET status = 'stopped' WHERE id = ?1",
-                        [server_id],
-                    );
-                }
-            }
             println!("  ✅ Stopped server {}", server_id);
         }
     }
 
     Ok(())
+}
+
+/// Restart all ase_servers in a cluster
+#[tauri::command]
+pub async fn restart_ase_cluster(state: State<'_, AppState>, cluster_id: i64) -> Result<(), String> {
+    println!("🔄 Restarting cluster {}", cluster_id);
+    stop_ase_cluster(state.clone(), cluster_id).await?;
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    start_ase_cluster(state, cluster_id).await
 }
 
 /// Toggle cross-server chat for a cluster

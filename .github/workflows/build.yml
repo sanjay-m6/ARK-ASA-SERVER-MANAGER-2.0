@@ -91,7 +91,26 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Bug Fixes in v4.6.26
+            ### 🆕 New Features & Bug Fixes in v4.6.27
+            - **🛡️ Fix Server Startup Failure on Restarts & Port Release Engine (Exit Code 0)**:
+              - Resolved critical issue where servers failed to start back up after scheduled morning/afternoon restarts or manual reboots, shutting down immediately upon startup with exit code 0.
+              - Implemented process termination wait (`WaitForSingleObject`) with forceful `taskkill /F /T` fallback to guarantee old processes have completely terminated before launching new instances.
+              - Added socket cleanup engine (`kill_processes_on_ports`) on game port (7777), query port (27015), and RCON port (27020) to eliminate lingering UDP/TCP socket holds in Windows network tables (`TIME_WAIT`/closing).
+              - Added active port availability polling prior to server binary spawning, preventing Unreal Engine dedicated servers from aborting due to port contention.
+              - Protected Guardian Watchdog state machine so terminating restart processes do not falsely overwrite starting/running servers with `stopped`.
+              - Offloaded scheduler restart routines and player warning countdowns into asynchronous background tasks (`tauri::async_runtime::spawn`), preventing minute-by-minute countdown sleeps from freezing the scheduler ticker.
+              - Fixed scheduled restart task routing to accurately distinguish between ASE and ASA servers, executing appropriate RCON commands and engine-specific launch sequences.
+            - **📡 Discord Webhook Reliability & HTTP 429 Rate-Limit Auto-Retry**:
+              - Resolved intermittent and dropped Discord notifications during server maintenance and restart cycles.
+              - Implemented automatic retry mechanism (up to 4 attempts) on HTTP 429 `Too Many Requests` with exponential backoff honoring Discord's `Retry-After` header and body.
+              - Updated server name resolution (`get_server_name`) to support both ASA (`servers`) and ASE (`ase_servers`) tables so server titles in Discord embeds are always accurate.
+            - **🦅 Automatic Flier Riding Setting (`bForceCanRideFliers`)**:
+              - Automatically preserves and defaults `bForceCanRideFliers=True` whenever General Settings are saved or modified, decoupling it from cave flyer restrictions and ensuring flying mounts remain mountable across all supported maps.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.26 — Server Startup Configuration Synchronization & Fatal Hang Protection</summary>
+
             - **🛡️ Fix Server Startup Configuration Vanishing & Resetting**:
               - Resolved critical bug where custom server configurations (SessionName, ServerPassword, ports, player limits, and custom multipliers) vanished and reverted back to original factory defaults on server start.
               - Added pre-launch INI synchronization (`sync_server_from_ini_if_changed`) to ensure manual or visual editor settings are absorbed into SQLite prior to startup config generation.
@@ -109,45 +128,6 @@ jobs:
               - Fixed RCON connection failure when pressing the "Connect" button in the RCON Console.
               - Resolved inverted `0.0.0.0` address filtering, automatically mapping wildcards (`0.0.0.0`, `""`, `localhost`) to loopback target `127.0.0.1:<port>`.
               - Added defense-in-depth normalization in `ArkRconClient::connect`, background heartbeat loops, and RCON Console UI to guarantee `TcpStream::connect` never receives an illegal wildcard bind address.
-
-            ### 🛠️ Previous Releases
-            <details>
-            <summary>v4.6.25 — ASE Cluster Port Conflict Resolution & Version Mismatch Engine</summary>
-
-            - **⚡ ASE Cluster Port Conflict Resolution & Validation Engine (`cluster.rs`)**:
-              - Resolved false-positive Port Collision alerts (e.g. *"Multiple servers are using Game Port 7777"*) occurring during ARK: Survival Evolved (ASE) cluster validation even when individual servers had distinct unique ports configured in the UI.
-              - Fixed database column index extraction in `validate_ase_cluster` to accurately map `port`, `query_port`, and `rcon_port`.
-              - Added robust deep inspection parsing for launch arguments (`?Port=`, `?QueryPort=`, `?RCONPort=`) and `GameUserSettings.ini` values to ensure the cluster validator verifies actual runtime ports rather than stale database defaults.
-              - Upgraded validation error reporting to identify conflicting server names and IDs directly, providing actionable remediation steps.
-            - **⚡ ASE Clustered Server Version Mismatch Resolution (`ASEServerManager.tsx`)**:
-              - Resolved persistent "Cluster Mismatch" dashboard warnings (*"Version mismatch detected among clustered servers! Ensure all servers are updated"*) that persisted even after running server updates multiple times.
-              - Replaced superficial timestamp and raw build string comparisons with canonical integer Steam Build ID extraction (`buildid` from `steamapps/appmanifest_376030.acf`), ensuring accurate version consistency across all servers in a cluster.
-            - **⚡ Automatic `ClusterDirOverride` Injection & Bidirectional INI Sync (`config.rs`, `server.rs`)**:
-              - Implemented automatic injection of `-ClusterDirOverride="<path>"` into server launch arguments upon cluster association or path update, ensuring seamless cross-server survivor and dinosaur transfers.
-              - Normalized Windows backslash paths to prevent Unreal Engine dedicated server path parsing errors.
-              - Enforced bidirectional synchronization of `Port`, `QueryPort`, and `RCONPort` across SQLite database records, server launch arguments, and `GameUserSettings.ini`.
-            - **🛡️ Guardian & Process Manager Health Check Alignment**:
-              - Updated background health monitor in `guardian.rs` and process launcher in `process_manager.rs` to monitor the resolved runtime Game Port rather than falling back to default port 7777.
-            - **🛠️ Rust Analyzer & Diagnostic Hardening (`discord_panel.rs`, `rcon.rs`)**:
-              - Cleaned up string formatting macros across `discord_panel.rs` and `rcon.rs` using direct type conversions (`.to_string()`, `.as_str()`) to prevent macro-expansion ambiguities and IDE diagnostic warnings.
-            </details>
-
-            - **⚡ Online CurseForge Mod Update Checking & Batch Synchronization**:
-              - Added direct **"Check Updates"** capability to the Installed Server Mods Management section (`/mods`).
-              - Built high-performance batch query engine (`check_server_mod_updates`) querying CurseForge API in a single HTTP request for all installed mods on the server without N+1 overhead.
-              - Accurately compares remote file release dates (`dateModified`, `latestFiles`) and version strings against local SQLite database records and on-disk files.
-              - Displays eye-catching **`{N} Updates Ready`** badge in the header, introduces a dedicated **`Updates ({N})`** filter tab, and renders animated **`Update Ready (vX.X)`** badges directly on affected mod cards.
-            - **🛡️ Rollback-Protected Mod Update Push Engine (`push_mod_updates`)**:
-              - **100% Rollback Protection**: Automatically archives existing mod folders into `ShooterGame/Saved/ModBackups/{modId}_{timestamp}` before modifying or removing files.
-              - **Pre-Patch Crash Loop Prevention & Clean Cache Purge**: Automatically sweeps and purges stale `.pak` and temporary mod cache files in `ShooterGame/Binaries/Win64/ShooterGame/Mods/{id}` and `.temp/` directories. This prevents the dedicated server binary from crashing on boot due to outdated/mismatched pre-patch assets during major game updates.
-              - **Database & INI Synchronization**: Automatically synchronizes updated mod version tags, names, and timestamps in SQLite, and ensures active mod lists are written to `GameUserSettings.ini`.
-              - **Graceful Running Server Restarts & RCON Warning Countdowns**: If the server is actively running, administrators can trigger broadcast player warning announcements via RCON (Immediate, 1 min, 3 min, or 5 min), execute world saves (`saveworld`), cleanly stop the instance, and automatically reboot.
-              - **Discord Webhook Alerts**: Automatically dispatches notification embeds to configured Discord webhooks when mod updates are pushed and servers are restarted.
-            - **💻 Interactive Mod Push Modal (`PushModUpdatesModal.tsx`)**:
-              - Provides multi-mod selection checklist with Select All / Deselect All controls, version comparison, rollback protection indicators, server restart controls, and live step-by-step progress status.
-              - Supports both bulk updates ("Push All Updates") and targeted single-mod updates ("Push Update").
-            - **🛠️ Rust Analyzer IDE Diagnostics Fix**:
-              - Configured `rust-analyzer.linkedProjects` and `rust-analyzer.check.command` in `.vscode/settings.json` to resolve false-positive `format!` macro-expansion diagnostics in Tauri subfolder projects on modern Rust toolchains.
             </details>
 
             *For full release notes of previous versions, please visit the [Releases Archive](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases) or see [CHANGELOG.md](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/blob/main/CHANGELOG.md).*

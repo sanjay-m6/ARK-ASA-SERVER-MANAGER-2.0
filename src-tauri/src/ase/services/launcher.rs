@@ -328,6 +328,7 @@ impl AseLauncher {
         if _config.enable_public_ip_for_epic { args.push("-PublicIPForEpic".to_string()); }
         if _config.epic_store_players_only { args.push("-epiconly".to_string()); }
         if _config.force_allow_cave_flyers { args.push("-ForceAllowCaveFlyers".to_string()); }
+        if _config.b_force_can_ride_fliers == Some(true) { args.push("-bForceCanRideFliers".to_string()); }
         
         if _config.no_anti_speed_hack { args.push("?bDisableAntiSpeedHack=true".to_string()); }
         if _config.speed_hack_cpu_bias != 1.0 { args.push(format!("?SpeedHackBias={}", _config.speed_hack_cpu_bias)); }
@@ -433,16 +434,28 @@ impl AseLauncher {
             
             let active_mods = Self::fetch_active_mod_ids(&conn, server_id, &server.active_mods)?;
             
-            let cluster_dir: Option<String> = if !server.cluster_id.is_empty() {
-                conn.query_row(
-                    "SELECT cluster_dir FROM ase_clusters WHERE id = ?1",
+            let (cluster_id_opt, cluster_dir): (Option<String>, Option<String>) = if !server.cluster_id.is_empty() {
+                let dir = conn.query_row(
+                    "SELECT cluster_dir FROM ase_clusters WHERE id = ?1 OR name = ?1",
                     [&server.cluster_id],
                     |row| row.get(0)
-                ).ok()
+                ).ok();
+                (Some(server.cluster_id.clone()), dir)
             } else {
-                None
+                conn.query_row(
+                    "SELECT c.name, c.cluster_dir FROM ase_clusters c INNER JOIN ase_cluster_servers cs ON c.id = cs.cluster_id WHERE cs.server_id = ?1",
+                    [server.id],
+                    |row| Ok((row.get(0)?, row.get(1)?))
+                ).ok().map(|(n, d)| (Some(n), Some(d))).unwrap_or((None, None))
             };
-            
+
+            let mut server = server;
+            if server.cluster_id.is_empty() {
+                if let Some(cid) = cluster_id_opt {
+                    server.cluster_id = cid;
+                }
+            }
+
             (server, active_mods, cluster_dir)
         };
 
@@ -549,6 +562,27 @@ impl AseLauncher {
             .join("ShooterGame.log");
         let _ = std::fs::remove_file(&log_file_path_init);
 
+        // Verify ports are free before spawning to prevent instant exit (code 0)
+        let check_ports = [
+            ("Game", server.port),
+            ("Peer", server.port + 1),
+            ("Query", server.query_port),
+            ("RCON", server.rcon_port),
+        ];
+        for (p_name, p_val) in check_ports {
+            if p_val > 0 {
+                let mut attempts = 0;
+                while crate::services::network::is_port_in_use(p_val) && attempts < 15 {
+                    println!("  ⏳ [ASE Startup Port Check] {} port {} is busy. Waiting 1s (attempt {}/15)...", p_name, p_val, attempts + 1);
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    attempts += 1;
+                }
+                if crate::services::network::is_port_in_use(p_val) {
+                    return Err(format!("{} Port {} is still in use by another process. Cannot start server.", p_name, p_val));
+                }
+            }
+        }
+
         let mut cmd = std::process::Command::new(&exe_path);
         cmd.args(&args);
 
@@ -592,6 +626,31 @@ impl AseLauncher {
             "server_id": server_id,
             "status": "starting"
         }));
+
+        // Register new PID with Guardian watchdog
+        if let Some(guardian) = _app.try_state::<crate::services::guardian::GuardianState>() {
+            let guardian_inner = guardian.0.clone();
+            let app_c = _app.clone();
+            tauri::async_runtime::spawn(async move {
+                let guard = guardian_inner.lock().await;
+                guard.register_ase_server(app_c, server_id, pid).await;
+            });
+        }
+
+        // Send Discord notification for server starting
+        let app_wh = _app.clone();
+        let s_name = server.name.clone();
+        tauri::async_runtime::spawn(async move {
+            crate::services::discord::send_discord_webhook(
+                &app_wh,
+                "serverStart",
+                crate::services::discord::DiscordEmbed::custom(
+                    "🚀 Server Starting",
+                    &format!("**{}** (ASE) is now starting up...", s_name),
+                    0x3B82F6,
+                ),
+            ).await;
+        });
 
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
@@ -640,6 +699,8 @@ impl AseLauncher {
             "line": "__CLEAR_LOGS_SIGNAL__"
         }));
 
+        let s_name_watch = server.name.clone();
+        let s_name_query = server.name.clone();
         let log_file_path = PathBuf::from(&server.install_path)
             .join("ShooterGame")
             .join("Saved")
@@ -735,6 +796,16 @@ impl AseLauncher {
                                 "server_id": server_id,
                                 "status": "online"
                             }));
+
+                            let app_wh = app_clone_watch.clone();
+                            let s_name = s_name_watch.clone();
+                            tauri::async_runtime::spawn(async move {
+                                crate::services::discord::send_discord_webhook(
+                                    &app_wh,
+                                    "serverStart",
+                                    crate::services::discord::DiscordEmbed::server_online(&s_name),
+                                ).await;
+                            });
                         }
                     }
                     Err(e) => {
@@ -780,6 +851,16 @@ impl AseLauncher {
                                         "status": "online"
                                     }));
                                     println!("🟢 [INFO] [ASE] Updated database status to online via active UDP query for server {}", server_id);
+
+                                    let app_wh = app_clone_query.clone();
+                                    let s_name = s_name_query.clone();
+                                    tauri::async_runtime::spawn(async move {
+                                        crate::services::discord::send_discord_webhook(
+                                            &app_wh,
+                                            "serverStart",
+                                            crate::services::discord::DiscordEmbed::server_online(&s_name),
+                                        ).await;
+                                    });
                                 }
                             }
                         }
@@ -793,24 +874,76 @@ impl AseLauncher {
     }
 
     pub async fn stop_server(server_id: i64, state: &State<'_, AppState>) -> Result<(), String> {
-        let pid: Option<u32> = {
+        let (pid, port, query_port, rcon_port, server_name): (Option<u32>, u16, u16, u16, String) = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let conn = db.get_connection().map_err(|e| e.to_string())?;
-            conn.query_row("SELECT process_id FROM ase_servers WHERE id = ?1", [server_id], |row| row.get(0)).unwrap_or(None)
+            conn.query_row(
+                "SELECT process_id, port, query_port, rcon_port, name FROM ase_servers WHERE id = ?1",
+                [server_id],
+                |row| Ok((
+                    row.get(0)?,
+                    row.get::<_, u16>(1).unwrap_or(0),
+                    row.get::<_, u16>(2).unwrap_or(0),
+                    row.get::<_, u16>(3).unwrap_or(0),
+                    row.get::<_, String>(4).unwrap_or_else(|_| format!("Server #{}", server_id)),
+                ))
+            ).map_err(|e| e.to_string())?
         };
 
+        // Notify Guardian watchdog
+        if let Some(guardian) = state.app_handle.try_state::<crate::services::guardian::GuardianState>() {
+            let guardian_inner = guardian.0.clone();
+            tauri::async_runtime::spawn(async move {
+                let guard = guardian_inner.lock().await;
+                guard.mark_as_stopping(-server_id).await;
+                guard.mark_as_stopping(server_id).await;
+            });
+        }
+
         if let Some(_pid) = pid {
+            println!("  🛑 Terminating ASE Server {} (PID {})...", server_id, _pid);
             #[cfg(target_os = "windows")]
             unsafe {
                 let handle = windows_sys::Win32::System::Threading::OpenProcess(
-                    windows_sys::Win32::System::Threading::PROCESS_TERMINATE,
+                    windows_sys::Win32::System::Threading::PROCESS_TERMINATE | 0x00100000,
                     0,
                     _pid,
                 );
                 if !handle.is_null() {
                     windows_sys::Win32::System::Threading::TerminateProcess(handle, 1);
+                    // Wait up to 10 seconds for process termination
+                    windows_sys::Win32::System::Threading::WaitForSingleObject(handle, 10000);
                     windows_sys::Win32::Foundation::CloseHandle(handle);
                 }
+            }
+
+            // Verify with sysinfo that process is dead; if not, force kill via taskkill
+            let mut sys = sysinfo::System::new();
+            let target_pid = sysinfo::Pid::from_u32(_pid);
+            sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target_pid]), true);
+            if sys.process(target_pid).is_some() {
+                println!("  ⚠️ PID {} still alive after TerminateProcess, running taskkill...", _pid);
+                #[cfg(target_os = "windows")]
+                {
+                    use std::os::windows::process::CommandExt;
+                    let _ = std::process::Command::new("taskkill")
+                        .args(["/F", "/T", "/PID", &_pid.to_string()])
+                        .creation_flags(0x08000000)
+                        .output();
+                }
+            }
+        }
+
+        // Kill lingering processes holding ASE ports
+        let target_ports: Vec<u16> = [port, port + 1, query_port, rcon_port].into_iter().filter(|&p| p > 0).collect();
+        crate::services::process_manager::ProcessManager::kill_processes_on_ports(&target_ports);
+
+        // Wait up to 10 seconds for sockets to release
+        for &p in &target_ports {
+            let mut port_wait = 0;
+            while crate::services::network::is_port_in_use(p) && port_wait < 10 {
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                port_wait += 1;
             }
         }
 
@@ -823,6 +956,23 @@ impl AseLauncher {
             ).map_err(|e| e.to_string())?;
         }
 
+        use tauri::Manager;
+        let _ = state.app_handle.emit("server-status-change", serde_json::json!({
+            "server_id": server_id,
+            "status": "stopped"
+        }));
+
+        // Send Discord webhook for server stop
+        let app_wh = state.app_handle.clone();
+        tauri::async_runtime::spawn(async move {
+            crate::services::discord::send_discord_webhook(
+                &app_wh,
+                "serverStop",
+                crate::services::discord::DiscordEmbed::server_stopped(&server_name),
+            ).await;
+        });
+
+        println!("  ✅ ASE Server {} successfully stopped and ports released.", server_id);
         Ok(())
     }
 }

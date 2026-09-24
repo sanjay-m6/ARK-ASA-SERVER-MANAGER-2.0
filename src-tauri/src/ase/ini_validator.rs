@@ -143,6 +143,8 @@ const GUS_KEYS: &[&str] = &[
     "preventuploaddinos",
     "disablecustomfoldersintributeinventories",
     "crossarkallowforeigndinodownloads",
+    "forceallowcaveflyers",
+    "bforcecanridefliers",
     "daycyclespeedscale",
     "daytimespeedscale",
     "nighttimespeedscale",

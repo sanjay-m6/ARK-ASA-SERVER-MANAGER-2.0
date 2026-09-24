@@ -144,6 +144,19 @@ fn ini_get_bool(
         .unwrap_or(default)
 }
 
+#[allow(dead_code)]
+fn ini_get_bool_opt(
+    doc: &IniDocument,
+    section: &str,
+    key: &str,
+) -> Option<bool> {
+    ini_get(doc, section, key).map(|v| {
+        let last_line = v.lines().last().unwrap_or("");
+        let lower = last_line.to_lowercase();
+        lower == "true" || lower == "1"
+    })
+}
+
 fn ini_get_str(
     doc: &IniDocument,
     section: &str,
@@ -533,8 +546,8 @@ pub async fn read_ase_config_internal(
         config.b_use_tame_limit_for_structures_only = ini_get_bool(&sections, ss, "bUseTameLimitForStructuresOnly", false);
         config.b_allow_raid_dino_feeding = ini_get_bool(&sections, ss, "bAllowRaidDinoFeeding", false);
         config.raid_dino_character_food_drain_multiplier = ini_get_f64(&sections, ss, "RaidDinoCharacterFoodDrainMultiplier", 1.0);
-        config.force_allow_cave_flyers = ini_get_bool(&sections, ss, "ForceAllowCaveFlyers", false)
-            || ini_get_bool(&sections, ss, "bForceCanRideFliers", false);
+        config.force_allow_cave_flyers = ini_get_bool(&sections, ss, "ForceAllowCaveFlyers", false);
+        config.b_force_can_ride_fliers = Some(ini_get_bool(&sections, ss, "bForceCanRideFliers", true));
         config.disable_dino_decay_pve = ini_get_bool(&sections, ss, "DisableDinoDecayPvE", false);
         config.allow_dino_level_up_animation = ini_get_bool(&sections, ss, "AllowDinoLevelUpAnimation", true);
         config.b_allow_flying_stamina_recovery = ini_get_bool(&sections, ss, "bAllowFlyingStaminaRecovery", false);
@@ -1147,10 +1160,11 @@ pub async fn write_ase_config(
         "ForceAllowCaveFlyers",
         ark_bool(config.force_allow_cave_flyers).to_string(),
     );
+    let fliers_val = config.b_force_can_ride_fliers.unwrap_or(true);
     ini_set(
         ss,
         "bForceCanRideFliers",
-        ark_bool(config.force_allow_cave_flyers).to_string(),
+        ark_bool(fliers_val).to_string(),
     );
     ini_set(
         ss,
@@ -2408,4 +2422,32 @@ pub use crate::ase::ini_validator::{
     __cmd__validate_ase_config,
     __tauri_command_name_validate_ase_config,
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ase::ini_parser::IniDocument;
+
+    #[test]
+    fn test_cave_flyers_and_force_can_ride_fliers_decoupled() {
+        let content = "[ServerSettings]\r\nForceAllowCaveFlyers=True\r\n";
+        let doc = IniDocument::parse(content);
+        let cave_flyers = ini_get_bool(&doc, "ServerSettings", "ForceAllowCaveFlyers", false);
+        let ride_fliers = ini_get_bool(&doc, "ServerSettings", "bForceCanRideFliers", true);
+
+        assert!(cave_flyers, "ForceAllowCaveFlyers should be true");
+        assert!(ride_fliers, "bForceCanRideFliers defaults to true when omitted");
+    }
+
+    #[test]
+    fn test_bforcecanridefliers_preserved_when_present() {
+        let content = "[ServerSettings]\r\nForceAllowCaveFlyers=False\r\nbForceCanRideFliers=True\r\n";
+        let doc = IniDocument::parse(content);
+        let cave_flyers = ini_get_bool(&doc, "ServerSettings", "ForceAllowCaveFlyers", false);
+        let ride_fliers = ini_get_bool(&doc, "ServerSettings", "bForceCanRideFliers", true);
+
+        assert!(!cave_flyers, "ForceAllowCaveFlyers should be false");
+        assert!(ride_fliers, "bForceCanRideFliers should be true");
+    }
+}
 

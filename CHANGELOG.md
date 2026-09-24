@@ -5,6 +5,26 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.27] — 2026-09-24
+
+### Fixed & Improved
+- **🛡️ Fix Server Startup Failure on Restarts & Port Release Engine (Exit Code 0)**:
+  - Resolved critical issue where servers failed to start back up after scheduled morning/afternoon restarts or manual reboots, shutting down immediately upon startup with exit code 0.
+  - Implemented process termination wait (`WaitForSingleObject`) with forceful `taskkill /F /T` fallback to guarantee old processes have completely terminated before launching new instances.
+  - Added socket cleanup engine (`kill_processes_on_ports`) on game port (7777), query port (27015), and RCON port (27020) to eliminate lingering UDP/TCP socket holds in Windows network tables (`TIME_WAIT`/closing).
+  - Added active port availability polling prior to server binary spawning, preventing Unreal Engine dedicated servers from aborting due to port contention.
+  - Protected Guardian Watchdog state machine so terminating restart processes do not falsely overwrite starting/running servers with `stopped`.
+  - Offloaded scheduler restart routines and player warning countdowns into asynchronous background tasks (`tauri::async_runtime::spawn`), preventing minute-by-minute countdown sleeps from freezing the scheduler ticker.
+  - Fixed scheduled restart task routing to accurately distinguish between ASE and ASA servers, executing appropriate RCON commands and engine-specific launch sequences.
+- **📡 Discord Webhook Reliability & HTTP 429 Rate-Limit Auto-Retry**:
+  - Resolved intermittent and dropped Discord notifications during server maintenance and restart cycles.
+  - Implemented automatic retry mechanism (up to 4 attempts) on HTTP 429 `Too Many Requests` with exponential backoff honoring Discord's `Retry-After` header and body.
+  - Updated server name resolution (`get_server_name`) to support both ASA (`servers`) and ASE (`ase_servers`) tables so server titles in Discord embeds are always accurate.
+- **🦅 Automatic Flier Riding Setting (`bForceCanRideFliers`)**:
+  - Automatically preserves and defaults `bForceCanRideFliers=True` whenever General Settings are saved or modified, decoupling it from cave flyer restrictions and ensuring flying mounts remain mountable across all supported maps.
+
+---
+
 ## [4.6.26] — 2026-09-20
 
 ### Fixed & Improved

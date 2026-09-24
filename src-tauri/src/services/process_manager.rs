@@ -2209,7 +2209,8 @@ impl ProcessManager {
         reasons.insert(server_id, reason);
     }
 
-    fn kill_processes_on_ports(_ports: &[u16]) {
+    /// Terminate any process currently holding a socket on the specified ports
+    pub fn kill_processes_on_ports(_ports: &[u16]) {
         #[cfg(target_os = "windows")]
         {
             let current_pid = std::process::id();
@@ -2574,14 +2575,28 @@ impl ProcessManager {
             if let Some(ref mut child) = server_proc.child {
                 match child.try_wait() {
                     Ok(Some(status)) => {
-                        // Parent exited. Check if handoff exists (with retry since it may take a moment to spawn)
+                        let exit_code = status.code().unwrap_or(-1);
+                        let is_authorized = {
+                            let mut reasons = self.pending_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
+                            reasons.remove(&server_id).is_some()
+                        };
+
+                        // Only check handoff if this server was a loader process AND NOT an authorized/intentional stop
                         let mut handoff_pid = None;
-                        for _ in 0..40 {
-                            if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type, Some(server_proc.pid), Some(server_proc.query_port), Some(server_proc.game_port)) {
-                                handoff_pid = Some(new_pid);
-                                break;
+                        if server_proc.is_loader && !is_authorized {
+                            for _ in 0..10 {
+                                if let Some(new_pid) = find_game_server_pid_by_install_path(
+                                    &server_proc.install_path.to_string_lossy(),
+                                    &server_proc.server_type,
+                                    Some(server_proc.pid),
+                                    Some(server_proc.query_port),
+                                    Some(server_proc.game_port),
+                                ) {
+                                    handoff_pid = Some(new_pid);
+                                    break;
+                                }
+                                std::thread::sleep(std::time::Duration::from_millis(200));
                             }
-                            std::thread::sleep(std::time::Duration::from_millis(500));
                         }
 
                         if let Some(new_pid) = handoff_pid {
@@ -2619,11 +2634,6 @@ impl ProcessManager {
                             return true;
                         }
 
-                        let exit_code = status.code().unwrap_or(-1);
-                        let is_authorized = {
-                            let mut reasons = self.pending_stop_reasons.lock().unwrap_or_else(|e| e.into_inner());
-                            reasons.remove(&server_id).is_some()
-                        };
                         let is_clean_exit = exit_code == 0 || exit_code == 1 || exit_code == 3;
                         let status_str = if is_authorized || is_clean_exit { "stopped" } else { "crashed" };
 

@@ -1881,6 +1881,46 @@ pub async fn stop_server(state: State<'_, AppState>, server_id: i64) -> Result<(
 pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_dinos: Option<bool>) -> Result<(), String> {
     println!("🔄 Restarting server {} (graceful stop first, wipe_dinos: {:?})", server_id, wipe_dinos);
 
+    // If server_id is an ASE server, delegate to ASE restart handler
+    let is_ase = {
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                conn.query_row(
+                    "SELECT 1 FROM ase_servers WHERE id = ?1",
+                    [server_id],
+                    |_| Ok(true),
+                ).unwrap_or(false)
+            } else { false }
+        } else { false }
+    };
+
+    if is_ase {
+        return crate::ase::commands::server::restart_ase_server(state.app_handle.clone(), server_id, wipe_dinos, state).await;
+    }
+
+    // Retrieve old PID and ports before stopping
+    let (old_pid, target_ports): (Option<u32>, Vec<u16>) = {
+        if let Ok(db) = state.db.lock() {
+            if let Ok(conn) = db.get_connection() {
+                conn.query_row(
+                    "SELECT pid, game_port, query_port, rcon_port FROM servers WHERE id = ?1",
+                    [server_id],
+                    |row| {
+                        let pid: Option<u32> = row.get(0)?;
+                        let gp: u16 = row.get::<_, u16>(1).unwrap_or(0);
+                        let qp: u16 = row.get::<_, u16>(2).unwrap_or(0);
+                        let rp: u16 = row.get::<_, u16>(3).unwrap_or(0);
+                        let mut p_vec = Vec::new();
+                        if gp > 0 { p_vec.push(gp); p_vec.push(gp + 1); }
+                        if qp > 0 { p_vec.push(qp); }
+                        if rp > 0 { p_vec.push(rp); }
+                        Ok((pid, p_vec))
+                    }
+                ).unwrap_or((None, Vec::new()))
+            } else { (None, Vec::new()) }
+        } else { (None, Vec::new()) }
+    };
+
     // Register stop reason so monitoring services know this is an intentional restart
     state.process_manager.set_pending_stop_reason(
         server_id,
@@ -1894,7 +1934,7 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
     // Graceful stop before restart — ensures SaveWorld and DoExit are called
     let _ = graceful_stop(&state, server_id).await;
 
-    // Poll until process is verified fully stopped and ports are released
+    // Poll until process is verified fully stopped
     let mut wait_attempts = 0;
     while state.process_manager.is_running(server_id) && wait_attempts < 25 {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -1907,6 +1947,49 @@ pub async fn restart_server(state: State<'_, AppState>, server_id: i64, wipe_din
             server_id,
             crate::services::process_manager::StopReason::RestartRequested,
         );
+    }
+
+    // Wait for the specific OS PID to exit completely
+    if let Some(_pid) = old_pid {
+        let start_wait = std::time::Instant::now();
+        while start_wait.elapsed().as_secs() < 15 {
+            let is_alive = {
+                let target_pid = sysinfo::Pid::from_u32(_pid);
+                let mut sys = sysinfo::System::new();
+                sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target_pid]), true);
+                sys.process(target_pid).is_some()
+            };
+            if !is_alive {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+
+        // Force kill if still lingering
+        let target_pid = sysinfo::Pid::from_u32(_pid);
+        let mut sys = sysinfo::System::new();
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target_pid]), true);
+        if sys.process(target_pid).is_some() {
+            println!("  ⚠️ PID {} still alive after graceful_stop, forcing taskkill...", _pid);
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/F", "/T", "/PID", &_pid.to_string()])
+                    .creation_flags(0x08000000)
+                    .output();
+            }
+        }
+    }
+
+    // Kill lingering socket holders and wait for ports to be completely free
+    crate::services::process_manager::ProcessManager::kill_processes_on_ports(&target_ports);
+    for &p in &target_ports {
+        let mut wait_count = 0;
+        while crate::services::network::is_port_in_use(p) && wait_count < 10 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+            wait_count += 1;
+        }
     }
 
     // Settle time for OS socket table & disk flushing

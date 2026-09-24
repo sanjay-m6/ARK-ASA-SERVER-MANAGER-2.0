@@ -1120,6 +1120,7 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
              ase::commands::cluster::get_ase_cluster_status,
              ase::commands::cluster::start_ase_cluster,
              ase::commands::cluster::stop_ase_cluster,
+             ase::commands::cluster::restart_ase_cluster,
              ase::commands::cluster::toggle_ase_cluster_cross_chat,
              ase::commands::cluster::get_ase_cluster_cross_chat_status,
              ase::commands::cluster::validate_ase_cluster_configuration,

@@ -70,6 +70,11 @@ impl GuardianService {
 
     /// Register a server PID for monitoring and sync auto-restart from database
     pub async fn register_server(&self, app_handle: AppHandle, server_id: i64, pid: u32) {
+        {
+            let mut stopping = self.stopping_servers.lock().await;
+            stopping.remove(&server_id);
+            stopping.remove(&-server_id);
+        }
         let mut pids = self.server_pids.lock().await;
         pids.insert(server_id, pid);
         println!(
@@ -101,8 +106,13 @@ impl GuardianService {
 
     /// Register an ASE server PID for monitoring and sync watchdog_enabled from database
     pub async fn register_ase_server(&self, app_handle: AppHandle, server_id: i64, pid: u32) {
-        let mut pids = self.server_pids.lock().await;
         let watchdog_key = -server_id;
+        {
+            let mut stopping = self.stopping_servers.lock().await;
+            stopping.remove(&server_id);
+            stopping.remove(&watchdog_key);
+        }
+        let mut pids = self.server_pids.lock().await;
         pids.insert(watchdog_key, pid);
         println!(
             "🛡️ Guardian: Registered ASE server {} with watchdog key {} and PID {}",
@@ -437,27 +447,62 @@ impl GuardianService {
                         if is_intentionally_stopping {
                             println!("🛡️ Guardian Watchdog: Server '{}' ({}) shut down gracefully.", server_name, server_id);
                             
-                            // Update status to stopped
-                            if let Ok(db_guard) = state.db.lock() {
+                            // Check if the server is already starting or running (e.g. from an in-progress restart)
+                            let is_already_starting_or_running = if let Ok(db_guard) = state.db.lock() {
                                 if let Ok(conn) = db_guard.get_connection() {
                                     if server_id < 0 {
-                                        let _ = conn.execute(
-                                            "UPDATE ase_servers SET status = 'stopped', process_id = NULL WHERE id = ?",
-                                            [-server_id]
-                                        );
+                                        conn.query_row(
+                                            "SELECT status, process_id FROM ase_servers WHERE id = ?",
+                                            [-server_id],
+                                            |row| {
+                                                let status: String = row.get(0)?;
+                                                let curr_pid: Option<u32> = row.get(1)?;
+                                                Ok((status == "starting" || status == "online") && curr_pid.map(|p| p != pid).unwrap_or(false))
+                                            }
+                                        ).unwrap_or(false)
                                     } else {
-                                        let _ = conn.execute(
-                                            "UPDATE servers SET status = 'stopped' WHERE id = ?",
-                                            [server_id]
-                                        );
+                                        conn.query_row(
+                                            "SELECT status, pid FROM servers WHERE id = ?",
+                                            [server_id],
+                                            |row| {
+                                                let status: String = row.get(0)?;
+                                                let curr_pid: Option<u32> = row.get(1)?;
+                                                Ok((status == "starting" || status == "online" || status == "running") && curr_pid.map(|p| p != pid).unwrap_or(false))
+                                            }
+                                        ).unwrap_or(false)
+                                    }
+                                } else {
+                                    false
+                                }
+                            } else {
+                                false
+                            };
+
+                            if !is_already_starting_or_running {
+                                // Update status to stopped
+                                if let Ok(db_guard) = state.db.lock() {
+                                    if let Ok(conn) = db_guard.get_connection() {
+                                        if server_id < 0 {
+                                            let _ = conn.execute(
+                                                "UPDATE ase_servers SET status = 'stopped', process_id = NULL WHERE id = ?",
+                                                [-server_id]
+                                            );
+                                        } else {
+                                            let _ = conn.execute(
+                                                "UPDATE servers SET status = 'stopped' WHERE id = ?",
+                                                [server_id]
+                                            );
+                                        }
                                     }
                                 }
+                                
+                                let _ = app_handle.emit("server-status-change", serde_json::json!({
+                                    "server_id": if server_id < 0 { -server_id } else { server_id },
+                                    "status": "stopped"
+                                }));
+                            } else {
+                                println!("🛡️ Guardian Watchdog: Server '{}' ({}) is already starting/online with new process. Preserving state.", server_name, server_id);
                             }
-                            
-                            let _ = app_handle.emit("server-status-change", serde_json::json!({
-                                "server_id": if server_id < 0 { -server_id } else { server_id },
-                                "status": "stopped"
-                            }));
                             
                             continue; // Skip crash logic
                         }
