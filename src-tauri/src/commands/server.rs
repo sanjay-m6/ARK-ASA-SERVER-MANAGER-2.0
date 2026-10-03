@@ -4342,35 +4342,38 @@ pub async fn get_server_visibility_status(
     server_id: i64,
     server_type: String,
 ) -> Result<ServerVisibilityReport, String> {
-    let (install_path_str, query_port, db_status, rcon_port, rcon_enabled): (String, u16, String, u16, bool) = {
+    let (install_path_str, query_port, game_port, db_status, rcon_port, rcon_enabled): (String, u16, u16, String, u16, bool) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
         if server_type.to_uppercase() == "ASE" {
             let mut stmt = conn
-                .prepare("SELECT install_path, query_port, status, rcon_port FROM ase_servers WHERE id = ?1")
+                .prepare("SELECT install_path, query_port, port, status, rcon_port FROM ase_servers WHERE id = ?1")
                 .map_err(|e| e.to_string())?;
             stmt.query_row([server_id], |row| {
                 let path: String = row.get(0)?;
                 let query_p: i32 = row.get(1)?;
-                let status: String = row.get(2)?;
-                let rcon_p: i32 = row.get(3)?;
-                Ok((path, query_p as u16, status, rcon_p as u16, true))
+                let game_p: i32 = row.get(2)?;
+                let status: String = row.get(3)?;
+                let rcon_p: i32 = row.get(4)?;
+                Ok((path, query_p as u16, game_p as u16, status, rcon_p as u16, true))
             })
             .map_err(|e| e.to_string())?
         } else {
             let mut stmt = conn
-                .prepare("SELECT install_path, query_port, status, rcon_port, rcon_enabled FROM servers WHERE id = ?1")
+                .prepare("SELECT install_path, query_port, game_port, status, rcon_port, rcon_enabled FROM servers WHERE id = ?1")
                 .map_err(|e| e.to_string())?;
             stmt.query_row([server_id], |row| {
                 let path: String = row.get(0)?;
                 let query_p: i32 = row.get(1)?;
-                let status: String = row.get(2)?;
-                let rcon_p: i32 = row.get(3)?;
-                let rcon_en: Option<i32> = row.get(4)?;
+                let game_p: i32 = row.get(2)?;
+                let status: String = row.get(3)?;
+                let rcon_p: i32 = row.get(4)?;
+                let rcon_en: Option<i32> = row.get(5)?;
                 Ok((
                     path,
                     query_p as u16,
+                    game_p as u16,
                     status,
                     rcon_p as u16,
                     rcon_en.unwrap_or(1) != 0,
@@ -4392,8 +4395,19 @@ pub async fn get_server_visibility_status(
     let exe_exists = exe_path.exists();
 
     // Check if process is running
+    let other_pids = state.process_manager.get_other_active_pids(
+        if server_type.to_uppercase() == "ASE" { -server_id } else { server_id }
+    );
     let q_opt = if query_port > 0 { Some(query_port) } else { None };
-    let running_pid = crate::services::process_manager::find_game_server_pid_by_install_path(&install_path_str, &server_type.to_uppercase(), None, q_opt, None);
+    let g_opt = if game_port > 0 { Some(game_port) } else { None };
+    let running_pid = crate::services::process_manager::find_game_server_pid_by_install_path(
+        &install_path_str,
+        &server_type.to_uppercase(),
+        None,
+        q_opt,
+        g_opt,
+        Some(&other_pids),
+    );
     let is_running = running_pid.is_some();
 
     // Determine base status

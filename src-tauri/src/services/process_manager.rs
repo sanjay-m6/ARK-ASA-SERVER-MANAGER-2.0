@@ -118,36 +118,6 @@ mod window_hider {
         }
     }
 
-    /// Show all windows belonging to any process with the given executable name
-    pub fn show_windows_by_exe_name(exe_name: &str) {
-
-        // Use WMIC/tasklist to find all PIDs matching the exe name
-        let mut cmd = std::process::Command::new("tasklist");
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x08000000);
-        }
-
-        let output = cmd
-            .args(["/FI", &format!("IMAGENAME eq {}", exe_name), "/FO", "CSV", "/NH"])
-            .output();
-
-        if let Ok(output) = output {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
-                // CSV format: "exe_name","PID","Session Name","Session#","Mem Usage"
-                let parts: Vec<&str> = line.split(',').collect();
-                if parts.len() >= 2 {
-                    let pid_str = parts[1].trim().trim_matches('"');
-                    if let Ok(pid) = pid_str.parse::<u32>() {
-                        println!("  🖥️ Found {} with PID {}, showing its windows", exe_name, pid);
-                        show_process_window(pid);
-                    }
-                }
-            }
-        }
-    }
 }
 
 #[derive(Clone, Serialize)]
@@ -320,14 +290,25 @@ pub fn find_game_server_pid_by_install_path(
     parent_pid: Option<u32>,
     query_port: Option<u16>,
     game_port: Option<u16>,
+    exclude_pids: Option<&[u32]>,
 ) -> Option<u32> {
     let is_ase = server_type.eq_ignore_ascii_case("ASE");
+
+    let is_excluded = |pid: u32| -> bool {
+        if let Some(list) = exclude_pids {
+            list.contains(&pid)
+        } else {
+            false
+        }
+    };
 
     // 1. Try Windows native ToolHelp snapshot first (most reliable for finding child of loader even after loader exits)
     #[cfg(target_os = "windows")]
     if let Some(ppid) = parent_pid {
         if let Some(child_pid) = find_child_pid_via_toolhelp(ppid, is_ase) {
-            return Some(child_pid);
+            if !is_excluded(child_pid) {
+                return Some(child_pid);
+            }
         }
     }
 
@@ -375,8 +356,11 @@ pub fn find_game_server_pid_by_install_path(
             if is_target_proc(&name) {
                 if let Some(parent) = process.parent() {
                     if parent.as_u32() == ppid {
-                        println!("  🎯 [Handoff] Found child process {} with parent PID {}", pid, ppid);
-                        return Some(pid.as_u32());
+                        let cpid = pid.as_u32();
+                        if !is_excluded(cpid) {
+                            println!("  🎯 [Handoff] Found child process {} with parent PID {}", cpid, ppid);
+                            return Some(cpid);
+                        }
                     }
                 }
             }
@@ -387,8 +371,34 @@ pub fn find_game_server_pid_by_install_path(
     // In multi-server and cluster setups, each server instance has unique game & query ports.
     if query_port.is_some() || game_port.is_some() {
         for (pid, process) in sys.processes() {
+            let pid_u32 = pid.as_u32();
+            if is_excluded(pid_u32) {
+                continue;
+            }
             let name = process.name().to_string_lossy();
             if is_target_proc(&name) || is_loader_proc(&name) {
+                // Verify path match if norm_install is present
+                if !norm_install.is_empty() {
+                    let mut path_matches = false;
+                    if let Some(exe_path) = process.exe() {
+                        let norm_exe = normalize_path(&exe_path.to_string_lossy());
+                        if norm_exe.contains(&norm_install) || norm_exe.starts_with(&norm_install) {
+                            path_matches = true;
+                        }
+                    }
+                    if !path_matches {
+                        if let Some(cwd_path) = process.cwd() {
+                            let norm_cwd = normalize_path(&cwd_path.to_string_lossy());
+                            if norm_cwd.contains(&norm_install) || norm_cwd.starts_with(&norm_install) {
+                                path_matches = true;
+                            }
+                        }
+                    }
+                    if !path_matches {
+                        continue;
+                    }
+                }
+
                 let cmd = process.cmd();
                 if !cmd.is_empty() {
                     let cmd_str = cmd.iter()
@@ -398,77 +408,44 @@ pub fn find_game_server_pid_by_install_path(
                         .to_lowercase();
 
                     let query_match = match query_port {
-                        Some(qp) => {
+                        Some(qp) if qp > 0 => {
                             cmd_str.contains(&format!("queryport={}", qp))
                                 || cmd_str.contains(&format!("?queryport={}", qp))
                                 || cmd_str.contains(&format!("-queryport={}", qp))
                         }
-                        None => false,
+                        _ => false,
                     };
 
                     let game_match = match game_port {
-                        Some(gp) => {
+                        Some(gp) if gp > 0 => {
                             cmd_str.contains(&format!("port={}", gp))
                                 || cmd_str.contains(&format!("?port={}", gp))
                                 || cmd_str.contains(&format!("-port={}", gp))
                         }
-                        None => false,
+                        _ => false,
                     };
 
                     if query_match || game_match {
-                        println!("  🎯 [Handoff] Found server PID {} matching unique port (query: {:?}, game: {:?})", pid, query_port, game_port);
-                        return Some(pid.as_u32());
+                        println!("  🎯 [Handoff] Found server PID {} matching unique port (query: {:?}, game: {:?})", pid_u32, query_port, game_port);
+                        return Some(pid_u32);
                     }
                 }
             }
         }
     }
 
-    // 4. Path-based matching (normalized executable path, working directory, or cmd path)
-    if !norm_install.is_empty() {
-        for (pid, process) in sys.processes() {
-            let name = process.name().to_string_lossy();
-            if is_target_proc(&name) || is_loader_proc(&name) {
-                // Check process.exe() path
-                if let Some(exe_path) = process.exe() {
-                    let norm_exe = normalize_path(&exe_path.to_string_lossy());
-                    if norm_exe.contains(&norm_install) || norm_exe.starts_with(&norm_install) {
-                        println!("  🎯 [Handoff] Found server PID {} matching install path {:?}", pid, norm_install);
-                        return Some(pid.as_u32());
-                    }
-                }
-
-                // Check process.cwd()
-                if let Some(cwd_path) = process.cwd() {
-                    let norm_cwd = normalize_path(&cwd_path.to_string_lossy());
-                    if norm_cwd.contains(&norm_install) || norm_cwd.starts_with(&norm_install) {
-                        println!("  🎯 [Handoff] Found server PID {} matching cwd {:?}", pid, norm_install);
-                        return Some(pid.as_u32());
-                    }
-                }
-
-                // Check cmd arguments containing install path
-                let cmd = process.cmd();
-                if !cmd.is_empty() {
-                    let cmd_str = cmd.iter()
-                        .map(|arg| arg.to_string_lossy())
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                        .replace('\\', "/")
-                        .to_lowercase();
-                    if cmd_str.contains(&norm_install) {
-                        println!("  🎯 [Handoff] Found server PID {} matching cmd path {:?}", pid, norm_install);
-                        return Some(pid.as_u32());
-                    }
-                }
-            }
-        }
-    }
-
-    // 5. Windows Fallback: Check UDP port listener via netstat if query_port is known
+    // 4. Windows Fallback: Check UDP port listener via netstat if query_port or game_port is known
     #[cfg(target_os = "windows")]
-    {
+    if query_port.is_some() || game_port.is_some() {
+        let mut target_ports = Vec::new();
         if let Some(qp) = query_port {
+            if qp > 0 { target_ports.push(qp); }
+        }
+        if let Some(gp) = game_port {
+            if gp > 0 { target_ports.push(gp); }
+        }
+
+        if !target_ports.is_empty() {
             if let Ok(output) = Command::new("netstat")
                 .args(["-ano", "-p", "UDP"])
                 .no_window()
@@ -481,14 +458,28 @@ pub fn find_game_server_pid_by_install_path(
                         // Extract port strictly from Local Address (parts[1])
                         let local_addr = parts[1];
                         if let Some(port) = local_addr.rsplit(':').next().and_then(|p| p.parse::<u16>().ok()) {
-                            if port == qp {
+                            if target_ports.contains(&port) {
                                 if let Some(pid) = parts.last().and_then(|p| p.parse::<u32>().ok()) {
-                                    if pid > 4 {
+                                    if pid > 4 && !is_excluded(pid) {
                                         // CRITICAL VERIFICATION: Ensure the listening process is ACTUALLY an ARK server process
-                                        // before adopting this PID. Otherwise we could hijack external servers (e.g. Rust, Palworld).
+                                        // and matches this server's installation path if specified
                                         let is_ark = if let Some(proc) = sys.process(sysinfo::Pid::from_u32(pid)) {
                                             let name = proc.name().to_string_lossy();
-                                            is_target_proc(&name) || is_loader_proc(&name)
+                                            (is_target_proc(&name) || is_loader_proc(&name)) && {
+                                                if !norm_install.is_empty() {
+                                                    let exe_match = proc.exe().map_or(false, |e| {
+                                                        let ne = normalize_path(&e.to_string_lossy());
+                                                        ne.contains(&norm_install) || ne.starts_with(&norm_install)
+                                                    });
+                                                    let cwd_match = proc.cwd().map_or(false, |c| {
+                                                        let nc = normalize_path(&c.to_string_lossy());
+                                                        nc.contains(&norm_install) || nc.starts_with(&norm_install)
+                                                    });
+                                                    exe_match || cwd_match
+                                                } else {
+                                                    true
+                                                }
+                                            }
                                         } else {
                                             if let Ok(task_out) = Command::new("tasklist")
                                                 .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
@@ -503,10 +494,10 @@ pub fn find_game_server_pid_by_install_path(
                                         };
 
                                         if is_ark {
-                                            println!("  🎯 [Handoff] Found verified ARK server PID {} listening on UDP port {}", pid, qp);
+                                            println!("  🎯 [Handoff] Found verified ARK server PID {} listening on UDP port {}", pid, port);
                                             return Some(pid);
                                         } else {
-                                            println!("  🛡️ [Handoff] Ignoring non-ARK process PID {} listening on UDP port {} (not an ARK server).", pid, qp);
+                                            println!("  🛡️ [Handoff] Ignoring non-ARK/non-matching process PID {} listening on UDP port {}", pid, port);
                                         }
                                     }
                                 }
@@ -515,6 +506,55 @@ pub fn find_game_server_pid_by_install_path(
                     }
                 }
             }
+        }
+    }
+
+    // CRITICAL: If query_port or game_port was specified, and neither command line nor socket matched:
+    // This server instance is NOT running.
+    // Under NO circumstances fall back to path matching when ports were specified, because other
+    // servers in the cluster or cloned servers sharing the same install directory would be falsely adopted!
+    if query_port.is_some() || game_port.is_some() {
+        return None;
+    }
+
+    // 5. Fallback: only if NO ports were specified.
+    // Must be non-empty install path, must not be in exclude_pids,
+    // and must be unambiguous (exactly 1 candidate).
+    if !norm_install.is_empty() {
+        let mut candidates = Vec::new();
+        for (pid, process) in sys.processes() {
+            let pid_u32 = pid.as_u32();
+            if is_excluded(pid_u32) {
+                continue;
+            }
+            let name = process.name().to_string_lossy();
+            if is_target_proc(&name) || is_loader_proc(&name) {
+                let mut path_matches = false;
+                if let Some(exe_path) = process.exe() {
+                    let norm_exe = normalize_path(&exe_path.to_string_lossy());
+                    if norm_exe.contains(&norm_install) || norm_exe.starts_with(&norm_install) {
+                        path_matches = true;
+                    }
+                }
+                if !path_matches {
+                    if let Some(cwd_path) = process.cwd() {
+                        let norm_cwd = normalize_path(&cwd_path.to_string_lossy());
+                        if norm_cwd.contains(&norm_install) || norm_cwd.starts_with(&norm_install) {
+                            path_matches = true;
+                        }
+                    }
+                }
+                if path_matches {
+                    candidates.push(pid_u32);
+                }
+            }
+        }
+
+        if candidates.len() == 1 {
+            println!("  🎯 [Handoff] Found unambiguous server PID {} matching install path {:?}", candidates[0], norm_install);
+            return Some(candidates[0]);
+        } else if candidates.len() > 1 {
+            println!("  ⚠️ [Handoff] Multiple running server processes ({:?}) found in {:?} without ports — skipping ambiguous adoption.", candidates, norm_install);
         }
     }
 
@@ -584,10 +624,12 @@ impl ProcessManager {
                 let crashed_servers = {
                     let mut p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
                     let mut to_remove: Vec<(i64, i32, u16, Option<String>, bool, bool)> = Vec::new();
+                    let current_server_pids: Vec<(i64, u32)> = p_lock.iter().map(|(&sid, p)| (sid, p.pid)).collect();
 
                     for (id, proc) in p_lock.iter_mut() {
                         let mut has_exited = false;
                         let mut status_code = -1;
+                        let other_pids: Vec<u32> = current_server_pids.iter().filter(|(sid, _)| sid != id).map(|(_, pid)| *pid).collect();
 
                         if let Some(ref mut child) = proc.child {
                             match child.try_wait() {
@@ -595,9 +637,18 @@ impl ProcessManager {
                                     // Parent exited. Check if handoff exists (with retry since it may take a moment to spawn)
                                     let mut handoff_pid = None;
                                     for _ in 0..40 {
-                                        if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, Some(proc.pid), Some(proc.query_port), Some(proc.game_port)) {
-                                            handoff_pid = Some(new_pid);
-                                            break;
+                                        if let Some(new_pid) = find_game_server_pid_by_install_path(
+                                            &proc.install_path.to_string_lossy(),
+                                            &proc.server_type,
+                                            Some(proc.pid),
+                                            Some(proc.query_port),
+                                            Some(proc.game_port),
+                                            Some(&other_pids),
+                                        ) {
+                                            if !other_pids.contains(&new_pid) {
+                                                handoff_pid = Some(new_pid);
+                                                break;
+                                            }
                                         }
                                         std::thread::sleep(std::time::Duration::from_millis(500));
                                     }
@@ -657,10 +708,19 @@ impl ProcessManager {
 
                             // If targeted PID not found, try to locate game server via install path/ports before declaring dead
                             if !is_alive {
-                                if let Some(new_pid) = find_game_server_pid_by_install_path(&proc.install_path.to_string_lossy(), &proc.server_type, None, Some(proc.query_port), Some(proc.game_port)) {
-                                    println!("  🔄 [Handoff] Monitor: Re-discovered running server {} with PID {}", id, new_pid);
-                                    proc.pid = new_pid;
-                                    is_alive = true;
+                                if let Some(new_pid) = find_game_server_pid_by_install_path(
+                                    &proc.install_path.to_string_lossy(),
+                                    &proc.server_type,
+                                    None,
+                                    Some(proc.query_port),
+                                    Some(proc.game_port),
+                                    Some(&other_pids),
+                                ) {
+                                    if !other_pids.contains(&new_pid) {
+                                        println!("  🔄 [Handoff] Monitor: Re-discovered running server {} with PID {}", id, new_pid);
+                                        proc.pid = new_pid;
+                                        is_alive = true;
+                                    }
                                 }
                             }
 
@@ -1099,6 +1159,12 @@ impl ProcessManager {
                     if let Some(state) = monitor_handle.try_state::<AppState>() {
                         if let Ok(db) = state.db.lock() {
                             if let Ok(conn) = db.get_connection() {
+                                // Collect all currently active PIDs so no server adopts a PID that is already running
+                                let active_pids: Vec<u32> = {
+                                    let p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
+                                    p_lock.values().map(|p| p.pid).collect()
+                                };
+
                                 // A. Scan ASA servers not currently tracked in memory
                                 let untracked_asa: Vec<(i64, String, String, u16, u16, Option<String>, String)> = {
                                     let p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
@@ -1134,9 +1200,19 @@ impl ProcessManager {
 
                                     let q_opt = if qp > 0 { Some(qp) } else { None };
                                     let g_opt = if gp > 0 { Some(gp) } else { None };
-                                    let found_pid = find_game_server_pid_by_install_path(&path, "ASA", None, q_opt, g_opt);
+                                    let found_pid = find_game_server_pid_by_install_path(&path, "ASA", None, q_opt, g_opt, Some(&active_pids));
 
                                     if let Some(pid) = found_pid {
+                                        // Final guard: ensure PID is not already tracked in memory
+                                        let already_tracked = {
+                                            let p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
+                                            p_lock.values().any(|p| p.pid == pid)
+                                        };
+                                        if already_tracked {
+                                            println!("  🛡️ [Process Adoption] Refusing to adopt PID {} for ASA server '{}' (ID: {}): already owned by another server.", pid, name, id);
+                                            continue;
+                                        }
+
                                         println!("  🎯 [Process Adoption] Found active ASA server '{}' (ID: {}, PID: {}). Adopting into Server Manager...", name, id, pid);
                                         let stop_flag = Arc::new(AtomicBool::new(false));
                                         let startup_confirmed = Arc::new(AtomicBool::new(true));
@@ -1177,8 +1253,8 @@ impl ProcessManager {
                                         let _ = monitor_handle.emit(
                                             "server-status-change",
                                             ServerStatusEvent {
-                                                server_id: id,
-                                                status: "online".to_string(),
+                                                 server_id: id,
+                                                 status: "online".to_string(),
                                             },
                                         );
                                     } else if status == "online" || status == "running" {
@@ -1232,9 +1308,18 @@ impl ProcessManager {
 
                                     let q_opt = if qp > 0 { Some(qp) } else { None };
                                     let g_opt = if gp > 0 { Some(gp) } else { None };
-                                    let found_pid = find_game_server_pid_by_install_path(&path, "ASE", None, q_opt, g_opt);
+                                    let found_pid = find_game_server_pid_by_install_path(&path, "ASE", None, q_opt, g_opt, Some(&active_pids));
 
                                     if let Some(pid) = found_pid {
+                                        let already_tracked = {
+                                            let p_lock = monitor_processes.lock().unwrap_or_else(|e| e.into_inner());
+                                            p_lock.values().any(|p| p.pid == pid)
+                                        };
+                                        if already_tracked {
+                                            println!("  🛡️ [Process Adoption] Refusing to adopt PID {} for ASE server '{}' (ID: {}): already owned by another server.", pid, name, id);
+                                            continue;
+                                        }
+
                                         println!("  🎯 [Process Adoption] Found active ASE server '{}' (ID: {}, PID: {}). Adopting into Server Manager...", name, id, pid);
                                         let stop_flag = Arc::new(AtomicBool::new(false));
                                         let startup_confirmed = Arc::new(AtomicBool::new(true));
@@ -2851,6 +2936,11 @@ impl ProcessManager {
     pub fn is_running(&self, server_id: i64) -> bool {
         let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
 
+        let other_pids: Vec<u32> = processes.iter()
+            .filter(|(&sid, _)| sid != server_id)
+            .map(|(_, p)| p.pid)
+            .collect();
+
         if let Some(server_proc) = processes.get_mut(&server_id) {
             if let Some(ref mut child) = server_proc.child {
                 match child.try_wait() {
@@ -2871,9 +2961,12 @@ impl ProcessManager {
                                     Some(server_proc.pid),
                                     Some(server_proc.query_port),
                                     Some(server_proc.game_port),
+                                    Some(&other_pids),
                                 ) {
-                                    handoff_pid = Some(new_pid);
-                                    break;
+                                    if !other_pids.contains(&new_pid) {
+                                        handoff_pid = Some(new_pid);
+                                        break;
+                                    }
                                 }
                                 std::thread::sleep(std::time::Duration::from_millis(200));
                             }
@@ -2959,10 +3052,19 @@ impl ProcessManager {
                 };
 
                 if !is_alive {
-                    if let Some(new_pid) = find_game_server_pid_by_install_path(&server_proc.install_path.to_string_lossy(), &server_proc.server_type, None, Some(server_proc.query_port), Some(server_proc.game_port)) {
-                        println!("  🔄 [Handoff] is_running: Re-discovered running server {} with PID {}", server_id, new_pid);
-                        server_proc.pid = new_pid;
-                        is_alive = true;
+                    if let Some(new_pid) = find_game_server_pid_by_install_path(
+                        &server_proc.install_path.to_string_lossy(),
+                        &server_proc.server_type,
+                        None,
+                        Some(server_proc.query_port),
+                        Some(server_proc.game_port),
+                        Some(&other_pids),
+                    ) {
+                        if !other_pids.contains(&new_pid) {
+                            println!("  🔄 [Handoff] is_running: Re-discovered running server {} with PID {}", server_id, new_pid);
+                            server_proc.pid = new_pid;
+                            is_alive = true;
+                        }
                     }
                 }
 
@@ -3054,17 +3156,15 @@ impl ProcessManager {
         let processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(server_proc) = processes.get(&server_id) {
             let pid = server_proc.pid;
+            let is_ase = server_proc.server_type == "ASE";
             println!("  🖥️ Attempting to show console window for server {} (PID: {})", server_id, pid);
             #[cfg(target_os = "windows")]
             {
                 // First try: show by exact PID
                 window_hider::show_process_window(pid);
-                // Second try: find all ArkAscendedServer.exe / ShooterGameServer.exe processes and show their windows
-                // This handles UE5 spawning child processes with different PIDs
-                if server_proc.server_type == "ASE" {
-                    window_hider::show_windows_by_exe_name("ShooterGameServer.exe");
-                } else {
-                    window_hider::show_windows_by_exe_name("ArkAscendedServer.exe");
+                // Second try: find child of PID via Toolhelp if loader or wrapper
+                if let Some(child_pid) = find_child_pid_via_toolhelp(pid, is_ase) {
+                    window_hider::show_process_window(child_pid);
                 }
             }
             Ok(())
@@ -3091,6 +3191,7 @@ impl ProcessManager {
         install_path: std::path::PathBuf,
         server_type: String,
         query_port: u16,
+        game_port: u16,
         ip_address: Option<String>,
     ) {
         // Do not auto-register process if server is currently stopping or queued for stop
@@ -3104,6 +3205,15 @@ impl ProcessManager {
 
         let mut processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
         
+        // Strict Process Exclusivity: ensure no other server is already tracking this PID
+        if processes.values().any(|p| p.pid == pid) {
+            println!(
+                "  🛡️ [PROCESS RECOVERY] Skipping auto-register of server {}: PID {} is already owned by another server.",
+                server_id, pid
+            );
+            return;
+        }
+
         // Only insert if not already tracked
         if !processes.contains_key(&server_id) {
             let stop_flag = Arc::new(AtomicBool::new(false));
@@ -3121,15 +3231,30 @@ impl ProcessManager {
                 ip_address,
                 startup_confirmed,
                 has_been_online: true,
-                game_port: query_port,
+                game_port,
                 is_loader: false,
             });
 
             println!(
-                "  🛡️ [PROCESS RECOVERY] Registered active {} server {} (PID: {}, Query Port: {})",
-                server_type, server_id, pid, query_port
+                "  🛡️ [PROCESS RECOVERY] Registered active {} server {} (PID: {}, Query Port: {}, Game Port: {})",
+                server_type, server_id, pid, query_port, game_port
             );
         }
+    }
+
+    /// Get all active PIDs currently tracked across all servers
+    pub fn get_active_pids(&self) -> Vec<u32> {
+        let processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
+        processes.values().map(|p| p.pid).collect()
+    }
+
+    /// Get all active PIDs excluding a specific server ID
+    pub fn get_other_active_pids(&self, exclude_server_id: i64) -> Vec<u32> {
+        let processes = self.processes.lock().unwrap_or_else(|e| e.into_inner());
+        processes.iter()
+            .filter(|(&id, _)| id != exclude_server_id)
+            .map(|(_, p)| p.pid)
+            .collect()
     }
 
     /// Clear tracking entry and pending stop reason for a server (used prior to forced restart)

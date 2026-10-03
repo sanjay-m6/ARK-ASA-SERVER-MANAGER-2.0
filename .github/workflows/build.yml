@@ -91,7 +91,18 @@ jobs:
             - **Linux Desktop**: Download the `.AppImage` or `.deb` package below (`chmod +x *.AppImage` to run).
             - **Linux Headless / CLI**: Run `curl -fsSL https://raw.githubusercontent.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/main/scripts/install.sh | bash`
 
-            ### 🆕 New Features & Bug Fixes in v4.6.28
+            ### 🆕 New Features & Bug Fixes in v4.6.29
+            - **🛡️ Fix Multi-Server / Cluster Process Hijacking & Cross-Server Crashes**:
+              - Resolved critical issue where starting a cloned or clustered server (e.g. Scorched Earth sharing install directory or parent paths with The Island) caused Server Manager to falsely adopt the running PID for other servers, displaying both as running and causing one to crash/terminate when the other was stopped.
+              - Enforced strict process exclusivity across the process manager: a single OS PID can never be assigned or adopted by more than one server instance in memory.
+              - Rewrote `find_game_server_pid_by_install_path` to strictly match by unique network ports (`query_port` and `game_port` via command line and UDP listening sockets) whenever ports are configured, eliminating fallback to ambiguous install directory matching for multi-instance deployments.
+              - Added `exclude_pids` enforcement across periodic process adoption monitoring, startup recovery, Guardian Watchdog, and status checks so active server PIDs are never claimed by another server profile.
+              - Scoped `show_server_window` strictly to the targeted server PID and its direct child process, removing indiscriminate global window un-hiding that forced other servers' console windows to show.
+
+            ### 🛠️ Previous Releases
+            <details>
+            <summary>v4.6.28 — Fix Afternoon & Scheduled Restarts, Cluster Port Collisions, and Map Start Responsiveness</summary>
+
             - **🛡️ Fix Afternoon & Scheduled Restarts Failing to Start Up**:
               - Resolved critical issue where afternoon/morning scheduled restarts and manual reboots cleanly stopped servers and completed pre-restart backups, but failed to start servers back up.
               - Removed `game_port + 1` from process termination target ports in `restart_server` and `launcher::stop_server`, preventing restart sequences from force-killing adjacent cluster servers running on consecutive ports (e.g. 7777 and 7778).
@@ -106,25 +117,6 @@ jobs:
               - Added real-time in-app console logging (`server_log` event) and Discord webhook failure embed alerts when a server startup fails, providing immediate diagnostic error details rather than silent failure.
             - **🌐 Comprehensive Internationalization & UI Polish**:
               - Synchronized and updated localization dictionaries across all supported languages (DE, EN, ES, FR, IT, JA, KO, PT-BR, RU, TA, TR, ZH-CN, ZH-TW).
-
-            ### 🛠️ Previous Releases
-            <details>
-            <summary>v4.6.27 — Fix Server Startup Failure on Restarts, Port Releases, and Discord Rate-Limits</summary>
-
-            - **🛡️ Fix Server Startup Failure on Restarts & Port Release Engine (Exit Code 0)**:
-              - Resolved critical issue where servers failed to start back up after scheduled morning/afternoon restarts or manual reboots, shutting down immediately upon startup with exit code 0.
-              - Implemented process termination wait (`WaitForSingleObject`) with forceful `taskkill /F /T` fallback to guarantee old processes have completely terminated before launching new instances.
-              - Added socket cleanup engine (`kill_processes_on_ports`) on game port (7777), query port (27015), and RCON port (27020) to eliminate lingering UDP/TCP socket holds in Windows network tables (`TIME_WAIT`/closing).
-              - Added active port availability polling prior to server binary spawning, preventing Unreal Engine dedicated servers from aborting due to port contention.
-              - Protected Guardian Watchdog state machine so terminating restart processes do not falsely overwrite starting/running servers with `stopped`.
-              - Offloaded scheduler restart routines and player warning countdowns into asynchronous background tasks (`tauri::async_runtime::spawn`), preventing minute-by-minute countdown sleeps from freezing the scheduler ticker.
-              - Fixed scheduled restart task routing to accurately distinguish between ASE and ASA servers, executing appropriate RCON commands and engine-specific launch sequences.
-            - **📡 Discord Webhook Reliability & HTTP 429 Rate-Limit Auto-Retry**:
-              - Resolved intermittent and dropped Discord notifications during server maintenance and restart cycles.
-              - Implemented automatic retry mechanism (up to 4 attempts) on HTTP 429 `Too Many Requests` with exponential backoff honoring Discord's `Retry-After` header and body.
-              - Updated server name resolution (`get_server_name`) to support both ASA (`servers`) and ASE (`ase_servers`) tables so server titles in Discord embeds are always accurate.
-            - **🦅 Automatic Flier Riding Setting (`bForceCanRideFliers`)**:
-              - Automatically preserves and defaults `bForceCanRideFliers=True` whenever General Settings are saved or modified, decoupling it from cave flyer restrictions and ensuring flying mounts remain mountable across all supported maps.
             </details>
 
             *For full release notes of previous versions, please visit the [Releases Archive](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/releases) or see [CHANGELOG.md](https://github.com/sanjay-m6/ARK-ASA-SERVER-MANAGER-2.0/blob/main/CHANGELOG.md).*

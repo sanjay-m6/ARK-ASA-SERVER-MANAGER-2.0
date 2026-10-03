@@ -344,9 +344,9 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                 println!("🔍 [Process Recovery] Checking for running game servers to recover...");
                 if let Ok(db_guard) = state.db.lock() {
                     if let Ok(conn) = db_guard.get_connection() {
-                        let active_servers: Vec<(i64, String, String, u16, Option<u32>, Option<String>, String)> = {
+                        let active_servers: Vec<(i64, String, String, u16, u16, Option<u32>, Option<String>, String)> = {
                             let stmt_result = conn.prepare(
-                                "SELECT id, name, install_path, query_port, process_id, ip_address, status FROM servers"
+                                "SELECT id, name, install_path, query_port, game_port, process_id, ip_address, status FROM servers"
                             );
                             if let Ok(mut stmt) = stmt_result {
                                  stmt.query_map([], |row| {
@@ -354,14 +354,16 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                                     let name: String = row.get::<usize, String>(1)?;
                                     let install_path: String = row.get::<usize, String>(2)?;
                                     let query_port: i32 = row.get::<usize, i32>(3)?;
-                                    let process_id: Option<i32> = row.get::<usize, Option<i32>>(4)?;
-                                    let ip_address: Option<String> = row.get::<usize, Option<String>>(5)?;
-                                    let status: String = row.get::<usize, String>(6)?;
+                                    let game_port: i32 = row.get::<_, Option<i32>>(4)?.unwrap_or(0);
+                                    let process_id: Option<i32> = row.get::<usize, Option<i32>>(5)?;
+                                    let ip_address: Option<String> = row.get::<usize, Option<String>>(6)?;
+                                    let status: String = row.get::<usize, String>(7)?;
                                     Ok((
                                         id,
                                         name,
                                         install_path,
                                         query_port as u16,
+                                        game_port as u16,
                                         process_id.map(|v| v as u32),
                                         ip_address,
                                         status,
@@ -374,9 +376,9 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                             }
                         };
 
-                        let active_ase_servers: Vec<(i64, String, String, u16, Option<u32>, Option<String>, String)> = {
+                        let active_ase_servers: Vec<(i64, String, String, u16, u16, Option<u32>, Option<String>, String)> = {
                             let stmt_result = conn.prepare(
-                                "SELECT id, name, install_path, query_port, process_id, ip_address, status FROM ase_servers"
+                                "SELECT id, name, install_path, query_port, port, process_id, ip_address, status FROM ase_servers"
                             );
                             if let Ok(mut stmt) = stmt_result {
                                 stmt.query_map([], |row| {
@@ -384,14 +386,16 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                                     let name: String = row.get::<usize, String>(1)?;
                                     let install_path: String = row.get::<usize, String>(2)?;
                                     let query_port: i32 = row.get::<usize, i32>(3)?;
-                                    let process_id: Option<i32> = row.get::<usize, Option<i32>>(4)?;
-                                    let ip_address: Option<String> = row.get::<usize, Option<String>>(5)?;
-                                    let status: String = row.get::<usize, String>(6)?;
+                                    let game_port: i32 = row.get::<_, Option<i32>>(4)?.unwrap_or(0);
+                                    let process_id: Option<i32> = row.get::<usize, Option<i32>>(5)?;
+                                    let ip_address: Option<String> = row.get::<usize, Option<String>>(6)?;
+                                    let status: String = row.get::<usize, String>(7)?;
                                     Ok((
                                         id,
                                         name,
                                         install_path,
                                         query_port as u16,
+                                        game_port as u16,
                                         process_id.map(|v| v as u32),
                                         ip_address,
                                         status,
@@ -406,18 +410,48 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
 
                         let mut check_sys = sysinfo::System::new();
                         check_sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+                        let mut recovered_pids: Vec<u32> = Vec::new();
 
-                        for (id, name, install_path, query_port, pid_opt, ip_address, status) in active_servers {
+                        for (id, name, install_path, query_port, game_port, pid_opt, ip_address, status) in active_servers {
                             let mut recovered = false;
                             let mut active_pid = None;
 
-                            // 1. Try checking the stored process_id if present
+                            // 1. Try checking the stored process_id if present and not already claimed
                             if let Some(pid) = pid_opt {
-                                if let Some(proc) = check_sys.process(sysinfo::Pid::from_u32(pid)) {
-                                    let proc_name = proc.name().to_string_lossy().to_lowercase();
-                                    if proc_name.contains("arkascendedserver") {
-                                        active_pid = Some(pid);
-                                        recovered = true;
+                                if !recovered_pids.contains(&pid) {
+                                    if let Some(proc) = check_sys.process(sysinfo::Pid::from_u32(pid)) {
+                                        let proc_name = proc.name().to_string_lossy().to_lowercase();
+                                        if proc_name.contains("arkascendedserver") {
+                                            let matches_ports = {
+                                                if query_port > 0 || game_port > 0 {
+                                                    let cmd_str = proc.cmd().iter()
+                                                        .map(|arg| arg.to_string_lossy())
+                                                        .collect::<Vec<_>>()
+                                                        .join(" ")
+                                                        .to_lowercase();
+                                                    let q_match = query_port > 0 && (
+                                                        cmd_str.contains(&format!("queryport={}", query_port))
+                                                            || cmd_str.contains(&format!("?queryport={}", query_port))
+                                                            || cmd_str.contains(&format!("-queryport={}", query_port))
+                                                    );
+                                                    let g_match = game_port > 0 && (
+                                                        cmd_str.contains(&format!("port={}", game_port))
+                                                            || cmd_str.contains(&format!("?port={}", game_port))
+                                                            || cmd_str.contains(&format!("-port={}", game_port))
+                                                    );
+                                                    q_match || g_match
+                                                } else {
+                                                    true
+                                                }
+                                            };
+
+                                            if matches_ports {
+                                                active_pid = Some(pid);
+                                                recovered = true;
+                                            } else {
+                                                println!("  ⚠️ [Process Recovery] ASA Server '{}' (ID: {}) stored PID {} does not match server ports. Ignoring stored PID.", name, id, pid);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -425,21 +459,28 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                             // 2. Fallback to path-based search if not found via stored PID
                             if !recovered {
                                 let q_opt = if query_port > 0 { Some(query_port) } else { None };
-                                if let Some(found_pid) = services::process_manager::find_game_server_pid_by_install_path(&install_path, "ASA", None, q_opt, None) {
-                                    active_pid = Some(found_pid);
-                                    recovered = true;
-                                    println!("  🔄 [Process Recovery] ASA Server '{}' (ID: {}) recovered running process by path: PID {}", name, id, found_pid);
+                                let g_opt = if game_port > 0 { Some(game_port) } else { None };
+                                if let Some(found_pid) = services::process_manager::find_game_server_pid_by_install_path(
+                                    &install_path, "ASA", None, q_opt, g_opt, Some(&recovered_pids)
+                                ) {
+                                    if !recovered_pids.contains(&found_pid) {
+                                        active_pid = Some(found_pid);
+                                        recovered = true;
+                                        println!("  🔄 [Process Recovery] ASA Server '{}' (ID: {}) recovered running process by path: PID {}", name, id, found_pid);
+                                    }
                                 }
                             }
 
                             if recovered {
                                 if let Some(pid) = active_pid {
+                                    recovered_pids.push(pid);
                                     state.process_manager.register_running_process(
                                         id,
                                         pid,
                                         std::path::PathBuf::from(install_path),
                                         "ASA".to_string(),
                                         query_port,
+                                        game_port,
                                         ip_address,
                                     );
                                     // Update Guardian Watchdog
@@ -476,17 +517,46 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                             }
                         }
 
-                        for (id, name, install_path, query_port, pid_opt, ip_address, status) in active_ase_servers {
+                        for (id, name, install_path, query_port, game_port, pid_opt, ip_address, status) in active_ase_servers {
                             let mut recovered = false;
                             let mut active_pid = None;
 
-                            // 1. Try checking the stored process_id if present
+                            // 1. Try checking the stored process_id if present and not already claimed
                             if let Some(pid) = pid_opt {
-                                if let Some(proc) = check_sys.process(sysinfo::Pid::from_u32(pid)) {
-                                    let proc_name = proc.name().to_string_lossy().to_lowercase();
-                                    if proc_name.contains("shootergameserver") {
-                                        active_pid = Some(pid);
-                                        recovered = true;
+                                if !recovered_pids.contains(&pid) {
+                                    if let Some(proc) = check_sys.process(sysinfo::Pid::from_u32(pid)) {
+                                        let proc_name = proc.name().to_string_lossy().to_lowercase();
+                                        if proc_name.contains("shootergameserver") {
+                                            let matches_ports = {
+                                                if query_port > 0 || game_port > 0 {
+                                                    let cmd_str = proc.cmd().iter()
+                                                        .map(|arg| arg.to_string_lossy())
+                                                        .collect::<Vec<_>>()
+                                                        .join(" ")
+                                                        .to_lowercase();
+                                                    let q_match = query_port > 0 && (
+                                                        cmd_str.contains(&format!("queryport={}", query_port))
+                                                            || cmd_str.contains(&format!("?queryport={}", query_port))
+                                                            || cmd_str.contains(&format!("-queryport={}", query_port))
+                                                    );
+                                                    let g_match = game_port > 0 && (
+                                                        cmd_str.contains(&format!("port={}", game_port))
+                                                            || cmd_str.contains(&format!("?port={}", game_port))
+                                                            || cmd_str.contains(&format!("-port={}", game_port))
+                                                    );
+                                                    q_match || g_match
+                                                } else {
+                                                    true
+                                                }
+                                            };
+
+                                            if matches_ports {
+                                                active_pid = Some(pid);
+                                                recovered = true;
+                                            } else {
+                                                println!("  ⚠️ [Process Recovery] ASE Server '{}' (ID: {}) stored PID {} does not match server ports. Ignoring stored PID.", name, id, pid);
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -494,21 +564,28 @@ pub fn run(safe_mode: bool) -> tauri::Result<()> {
                             // 2. Fallback to path-based search if not found via stored PID
                             if !recovered {
                                 let q_opt = if query_port > 0 { Some(query_port) } else { None };
-                                if let Some(found_pid) = services::process_manager::find_game_server_pid_by_install_path(&install_path, "ASE", None, q_opt, None) {
-                                    active_pid = Some(found_pid);
-                                    recovered = true;
-                                    println!("  🔄 [Process Recovery] ASE Server '{}' (ID: {}) recovered running process by path: PID {}", name, id, found_pid);
+                                let g_opt = if game_port > 0 { Some(game_port) } else { None };
+                                if let Some(found_pid) = services::process_manager::find_game_server_pid_by_install_path(
+                                    &install_path, "ASE", None, q_opt, g_opt, Some(&recovered_pids)
+                                ) {
+                                    if !recovered_pids.contains(&found_pid) {
+                                        active_pid = Some(found_pid);
+                                        recovered = true;
+                                        println!("  🔄 [Process Recovery] ASE Server '{}' (ID: {}) recovered running process by path: PID {}", name, id, found_pid);
+                                    }
                                 }
                             }
 
                             if recovered {
                                 if let Some(pid) = active_pid {
+                                    recovered_pids.push(pid);
                                     state.process_manager.register_running_process(
                                         id,
                                         pid,
                                         std::path::PathBuf::from(install_path),
                                         "ASE".to_string(),
                                         query_port,
+                                        game_port,
                                         ip_address,
                                     );
                                     // Update Guardian Watchdog

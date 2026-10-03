@@ -344,6 +344,11 @@ impl GuardianService {
                             });
                         }
                     } else {
+                        let other_pids: Vec<u32> = {
+                            let pids = server_pids.lock().await;
+                            pids.iter().filter(|(&sid, _)| sid != server_id).map(|(_, &p)| p).collect()
+                        };
+
                         // Check if a handoff process took over
                         let handoff_pid = {
                             if let Ok(db_guard) = state.db.lock() {
@@ -360,7 +365,7 @@ impl GuardianService {
                                         ).ok().and_then(|(path, qp, gp)| {
                                             let q_opt = if qp > 0 { Some(qp) } else { None };
                                             let g_opt = if gp > 0 { Some(gp) } else { None };
-                                            find_game_server_pid_by_install_path(&path, "ASE", None, q_opt, g_opt)
+                                            find_game_server_pid_by_install_path(&path, "ASE", None, q_opt, g_opt, Some(&other_pids))
                                         })
                                     } else {
                                         conn.query_row(
@@ -374,7 +379,7 @@ impl GuardianService {
                                         ).ok().and_then(|(path, qp, gp)| {
                                             let q_opt = if qp > 0 { Some(qp) } else { None };
                                             let g_opt = if gp > 0 { Some(gp) } else { None };
-                                            find_game_server_pid_by_install_path(&path, "ASA", None, q_opt, g_opt)
+                                            find_game_server_pid_by_install_path(&path, "ASA", None, q_opt, g_opt, Some(&other_pids))
                                         })
                                     }
                                 } else { None }
@@ -382,6 +387,10 @@ impl GuardianService {
                         };
 
                         if let Some(new_pid) = handoff_pid {
+                            if other_pids.contains(&new_pid) {
+                                println!("🛡️ Guardian Watchdog: Handoff candidate PID {} for server {} is already owned by another server. Ignoring.", new_pid, server_id);
+                                continue;
+                            }
                             println!("🛡️ Guardian Watchdog: Handoff detected for server {}! Swapped watchdog tracking to new PID {}.", server_id, new_pid);
                             {
                                 let mut pids = server_pids.lock().await;

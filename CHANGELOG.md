@@ -5,6 +5,18 @@ All notable changes to the ARK ASA Server Manager are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.29] — 2026-10-04
+
+### Fixed & Improved
+- **🛡️ Fix Multi-Server / Cluster Process Hijacking & Cross-Server Crashes**:
+  - Resolved critical issue where starting a cloned or clustered server (e.g. Scorched Earth sharing install directory or parent paths with The Island) caused Server Manager to falsely adopt the running PID for other servers, displaying both as running and causing one to crash/terminate when the other was stopped.
+  - Enforced strict process exclusivity across the process manager: a single OS PID can never be assigned or adopted by more than one server instance in memory.
+  - Rewrote `find_game_server_pid_by_install_path` to strictly match by unique network ports (`query_port` and `game_port` via command line and UDP listening sockets) whenever ports are configured, eliminating fallback to ambiguous install directory matching for multi-instance deployments.
+  - Added `exclude_pids` enforcement across periodic process adoption monitoring, startup recovery, Guardian Watchdog, and status checks so active server PIDs are never claimed by another server profile.
+  - Scoped `show_server_window` strictly to the targeted server PID and its direct child process, removing indiscriminate global window un-hiding that forced other servers' console windows to show.
+
+---
+
 ## [4.6.28] — 2026-10-03
 
 ### Fixed & Improved
